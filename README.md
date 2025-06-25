@@ -1,4 +1,4 @@
-Project KICKAI: System Design & Feature Roadmap
+# Project KICKAI: System Design & Feature Roadmap
 1. Overview
 Project KICKAI is an AI-powered management system for a Sunday League football team. It uses a CrewAI agent workforce to automate administrative and logistical tasks, a Supabase backend for data persistence, and a WhatsApp-based interface for easy interaction with players and managers.
 
