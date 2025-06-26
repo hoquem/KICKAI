@@ -84,3 +84,140 @@ The goal of the MVP is to solve the most immediate and repetitive problem: getti
 | **KAI-015** | Player Leaderboard          | As a player, I can request the "leaderboard" and see top players for goals, assists, and attendance.      | `TeamAdmin`, `CommsOfficer`                               | Planned     |
 | **KAI-016** | Task Delegation             | As a manager, I want the system to automatically assign weekly chores (e.g., "wash the kit") on a rota basis. | `Manager`, `TeamAdmin`, `CommsOfficer`                    | Planned     |
 | **KAI-017** | Automated Reminders         | I want players who haven't paid fees/fines by Tuesday to get an automatic reminder.                         | `Manager`, `Treasurer`, `CommsOfficer`                    | Planned     |
+
+---
+
+## 5. Current Implementation Status
+
+### ✅ Completed Features
+- **Supabase Database Schema**: All tables (players, fixtures, availability, ratings, tasks, equipment) implemented with relationships
+- **CrewAI Framework**: Five agents (Logistics, Manager, Communications, Tactical, Finance) defined with tools
+- **Player Management**: Basic CRUD operations for players via Supabase
+- **Sample Data**: 14 players, 3 fixtures, availability, squad, and payment data loaded
+- **Task Framework**: Player, fixture, availability, team management, and communication tasks implemented
+- **Error Handling**: Comprehensive validation and error handling
+- **Environment Configuration**: All required environment variables validated
+
+### 🔄 In Progress
+- **LLM Integration**: Google Gemini setup but needs API key/auth fixes
+- **Core Player Operations**: Basic functionality working, advanced features pending
+
+### ❌ Not Yet Implemented
+- **WhatsApp Integration**: Twilio API integration for messaging
+- **API Bridge**: FastAPI/Flask web service for webhooks
+- **Stripe Integration**: Payment processing
+- **Advanced Features**: Automated squad selection, statistics, ratings, leaderboards, reminders
+
+---
+
+## 6. Development Workflow
+
+### Branch-Based Development Process
+
+All new feature implementations should follow this workflow:
+
+1. **Create Feature Branch**
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b feature/KAI-XXX-description
+   ```
+
+2. **Implement Feature**
+   - Write code for the feature
+   - Add tests if applicable
+   - Update documentation
+   - Test thoroughly
+
+3. **Commit and Push**
+   ```bash
+   git add .
+   git commit -m "feat: implement KAI-XXX description"
+   git push origin feature/KAI-XXX-description
+   ```
+
+4. **Create Pull Request**
+   - Go to GitHub and create a PR from your feature branch to main
+   - Add description of changes
+   - Request review if needed
+
+5. **Merge and Cleanup**
+   ```bash
+   # After PR is approved and merged
+   git checkout main
+   git pull origin main
+   git branch -d feature/KAI-XXX-description
+   ```
+
+6. **Close GitHub Issue**
+   - Mark the corresponding GitHub issue as closed
+   - Move to "Done" column in project board
+
+### Next Priority Features to Implement
+
+Based on the current state, here are the recommended next features to implement:
+
+#### 🔴 High Priority (MVP Completion)
+1. **KAI-002: WhatsApp Integration** - Set up Twilio WhatsApp API
+   - Install Twilio SDK
+   - Create WhatsApp messaging tools
+   - Set up webhook endpoints
+   - Test message sending/receiving
+
+2. **KAI-003: API Bridge (FastAPI)** - Create web service
+   - Set up FastAPI application
+   - Create webhook endpoints
+   - Implement message routing
+   - Add authentication
+
+3. **KAI-004: Enhanced Player Management** - Complete player features
+   - Add player search and filtering
+   - Implement player status updates
+   - Create player profile management
+   - Add availability tracking
+
+#### 🟡 Medium Priority (V2 Features)
+4. **KAI-005: Fixture Management** - Complete fixture operations
+5. **KAI-006: Availability System** - Implement polling and tracking
+6. **KAI-007: Squad Management** - Create squad selection system
+
+#### 🟢 Low Priority (Future)
+7. **KAI-012: Stripe Integration** - Payment processing
+8. **KAI-014: Statistics System** - Match stats and ratings
+9. **KAI-015: Leaderboards** - Player rankings
+
+### Development Guidelines
+
+- **Always work in feature branches** - never commit directly to main
+- **Test thoroughly** before creating PRs
+- **Update documentation** with any new features
+- **Follow the existing code patterns** and structure
+- **Use descriptive commit messages** with feature IDs
+- **Close GitHub issues** when features are complete
+
+---
+
+## 7. Getting Started
+
+### Prerequisites
+- Python 3.8+
+- Supabase account and project
+- Google AI API key (for Gemini LLM)
+- Twilio account (for WhatsApp integration)
+- Stripe account (for payments)
+
+### Setup
+1. Clone the repository
+2. Install dependencies: `pip install -r requirements.txt`
+3. Copy `env.example` to `.env` and fill in your credentials
+4. Run the demo: `python src/main.py`
+
+### Testing
+- Run sample data setup: `python test_sample_data.py`
+- Test specific features using the demo scenarios in `main.py`
+
+---
+
+## 8. Contributing
+
+Please follow the development workflow outlined above. All contributions should be made through feature branches and pull requests.
