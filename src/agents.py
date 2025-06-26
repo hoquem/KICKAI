@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from crewai import Agent
 from langchain_google_genai import ChatGoogleGenerativeAI
 from tools.supabase_tools import PlayerTools, FixtureTools, AvailabilityTools
+from tools.whatsapp_tools import get_whatsapp_tools
 
 # Load environment variables
 load_dotenv()
@@ -11,6 +12,7 @@ load_dotenv()
 player_tools = PlayerTools()
 fixture_tools = FixtureTools()
 availability_tools = AvailabilityTools()
+whatsapp_tools = get_whatsapp_tools()
 
 def get_llm():
     """Initialize and return the LLM with proper error handling."""
@@ -52,7 +54,7 @@ def create_manager_agent():
         goal='Oversee all team management tasks, make strategic decisions about squad selection, and coordinate team activities.',
         backstory='You are the experienced manager of the Sunday League football team. You make important decisions about squad selection, manage team morale, and ensure the team is well-organized for matches. You work closely with the Logistics Coordinator to ensure all data is accurate and up-to-date.',
         llm=llm,
-        tools=[player_tools, fixture_tools, availability_tools],
+        tools=[player_tools, fixture_tools, availability_tools] + whatsapp_tools,
         allow_delegation=True,
         verbose=True
     )
@@ -66,9 +68,9 @@ def create_communications_agent():
     return Agent(
         role='Communications Officer',
         goal='Handle all team communications, announcements, and messaging to keep players informed and engaged.',
-        backstory='You are the team\'s communications specialist responsible for keeping all players informed about fixtures, availability requests, squad announcements, and team updates. You craft clear, engaging messages and ensure everyone stays connected.',
+        backstory='You are the team\'s communications specialist responsible for keeping all players informed about fixtures, availability requests, squad announcements, and team updates. You craft clear, engaging messages and ensure everyone stays connected. You use WhatsApp to send messages, polls, and announcements to the team group.',
         llm=llm,
-        tools=[player_tools, fixture_tools, availability_tools],
+        tools=[player_tools, fixture_tools, availability_tools] + whatsapp_tools,
         allow_delegation=False,
         verbose=True
     )
@@ -100,7 +102,7 @@ def create_finance_agent():
         goal='Track match fees, manage payment status, and ensure financial records are accurate and up-to-date.',
         backstory='You are responsible for managing all financial aspects of the team, including tracking match fee payments, identifying unpaid players, and maintaining accurate financial records. You work closely with the Logistics Coordinator to ensure payment data is properly recorded.',
         llm=llm,
-        tools=[availability_tools, player_tools],
+        tools=[availability_tools, player_tools] + whatsapp_tools,
         allow_delegation=False,
         verbose=True
     )
