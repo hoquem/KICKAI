@@ -203,13 +203,13 @@ class TeamManagementTasks:
 
     def payment_report_task(self, agent):
         """
-        Defines the task for generating a payment report.
+        Defines the task for generating a payment report for a fixture.
         """
         return Task(
-            description="Generate a payment report for fixture ID '{fixture_id}'. Identify who has paid and who still owes match fees.",
-            expected_output="A detailed payment report showing paid and unpaid players, with recommendations for follow-up.",
+            description="Generate a payment report for fixture ID '{fixture_id}'. Show which players have paid and which haven't.",
+            expected_output="A detailed payment report showing payment status for all players in the fixture.",
             agent=agent,
-            tools=[availability_tool, player_tool]
+            tools=[availability_tool, player_tool, fixture_tool]
         )
 
     def team_status_report_task(self, agent):
@@ -217,8 +217,8 @@ class TeamManagementTasks:
         Defines the task for generating a comprehensive team status report.
         """
         return Task(
-            description="Generate a comprehensive team status report. Include current players, upcoming fixtures, recent availability trends, and any issues that need attention.",
-            expected_output="A comprehensive team status report covering all aspects of team management and operations.",
+            description="Generate a comprehensive team status report. Include player count, upcoming fixtures, recent results, and overall team health.",
+            expected_output="A comprehensive team status report covering all aspects of team management.",
             agent=agent,
             tools=[player_tool, fixture_tool, availability_tool]
         )
@@ -227,49 +227,63 @@ class TeamManagementTasks:
 
 class CommunicationTasks:
     """
-    A class to encapsulate communication-related tasks.
+    A class to encapsulate all communication-related tasks.
     """
     
     def availability_request_task(self, agent):
         """
-        Defines the task for requesting availability from players.
+        Defines the task for creating an availability request message.
         """
         return Task(
-            description="Create an availability request message for fixture ID '{fixture_id}'. Craft a clear, engaging message asking players to confirm their availability.",
-            expected_output="A well-crafted availability request message that can be sent to the team WhatsApp group.",
+            description="Create an availability request message for fixture ID '{fixture_id}'. The message should be clear, friendly, and encourage responses.",
+            expected_output="A well-crafted availability request message ready to be sent to the team.",
             agent=agent,
             tools=[fixture_tool, player_tool]
         )
 
     def squad_announcement_task(self, agent):
         """
-        Defines the task for announcing the squad.
+        Defines the task for creating a squad announcement message.
         """
         return Task(
-            description="Create a squad announcement message for fixture ID '{fixture_id}'. Announce the starting XI and substitutes in an engaging way.",
-            expected_output="An engaging squad announcement message that can be sent to the team WhatsApp group.",
-            agent=agent,
-            tools=[availability_tool, fixture_tool, player_tool]
-        )
-
-    def fixture_reminder_task(self, agent):
-        """
-        Defines the task for sending fixture reminders.
-        """
-        return Task(
-            description="Create a fixture reminder message for fixture ID '{fixture_id}'. Include match details, meeting time, and any important information.",
-            expected_output="A clear fixture reminder message with all necessary details for the team.",
+            description="Create a squad announcement message for fixture ID '{fixture_id}'. Include starters, substitutes, and match details.",
+            expected_output="A professional squad announcement message ready to be sent to the team.",
             agent=agent,
             tools=[fixture_tool, availability_tool]
         )
 
-    def payment_reminder_task(self, agent):
+    def fixture_reminder_task(self, agent):
         """
-        Defines the task for sending payment reminders.
+        Defines the task for creating a fixture reminder message.
         """
         return Task(
-            description="Create a payment reminder message for fixture ID '{fixture_id}'. Politely remind unpaid players about match fees.",
-            expected_output="A polite payment reminder message that encourages timely payment without being pushy.",
+            description="Create a fixture reminder message for fixture ID '{fixture_id}'. Include match details, location, and any important information.",
+            expected_output="A clear and informative fixture reminder message.",
             agent=agent,
-            tools=[availability_tool, player_tool]
+            tools=[fixture_tool]
         )
+
+    def payment_reminder_task(self, agent):
+        """
+        Defines the task for creating a payment reminder message.
+        """
+        return Task(
+            description="Create a payment reminder message for fixture ID '{fixture_id}'. List players who haven't paid and include payment instructions.",
+            expected_output="A polite but firm payment reminder message.",
+            agent=agent,
+            tools=[availability_tool, fixture_tool]
+        )
+
+
+def create_tasks(agents):
+    """Create tasks for the new agent structure."""
+    team_manager, player_coordinator, match_analyst, communication_specialist = agents
+    
+    # Create a simple task to test the system
+    test_task = Task(
+        description="Provide a brief overview of the KICKAI football team management system and its capabilities.",
+        expected_output="A comprehensive overview of the KICKAI system including its main features and benefits.",
+        agent=team_manager
+    )
+    
+    return [test_task]
