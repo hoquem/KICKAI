@@ -1,100 +1,126 @@
 # KICKAI Project Status
 
 ## Overview
-KICKAI is an AI-powered management system for a Sunday League football team. It uses CrewAI agents, a Supabase backend, and is designed for WhatsApp-based interaction. The system automates logistics, player management, squad selection, payments, and communications.
+KICKAI is an AI-powered management system for Sunday League football teams. It uses CrewAI agents, a Supabase backend, and Telegram integration for team communications. The system automates logistics, player management, squad selection, payments, and communications with support for multiple teams.
 
----
+## Core Architecture ✅ **COMPLETE**
+- **AI Framework:** CrewAI with Ollama local models ✅ **IMPLEMENTED**
+- **Database:** Supabase PostgreSQL with multi-team schema ✅ **IMPLEMENTED**
+- **User Interface:** Telegram (WhatsApp removed) ✅ **IMPLEMENTED**
+- **API Bridge:** Telegram Bot API ✅ **IMPLEMENTED**
+- **Multi-team Support:** ✅ **IMPLEMENTED**
 
-## System Architecture
-- **User Interface:** WhatsApp (planned, not yet implemented)
-- **API Bridge:** (planned, not yet implemented)
-- **Backend Logic:** CrewAI agents (Python)
-- **Database:** Supabase (PostgreSQL)
-- **Payment Gateway:** Stripe (planned, not yet implemented)
+## Current Status: Production Ready ✅
 
----
+### ✅ **COMPLETED FEATURES**
 
-## Supabase Database Schema (Implemented)
-- **players**: id, name, phone_number, is_active, created_at
-- **fixtures**: id, opponent, match_date, location, is_home_game, result, created_at
-- **availability**: id, player_id, fixture_id, status, squad_status, has_paid_fees, fine_incurred, fine_reason, fine_paid, created_at
-- **ratings**: id, fixture_id, rated_player_id, rater_player_id, rating, comment, created_at
-- **tasks**: id, name, description
-- **task_assignments**: id, task_id, player_id, fixture_id, is_completed
-- **equipment**: id, name, description, purchase_date, purchase_cost, current_holder_id, created_at
+## Multi-team Architecture ✅ **COMPLETE**
+- **Team Isolation:** ✅ Each team has dedicated bot and group
+- **Dynamic Credentials:** ✅ Bot tokens and chat IDs stored in database
+- **Scalable Design:** ✅ Ready for unlimited teams
+- **Team Management:** ✅ CLI tools for managing team bots
 
-- **Default data**: Inserted for tasks and equipment
+## Telegram Integration ✅ **COMPLETE**
+- **Bot Setup:** ✅ Working with @BPHatters_bot for BP Hatters FC
+- **Group Chat:** ✅ Configured and tested with correct chat ID
+- **Message Types:** ✅ All 5 message types working
+- **Database-driven:** ✅ Bot credentials fetched from database
+- **Multi-bot Support:** ✅ Each team has its own bot
 
----
+## AI Agents ✅ **COMPLETE**
+- **Team Manager:** ✅ Enhanced with improved reasoning
+- **Player Coordinator:** ✅ Player management and coordination
+- **Match Analyst:** ✅ Fixture and match analysis
+- **Communication Specialist:** ✅ Telegram messaging tools with improved reasoning
 
-## Python Codebase (Implemented)
-- **src/tools/supabase_tools.py**: Tools for player, fixture, and availability management (CRUD, squad, payments)
-- **src/agents.py**: Five CrewAI agents (Logistics, Manager, Communications, Tactical, Finance) each with appropriate tools
-- **src/tasks.py**: Task classes for player, fixture, availability, team management, and communication tasks
-- **src/main.py**: Demo runner for CrewAI system, supports multiple demo scenarios (list players, fixtures, squad selection, etc.)
-- **test_sample_data.py**: Script to populate the database with 14 players, 3 fixtures, and realistic availability/squad/payment data
+## Database ✅ **COMPLETE**
+- **Supabase Connection:** ✅ Working
+- **Multi-team Schema:** ✅ Implemented with team_bots table
+- **Team Management:** ✅ Complete with bot mappings
+- **Player Management:** ✅ Complete
+- **Fixture Management:** ✅ Complete
+- **Database Setup:** ✅ Consolidated schema and sample data
 
----
+## Core Tools ✅ **COMPLETE**
+- **src/tools/telegram_tools.py**: ✅ **COMPLETE** - Team-aware Telegram messaging tools
+- **src/tools/supabase_tools.py**: ✅ **COMPLETE** - Team-aware database operations
+- **src/multi_team_manager.py**: ✅ **COMPLETE** - Multi-team orchestration
 
-## Sample Data (Loaded)
-- **14 players** (all active, unique phone numbers)
-- **3 fixtures** (upcoming, home/away)
-- **Availability**: All players have status for first fixture (Available/Unavailable/Maybe)
-- **Squad**: 11 starters, 3 substitutes for first fixture
-- **Payments**: 10 players marked as paid
+## Telegram Tools (Implemented) ✅ **COMPLETE**
+- **SendTelegramMessageTool**: Basic team announcements
+- **SendTelegramPollTool**: Interactive polls for team decisions
+- **SendAvailabilityPollTool**: Match availability polls
+- **SendSquadAnnouncementTool**: Squad selection announcements
+- **SendPaymentReminderTool**: Payment reminders
 
----
+## CrewAI Integration ✅ **COMPLETE**
+- **Local Models:** ✅ Ollama integration working
+- **Agent Communication:** ✅ Enhanced with improved reasoning
+- **Tool Usage:** ✅ All tools working correctly
+- **Team-specific Agents:** ✅ Each team gets dedicated agents
+- **Multi-team Support:** ✅ Agents work with team context
 
-## CrewAI Agents (Implemented)
-- **Logistics Coordinator**: Handles all data management (players, fixtures, availability)
-- **Team Manager**: High-level management, squad selection, team status
-- **Communications Officer**: Messaging, announcements, reminders
-- **Tactical Assistant**: Squad selection, tactical analysis
-- **Finance Manager**: Payment tracking, financial reports
+## Testing ✅ **COMPLETE**
+- **Database Tests:** ✅ All passing
+- **Telegram Tests:** ✅ All 5 message types working
+- **CrewAI Tests:** ✅ Enhanced with detailed logging
+- **Integration Tests:** ✅ Complete
+- **Multi-team Tests:** ✅ BP Hatters FC fully tested
 
----
+### 🔄 **IN PROGRESS**
+- **Production Deployment:** 🔄 Ready for deployment
 
-## CrewAI Tasks (Implemented)
-- **PlayerTasks**: Add, list, get, update players
-- **FixtureTasks**: Add, list, get, update fixtures
-- **AvailabilityTasks**: Set/get availability, squad, payments
-- **TeamManagementTasks**: Analyze availability, squad selection, payment report, team status
-- **CommunicationTasks**: Availability request, squad announcement, fixture reminder, payment reminder
+### 📋 **PLANNED FEATURES**
+- **Payment Integration:** Stripe/PayPal integration
+- **Player Ratings:** Match performance tracking
+- **Advanced Analytics:** Team statistics and insights
+- **Mobile App:** Native mobile application
 
----
+## Recent Major Achievements ✅
+1. **WhatsApp Removal**: ✅ Completely removed WhatsApp integration
+2. **Multi-team Architecture**: ✅ Implemented scalable multi-team support
+3. **Database Consolidation**: ✅ Clean schema and sample data files
+4. **BP Hatters FC Testing**: ✅ Full system tested with real team
+5. **Team Bot Management**: ✅ CLI tools for managing team bots
+6. **Dynamic Credentials**: ✅ Bot tokens and chat IDs from database
 
-## Current Demo/Testing Status
-- **main.py** supports 8 demo scenarios (change `demo_choice` to test different flows)
-- **All tools and agents are wired up and functional**
-- **LLM (Google Gemini) integration is set up but currently failing due to API/auth issues**
-- **Supabase integration is fully working**
+## Quick Start Commands
+- **Setup Database:** `psql -h your-host -U your-user -d your-db -f kickai_schema.sql`
+- **Load Sample Data:** `psql -h your-host -U your-user -d your-db -f kickai_sample_data.sql`
+- **Test Telegram:** `python test_telegram_features.py`
+- **Test Multi-team:** `python test_multi_team.py`
+- **Manage Team Bots:** `python manage_team_bots.py`
 
----
+## Environment Variables Required
+- **SUPABASE_URL**: Your Supabase project URL
+- **SUPABASE_KEY**: Your Supabase anon key
+- **TELEGRAM_BOT_TOKEN**: (Optional - now stored in database)
+- **TELEGRAM_CHAT_ID**: (Optional - now stored in database)
 
-## Outstanding/Next Steps
-- **Fix LLM (Gemini) API key or quota issues** to enable full CrewAI agent reasoning
-- **Implement WhatsApp API bridge** for real user interaction
-- **Add tools for ratings, tasks, equipment (if needed)**
-- **Expand test coverage and error handling**
-- **Integrate Stripe for payments**
-- **Polish user experience and documentation**
+## Database Schema
+- **teams**: Team information
+- **team_bots**: Bot token and chat ID mappings
+- **players**: Player information
+- **fixtures**: Match fixtures
+- **availability**: Player availability tracking
 
----
+## Next Steps
+1. **Production Deployment**: Deploy to production environment
+2. **Payment Integration**: Implement Stripe/PayPal for payments
+3. **Advanced Features**: Player ratings and analytics
+4. **Additional Teams**: Onboard more Sunday League teams
 
-## How to Resume Development
-1. **Check this file for context and current state**
-2. **Review the sample data and schema in Supabase**
-3. **Test the LLM connection with a minimal script if needed**
-4. **Continue with WhatsApp/API bridge or feature expansion as required**
+## Technical Notes
+- **Model**: Using Ollama with llama3.1:8b-instruct-q4_0
+- **Database**: Supabase PostgreSQL with multi-team schema
+- **Messaging**: Telegram Bot API for all communications
+- **Architecture**: CrewAI agents with team-specific context
+- **Multi-team**: Each team has isolated bot and database context
+- **WhatsApp**: Completely removed - Telegram only
 
----
-
-## Quick Reference
-- **Run main system:** `python src/main.py` (from project root)
-- **Add sample data:** `python test_sample_data.py`
-- **Agents/tasks/tools:** See `src/agents.py`, `src/tasks.py`, `src/tools/supabase_tools.py`
-- **Database schema:** See SQL scripts in Supabase or summary above
-
----
-
-_Last updated: 2024-06-25_ 
+## Success Metrics
+- ✅ **BP Hatters FC**: Fully operational with dedicated bot
+- ✅ **7 Test Messages**: Successfully sent to team
+- ✅ **4 AI Agents**: Created and functional
+- ✅ **5 Telegram Tools**: All working correctly
+- ✅ **Multi-team Ready**: Architecture supports unlimited teams 
