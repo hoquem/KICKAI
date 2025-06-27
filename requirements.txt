@@ -1,28 +1,31 @@
-# Core dependencies for KICKAI project
-crewai==0.130.0
-crewai-tools==0.47.1
-langchain==0.3.26
-langchain-community==0.3.26
-langchain-core==0.3.66
-langchain-google-genai==2.1.5
-langchain-openai==0.2.14
+# Core dependencies
+crewai==0.70.0
+langchain==0.2.16
+langchain-community==0.2.16
+langchain-openai==0.1.25
+langchain-google-genai==2.1.8
+langchain-ollama==0.1.8
 
 # Database
-supabase==2.16.0
+supabase==2.8.0
+psycopg2-binary==2.9.9
 
-# Environment management
-python-dotenv==1.1.1
+# AI/ML
+openai==1.58.1
+google-generativeai==0.8.4
+ollama==0.2.7
 
-# Core dependencies
-pydantic==2.11.7
-pydantic-core==2.33.2
-pydantic-settings==2.10.1
+# Utilities
+python-dotenv==1.0.1
+requests==2.32.3
+pydantic==2.8.2
 
-# Additional dependencies
-google-ai-generativelanguage==0.6.18
-openai==1.91.0
+# Telegram integration
+python-telegram-bot==21.1
 
-# WhatsApp integration
-twilio==9.6.3
+# Development
+pytest==8.2.2
+black==24.3.0
+flake8==7.1.1
 
 # Additional dependencies may be added as the project grows 
