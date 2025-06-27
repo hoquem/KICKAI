@@ -1,223 +1,296 @@
-# Project KICKAI: System Design & Feature Roadmap
+# KICKAI - AI-Powered Sunday League Football Management
 
-## 1. Overview
+An intelligent system for managing Sunday League football teams using AI agents, Telegram integration, and a Supabase backend.
 
-**Project KICKAI** is an AI-powered management system for a Sunday League football team. It uses a CrewAI agent workforce to automate administrative and logistical tasks, a Supabase backend for data persistence, and a WhatsApp-based interface for easy interaction with players and managers.
+## 🚀 Features
 
-## 2. System Architecture
+### Core Capabilities
+* **🤖 AI-Powered Management**: CrewAI agents handle team operations intelligently
+* **📱 Telegram Integration**: Seamless team communication via Telegram Bot API
+* **🗄️ Database Management**: Supabase PostgreSQL for reliable data storage
+* **👥 Multi-Team Support**: Manage multiple teams with role-based access
+* **📊 Interactive Polls**: Real-time availability and decision voting
+* **💰 Payment Tracking**: Automated payment reminders and tracking
+* **🏆 Squad Selection**: AI-assisted squad selection based on availability
 
-The system will be composed of five primary components:
+### AI Agents
+* **`Team Manager` (The Orchestrator):**
+  - High-level team management and coordination
+  - Squad selection and tactical decisions
+  - Performance analysis and team strategy
 
-1.  **User Interface (WhatsApp):** This is how players and the manager interact with the system. We'll use the Twilio API for WhatsApp to send and receive messages. Players will be able to respond to simple commands (e.g., "Y" for available, "N" for unavailable, or "pay").
+* **`Player Coordinator` (The Organizer):**
+  - Player registration and profile management
+  - Availability tracking and squad compilation
+  - Match day logistics and player communication
 
-2.  **API Bridge (e.g., FastAPI/Flask on a server):** This is a lightweight web service that acts as the crucial link between WhatsApp (Twilio) and our CrewAI application. It receives webhooks, translates messages into tasks for the crew, and sends back the results.
+* **`Communication Specialist` (The Messenger):**
+  - Team announcements and updates via Telegram
+  - Interactive polls for availability and decisions
+  - Automated reminders and notifications
 
-3.  **Backend Logic (CrewAI):** This is the brain of the operation. We will define a "crew" of AI agents with specific roles to handle various tasks.
+* **`Finance Manager` (The Treasurer):**
+  - Payment tracking and reminders
+  - Financial reporting and fee management
+  - Budget planning and expense tracking
 
-4.  **Database & Storage (Supabase):** This is our system's memory. It stores player info, fixtures, availability, team selections, match fees, fines, ratings, task assignments, and leaderboards.
+* **`Match Analyst` (The Tactician):**
+  - Performance analysis and statistics
+  - Opposition research and tactical planning
+  - Player ratings and development tracking
 
-5.  **Payment Gateway (Stripe):** To handle online payments for match fees and fines securely. The API bridge will communicate with Stripe to create payment links and confirm transactions.
+## 📋 Feature Matrix
 
-![System Architecture Diagram](https://placehold.co/800x450/1e293b/ffffff?text=WhatsApp+%3C-%3E+API+Bridge+%3C-%3E+CrewAI+%3C-%3E+Supabase%0A%5E%0A%7C%0Av%0AStripe)
+| Feature | Description | Agents Involved | Status |
+|---------|-------------|-----------------|---------|
+| 📱 Send team announcements (fixtures, time) to the team Telegram group. | `Team Manager`, `Communication Specialist` | ✅ **COMPLETE** |
+| 📊 Create availability polls for next game and track player responses. | `Team Manager`, `Player Coordinator`, `Communication Specialist` | ✅ **COMPLETE** |
+| 👥 Get current squad list and return a simple list back. | `Team Manager`, `Player Coordinator` | ✅ **COMPLETE** |
+| 🏆 Have the system announce the squad to the group. | `Team Manager`, `Communication Specialist` | ✅ **COMPLETE** |
+| 💰 Track who has paid match fees and I can mark them as paid. | `Team Manager`, `Player Coordinator` | ✅ **COMPLETE** |
+| 🎯 Select squad of 11 starters and 3 subs based on availability. | `Team Manager`, `Player Coordinator`, `Match Analyst` | 🔄 **ENHANCED** |
+| 📈 Track player performance and ratings to be stored in the database. | `Player Coordinator` | 🔄 **PLANNED** |
+| 💳 Integrate payment system so players can pay my match fees online. | `Finance Manager`, `Communication Specialist` | 📋 **PLANNED** |
+| 🔔 Send payment notification with a payment link. | `Finance Manager`, `Communication Specialist` | 📋 **PLANNED** |
+| ⭐ Rate players after each match and use performance to generate a team rating. | `Team Manager`, `Player Coordinator`, `Communication Specialist` | 📋 **PLANNED** |
+| 🧹 Assign tasks (e.g., "wash the kit") on a rota basis. | `Team Manager`, `Player Coordinator`, `Communication Specialist` | 📋 **PLANNED** |
+| ⏰ Send automatic reminder. | `Finance Manager`, `Communication Specialist` | 📋 **PLANNED** |
 
----
+## 🚀 Quick Start
 
-## 3. CrewAI Agent Definitions
+### 1. Clone and Setup
+```bash
+git clone <repository-url>
+cd KICKAI
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-We'll expand our crew to handle the new responsibilities.
+### 2. Configure Environment
+```bash
+cp env.example .env
+# Edit .env with your credentials
+```
 
-* **`ManagerAgent` (The Orchestrator):**
-    * **Goal:** Oversee all team management tasks.
-    * **Function:** Interprets high-level commands and delegates tasks to the appropriate specialist agents.
+### 3. Set up Supabase Database
+```bash
+# Run the consolidated schema in your Supabase project
+# See kickai_schema.sql and kickai_sample_data.sql
+```
 
-* **`LogisticsCoordinatorAgent` (The Numbers Guy):**
-    * **Goal:** Manage all data-related tasks concerning players and matches.
-    * **Function:** Interacts directly with the Supabase database for player and fixture data.
-    * **Tools:** `get_fixture_details`, `get_all_players`, `update_player_availability`, `get_player_availability_list`, `record_match_result`.
-
-* **`CommunicationsOfficerAgent` (The Town Crier):**
-    * **Goal:** Handle all outgoing communications to the team's WhatsApp group.
-    * **Function:** Crafts and sends messages, polls, and announcements.
-    * **Tools:** `send_whatsapp_message`, `send_whatsapp_poll`.
-
-* **`TreasurerAgent` (The Treasurer):**
-    * **Goal:** Manage all team finances.
-    * **Function:** Handles match fees, fines, and online payments.
-    * **Tools:** `create_payment_link(player_id, amount, reason)`, `issue_fine(player_id, amount, reason)`, `check_payment_status(player_id)`, `get_financial_ledger()`.
-
-* **`TeamAdminAgent` (The Club Secretary):**
-    * **Goal:** Manage team engagement and administrative duties.
-    * **Function:** Handles ratings, leaderboards, and delegation of chores.
-    * **Tools:** `initiate_peer_rating_poll(fixture_id)`, `record_player_rating(player_id, rater_id, rating)`, `update_leaderboard()`, `get_leaderboard(metric)`, `assign_weekly_task(task_name)`.
-
----
-
-## 4. Feature Roadmap
-
-### Phase 1: MVP - Core Logistics
-
-The goal of the MVP is to solve the most immediate and repetitive problem: getting a team out on a Sunday.
-
-| Feature ID  | Feature Name                  | User Story                                                                                                | Agents Involved                                     | Status      |
-| :---------- | :---------------------------- | :-------------------------------------------------------------------------------------------------------- | :-------------------------------------------------- | :---------- |
-| **KAI-001** | Player Registration           | As a manager, I can add a new player with their name and phone number to the Supabase database.           | `LogisticsCoordinator`                              | To-Do       |
-| **KAI-002** | Announce New Fixture          | As a manager, I can announce the next match details (opponent, location, time) to the team WhatsApp group.  | `Manager`, `CommsOfficer`                           | To-Do       |
-| **KAI-003** | Availability Polling          | As a manager, I want to automatically send a "You in?" message for the next game and track player responses. | `Manager`, `LogisticsCoordinator`, `CommsOfficer`   | To-Do       |
-| **KAI-004** | View Availability List        | As a manager, I can ask the system "Who is available this week?" and get a simple list back.                | `Manager`, `LogisticsCoordinator`                   | To-Do       |
-| **KAI-005** | Announce Squad                | As a manager, I can provide a list of selected players and have the system announce the squad to the group. | `Manager`, `CommsOfficer`                           | To-Do       |
-| **KAI-006** | Match Fee Tracking (Manual)   | As a manager, I want the system to know who played and needs to pay, and I can mark them as paid.         | `Manager`, `LogisticsCoordinator`                   | To-Do       |
-
-### Phase 2: V2 Enhancements
-
-| Feature ID  | Feature Name                | User Story                                                                                              | Agents Involved                                                     | Status      |
-| :---------- | :-------------------------- | :------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------ | :---------- |
-| **KAI-007** | Automated Squad Selection   | As a manager, I want the system to suggest a squad of 11 starters and 3 subs based on availability.     | `Manager`, `LogisticsCoordinator`, (new) `TacticalAssistantAgent` | Planned     |
-| **KAI-010** | Basic Stat Tracking         | As a manager, I can record goals and assists for players after a match to be stored in the database.      | `Manager`, `LogisticsCoordinator`                                   | Planned     |
-
-### Phase 3: Advanced Management & Engagement
-
-| Feature ID  | Feature Name                | User Story                                                                                              | Agents Involved                                           | Status      |
-| :---------- | :-------------------------- | :------------------------------------------------------------------------------------------------------ | :-------------------------------------------------------- | :---------- |
-| **KAI-012** | Online Payments (Fees)      | As a player, I want to receive a WhatsApp message with a link to pay my match fees online.                | `Manager`, `Treasurer`, `CommsOfficer`                    | Planned     |
-| **KAI-013** | Online Payments (Fines)     | As a manager, I can issue a fine to a player, and they will receive a notification with a payment link.   | `Manager`, `Treasurer`, `CommsOfficer`                    | Planned     |
-| **KAI-014** | Peer-to-Peer Ratings        | After a match, I want players to be prompted to rate each other's performance to generate a team rating.    | `Manager`, `TeamAdmin`, `CommsOfficer`                    | Planned     |
-| **KAI-015** | Player Leaderboard          | As a player, I can request the "leaderboard" and see top players for goals, assists, and attendance.      | `TeamAdmin`, `CommsOfficer`                               | Planned     |
-| **KAI-016** | Task Delegation             | As a manager, I want the system to automatically assign weekly chores (e.g., "wash the kit") on a rota basis. | `Manager`, `TeamAdmin`, `CommsOfficer`                    | Planned     |
-| **KAI-017** | Automated Reminders         | I want players who haven't paid fees/fines by Tuesday to get an automatic reminder.                         | `Manager`, `Treasurer`, `CommsOfficer`                    | Planned     |
-
----
-
-## 5. Current Implementation Status
-
-### ✅ Completed Features
-- **Supabase Database Schema**: All tables (players, fixtures, availability, ratings, tasks, equipment) implemented with relationships
-- **CrewAI Framework**: Five agents (Logistics, Manager, Communications, Tactical, Finance) defined with tools
-- **Player Management**: Basic CRUD operations for players via Supabase
-- **Sample Data**: 14 players, 3 fixtures, availability, squad, and payment data loaded
-- **Task Framework**: Player, fixture, availability, team management, and communication tasks implemented
-- **Error Handling**: Comprehensive validation and error handling
-- **Environment Configuration**: All required environment variables validated
-
-### 🔄 In Progress
-- **LLM Integration**: Google Gemini setup but needs API key/auth fixes
-- **Core Player Operations**: Basic functionality working, advanced features pending
-
-### ❌ Not Yet Implemented
-- **WhatsApp Integration**: Twilio API integration for messaging
-- **API Bridge**: FastAPI/Flask web service for webhooks
-- **Stripe Integration**: Payment processing
-- **Advanced Features**: Automated squad selection, statistics, ratings, leaderboards, reminders
-
----
-
-## 6. Development Workflow
-
-### Branch-Based Development Process
-
-All new feature implementations should follow this workflow:
-
-1. **Create Feature Branch**
+### 4. Set up Telegram Bot
    ```bash
-   git checkout main
-   git pull origin main
-   git checkout -b feature/KAI-XXX-description
+   # Follow TELEGRAM_SETUP_GUIDE.md
+   # 1. Create bot with @BotFather
+   # 2. Get bot token
+   # 3. Create team group
+   # 4. Add bot to group
+   # 5. Get group chat ID
    ```
 
-2. **Implement Feature**
-   - Write code for the feature
-   - Add tests if applicable
-   - Update documentation
-   - Test thoroughly
-
-3. **Commit and Push**
+### 5. Test the system
    ```bash
-   git add .
-   git commit -m "feat: implement KAI-XXX description"
-   git push origin feature/KAI-XXX-description
+   python test_telegram_features.py
+   python test_crewai_ollama_correct.py
    ```
 
-4. **Create Pull Request**
-   - Go to GitHub and create a PR from your feature branch to main
-   - Add description of changes
-   - Request review if needed
+## 📱 Telegram Setup
 
-5. **Merge and Cleanup**
-   ```bash
-   # After PR is approved and merged
-   git checkout main
-   git pull origin main
-   git branch -d feature/KAI-XXX-description
-   ```
+### 1. Create Telegram Bot
+1. Open Telegram and search for `@BotFather`
+2. Send `/newbot` command
+3. Choose a name for your bot (e.g., "Your Team Name Team Manager")
+4. Choose a username (e.g., "yourteam_bot")
+5. Copy the bot token
 
-6. **Close GitHub Issue**
-   - Mark the corresponding GitHub issue as closed
-   - Move to "Done" column in project board
+### 2. Create Team Group
+1. Create a new Telegram group
+2. Add your bot to the group
+3. Make the bot an admin (required for polls)
+4. Send a message in the group
+5. Get the group chat ID using the API
 
-### Next Priority Features to Implement
+### 3. Configure Environment
+```bash
+# Add to your .env file
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=your_group_chat_id_here
+TEAM_NAME=Your Team Name
+```
 
-Based on the current state, here are the recommended next features to implement:
+## 🗄️ Database Schema
 
-#### 🔴 High Priority (MVP Completion)
-1. **KAI-002: WhatsApp Integration** - Set up Twilio WhatsApp API
-   - Install Twilio SDK
-   - Create WhatsApp messaging tools
-   - Set up webhook endpoints
-   - Test message sending/receiving
+The system uses a comprehensive multi-team schema with the following tables:
 
-2. **KAI-003: API Bridge (FastAPI)** - Create web service
-   - Set up FastAPI application
-   - Create webhook endpoints
-   - Implement message routing
-   - Add authentication
+* **`teams`**: Team information and configuration
+* **`team_members`**: Team members with roles and permissions
+* **`players`**: Player profiles and statistics
+* **`fixtures`**: Match schedules and details
+* **`availability`**: Player availability for matches
+* **`squad_selections`**: Selected squads for matches
+* **`ratings`**: Peer-to-peer player ratings
+* **`tasks`**: Recurring team tasks and chores
+* **`task_assignments`**: Task assignments per fixture
+* **`equipment`**: Team equipment inventory
+* **`team_bots`**: Telegram bot mappings per team
 
-3. **KAI-004: Enhanced Player Management** - Complete player features
-   - Add player search and filtering
-   - Implement player status updates
-   - Create player profile management
-   - Add availability tracking
+### Database Setup
+1. **Run the schema**: Execute `kickai_schema.sql` in your Supabase SQL Editor
+2. **Add sample data**: Execute `kickai_sample_data.sql` for realistic test data
+3. **Manage bot mappings**: Use `python manage_team_bots.py` for bot configuration
 
-#### 🟡 Medium Priority (V2 Features)
-4. **KAI-005: Fixture Management** - Complete fixture operations
-5. **KAI-006: Availability System** - Implement polling and tracking
-6. **KAI-007: Squad Management** - Create squad selection system
+## 🤖 AI Configuration
 
-#### 🟢 Low Priority (Future)
-7. **KAI-012: Stripe Integration** - Payment processing
-8. **KAI-014: Statistics System** - Match stats and ratings
-9. **KAI-015: Leaderboards** - Player rankings
+### Local Models (Recommended)
+The system is configured to use Ollama with local models:
 
-### Development Guidelines
+```python
+# Uses llama3.1:8b-instruct-q4_0 model
+llm = Ollama(model="ollama/llama3.1:8b-instruct-q4_0")
+```
 
-- **Always work in feature branches** - never commit directly to main
-- **Test thoroughly** before creating PRs
-- **Update documentation** with any new features
-- **Follow the existing code patterns** and structure
-- **Use descriptive commit messages** with feature IDs
-- **Close GitHub issues** when features are complete
+### Cloud Models (Alternative)
+You can also use cloud-based models by updating the LLM configuration in `src/agents.py`.
+
+## 🧪 Testing
+
+### Run All Tests
+```bash
+# Test Telegram integration
+python test_telegram_features.py
+
+# Test CrewAI with Ollama
+python test_crewai_ollama_correct.py
+
+# Test database setup
+python test_database_setup.py
+
+# Test team management
+python test_team_setup.py
+```
+
+### Test Individual Components
+```bash
+# Test specific features
+python demo_telegram_features.py
+python test_sample_data.py
+```
+
+## 📊 Usage Examples
+
+### Send Team Announcement
+```python
+from src.tools.telegram_tools import SendTelegramMessageTool
+
+tool = SendTelegramMessageTool()
+tool._run("🏆 Squad announcement for Sunday's match!")
+```
+
+### Create Availability Poll
+```python
+from src.tools.telegram_tools import SendAvailabilityPollTool
+
+tool = SendAvailabilityPollTool()
+tool._run("vs Thunder FC", "Sunday, July 7th", "2:00 PM", "Central Park")
+```
+
+### Get Team Information
+```python
+from src.tools.team_management_tools import TeamManagementTools
+
+tool = TeamManagementTools()
+tool._run("get_team_info", team_id="your-team-id")
+```
+
+### Manage Bot Mappings
+```bash
+# List all bot mappings
+python manage_team_bots.py list
+
+# Add a new bot mapping
+python manage_team_bots.py add --team "Team Name" --token "bot_token" --chat-id "chat_id" --username "@bot_username"
+
+# Test a bot mapping
+python manage_team_bots.py test --team "Team Name"
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+```bash
+# Required
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_key
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+
+# Optional
+TEAM_NAME=Your Team Name
+```
+
+### Team Configuration
+Teams can be configured with:
+* Custom team names
+* Role-based member management
+* Telegram group integration
+* Payment settings
+* Match preferences
+
+## 🚀 Deployment
+
+### Local Development
+```bash
+# Run with local Ollama
+python src/main.py
+```
+
+### Production Deployment
+1. Set up Supabase production database
+2. Configure production Telegram bot
+3. Deploy to your preferred hosting platform
+4. Set up monitoring and logging
+
+## 📈 Roadmap
+
+### Phase 1: Core Features ✅
+- [x] Basic team management
+- [x] Telegram integration
+- [x] AI agent system
+- [x] Database schema
+
+### Phase 2: Enhanced Features 🔄
+- [ ] Payment integration
+- [ ] Player ratings
+- [ ] Advanced analytics
+- [ ] Mobile app
+
+### Phase 3: Advanced Features 📋
+- [ ] Multi-league support
+- [ ] Tournament management
+- [ ] Performance tracking
+- [ ] Social features
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+For support and questions:
+1. Check the documentation in the `/docs` folder
+2. Review the setup guides
+3. Run the test scripts to verify your configuration
+4. Open an issue on GitHub
 
 ---
 
-## 7. Getting Started
-
-### Prerequisites
-- Python 3.8+
-- Supabase account and project
-- Google AI API key (for Gemini LLM)
-- Twilio account (for WhatsApp integration)
-- Stripe account (for payments)
-
-### Setup
-1. Clone the repository
-2. Install dependencies: `pip install -r requirements.txt`
-3. Copy `env.example` to `.env` and fill in your credentials
-4. Run the demo: `python src/main.py`
-
-### Testing
-- Run sample data setup: `python test_sample_data.py`
-- Test specific features using the demo scenarios in `main.py`
-
----
-
-## 8. Contributing
-
-Please follow the development workflow outlined above. All contributions should be made through feature branches and pull requests.
+**KICKAI** - Making Sunday League football management effortless with AI! ⚽🤖

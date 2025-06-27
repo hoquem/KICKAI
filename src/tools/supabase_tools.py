@@ -22,6 +22,10 @@ class PlayerTools(BaseTool):
     name: str = "Player Management Tool"
     description: str = "A tool to manage player data in the database. Use it to add, retrieve, update, or deactivate player information."
 
+    def __init__(self, team_id: str):
+        super().__init__(name="Player Management Tool", description="A tool to manage player data in the database. Use it to add, retrieve, update, or deactivate player information.")
+        object.__setattr__(self, 'team_id', team_id)
+
     def _run(self, command: str, **kwargs) -> str:
         supabase = get_supabase_client()
         if command == 'add_player':
@@ -44,7 +48,8 @@ class PlayerTools(BaseTool):
             response = supabase.table('players').insert({
                 'name': name,
                 'phone_number': phone_number,
-                'is_active': True
+                'is_active': True,
+                'team_id': self.team_id
             }).execute()
             if response.data:
                 player = response.data[0]
@@ -56,7 +61,7 @@ class PlayerTools(BaseTool):
 
     def _get_all_players(self, supabase: Client) -> str:
         try:
-            response = supabase.table('players').select('id, name, phone_number, is_active, created_at').order('name').execute()
+            response = supabase.table('players').select('id, name, phone_number, is_active, created_at').eq('team_id', self.team_id).order('name').execute()
             if response.data:
                 player_list = []
                 for p in response.data:
@@ -72,7 +77,7 @@ class PlayerTools(BaseTool):
         if not player_id and not phone_number:
             return "Error: Either 'player_id' or 'phone_number' is required."
         try:
-            query = supabase.table('players').select('*')
+            query = supabase.table('players').select('*').eq('team_id', self.team_id)
             if player_id:
                 response = query.eq('id', player_id).execute()
             else:
@@ -94,7 +99,7 @@ class PlayerTools(BaseTool):
             if not update_data:
                 return "Error: No valid fields to update. Valid fields: name, phone_number, is_active"
             
-            response = supabase.table('players').update(update_data).eq('id', player_id).execute()
+            response = supabase.table('players').update(update_data).eq('id', player_id).eq('team_id', self.team_id).execute()
             if response.data:
                 return f"Successfully updated player {player_id}."
             else:
@@ -110,6 +115,10 @@ class PlayerTools(BaseTool):
 class FixtureTools(BaseTool):
     name: str = "Fixture Management Tool"
     description: str = "A tool to manage match fixtures. Use it to create, retrieve, update, or list fixtures."
+
+    def __init__(self, team_id: str):
+        super().__init__(name="Fixture Management Tool", description="A tool to manage match fixtures. Use it to create, retrieve, update, or list fixtures.")
+        object.__setattr__(self, 'team_id', team_id)
 
     def _run(self, command: str, **kwargs) -> str:
         supabase = get_supabase_client()
@@ -137,7 +146,8 @@ class FixtureTools(BaseTool):
             fixture_data = {
                 'opponent': opponent,
                 'match_date': parsed_date.isoformat(),
-                'is_home_game': is_home_game
+                'is_home_game': is_home_game,
+                'team_id': self.team_id
             }
             if location:
                 fixture_data['location'] = location
@@ -153,7 +163,7 @@ class FixtureTools(BaseTool):
 
     def _get_fixtures(self, supabase: Client, upcoming_only: bool = True) -> str:
         try:
-            query = supabase.table('fixtures').select('*').order('match_date')
+            query = supabase.table('fixtures').select('*').eq('team_id', self.team_id).order('match_date')
             if upcoming_only:
                 now = datetime.now().isoformat()
                 query = query.gte('match_date', now)
@@ -175,7 +185,7 @@ class FixtureTools(BaseTool):
         if not fixture_id:
             return "Error: 'fixture_id' is required."
         try:
-            response = supabase.table('fixtures').select('*').eq('id', fixture_id).execute()
+            response = supabase.table('fixtures').select('*').eq('id', fixture_id).eq('team_id', self.team_id).execute()
             if response.data:
                 fixture = response.data[0]
                 home_away = "HOME" if fixture['is_home_game'] else "AWAY"
@@ -194,7 +204,7 @@ class FixtureTools(BaseTool):
             if not update_data:
                 return "Error: No valid fields to update. Valid fields: opponent, match_date, location, is_home_game, result"
             
-            response = supabase.table('fixtures').update(update_data).eq('id', fixture_id).execute()
+            response = supabase.table('fixtures').update(update_data).eq('id', fixture_id).eq('team_id', self.team_id).execute()
             if response.data:
                 return f"Successfully updated fixture {fixture_id}."
             else:
@@ -207,6 +217,10 @@ class FixtureTools(BaseTool):
 class AvailabilityTools(BaseTool):
     name: str = "Availability Management Tool"
     description: str = "A tool to manage player availability for fixtures. Use it to set availability, check squad status, and manage payments."
+
+    def __init__(self, team_id: str):
+        super().__init__(name="Availability Management Tool", description="A tool to manage player availability for fixtures. Use it to set availability, check squad status, and manage payments.")
+        object.__setattr__(self, 'team_id', team_id)
 
     def _run(self, command: str, **kwargs) -> str:
         supabase = get_supabase_client()
@@ -331,9 +345,12 @@ class AvailabilityTools(BaseTool):
 
 # --- Example Usage (for testing) ---
 if __name__ == '__main__':
-    player_tool = PlayerTools()
-    fixture_tool = FixtureTools()
-    availability_tool = AvailabilityTools()
+    # Example team ID - in real usage, this would be passed from the calling code
+    example_team_id = "0854829d-445c-4138-9fd3-4db562ea46ee"  # BP Hatters FC
+    
+    player_tool = PlayerTools(example_team_id)
+    fixture_tool = FixtureTools(example_team_id)
+    availability_tool = AvailabilityTools(example_team_id)
     
     # Test player tools
     print("=== Testing Player Tools ===")
