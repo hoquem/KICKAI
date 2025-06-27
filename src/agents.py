@@ -27,23 +27,21 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-def get_messaging_tools():
-    """Get Telegram messaging tools."""
-    telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
-    
-    if telegram_token:
-        logger.info("Using Telegram messaging tools")
+def get_messaging_tools(team_id: str):
+    """Get Telegram messaging tools for a specific team."""
+    try:
+        logger.info(f"Creating Telegram messaging tools for team {team_id}")
         return {
-            'message_tool': SendTelegramMessageTool(),
-            'poll_tool': SendTelegramPollTool(),
-            'availability_poll_tool': SendAvailabilityPollTool(),
-            'squad_announcement_tool': SendSquadAnnouncementTool(),
-            'payment_reminder_tool': SendPaymentReminderTool(),
+            'message_tool': SendTelegramMessageTool(team_id),
+            'poll_tool': SendTelegramPollTool(team_id),
+            'availability_poll_tool': SendAvailabilityPollTool(team_id),
+            'squad_announcement_tool': SendSquadAnnouncementTool(team_id),
+            'payment_reminder_tool': SendPaymentReminderTool(team_id),
             'platform': 'Telegram'
         }
-    else:
-        logger.error("TELEGRAM_BOT_TOKEN not configured. Please set up Telegram integration.")
-        raise ValueError("TELEGRAM_BOT_TOKEN environment variable is required")
+    except Exception as e:
+        logger.error(f"Error creating Telegram tools for team {team_id}: {e}")
+        raise ValueError(f"Failed to create Telegram tools for team {team_id}: {e}")
 
 # Robust system prompt for CrewAI output format
 CREWAI_SYSTEM_PROMPT = '''
@@ -168,18 +166,18 @@ def create_llm():
         raise
 
 
-def create_agents(llm):
-    """Create CrewAI agents for the football team management system."""
-    logger.info("Creating CrewAI agents...")
+def create_agents_for_team(llm, team_id: str):
+    """Create CrewAI agents for a specific team."""
+    logger.info(f"Creating CrewAI agents for team {team_id}...")
     
-    # Initialize tools
-    player_tools = PlayerTools()
-    fixture_tools = FixtureTools()
-    availability_tools = AvailabilityTools()
+    # Initialize tools with team context
+    player_tools = PlayerTools(team_id)
+    fixture_tools = FixtureTools(team_id)
+    availability_tools = AvailabilityTools(team_id)
     
-    # Get Telegram messaging tools
-    messaging_tools = get_messaging_tools()
-    logger.info(f"Using {messaging_tools['platform']} for messaging")
+    # Get Telegram messaging tools for this team
+    messaging_tools = get_messaging_tools(team_id)
+    logger.info(f"Using {messaging_tools['platform']} for messaging team {team_id}")
 
     # Team Manager Agent
     team_manager = Agent(
@@ -193,7 +191,7 @@ def create_agents(llm):
         tools=[player_tools, fixture_tools, messaging_tools['message_tool']],
         llm=llm
     )
-    logger.info("Team Manager agent created")
+    logger.info(f"Team Manager agent created for team {team_id}")
 
     # Player Coordinator Agent
     player_coordinator = Agent(
@@ -207,7 +205,7 @@ def create_agents(llm):
         tools=[player_tools, availability_tools, messaging_tools['message_tool'], messaging_tools['availability_poll_tool']],
         llm=llm
     )
-    logger.info("Player Coordinator agent created")
+    logger.info(f"Player Coordinator agent created for team {team_id}")
 
     # Match Analyst Agent
     match_analyst = Agent(
@@ -221,7 +219,7 @@ def create_agents(llm):
         tools=[fixture_tools, player_tools, messaging_tools['squad_announcement_tool']],
         llm=llm
     )
-    logger.info("Match Analyst agent created")
+    logger.info(f"Match Analyst agent created for team {team_id}")
 
     # Communication Specialist Agent
     communication_specialist = Agent(
@@ -240,14 +238,14 @@ def create_agents(llm):
         ],
         llm=llm
     )
-    logger.info("Communication Specialist agent created")
+    logger.info(f"Communication Specialist agent created for team {team_id}")
 
-    logger.info("All agents created successfully")
+    logger.info(f"All agents created successfully for team {team_id}")
     return team_manager, player_coordinator, match_analyst, communication_specialist
 
 
-def create_crew(agents):
-    """Create a CrewAI crew with the specified agents."""
+def create_crew_for_team(agents):
+    """Create a CrewAI crew with the specified agents for a team."""
     logger.info("Creating CrewAI crew...")
     
     team_manager, player_coordinator, match_analyst, communication_specialist = agents
@@ -260,3 +258,18 @@ def create_crew(agents):
     
     logger.info("Crew created successfully")
     return crew
+
+
+# Legacy function for backward compatibility
+def create_agents(llm):
+    """Legacy function - use create_agents_for_team instead."""
+    logger.warning("Using legacy create_agents function. Use create_agents_for_team with team_id instead.")
+    # Use a default team ID for backward compatibility
+    default_team_id = "0854829d-445c-4138-9fd3-4db562ea46ee"  # BP Hatters FC
+    return create_agents_for_team(llm, default_team_id)
+
+
+def create_crew(agents):
+    """Legacy function - use create_crew_for_team instead."""
+    logger.warning("Using legacy create_crew function. Use create_crew_for_team instead.")
+    return create_crew_for_team(agents)

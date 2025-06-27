@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """
-Test Telegram Features for KICKAI
-Tests all Telegram integration features including messaging, polls, and team management.
+Test script for Telegram integration features.
+Tests all Telegram messaging capabilities for KICKAI.
 """
 
 import os
-import sys
 import time
+import sys
 from dotenv import load_dotenv
-
-# Add src to path
-sys.path.append('src')
 
 # Load environment variables
 load_dotenv()
+
+# Add src to path for imports
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+
 
 def test_telegram_environment():
     """Test if Telegram environment variables are set."""
@@ -22,12 +23,9 @@ def test_telegram_environment():
     bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
     chat_id = os.getenv('TELEGRAM_CHAT_ID')
     
-    if not bot_token:
-        print("❌ Missing TELEGRAM_BOT_TOKEN environment variable")
-        return False
-    
-    if not chat_id:
-        print("❌ Missing TELEGRAM_CHAT_ID environment variable")
+    if not bot_token or not chat_id:
+        print("❌ Missing Telegram environment variables")
+        print("   Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in your .env file")
         return False
     
     print("✅ Telegram environment variables are set")
@@ -44,7 +42,7 @@ def test_basic_message():
         from src.tools.telegram_tools import SendTelegramMessageTool
         
         tool = SendTelegramMessageTool()
-        message = "🤖 Hello from KICKAI! This is a test message from our team management system."
+        message = "🧪 Test message from KICKAI Telegram integration"
         
         result = tool._run(message)
         print(f"✅ Basic message sent: {result}")
@@ -63,8 +61,8 @@ def test_telegram_poll():
         from src.tools.telegram_tools import SendTelegramPollTool
         
         tool = SendTelegramPollTool()
-        question = "What's your preferred match time for this weekend?"
-        options = ["Saturday 2pm", "Saturday 4pm", "Sunday 2pm", "Sunday 4pm"]
+        question = "What's your preferred match time for Sunday?"
+        options = ["10:00 AM", "2:00 PM", "4:00 PM", "6:00 PM"]
         
         result = tool._run(question, options)
         print(f"✅ Poll sent: {result}")
@@ -76,17 +74,17 @@ def test_telegram_poll():
 
 
 def test_availability_poll():
-    """Test sending an availability poll for a fixture."""
+    """Test sending an availability poll."""
     print("\n⚽ Testing Availability Poll...")
     
     try:
         from src.tools.telegram_tools import SendAvailabilityPollTool
         
         tool = SendAvailabilityPollTool()
-        fixture_details = "vs Red Lions FC"
-        match_date = "Saturday, 15th December"
+        fixture_details = "vs Thunder FC"
+        match_date = "Sunday, July 7th"
         match_time = "2:00 PM"
-        location = "Central Park Pitch 3"
+        location = "Central Park"
         
         result = tool._run(fixture_details, match_date, match_time, location)
         print(f"✅ Availability poll sent: {result}")
@@ -105,26 +103,26 @@ def test_squad_announcement():
         from src.tools.telegram_tools import SendSquadAnnouncementTool
         
         tool = SendSquadAnnouncementTool()
-        fixture_details = "vs Blue Eagles FC"
-        match_date = "Sunday, 16th December"
-        match_time = "3:00 PM"
+        fixture_details = "vs Thunder FC"
+        match_date = "Sunday, July 7th"
+        match_time = "2:00 PM"
         starters = [
             "John Smith (GK)",
             "Mike Johnson (RB)",
             "David Wilson (CB)",
             "Tom Brown (CB)",
-            "Alex Davis (LB)",
-            "Chris Miller (CM)",
-            "James Taylor (CM)",
-            "Rob Anderson (RW)",
-            "Steve White (LW)",
-            "Paul Martin (ST)",
-            "Dan Clark (ST)"
+            "James Garcia (LB)",
+            "Chris Davis (CM)",
+            "Rob Martinez (CM)",
+            "Luke Thomas (RW)",
+            "Alex Wilson (LW)",
+            "Sam Taylor (ST)",
+            "Ben Jackson (ST)"
         ]
         substitutes = [
-            "Ryan Garcia",
-            "Kevin Lee",
-            "Mark Thompson"
+            "Dan Anderson",
+            "Ryan White",
+            "Matt Harris"
         ]
         
         result = tool._run(fixture_details, match_date, match_time, starters, substitutes)
@@ -146,7 +144,7 @@ def test_payment_reminder():
         tool = SendPaymentReminderTool()
         unpaid_players = ["John Smith", "Mike Johnson", "David Wilson"]
         amount = 15.00
-        fixture_details = "vs Red Lions FC (15th Dec)"
+        fixture_details = "vs Thunder FC"
         
         result = tool._run(unpaid_players, amount, fixture_details)
         print(f"✅ Payment reminder sent: {result}")
@@ -162,11 +160,12 @@ def test_rich_formatting():
     print("\n🎨 Testing Rich Formatting...")
     
     try:
-        from src.tools.telegram_tools import SendTelegramMessageTool
+        from src.tools.telegram_tools import SendTelegramMessageTool, get_team_name
         
         tool = SendTelegramMessageTool()
-        message = """
-🎯 <b>KICKAI Team Update</b>
+        team_name = get_team_name()
+        message = f"""
+🎯 <b>{team_name} Team Update</b>
 
 📅 <b>Next Match:</b> Sunday vs Thunder FC
 🕐 <b>Time:</b> 2:00 PM
@@ -197,11 +196,12 @@ def test_team_introduction():
     print("\n🤖 Testing Team Introduction...")
     
     try:
-        from src.tools.telegram_tools import SendTelegramMessageTool
+        from src.tools.telegram_tools import SendTelegramMessageTool, get_team_name
         
         tool = SendTelegramMessageTool()
-        message = """
-🤖 <b>Welcome to KICKAI Team Manager!</b>
+        team_name = get_team_name()
+        message = f"""
+🤖 <b>Welcome to {team_name} Team Manager!</b>
 
 This AI-powered bot will help manage our Sunday League team:
 
