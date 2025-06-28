@@ -8,6 +8,7 @@ import os
 import time
 import logging
 import requests
+import random
 from dotenv import load_dotenv
 from src.telegram_command_handler import TelegramCommandHandler
 
@@ -32,6 +33,9 @@ class TelegramBotRunner:
         
         self.command_handler = TelegramCommandHandler()
         self.last_update_id = 0
+        self.consecutive_errors = 0
+        self.max_retries = 5
+        self.base_delay = 1
         
     def _get_bot_token_from_db(self):
         """Get bot token from Supabase database."""
@@ -51,8 +55,23 @@ class TelegramBotRunner:
             logger.error(f"Error getting bot token from database: {e}")
             return None
     
+    def _calculate_delay(self):
+        """Calculate delay with exponential backoff and jitter."""
+        if self.consecutive_errors == 0:
+            return self.base_delay
+        
+        delay = min(self.base_delay * (2 ** self.consecutive_errors), 60)  # Max 60 seconds
+        jitter = random.uniform(0.5, 1.5)
+        return delay * jitter
+    
+    def _reset_error_count(self):
+        """Reset consecutive error count on successful operation."""
+        if self.consecutive_errors > 0:
+            logger.info(f"✅ Connection restored after {self.consecutive_errors} errors")
+            self.consecutive_errors = 0
+    
     def get_updates(self, offset=None, limit=100, timeout=30):
-        """Get updates from Telegram API."""
+        """Get updates from Telegram API with improved error handling."""
         url = f"https://api.telegram.org/bot{self.bot_token}/getUpdates"
         params = {
             'timeout': timeout,
@@ -62,20 +81,55 @@ class TelegramBotRunner:
             params['offset'] = offset
             
         try:
-            response = requests.get(url, params=params, timeout=timeout + 5)
+            # Use a shorter timeout for the request itself
+            response = requests.get(url, params=params, timeout=timeout + 10)
             response.raise_for_status()
+            
+            # Reset error count on success
+            self._reset_error_count()
             return response.json()
+            
         except requests.exceptions.HTTPError as e:
+            self.consecutive_errors += 1
             if e.response.status_code == 409:
-                logger.warning("409 Conflict: Another bot instance may be running. Retrying in 5 seconds...")
-                time.sleep(5)
+                logger.warning(f"409 Conflict: Another bot instance may be running. Error #{self.consecutive_errors}")
+                # For 409 errors, try to delete webhook first
+                self._delete_webhook()
+                return None
+            elif e.response.status_code == 429:
+                logger.warning(f"429 Rate limited. Error #{self.consecutive_errors}")
                 return None
             else:
                 logger.error(f"HTTP Error getting updates: {e}")
                 return None
-        except Exception as e:
-            logger.error(f"Error getting updates: {e}")
+                
+        except requests.exceptions.Timeout:
+            self.consecutive_errors += 1
+            logger.warning(f"Timeout getting updates. Error #{self.consecutive_errors}")
             return None
+            
+        except requests.exceptions.ConnectionError:
+            self.consecutive_errors += 1
+            logger.warning(f"Connection error getting updates. Error #{self.consecutive_errors}")
+            return None
+            
+        except Exception as e:
+            self.consecutive_errors += 1
+            logger.error(f"Unexpected error getting updates: {e}")
+            return None
+    
+    def _delete_webhook(self):
+        """Delete webhook to resolve 409 conflicts."""
+        try:
+            url = f"https://api.telegram.org/bot{self.bot_token}/deleteWebhook"
+            response = requests.post(url, timeout=10)
+            if response is not None and response.status_code == 200:
+                logger.info("✅ Webhook deleted successfully")
+            else:
+                status_code = response.status_code if response is not None else 'No response'
+                logger.warning(f"Failed to delete webhook: {status_code}")
+        except Exception as e:
+            logger.warning(f"Error deleting webhook: {e}")
     
     def process_updates(self, updates):
         """Process incoming updates."""
@@ -97,9 +151,12 @@ class TelegramBotRunner:
                 logger.error(f"Error processing update {update_id}: {e}")
     
     def run_polling(self):
-        """Run the bot using polling method."""
+        """Run the bot using polling method with improved error handling."""
         logger.info("🤖 Starting Telegram bot (polling mode)...")
         logger.info(f"📱 Bot token: {self.bot_token[:10]}...")
+        
+        # Delete any existing webhook first
+        self._delete_webhook()
         
         # Get initial updates to set last_update_id
         initial_updates = self.get_updates()
@@ -116,11 +173,16 @@ class TelegramBotRunner:
             while True:
                 # Get updates with long polling
                 updates = self.get_updates(offset=self.last_update_id + 1)
+                
                 if updates and updates.get('result'):
                     self.process_updates(updates)
                 
-                # Small delay to prevent excessive API calls
-                time.sleep(1)
+                # Calculate delay based on error count
+                delay = self._calculate_delay()
+                if self.consecutive_errors > 0:
+                    logger.info(f"⏳ Waiting {delay:.1f}s before next request (error #{self.consecutive_errors})")
+                
+                time.sleep(delay)
                 
         except KeyboardInterrupt:
             logger.info("🛑 Bot stopped by user")
@@ -132,7 +194,7 @@ class TelegramBotRunner:
         """Test bot connection and get bot info."""
         url = f"https://api.telegram.org/bot{self.bot_token}/getMe"
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
             response.raise_for_status()
             bot_info = response.json()
             
@@ -163,7 +225,7 @@ def main():
         # Test connection
         print("\n🔍 Testing bot connection...")
         if not bot_runner.test_connection():
-            print("❌ Bot connection failed. Check your TELEGRAM_BOT_TOKEN.")
+            print("❌ Bot connection failed. Check your bot token.")
             return
         
         # Run the bot
@@ -172,7 +234,7 @@ def main():
         
     except ValueError as e:
         print(f"❌ Configuration error: {e}")
-        print("💡 Make sure TELEGRAM_BOT_TOKEN is set in your .env file")
+        print("💡 Make sure bot token is available in the database")
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
         logger.error(f"Bot error: {e}", exc_info=True)
