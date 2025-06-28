@@ -147,7 +147,7 @@ class TelegramCommandHandler:
                 'handler': self._handle_help
             },
             '/status': {
-                'roles': ['admin', 'secretary', 'manager'],
+                'roles': ['all'],
                 'description': 'Show team status',
                 'usage': '/status',
                 'handler': self._handle_status
