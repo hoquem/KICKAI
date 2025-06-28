@@ -359,9 +359,210 @@ class TelegramCommandHandler:
     # Command handlers
     def _handle_new_fixture(self, context: CommandContext) -> bool:
         """Handle /newfixture command."""
-        # Implementation for creating new fixture
-        self._send_telegram_message(context.chat_id, "🏆 New fixture creation - Coming soon!", context.bot_token)
-        return True
+        try:
+            # Parse arguments
+            args = context.arguments.strip()
+            
+            if not args:
+                # No arguments provided - show usage
+                message = "📅 <b>Create New Fixture</b>\n\n"
+                message += "<b>Usage:</b> /newfixture <opponent> <date> <time> <venue> [competition] [notes]\n\n"
+                message += "<b>Required:</b>\n"
+                message += "• <b>Opponent</b> - Team name (e.g., 'Thunder FC')\n"
+                message += "• <b>Date</b> - Match date (e.g., '2024-07-15' or '15/07/2024')\n"
+                message += "• <b>Time</b> - Kickoff time (e.g., '14:00' or '2:00 PM')\n"
+                message += "• <b>Venue</b> - Home/Away + location (e.g., 'Home - Central Park')\n\n"
+                message += "<b>Optional:</b>\n"
+                message += "• <b>Competition</b> - League, Cup, Friendly (default: League)\n"
+                message += "• <b>Notes</b> - Special instructions, kit colors, etc.\n\n"
+                message += "<b>Example:</b>\n"
+                message += "<code>/newfixture Thunder FC 2024-07-15 14:00 \"Home - Central Park\" League \"Red kit required\"</code>"
+                
+                self._send_telegram_message(context.chat_id, message, context.bot_token)
+                return True
+            
+            # Parse the arguments
+            parts = args.split('"')
+            if len(parts) < 3:
+                # Simple parsing for basic format
+                parts = args.split()
+                if len(parts) < 4:
+                    message = "❌ <b>Missing required information!</b>\n\n"
+                    message += "Please provide: <b>opponent date time venue</b>\n\n"
+                    message += "<b>Example:</b>\n"
+                    message += "<code>/newfixture Thunder FC 2024-07-15 14:00 \"Home - Central Park\"</code>"
+                    self._send_telegram_message(context.chat_id, message, context.bot_token)
+                    return True
+                
+                opponent = parts[0]
+                date = parts[1]
+                time = parts[2]
+                venue = parts[3]
+                competition = parts[4] if len(parts) > 4 else "League"
+                notes = ' '.join(parts[5:]) if len(parts) > 5 else ""
+            else:
+                # Complex parsing with quotes
+                opponent = parts[0].strip()
+                date = parts[1].strip()
+                time = parts[2].strip()
+                venue = parts[3].strip()
+                competition = parts[4].strip() if len(parts) > 4 else "League"
+                notes = parts[5].strip() if len(parts) > 5 else ""
+            
+            # Validate required fields
+            missing_fields = []
+            
+            if not opponent or opponent.lower() in ['vs', 'v', 'against', 'opponent']:
+                missing_fields.append("opponent")
+            
+            if not date or not self._is_valid_date(date):
+                missing_fields.append("date (format: YYYY-MM-DD or DD/MM/YYYY)")
+            
+            if not time or not self._is_valid_time(time):
+                missing_fields.append("time (format: HH:MM or H:MM AM/PM)")
+            
+            if not venue or venue.lower() in ['venue', 'location', 'place']:
+                missing_fields.append("venue (e.g., 'Home - Central Park' or 'Away - Thunder Ground')")
+            
+            if missing_fields:
+                message = "❌ <b>Missing or invalid information:</b>\n\n"
+                for field in missing_fields:
+                    message += f"• {field}\n"
+                message += "\n<b>Please provide all required information and try again.</b>"
+                self._send_telegram_message(context.chat_id, message, context.bot_token)
+                return True
+            
+            # Create fixture in database
+            fixture_data = {
+                'team_id': context.team_id,
+                'opponent': opponent,
+                'match_date': self._parse_date(date),
+                'kickoff_time': self._parse_time(time),
+                'venue': venue,
+                'competition': competition,
+                'notes': notes,
+                'created_by': context.user_id,
+                'created_at': datetime.now().isoformat(),
+                'status': 'scheduled'
+            }
+            
+            # Insert into database
+            response = self.supabase.table('fixtures').insert(fixture_data).execute()
+            
+            if response.data:
+                fixture = response.data[0]
+                
+                # Send confirmation message
+                message = "✅ <b>Fixture Created Successfully!</b>\n\n"
+                message += f"🏆 <b>{fixture['competition']}</b>\n"
+                message += f"⚽ <b>BP Hatters FC vs {fixture['opponent']}</b>\n"
+                message += f"📅 <b>Date:</b> {self._format_date(fixture['match_date'])}\n"
+                message += f"🕐 <b>Time:</b> {self._format_time(fixture['kickoff_time'])}\n"
+                message += f"📍 <b>Venue:</b> {fixture['venue']}\n"
+                
+                if fixture['notes']:
+                    message += f"📝 <b>Notes:</b> {fixture['notes']}\n"
+                
+                message += f"\n🆔 <b>Fixture ID:</b> {fixture['id']}\n"
+                message += "💡 Use this ID for updates and availability polls."
+                
+                self._send_telegram_message(context.chat_id, message, context.bot_token)
+                
+                # Also send to main team chat if this is from leadership
+                if context.is_leadership_chat:
+                    bot_info = self._get_team_bot_info(context.chat_id)
+                    if bot_info and bot_info['chat_id'] != context.chat_id:
+                        team_message = "📢 <b>New Fixture Announced!</b>\n\n"
+                        team_message += f"🏆 <b>{fixture['competition']}</b>\n"
+                        team_message += f"⚽ <b>BP Hatters FC vs {fixture['opponent']}</b>\n"
+                        team_message += f"📅 <b>Date:</b> {self._format_date(fixture['match_date'])}\n"
+                        team_message += f"🕐 <b>Time:</b> {self._format_time(fixture['kickoff_time'])}\n"
+                        team_message += f"📍 <b>Venue:</b> {fixture['venue']}\n"
+                        
+                        if fixture['notes']:
+                            team_message += f"📝 <b>Notes:</b> {fixture['notes']}\n"
+                        
+                        team_message += "\n✅ Availability poll will be sent soon!"
+                        
+                        self._send_telegram_message(bot_info['chat_id'], team_message, bot_info['bot_token'])
+                
+                return True
+            else:
+                self._send_telegram_message(context.chat_id, "❌ Failed to create fixture. Please try again.", context.bot_token)
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error creating fixture: {e}")
+            self._send_telegram_message(context.chat_id, f"❌ Error creating fixture: {str(e)}", context.bot_token)
+            return False
+    
+    def _is_valid_date(self, date_str: str) -> bool:
+        """Validate date format."""
+        try:
+            # Try different date formats
+            formats = ['%Y-%m-%d', '%d/%m/%Y', '%d/%m/%y', '%d-%m-%Y', '%d-%m-%y']
+            for fmt in formats:
+                try:
+                    datetime.strptime(date_str, fmt)
+                    return True
+                except ValueError:
+                    continue
+            return False
+        except:
+            return False
+    
+    def _is_valid_time(self, time_str: str) -> bool:
+        """Validate time format."""
+        try:
+            # Try different time formats
+            formats = ['%H:%M', '%I:%M %p', '%I:%M%p', '%H:%M:%S']
+            for fmt in formats:
+                try:
+                    datetime.strptime(time_str, fmt)
+                    return True
+                except ValueError:
+                    continue
+            return False
+        except:
+            return False
+    
+    def _parse_date(self, date_str: str) -> str:
+        """Parse date string to ISO format."""
+        formats = ['%Y-%m-%d', '%d/%m/%Y', '%d/%m/%y', '%d-%m-%Y', '%d-%m-%y']
+        for fmt in formats:
+            try:
+                dt = datetime.strptime(date_str, fmt)
+                return dt.strftime('%Y-%m-%d')
+            except ValueError:
+                continue
+        return date_str  # Return as-is if parsing fails
+    
+    def _parse_time(self, time_str: str) -> str:
+        """Parse time string to 24-hour format."""
+        formats = ['%H:%M', '%I:%M %p', '%I:%M%p', '%H:%M:%S']
+        for fmt in formats:
+            try:
+                dt = datetime.strptime(time_str, fmt)
+                return dt.strftime('%H:%M')
+            except ValueError:
+                continue
+        return time_str  # Return as-is if parsing fails
+    
+    def _format_date(self, date_str: str) -> str:
+        """Format date for display."""
+        try:
+            dt = datetime.strptime(date_str, '%Y-%m-%d')
+            return dt.strftime('%A, %d %B %Y')
+        except:
+            return date_str
+    
+    def _format_time(self, time_str: str) -> str:
+        """Format time for display."""
+        try:
+            dt = datetime.strptime(time_str, '%H:%M')
+            return dt.strftime('%I:%M %p')
+        except:
+            return time_str
     
     def _handle_delete_fixture(self, context: CommandContext) -> bool:
         """Handle /deletefixture command."""
@@ -375,8 +576,106 @@ class TelegramCommandHandler:
     
     def _handle_list_fixtures(self, context: CommandContext) -> bool:
         """Handle /listfixtures command."""
-        self._send_telegram_message(context.chat_id, "📅 Fixture list - Coming soon!", context.bot_token)
-        return True
+        try:
+            # Parse arguments
+            args = context.arguments.strip().lower()
+            filter_type = 'upcoming'  # Default to upcoming fixtures
+            
+            if args in ['upcoming', 'future', 'next']:
+                filter_type = 'upcoming'
+            elif args in ['past', 'previous', 'history']:
+                filter_type = 'past'
+            elif args in ['all', 'complete']:
+                filter_type = 'all'
+            elif args:
+                # Invalid filter
+                message = "❌ <b>Invalid filter!</b>\n\n"
+                message += "<b>Usage:</b> /listfixtures [upcoming|past|all]\n\n"
+                message += "<b>Filters:</b>\n"
+                message += "• <b>upcoming</b> - Future matches (default)\n"
+                message += "• <b>past</b> - Previous matches\n"
+                message += "• <b>all</b> - All fixtures\n\n"
+                message += "<b>Examples:</b>\n"
+                message += "<code>/listfixtures</code> - Show upcoming\n"
+                message += "<code>/listfixtures past</code> - Show past matches\n"
+                message += "<code>/listfixtures all</code> - Show all fixtures"
+                
+                self._send_telegram_message(context.chat_id, message, context.bot_token)
+                return True
+            
+            # Build query
+            query = self.supabase.table('fixtures').select('*').eq('team_id', context.team_id)
+            
+            today = datetime.now().strftime('%Y-%m-%d')
+            
+            if filter_type == 'upcoming':
+                query = query.gte('match_date', today).order('match_date', desc=False)
+                title = "📅 <b>Upcoming Fixtures</b>"
+            elif filter_type == 'past':
+                query = query.lt('match_date', today).order('match_date', desc=True)
+                title = "📅 <b>Past Fixtures</b>"
+            else:  # all
+                query = query.order('match_date', desc=True)
+                title = "📅 <b>All Fixtures</b>"
+            
+            # Execute query
+            response = query.execute()
+            
+            if not response.data:
+                if filter_type == 'upcoming':
+                    message = "📅 <b>No upcoming fixtures</b>\n\n"
+                    message += "No matches scheduled. Use /newfixture to create one!"
+                elif filter_type == 'past':
+                    message = "📅 <b>No past fixtures</b>\n\n"
+                    message += "No previous matches found."
+                else:
+                    message = "📅 <b>No fixtures found</b>\n\n"
+                    message += "No fixtures in the database. Use /newfixture to create one!"
+                
+                self._send_telegram_message(context.chat_id, message, context.bot_token)
+                return True
+            
+            # Format fixtures
+            message = f"{title}\n\n"
+            
+            for i, fixture in enumerate(response.data[:10], 1):  # Limit to 10 fixtures
+                # Determine status icon
+                if fixture['status'] == 'completed':
+                    status_icon = "✅"
+                elif fixture['status'] == 'cancelled':
+                    status_icon = "❌"
+                elif fixture['status'] == 'postponed':
+                    status_icon = "⏸️"
+                else:
+                    status_icon = "⚽"
+                
+                # Format date
+                formatted_date = self._format_date(fixture['match_date'])
+                formatted_time = self._format_time(fixture['kickoff_time'])
+                
+                message += f"{status_icon} <b>{fixture['competition']}</b>\n"
+                message += f"   <b>BP Hatters FC vs {fixture['opponent']}</b>\n"
+                message += f"   📅 {formatted_date}\n"
+                message += f"   🕐 {formatted_time}\n"
+                message += f"   📍 {fixture['venue']}\n"
+                
+                if fixture['notes']:
+                    message += f"   📝 {fixture['notes']}\n"
+                
+                message += f"   🆔 ID: {fixture['id']}\n\n"
+            
+            if len(response.data) > 10:
+                message += f"... and {len(response.data) - 10} more fixtures\n\n"
+            
+            message += f"💡 Use <code>/listfixtures {filter_type}</code> to refresh this view."
+            
+            self._send_telegram_message(context.chat_id, message, context.bot_token)
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error listing fixtures: {e}")
+            self._send_telegram_message(context.chat_id, f"❌ Error listing fixtures: {str(e)}", context.bot_token)
+            return False
     
     def _handle_send_availability(self, context: CommandContext) -> bool:
         """Handle /sendavailability command."""
