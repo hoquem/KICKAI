@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Railway Main Entry Point for KICKAI
-Deployment timestamp: 2024-12-19 15:30 UTC
+Deployment timestamp: 2024-12-19 16:00 UTC - Fixture Management Active
 """
 
 # --- MONKEY-PATCH MUST BE FIRST - before any other imports ---
@@ -55,47 +55,37 @@ def start_health_server():
         logger.error(f"❌ Health server failed: {e}")
         return None
 
-def start_telegram_bot():
-    """Start the Telegram bot with CrewAI integration."""
+def main():
+    """Main entry point for Railway deployment."""
     try:
+        logger.info("🚀 Starting KICKAI on Railway...")
+        logger.info("📅 Deployment timestamp: 2024-12-19 16:00 UTC")
+        logger.info("🏆 Fixture Management System: ACTIVE")
+        
+        # Start health server
+        health_thread = start_health_server()
+        
+        # Start Telegram bot directly
         from run_telegram_bot import TelegramBotRunner
         
-        # Create and start bot
+        logger.info("🤖 Starting Telegram bot with fixture management...")
         bot_runner = TelegramBotRunner()
         
         if not bot_runner.test_connection():
             logger.error("❌ Bot connection failed")
             return False
         
-        # Start bot in background thread
-        def run_bot():
-            try:
-                bot_runner.run_polling()
-            except Exception as e:
-                logger.error(f"❌ Bot error: {e}")
+        logger.info("✅ Bot connected successfully!")
+        logger.info("📅 Fixture management commands available:")
+        logger.info("   /newfixture - Create new fixtures")
+        logger.info("   /listfixtures - List fixtures with filtering")
         
-        bot_thread = threading.Thread(target=run_bot, daemon=True)
-        bot_thread.start()
-        logger.info("✅ Telegram bot started with CrewAI integration")
-        return True
-        
-    except Exception as e:
-        logger.error(f"❌ Telegram bot failed: {e}")
-        return False
-
-def main():
-    """Main entry point for Railway deployment."""
-    try:
-        logger.info("🚀 Starting KICKAI on Railway...")
-        logger.info("📅 Deployment timestamp: 2024-12-19 15:30 UTC")
-        
-        # Import and start the main application
-        from main import main as start_app
-        start_app()
+        # Start bot in polling mode
+        bot_runner.run_polling()
         
     except Exception as e:
         logger.error(f"❌ Failed to start KICKAI: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
-    main() # Deployment timestamp: Sat 28 Jun 2025 23:10:38 UTC
+    main()
