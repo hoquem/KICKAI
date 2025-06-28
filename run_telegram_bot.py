@@ -52,24 +52,59 @@ class TelegramBotRunner:
     def _get_bot_token_from_db(self):
         """Get bot token from Supabase database."""
         try:
+            logger.info("🔍 Starting bot token retrieval from database...")
+            
+            # Step 1: Import the Supabase client
+            logger.info("📦 Importing Supabase client...")
             try:
                 from tools.supabase_tools import get_supabase_client
-            except ImportError:
+                logger.info("✅ Imported from tools.supabase_tools")
+            except ImportError as import_error:
+                logger.warning(f"⚠️ Import failed from tools.supabase_tools: {import_error}")
                 # Fallback for local development
-                from src.tools.supabase_tools import get_supabase_client
+                try:
+                    from src.tools.supabase_tools import get_supabase_client
+                    logger.info("✅ Imported from src.tools.supabase_tools")
+                except ImportError as fallback_error:
+                    logger.error(f"❌ Both import paths failed: {fallback_error}")
+                    raise
                 
-            supabase = get_supabase_client()
+            # Step 2: Create Supabase client
+            logger.info("🔧 Creating Supabase client...")
+            try:
+                supabase = get_supabase_client()
+                logger.info("✅ Supabase client created successfully")
+            except Exception as client_error:
+                logger.error(f"❌ Failed to create Supabase client: {client_error}")
+                logger.error(f"❌ Error type: {type(client_error)}")
+                logger.error(f"❌ Error args: {client_error.args}")
+                raise
             
-            response = supabase.table('team_bots').select('bot_token').eq('team_id', '0854829d-445c-4138-9fd3-4db562ea46ee').eq('is_active', True).execute()
+            # Step 3: Execute database query
+            logger.info("🔍 Executing database query...")
+            try:
+                response = supabase.table('team_bots').select('bot_token').eq('team_id', '0854829d-445c-4138-9fd3-4db562ea46ee').eq('is_active', True).execute()
+                logger.info("✅ Database query executed successfully")
+                logger.info(f"📊 Response data: {response.data if hasattr(response, 'data') else 'No data attribute'}")
+            except Exception as query_error:
+                logger.error(f"❌ Database query failed: {query_error}")
+                logger.error(f"❌ Query error type: {type(query_error)}")
+                raise
             
-            if response.data:
-                return response.data[0]['bot_token']
+            # Step 4: Process response
+            if response and hasattr(response, 'data') and response.data:
+                bot_token = response.data[0]['bot_token']
+                logger.info(f"✅ Bot token retrieved successfully: {bot_token[:10]}...")
+                return bot_token
             else:
-                logger.error("No active bot found in database")
+                logger.error("❌ No active bot found in database")
                 return None
                 
         except Exception as e:
-            logger.error(f"Error getting bot token from database: {e}")
+            logger.error(f"❌ Error getting bot token from database: {e}")
+            logger.error(f"❌ Full error details: {type(e).__name__}: {str(e)}")
+            import traceback
+            logger.error(f"❌ Traceback: {traceback.format_exc()}")
             return None
     
     def _calculate_delay(self):
