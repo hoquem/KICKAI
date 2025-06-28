@@ -34,126 +34,27 @@ load_dotenv()
 # --- Comprehensive Supabase Client Factory ---
 def get_supabase_client():
     """
-    Get Supabase client with comprehensive error handling and version compatibility.
-    
+    Get Supabase client with robust error handling and version compatibility.
     Returns:
         Client: Supabase client instance
-        
     Raises:
         ValueError: If environment variables are missing
         Exception: If client creation fails
     """
     try:
-        # Import with version compatibility handling
         try:
             from supabase import create_client, Client
         except ImportError as e:
             logger.error(f"Supabase client not available: {e}")
             raise ImportError("Supabase client not available. Install with: pip install supabase")
-        
-        # Get environment variables
         url = os.getenv("SUPABASE_URL")
         key = os.getenv("SUPABASE_KEY")
-        
         if not url or not key:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables")
-        
-        # Strategy 1: Try with explicit HTTPX client configuration (fixes proxy issues)
-        try:
-            logger.info("🔄 Strategy 1: Creating client with explicit HTTPX configuration...")
-            import httpx
-            
-            # Create HTTPX client with explicit settings to avoid proxy conflicts
-            httpx_client = httpx.Client(
-                timeout=httpx.Timeout(30.0, connect=10.0),
-                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
-                # Disable SSL verification if needed (not recommended for production)
-                # verify=False
-            )
-            
-            from supabase.lib.client_options import SyncClientOptions
-            
-            options = SyncClientOptions(
-                schema='public',
-                auto_refresh_token=True,
-                persist_session=False,  # Disable session persistence for server deployment
-                postgrest_client_timeout=30,
-                storage_client_timeout=10,
-                function_client_timeout=10,
-                httpx_client=httpx_client  # Use our custom HTTPX client
-            )
-            
-            client = create_client(url, key, options)
-            logger.info("✅ Supabase client created successfully with explicit HTTPX configuration")
-            return client
-            
-        except Exception as strategy1_error:
-            logger.warning(f"⚠️ Strategy 1 failed: {strategy1_error}")
-            
-            # Strategy 2: Try with basic options (no HTTPX client)
-            try:
-                logger.info("🔄 Strategy 2: Creating client with basic options...")
-                from supabase.lib.client_options import SyncClientOptions
-                
-                options = SyncClientOptions(
-                    schema='public',
-                    auto_refresh_token=True,
-                    persist_session=False,
-                    postgrest_client_timeout=30,
-                    storage_client_timeout=10,
-                    function_client_timeout=10
-                    # Don't specify httpx_client to use default
-                )
-                
-                client = create_client(url, key, options)
-                logger.info("✅ Supabase client created successfully with basic options")
-                return client
-                
-            except Exception as strategy2_error:
-                logger.warning(f"⚠️ Strategy 2 failed: {strategy2_error}")
-                
-                # Strategy 3: Try with minimal configuration
-                try:
-                    logger.info("🔄 Strategy 3: Creating client with minimal configuration...")
-                    client = create_client(url, key)
-                    logger.info("✅ Supabase client created successfully with minimal configuration")
-                    return client
-                    
-                except Exception as strategy3_error:
-                    logger.error(f"❌ Strategy 3 failed: {strategy3_error}")
-                    
-                    # Strategy 4: Try with environment variable workaround
-                    try:
-                        logger.info("🔄 Strategy 4: Creating client with environment workaround...")
-                        
-                        # Temporarily unset any proxy environment variables
-                        original_proxy = os.environ.get('HTTP_PROXY')
-                        original_https_proxy = os.environ.get('HTTPS_PROXY')
-                        
-                        if original_proxy:
-                            logger.info(f"🔧 Temporarily unsetting HTTP_PROXY: {original_proxy}")
-                            del os.environ['HTTP_PROXY']
-                        if original_https_proxy:
-                            logger.info(f"🔧 Temporarily unsetting HTTPS_PROXY: {original_https_proxy}")
-                            del os.environ['HTTPS_PROXY']
-                        
-                        try:
-                            client = create_client(url, key)
-                            logger.info("✅ Supabase client created successfully with environment workaround")
-                            return client
-                        finally:
-                            # Restore original proxy settings
-                            if original_proxy:
-                                os.environ['HTTP_PROXY'] = original_proxy
-                            if original_https_proxy:
-                                os.environ['HTTPS_PROXY'] = original_https_proxy
-                                
-                    except Exception as strategy4_error:
-                        logger.error(f"❌ Strategy 4 failed: {strategy4_error}")
-                        
-                        # All strategies failed
-                        raise Exception(f"All Supabase client creation strategies failed. Last error: {strategy4_error}")
-                
+        # Use default client creation for maximum compatibility
+        client = create_client(url, key)
+        logger.info("✅ Supabase client created successfully (default options)")
+        return client
     except Exception as e:
         logger.error(f"Error in get_supabase_client: {e}")
         raise e
