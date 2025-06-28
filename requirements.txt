@@ -31,7 +31,7 @@ litellm==1.30.0
 lxml==5.1.0
 openai==1.13.3
 orjson==3.10.18
-packaging==23.2
+# packaging - let pip resolve automatically
 postgrest==0.15.1
 psutil==5.9.6
 pydantic==2.5.0
