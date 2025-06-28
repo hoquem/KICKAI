@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 Telegram Command Handler for KICKAI
+Version: 1.2.0-fixture-management
+Deployment: 2024-12-19 16:25 UTC
 Handles commands in leadership group and natural language in main team group
 DEPLOYMENT VERSION: 2024-12-19-15:45 - Fixture Management Active
 """
@@ -10,9 +12,13 @@ import logging
 import re
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
-from supabase import create_client, Client
+from supabase._sync.client import create_client, Client
+
+# Version check - this will force Railway to reload
+VERSION = "1.2.0-fixture-management"
+DEPLOYMENT_TIME = "2024-12-19 16:25 UTC"
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
