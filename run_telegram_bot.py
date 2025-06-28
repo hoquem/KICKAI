@@ -9,8 +9,20 @@ import time
 import logging
 import requests
 import random
+import sys
 from dotenv import load_dotenv
-from src.telegram_command_handler import TelegramCommandHandler
+
+# Add src directory to Python path for Railway deployment
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.join(current_dir, 'src')
+if os.path.exists(src_dir):
+    sys.path.insert(0, src_dir)
+
+try:
+    from telegram_command_handler import TelegramCommandHandler
+except ImportError:
+    # Fallback for local development
+    from src.telegram_command_handler import TelegramCommandHandler
 
 # Load environment variables
 load_dotenv()
@@ -40,7 +52,12 @@ class TelegramBotRunner:
     def _get_bot_token_from_db(self):
         """Get bot token from Supabase database."""
         try:
-            from src.tools.supabase_tools import get_supabase_client
+            try:
+                from tools.supabase_tools import get_supabase_client
+            except ImportError:
+                # Fallback for local development
+                from src.tools.supabase_tools import get_supabase_client
+                
             supabase = get_supabase_client()
             
             response = supabase.table('team_bots').select('bot_token').eq('team_id', '0854829d-445c-4138-9fd3-4db562ea46ee').eq('is_active', True).execute()

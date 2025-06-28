@@ -59,7 +59,16 @@ def start_bot():
     global bot_runner, app_metrics
     
     try:
-        from src.telegram_command_handler import TelegramCommandHandler
+        # Fix imports for Railway deployment
+        import sys
+        import os
+        
+        # Add current directory to Python path
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)
+        sys.path.insert(0, project_root)
+        
+        from telegram_command_handler import TelegramCommandHandler
         from run_telegram_bot import TelegramBotRunner
         
         logger.info("Starting Telegram bot...")
