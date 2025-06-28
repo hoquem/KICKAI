@@ -1,31 +1,11 @@
-# Core dependencies
-crewai==0.70.0
-langchain==0.2.16
-langchain-community==0.2.16
-langchain-openai==0.1.25
-langchain-google-genai==2.1.8
-langchain-ollama==0.1.8
+# Core dependencies for deployment
+python-telegram-bot==20.7
+supabase==2.3.4
+python-dotenv==1.0.0
+requests==2.31.0
+flask==3.0.0
+psutil==5.9.6
 
-# Database
-supabase==2.8.0
-psycopg2-binary==2.9.9
-
-# AI/ML
-openai==1.58.1
-google-generativeai==0.8.4
-ollama==0.2.7
-
-# Utilities
-python-dotenv==1.0.1
-requests==2.32.3
-pydantic==2.8.2
-
-# Telegram integration
-python-telegram-bot==21.1
-
-# Development
-pytest==8.2.2
-black==24.3.0
-flake8==7.1.1
-
-# Additional dependencies may be added as the project grows 
+# Additional utilities
+pydantic==2.5.0
+typing-extensions==4.8.0
