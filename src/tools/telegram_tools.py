@@ -46,6 +46,41 @@ def get_team_bot_credentials(team_id: str) -> Tuple[str, str]:
         raise
 
 
+def get_team_bot_credentials_dual(team_id: str, chat_type: str = 'main') -> Tuple[str, str]:
+    """Fetch the Telegram bot token and chat ID for a specific team from the database.
+    
+    Args:
+        team_id (str): The team ID
+        chat_type (str): Either 'main' or 'leadership'
+        
+    Returns:
+        Tuple[str, str]: (bot_token, chat_id)
+    """
+    try:
+        supabase = get_supabase_client()
+        
+        # Find the bot mapping for the specific team
+        if chat_type == 'main':
+            bot_resp = supabase.table('team_bots').select('bot_token, chat_id').eq('team_id', team_id).eq('is_active', True).execute()
+        elif chat_type == 'leadership':
+            bot_resp = supabase.table('team_bots').select('bot_token, leadership_chat_id').eq('team_id', team_id).eq('is_active', True).execute()
+            if bot_resp.data and bot_resp.data[0].get('leadership_chat_id'):
+                return bot_resp.data[0]['bot_token'], bot_resp.data[0]['leadership_chat_id']
+            else:
+                raise ValueError(f"No leadership chat configured for team ID: {team_id}")
+        else:
+            raise ValueError(f"Invalid chat_type: {chat_type}. Must be 'main' or 'leadership'")
+        
+        if not bot_resp.data:
+            raise ValueError(f"No bot mapping found for team ID: {team_id}")
+        
+        return bot_resp.data[0]['bot_token'], bot_resp.data[0]['chat_id']
+        
+    except Exception as e:
+        logger.error(f"Error getting bot credentials for team {team_id} ({chat_type}): {e}")
+        raise
+
+
 def get_team_name_by_id(team_id: str) -> str:
     """Get the team name from the database by team ID."""
     try:
@@ -58,6 +93,26 @@ def get_team_name_by_id(team_id: str) -> str:
     except Exception as e:
         logger.warning(f"Could not get team name for ID {team_id}: {e}")
         return f"Team {team_id}"
+
+
+def get_user_role_in_team(team_id: str, telegram_user_id: str) -> str:
+    """Get the role of a user in a specific team."""
+    try:
+        supabase = get_supabase_client()
+        response = supabase.table('team_members').select('role').eq('team_id', team_id).eq('telegram_user_id', telegram_user_id).eq('is_active', True).execute()
+        if response.data:
+            return response.data[0]['role']
+        else:
+            return 'player'  # Default role
+    except Exception as e:
+        logger.warning(f"Could not get user role for {telegram_user_id} in team {team_id}: {e}")
+        return 'player'  # Default role
+
+
+def is_leadership_member(team_id: str, telegram_user_id: str) -> bool:
+    """Check if a user is a leadership member (admin, secretary, manager, treasurer)."""
+    role = get_user_role_in_team(team_id, telegram_user_id)
+    return role in ['admin', 'secretary', 'manager', 'treasurer']
 
 
 class SendTelegramMessageTool(BaseTool):
@@ -365,6 +420,67 @@ def get_telegram_tools(team_id: str) -> List[BaseTool]:
     """Get all Telegram tools configured for a specific team."""
     return [
         SendTelegramMessageTool(team_id),
+        SendTelegramPollTool(team_id),
+        SendAvailabilityPollTool(team_id),
+        SendSquadAnnouncementTool(team_id),
+        SendPaymentReminderTool(team_id)
+    ]
+
+
+class SendLeadershipMessageTool(BaseTool):
+    """Tool for sending Telegram messages to a team's leadership group."""
+    
+    name: str = "send_leadership_message"
+    description: str = "Send a Telegram message to the team's leadership group"
+    team_id: Optional[str] = None
+    
+    def __init__(self, team_id: str):
+        super().__init__(name="send_leadership_message", description="Send a Telegram message to the team's leadership group")
+        self.team_id = team_id
+    
+    def _run(self, message: str) -> str:
+        """
+        Send a Telegram message to the team's leadership group.
+        
+        Args:
+            message (str): The message to send
+            
+        Returns:
+            str: Success or error message
+        """
+        try:
+            assert self.team_id is not None, "team_id must be set"
+            token, chat_id = get_team_bot_credentials_dual(self.team_id, 'leadership')
+            team_name = get_team_name_by_id(self.team_id)
+            
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            data = {
+                'chat_id': chat_id,
+                'text': message,
+                'parse_mode': 'HTML'  # Support basic HTML formatting
+            }
+            
+            response = requests.post(url, data=data)
+            response.raise_for_status()
+            
+            result = response.json()
+            if result.get('ok'):
+                logger.info(f"Leadership message sent to {team_name} successfully: {result['result']['message_id']}")
+                return f"Leadership message sent to {team_name} successfully! Message ID: {result['result']['message_id']}"
+            else:
+                return f"Telegram API error: {result.get('description', 'Unknown error')}"
+                
+        except Exception as e:
+            error_msg = f"Error sending leadership message to team {self.team_id}: {str(e)}"
+            logger.error(error_msg)
+            return error_msg
+
+
+def get_telegram_tools_dual(team_id: str) -> List[BaseTool]:
+    """Get all Telegram tools configured for a specific team with dual-channel support."""
+    return [
+        SendTelegramMessageTool(team_id),
+        SendLeadershipMessageTool(team_id),
         SendTelegramPollTool(team_id),
         SendAvailabilityPollTool(team_id),
         SendSquadAnnouncementTool(team_id),
