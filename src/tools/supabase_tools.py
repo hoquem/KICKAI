@@ -1,9 +1,23 @@
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
-from crewai.tools import BaseTool
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
+
+# Conditional import for crewai
+try:
+    from crewai.tools import BaseTool
+    CREWAI_AVAILABLE = True
+except ImportError:
+    # Fallback base class when crewai is not available
+    class BaseTool:
+        def __init__(self, name: str, description: str):
+            self.name = name
+            self.description = description
+            self.team_id = None  # Will be set by subclasses
+        def _run(self, *args, **kwargs):
+            raise NotImplementedError("BaseTool _run method must be implemented")
+    CREWAI_AVAILABLE = False
 
 # Load environment variables from .env file
 load_dotenv()
