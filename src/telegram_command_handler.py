@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import requests
-from supabase._sync.client import create_client, Client
+from supabase import create_client, Client
 
 # Version check - this will force Railway to reload
 VERSION = "1.2.0-fixture-management"
