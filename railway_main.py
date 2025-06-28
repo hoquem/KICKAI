@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Railway Main Entry Point for KICKAI
-Deployment timestamp: 2024-12-19 16:00 UTC - Fixture Management Active
+Deployment timestamp: 2024-12-19 16:20 UTC - Fixture Management Active
+Version: 1.2.0-fixture-management
 """
 
 # --- MONKEY-PATCH MUST BE FIRST - before any other imports ---
@@ -59,7 +60,8 @@ def main():
     """Main entry point for Railway deployment."""
     try:
         logger.info("🚀 Starting KICKAI on Railway...")
-        logger.info("📅 Deployment timestamp: 2024-12-19 16:00 UTC")
+        logger.info("📅 Deployment timestamp: 2024-12-19 16:20 UTC")
+        logger.info("🏆 Version: 1.2.0-fixture-management")
         logger.info("🏆 Fixture Management System: ACTIVE")
         
         # Start health server
@@ -79,6 +81,7 @@ def main():
         logger.info("📅 Fixture management commands available:")
         logger.info("   /newfixture - Create new fixtures")
         logger.info("   /listfixtures - List fixtures with filtering")
+        logger.info("🔧 Version 1.2.0-fixture-management loaded successfully!")
         
         # Start bot in polling mode
         bot_runner.run_polling()
@@ -89,3 +92,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # FORCE DEPLOYMENT: 2024-12-19 16:20 UTC - Fixture Management Active
+# FORCE DEPLOYMENT: Sun 29 Jun 2025 00:20:04 BST
