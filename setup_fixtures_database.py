@@ -14,7 +14,7 @@ from pathlib import Path
 # Add src to path
 sys.path.append(str(Path(__file__).parent / 'src'))
 
-from tools.supabase_tools import create_supabase_client
+from tools.supabase_tools import get_supabase_client
 
 def setup_fixtures_table():
     """Set up the fixtures table in Supabase."""
@@ -24,7 +24,7 @@ def setup_fixtures_table():
     try:
         # Create Supabase client
         print("🔧 Connecting to Supabase...")
-        supabase = create_supabase_client()
+        supabase = get_supabase_client()
         print("✅ Connected to Supabase")
         
         # Read SQL script
