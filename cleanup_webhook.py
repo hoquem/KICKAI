@@ -1,78 +1,120 @@
 #!/usr/bin/env python3
 """
-Clean up webhook configuration to resolve 409 conflicts
+Webhook Cleanup Script for KICKAI
+Cleans up any existing webhooks that might be causing 409 conflicts
 """
 
+import os
 import requests
 import logging
-from src.tools.supabase_tools import get_supabase_client
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def cleanup_webhook():
-    """Clean up webhook configuration."""
-    print("🧹 Cleaning up webhook configuration...")
-    
+def get_bot_token_from_db():
+    """Get bot token from Supabase database."""
     try:
-        # Get bot token from database
+        from src.tools.supabase_tools import get_supabase_client
         supabase = get_supabase_client()
+        
         response = supabase.table('team_bots').select('bot_token').eq('team_id', '0854829d-445c-4138-9fd3-4db562ea46ee').eq('is_active', True).execute()
         
-        if not response.data:
-            print("❌ No active bot found in database")
-            return False
-        
-        bot_token = response.data[0]['bot_token']
-        print(f"📱 Using bot token: {bot_token[:10]}...")
-        
+        if response and hasattr(response, 'data') and response.data:
+            return response.data[0]['bot_token']
+        else:
+            logger.error("No active bot found in database")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error getting bot token: {e}")
+        return None
+
+def cleanup_webhook(bot_token):
+    """Clean up webhook and check status."""
+    try:
         # Delete webhook
-        url = f"https://api.telegram.org/bot{bot_token}/deleteWebhook"
-        response = requests.post(url, timeout=10)
+        delete_url = f"https://api.telegram.org/bot{bot_token}/deleteWebhook"
+        delete_response = requests.post(delete_url, timeout=10)
         
-        if response.status_code == 200:
-            result = response.json()
-            if result.get('ok'):
-                print("✅ Webhook deleted successfully")
-                print(f"   Result: {result}")
-            else:
-                print(f"⚠️ Webhook deletion returned error: {result}")
+        if delete_response.status_code == 200:
+            logger.info("✅ Webhook deleted successfully")
         else:
-            print(f"⚠️ Webhook deletion failed with status: {response.status_code}")
+            logger.warning(f"Failed to delete webhook: {delete_response.status_code}")
         
-        # Get webhook info to confirm
-        url = f"https://api.telegram.org/bot{bot_token}/getWebhookInfo"
-        response = requests.get(url, timeout=10)
+        # Get webhook info
+        info_url = f"https://api.telegram.org/bot{bot_token}/getWebhookInfo"
+        info_response = requests.get(info_url, timeout=10)
         
-        if response.status_code == 200:
-            result = response.json()
-            if result.get('ok'):
-                webhook_info = result['result']
-                print(f"📋 Webhook info:")
-                print(f"   URL: {webhook_info.get('url', 'None')}")
-                print(f"   Has custom certificate: {webhook_info.get('has_custom_certificate', False)}")
-                print(f"   Pending update count: {webhook_info.get('pending_update_count', 0)}")
-                print(f"   Last error date: {webhook_info.get('last_error_date', 'None')}")
-                print(f"   Last error message: {webhook_info.get('last_error_message', 'None')}")
-                
-                if not webhook_info.get('url'):
-                    print("✅ No webhook URL set - ready for polling mode")
-                    return True
+        if info_response.status_code == 200:
+            webhook_info = info_response.json()
+            if webhook_info.get('ok'):
+                result = webhook_info['result']
+                if result.get('url'):
+                    logger.warning(f"⚠️ Webhook still active: {result['url']}")
+                    logger.warning(f"   Pending updates: {result.get('pending_update_count', 0)}")
                 else:
-                    print("⚠️ Webhook URL still set - may need manual cleanup")
-                    return False
+                    logger.info("✅ Webhook is properly deleted")
+                    logger.info(f"   Pending updates: {result.get('pending_update_count', 0)}")
             else:
-                print(f"❌ Failed to get webhook info: {result}")
-                return False
+                logger.error(f"Failed to get webhook info: {webhook_info}")
         else:
-            print(f"❌ Failed to get webhook info: {response.status_code}")
+            logger.error(f"Failed to get webhook info: {info_response.status_code}")
+            
+    except Exception as e:
+        logger.error(f"Error during webhook cleanup: {e}")
+
+def test_bot_connection(bot_token):
+    """Test bot connection."""
+    try:
+        url = f"https://api.telegram.org/bot{bot_token}/getMe"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        bot_info = response.json()
+        
+        if bot_info.get('ok'):
+            bot = bot_info['result']
+            logger.info(f"✅ Bot connection successful!")
+            logger.info(f"   Name: {bot.get('first_name')}")
+            logger.info(f"   Username: @{bot.get('username')}")
+            logger.info(f"   ID: {bot.get('id')}")
+            return True
+        else:
+            logger.error(f"❌ Bot connection failed: {bot_info}")
             return False
             
     except Exception as e:
-        print(f"❌ Error during cleanup: {e}")
-        logger.error(f"Cleanup error: {e}", exc_info=True)
+        logger.error(f"❌ Error testing bot connection: {e}")
         return False
 
+def main():
+    """Main function."""
+    print("🧹 KICKAI Webhook Cleanup")
+    print("=" * 30)
+    
+    # Get bot token
+    bot_token = get_bot_token_from_db()
+    if not bot_token:
+        print("❌ Could not get bot token from database")
+        return
+    
+    print(f"📱 Bot token: {bot_token[:10]}...")
+    
+    # Test connection
+    print("\n🔍 Testing bot connection...")
+    if not test_bot_connection(bot_token):
+        print("❌ Bot connection failed")
+        return
+    
+    # Cleanup webhook
+    print("\n🧹 Cleaning up webhook...")
+    cleanup_webhook(bot_token)
+    
+    print("\n✅ Webhook cleanup completed!")
+
 if __name__ == "__main__":
-    cleanup_webhook() 
+    main() 

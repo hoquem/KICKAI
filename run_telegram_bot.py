@@ -10,6 +10,7 @@ import logging
 import requests
 import random
 import sys
+import threading
 from dotenv import load_dotenv
 
 # Add src directory to Python path for Railway deployment
@@ -147,9 +148,15 @@ class TelegramBotRunner:
                 logger.warning(f"409 Conflict: Another bot instance may be running. Error #{self.consecutive_errors}")
                 # For 409 errors, try to delete webhook first
                 self._delete_webhook()
+                # Wait longer for webhook to be fully cleared
+                wait_time = min(10 * self.consecutive_errors, 60)  # Progressive wait, max 60s
+                logger.info(f"⏳ Waiting {wait_time}s for webhook to clear...")
+                time.sleep(wait_time)
                 return None
             elif e.response.status_code == 429:
                 logger.warning(f"429 Rate limited. Error #{self.consecutive_errors}")
+                # Wait longer for rate limits
+                time.sleep(30)
                 return None
             else:
                 logger.error(f"HTTP Error getting updates: {e}")
@@ -158,6 +165,7 @@ class TelegramBotRunner:
         except requests.exceptions.Timeout:
             self.consecutive_errors += 1
             logger.warning(f"Timeout getting updates. Error #{self.consecutive_errors}")
+            # Reduce timeout for next request
             return None
             
         except requests.exceptions.ConnectionError:
@@ -177,18 +185,40 @@ class TelegramBotRunner:
             response = requests.post(url, timeout=10)
             if response is not None and response.status_code == 200:
                 logger.info("✅ Webhook deleted successfully")
+                # Also try to get webhook info to confirm
+                self._get_webhook_info()
+                # Wait a bit for webhook to be fully cleared
+                time.sleep(3)
             else:
                 status_code = response.status_code if response is not None else 'No response'
                 logger.warning(f"Failed to delete webhook: {status_code}")
         except Exception as e:
             logger.warning(f"Error deleting webhook: {e}")
     
+    def _get_webhook_info(self):
+        """Get webhook info to check if it's properly deleted."""
+        try:
+            url = f"https://api.telegram.org/bot{self.bot_token}/getWebhookInfo"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                webhook_info = response.json()
+                if webhook_info.get('ok') and webhook_info.get('result', {}).get('url'):
+                    logger.warning(f"⚠️ Webhook still active: {webhook_info['result']['url']}")
+                    # Wait longer if webhook is still active
+                    time.sleep(5)
+                else:
+                    logger.info("✅ Webhook is properly deleted")
+            else:
+                logger.warning(f"Failed to get webhook info: {response.status_code}")
+        except Exception as e:
+            logger.warning(f"Error getting webhook info: {e}")
+    
     def process_updates(self, updates):
         """Process incoming updates."""
         if not updates or not updates.get('ok') or not updates.get('result'):
             return
         
-        for update in updates['result']:
+        for update in updates.get('result', []):
             update_id = update.get('update_id', 0)
             
             # Skip already processed updates
@@ -212,8 +242,8 @@ class TelegramBotRunner:
         
         # Get initial updates to set last_update_id
         initial_updates = self.get_updates()
-        if initial_updates is not None and 'result' in initial_updates and initial_updates['result']:
-            self.last_update_id = max(update.get('update_id', 0) for update in initial_updates['result'])
+        if initial_updates is not None and initial_updates.get('result'):
+            self.last_update_id = max(update.get('update_id', 0) for update in initial_updates.get('result', []))
             logger.info(f"📋 Starting from update ID: {self.last_update_id}")
         else:
             logger.info("📋 No initial updates found, starting from update ID: 0")
@@ -223,10 +253,13 @@ class TelegramBotRunner:
         
         try:
             while True:
-                # Get updates with long polling
-                updates = self.get_updates(offset=self.last_update_id + 1)
+                # Use shorter timeout to avoid long waits
+                timeout = min(15, 5 + self.consecutive_errors)  # Adaptive timeout, max 15s
                 
-                if updates and updates.get('result'):
+                # Get updates with shorter polling
+                updates = self.get_updates(offset=self.last_update_id + 1, timeout=timeout)
+                
+                if updates is not None and updates.get('result'):
                     self.process_updates(updates)
                 
                 # Calculate delay based on error count
@@ -269,6 +302,14 @@ def main():
     """Main function to run the bot."""
     print("🏆 KICKAI Telegram Bot Runner")
     print("=" * 40)
+    
+    # Start health server for Railway monitoring
+    try:
+        from health_check import start_health_server
+        health_thread = start_health_server()
+        logger.info("✅ Health server started for Railway monitoring")
+    except Exception as e:
+        logger.warning(f"⚠️ Could not start health server: {e}")
     
     try:
         # Create bot runner
