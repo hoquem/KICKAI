@@ -24,15 +24,35 @@ INSERT INTO players (id, name, phone_number, is_active, team_id) VALUES
 -- =========================
 -- 2. TEAM MEMBERS (with roles) - using player IDs from above
 -- =========================
-INSERT INTO team_members (team_id, player_id, phone, role, is_active)
+INSERT INTO team_members (team_id, player_id, phone, role, telegram_username, is_active)
 SELECT 
     '0854829d-445c-4138-9fd3-4db562ea46ee',
     p.id,
     p.phone_number,
     CASE 
         WHEN p.name = 'Alex Johnson' THEN 'admin'
-        WHEN p.name = 'Ben Smith' THEN 'captain'
+        WHEN p.name = 'Ben Smith' THEN 'manager'
+        WHEN p.name = 'Charlie Brown' THEN 'secretary'
+        WHEN p.name = 'David Wilson' THEN 'treasurer'
+        WHEN p.name = 'Ethan Davis' THEN 'helper'
         ELSE 'player'
+    END,
+    CASE 
+        WHEN p.name = 'Alex Johnson' THEN 'alex_admin'
+        WHEN p.name = 'Ben Smith' THEN 'ben_manager'
+        WHEN p.name = 'Charlie Brown' THEN 'charlie_secretary'
+        WHEN p.name = 'David Wilson' THEN 'david_treasurer'
+        WHEN p.name = 'Ethan Davis' THEN 'ethan_helper'
+        WHEN p.name = 'Frank Miller' THEN 'frank_player'
+        WHEN p.name = 'George Taylor' THEN 'george_player'
+        WHEN p.name = 'Harry Anderson' THEN 'harry_player'
+        WHEN p.name = 'Ian Thomas' THEN 'ian_player'
+        WHEN p.name = 'Jack Jackson' THEN 'jack_player'
+        WHEN p.name = 'Kevin White' THEN 'kevin_player'
+        WHEN p.name = 'Liam Harris' THEN 'liam_player'
+        WHEN p.name = 'Mike Clark' THEN 'mike_player'
+        WHEN p.name = 'Nick Lewis' THEN 'nick_player'
+        WHEN p.name = 'Oscar Walker' THEN 'oscar_player'
     END,
     TRUE
 FROM players p
@@ -196,4 +216,24 @@ WHERE p.team_id = '0854829d-445c-4138-9fd3-4db562ea46ee'
 AND f.team_id = '0854829d-445c-4138-9fd3-4db562ea46ee'
 AND f.opponent = 'Red Lions FC'
 AND p.name IN ('Alex Johnson', 'Ben Smith', 'Charlie Brown', 'David Wilson', 'Ethan Davis', 'Frank Miller', 'George Taylor', 'Harry Anderson', 'Ian Thomas', 'Kevin White')
-ON CONFLICT (fixture_id, player_id) DO NOTHING; 
+ON CONFLICT (fixture_id, player_id) DO NOTHING;
+
+-- =========================
+-- 10. SAMPLE COMMAND LOGS (for testing dual-channel architecture)
+-- =========================
+INSERT INTO command_logs (team_id, chat_id, user_id, username, command, arguments, success, executed_at) VALUES
+-- Main team chat commands
+('0854829d-445c-4138-9fd3-4db562ea46ee', '-4959662544', '123456789', 'alex_admin', 'get_all_players', '{}', TRUE, NOW() - INTERVAL '1 hour'),
+('0854829d-445c-4138-9fd3-4db562ea46ee', '-4959662544', '123456789', 'alex_admin', 'get_fixtures', '{"upcoming_only": true}', TRUE, NOW() - INTERVAL '30 minutes'),
+('0854829d-445c-4138-9fd3-4db562ea46ee', '-4959662544', '987654321', 'frank_player', 'get_availability', '{"fixture_id": "sample-fixture-id"}', TRUE, NOW() - INTERVAL '15 minutes'),
+('0854829d-445c-4138-9fd3-4db562ea46ee', '-4959662544', '555666777', 'george_player', 'set_availability', '{"player_id": "sample-player-id", "fixture_id": "sample-fixture-id", "status": "Available"}', TRUE, NOW() - INTERVAL '10 minutes'),
+
+-- Leadership chat commands (will be populated when leadership chat is created)
+('0854829d-445c-4138-9fd3-4db562ea46ee', 'LEADERSHIP_CHAT_ID', '123456789', 'alex_admin', 'get_team_info', '{}', TRUE, NOW() - INTERVAL '2 hours'),
+('0854829d-445c-4138-9fd3-4db562ea46ee', 'LEADERSHIP_CHAT_ID', '123456789', 'alex_admin', 'get_team_members', '{"active_only": true}', TRUE, NOW() - INTERVAL '1 hour 30 minutes'),
+('0854829d-445c-4138-9fd3-4db562ea46ee', 'LEADERSHIP_CHAT_ID', '111222333', 'ben_manager', 'get_members_by_role', '{"role": "admin"}', TRUE, NOW() - INTERVAL '45 minutes'),
+('0854829d-445c-4138-9fd3-4db562ea46ee', 'LEADERSHIP_CHAT_ID', '444555666', 'charlie_secretary', 'add_team_member', '{"name": "New Player", "role": "player", "phone": "+447123456999"}', TRUE, NOW() - INTERVAL '20 minutes'),
+
+-- Failed commands for testing error handling
+('0854829d-445c-4138-9fd3-4db562ea46ee', '-4959662544', '999888777', 'unknown_user', 'invalid_command', '{}', FALSE, NOW() - INTERVAL '5 minutes'),
+('0854829d-445c-4138-9fd3-4db562ea46ee', 'LEADERSHIP_CHAT_ID', '777666555', 'unauthorized_user', 'get_team_info', '{}', FALSE, NOW() - INTERVAL '3 minutes'); 

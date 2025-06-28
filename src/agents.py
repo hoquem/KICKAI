@@ -3,13 +3,15 @@ import os
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew
 from langchain_community.llms import Ollama
-from src.tools.supabase_tools import PlayerTools, FixtureTools, AvailabilityTools
+from src.tools.supabase_tools import PlayerTools, FixtureTools, AvailabilityTools, TeamManagementTools, CommandLoggingTools
 from src.tools.telegram_tools import (
     SendTelegramMessageTool,
     SendTelegramPollTool,
     SendAvailabilityPollTool,
     SendSquadAnnouncementTool,
-    SendPaymentReminderTool
+    SendPaymentReminderTool,
+    SendLeadershipMessageTool,
+    get_telegram_tools_dual
 )
 
 # Load environment variables
@@ -33,6 +35,7 @@ def get_messaging_tools(team_id: str):
         logger.info(f"Creating Telegram messaging tools for team {team_id}")
         return {
             'message_tool': SendTelegramMessageTool(team_id),
+            'leadership_message_tool': SendLeadershipMessageTool(team_id),
             'poll_tool': SendTelegramPollTool(team_id),
             'availability_poll_tool': SendAvailabilityPollTool(team_id),
             'squad_announcement_tool': SendSquadAnnouncementTool(team_id),
@@ -174,6 +177,8 @@ def create_agents_for_team(llm, team_id: str):
     player_tools = PlayerTools(team_id)
     fixture_tools = FixtureTools(team_id)
     availability_tools = AvailabilityTools(team_id)
+    team_management_tools = TeamManagementTools(team_id)
+    command_logging_tools = CommandLoggingTools(team_id)
     
     # Get Telegram messaging tools for this team
     messaging_tools = get_messaging_tools(team_id)
@@ -188,7 +193,7 @@ def create_agents_for_team(llm, team_id: str):
         strategic decisions and coordinating between different team roles.""",
         verbose=True,
         allow_delegation=False,
-        tools=[player_tools, fixture_tools, messaging_tools['message_tool']],
+        tools=[player_tools, fixture_tools, team_management_tools, messaging_tools['message_tool'], messaging_tools['leadership_message_tool']],
         llm=llm
     )
     logger.info(f"Team Manager agent created for team {team_id}")
@@ -202,7 +207,7 @@ def create_agents_for_team(llm, team_id: str):
         about team activities and requirements.""",
         verbose=True,
         allow_delegation=False,
-        tools=[player_tools, availability_tools, messaging_tools['message_tool'], messaging_tools['availability_poll_tool']],
+        tools=[player_tools, availability_tools, team_management_tools, messaging_tools['message_tool'], messaging_tools['availability_poll_tool'], command_logging_tools],
         llm=llm
     )
     logger.info(f"Player Coordinator agent created for team {team_id}")
@@ -216,7 +221,7 @@ def create_agents_for_team(llm, team_id: str):
         and weaknesses to improve their game.""",
         verbose=True,
         allow_delegation=False,
-        tools=[fixture_tools, player_tools, messaging_tools['squad_announcement_tool']],
+        tools=[fixture_tools, player_tools, team_management_tools, messaging_tools['squad_announcement_tool'], command_logging_tools],
         llm=llm
     )
     logger.info(f"Match Analyst agent created for team {team_id}")
@@ -232,9 +237,11 @@ def create_agents_for_team(llm, team_id: str):
         allow_delegation=False,
         tools=[
             messaging_tools['message_tool'], 
+            messaging_tools['leadership_message_tool'],
             messaging_tools['poll_tool'], 
             messaging_tools['squad_announcement_tool'], 
-            messaging_tools['payment_reminder_tool']
+            messaging_tools['payment_reminder_tool'],
+            command_logging_tools
         ],
         llm=llm
     )
