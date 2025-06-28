@@ -1,34 +1,124 @@
 import os
+import logging
 from dotenv import load_dotenv
 from supabase import create_client, Client
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from datetime import datetime, date
 
-# Conditional import for crewai
-try:
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Conditional import for crewai with proper typing
+if TYPE_CHECKING:
     from crewai.tools import BaseTool
     CREWAI_AVAILABLE = True
-except ImportError:
-    # Fallback base class when crewai is not available
-    class BaseTool:
-        def __init__(self, name: str, description: str):
-            self.name = name
-            self.description = description
-            self.team_id = None  # Will be set by subclasses
-        def _run(self, *args, **kwargs):
-            raise NotImplementedError("BaseTool _run method must be implemented")
-    CREWAI_AVAILABLE = False
+else:
+    try:
+        from crewai.tools import BaseTool
+        CREWAI_AVAILABLE = True
+    except ImportError:
+        # Fallback base class when crewai is not available
+        class BaseTool:
+            def __init__(self, name: str, description: str):
+                self.name = name
+                self.description = description
+                self.team_id: Optional[str] = None  # Will be set by subclasses
+            def _run(self, *args, **kwargs):
+                raise NotImplementedError("BaseTool _run method must be implemented")
+        CREWAI_AVAILABLE = False
 
 # Load environment variables from .env file
 load_dotenv()
 
-# --- Supabase Client Initialization ---
-def get_supabase_client() -> Client:
-    url = os.getenv("SUPABASE_URL")
-    key = os.getenv("SUPABASE_KEY")
-    if not url or not key:
-        raise ValueError("Supabase URL and Key must be set in the .env file.")
-    return create_client(url, key)
+# --- Comprehensive Supabase Client Factory ---
+def get_supabase_client():
+    """
+    Get Supabase client with comprehensive error handling and version compatibility.
+    
+    Returns:
+        Client: Supabase client instance
+        
+    Raises:
+        ValueError: If environment variables are missing
+        Exception: If client creation fails
+    """
+    try:
+        # Import with version compatibility handling
+        try:
+            from supabase import create_client, Client
+        except ImportError as e:
+            logger.error(f"Supabase client not available: {e}")
+            raise ImportError("Supabase client not available. Install with: pip install supabase")
+        
+        # Get environment variables
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_KEY")
+        
+        if not url or not key:
+            raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables")
+        
+        # Create client with explicit options to avoid proxy issues
+        try:
+            # Try with explicit options first (for newer versions)
+            from supabase.lib.client_options import SyncClientOptions
+            
+            options = SyncClientOptions(
+                schema='public',
+                auto_refresh_token=True,
+                persist_session=False,  # Disable session persistence for server deployment
+                postgrest_client_timeout=30,
+                storage_client_timeout=10,
+                function_client_timeout=10
+            )
+            
+            client = create_client(url, key, options)
+            logger.info("✅ Supabase client created successfully with explicit options")
+            return client
+            
+        except Exception as options_error:
+            logger.warning(f"Failed to create client with options: {options_error}")
+            
+            # Fallback to basic client creation
+            try:
+                client = create_client(url, key)
+                logger.info("✅ Supabase client created successfully with basic options")
+                return client
+                
+            except Exception as basic_error:
+                logger.error(f"Failed to create basic client: {basic_error}")
+                raise Exception(f"Failed to create Supabase client: {basic_error}")
+                
+    except Exception as e:
+        logger.error(f"Error in get_supabase_client: {e}")
+        raise e
+
+# --- Test Supabase Connection ---
+def test_supabase_connection():
+    """
+    Test Supabase connection and return status.
+    
+    Returns:
+        dict: Connection status and details
+    """
+    try:
+        client = get_supabase_client()
+        
+        # Test a simple query
+        response = client.table('teams').select('count').limit(1).execute()
+        
+        return {
+            'status': 'success',
+            'message': 'Supabase connection successful',
+            'data': response.data if hasattr(response, 'data') else None
+        }
+        
+    except Exception as e:
+        return {
+            'status': 'error',
+            'message': f'Supabase connection failed: {str(e)}',
+            'data': None
+        }
 
 # --- Player Management Tools ---
 
