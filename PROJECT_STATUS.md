@@ -696,3 +696,22 @@ PAYMENT_LATE_FINE_AMOUNT=5.00
 **Last Updated:** December 2024  
 **Status:** Ready for Implementation  
 **Next Review:** March 2025 
+
+## [BASELINE] Dual-Channel Bot, Team Isolation, and CLI Management (June 2024)
+
+### Baseline Features (Complete & Production-Ready)
+- [x] **Dual-channel Telegram bot architecture**: Main team group and leadership group, with strict role separation and command isolation.
+- [x] **Team isolation**: All bot, command, and data operations are strictly scoped to the current team and its two group chats. No cross-team leakage.
+- [x] **Database schema**: Clean, normalized, and indexed schema supporting multi-team, multi-bot, and dual-channel operation. All constraints and foreign keys enforced.
+- [x] **Command logging**: All commands and natural language interactions are logged with team and chat context for auditability.
+- [x] **CLI management**: Comprehensive CLI (`kickai_cli.py`) for team, bot, dual-channel, and member management, as well as system status and sanity checks.
+- [x] **Sanity checks**: Automated script verifies schema, isolation, constraints, and logging.
+- [x] **Sample/test data**: Only BP Hatters FC present, with all test scripts confirming isolation and correct operation.
+
+### Next Steps
+- [ ] Add more teams and test multi-team operation
+- [ ] Expand CLI for advanced workflows (fixture, payment, etc.)
+- [ ] Begin user acceptance testing with real team members
+
+**Status:**
+- All baseline features are complete, tested, and merged to main. The codebase is clean and ready for further development and production use. 
