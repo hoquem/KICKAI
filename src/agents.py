@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew
 from langchain_community.llms import Ollama
+from langchain_google_genai import ChatGoogleGenerativeAI
 from src.tools.supabase_tools import PlayerTools, FixtureTools, AvailabilityTools, TeamManagementTools, CommandLoggingTools
 from src.tools.telegram_tools import (
     SendTelegramMessageTool,
@@ -13,6 +14,11 @@ from src.tools.telegram_tools import (
     SendLeadershipMessageTool,
     get_telegram_tools_dual
 )
+
+# Import configuration
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import config
 
 # Load environment variables
 load_dotenv()
@@ -159,11 +165,37 @@ Final Answer: The team has been notified about the next match via Telegram.
 '''
 
 def create_llm():
-    """Create and configure the LLM instance."""
+    """Create and configure the LLM instance based on environment."""
     try:
-        llm = Ollama(model="ollama/llama3.1:8b-instruct-q4_0", system=CREWAI_SYSTEM_PROMPT)
-        logger.info("LLM created successfully with Ollama using robust system prompt")
+        # Validate configuration first
+        if not config.validate_config():
+            raise ValueError("Invalid configuration")
+        
+        ai_config = config.ai_config
+        logger.info(f"Creating LLM with provider: {ai_config['provider']}")
+        
+        if ai_config['provider'] == 'google':
+            # Use Google AI for production
+            llm = ChatGoogleGenerativeAI(
+                model=ai_config['model'],
+                google_api_key=ai_config['api_key'],
+                temperature=0.7,
+                max_output_tokens=1000,
+                system=CREWAI_SYSTEM_PROMPT
+            )
+            logger.info("✅ Google AI LLM created successfully")
+            
+        else:
+            # Use Ollama for local development
+            llm = Ollama(
+                model=ai_config['model'],
+                base_url=ai_config['base_url'],
+                system=CREWAI_SYSTEM_PROMPT
+            )
+            logger.info("✅ Ollama LLM created successfully")
+        
         return llm
+        
     except Exception as e:
         logger.error(f"Failed to create LLM: {e}")
         raise

@@ -20,6 +20,7 @@ langchain==0.1.0
 langchain-community==0.0.20
 langchain-core==0.1.20
 langchain-ollama==0.1.0
+langchain-google-genai==0.0.6
 litellm==1.30.0
 
 # AI model dependencies
