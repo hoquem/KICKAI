@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Railway Main Entry Point for KICKAI Full System
-Starts the complete system including CrewAI agents, Telegram bot, and health monitoring
+Railway Main Entry Point for KICKAI
+Deployment timestamp: 2024-12-19 15:30 UTC
 """
 
 # --- MONKEY-PATCH MUST BE FIRST - before any other imports ---
@@ -29,9 +29,13 @@ import logging
 import time
 import threading
 from dotenv import load_dotenv
+from pathlib import Path
 
 # Load environment variables
 load_dotenv()
+
+# Add src to path
+sys.path.append(str(Path(__file__).parent / 'src'))
 
 # Set up logging
 logging.basicConfig(
@@ -80,34 +84,18 @@ def start_telegram_bot():
         return False
 
 def main():
-    """Main function for Railway deployment."""
-    print("🚀 KICKAI Full System - Railway Deployment")
-    print("=" * 50)
-    
-    # Start health server
-    print("\n🏥 Starting health server...")
-    health_thread = start_health_server()
-    
-    # Start Telegram bot
-    print("\n🤖 Starting Telegram bot with CrewAI...")
-    if not start_telegram_bot():
-        print("❌ Failed to start Telegram bot")
-        return
-    
-    print("\n✅ KICKAI Full System deployed successfully!")
-    print("\n📊 Services Running:")
-    print("   🏥 Health Server: https://your-app.railway.app/health")
-    print("   🤖 Telegram Bot: @BPHatters_bot")
-    print("   🧠 CrewAI Agents: Ready")
-    print("   🗄️  Database: Connected")
-    
-    # Keep alive
+    """Main entry point for Railway deployment."""
     try:
-        while True:
-            time.sleep(60)
-            logger.info("💓 System heartbeat - all services operational")
-    except KeyboardInterrupt:
-        logger.info("🛑 Shutting down...")
+        logger.info("🚀 Starting KICKAI on Railway...")
+        logger.info("📅 Deployment timestamp: 2024-12-19 15:30 UTC")
+        
+        # Import and start the main application
+        from main import main as start_app
+        start_app()
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to start KICKAI: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    main() 
+    main() # Deployment timestamp: Sat 28 Jun 2025 23:10:38 UTC
