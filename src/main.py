@@ -1,250 +1,173 @@
 #!/usr/bin/env python3
 """
-KICKAI Main Application Entry Point
-Handles web server, bot runner, and monitoring for Railway deployment
+KICKAI Main Application
+Flask web server with Telegram bot integration and monitoring
 """
 
 import os
-import threading
+import sys
 import time
 import logging
+import threading
 from flask import Flask, jsonify, request
-from dotenv import load_dotenv
+from datetime import datetime
 
-# Load environment variables
-load_dotenv()
+# Add current directory to Python path for Railway deployment
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+sys.path.insert(0, project_root)
+
+# Import monitoring and bot components
+try:
+    from monitoring import SystemMonitor, AppMetrics
+    from tools.supabase_tools import test_supabase_connection
+except ImportError as e:
+    print(f"Import error: {e}")
+    # Fallback imports for Railway deployment
+    try:
+        sys.path.insert(0, os.path.join(project_root, 'src'))
+        from monitoring import SystemMonitor, AppMetrics
+        from tools.supabase_tools import test_supabase_connection
+    except ImportError as e2:
+        print(f"Fallback import error: {e2}")
+        # Create minimal fallback classes
+        class SystemMonitor:
+            def get_metrics(self):
+                return {"status": "monitoring_unavailable"}
+        class AppMetrics:
+            def __init__(self):
+                self.metrics = {"status": "metrics_unavailable"}
+        def test_supabase_connection():
+            return {"status": "error", "message": "Supabase tools unavailable"}
 
 # Set up logging
 logging.basicConfig(
-    level=getattr(logging, os.getenv('LOG_LEVEL', 'INFO')),
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
+# Initialize Flask app
 app = Flask(__name__)
 
-# Global variables for monitoring
+# Global variables
 bot_runner = None
-system_metrics = {}
-app_metrics = {
-    'start_time': time.time(),
-    'requests_processed': 0,
-    'requests_failed': 0,
-    'bot_status': 'stopped'
-}
+system_monitor = SystemMonitor()
+app_metrics = AppMetrics()
 
-def get_system_metrics():
-    """Get basic system metrics."""
+@app.route('/')
+def home():
+    """Home endpoint with basic info."""
+    return jsonify({
+        'app': 'KICKAI',
+        'version': '1.0.0',
+        'status': 'running',
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/health')
+def health():
+    """Health check endpoint."""
     try:
-        import psutil
-        return {
-            'timestamp': time.time(),
-            'cpu_percent': psutil.cpu_percent(),
-            'memory_percent': psutil.virtual_memory().percent,
-            'disk_percent': psutil.disk_usage('/').percent,
-            'process_count': len(psutil.pids())
-        }
-    except ImportError:
-        return {
-            'timestamp': time.time(),
-            'cpu_percent': 0,
-            'memory_percent': 0,
-            'disk_percent': 0,
-            'process_count': 0,
-            'note': 'psutil not available'
-        }
+        # Test Supabase connection
+        supabase_status = test_supabase_connection()
+        
+        # Get system metrics
+        system_metrics = system_monitor.get_metrics()
+        
+        # Get app metrics
+        app_metrics_data = app_metrics.metrics
+        
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'supabase': supabase_status,
+            'system': system_metrics,
+            'app': app_metrics_data
+        })
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+@app.route('/metrics')
+def metrics():
+    """Metrics endpoint."""
+    try:
+        return jsonify({
+            'system': system_monitor.get_metrics(),
+            'app': app_metrics.metrics,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Metrics endpoint failed: {e}")
+        return jsonify({'error': str(e)}), 500
 
 def start_bot():
     """Start the Telegram bot in a separate thread."""
     global bot_runner, app_metrics
     
     try:
-        # Fix imports for Railway deployment
-        import sys
-        import os
+        # Test Supabase connection first
+        supabase_status = test_supabase_connection()
+        if supabase_status['status'] != 'success':
+            logger.error(f"Supabase connection failed: {supabase_status['message']}")
+            app_metrics.metrics['bot_status'] = 'supabase_error'
+            return
         
-        # Add current directory to Python path
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)
-        sys.path.insert(0, project_root)
-        
-        from telegram_command_handler import TelegramCommandHandler
-        from run_telegram_bot import TelegramBotRunner
+        # Import bot components
+        try:
+            from telegram_command_handler import TelegramCommandHandler
+            from run_telegram_bot import TelegramBotRunner
+        except ImportError as e:
+            logger.error(f"Bot import error: {e}")
+            app_metrics.metrics['bot_status'] = 'import_error'
+            return
         
         logger.info("Starting Telegram bot...")
         bot_runner = TelegramBotRunner()
-        app_metrics['bot_status'] = 'starting'
+        app_metrics.metrics['bot_status'] = 'starting'
         
         # Test connection first
         if bot_runner.test_connection():
-            app_metrics['bot_status'] = 'running'
-            logger.info("Bot started successfully")
-            bot_runner.run_polling()
+            app_metrics.metrics['bot_status'] = 'connected'
+            logger.info("✅ Bot connected successfully!")
+            
+            # Start bot in background thread
+            bot_thread = threading.Thread(target=bot_runner.run_polling, daemon=True)
+            bot_thread.start()
+            app_metrics.metrics['bot_status'] = 'running'
+            logger.info("✅ Bot started successfully!")
         else:
-            app_metrics['bot_status'] = 'failed'
-            logger.error("Bot failed to start")
+            app_metrics.metrics['bot_status'] = 'connection_failed'
+            logger.error("❌ Bot connection failed")
             
     except Exception as e:
-        app_metrics['bot_status'] = 'error'
-        logger.error(f"Bot error: {e}")
-
-def start_monitoring():
-    """Start monitoring in a separate thread."""
-    global system_metrics
-    
-    while True:
-        try:
-            system_metrics = get_system_metrics()
-            logger.debug(f"System metrics: {system_metrics}")
-            time.sleep(60)  # Collect metrics every minute
-        except Exception as e:
-            logger.error(f"Monitoring error: {e}")
-            time.sleep(60)
-
-@app.route('/health')
-def health_check():
-    """Health check endpoint for Railway."""
-    global system_metrics, app_metrics, bot_runner
-    
-    try:
-        # Update request metrics
-        app_metrics['requests_processed'] += 1
-        
-        # Check if bot is running
-        bot_status = app_metrics['bot_status']
-        if bot_runner:
-            try:
-                # Try to get bot info to verify it's still running
-                bot_runner.test_connection()
-                bot_status = 'running'
-            except:
-                bot_status = 'error'
-        
-        response = {
-            'status': 'healthy',
-            'timestamp': time.time(),
-            'uptime': time.time() - app_metrics['start_time'],
-            'bot_status': bot_status,
-            'system_metrics': system_metrics,
-            'app_metrics': app_metrics,
-            'environment': os.getenv('ENVIRONMENT', 'unknown')
-        }
-        
-        return jsonify(response)
-        
-    except Exception as e:
-        app_metrics['requests_failed'] += 1
-        logger.error(f"Health check failed: {e}")
-        return jsonify({
-            'status': 'unhealthy',
-            'error': str(e),
-            'timestamp': time.time()
-        }), 500
-
-@app.route('/metrics')
-def metrics():
-    """Detailed metrics endpoint."""
-    global system_metrics, app_metrics
-    
-    return jsonify({
-        'system': system_metrics,
-        'application': app_metrics,
-        'environment': os.getenv('ENVIRONMENT', 'unknown')
-    })
-
-@app.route('/')
-def home():
-    """Home endpoint."""
-    return jsonify({
-        'service': 'KICKAI Telegram Bot',
-        'version': '1.0.0',
-        'status': 'running',
-        'environment': os.getenv('ENVIRONMENT', 'unknown'),
-        'endpoints': {
-            'health': '/health',
-            'metrics': '/metrics'
-        }
-    })
-
-@app.route('/bot/status')
-def bot_status():
-    """Bot status endpoint."""
-    global bot_runner, app_metrics
-    
-    try:
-        if bot_runner:
-            is_connected = bot_runner.test_connection()
-            return jsonify({
-                'status': 'connected' if is_connected else 'disconnected',
-                'bot_status': app_metrics['bot_status'],
-                'timestamp': time.time()
-            })
-        else:
-            return jsonify({
-                'status': 'not_initialized',
-                'bot_status': app_metrics['bot_status'],
-                'timestamp': time.time()
-            })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'error': str(e),
-            'timestamp': time.time()
-        }), 500
-
-@app.route('/bot/restart', methods=['POST'])
-def restart_bot():
-    """Restart the bot."""
-    global bot_runner, app_metrics
-    
-    try:
-        logger.info("Restarting bot...")
-        app_metrics['bot_status'] = 'restarting'
-        
-        # Stop current bot if running
-        if bot_runner:
-            try:
-                # This would need to be implemented in TelegramBotRunner
-                pass
-            except:
-                pass
-        
-        # Start new bot thread
-        bot_thread = threading.Thread(target=start_bot, daemon=True)
-        bot_thread.start()
-        
-        return jsonify({
-            'status': 'restarting',
-            'message': 'Bot restart initiated',
-            'timestamp': time.time()
-        })
-        
-    except Exception as e:
-        logger.error(f"Bot restart failed: {e}")
-        return jsonify({
-            'status': 'error',
-            'error': str(e),
-            'timestamp': time.time()
-        }), 500
+        logger.error(f"Error starting bot: {e}")
+        app_metrics.metrics['bot_status'] = 'error'
+        app_metrics.metrics['bot_error'] = str(e)
 
 def main():
-    """Main function to start all services."""
-    logger.info("Starting KICKAI application...")
+    """Main application entry point."""
+    logger.info("🚀 Starting KICKAI application...")
     
-    # Start bot in background thread
+    # Start bot in background
     bot_thread = threading.Thread(target=start_bot, daemon=True)
     bot_thread.start()
     
-    # Start monitoring in background thread
-    monitor_thread = threading.Thread(target=start_monitoring, daemon=True)
-    monitor_thread.start()
-    
     # Start Flask app
-    port = int(os.environ.get('PORT', 5000))
-    host = os.environ.get('HOST', '0.0.0.0')
+    port = int(os.environ.get('PORT', 8080))
+    logger.info(f"🌐 Starting Flask app on port {port}")
     
-    logger.info(f"Starting web server on {host}:{port}")
-    app.run(host=host, port=port, debug=False)
+    app.run(
+        host='0.0.0.0',
+        port=port,
+        debug=False,
+        use_reloader=False
+    )
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
