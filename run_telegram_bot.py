@@ -4,6 +4,25 @@ Telegram Bot Runner for KICKAI
 Handles incoming Telegram messages and processes commands
 """
 
+# --- MONKEY-PATCH MUST BE FIRST - before any other imports ---
+import httpx
+
+# --- Monkey-patch to remove 'proxy' and 'proxies' kwargs from httpx.Client/AsyncClient ---
+_original_client_init = httpx.Client.__init__
+def _patched_client_init(self, *args, **kwargs):
+    kwargs.pop("proxy", None)
+    kwargs.pop("proxies", None)
+    _original_client_init(self, *args, **kwargs)
+httpx.Client.__init__ = _patched_client_init
+
+_original_async_client_init = httpx.AsyncClient.__init__
+def _patched_async_client_init(self, *args, **kwargs):
+    kwargs.pop("proxy", None)
+    kwargs.pop("proxies", None)
+    _original_async_client_init(self, *args, **kwargs)
+httpx.AsyncClient.__init__ = _patched_async_client_init
+
+# --- Now safe to import other modules ---
 import os
 import time
 import logging
@@ -12,7 +31,6 @@ import random
 import sys
 import threading
 from dotenv import load_dotenv
-import httpx
 
 # Add src directory to Python path for Railway deployment
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -35,21 +53,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-# --- Monkey-patch to remove 'proxy' and 'proxies' kwargs from httpx.Client/AsyncClient ---
-_original_client_init = httpx.Client.__init__
-def _patched_client_init(self, *args, **kwargs):
-    kwargs.pop("proxy", None)
-    kwargs.pop("proxies", None)
-    _original_client_init(self, *args, **kwargs)
-httpx.Client.__init__ = _patched_client_init
-
-_original_async_client_init = httpx.AsyncClient.__init__
-def _patched_async_client_init(self, *args, **kwargs):
-    kwargs.pop("proxy", None)
-    kwargs.pop("proxies", None)
-    _original_async_client_init(self, *args, **kwargs)
-httpx.AsyncClient.__init__ = _patched_async_client_init
 
 class TelegramBotRunner:
     """Runs the Telegram bot and handles incoming messages."""

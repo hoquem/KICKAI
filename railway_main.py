@@ -4,12 +4,7 @@ Railway Main Entry Point for KICKAI Full System
 Starts the complete system including CrewAI agents, Telegram bot, and health monitoring
 """
 
-import os
-import sys
-import logging
-import time
-import threading
-from dotenv import load_dotenv
+# --- MONKEY-PATCH MUST BE FIRST - before any other imports ---
 import httpx
 
 # --- Monkey-patch to remove 'proxy' and 'proxies' kwargs from httpx.Client/AsyncClient ---
@@ -26,6 +21,14 @@ def _patched_async_client_init(self, *args, **kwargs):
     kwargs.pop("proxies", None)
     _original_async_client_init(self, *args, **kwargs)
 httpx.AsyncClient.__init__ = _patched_async_client_init
+
+# --- Now safe to import other modules ---
+import os
+import sys
+import logging
+import time
+import threading
+from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
