@@ -14,23 +14,8 @@ urllib3==2.5.0
 pydantic==2.5.0
 typing-extensions==4.8.0
 
-# CrewAI and AI dependencies
-crewai==0.28.0
-langchain==0.1.0
-langchain-community==0.0.20
-langchain-core==0.1.20
-langchain-ollama==0.1.0
-langchain-google-genai==0.0.6
-litellm==1.30.0
-
-# AI model dependencies
+# Basic AI dependencies (without CrewAI for now)
 openai==1.12.0
-anthropic==0.18.1
-
-# Search and web tools
-duckduckgo-search==4.4.0
-beautifulsoup4==4.12.3
-lxml==5.1.0
 
 # Database and async support
 asyncpg==0.29.0
@@ -38,3 +23,7 @@ aiohttp==3.9.3
 
 # Monitoring and logging
 structlog==24.1.0
+
+# Additional dependencies for requests
+charset-normalizer==3.4.2
+chardet==5.2.0
