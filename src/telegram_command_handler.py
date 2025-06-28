@@ -2,6 +2,7 @@
 """
 Telegram Command Handler for KICKAI
 Handles commands in leadership group and natural language in main team group
+DEPLOYMENT VERSION: 2024-12-19-15:45 - Fixture Management Active
 """
 
 import os
@@ -805,4 +806,4 @@ def main():
         print(f"  {cmd:<15} - {info['description']}")
 
 if __name__ == "__main__":
-    main() 
+    main() # DEPLOYMENT VERSION: 2024-12-19-15:45 - Fixture Management Active
