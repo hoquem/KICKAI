@@ -9,8 +9,7 @@ import os
 import logging
 import requests
 from typing import List, Dict, Optional, Any, Tuple
-from crewai.tools import BaseTool
-from supabase import create_client, Client
+from langchain.tools import BaseTool
 import json
 
 # Set up logging
@@ -18,28 +17,81 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_supabase_client() -> Client:
-    """Get Supabase client with proper error handling."""
-    url = os.getenv('SUPABASE_URL')
-    key = os.getenv('SUPABASE_KEY')
-    
-    if not url or not key:
-        raise ValueError("Missing Supabase environment variables")
-    
-    return create_client(url, key)
+def get_firebase_client():
+    """Get Firebase client with proper error handling."""
+    try:
+        import firebase_admin
+        from firebase_admin import credentials, firestore
+        
+        # Check if Firebase app is already initialized
+        try:
+            app = firebase_admin.get_app()
+            logger.info("✅ Using existing Firebase app")
+        except ValueError:
+            # Initialize Firebase app
+            logger.info("🔧 Initializing Firebase app...")
+            
+            # Check for service account key file
+            service_account_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH')
+            if service_account_path and os.path.exists(service_account_path):
+                # Use service account file
+                cred = credentials.Certificate(service_account_path)
+                app = firebase_admin.initialize_app(cred)
+                logger.info("✅ Firebase app initialized with service account file")
+            else:
+                # Use environment variables for Railway deployment
+                service_account_info = {
+                    "type": "service_account",
+                    "project_id": os.getenv('FIREBASE_PROJECT_ID'),
+                    "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+                    "private_key": os.getenv('FIREBASE_PRIVATE_KEY', '').replace('\\n', '\n'),
+                    "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
+                    "client_id": os.getenv('FIREBASE_CLIENT_ID'),
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                    "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_CERT_URL')
+                }
+                
+                # Validate required fields
+                required_fields = ['project_id', 'private_key', 'client_email']
+                missing_fields = [field for field in required_fields if not service_account_info.get(field)]
+                if missing_fields:
+                    raise ValueError(f"Missing Firebase environment variables: {missing_fields}")
+                
+                cred = credentials.Certificate(service_account_info)
+                app = firebase_admin.initialize_app(cred)
+                logger.info("✅ Firebase app initialized with environment variables")
+        
+        # Get Firestore client
+        db = firestore.client()
+        logger.info("✅ Firebase Firestore client created successfully")
+        return db
+        
+    except ImportError as e:
+        logger.error(f"Firebase client not available: {e}")
+        raise ImportError("Firebase client not available. Install with: pip install firebase-admin")
+    except Exception as e:
+        logger.error(f"Error in get_firebase_client: {e}")
+        raise e
 
 
 def get_team_bot_credentials(team_id: str) -> Tuple[str, str]:
     """Fetch the Telegram bot token and chat ID for a specific team from the database."""
     try:
-        supabase = get_supabase_client()
+        db = get_firebase_client()
         
         # Find the bot mapping for the specific team
-        bot_resp = supabase.table('team_bots').select('bot_token, chat_id').eq('team_id', team_id).eq('is_active', True).execute()
-        if not bot_resp.data:
+        bots_ref = db.collection('team_bots')
+        query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
+        docs = query.stream()
+        docs_list = list(docs)
+        
+        if not docs_list:
             raise ValueError(f"No bot mapping found for team ID: {team_id}")
         
-        return bot_resp.data[0]['bot_token'], bot_resp.data[0]['chat_id']
+        bot_data = docs_list[0].to_dict()
+        return bot_data['bot_token'], bot_data['chat_id']
         
     except Exception as e:
         logger.error(f"Error getting bot credentials for team {team_id}: {e}")
@@ -57,24 +109,28 @@ def get_team_bot_credentials_dual(team_id: str, chat_type: str = 'main') -> Tupl
         Tuple[str, str]: (bot_token, chat_id)
     """
     try:
-        supabase = get_supabase_client()
+        db = get_firebase_client()
         
         # Find the bot mapping for the specific team
+        bots_ref = db.collection('team_bots')
+        query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
+        docs = query.stream()
+        docs_list = list(docs)
+        
+        if not docs_list:
+            raise ValueError(f"No bot mapping found for team ID: {team_id}")
+        
+        bot_data = docs_list[0].to_dict()
+        
         if chat_type == 'main':
-            bot_resp = supabase.table('team_bots').select('bot_token, chat_id').eq('team_id', team_id).eq('is_active', True).execute()
+            return bot_data['bot_token'], bot_data['chat_id']
         elif chat_type == 'leadership':
-            bot_resp = supabase.table('team_bots').select('bot_token, leadership_chat_id').eq('team_id', team_id).eq('is_active', True).execute()
-            if bot_resp.data and bot_resp.data[0].get('leadership_chat_id'):
-                return bot_resp.data[0]['bot_token'], bot_resp.data[0]['leadership_chat_id']
+            if bot_data.get('leadership_chat_id'):
+                return bot_data['bot_token'], bot_data['leadership_chat_id']
             else:
                 raise ValueError(f"No leadership chat configured for team ID: {team_id}")
         else:
             raise ValueError(f"Invalid chat_type: {chat_type}. Must be 'main' or 'leadership'")
-        
-        if not bot_resp.data:
-            raise ValueError(f"No bot mapping found for team ID: {team_id}")
-        
-        return bot_resp.data[0]['bot_token'], bot_resp.data[0]['chat_id']
         
     except Exception as e:
         logger.error(f"Error getting bot credentials for team {team_id} ({chat_type}): {e}")
@@ -84,12 +140,13 @@ def get_team_bot_credentials_dual(team_id: str, chat_type: str = 'main') -> Tupl
 def get_team_name_by_id(team_id: str) -> str:
     """Get the team name from the database by team ID."""
     try:
-        supabase = get_supabase_client()
-        response = supabase.table('teams').select('name').eq('id', team_id).eq('is_active', True).execute()
-        if response.data:
-            return response.data[0]['name']
+        db = get_firebase_client()
+        doc = db.collection('teams').document(team_id).get()
+        if doc.exists:
+            data = doc.to_dict()
+            return data.get('name', f"Team {team_id}")
         else:
-            raise ValueError(f"Team with ID {team_id} not found or inactive")
+            raise ValueError(f"Team with ID {team_id} not found")
     except Exception as e:
         logger.warning(f"Could not get team name for ID {team_id}: {e}")
         return f"Team {team_id}"
@@ -98,10 +155,15 @@ def get_team_name_by_id(team_id: str) -> str:
 def get_user_role_in_team(team_id: str, telegram_user_id: str) -> str:
     """Get the role of a user in a specific team."""
     try:
-        supabase = get_supabase_client()
-        response = supabase.table('team_members').select('role').eq('team_id', team_id).eq('telegram_user_id', telegram_user_id).eq('is_active', True).execute()
-        if response.data:
-            return response.data[0]['role']
+        db = get_firebase_client()
+        members_ref = db.collection('team_members')
+        query = members_ref.where('team_id', '==', team_id).where('telegram_user_id', '==', telegram_user_id).where('is_active', '==', True)
+        docs = query.stream()
+        docs_list = list(docs)
+        
+        if docs_list:
+            data = docs_list[0].to_dict()
+            return data.get('role', 'player')
         else:
             return 'player'  # Default role
     except Exception as e:
@@ -232,7 +294,7 @@ class SendAvailabilityPollTool(BaseTool):
         Send an availability poll for an upcoming fixture.
         
         Args:
-            fixture_details (str): Fixture information (opponent, etc.)
+            fixture_details (str): Details about the fixture (e.g., "vs Thunder FC")
             match_date (str): Match date
             match_time (str): Match time
             location (str): Match location
@@ -245,21 +307,25 @@ class SendAvailabilityPollTool(BaseTool):
             token, chat_id = get_team_bot_credentials(self.team_id)
             team_name = get_team_name_by_id(self.team_id)
             
-            # Create availability poll
-            question = f"⚽ {team_name} - Availability: {fixture_details}"
-            options = [
-                "✅ Yes, I'm in!",
-                "❌ No, can't make it", 
-                "🤔 Maybe, will confirm later"
+            # Create availability poll message
+            poll_question = f"Availability for {fixture_details}"
+            poll_options = [
+                "✅ Available",
+                "❌ Not Available",
+                "🤔 Maybe (will confirm later)"
             ]
+            
+            # Add match details to the poll
+            match_info = f"📅 {match_date} at {match_time}\n📍 {location}"
             
             url = f"https://api.telegram.org/bot{token}/sendPoll"
             data = {
                 'chat_id': chat_id,
-                'question': question,
-                'options': json.dumps(options),
+                'question': poll_question,
+                'options': json.dumps(poll_options),
                 'is_anonymous': False,
-                'allows_multiple_answers': False
+                'allows_multiple_answers': False,
+                'explanation': match_info
             }
             
             response = requests.post(url, data=data)
@@ -292,13 +358,13 @@ class SendSquadAnnouncementTool(BaseTool):
     def _run(self, fixture_details: str, match_date: str, match_time: str, 
              starters: List[str], substitutes: List[str]) -> str:
         """
-        Send a squad announcement to the team group.
+        Announce the selected squad for an upcoming match.
         
         Args:
-            fixture_details (str): Fixture information (opponent, etc.)
+            fixture_details (str): Details about the fixture (e.g., "vs Thunder FC")
             match_date (str): Match date
             match_time (str): Match time
-            starters (List[str]): List of starting XI players
+            starters (List[str]): List of starting players
             substitutes (List[str]): List of substitute players
             
         Returns:
@@ -310,23 +376,21 @@ class SendSquadAnnouncementTool(BaseTool):
             team_name = get_team_name_by_id(self.team_id)
             
             # Create squad announcement message
-            message = f"""🏆 <b>{team_name} - Squad Announcement</b>
-
-📅 <b>Fixture:</b> {fixture_details}
-📅 <b>Date:</b> {match_date}
-⏰ <b>Time:</b> {match_time}
-
-<b>Starting XI:</b>
-"""
+            message = f"⚽ <b>SQUAD ANNOUNCEMENT</b> ⚽\n\n"
+            message += f"<b>Match:</b> {fixture_details}\n"
+            message += f"<b>Date:</b> {match_date}\n"
+            message += f"<b>Time:</b> {match_time}\n\n"
             
+            message += "🟢 <b>STARTING XI:</b>\n"
             for i, player in enumerate(starters, 1):
                 message += f"{i}. {player}\n"
             
-            message += f"\n<b>Substitutes:</b>\n"
-            for i, player in enumerate(substitutes, 1):
-                message += f"{i}. {player}\n"
+            if substitutes:
+                message += "\n🟡 <b>SUBSTITUTES:</b>\n"
+                for i, player in enumerate(substitutes, 1):
+                    message += f"{i}. {player}\n"
             
-            message += f"\nGood luck, {team_name}! 💪"
+            message += "\n💪 Let's get the win! 💪"
             
             url = f"https://api.telegram.org/bot{token}/sendMessage"
             data = {
@@ -364,12 +428,12 @@ class SendPaymentReminderTool(BaseTool):
     
     def _run(self, unpaid_players: List[str], amount: float, fixture_details: str) -> str:
         """
-        Send payment reminders to players who haven't paid.
+        Send payment reminders to players who haven't paid match fees.
         
         Args:
             unpaid_players (List[str]): List of players who haven't paid
             amount (float): Amount owed per player
-            fixture_details (str): Fixture information
+            fixture_details (str): Details about the fixture
             
         Returns:
             str: Success or error message
@@ -380,18 +444,16 @@ class SendPaymentReminderTool(BaseTool):
             team_name = get_team_name_by_id(self.team_id)
             
             # Create payment reminder message
-            message = f"""💰 <b>{team_name} - Payment Reminder</b>
-
-📅 <b>Fixture:</b> {fixture_details}
-💷 <b>Amount Due:</b> £{amount:.2f} per player
-
-<b>Players who still need to pay:</b>
-"""
+            message = f"💰 <b>PAYMENT REMINDER</b> 💰\n\n"
+            message += f"<b>Match:</b> {fixture_details}\n"
+            message += f"<b>Amount Due:</b> £{amount:.2f}\n\n"
             
-            for player in unpaid_players:
-                message += f"• {player}\n"
+            message += "The following players still need to pay:\n"
+            for i, player in enumerate(unpaid_players, 1):
+                message += f"{i}. {player}\n"
             
-            message += f"\nPlease pay your match fees as soon as possible. Contact the team admin for payment details."
+            message += f"\nPlease pay £{amount:.2f} to the team treasurer before the match.\n"
+            message += "Thank you! 🙏"
             
             url = f"https://api.telegram.org/bot{token}/sendMessage"
             data = {
@@ -417,7 +479,7 @@ class SendPaymentReminderTool(BaseTool):
 
 
 def get_telegram_tools(team_id: str) -> List[BaseTool]:
-    """Get all Telegram tools configured for a specific team."""
+    """Get all Telegram tools for a specific team."""
     return [
         SendTelegramMessageTool(team_id),
         SendTelegramPollTool(team_id),
@@ -477,12 +539,12 @@ class SendLeadershipMessageTool(BaseTool):
 
 
 def get_telegram_tools_dual(team_id: str) -> List[BaseTool]:
-    """Get all Telegram tools configured for a specific team with dual-channel support."""
+    """Get all Telegram tools for a specific team including leadership messaging."""
     return [
         SendTelegramMessageTool(team_id),
-        SendLeadershipMessageTool(team_id),
         SendTelegramPollTool(team_id),
         SendAvailabilityPollTool(team_id),
         SendSquadAnnouncementTool(team_id),
-        SendPaymentReminderTool(team_id)
+        SendPaymentReminderTool(team_id),
+        SendLeadershipMessageTool(team_id)
     ] 
