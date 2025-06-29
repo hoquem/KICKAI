@@ -88,43 +88,72 @@ def get_firebase_client():
                 logger.info("📝 Using Firebase environment variables (file not found)")
                 
                 # Get Firebase credentials from environment variables
+                project_id = os.getenv('FIREBASE_PROJECT_ID')
+                private_key = os.getenv('FIREBASE_PRIVATE_KEY', '').replace('\\n', '\n')
+                client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
+                
+                logger.info(f"🔍 Checking Firebase environment variables:")
+                logger.info(f"   Project ID: {'✅ Set' if project_id else '❌ Missing'}")
+                logger.info(f"   Private Key: {'✅ Set' if private_key else '❌ Missing'}")
+                logger.info(f"   Client Email: {'✅ Set' if client_email else '❌ Missing'}")
+                
+                # Validate required fields
+                if not project_id:
+                    raise ValueError("Missing FIREBASE_PROJECT_ID environment variable")
+                if not private_key:
+                    raise ValueError("Missing FIREBASE_PRIVATE_KEY environment variable")
+                if not client_email:
+                    raise ValueError("Missing FIREBASE_CLIENT_EMAIL environment variable")
+                
                 service_account_info = {
                     "type": "service_account",
-                    "project_id": os.getenv('FIREBASE_PROJECT_ID'),
-                    "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
-                    "private_key": os.getenv('FIREBASE_PRIVATE_KEY', '').replace('\\n', '\n'),
-                    "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
-                    "client_id": os.getenv('FIREBASE_CLIENT_ID'),
+                    "project_id": project_id,
+                    "private_key": private_key,
+                    "client_email": client_email,
+                    # Optional fields with defaults
+                    "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID', ''),
+                    "client_id": os.getenv('FIREBASE_CLIENT_ID', ''),
                     "auth_uri": os.getenv('FIREBASE_AUTH_URI', 'https://accounts.google.com/o/oauth2/auth'),
                     "token_uri": os.getenv('FIREBASE_TOKEN_URI', 'https://oauth2.googleapis.com/token'),
                     "auth_provider_x509_cert_url": os.getenv('FIREBASE_AUTH_PROVIDER_X509_CERT_URL', 'https://www.googleapis.com/oauth2/v1/certs'),
-                    "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_X509_CERT_URL')
+                    "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_X509_CERT_URL', '')
                 }
-                
-                # Validate required fields
-                required_fields = ['project_id', 'private_key', 'client_email']
-                missing_fields = [field for field in required_fields if not service_account_info.get(field)]
-                if missing_fields:
-                    logger.error(f"❌ Missing Firebase environment variables: {missing_fields}")
-                    raise ValueError(f"Missing Firebase environment variables: {missing_fields}")
                 
                 logger.info(f"✅ Firebase environment variables found for project: {service_account_info['project_id']}")
                 
                 # Create credentials from environment variables
-                cred = credentials.Certificate(service_account_info)
-                app = firebase_admin.initialize_app(cred)
-                logger.info("✅ Firebase app initialized with environment variables")
+                try:
+                    cred = credentials.Certificate(service_account_info)
+                    logger.info("✅ Firebase credentials created successfully")
+                except Exception as cred_error:
+                    logger.error(f"❌ Failed to create Firebase credentials: {cred_error}")
+                    raise
+                
+                # Initialize Firebase app
+                try:
+                    app = firebase_admin.initialize_app(cred)
+                    logger.info("✅ Firebase app initialized with environment variables")
+                except Exception as init_error:
+                    logger.error(f"❌ Failed to initialize Firebase app: {init_error}")
+                    raise
         
         # Get Firestore client
-        db = firestore.client()
-        logger.info("✅ Firebase Firestore client created successfully")
-        return db
+        try:
+            db = firestore.client()
+            logger.info("✅ Firebase Firestore client created successfully")
+            return db
+        except Exception as client_error:
+            logger.error(f"❌ Failed to create Firestore client: {client_error}")
+            raise
         
     except ImportError as e:
         logger.error(f"Firebase client not available: {e}")
         raise ImportError("Firebase client not available. Install with: pip install firebase-admin")
     except Exception as e:
         logger.error(f"Error in get_firebase_client: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise e
 
 # --- Test Firebase Connection ---

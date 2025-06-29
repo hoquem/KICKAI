@@ -6,3 +6,17 @@ firebase-admin
 requests
 gunicorn
 
+# AI and LangChain dependencies
+langchain
+langchain-community
+langchain-core
+openai
+google-generativeai
+
+# HTTP and utilities
+httpx
+pydantic
+python-dateutil
+tenacity
+structlog
+
