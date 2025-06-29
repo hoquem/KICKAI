@@ -151,20 +151,28 @@ def main():
         print("\n🚀 Setting up LLM-based bot...")
         app = Application.builder().token(bot_token).build()
         
-        # Register LLM-based commands
+        # Register agent-based commands
         try:
-            from src.telegram_command_handler import register_llm_commands
-            register_llm_commands(app)
-            logger.info("✅ LLM command parsing registered")
+            from src.telegram_command_handler import register_agent_based_commands
+            register_agent_based_commands(app)
+            logger.info("✅ Agent-based command processing registered")
         except Exception as e:
-            logger.error(f"❌ Failed to register LLM commands: {e}")
+            logger.error(f"❌ Failed to register agent-based commands: {e}")
             return
         
-        print("✅ Bot is running with LLM parsing! Send messages to your Telegram groups to test.")
-        print("💡 Natural language commands supported:")
-        print("   • \"Create a fixture against Arsenal on July 1st at 2pm\"")
-        print("   • \"Show upcoming fixtures\"")
-        print("   • \"Help\"")
+        print("✅ Bot is running with 8-agent CrewAI system! Send messages to your Telegram groups to test.")
+        print("🤖 Agent-based natural language processing enabled:")
+        print("   • Message Processing Specialist - Primary interface")
+        print("   • Team Manager - Strategic coordination")
+        print("   • Player Coordinator - Operational management")
+        print("   • Match Analyst - Tactical analysis")
+        print("   • Communication Specialist - Broadcast management")
+        print("   • Finance Manager - Financial management")
+        print("   • Squad Selection Specialist - Squad selection")
+        print("   • Analytics Specialist - Performance analytics")
+        print("💡 Try: \"Create a match against Arsenal on July 1st at 2pm\"")
+        print("💡 Try: \"Plan our next match including squad selection\"")
+        print("💡 Try: \"Analyze our team performance and suggest improvements\"")
         print("💡 Press Ctrl+C to stop the bot.")
         
         # Run the bot with polling

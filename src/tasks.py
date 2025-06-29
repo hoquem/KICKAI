@@ -269,6 +269,85 @@ class CommunicationTasks:
             tools=agent.tools
         )
 
+# --- Message Processing Tasks ---
+
+class MessageProcessingTasks:
+    """
+    A class to encapsulate all tasks related to message processing and routing.
+    """
+    
+    def interpret_message_task(self, agent):
+        """
+        Defines the task for interpreting and routing incoming messages.
+        """
+        return Task(
+            description="""Analyze the incoming message: '{message_text}' from user '{username}' in chat '{chat_id}'.
+            
+            Your job is to:
+            1. Understand the user's intent and context
+            2. Determine if this is a simple query, complex operation, or requires multiple agents
+            3. Route the request to the appropriate agent(s) or handle it directly
+            4. Maintain conversation context and handle follow-up questions
+            
+            Available agents to delegate to:
+            - Team Manager: For high-level team operations and strategic decisions
+            - Player Coordinator: For player management, availability, and player communications
+            - Match Analyst: For match analysis, tactics, and performance insights
+            - Communication Specialist: For announcements, polls, and team communications
+            
+            If the message is unclear, ask for clarification before proceeding.
+            If multiple agents are needed, coordinate their collaboration.
+            Always provide a clear, helpful response to the user.""",
+            expected_output="A comprehensive response that either directly answers the user's question or coordinates the appropriate agents to handle the request.",
+            agent=agent,
+            tools=agent.tools
+        )
+
+    def handle_followup_task(self, agent):
+        """
+        Defines the task for handling follow-up questions and maintaining context.
+        """
+        return Task(
+            description="""Handle a follow-up question: '{followup_message}' in the context of the previous conversation.
+            
+            Previous context: {conversation_context}
+            
+            Your job is to:
+            1. Understand how this question relates to the previous conversation
+            2. Determine if additional information is needed
+            3. Route to appropriate agents if needed
+            4. Provide a coherent response that builds on the previous interaction
+            
+            Maintain the conversation flow and ensure the user feels understood.""",
+            expected_output="A contextual response that addresses the follow-up question while maintaining conversation continuity.",
+            agent=agent,
+            tools=agent.tools
+        )
+
+    def route_complex_request_task(self, agent):
+        """
+        Defines the task for routing complex requests that require multiple agents.
+        """
+        return Task(
+            description="""Handle a complex request: '{complex_request}' that requires coordination between multiple agents.
+            
+            Your job is to:
+            1. Break down the complex request into component parts
+            2. Identify which agents need to be involved
+            3. Coordinate the collaboration between agents
+            4. Synthesize their responses into a coherent final answer
+            5. Ensure all aspects of the request are addressed
+            
+            Examples of complex requests:
+            - "Plan our next match including squad selection and player notifications"
+            - "Analyze our team performance and suggest improvements for next season"
+            - "Handle player registration, availability polling, and squad announcement for the upcoming game"
+            """,
+            expected_output="A comprehensive response that addresses all aspects of the complex request through coordinated agent collaboration.",
+            agent=agent,
+            tools=agent.tools
+        )
+
 def create_tasks(agents):
     """
     Create a list of tasks for the agents to work on.

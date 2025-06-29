@@ -202,8 +202,8 @@ def create_llm():
 
 
 def create_agents_for_team(llm, team_id: str):
-    """Create CrewAI agents for a specific team."""
-    logger.info(f"Creating CrewAI agents for team {team_id}...")
+    """Create CrewAI agents for a specific team with refined architecture."""
+    logger.info(f"Creating CrewAI agents for team {team_id} with refined architecture...")
     
     # Initialize tools with team context
     player_tools = PlayerTools(team_id)
@@ -216,57 +216,100 @@ def create_agents_for_team(llm, team_id: str):
     messaging_tools = get_messaging_tools(team_id)
     logger.info(f"Using {messaging_tools['platform']} for messaging team {team_id}")
 
-    # Team Manager Agent
+    # 1. Message Processing Specialist Agent (Primary Interface)
+    message_processor = Agent(
+        role='Message Processing Specialist',
+        goal='Interpret incoming Telegram messages, understand user intent, and route requests to appropriate team agents',
+        backstory="""You are an expert at understanding human communication in the context of football team management. 
+        You excel at interpreting natural language, understanding context, and determining the best way to handle 
+        user requests. You can distinguish between simple queries, complex operations, and requests that require 
+        multiple agents to collaborate. You maintain context of ongoing conversations and can handle follow-up 
+        questions intelligently.""",
+        verbose=True,
+        allow_delegation=True,  # This agent can delegate to other agents
+        tools=[
+            command_logging_tools,  # For logging all incoming messages
+            messaging_tools['message_tool']  # For asking clarifying questions
+        ],
+        llm=llm
+    )
+    logger.info(f"Message Processing Specialist agent created for team {team_id}")
+
+    # 2. Team Manager Agent (Strategic Coordination)
     team_manager = Agent(
         role='Team Manager',
         goal='Manage the Sunday League football team operations, coordinate players, and ensure smooth team functioning',
         backstory="""You are an experienced football team manager with years of experience managing Sunday League teams. 
         You understand player dynamics, team morale, and the importance of clear communication. You excel at making 
-        strategic decisions and coordinating between different team roles.""",
+        strategic decisions and coordinating between different team roles. You have a holistic view of the team and 
+        can coordinate complex operations involving multiple agents.""",
         verbose=True,
-        allow_delegation=False,
-        tools=[player_tools, fixture_tools, team_management_tools, messaging_tools['message_tool'], messaging_tools['leadership_message_tool']],
+        allow_delegation=True,  # Can coordinate other agents
+        tools=[
+            player_tools, 
+            fixture_tools, 
+            availability_tools,  # Added for strategic planning
+            team_management_tools, 
+            messaging_tools['message_tool'], 
+            messaging_tools['leadership_message_tool']
+        ],
         llm=llm
     )
     logger.info(f"Team Manager agent created for team {team_id}")
 
-    # Player Coordinator Agent
+    # 3. Player Coordinator Agent (Operational Management)
     player_coordinator = Agent(
         role='Player Coordinator',
         goal='Coordinate player availability, manage player information, and handle player communications',
         backstory="""You are a dedicated player coordinator who knows every player personally. You track their availability, 
         preferences, and performance. You're excellent at communicating with players and ensuring everyone is informed 
-        about team activities and requirements.""",
+        about team activities and requirements. You handle the day-to-day operational aspects of player management.""",
         verbose=True,
-        allow_delegation=False,
-        tools=[player_tools, availability_tools, team_management_tools, messaging_tools['message_tool'], messaging_tools['availability_poll_tool'], command_logging_tools],
+        allow_delegation=True,  # Can delegate to specialized agents
+        tools=[
+            player_tools, 
+            availability_tools, 
+            team_management_tools, 
+            messaging_tools['message_tool'], 
+            messaging_tools['availability_poll_tool'],
+            messaging_tools['payment_reminder_tool'],  # Added for payment tracking
+            command_logging_tools
+        ],
         llm=llm
     )
     logger.info(f"Player Coordinator agent created for team {team_id}")
 
-    # Match Analyst Agent
+    # 4. Match Analyst Agent (Tactical Analysis)
     match_analyst = Agent(
         role='Match Analyst',
         goal='Analyze team performance, provide insights on tactics, and suggest improvements',
         backstory="""You are a tactical football analyst with deep knowledge of the game. You analyze match performances, 
         identify areas for improvement, and provide strategic insights. You help the team understand their strengths 
-        and weaknesses to improve their game.""",
+        and weaknesses to improve their game. You work closely with the squad selection specialist for optimal team composition.""",
         verbose=True,
-        allow_delegation=False,
-        tools=[fixture_tools, player_tools, team_management_tools, messaging_tools['squad_announcement_tool'], command_logging_tools],
+        allow_delegation=True,  # Can delegate to squad selection specialist
+        tools=[
+            fixture_tools, 
+            player_tools, 
+            availability_tools,  # Added for squad analysis
+            team_management_tools, 
+            messaging_tools['squad_announcement_tool'], 
+            command_logging_tools
+        ],
         llm=llm
     )
     logger.info(f"Match Analyst agent created for team {team_id}")
 
-    # Communication Specialist Agent
+    # 5. Communication Specialist Agent (Broadcast Management)
     communication_specialist = Agent(
         role='Communication Specialist',
         goal='Handle all team communications, announcements, and ensure clear information flow',
         backstory="""You are a communication expert who ensures all team members are well-informed and connected. 
         You handle announcements, coordinate messaging, and maintain clear communication channels. You're skilled 
-        at crafting clear, engaging messages that keep the team motivated and informed.""",
+        at crafting clear, engaging messages that keep the team motivated and informed. You coordinate with other 
+        agents to ensure accurate and timely communications.""",
         verbose=True,
-        allow_delegation=False,
+        allow_delegation=False,  # Focused on communication, not delegation
         tools=[
             messaging_tools['message_tool'], 
             messaging_tools['leadership_message_tool'],
@@ -279,23 +322,102 @@ def create_agents_for_team(llm, team_id: str):
     )
     logger.info(f"Communication Specialist agent created for team {team_id}")
 
-    logger.info(f"All agents created successfully for team {team_id}")
-    return team_manager, player_coordinator, match_analyst, communication_specialist
+    # 6. Finance Manager Agent (NEW - Specialized)
+    finance_manager = Agent(
+        role='Finance Manager',
+        goal='Manage team finances, track payments, and handle financial reporting',
+        backstory="""You are a dedicated finance manager responsible for tracking all team financial matters. 
+        You monitor match fees, track payment status, and ensure financial transparency. You work closely with 
+        the player coordinator to manage payment reminders and financial reporting. You maintain accurate records 
+        and provide financial insights to the team management.""",
+        verbose=True,
+        allow_delegation=False,  # Specialized role, focused on finance
+        tools=[
+            availability_tools,  # For payment tracking
+            messaging_tools['payment_reminder_tool'],
+            team_management_tools,  # For financial reporting
+            command_logging_tools
+        ],
+        llm=llm
+    )
+    logger.info(f"Finance Manager agent created for team {team_id}")
+
+    # 7. Squad Selection Specialist Agent (NEW - Specialized)
+    squad_selection_specialist = Agent(
+        role='Squad Selection Specialist',
+        goal='Select optimal squads based on availability, form, and tactics',
+        backstory="""You are a squad selection expert with deep understanding of player positions, form, and 
+        tactical requirements. You analyze player availability, consider tactical needs, and select the optimal 
+        squad for each match. You work closely with the match analyst to understand tactical requirements and 
+        with the player coordinator to understand availability. You ensure balanced squad selection with proper 
+        cover for all positions.""",
+        verbose=True,
+        allow_delegation=False,  # Specialized role, focused on squad selection
+        tools=[
+            availability_tools,  # For availability data
+            player_tools,  # For player information
+            messaging_tools['squad_announcement_tool'],  # For announcing squads
+            command_logging_tools
+        ],
+        llm=llm
+    )
+    logger.info(f"Squad Selection Specialist agent created for team {team_id}")
+
+    # 8. Analytics Specialist Agent (NEW - Specialized)
+    analytics_specialist = Agent(
+        role='Performance Analytics Specialist',
+        goal='Analyze team and player performance, provide insights and recommendations',
+        backstory="""You are a performance analytics expert who provides deep insights into team and individual 
+        player performance. You analyze match data, track performance trends, and provide actionable recommendations 
+        for improvement. You work with historical data to identify patterns and suggest strategic improvements. 
+        You provide detailed reports and insights to help the team improve their performance.""",
+        verbose=True,
+        allow_delegation=False,  # Specialized role, focused on analytics
+        tools=[
+            fixture_tools,  # For match data
+            player_tools,  # For player performance data
+            availability_tools,  # For participation data
+            command_logging_tools
+        ],
+        llm=llm
+    )
+    logger.info(f"Analytics Specialist agent created for team {team_id}")
+
+    logger.info(f"All 8 agents created successfully for team {team_id}")
+    return (
+        message_processor,      # Primary interface
+        team_manager,           # Strategic coordination
+        player_coordinator,     # Operational management
+        match_analyst,          # Tactical analysis
+        communication_specialist, # Broadcast management
+        finance_manager,        # Financial management
+        squad_selection_specialist, # Squad selection
+        analytics_specialist    # Performance analytics
+    )
 
 
 def create_crew_for_team(agents):
     """Create a CrewAI crew with the specified agents for a team."""
-    logger.info("Creating CrewAI crew...")
+    logger.info("Creating CrewAI crew with refined architecture...")
     
-    team_manager, player_coordinator, match_analyst, communication_specialist = agents
+    message_processor, team_manager, player_coordinator, match_analyst, communication_specialist, finance_manager, squad_selection_specialist, analytics_specialist = agents
     
     crew = Crew(
-        agents=[team_manager, player_coordinator, match_analyst, communication_specialist],
+        agents=[
+            message_processor,      # Primary interface
+            team_manager,           # Strategic coordination
+            player_coordinator,     # Operational management
+            match_analyst,          # Tactical analysis
+            communication_specialist, # Broadcast management
+            finance_manager,        # Financial management
+            squad_selection_specialist, # Squad selection
+            analytics_specialist    # Performance analytics
+        ],
         verbose=True,
         memory=True
     )
     
-    logger.info("Crew created successfully")
+    logger.info("Crew created successfully with 8 agents")
     return crew
 
 

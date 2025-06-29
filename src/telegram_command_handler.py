@@ -473,6 +473,248 @@ class MatchIDGenerator:
 
 match_id_generator = MatchIDGenerator()
 
+# --- Agent-Based Message Processing ---
+
+class AgentBasedMessageHandler:
+    """Agent-based message handler using CrewAI for intelligent message processing."""
+    
+    def __init__(self, team_id: str):
+        self.team_id = team_id
+        self.crew = None
+        self.agents = {}
+        self.conversation_memory = {}  # Store conversation context per chat
+        self._initialize_agents()
+    
+    def _initialize_agents(self):
+        """Initialize CrewAI agents for message processing."""
+        try:
+            from src.agents import create_llm, create_agents_for_team, create_crew_for_team
+            
+            # Create LLM
+            llm = create_llm()
+            
+            # Create agents for this team
+            agents = create_agents_for_team(llm, self.team_id)
+            (
+                message_processor,      # Primary interface
+                team_manager,           # Strategic coordination
+                player_coordinator,     # Operational management
+                match_analyst,          # Tactical analysis
+                communication_specialist, # Broadcast management
+                finance_manager,        # Financial management
+                squad_selection_specialist, # Squad selection
+                analytics_specialist    # Performance analytics
+            ) = agents
+            
+            # Store agents in a dictionary for easy access
+            self.agents = {
+                'message_processor': message_processor,
+                'team_manager': team_manager,
+                'player_coordinator': player_coordinator,
+                'match_analyst': match_analyst,
+                'communication_specialist': communication_specialist,
+                'finance_manager': finance_manager,
+                'squad_selection_specialist': squad_selection_specialist,
+                'analytics_specialist': analytics_specialist
+            }
+            
+            # Create crew for complex multi-agent tasks
+            self.crew = create_crew_for_team(agents)
+            
+            logger.info(f"✅ Agent-based message handler initialized for team {self.team_id}")
+            logger.info(f"📊 Loaded {len(self.agents)} agents: {list(self.agents.keys())}")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize agents: {e}")
+            raise
+    
+    async def process_message(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
+        """
+        Process incoming message using CrewAI agents.
+        
+        Returns:
+            str: Response message to send back to user
+        """
+        try:
+            # Get conversation context
+            context_key = f"{chat_id}_{user_id}"
+            conversation_context = self.conversation_memory.get(context_key, "")
+            
+            # Determine if this is a follow-up question
+            is_followup = len(conversation_context) > 0
+            
+            if is_followup:
+                # Handle as follow-up question
+                response = await self._handle_followup(message_text, conversation_context, user_id, username, chat_id)
+            else:
+                # Handle as new request
+                response = await self._handle_new_request(message_text, user_id, username, chat_id)
+            
+            # Update conversation memory
+            self.conversation_memory[context_key] = f"{conversation_context}\nUser: {message_text}\nBot: {response}"
+            
+            # Limit memory size to prevent memory bloat
+            if len(self.conversation_memory[context_key]) > 2000:
+                self.conversation_memory[context_key] = self.conversation_memory[context_key][-1000:]
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error in agent-based message processing: {e}")
+            return f"❌ Sorry, I encountered an error processing your message: {str(e)}"
+    
+    async def _handle_new_request(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
+        """Handle a new request using intelligent agent routing."""
+        try:
+            # First, use the message processor to understand the request
+            message_processor = self.agents['message_processor']
+            
+            # Create a task for the message processor to interpret the request
+            from src.tasks import MessageProcessingTasks
+            message_tasks = MessageProcessingTasks()
+            task = message_tasks.interpret_message_task(message_processor)
+            
+            # Format the task description with actual values
+            task.description = task.description.format(
+                message_text=message_text,
+                username=username,
+                chat_id=chat_id
+            )
+            
+            # Execute the task
+            result = await self._execute_task(task)
+            
+            # If the message processor determines it needs multiple agents, use the crew
+            if self._requires_multi_agent_coordination(message_text):
+                return await self._handle_complex_request(message_text, user_id, username, chat_id)
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error handling new request: {e}")
+            return f"❌ Error processing your request: {str(e)}"
+    
+    async def _handle_followup(self, message_text: str, conversation_context: str, user_id: str, username: str, chat_id: str) -> str:
+        """Handle a follow-up question maintaining conversation context."""
+        try:
+            from src.tasks import MessageProcessingTasks
+            
+            # Create the follow-up task
+            message_tasks = MessageProcessingTasks()
+            task = message_tasks.handle_followup_task(self.agents['message_processor'])
+            
+            # Format the task description with actual values
+            task.description = task.description.format(
+                followup_message=message_text,
+                conversation_context=conversation_context
+            )
+            
+            # Execute the task
+            result = await self._execute_task(task)
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error handling follow-up: {e}")
+            return f"❌ Error processing your follow-up: {str(e)}"
+    
+    async def _handle_complex_request(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
+        """Handle complex requests that require multiple agents using the crew."""
+        try:
+            from src.tasks import MessageProcessingTasks
+            
+            # Create the complex request task
+            message_tasks = MessageProcessingTasks()
+            task = message_tasks.route_complex_request_task(self.agents['message_processor'])
+            
+            # Format the task description with actual values
+            task.description = task.description.format(
+                complex_request=message_text
+            )
+            
+            # Use the crew for complex multi-agent coordination
+            result = await self._execute_crew_task(task)
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error handling complex request: {e}")
+            return f"❌ Error processing your complex request: {str(e)}"
+    
+    def _requires_multi_agent_coordination(self, message_text: str) -> bool:
+        """Determine if a message requires coordination between multiple agents."""
+        complex_keywords = [
+            'plan', 'coordinate', 'organize', 'manage', 'analyze', 'report',
+            'squad selection', 'team selection', 'financial', 'payment',
+            'performance analysis', 'tactical', 'strategy', 'coordination'
+        ]
+        
+        message_lower = message_text.lower()
+        return any(keyword in message_lower for keyword in complex_keywords)
+    
+    async def _execute_task(self, task) -> str:
+        """Execute a CrewAI task and return the result."""
+        try:
+            # Execute the task directly with the assigned agent
+            result = await task.execute()
+            
+            # Extract the final answer from the result
+            if hasattr(result, 'output'):
+                return result.output
+            elif isinstance(result, str):
+                return result
+            else:
+                return str(result)
+                
+        except Exception as e:
+            logger.error(f"Error executing task: {e}")
+            raise
+    
+    async def _execute_crew_task(self, task) -> str:
+        """Execute a task using the crew for multi-agent coordination."""
+        try:
+            # Use the crew to execute the task with multiple agents
+            result = await self.crew.kickoff([task])
+            
+            # Extract the final answer from the result
+            if hasattr(result, 'output'):
+                return result.output
+            elif isinstance(result, str):
+                return result
+            else:
+                return str(result)
+                
+        except Exception as e:
+            logger.error(f"Error executing crew task: {e}")
+            raise
+    
+    def clear_conversation_memory(self, chat_id: str, user_id: str):
+        """Clear conversation memory for a specific user in a chat."""
+        context_key = f"{chat_id}_{user_id}"
+        if context_key in self.conversation_memory:
+            del self.conversation_memory[context_key]
+            logger.info(f"Cleared conversation memory for {context_key}")
+    
+    def get_conversation_stats(self) -> dict:
+        """Get statistics about conversation memory usage."""
+        return {
+            'total_conversations': len(self.conversation_memory),
+            'memory_size': sum(len(context) for context in self.conversation_memory.values()),
+            'active_chats': len(set(key.split('_')[0] for key in self.conversation_memory.keys())),
+            'agents_loaded': len(self.agents),
+            'agent_types': list(self.agents.keys())
+        }
+    
+    def get_agent_info(self) -> dict:
+        """Get information about loaded agents."""
+        agent_info = {}
+        for name, agent in self.agents.items():
+            agent_info[name] = {
+                'role': agent.role,
+                'goal': agent.goal,
+                'tools_count': len(agent.tools) if hasattr(agent, 'tools') else 0,
+                'can_delegate': agent.allow_delegation if hasattr(agent, 'allow_delegation') else False
+            }
+        return agent_info
+
 # --- Command Handlers ---
 
 async def newmatch_command(update, context, params: Dict[str, Any]):
@@ -704,3 +946,85 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Add this new function after the AgentBasedMessageHandler class
+
+async def agent_based_command_handler(update, context):
+    """Agent-based command handler that replaces the LLM parser."""
+    try:
+        # Get the message text
+        message = update.message
+        if not message or not message.text:
+            return
+        
+        text = message.text.strip()
+        if not text:
+            return
+        
+        # Get user and chat information
+        if not update.effective_chat:
+            return
+        chat_id = update.effective_chat.id
+        
+        if not update.effective_user:
+            return
+        user_id = update.effective_user.id
+        username = update.effective_user.username or 'Unknown'
+        
+        # Initialize agent-based message handler
+        # Use the default team ID for now (can be made configurable later)
+        team_id = "0854829d-445c-4138-9fd3-4db562ea46ee"  # BP Hatters FC
+        
+        try:
+            handler = AgentBasedMessageHandler(team_id)
+        except Exception as e:
+            logger.error(f"Failed to initialize agent handler: {e}")
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="❌ <b>System Error:</b> Agent system is currently unavailable. Please try again later.",
+                parse_mode='HTML'
+            )
+            return
+        
+        # Process the message using agents
+        logger.info(f"Processing message with agents: {text}")
+        response = await handler.process_message(text, str(user_id), username, str(chat_id))
+        
+        # Send the response
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=response,
+            parse_mode='HTML'
+        )
+        
+        # Log successful processing
+        logger.info(f"Agent-based message processed successfully for user {username}")
+        
+    except Exception as e:
+        logger.error(f"Error in agent_based_command_handler: {e}")
+        if update.effective_chat:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"❌ <b>Error:</b> {str(e)}",
+                parse_mode='HTML'
+            )
+
+# Add this function to register the agent-based handler
+def register_agent_based_commands(app):
+    """Register agent-based command handlers with the Application."""
+    try:
+        from telegram.ext import MessageHandler, filters
+        
+        # Add a message handler that processes all text messages with agents
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, agent_based_command_handler))
+        
+        # Also handle slash commands for backward compatibility
+        app.add_handler(MessageHandler(filters.COMMAND, agent_based_command_handler))
+        
+        print("✅ Agent-based command processing registered successfully")
+        print("🤖 Using 8-agent CrewAI system for message processing")
+        print("💡 Natural language processing with agent collaboration enabled!")
+        
+    except Exception as e:
+        print(f"❌ Failed to register agent-based commands: {e}")
+        raise
