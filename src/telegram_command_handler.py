@@ -36,13 +36,6 @@ httpx.AsyncClient.__init__ = _patched_async_client_init
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Import Supabase with error handling
-try:
-    from supabase import create_client, Client
-except ImportError as e:
-    logger.error(f"Supabase client not available: {e}")
-    raise ImportError("Supabase client not available. Install with: pip install supabase")
-
 # Import configuration
 try:
     from config import config
