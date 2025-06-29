@@ -46,55 +46,59 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def get_bot_token_from_db():
-    """Get bot token from Supabase database."""
+    """Get bot token from Firebase database."""
     try:
-        logger.info("🔍 Starting bot token retrieval from database...")
+        logger.info("🔍 Starting bot token retrieval from Firebase...")
         
-        # Import the Supabase client
-        logger.info("📦 Importing Supabase client...")
+        # Import the Firebase client
+        logger.info("📦 Importing Firebase client...")
         try:
-            from tools.supabase_tools import get_supabase_client
-            logger.info("✅ Imported from tools.supabase_tools")
+            from tools.firebase_tools import get_firebase_client
+            logger.info("✅ Imported from tools.firebase_tools")
         except ImportError as import_error:
-            logger.warning(f"⚠️ Import failed from tools.supabase_tools: {import_error}")
+            logger.warning(f"⚠️ Import failed from tools.firebase_tools: {import_error}")
             # Fallback for local development
             try:
-                from src.tools.supabase_tools import get_supabase_client
-                logger.info("✅ Imported from src.tools.supabase_tools")
+                from src.tools.firebase_tools import get_firebase_client
+                logger.info("✅ Imported from src.tools.firebase_tools")
             except ImportError as fallback_error:
                 logger.error(f"❌ Both import paths failed: {fallback_error}")
                 raise
             
-        # Create Supabase client
-        logger.info("🔧 Creating Supabase client...")
+        # Create Firebase client
+        logger.info("🔧 Creating Firebase client...")
         try:
-            supabase = get_supabase_client()
-            logger.info("✅ Supabase client created successfully")
+            db = get_firebase_client()
+            logger.info("✅ Firebase client created successfully")
         except Exception as client_error:
-            logger.error(f"❌ Failed to create Supabase client: {client_error}")
+            logger.error(f"❌ Failed to create Firebase client: {client_error}")
             raise
         
         # Execute database query
-        logger.info("🔍 Executing database query...")
+        logger.info("🔍 Executing Firebase query...")
         try:
-            response = supabase.table('team_bots').select('bot_token').eq('team_id', '0854829d-445c-4138-9fd3-4db562ea46ee').eq('is_active', True).execute()
-            logger.info("✅ Database query executed successfully")
-            logger.info(f"📊 Response data: {response.data if hasattr(response, 'data') else 'No data attribute'}")
+            bots_ref = db.collection('team_bots')
+            query = bots_ref.where('team_id', '==', '0854829d-445c-4138-9fd3-4db562ea46ee').where('is_active', '==', True)
+            docs = query.stream()
+            docs_list = list(docs)
+            logger.info("✅ Firebase query executed successfully")
+            logger.info(f"📊 Found {len(docs_list)} bot configurations")
         except Exception as query_error:
-            logger.error(f"❌ Database query failed: {query_error}")
+            logger.error(f"❌ Firebase query failed: {query_error}")
             raise
         
         # Process response
-        if response and hasattr(response, 'data') and response.data:
-            bot_token = response.data[0]['bot_token']
+        if docs_list:
+            bot_data = docs_list[0].to_dict()
+            bot_token = bot_data['bot_token']
             logger.info(f"✅ Bot token retrieved successfully: {bot_token[:10]}...")
             return bot_token
         else:
-            logger.error("❌ No active bot found in database")
+            logger.error("❌ No active bot found in Firebase database")
             return None
             
     except Exception as e:
-        logger.error(f"❌ Error getting bot token from database: {e}")
+        logger.error(f"❌ Error getting bot token from Firebase: {e}")
         return None
 
 def test_bot_connection(bot_token):
@@ -123,7 +127,7 @@ def test_bot_connection(bot_token):
 
 def main():
     """Main function to run the bot with LLM-based command parsing."""
-    print("🏆 KICKAI Telegram Bot Runner (LLM Parsing)")
+    print("🏆 KICKAI Telegram Bot Runner (Firebase + LLM Parsing)")
     print("=" * 50)
     
     # Start health server for Railway monitoring
@@ -153,14 +157,15 @@ def main():
         
         # Register agent-based commands
         try:
-            from src.telegram_command_handler import register_agent_based_commands
-            register_agent_based_commands(app)
-            logger.info("✅ Agent-based command processing registered")
+            from src.telegram_command_handler import register_langchain_agentic_handler
+            register_langchain_agentic_handler(app)
+            logger.info("✅ LangChain agentic handler registered")
         except Exception as e:
             logger.error(f"❌ Failed to register agent-based commands: {e}")
             return
         
-        print("✅ Bot is running with 8-agent CrewAI system! Send messages to your Telegram groups to test.")
+        print("✅ Bot is running with Firebase + 8-agent CrewAI system! Send messages to your Telegram groups to test.")
+        print("🔥 Firebase Firestore database enabled")
         print("🤖 Agent-based natural language processing enabled:")
         print("   • Message Processing Specialist - Primary interface")
         print("   • Team Manager - Strategic coordination")
@@ -180,7 +185,7 @@ def main():
         
     except ValueError as e:
         print(f"❌ Configuration error: {e}")
-        print("💡 Make sure bot token is available in the database")
+        print("💡 Make sure bot token is available in the Firebase database")
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
         logger.error(f"Bot error: {e}", exc_info=True)

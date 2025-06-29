@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from crewai import Agent, Task, Crew
 from langchain_community.llms import Ollama
 from langchain_google_genai import ChatGoogleGenerativeAI
-from src.tools.supabase_tools import PlayerTools, FixtureTools, AvailabilityTools, TeamManagementTools, CommandLoggingTools
+from src.tools.firebase_tools import PlayerTools, FixtureTools, TeamTools, CommandLoggingTools, BotTools
 from src.tools.telegram_tools import (
     SendTelegramMessageTool,
     SendTelegramPollTool,
@@ -85,10 +85,22 @@ Once all actions are complete, always return the final answer in the first forma
   - `deactivate_player` (player_id)
 
 - **Fixture Management Tool**
-  - `add_fixture` (opponent, match_date, location, is_home_game)
-  - `get_fixtures` (upcoming_only)
+  - `add_fixture` (opponent, match_date, kickoff_time, venue, competition, notes, created_by)
+  - `get_all_fixtures`
   - `get_fixture` (fixture_id)
-  - `update_fixture` (fixture_id, opponent/match_date/location/is_home_game/result)
+  - `update_fixture` (fixture_id, opponent/match_date/kickoff_time/venue/competition/notes/status)
+  - `delete_fixture` (fixture_id)
+
+- **Team Management Tool**
+  - `get_team_info`
+  - `update_team_info` (name)
+
+- **Bot Management Tool**
+  - `get_bot_config`
+  - `update_bot_config` (bot_token, bot_username, chat_id, leadership_chat_id, is_active)
+
+- **Command Logging Tool**
+  - `log_command` (chat_id, user_id, command, username, arguments, success, error_message)
 
 - **Telegram Messaging Tools**
   - `send_telegram_message` (message)
@@ -123,37 +135,27 @@ Thought: I now know the final answer
 Final Answer: Player John Doe (ID: 1) is active and can be contacted at 123456789.
 ```
 
-Example 3: Invalid tool usage (do NOT do this)
+Example 3: Add a new fixture
 ```
-Thought: I want to describe the system.
-Action: Player Management Tool
-Action Input: {"command": "describe"}
-Observation: Error: Unknown command. Available commands: 'add_player', 'get_all_players', 'get_player', 'update_player', 'deactivate_player'.
-Thought: I should only use valid commands as listed above.
-Final Answer: [Do not use invalid tool commands.]
-```
-
-Example 4: Add a new player
-```
-Thought: We need to add a new player named Alice Smith.
-Action: Player Management Tool
-Action Input: {"command": "add_player", "name": "Alice Smith", "phone_number": "5551234567"}
-Observation: Successfully added player: Alice Smith (ID: 2).
-Thought: I now know the final answer
-Final Answer: Player Alice Smith has been added to the team.
-```
-
-Example 5: List all fixtures
-```
-Thought: I want to see all upcoming fixtures.
+Thought: I need to add a new fixture for the team.
 Action: Fixture Management Tool
-Action Input: {"command": "get_fixtures", "upcoming_only": true}
-Observation: Fixtures: - KICKAI vs Rivals (HOME) on 2024-12-01T14:00:00Z (ID: 10)
+Action Input: {"command": "add_fixture", "opponent": "Thunder FC", "match_date": "2024-07-15", "kickoff_time": "14:00:00", "venue": "Home - Central Park", "competition": "League", "notes": "Red kit required", "created_by": "1581500055"}
+Observation: Successfully added fixture: Thunder FC on 2024-07-15 at 14:00:00 (ID: abc123).
 Thought: I now know the final answer
-Final Answer: The next fixture is KICKAI vs Rivals at home on 2024-12-01.
+Final Answer: Fixture against Thunder FC has been scheduled for July 15th at 2pm at Central Park.
 ```
 
-Example 6: Send a Telegram message
+Example 4: List all fixtures
+```
+Thought: I want to see all fixtures.
+Action: Fixture Management Tool
+Action Input: {"command": "get_all_fixtures"}
+Observation: All Fixtures: - ID: abc123, Thunder FC on 2024-07-15 at 14:00:00 (scheduled)
+Thought: I now know the final answer
+Final Answer: The team has 1 upcoming fixture: Thunder FC on July 15th at 2pm.
+```
+
+Example 5: Send a Telegram message
 ```
 Thought: I need to notify the team about the next match.
 Action: send_telegram_message
@@ -208,8 +210,8 @@ def create_agents_for_team(llm, team_id: str):
     # Initialize tools with team context
     player_tools = PlayerTools(team_id)
     fixture_tools = FixtureTools(team_id)
-    availability_tools = AvailabilityTools(team_id)
-    team_management_tools = TeamManagementTools(team_id)
+    team_tools = TeamTools(team_id)
+    bot_tools = BotTools(team_id)
     command_logging_tools = CommandLoggingTools(team_id)
     
     # Get Telegram messaging tools for this team
@@ -248,8 +250,8 @@ def create_agents_for_team(llm, team_id: str):
         tools=[
             player_tools, 
             fixture_tools, 
-            availability_tools,  # Added for strategic planning
-            team_management_tools, 
+            team_tools, 
+            bot_tools,
             messaging_tools['message_tool'], 
             messaging_tools['leadership_message_tool']
         ],
@@ -268,8 +270,7 @@ def create_agents_for_team(llm, team_id: str):
         allow_delegation=True,  # Can delegate to specialized agents
         tools=[
             player_tools, 
-            availability_tools, 
-            team_management_tools, 
+            team_tools, 
             messaging_tools['message_tool'], 
             messaging_tools['availability_poll_tool'],
             messaging_tools['payment_reminder_tool'],  # Added for payment tracking
@@ -291,8 +292,7 @@ def create_agents_for_team(llm, team_id: str):
         tools=[
             fixture_tools, 
             player_tools, 
-            availability_tools,  # Added for squad analysis
-            team_management_tools, 
+            team_tools, 
             messaging_tools['squad_announcement_tool'], 
             command_logging_tools
         ],
@@ -333,9 +333,8 @@ def create_agents_for_team(llm, team_id: str):
         verbose=True,
         allow_delegation=False,  # Specialized role, focused on finance
         tools=[
-            availability_tools,  # For payment tracking
             messaging_tools['payment_reminder_tool'],
-            team_management_tools,  # For financial reporting
+            team_tools,  # For financial reporting
             command_logging_tools
         ],
         llm=llm
@@ -354,7 +353,6 @@ def create_agents_for_team(llm, team_id: str):
         verbose=True,
         allow_delegation=False,  # Specialized role, focused on squad selection
         tools=[
-            availability_tools,  # For availability data
             player_tools,  # For player information
             messaging_tools['squad_announcement_tool'],  # For announcing squads
             command_logging_tools
@@ -376,7 +374,6 @@ def create_agents_for_team(llm, team_id: str):
         tools=[
             fixture_tools,  # For match data
             player_tools,  # For player performance data
-            availability_tools,  # For participation data
             command_logging_tools
         ],
         llm=llm

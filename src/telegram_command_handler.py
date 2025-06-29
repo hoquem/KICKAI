@@ -451,11 +451,49 @@ class MatchIDGenerator:
     def generate_match_id(self, opponent: str, date: str, venue: str = '') -> str:
         home_abbr = 'BPH'
         away_abbr = self.get_team_abbreviation(opponent)
-        date_code = self.parse_date(date)
-        base_id = f"{home_abbr}v{away_abbr}{date_code}"
+        date_code = self.parse_date_readable(date)
+        base_id = f"{home_abbr}{away_abbr}-{date_code}"
         final_id = self._resolve_conflicts(base_id)
         self.generated_ids.add(final_id)
         return final_id
+    
+    def parse_date_readable(self, date_str: str) -> str:
+        """Parse date string and return DDMMM format (e.g., 01JUL)."""
+        try:
+            # Try to parse various date formats
+            from datetime import datetime
+            import re
+            
+            # Remove common words
+            cleaned = re.sub(r'\b(against|vs|v|on|at|home|away)\b', '', date_str, flags=re.IGNORECASE).strip()
+            
+            # Try different date formats
+            date_formats = [
+                '%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%d/%m/%y', '%d-%m-%y',
+                '%B %d, %Y', '%d %B %Y', '%B %d %Y', '%d %B, %Y'
+            ]
+            
+            for fmt in date_formats:
+                try:
+                    parsed_date = datetime.strptime(cleaned, fmt)
+                    return parsed_date.strftime('%d%b').upper()
+                except ValueError:
+                    continue
+            
+            # If no format works, try to extract day and month from text
+            day_match = re.search(r'\b(\d{1,2})\b', cleaned)
+            month_match = re.search(r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b', cleaned, re.IGNORECASE)
+            
+            if day_match and month_match:
+                day = day_match.group(1).zfill(2)
+                month = month_match.group(1).upper()[:3]
+                return f"{day}{month}"
+            
+            return '01JAN'  # Default fallback
+            
+        except Exception as e:
+            logger.error(f"Date parsing error: {e}")
+            return '01JAN'  # Default fallback
     
     def _resolve_conflicts(self, base_id: str) -> str:
         if base_id not in self.generated_ids:
@@ -715,7 +753,36 @@ class AgentBasedMessageHandler:
             }
         return agent_info
 
-# --- Command Handlers ---
+# --- Helper Functions ---
+
+def is_admin_command(command: str) -> bool:
+    """Check if a command requires admin privileges."""
+    admin_commands = {
+        'newmatch', 'add_player', 'update_player', 'deactivate_player',
+        'update_team_info', 'send_telegram_message', 'create_poll',
+        'send_payment_reminder', 'analyze_performance', 'plan_squad'
+    }
+    return command in admin_commands
+
+def is_leadership_chat(chat_id: str, team_id: str) -> bool:
+    """Check if the current chat is a leadership chat."""
+    try:
+        from src.tools.firebase_tools import get_firebase_client
+        
+        db = get_firebase_client()
+        bots_ref = db.collection('team_bots')
+        query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
+        docs = list(query.stream())
+        
+        if docs:
+            bot_data = docs[0].to_dict()
+            leadership_chat_id = bot_data.get('leadership_chat_id')
+            return leadership_chat_id and str(chat_id) == str(leadership_chat_id)
+        
+        return False
+    except Exception as e:
+        logger.error(f"Error checking leadership chat: {e}")
+        return False
 
 async def newmatch_command(update, context, params: Dict[str, Any]):
     """Handle newmatch command with LLM-parsed parameters."""
@@ -727,6 +794,18 @@ async def newmatch_command(update, context, params: Dict[str, Any]):
         return
     user_id = update.effective_user.id
     username = update.effective_user.username or 'Unknown'
+    
+    # Get team ID
+    team_id = "0854829d-445c-4138-9fd3-4db562ea46ee"  # BP Hatters FC
+    
+    # Check if this is an admin command and enforce leadership chat requirement
+    if is_admin_command('newmatch') and not is_leadership_chat(str(chat_id), team_id):
+        message = "❌ <b>Access Denied</b>\n\n"
+        message += "🔒 Admin commands can only be executed from the leadership chat.\n"
+        message += "💡 Please use the leadership chat to create matches."
+        
+        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
+        return
     
     # Extract parameters
     opponent = params.get('opponent', 'Unknown Team')
@@ -771,25 +850,134 @@ async def listmatches_command(update, context, params: Dict[str, Any]):
     await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
 
 async def help_command(update, context, params: Dict[str, Any]):
-    """Handle help command."""
+    """Handle help command with role-based permissions."""
     if not update.effective_chat:
         return
     chat_id = update.effective_chat.id
     
-    message = "🤖 <b>KICKAI Bot Commands</b>\n\n"
-    message += "📅 <b>Match Management:</b>\n"
-    message += "• <code>/newmatch</code> - Create new match\n"
-    message += "• <code>/listmatches</code> - List matches\n\n"
-    message += "📊 <b>General:</b>\n"
-    message += "• <code>/help</code> - Show this help\n"
-    message += "• <code>/status</code> - Show bot status\n\n"
-    message += "💡 <b>Natural Language Examples:</b>\n"
-    message += "• \"Create a match against Red Lion FC on July 1st at 2pm\"\n"
-    message += "• \"Show upcoming matches\"\n"
-    message += "• \"What games do we have coming up?\"\n"
-    message += "• \"Schedule a match vs Arsenal next Saturday\""
+    if not update.effective_user:
+        return
+    user_id = update.effective_user.id
     
-    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
+    # Get team ID (using the default team for now)
+    team_id = "0854829d-445c-4138-9fd3-4db562ea46ee"  # BP Hatters FC
+    
+    try:
+        # Import the necessary functions
+        from src.tools.telegram_tools import get_user_role_in_team, get_team_bot_credentials_dual
+        from src.tools.firebase_tools import get_firebase_client
+        
+        # Get user role
+        user_role = get_user_role_in_team(team_id, str(user_id))
+        
+        # Determine if this is a leadership chat
+        db = get_firebase_client()
+        bots_ref = db.collection('team_bots')
+        query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
+        docs = list(query.stream())
+        
+        is_leadership_chat = False
+        if docs:
+            bot_data = docs[0].to_dict()
+            leadership_chat_id = bot_data.get('leadership_chat_id')
+            if leadership_chat_id and str(chat_id) == str(leadership_chat_id):
+                is_leadership_chat = True
+        
+        # Build help message based on chat type (not user role for main chat)
+        message = "🤖 <b>KICKAI Bot Help</b>\n\n"
+        
+        if is_leadership_chat:
+            # Leadership chat - show commands based on user role
+            message += f"👑 <b>Leadership Chat</b> - User Role: {user_role.title()}\n\n"
+            
+            if user_role in ['admin', 'captain']:
+                message += "📅 <b>Match Management:</b>\n"
+                message += "• \"Create a match against Arsenal on July 1st at 2pm\"\n"
+                message += "• \"List all fixtures\"\n"
+                message += "• \"Show upcoming matches\"\n\n"
+                
+                message += "👥 <b>Player Management:</b>\n"
+                message += "• \"Add player John Doe with phone 123456789\"\n"
+                message += "• \"List all players\"\n"
+                message += "• \"Show player with phone 123456789\"\n"
+                message += "• \"Update player John's phone to 987654321\"\n\n"
+                
+                message += "🏆 <b>Team Management:</b>\n"
+                message += "• \"Show team info\"\n"
+                message += "• \"Update team name to BP Hatters United\"\n\n"
+                
+                message += "📢 <b>Communication:</b>\n"
+                message += "• \"Send a message to the team: Training is at 7pm tonight!\"\n"
+                message += "• \"Create a poll: Who's available for Saturday's match?\"\n\n"
+                
+                message += "💰 <b>Financial Management:</b>\n"
+                message += "• \"Send payment reminder for match fees\"\n"
+                message += "• \"Track player payments\"\n\n"
+                
+                message += "📊 <b>Analytics & Planning:</b>\n"
+                message += "• \"Analyze our team performance\"\n"
+                message += "• \"Plan squad selection for next match\"\n"
+                message += "• \"Generate match report\"\n\n"
+                
+            else:
+                # Other leadership roles (secretary, manager, treasurer)
+                message += "📅 <b>Match Management:</b>\n"
+                message += "• \"List all fixtures\"\n"
+                message += "• \"Show upcoming matches\"\n\n"
+                
+                message += "👥 <b>Player Management:</b>\n"
+                message += "• \"List all players\"\n"
+                message += "• \"Show player with phone 123456789\"\n\n"
+                
+                message += "🏆 <b>Team Management:</b>\n"
+                message += "• \"Show team info\"\n\n"
+                
+                message += "📢 <b>Communication:</b>\n"
+                message += "• \"Send a message to the team: Training is at 7pm tonight!\"\n\n"
+                
+        else:
+            # Main group chat - show only non-admin commands regardless of user role
+            message += f"👥 <b>Main Group Chat</b> - User Role: {user_role.title()}\n\n"
+            message += "💡 <b>Note:</b> Admin commands are only available in the leadership chat.\n\n"
+            
+            # Show only basic commands for all users in main chat
+            message += "📅 <b>Match Information:</b>\n"
+            message += "• \"List all fixtures\"\n"
+            message += "• \"Show upcoming matches\"\n"
+            message += "• \"What games do we have coming up?\"\n\n"
+            
+            message += "👥 <b>Player Information:</b>\n"
+            message += "• \"List all players\"\n"
+            message += "• \"Show player with phone 123456789\"\n\n"
+            
+            message += "🏆 <b>Team Information:</b>\n"
+            message += "• \"Show team info\"\n\n"
+        
+        # Common commands for all users
+        message += "📊 <b>General:</b>\n"
+        message += "• \"Status\" - Show system status\n"
+        message += "• \"Help\" - Show this help message\n\n"
+        
+        message += "💡 <b>Tips:</b>\n"
+        message += "• You can use natural language or specific commands\n"
+        message += "• Try asking questions like \"What matches do we have?\"\n"
+        if user_role in ['admin', 'captain'] and not is_leadership_chat:
+            message += "• Use the leadership chat for admin management features\n"
+        
+        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
+        
+    except Exception as e:
+        logger.error(f"Error in help_command: {e}")
+        # Fallback to basic help if there's an error
+        fallback_message = "🤖 <b>KICKAI Bot Help</b>\n\n"
+        fallback_message += "📅 <b>Basic Commands:</b>\n"
+        fallback_message += "• \"List all fixtures\"\n"
+        fallback_message += "• \"Show team info\"\n"
+        fallback_message += "• \"Status\" - Show system status\n"
+        fallback_message += "• \"Help\" - Show this help message\n\n"
+        fallback_message += "💡 You can use natural language or specific commands!"
+        
+        await context.bot.send_message(chat_id=chat_id, text=fallback_message, parse_mode='HTML')
 
 async def status_command(update, context, params: Dict[str, Any]):
     """Handle status command."""
@@ -883,6 +1071,20 @@ async def llm_command_handler(update, context):
                 )
             return
         
+        # Check admin command restrictions
+        team_id = "0854829d-445c-4138-9fd3-4db562ea46ee"  # BP Hatters FC
+        if is_admin_command(command) and not is_leadership_chat(str(update.effective_chat.id), team_id):
+            message = "❌ <b>Access Denied</b>\n\n"
+            message += "🔒 Admin commands can only be executed from the leadership chat.\n"
+            message += "💡 Please use the leadership chat for admin management features."
+            
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=message,
+                parse_mode='HTML'
+            )
+            return
+        
         # Call the command handler
         await handler_func(update, context, params)
         
@@ -938,7 +1140,7 @@ def main():
     print("🤖 KICKAI Telegram Command Handler (LLM Parsing)")
     print("=" * 50)
     print("✅ Command handler initialized")
-    print("📋 Available commands:")
+    print(" Available commands:")
     for cmd, handler in COMMAND_HANDLERS.items():
         print(f"  {cmd}")
     print("\n💡 Natural language parsing enabled!")
@@ -1028,3 +1230,55 @@ def register_agent_based_commands(app):
     except Exception as e:
         print(f"❌ Failed to register agent-based commands: {e}")
         raise
+
+from src.simple_agentic_handler import SimpleAgenticHandler
+from telegram import Update
+from telegram.ext import ContextTypes, MessageHandler, filters
+
+def register_langchain_agentic_handler(app):
+    """Register a message handler that uses SimpleAgenticHandler for agentic processing."""
+    # Dictionary to cache handlers per team
+    agentic_handlers = {}
+
+    async def langchain_agentic_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        # Extract chat and user info
+        message = update.effective_message
+        chat = update.effective_chat
+        user = update.effective_user
+        chat_id = str(chat.id)
+        user_id = str(user.id)
+        username = user.username or user.full_name or "Unknown"
+        message_text = message.text or ""
+
+        # For now, use a fixed team_id (can be improved to map chat_id to team_id)
+        team_id = '0854829d-445c-4138-9fd3-4db562ea46ee'
+
+        # Get user role and check if it's a leadership chat
+        try:
+            from src.tools.firebase_tools import get_user_role, is_leadership_chat
+            user_role = get_user_role(team_id, user_id)
+            is_leadership = is_leadership_chat(chat_id, team_id)
+        except Exception as e:
+            logger.error(f"Error getting user role or chat type: {e}")
+            user_role = 'member'  # Default to member
+            is_leadership = False
+
+        # Get or create the handler for this team
+        if team_id not in agentic_handlers:
+            agentic_handlers[team_id] = SimpleAgenticHandler(team_id)
+        handler = agentic_handlers[team_id]
+
+        # Process the message with role and chat type information
+        response = handler.process_message(
+            message_text, 
+            user_id=user_id, 
+            chat_id=chat_id, 
+            user_role=user_role, 
+            is_leadership_chat=is_leadership
+        )
+
+        # Reply to the user
+        await message.reply_text(response)
+
+    # Register the handler for all text messages
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, langchain_agentic_message_handler))
