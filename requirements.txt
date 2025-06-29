@@ -6,11 +6,15 @@ firebase-admin
 requests
 gunicorn
 
+# Build dependencies for Railway
+setuptools
+wheel
+
 # AI and LangChain dependencies
 langchain
 langchain-community
 langchain-core
-langchain-google-genai==2.1.5
+langchain-google-genai
 google-generativeai
 google-ai-generativelanguage
 

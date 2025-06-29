@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 Railway Main Entry Point for KICKAI
-Deployment timestamp: 2024-12-19 16:20 UTC - Match Management Active
-Version: 1.3.0-match-management
-FORCE DEPLOYMENT: 2024-12-19 17:00 UTC - langchain-google-genai debugging
+Deployment timestamp: 2024-12-19 18:30 UTC - Railway Import Fix
+Version: 1.4.3-railway-import-fix
+FORCE DEPLOYMENT: 2024-12-19 18:30 UTC - langchain_google_genai import fix
 """
 
 # --- MONKEY-PATCH MUST BE FIRST - before any other imports ---
@@ -15,13 +15,15 @@ def _patched_client_init(self, *args, **kwargs):
     kwargs.pop("proxy", None)
     kwargs.pop("proxies", None)
     _original_client_init(self, *args, **kwargs)
-httpx.Client.__init__ = _patched_client_init
 
 _original_async_client_init = httpx.AsyncClient.__init__
 def _patched_async_client_init(self, *args, **kwargs):
     kwargs.pop("proxy", None)
     kwargs.pop("proxies", None)
     _original_async_client_init(self, *args, **kwargs)
+
+# Apply monkey patches
+httpx.Client.__init__ = _patched_client_init
 httpx.AsyncClient.__init__ = _patched_async_client_init
 
 # --- Now safe to import other modules ---
@@ -72,7 +74,7 @@ def start_simple_health_server():
                 'timestamp': time.time(),
                 'service': 'KICKAI Telegram Bot',
                 'environment': os.getenv('RAILWAY_ENVIRONMENT', 'development'),
-                'version': '1.3.0-match-management'
+                'version': '1.4.3-railway-import-fix'
             })
         
         @app.route('/')
@@ -152,8 +154,8 @@ def main():
     """Main entry point for Railway deployment."""
     try:
         logger.info("🚀 Starting KICKAI on Railway...")
-        logger.info("📅 Deployment timestamp: 2024-12-19 17:00 UTC")
-        logger.info("🏆 Version: 1.3.0-match-management")
+        logger.info("📅 Deployment timestamp: 2024-12-19 18:30 UTC")
+        logger.info("🏆 Version: 1.4.3-railway-import-fix")
         logger.info("🏆 Match Management System: ACTIVE")
         logger.info("🏥 Enhanced Logging: ACTIVE")
         
