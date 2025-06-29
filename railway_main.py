@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 Railway Main Entry Point for KICKAI
-Deployment timestamp: 2024-12-19 19:00 UTC - Threading Fix
-Version: 1.4.4-threading-fix
-FORCE DEPLOYMENT: 2024-12-19 19:00 UTC - Fix async event loop in threads
+Deployment timestamp: 2024-12-19 19:15 UTC - Signal Fix
+Version: 1.4.5-signal-fix
+FORCE DEPLOYMENT: 2024-12-19 19:15 UTC - Fix signal handling in main thread
 """
 
 # --- MONKEY-PATCH MUST BE FIRST - before any other imports ---
@@ -74,7 +74,7 @@ def start_simple_health_server():
                 'timestamp': time.time(),
                 'service': 'KICKAI Telegram Bot',
                 'environment': os.getenv('RAILWAY_ENVIRONMENT', 'development'),
-                'version': '1.4.4-threading-fix'
+                'version': '1.4.5-signal-fix'
             })
         
         @app.route('/')
@@ -137,34 +137,15 @@ def start_simple_health_server():
         return None
 
 def start_telegram_bot():
-    """Start Telegram bot in a separate thread."""
+    """Start Telegram bot in the main thread (signals only work in main thread)."""
     try:
         logger.info("🤖 Importing Telegram bot...")
         from run_telegram_bot import main as run_bot
         logger.info("✅ Telegram bot imported successfully")
         logger.info("🤖 Starting Telegram bot with match management...")
         
-        # Fix for async event loop in thread
-        import asyncio
-        import threading
-        
-        def run_bot_with_loop():
-            try:
-                # Create new event loop for this thread
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
-                # Run the bot
-                run_bot()
-            except Exception as e:
-                logger.error(f"❌ Telegram bot failed: {e}")
-                logger.error(f"❌ Error type: {type(e).__name__}")
-                import traceback
-                logger.error(f"❌ Traceback: {traceback.format_exc()}")
-        
-        # Start bot in thread with proper event loop
-        bot_thread = threading.Thread(target=run_bot_with_loop, daemon=True)
-        bot_thread.start()
+        # Run bot directly in main thread (signals only work in main thread)
+        run_bot()
         
     except Exception as e:
         logger.error(f"❌ Telegram bot failed: {e}")
@@ -176,8 +157,8 @@ def main():
     """Main entry point for Railway deployment."""
     try:
         logger.info("🚀 Starting KICKAI on Railway...")
-        logger.info("📅 Deployment timestamp: 2024-12-19 19:00 UTC")
-        logger.info("🏆 Version: 1.4.4-threading-fix")
+        logger.info("📅 Deployment timestamp: 2024-12-19 19:15 UTC")
+        logger.info("🏆 Version: 1.4.5-signal-fix")
         logger.info("🏆 Match Management System: ACTIVE")
         logger.info("🏥 Enhanced Logging: ACTIVE")
         
@@ -205,34 +186,15 @@ def main():
             logger.error("❌ Health server thread died")
             sys.exit(1)
         
-        # Start Telegram bot in a separate thread
+        # Start Telegram bot in the main thread
         logger.info("🤖 Starting Telegram bot...")
-        bot_thread = threading.Thread(target=start_telegram_bot, daemon=True)
-        bot_thread.start()
+        start_telegram_bot()
         
         logger.info("✅ KICKAI system started successfully!")
         logger.info("🏥 Health endpoint: /health")
-        logger.info("🤖 Telegram bot: Running in background")
+        logger.info("🤖 Telegram bot: Running in main thread")
         
-        # Keep the main thread alive
-        try:
-            while True:
-                time.sleep(60)  # Check every minute
-                logger.info("💓 KICKAI system heartbeat - all services running")
-                
-                # Check if threads are still alive
-                if health_thread.is_alive():
-                    logger.info("✅ Health server thread is alive")
-                else:
-                    logger.error("❌ Health server thread died")
-                
-                if bot_thread.is_alive():
-                    logger.info("✅ Bot thread is alive")
-                else:
-                    logger.warning("⚠️ Bot thread died")
-                    
-        except KeyboardInterrupt:
-            logger.info("🛑 Shutting down KICKAI...")
+        # Bot will handle the main thread, no need for infinite loop
         
     except Exception as e:
         logger.error(f"❌ Failed to start KICKAI: {e}")
