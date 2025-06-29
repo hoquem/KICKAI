@@ -3,7 +3,18 @@ import os
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew
 from langchain_community.llms import Ollama
-from langchain_google_genai import ChatGoogleGenerativeAI
+
+# Try to import Google AI with fallback
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    GOOGLE_AI_AVAILABLE = True
+except ImportError:
+    GOOGLE_AI_AVAILABLE = False
+    # Create a fallback class
+    class ChatGoogleGenerativeAI:
+        def __init__(self, **kwargs):
+            raise ImportError("langchain_google_genai is not available. Please install it with: pip install langchain-google-genai")
+
 from src.tools.firebase_tools import PlayerTools, FixtureTools, TeamTools, CommandLoggingTools, BotTools
 from src.tools.telegram_tools import (
     SendTelegramMessageTool,

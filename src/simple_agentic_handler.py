@@ -9,10 +9,33 @@ import os
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Import LangChain components (avoiding the problematic agents module)
 from langchain.tools import BaseTool
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.llms import Ollama
+
+# Try to import Google AI with fallback
+GOOGLE_AI_AVAILABLE = False
+ChatGoogleGenerativeAI = None
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    GOOGLE_AI_AVAILABLE = True
+except ImportError:
+    pass
+
+# Try to import Ollama with fallback
+OLLAMA_AVAILABLE = False
+Ollama = None
+try:
+    from langchain_community.llms import Ollama
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    pass
 
 # Import our tools
 from src.tools.firebase_tools import PlayerTools, TeamTools, FixtureTools, CommandLoggingTools, BotTools
@@ -29,13 +52,6 @@ from src.tools.telegram_tools import (
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import config
-
-# Load environment variables
-load_dotenv()
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 class SimpleAgenticHandler:
     """Simple agentic handler using LangChain directly."""
@@ -54,15 +70,18 @@ class SimpleAgenticHandler:
             if ai_config['provider'] == 'google':
                 # Use Google AI for production
                 try:
-                    from langchain_google_genai import ChatGoogleGenerativeAI
-                    llm = ChatGoogleGenerativeAI(
-                        model=ai_config['model'],
-                        google_api_key=ai_config['api_key'],
-                        temperature=0.7,
-                        max_output_tokens=1000
-                    )
-                    logger.info("✅ Google AI LLM created successfully")
-                    return llm
+                    if GOOGLE_AI_AVAILABLE:
+                        llm = ChatGoogleGenerativeAI(
+                            model=ai_config['model'],
+                            google_api_key=ai_config['api_key'],
+                            temperature=0.7,
+                            max_output_tokens=1000
+                        )
+                        logger.info("✅ Google AI LLM created successfully")
+                        return llm
+                    else:
+                        logger.warning("⚠️ Google AI packages not available, using fallback")
+                        return None
                 except ImportError:
                     logger.warning("⚠️ Google AI packages not available, using fallback")
                     return None
@@ -70,13 +89,16 @@ class SimpleAgenticHandler:
             else:
                 # Use Ollama for local development
                 try:
-                    from langchain_community.llms import Ollama
-                    llm = Ollama(
-                        model=ai_config['model'],
-                        base_url=ai_config['base_url']
-                    )
-                    logger.info("✅ Ollama LLM created successfully")
-                    return llm
+                    if OLLAMA_AVAILABLE:
+                        llm = Ollama(
+                            model=ai_config['model'],
+                            base_url=ai_config['base_url']
+                        )
+                        logger.info("✅ Ollama LLM created successfully")
+                        return llm
+                    else:
+                        logger.warning("⚠️ Ollama packages not available, using fallback")
+                        return None
                 except ImportError:
                     logger.warning("⚠️ Ollama packages not available, using fallback")
                     return None
