@@ -53,27 +53,38 @@ class SimpleAgenticHandler:
             
             if ai_config['provider'] == 'google':
                 # Use Google AI for production
-                llm = ChatGoogleGenerativeAI(
-                    model=ai_config['model'],
-                    google_api_key=ai_config['api_key'],
-                    temperature=0.7,
-                    max_output_tokens=1000
-                )
-                logger.info("✅ Google AI LLM created successfully")
+                try:
+                    from langchain_google_genai import ChatGoogleGenerativeAI
+                    llm = ChatGoogleGenerativeAI(
+                        model=ai_config['model'],
+                        google_api_key=ai_config['api_key'],
+                        temperature=0.7,
+                        max_output_tokens=1000
+                    )
+                    logger.info("✅ Google AI LLM created successfully")
+                    return llm
+                except ImportError:
+                    logger.warning("⚠️ Google AI packages not available, using fallback")
+                    return None
                 
             else:
                 # Use Ollama for local development
-                llm = Ollama(
-                    model=ai_config['model'],
-                    base_url=ai_config['base_url']
-                )
-                logger.info("✅ Ollama LLM created successfully")
-            
-            return llm
+                try:
+                    from langchain_community.llms import Ollama
+                    llm = Ollama(
+                        model=ai_config['model'],
+                        base_url=ai_config['base_url']
+                    )
+                    logger.info("✅ Ollama LLM created successfully")
+                    return llm
+                except ImportError:
+                    logger.warning("⚠️ Ollama packages not available, using fallback")
+                    return None
             
         except Exception as e:
             logger.error(f"Error creating LLM: {e}")
-            raise
+            logger.info("⚠️ Using fallback response system")
+            return None
     
     def _create_tools(self) -> List[BaseTool]:
         """Create tools for the agent."""
@@ -351,6 +362,10 @@ Ready to help with team management! 🏆"""
     def _use_llm_for_understanding(self, message: str) -> str:
         """Use LLM to understand and respond to complex requests."""
         try:
+            # Check if LLM is available
+            if self.llm is None:
+                return f"I'm not sure how to help with that request. Try asking for 'help' to see what I can do. (AI features are currently unavailable)"
+            
             prompt = f"""You are a helpful football team management assistant. A user has sent this message: "{message}"
 
 Available tools and capabilities:
