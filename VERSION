@@ -1,7 +1,1 @@
-1.2.0-fixture-management
-Deployment: 2024-12-19 16:15 UTC
-Features: Fixture Management System Active
-- /newfixture command implemented
-- /listfixtures command implemented
-- Database schema updated
-- Railway entry point fixed 
+1.4.1-railway-deploy
