@@ -3,7 +3,7 @@
 Railway Main Entry Point for KICKAI
 Deployment timestamp: 2024-12-19 16:20 UTC - Match Management Active
 Version: 1.3.0-match-management
-FORCE DEPLOYMENT: 2024-12-19 16:40 UTC - Firebase Fix + Dependencies
+FORCE DEPLOYMENT: 2024-12-19 16:50 UTC - Updated Firebase Credentials
 """
 
 # --- MONKEY-PATCH MUST BE FIRST - before any other imports ---
@@ -152,7 +152,7 @@ def main():
     """Main entry point for Railway deployment."""
     try:
         logger.info("🚀 Starting KICKAI on Railway...")
-        logger.info("📅 Deployment timestamp: 2024-12-19 16:40 UTC")
+        logger.info("📅 Deployment timestamp: 2024-12-19 16:50 UTC")
         logger.info("🏆 Version: 1.3.0-match-management")
         logger.info("🏆 Match Management System: ACTIVE")
         logger.info("🏥 Enhanced Logging: ACTIVE")
