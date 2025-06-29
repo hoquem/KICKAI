@@ -1,30 +1,8 @@
-# Core dependencies for KICKAI (Railway Production)
-# Minimal requirements - let pip resolve dependencies automatically
-
-# Core dependencies
+# Ultra-minimal requirements for Railway - only essential packages
 python-telegram-bot
 python-dotenv
 Flask
-requests
-charset-normalizer
-
-# Firebase dependencies
 firebase-admin
+requests
+gunicorn
 
-# AI and LangChain dependencies
-langchain
-langchain-community
-langchain-core
-openai
-google-generativeai
-
-# HTTP and utilities
-httpx
-pydantic
-pydantic_core
-python-dateutil
-tenacity
-structlog
-
-# Railway health check
-gunicorn 
