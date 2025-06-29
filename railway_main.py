@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 Railway Main Entry Point for KICKAI
-Deployment timestamp: 2024-12-19 18:30 UTC - Railway Import Fix
-Version: 1.4.3-railway-import-fix
-FORCE DEPLOYMENT: 2024-12-19 18:30 UTC - langchain_google_genai import fix
+Deployment timestamp: 2024-12-19 19:00 UTC - Threading Fix
+Version: 1.4.4-threading-fix
+FORCE DEPLOYMENT: 2024-12-19 19:00 UTC - Fix async event loop in threads
 """
 
 # --- MONKEY-PATCH MUST BE FIRST - before any other imports ---
@@ -74,7 +74,7 @@ def start_simple_health_server():
                 'timestamp': time.time(),
                 'service': 'KICKAI Telegram Bot',
                 'environment': os.getenv('RAILWAY_ENVIRONMENT', 'development'),
-                'version': '1.4.3-railway-import-fix'
+                'version': '1.4.4-threading-fix'
             })
         
         @app.route('/')
@@ -143,7 +143,29 @@ def start_telegram_bot():
         from run_telegram_bot import main as run_bot
         logger.info("✅ Telegram bot imported successfully")
         logger.info("🤖 Starting Telegram bot with match management...")
-        run_bot()
+        
+        # Fix for async event loop in thread
+        import asyncio
+        import threading
+        
+        def run_bot_with_loop():
+            try:
+                # Create new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                # Run the bot
+                run_bot()
+            except Exception as e:
+                logger.error(f"❌ Telegram bot failed: {e}")
+                logger.error(f"❌ Error type: {type(e).__name__}")
+                import traceback
+                logger.error(f"❌ Traceback: {traceback.format_exc()}")
+        
+        # Start bot in thread with proper event loop
+        bot_thread = threading.Thread(target=run_bot_with_loop, daemon=True)
+        bot_thread.start()
+        
     except Exception as e:
         logger.error(f"❌ Telegram bot failed: {e}")
         logger.error(f"❌ Error type: {type(e).__name__}")
@@ -154,8 +176,8 @@ def main():
     """Main entry point for Railway deployment."""
     try:
         logger.info("🚀 Starting KICKAI on Railway...")
-        logger.info("📅 Deployment timestamp: 2024-12-19 18:30 UTC")
-        logger.info("🏆 Version: 1.4.3-railway-import-fix")
+        logger.info("📅 Deployment timestamp: 2024-12-19 19:00 UTC")
+        logger.info("🏆 Version: 1.4.4-threading-fix")
         logger.info("🏆 Match Management System: ACTIVE")
         logger.info("🏥 Enhanced Logging: ACTIVE")
         
