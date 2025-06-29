@@ -1,0 +1,27 @@
+# Core dependencies for KICKAI (Railway Production)
+python-telegram-bot==20.7
+python-dotenv==1.0.0
+Flask==3.0.0
+requests==2.32.4
+charset-normalizer==3.4.2
+
+# Firebase dependencies
+firebase-admin==6.4.0
+
+# AI and LangChain dependencies - Railway compatible
+langchain==0.1.10
+langchain-community==0.0.20
+langchain-core==0.1.30
+openai==1.58.1
+google-generativeai==0.8.5
+
+# HTTP and utilities
+httpx==0.25.2
+pydantic==2.5.0
+pydantic_core==2.14.1
+python-dateutil==2.9.0.post0
+tenacity==8.2.3
+structlog==24.1.0
+
+# Railway health check
+gunicorn==21.2.0 
