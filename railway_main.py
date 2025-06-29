@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Railway Main Entry Point for KICKAI
-Deployment timestamp: 2024-12-19 16:20 UTC - Fixture Management Active
-Version: 1.2.0-fixture-management
+Deployment timestamp: 2024-12-19 16:20 UTC - Match Management Active
+Version: 1.3.0-match-management
 """
 
 # --- MONKEY-PATCH MUST BE FIRST - before any other imports ---
@@ -61,30 +61,19 @@ def main():
     try:
         logger.info("🚀 Starting KICKAI on Railway...")
         logger.info("📅 Deployment timestamp: 2024-12-19 16:20 UTC")
-        logger.info("🏆 Version: 1.2.0-fixture-management")
-        logger.info("🏆 Fixture Management System: ACTIVE")
+        logger.info("🏆 Version: 1.3.0-match-management")
+        logger.info("🏆 Match Management System: ACTIVE")
         
         # Start health server
         health_thread = start_health_server()
         
-        # Start Telegram bot directly
-        from run_telegram_bot import TelegramBotRunner
+        # Start Telegram bot directly using the main function
+        from run_telegram_bot import main as run_bot
         
-        logger.info("🤖 Starting Telegram bot with fixture management...")
-        bot_runner = TelegramBotRunner()
+        logger.info("🤖 Starting Telegram bot with match management...")
         
-        if not bot_runner.test_connection():
-            logger.error("❌ Bot connection failed")
-            return False
-        
-        logger.info("✅ Bot connected successfully!")
-        logger.info("📅 Fixture management commands available:")
-        logger.info("   /newfixture - Create new fixtures")
-        logger.info("   /listfixtures - List fixtures with filtering")
-        logger.info("🔧 Version 1.2.0-fixture-management loaded successfully!")
-        
-        # Start bot in polling mode
-        bot_runner.run_polling()
+        # Run the bot (this will handle connection testing and polling)
+        run_bot()
         
     except Exception as e:
         logger.error(f"❌ Failed to start KICKAI: {e}")
@@ -92,5 +81,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # FORCE DEPLOYMENT: 2024-12-19 16:20 UTC - Fixture Management Active
-# FORCE DEPLOYMENT: Sun 29 Jun 2025 00:20:04 BST
+    # FORCE DEPLOYMENT: 2024-12-19 16:20 UTC - Match Management Active
+# FORCE DEPLOYMENT: Sun 29 Jun 2025 10:15:00 BST

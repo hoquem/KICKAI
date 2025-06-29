@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Telegram Bot Runner for KICKAI
-Handles incoming Telegram messages and processes commands
+Handles incoming Telegram messages and processes commands using LLM-based parsing
 """
 
 # --- MONKEY-PATCH MUST BE FIRST - before any other imports ---
@@ -24,25 +24,16 @@ httpx.AsyncClient.__init__ = _patched_async_client_init
 
 # --- Now safe to import other modules ---
 import os
-import time
 import logging
-import requests
-import random
 import sys
-import threading
 from dotenv import load_dotenv
+from telegram.ext import Application
 
 # Add src directory to Python path for Railway deployment
 current_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.join(current_dir, 'src')
 if os.path.exists(src_dir):
     sys.path.insert(0, src_dir)
-
-try:
-    from telegram_command_handler import TelegramCommandHandler
-except ImportError:
-    # Fallback for local development
-    from src.telegram_command_handler import TelegramCommandHandler
 
 # Load environment variables
 load_dotenv()
@@ -54,273 +45,86 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class TelegramBotRunner:
-    """Runs the Telegram bot and handles incoming messages."""
-    
-    def __init__(self):
-        # Get bot token from Supabase database
-        self.bot_token = self._get_bot_token_from_db()
-        if not self.bot_token:
-            raise ValueError("Bot token not found in database")
+def get_bot_token_from_db():
+    """Get bot token from Supabase database."""
+    try:
+        logger.info("🔍 Starting bot token retrieval from database...")
         
-        self.command_handler = TelegramCommandHandler()
-        self.last_update_id = 0
-        self.consecutive_errors = 0
-        self.max_retries = 5
-        self.base_delay = 1
-        
-    def _get_bot_token_from_db(self):
-        """Get bot token from Supabase database."""
+        # Import the Supabase client
+        logger.info("📦 Importing Supabase client...")
         try:
-            logger.info("🔍 Starting bot token retrieval from database...")
-            
-            # Step 1: Import the Supabase client
-            logger.info("📦 Importing Supabase client...")
+            from tools.supabase_tools import get_supabase_client
+            logger.info("✅ Imported from tools.supabase_tools")
+        except ImportError as import_error:
+            logger.warning(f"⚠️ Import failed from tools.supabase_tools: {import_error}")
+            # Fallback for local development
             try:
-                from tools.supabase_tools import get_supabase_client
-                logger.info("✅ Imported from tools.supabase_tools")
-            except ImportError as import_error:
-                logger.warning(f"⚠️ Import failed from tools.supabase_tools: {import_error}")
-                # Fallback for local development
-                try:
-                    from src.tools.supabase_tools import get_supabase_client
-                    logger.info("✅ Imported from src.tools.supabase_tools")
-                except ImportError as fallback_error:
-                    logger.error(f"❌ Both import paths failed: {fallback_error}")
-                    raise
-                
-            # Step 2: Create Supabase client
-            logger.info("🔧 Creating Supabase client...")
-            try:
-                supabase = get_supabase_client()
-                logger.info("✅ Supabase client created successfully")
-            except Exception as client_error:
-                logger.error(f"❌ Failed to create Supabase client: {client_error}")
-                logger.error(f"❌ Error type: {type(client_error)}")
-                logger.error(f"❌ Error args: {client_error.args}")
+                from src.tools.supabase_tools import get_supabase_client
+                logger.info("✅ Imported from src.tools.supabase_tools")
+            except ImportError as fallback_error:
+                logger.error(f"❌ Both import paths failed: {fallback_error}")
                 raise
             
-            # Step 3: Execute database query
-            logger.info("🔍 Executing database query...")
-            try:
-                response = supabase.table('team_bots').select('bot_token').eq('team_id', '0854829d-445c-4138-9fd3-4db562ea46ee').eq('is_active', True).execute()
-                logger.info("✅ Database query executed successfully")
-                logger.info(f"📊 Response data: {response.data if hasattr(response, 'data') else 'No data attribute'}")
-            except Exception as query_error:
-                logger.error(f"❌ Database query failed: {query_error}")
-                logger.error(f"❌ Query error type: {type(query_error)}")
-                raise
-            
-            # Step 4: Process response
-            if response and hasattr(response, 'data') and response.data:
-                bot_token = response.data[0]['bot_token']
-                logger.info(f"✅ Bot token retrieved successfully: {bot_token[:10]}...")
-                return bot_token
-            else:
-                logger.error("❌ No active bot found in database")
-                return None
-                
-        except Exception as e:
-            logger.error(f"❌ Error getting bot token from database: {e}")
-            logger.error(f"❌ Full error details: {type(e).__name__}: {str(e)}")
-            import traceback
-            logger.error(f"❌ Traceback: {traceback.format_exc()}")
-            return None
-    
-    def _calculate_delay(self):
-        """Calculate delay with exponential backoff and jitter."""
-        if self.consecutive_errors == 0:
-            return self.base_delay
-        
-        delay = min(self.base_delay * (2 ** self.consecutive_errors), 60)  # Max 60 seconds
-        jitter = random.uniform(0.5, 1.5)
-        return delay * jitter
-    
-    def _reset_error_count(self):
-        """Reset consecutive error count on successful operation."""
-        if self.consecutive_errors > 0:
-            logger.info(f"✅ Connection restored after {self.consecutive_errors} errors")
-            self.consecutive_errors = 0
-    
-    def get_updates(self, offset=None, limit=100, timeout=30):
-        """Get updates from Telegram API with improved error handling."""
-        url = f"https://api.telegram.org/bot{self.bot_token}/getUpdates"
-        params = {
-            'timeout': timeout,
-            'limit': limit
-        }
-        if offset:
-            params['offset'] = offset
-            
+        # Create Supabase client
+        logger.info("🔧 Creating Supabase client...")
         try:
-            # Use a shorter timeout for the request itself
-            response = requests.get(url, params=params, timeout=timeout + 10)
-            response.raise_for_status()
-            
-            # Reset error count on success
-            self._reset_error_count()
-            return response.json()
-            
-        except requests.exceptions.HTTPError as e:
-            self.consecutive_errors += 1
-            if e.response.status_code == 409:
-                logger.warning(f"409 Conflict: Another bot instance may be running. Error #{self.consecutive_errors}")
-                # For 409 errors, try to delete webhook first
-                self._delete_webhook()
-                # Wait longer for webhook to be fully cleared
-                wait_time = min(10 * self.consecutive_errors, 60)  # Progressive wait, max 60s
-                logger.info(f"⏳ Waiting {wait_time}s for webhook to clear...")
-                time.sleep(wait_time)
-                return None
-            elif e.response.status_code == 429:
-                logger.warning(f"429 Rate limited. Error #{self.consecutive_errors}")
-                # Wait longer for rate limits
-                time.sleep(30)
-                return None
-            else:
-                logger.error(f"HTTP Error getting updates: {e}")
-                return None
-                
-        except requests.exceptions.Timeout:
-            self.consecutive_errors += 1
-            logger.warning(f"Timeout getting updates. Error #{self.consecutive_errors}")
-            # Reduce timeout for next request
-            return None
-            
-        except requests.exceptions.ConnectionError:
-            self.consecutive_errors += 1
-            logger.warning(f"Connection error getting updates. Error #{self.consecutive_errors}")
-            return None
-            
-        except Exception as e:
-            self.consecutive_errors += 1
-            logger.error(f"Unexpected error getting updates: {e}")
-            return None
-    
-    def _delete_webhook(self):
-        """Delete webhook to resolve 409 conflicts."""
-        try:
-            url = f"https://api.telegram.org/bot{self.bot_token}/deleteWebhook"
-            response = requests.post(url, timeout=10)
-            if response is not None and response.status_code == 200:
-                logger.info("✅ Webhook deleted successfully")
-                # Also try to get webhook info to confirm
-                self._get_webhook_info()
-                # Wait a bit for webhook to be fully cleared
-                time.sleep(3)
-            else:
-                status_code = response.status_code if response is not None else 'No response'
-                logger.warning(f"Failed to delete webhook: {status_code}")
-        except Exception as e:
-            logger.warning(f"Error deleting webhook: {e}")
-    
-    def _get_webhook_info(self):
-        """Get webhook info to check if it's properly deleted."""
-        try:
-            url = f"https://api.telegram.org/bot{self.bot_token}/getWebhookInfo"
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                webhook_info = response.json()
-                if webhook_info.get('ok') and webhook_info.get('result', {}).get('url'):
-                    logger.warning(f"⚠️ Webhook still active: {webhook_info['result']['url']}")
-                    # Wait longer if webhook is still active
-                    time.sleep(5)
-                else:
-                    logger.info("✅ Webhook is properly deleted")
-            else:
-                logger.warning(f"Failed to get webhook info: {response.status_code}")
-        except Exception as e:
-            logger.warning(f"Error getting webhook info: {e}")
-    
-    def process_updates(self, updates):
-        """Process incoming updates."""
-        if not updates or not updates.get('ok') or not updates.get('result'):
-            return
-        
-        for update in updates.get('result', []):
-            update_id = update.get('update_id', 0)
-            
-            # Skip already processed updates
-            if update_id <= self.last_update_id:
-                continue
-            
-            # Process the update
-            try:
-                self.command_handler.process_message(update)
-                self.last_update_id = update_id
-            except Exception as e:
-                logger.error(f"Error processing update {update_id}: {e}")
-    
-    def run_polling(self):
-        """Run the bot using polling method with improved error handling."""
-        logger.info("🤖 Starting Telegram bot (polling mode)...")
-        logger.info(f"📱 Bot token: {self.bot_token[:10]}...")
-        
-        # Delete any existing webhook first
-        self._delete_webhook()
-        
-        # Get initial updates to set last_update_id
-        initial_updates = self.get_updates()
-        if initial_updates is not None and initial_updates.get('result'):
-            self.last_update_id = max(update.get('update_id', 0) for update in initial_updates.get('result', []))
-            logger.info(f"📋 Starting from update ID: {self.last_update_id}")
-        else:
-            logger.info("📋 No initial updates found, starting from update ID: 0")
-        
-        print("✅ Bot is running! Send messages to your Telegram groups to test.")
-        print("💡 Press Ctrl+C to stop the bot.")
-        
-        try:
-            while True:
-                # Use shorter timeout to avoid long waits
-                timeout = min(15, 5 + self.consecutive_errors)  # Adaptive timeout, max 15s
-                
-                # Get updates with shorter polling
-                updates = self.get_updates(offset=self.last_update_id + 1, timeout=timeout)
-                
-                if updates is not None and updates.get('result'):
-                    self.process_updates(updates)
-                
-                # Calculate delay based on error count
-                delay = self._calculate_delay()
-                if self.consecutive_errors > 0:
-                    logger.info(f"⏳ Waiting {delay:.1f}s before next request (error #{self.consecutive_errors})")
-                
-                time.sleep(delay)
-                
-        except KeyboardInterrupt:
-            logger.info("🛑 Bot stopped by user")
-        except Exception as e:
-            logger.error(f"❌ Bot error: {e}")
+            supabase = get_supabase_client()
+            logger.info("✅ Supabase client created successfully")
+        except Exception as client_error:
+            logger.error(f"❌ Failed to create Supabase client: {client_error}")
             raise
-    
-    def test_connection(self):
-        """Test bot connection and get bot info."""
-        url = f"https://api.telegram.org/bot{self.bot_token}/getMe"
+        
+        # Execute database query
+        logger.info("🔍 Executing database query...")
         try:
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            bot_info = response.json()
+            response = supabase.table('team_bots').select('bot_token').eq('team_id', '0854829d-445c-4138-9fd3-4db562ea46ee').eq('is_active', True).execute()
+            logger.info("✅ Database query executed successfully")
+            logger.info(f"📊 Response data: {response.data if hasattr(response, 'data') else 'No data attribute'}")
+        except Exception as query_error:
+            logger.error(f"❌ Database query failed: {query_error}")
+            raise
+        
+        # Process response
+        if response and hasattr(response, 'data') and response.data:
+            bot_token = response.data[0]['bot_token']
+            logger.info(f"✅ Bot token retrieved successfully: {bot_token[:10]}...")
+            return bot_token
+        else:
+            logger.error("❌ No active bot found in database")
+            return None
             
-            if bot_info.get('ok'):
-                bot = bot_info['result']
-                logger.info(f"✅ Bot connected successfully!")
-                logger.info(f"   Name: {bot.get('first_name')}")
-                logger.info(f"   Username: @{bot.get('username')}")
-                logger.info(f"   ID: {bot.get('id')}")
-                return True
-            else:
-                logger.error(f"❌ Bot connection failed: {bot_info}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"❌ Error testing bot connection: {e}")
+    except Exception as e:
+        logger.error(f"❌ Error getting bot token from database: {e}")
+        return None
+
+def test_bot_connection(bot_token):
+    """Test bot connection and get bot info."""
+    import requests
+    url = f"https://api.telegram.org/bot{bot_token}/getMe"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        bot_info = response.json()
+        
+        if bot_info.get('ok'):
+            bot = bot_info['result']
+            logger.info(f"✅ Bot connected successfully!")
+            logger.info(f"   Name: {bot.get('first_name')}")
+            logger.info(f"   Username: @{bot.get('username')}")
+            logger.info(f"   ID: {bot.get('id')}")
+            return True
+        else:
+            logger.error(f"❌ Bot connection failed: {bot_info}")
             return False
+            
+    except Exception as e:
+        logger.error(f"❌ Error testing bot connection: {e}")
+        return False
 
 def main():
-    """Main function to run the bot."""
-    print("🏆 KICKAI Telegram Bot Runner")
-    print("=" * 40)
+    """Main function to run the bot with LLM-based command parsing."""
+    print("🏆 KICKAI Telegram Bot Runner (LLM Parsing)")
+    print("=" * 50)
     
     # Start health server for Railway monitoring
     try:
@@ -331,18 +135,40 @@ def main():
         logger.warning(f"⚠️ Could not start health server: {e}")
     
     try:
-        # Create bot runner
-        bot_runner = TelegramBotRunner()
+        # Get bot token from database
+        bot_token = get_bot_token_from_db()
+        if not bot_token:
+            print("❌ Bot token not found. Exiting.")
+            return
         
         # Test connection
         print("\n🔍 Testing bot connection...")
-        if not bot_runner.test_connection():
+        if not test_bot_connection(bot_token):
             print("❌ Bot connection failed. Check your bot token.")
             return
         
-        # Run the bot
-        print("\n🚀 Starting bot...")
-        bot_runner.run_polling()
+        # Set up python-telegram-bot Application
+        print("\n🚀 Setting up LLM-based bot...")
+        app = Application.builder().token(bot_token).build()
+        
+        # Register LLM-based commands
+        try:
+            from src.telegram_command_handler import register_llm_commands
+            register_llm_commands(app)
+            logger.info("✅ LLM command parsing registered")
+        except Exception as e:
+            logger.error(f"❌ Failed to register LLM commands: {e}")
+            return
+        
+        print("✅ Bot is running with LLM parsing! Send messages to your Telegram groups to test.")
+        print("💡 Natural language commands supported:")
+        print("   • \"Create a fixture against Arsenal on July 1st at 2pm\"")
+        print("   • \"Show upcoming fixtures\"")
+        print("   • \"Help\"")
+        print("💡 Press Ctrl+C to stop the bot.")
+        
+        # Run the bot with polling
+        app.run_polling()
         
     except ValueError as e:
         print(f"❌ Configuration error: {e}")
