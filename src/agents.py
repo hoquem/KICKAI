@@ -5,15 +5,42 @@ from crewai import Agent, Task, Crew
 from langchain_community.llms import Ollama
 
 # Try to import Google AI with fallback
+GOOGLE_AI_AVAILABLE = False
+ChatGoogleGenerativeAI = None
 try:
     from langchain_google_genai import ChatGoogleGenerativeAI
     GOOGLE_AI_AVAILABLE = True
+    logger.info("✅ langchain_google_genai imported successfully")
 except ImportError:
-    GOOGLE_AI_AVAILABLE = False
-    # Create a fallback class
-    class ChatGoogleGenerativeAI:
-        def __init__(self, **kwargs):
-            raise ImportError("langchain_google_genai is not available. Please install it with: pip install langchain-google-genai")
+    logger.warning("⚠️ langchain_google_genai not available, will use fallback")
+    # Create a fallback using google-generativeai directly
+    try:
+        import google.generativeai as genai
+        GOOGLE_AI_AVAILABLE = True
+        logger.info("✅ Using google-generativeai as fallback")
+        
+        # Create a wrapper class
+        class ChatGoogleGenerativeAI:
+            def __init__(self, model="gemini-pro", google_api_key=None, **kwargs):
+                genai.configure(api_key=google_api_key)
+                self.model = genai.GenerativeModel(model)
+                self.temperature = kwargs.get('temperature', 0.7)
+                self.max_output_tokens = kwargs.get('max_output_tokens', 1000)
+                self.system = kwargs.get('system', '')
+            
+            def invoke(self, messages):
+                # Convert LangChain format to Google AI format
+                if isinstance(messages, str):
+                    prompt = messages
+                else:
+                    prompt = messages[-1].content if hasattr(messages[-1], 'content') else str(messages[-1])
+                
+                response = self.model.generate_content(prompt)
+                return response.text
+                
+    except ImportError:
+        logger.warning("⚠️ google-generativeai also not available")
+        GOOGLE_AI_AVAILABLE = False
 
 from src.tools.firebase_tools import PlayerTools, FixtureTools, TeamTools, CommandLoggingTools, BotTools
 from src.tools.telegram_tools import (
