@@ -680,6 +680,14 @@ class AgentBasedMessageHandler:
             if len(self.conversation_memory[context_key]) > 2000:
                 self.conversation_memory[context_key] = self.conversation_memory[context_key][-1000:]
             
+            # Send the response with markdown escaping
+            escaped_response = escape_markdown_v2(response)
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=escaped_response,
+                parse_mode='MarkdownV2'
+            )
+            
             return response
             
         except Exception as e:
@@ -1404,10 +1412,11 @@ async def agent_based_command_handler(update, context):
         logger.info(f"Processing message with agents: {text}")
         response = await handler.process_message(text, str(user_id), username, str(chat_id))
         
-        # Send the response
+        # Send the response with markdown escaping
+        escaped_response = escape_markdown_v2(response)
         await context.bot.send_message(
             chat_id=chat_id,
-            text=response,
+            text=escaped_response,
             parse_mode='MarkdownV2'
         )
         
@@ -1489,8 +1498,19 @@ def register_langchain_agentic_handler(app):
             is_leadership_chat=is_leadership
         )
 
-        # Reply to the user
-        await message.reply_text(response)
+        # Reply to the user with markdown escaping
+        escaped_response = escape_markdown_v2(response)
+        await message.reply_text(escaped_response, parse_mode='MarkdownV2')
 
     # Register the handler for all text messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, langchain_agentic_message_handler))
+
+def escape_markdown_v2(text: str) -> str:
+    """Escape special characters for Telegram's MarkdownV2 parse_mode."""
+    # Characters that need to be escaped in MarkdownV2
+    special_chars = ['.', '!', '(', ')', '[', ']', '{', '}', '<', '>', '#', '+', '-', '=', '|', ':', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    
+    for char in special_chars:
+        text = text.replace(char, f'\\{char}')
+    
+    return text
