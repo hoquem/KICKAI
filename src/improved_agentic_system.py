@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from collections import defaultdict, deque
 
 from crewai import Agent, Task, Crew
 from langchain_community.llms import Ollama
@@ -692,7 +693,7 @@ class ImprovedAgenticSystem:
             # Decompose request into tasks
             tasks = await self.task_decomposer.decompose_request(message, selected_agents, context)
             
-            # Execute tasks based on complexity
+            # Execute tasks based on complexity and dependencies
             if context.complexity_score > 7 and len(selected_agents) > 1:
                 # Use collaboration for complex multi-agent tasks
                 shared_task = Task(
@@ -707,6 +708,9 @@ class ImprovedAgenticSystem:
                 
                 final_response = result.get('results', [{}])[-1].get('result', 'No response')
                 
+            elif any(getattr(task, 'dependencies', None) for task in tasks):
+                # If any task has dependencies, use dependency-based execution
+                final_response = await self._execute_tasks_with_dependencies(tasks, context)
             else:
                 # Use delegation for simpler tasks
                 final_response = await self._execute_simple_delegation(selected_agents, tasks, context)
@@ -757,6 +761,60 @@ class ImprovedAgenticSystem:
             return results[0]
         else:
             return "\n\n".join([f"Step {i+1}: {result}" for i, result in enumerate(results)])
+    
+    async def _execute_tasks_with_dependencies(self, tasks, context):
+        """Execute tasks in dependency order, running independent tasks in parallel."""
+        # Build dependency graph
+        task_map = {getattr(task, 'context', {}).get('template', str(i)): task for i, task in enumerate(tasks)}
+        dependencies = defaultdict(set)
+        dependents = defaultdict(set)
+        for task in tasks:
+            name = getattr(task, 'context', {}).get('template', None)
+            if not name:
+                continue
+            for dep in getattr(task, 'context', {}).get('dependencies', []):
+                dependencies[name].add(dep)
+                dependents[dep].add(name)
+        # Find tasks with no dependencies
+        ready = deque([name for name in task_map if not dependencies[name]])
+        completed = set()
+        results = {}
+        errors = {}
+        logger.info(f"[DependencyExecution] Task order will respect dependencies: {dict(dependencies)}")
+        while ready:
+            # Run all ready tasks in parallel
+            current_batch = list(ready)
+            ready.clear()
+            logger.info(f"[DependencyExecution] Executing tasks in parallel: {current_batch}")
+            coros = [self._execute_single_task(task_map[name], context) for name in current_batch]
+            batch_results = await asyncio.gather(*coros, return_exceptions=True)
+            for name, result in zip(current_batch, batch_results):
+                if isinstance(result, Exception):
+                    logger.error(f"[DependencyExecution] Task {name} failed: {result}")
+                    errors[name] = str(result)
+                else:
+                    results[name] = result
+                completed.add(name)
+                # Mark dependents as ready if all their dependencies are done
+                for dep in dependents[name]:
+                    if dependencies[dep].issubset(completed):
+                        ready.append(dep)
+        # Compose final response
+        if errors:
+            logger.error(f"[DependencyExecution] Some tasks failed: {errors}")
+        ordered_results = [results.get(name, f"[FAILED: {errors.get(name)}]") for name in task_map]
+        return "\n\n".join([f"{name}: {res}" for name, res in zip(task_map, ordered_results)])
+
+    async def _execute_single_task(self, task, context):
+        """Execute a single task and return its result."""
+        try:
+            if hasattr(task, 'execute') and callable(task.execute):
+                return await task.execute()
+            else:
+                return str(task)
+        except Exception as e:
+            logger.error(f"[DependencyExecution] Error executing task: {e}")
+            raise
     
     def get_system_analytics(self) -> Dict:
         """Get comprehensive system analytics."""

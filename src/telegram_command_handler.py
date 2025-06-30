@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 # Import configuration
 try:
-    from config import config, ENABLE_INTELLIGENT_ROUTING, ENABLE_LLM_ROUTING
+    from config import config, ENABLE_INTELLIGENT_ROUTING, ENABLE_LLM_ROUTING, ENABLE_DYNAMIC_TASK_DECOMPOSITION
 except ImportError as e:
     logger.error(f"Configuration not available: {e}")
     raise ImportError("Configuration not available")
@@ -578,6 +578,8 @@ match_id_generator = MatchIDGenerator()
 
 # --- Agent-Based Message Processing ---
 
+from src.improved_agentic_system import ImprovedAgenticSystem
+
 class AgentBasedMessageHandler:
     """Agent-based message handler using CrewAI for intelligent message processing."""
     
@@ -585,32 +587,21 @@ class AgentBasedMessageHandler:
         self.team_id = team_id
         self.crew = None
         self.agents = {}
-        self.conversation_memory = {}  # Store conversation context per chat
-        self.intelligent_router = None  # Add intelligent router
+        self.conversation_memory = {}
+        self.intelligent_router = None
+        self.improved_agentic_system = None
         self._initialize_agents()
     
     def _initialize_agents(self):
         """Initialize CrewAI agents for message processing."""
         try:
             from src.agents import create_llm, create_agents_for_team, create_crew_for_team
-            
-            # Create LLM
             llm = create_llm()
-            
-            # Create agents for this team
             agents = create_agents_for_team(llm, self.team_id)
             (
-                message_processor,      # Primary interface
-                team_manager,           # Strategic coordination
-                player_coordinator,     # Operational management
-                match_analyst,          # Tactical analysis
-                communication_specialist, # Broadcast management
-                finance_manager,        # Financial management
-                squad_selection_specialist, # Squad selection
-                analytics_specialist    # Performance analytics
+                message_processor, team_manager, player_coordinator, match_analyst,
+                communication_specialist, finance_manager, squad_selection_specialist, analytics_specialist
             ) = agents
-            
-            # Store agents in a dictionary for easy access
             self.agents = {
                 'message_processor': message_processor,
                 'team_manager': team_manager,
@@ -621,11 +612,14 @@ class AgentBasedMessageHandler:
                 'squad_selection_specialist': squad_selection_specialist,
                 'analytics_specialist': analytics_specialist
             }
-            
-            # Create crew for complex multi-agent tasks
             self.crew = create_crew_for_team(agents)
-            
-            # Initialize LLM-powered routing if enabled
+            if ENABLE_DYNAMIC_TASK_DECOMPOSITION:
+                try:
+                    self.improved_agentic_system = ImprovedAgenticSystem(self.agents, llm)
+                    logger.info(f"✅ Dynamic task decomposition initialized for team {self.team_id}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize improved agentic system: {e}")
+                    self.improved_agentic_system = None
             if ENABLE_LLM_ROUTING:
                 try:
                     from src.intelligent_router_standalone import StandaloneIntelligentRouter
@@ -634,7 +628,6 @@ class AgentBasedMessageHandler:
                 except Exception as e:
                     logger.error(f"❌ Failed to initialize LLM-powered router: {e}")
                     self.intelligent_router = None
-            # Otherwise, fall back to intelligent routing if enabled
             elif ENABLE_INTELLIGENT_ROUTING:
                 try:
                     from src.intelligent_router_standalone import StandaloneIntelligentRouter
@@ -646,70 +639,32 @@ class AgentBasedMessageHandler:
             logger.info(f"✅ Agent-based message handler initialized for team {self.team_id}")
             logger.info(f"📊 Loaded {len(self.agents)} agents: {list(self.agents.keys())}")
             logger.info(f"🧠 Routing: {'✅ LLM-powered' if ENABLE_LLM_ROUTING and self.intelligent_router else ('✅ Intelligent' if ENABLE_INTELLIGENT_ROUTING and self.intelligent_router else '❌ Disabled')}")
-            
+            logger.info(f"🔧 Dynamic Task Decomposition: {'✅ Enabled' if ENABLE_DYNAMIC_TASK_DECOMPOSITION and self.improved_agentic_system else '❌ Disabled'}")
         except Exception as e:
             logger.error(f"❌ Failed to initialize agents: {e}")
             raise
     
-    async def process_message(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
-        """
-        Process incoming message using CrewAI agents.
-        
-        Returns:
-            str: Response message to send back to user
-        """
+    async def handle_message(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
+        """Main entrypoint: handle incoming messages with dynamic task decomposition if enabled, else fallback."""
         try:
-            # Get conversation context
-            context_key = f"{chat_id}_{user_id}"
-            conversation_context = self.conversation_memory.get(context_key, "")
-            
-            # Determine if this is a follow-up question
-            is_followup = len(conversation_context) > 0
-            
-            if is_followup:
-                # Handle as follow-up question
-                response = await self._handle_followup(message_text, conversation_context, user_id, username, chat_id)
-            else:
-                # Handle as new request
-                response = await self._handle_new_request(message_text, user_id, username, chat_id)
-            
-            # Update conversation memory
-            self.conversation_memory[context_key] = f"{conversation_context}\nUser: {message_text}\nBot: {response}"
-            
-            # Limit memory size to prevent memory bloat
-            if len(self.conversation_memory[context_key]) > 2000:
-                self.conversation_memory[context_key] = self.conversation_memory[context_key][-1000:]
-            
-            # Send the response with markdown escaping
-            escaped_response = escape_markdown_v2(response)
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=escaped_response,
-                parse_mode='MarkdownV2'
-            )
-            
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error in agent-based message processing: {e}")
-            return f"❌ Sorry, I encountered an error processing your message: {str(e)}"
-    
-    async def _handle_new_request(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
-        """Handle a new request using intelligent agent routing."""
-        try:
-            # Use LLM-powered routing if enabled and available
-            if ENABLE_LLM_ROUTING and self.intelligent_router:
+            if ENABLE_DYNAMIC_TASK_DECOMPOSITION and self.improved_agentic_system:
+                logger.info(f"🔧 [DynamicTaskDecomposition] Handling request: {message_text[:50]}...")
+                try:
+                    result = await self.improved_agentic_system.process_request(message_text, user_id, self.team_id)
+                    context_key = f"{chat_id}_{user_id}"
+                    self.conversation_memory[context_key] = f"User: {message_text}\nAssistant: {result}"
+                    return result
+                except Exception as e:
+                    logger.error(f"[DynamicTaskDecomposition] Error: {e}. Falling back to intelligent/legacy routing.")
+            if self.intelligent_router:
+                logger.info(f"🧠 [IntelligentRouting] Handling request: {message_text[:50]}...")
                 return await self._handle_with_intelligent_routing(message_text, user_id, username, chat_id)
-            # Otherwise, use intelligent routing if enabled and available
-            elif ENABLE_INTELLIGENT_ROUTING and self.intelligent_router:
-                return await self._handle_with_intelligent_routing(message_text, user_id, username, chat_id)
-            # Otherwise, fall back to legacy routing
             else:
+                logger.info(f"📝 [LegacyRouting] Handling request: {message_text[:50]}...")
                 return await self._handle_with_legacy_routing(message_text, user_id, username, chat_id)
-                
         except Exception as e:
-            logger.error(f"Error handling new request: {e}")
-            return f"❌ Error processing your request: {str(e)}"
+            logger.error(f"[MessageHandler] Fatal error: {e}")
+            return f"❌ Sorry, I encountered an error processing your request: {str(e)}"
     
     async def _handle_with_intelligent_routing(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
         """Handle request using intelligent routing."""
@@ -866,29 +821,6 @@ class AgentBasedMessageHandler:
             logger.error(f"Error executing multi-agent: {e}")
             raise
     
-    async def _handle_followup(self, message_text: str, conversation_context: str, user_id: str, username: str, chat_id: str) -> str:
-        """Handle a follow-up question maintaining conversation context."""
-        try:
-            from src.tasks import MessageProcessingTasks
-            
-            # Create the follow-up task
-            message_tasks = MessageProcessingTasks()
-            task = message_tasks.handle_followup_task(self.agents['message_processor'])
-            
-            # Format the task description with actual values
-            task.description = task.description.format(
-                followup_message=message_text,
-                conversation_context=conversation_context
-            )
-            
-            # Execute the task
-            result = await self._execute_task(task)
-            return result
-            
-        except Exception as e:
-            logger.error(f"Error handling follow-up: {e}")
-            return f"❌ Error processing your follow-up: {str(e)}"
-    
     async def _handle_complex_request(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
         """Handle complex requests that require multiple agents using the crew."""
         try:
@@ -1038,7 +970,7 @@ async def newmatch_command(update, context, params: Dict[str, Any]):
         message += "🔒 Admin commands can only be executed from the leadership chat\\.\n"
         message += "💡 Please use the leadership chat to create matches\\."
         
-        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='MarkdownV2')
+        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
         return
     
     # Extract parameters
@@ -1066,7 +998,7 @@ async def newmatch_command(update, context, params: Dict[str, Any]):
     message += f"\n🆔 **Match ID:** `{match_id}`\n"
     message += "💡 Use this ID for updates and availability polls\\."
     
-    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='MarkdownV2')
+    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
 
 async def listmatches_command(update, context, params: Dict[str, Any]):
     """Handle listmatches command."""
@@ -1081,7 +1013,7 @@ async def listmatches_command(update, context, params: Dict[str, Any]):
     message += "This feature is coming soon with LLM parsing\\!\n"
     message += f"Filter: {filter_type}"
     
-    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='MarkdownV2')
+    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
 
 async def help_command(update, context, params: Dict[str, Any]):
     """Handle help command with role-based permissions."""
@@ -1126,48 +1058,48 @@ async def help_command(update, context, params: Dict[str, Any]):
             
             if user_role in ['admin', 'captain']:
                 message += "📅 **Match Management:**\n"
-                message += "• \"Create a match against Arsenal on July 1st at 2pm\"\n"
-                message += "• \"List all fixtures\"\n"
-                message += "• \"Show upcoming matches\"\n\n"
+                message += "- \"Create a match against Arsenal on July 1st at 2pm\"\n"
+                message += "- \"List all fixtures\"\n"
+                message += "- \"Show upcoming matches\"\n\n"
                 
                 message += "👥 **Player Management:**\n"
-                message += "• \"Add player John Doe with phone 123456789\"\n"
-                message += "• \"List all players\"\n"
-                message += "• \"Show player with phone 123456789\"\n"
-                message += "• \"Update player John's phone to 987654321\"\n\n"
+                message += "- \"Add player John Doe with phone 123456789\"\n"
+                message += "- \"List all players\"\n"
+                message += "- \"Show player with phone 123456789\"\n"
+                message += "- \"Update player John's phone to 987654321\"\n\n"
                 
                 message += "🏆 **Team Management:**\n"
-                message += "• \"Show team info\"\n"
-                message += "• \"Update team name to BP Hatters United\"\n\n"
+                message += "- \"Show team info\"\n"
+                message += "- \"Update team name to BP Hatters United\"\n\n"
                 
                 message += "📢 **Communication:**\n"
-                message += "• \"Send a message to the team: Training is at 7pm tonight\\!\"\n"
-                message += "• \"Create a poll: Who's available for Saturday's match\\?\"\n\n"
+                message += "- \"Send a message to the team: Training is at 7pm tonight!\"\n"
+                message += "- \"Create a poll: Who's available for Saturday's match?\"\n\n"
                 
                 message += "💰 **Financial Management:**\n"
-                message += "• \"Send payment reminder for match fees\"\n"
-                message += "• \"Track player payments\"\n\n"
+                message += "- \"Send payment reminder for match fees\"\n"
+                message += "- \"Track player payments\"\n\n"
                 
                 message += "📊 **Analytics & Planning:**\n"
-                message += "• \"Analyze our team performance\"\n"
-                message += "• \"Plan squad selection for next match\"\n"
-                message += "• \"Generate match report\"\n\n"
+                message += "- \"Analyze our team performance\"\n"
+                message += "- \"Plan squad selection for next match\"\n"
+                message += "- \"Generate match report\"\n\n"
                 
             else:
                 # Other leadership roles (secretary, manager, treasurer)
                 message += "📅 **Match Management:**\n"
-                message += "• \"List all fixtures\"\n"
-                message += "• \"Show upcoming matches\"\n\n"
+                message += "- \"List all fixtures\"\n"
+                message += "- \"Show upcoming matches\"\n\n"
                 
                 message += "👥 **Player Management:**\n"
-                message += "• \"List all players\"\n"
-                message += "• \"Show player with phone 123456789\"\n\n"
+                message += "- \"List all players\"\n"
+                message += "- \"Show player with phone 123456789\"\n\n"
                 
                 message += "🏆 **Team Management:**\n"
-                message += "• \"Show team info\"\n\n"
+                message += "- \"Show team info\"\n\n"
                 
                 message += "📢 **Communication:**\n"
-                message += "• \"Send a message to the team: Training is at 7pm tonight\\!\"\n\n"
+                message += "- \"Send a message to the team: Training is at 7pm tonight!\"\n\n"
                 
         else:
             # Main group chat - show only non-admin commands regardless of user role
@@ -1176,42 +1108,42 @@ async def help_command(update, context, params: Dict[str, Any]):
             
             # Show only basic commands for all users in main chat
             message += "📅 **Match Information:**\n"
-            message += "• \"List all fixtures\"\n"
-            message += "• \"Show upcoming matches\"\n"
-            message += "• \"What games do we have coming up\\?\"\n\n"
+            message += "- \"List all fixtures\"\n"
+            message += "- \"Show upcoming matches\"\n"
+            message += "- \"What games do we have coming up?\"\n\n"
             
             message += "👥 **Player Information:**\n"
-            message += "• \"List all players\"\n"
-            message += "• \"Show player with phone 123456789\"\n\n"
+            message += "- \"List all players\"\n"
+            message += "- \"Show player with phone 123456789\"\n\n"
             
             message += "🏆 **Team Information:**\n"
-            message += "• \"Show team info\"\n\n"
+            message += "- \"Show team info\"\n\n"
         
         # Common commands for all users
         message += "📊 **General:**\n"
-        message += "• \"Status\" \\- Show system status\n"
-        message += "• \"Help\" \\- Show this help message\n\n"
+        message += "- \"Status\" - Show system status\n"
+        message += "- \"Help\" - Show this help message\n\n"
         
         message += "💡 **Tips:**\n"
-        message += "• You can use natural language or specific commands\n"
-        message += "• Try asking questions like \"What matches do we have\\?\"\n"
+        message += "- You can use natural language or specific commands\n"
+        message += "- Try asking questions like \"What matches do we have?\"\n"
         if user_role in ['admin', 'captain'] and not is_leadership_chat:
-            message += "• Use the leadership chat for admin management features\n"
+            message += "- Use the leadership chat for admin management features\n"
         
-        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='MarkdownV2')
+        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
         
     except Exception as e:
         logger.error(f"Error in help_command: {e}")
         # Fallback to basic help if there's an error
-        fallback_message = "🤖 <b>KICKAI Bot Help</b>\n\n"
-        fallback_message += "📅 <b>Basic Commands:</b>\n"
-        fallback_message += "• \"List all fixtures\"\n"
-        fallback_message += "• \"Show team info\"\n"
-        fallback_message += "• \"Status\" - Show system status\n"
-        fallback_message += "• \"Help\" - Show this help message\n\n"
+        fallback_message = "🤖 **KICKAI Bot Help**\n\n"
+        fallback_message += "📅 **Basic Commands:**\n"
+        fallback_message += "- \"List all fixtures\"\n"
+        fallback_message += "- \"Show team info\"\n"
+        fallback_message += "- \"Status\" - Show system status\n"
+        fallback_message += "- \"Help\" - Show this help message\n\n"
         fallback_message += "💡 You can use natural language or specific commands!"
         
-        await context.bot.send_message(chat_id=chat_id, text=fallback_message, parse_mode='MarkdownV2')
+        await context.bot.send_message(chat_id=chat_id, text=fallback_message, parse_mode='Markdown')
 
 async def status_command(update, context, params: Dict[str, Any]):
     """Handle status command."""
@@ -1231,7 +1163,7 @@ async def status_command(update, context, params: Dict[str, Any]):
     message += f"📅 **Version:** 1.3.0-llm-parsing\n"
     message += f"🟢 **Status:** Active"
     
-    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='MarkdownV2')
+    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
 
 # --- Command Handler Mapping ---
 
@@ -1267,8 +1199,8 @@ async def llm_command_handler(update, context):
             if update.effective_chat:
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
-                    text=f"❌ <b>Error:</b> {parsed['error']}",
-                    parse_mode='MarkdownV2'
+                    text=f"❌ **Error:** {parsed['error']}",
+                    parse_mode='Markdown'
                 )
             return
         
@@ -1286,10 +1218,10 @@ async def llm_command_handler(update, context):
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text="🤔 I'm not sure what you want me to do. Try saying something like:\n"
-                         "• \"Create a match against Red Lion FC on July 1st at 2pm\"\n"
-                         "• \"Show upcoming matches\"\n"
-                         "• \"Help\"",
-                    parse_mode='MarkdownV2'
+                         "- \"Create a match against Red Lion FC on July 1st at 2pm\"\n"
+                         "- \"Show upcoming matches\"\n"
+                         "- \"Help\"",
+                    parse_mode='Markdown'
                 )
             return
         
@@ -1299,9 +1231,9 @@ async def llm_command_handler(update, context):
             if update.effective_chat:
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
-                    text=f"❌ <b>Unknown command:</b> {command}\n\n"
-                         f"💡 Type <code>/help</code> to see available commands.",
-                    parse_mode='MarkdownV2'
+                    text=f"❌ **Unknown command:** {command}\n\n"
+                         f"💡 Type `/help` to see available commands.",
+                    parse_mode='Markdown'
                 )
             return
         
@@ -1315,7 +1247,7 @@ async def llm_command_handler(update, context):
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
-                parse_mode='MarkdownV2'
+                parse_mode='Markdown'
             )
             return
         
@@ -1327,8 +1259,8 @@ async def llm_command_handler(update, context):
         if update.effective_chat:
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=f"❌ <b>Error:</b> {str(e)}",
-                parse_mode='MarkdownV2'
+                text=f"❌ **Error:** {str(e)}",
+                parse_mode='Markdown'
             )
 
 # --- Register commands with the bot ---
@@ -1403,21 +1335,20 @@ async def agent_based_command_handler(update, context):
             logger.error(f"Failed to initialize agent handler: {e}")
             await context.bot.send_message(
                 chat_id=chat_id,
-                text="❌ <b>System Error:</b> Agent system is currently unavailable. Please try again later.",
-                parse_mode='MarkdownV2'
+                text="❌ **System Error:** Agent system is currently unavailable. Please try again later.",
+                parse_mode='Markdown'
             )
             return
         
         # Process the message using agents
         logger.info(f"Processing message with agents: {text}")
-        response = await handler.process_message(text, str(user_id), username, str(chat_id))
+        response = await handler.handle_message(text, str(user_id), username, str(chat_id))
         
-        # Send the response with markdown escaping
-        escaped_response = escape_markdown_v2(response)
+        # Send the response without markdown escaping (Markdown mode handles it automatically)
         await context.bot.send_message(
             chat_id=chat_id,
-            text=escaped_response,
-            parse_mode='MarkdownV2'
+            text=response,
+            parse_mode='Markdown'
         )
         
         # Log successful processing
@@ -1428,8 +1359,8 @@ async def agent_based_command_handler(update, context):
         if update.effective_chat:
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=f"❌ <b>Error:</b> {str(e)}",
-                parse_mode='MarkdownV2'
+                text=f"❌ **Error:** {str(e)}",
+                parse_mode='Markdown'
             )
 
 # Add this function to register the agent-based handler
@@ -1498,19 +1429,8 @@ def register_langchain_agentic_handler(app):
             is_leadership_chat=is_leadership
         )
 
-        # Reply to the user with markdown escaping
-        escaped_response = escape_markdown_v2(response)
-        await message.reply_text(escaped_response, parse_mode='MarkdownV2')
+        # Reply to the user without markdown escaping (Markdown mode handles it automatically)
+        await message.reply_text(response, parse_mode='Markdown')
 
     # Register the handler for all text messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, langchain_agentic_message_handler))
-
-def escape_markdown_v2(text: str) -> str:
-    """Escape special characters for Telegram's MarkdownV2 parse_mode."""
-    # Characters that need to be escaped in MarkdownV2
-    special_chars = ['.', '!', '(', ')', '[', ']', '{', '}', '<', '>', '#', '+', '-', '=', '|', ':', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
-    
-    for char in special_chars:
-        text = text.replace(char, f'\\{char}')
-    
-    return text

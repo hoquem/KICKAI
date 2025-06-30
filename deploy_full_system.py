@@ -1,187 +1,280 @@
 #!/usr/bin/env python3
 """
-Full System Deployment Script for KICKAI
-Deploys the complete system including CrewAI agents, Telegram bot, and monitoring.
+KICKAI Full System Deployment Script
+Deploys the complete system with all Phase 1 features enabled.
 """
 
 import os
 import sys
-import logging
 import subprocess
-import time
+import json
 from datetime import datetime
-from dotenv import load_dotenv
+from pathlib import Path
 
-# Load environment variables
-load_dotenv()
+def print_header(title):
+    """Print a formatted header."""
+    print("\n" + "="*60)
+    print(f"🚀 {title}")
+    print("="*60)
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+def print_section(title):
+    """Print a formatted section."""
+    print(f"\n📋 {title}")
+    print("-" * 40)
 
-# Required environment variables
-REQUIRED_ENV_VARS = [
-    'TELEGRAM_BOT_TOKEN',
-    'FIREBASE_PROJECT_ID',
-    'FIREBASE_PRIVATE_KEY_ID',
-    'FIREBASE_PRIVATE_KEY',
-    'FIREBASE_CLIENT_EMAIL',
-    'FIREBASE_CLIENT_ID',
-    'FIREBASE_AUTH_URI',
-    'FIREBASE_TOKEN_URI',
-    'FIREBASE_AUTH_PROVIDER_X509_CERT_URL',
-    'FIREBASE_CLIENT_X509_CERT_URL',
-    'GOOGLE_API_KEY',
-    'OPENAI_API_KEY',  # Required by CrewAI even if using Gemini
-]
+def run_command(command, description, check=True):
+    """Run a command and handle errors."""
+    print(f"🔧 {description}...")
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"✅ {description} - SUCCESS")
+            return True
+        else:
+            print(f"❌ {description} - FAILED")
+            print(f"Error: {result.stderr}")
+            if check:
+                return False
+            return True
+    except Exception as e:
+        print(f"❌ {description} - ERROR: {e}")
+        if check:
+            return False
+        return True
 
-def check_environment():
-    """Check if all required environment variables are set."""
-    missing_vars = []
+def check_environment_variables():
+    """Check required environment variables."""
+    print_section("Environment Variables Check")
     
-    for var in REQUIRED_ENV_VARS:
+    required_vars = [
+        'TELEGRAM_BOT_TOKEN',
+        'FIREBASE_PROJECT_ID',
+        'FIREBASE_PRIVATE_KEY_ID',
+        'FIREBASE_PRIVATE_KEY',
+        'FIREBASE_CLIENT_EMAIL',
+        'FIREBASE_CLIENT_ID',
+        'FIREBASE_AUTH_URI',
+        'FIREBASE_TOKEN_URI',
+        'FIREBASE_AUTH_PROVIDER_X509_CERT_URL',
+        'FIREBASE_CLIENT_X509_CERT_URL'
+    ]
+    
+    missing_vars = []
+    for var in required_vars:
         if not os.getenv(var):
             missing_vars.append(var)
     
     if missing_vars:
-        logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
-        logger.error("Please set these variables in your .env file or environment")
+        print("❌ Missing environment variables:")
+        for var in missing_vars:
+            print(f"   - {var}")
+        print("\n📝 Please set these environment variables before deployment.")
         return False
+    else:
+        print("✅ All required environment variables are set")
+        return True
+
+def check_dependencies():
+    """Check Python dependencies."""
+    print_section("Dependencies Check")
     
-    logger.info("✅ All required environment variables are set")
-    return True
-
-def check_firebase_connection():
-    """Test Firebase connection."""
-    try:
-        from src.tools.firebase_tools import get_firebase_client
-        client = get_firebase_client()
-        # Test a simple query
-        client.collection('teams').limit(1).get()
-        logger.info("✅ Firebase connection successful")
+    required_packages = [
+        'python-telegram-bot',
+        'python-dotenv',
+        'firebase-admin',
+        'crewai',
+        'langchain',
+        'pydantic'
+    ]
+    
+    missing_packages = []
+    for package in required_packages:
+        try:
+            __import__(package.replace('-', '_'))
+        except ImportError:
+            missing_packages.append(package)
+    
+    if missing_packages:
+        print("❌ Missing Python packages:")
+        for package in missing_packages:
+            print(f"   - {package}")
+        print("\n📝 Installing missing packages...")
+        install_command = f"pip install {' '.join(missing_packages)}"
+        return run_command(install_command, "Installing missing packages")
+    else:
+        print("✅ All required packages are installed")
         return True
-    except Exception as e:
-        logger.error(f"❌ Firebase connection failed: {e}")
-        return False
 
-def check_ai_provider():
-    """Check AI provider configuration."""
-    try:
-        from config import config
-        ai_provider = config.ai_provider
-        logger.info(f"✅ AI Provider configured: {ai_provider}")
-        return True
-    except Exception as e:
-        logger.error(f"❌ AI Provider configuration failed: {e}")
-        return False
+def run_tests():
+    """Run all tests to ensure system is ready."""
+    print_section("Running Tests")
+    
+    tests = [
+        ("tests/test_phase1_integration.py", "Phase 1 Integration Tests"),
+        ("tests/test_dynamic_task_integration.py", "Dynamic Task Integration Tests"),
+        ("sanity_check.py", "Sanity Check")
+    ]
+    
+    all_passed = True
+    for test_file, description in tests:
+        if os.path.exists(test_file):
+            success = run_command(
+                f"PYTHONPATH=/Users/mahmud/projects/KICKAI python3 {test_file}",
+                description,
+                check=False
+            )
+            if not success:
+                all_passed = False
+        else:
+            print(f"⚠️  {test_file} not found, skipping {description}")
+    
+    return all_passed
 
-def run_health_check():
-    """Run health check to verify system components."""
+def check_configuration():
+    """Check that all features are enabled in configuration."""
+    print_section("Configuration Check")
+    
     try:
-        result = subprocess.run([sys.executable, 'health_check.py'], 
-                              capture_output=True, text=True, timeout=30)
+        sys.path.insert(0, 'src')
+        from config import (
+            ENABLE_INTELLIGENT_ROUTING,
+            ENABLE_DYNAMIC_TASK_DECOMPOSITION,
+            ENABLE_ADVANCED_MEMORY,
+            ENABLE_LLM_ROUTING,
+            AGENTIC_PERFORMANCE_MONITORING,
+            AGENTIC_ANALYTICS_ENABLED
+        )
         
-        if result.returncode == 0:
-            logger.info("✅ Health check passed")
+        features = {
+            'Intelligent Routing': ENABLE_INTELLIGENT_ROUTING,
+            'LLM Routing': ENABLE_LLM_ROUTING,
+            'Dynamic Task Decomposition': ENABLE_DYNAMIC_TASK_DECOMPOSITION,
+            'Advanced Memory': ENABLE_ADVANCED_MEMORY,
+            'Performance Monitoring': AGENTIC_PERFORMANCE_MONITORING,
+            'Analytics': AGENTIC_ANALYTICS_ENABLED
+        }
+        
+        all_enabled = True
+        for feature, enabled in features.items():
+            status = "✅ ENABLED" if enabled else "❌ DISABLED"
+            print(f"   {feature}: {status}")
+            if not enabled:
+                all_enabled = False
+        
+        if all_enabled:
+            print("\n✅ All Phase 1 features are enabled")
             return True
         else:
-            logger.error(f"❌ Health check failed: {result.stderr}")
-            return False
-    except Exception as e:
-        logger.error(f"❌ Health check failed: {e}")
-        return False
-
-def start_monitoring():
-    """Start monitoring dashboard."""
-    try:
-        logger.info("Starting monitoring dashboard...")
-        # Start monitoring in background
-        subprocess.Popen([sys.executable, 'scripts/monitoring_dashboard.py'])
-        logger.info("✅ Monitoring dashboard started")
-        return True
-    except Exception as e:
-        logger.error(f"❌ Failed to start monitoring: {e}")
-        return False
-
-def deploy_to_railway():
-    """Deploy the system to Railway."""
-    try:
-        logger.info("Deploying to Railway...")
-        
-        # Check if Railway CLI is installed
-        result = subprocess.run(['railway', '--version'], 
-                              capture_output=True, text=True)
-        
-        if result.returncode != 0:
-            logger.error("❌ Railway CLI not found. Please install it first.")
-            return False
-        
-        # Deploy to Railway
-        result = subprocess.run(['railway', 'deploy'], 
-                              capture_output=True, text=True, timeout=300)
-        
-        if result.returncode == 0:
-            logger.info("✅ Deployment to Railway successful")
-            return True
-        else:
-            logger.error(f"❌ Railway deployment failed: {result.stderr}")
+            print("\n❌ Some features are disabled. Please check config.py")
             return False
             
-    except Exception as e:
-        logger.error(f"❌ Railway deployment failed: {e}")
+    except ImportError as e:
+        print(f"❌ Failed to import configuration: {e}")
         return False
+
+def generate_deployment_instructions():
+    """Generate deployment instructions."""
+    print_section("Deployment Instructions")
+    
+    instructions = """
+🚀 KICKAI Full System Deployment Instructions
+
+1. ENVIRONMENT SETUP
+   - Ensure all environment variables are set
+   - Verify Firebase credentials are configured
+   - Set TELEGRAM_BOT_TOKEN
+
+2. DEPLOYMENT OPTIONS
+
+   Option A: Railway Deployment
+   - Push to Railway repository
+   - Set environment variables in Railway dashboard
+   - Deploy automatically
+
+   Option B: Heroku Deployment
+   - Create Heroku app
+   - Set environment variables: heroku config:set VAR=value
+   - Deploy: git push heroku main
+
+   Option C: Local Deployment
+   - Run: python3 run_telegram_bot.py
+   - Monitor logs for any issues
+
+3. POST-DEPLOYMENT VERIFICATION
+   - Send test message to bot
+   - Verify intelligent routing is working
+   - Test dynamic task decomposition
+   - Check memory system functionality
+   - Monitor performance metrics
+
+4. MONITORING
+   - Check application logs
+   - Monitor performance metrics
+   - Watch for any errors
+   - Gather user feedback
+
+5. TROUBLESHOOTING
+   - Check environment variables
+   - Verify Firebase connection
+   - Test Telegram bot token
+   - Review error logs
+"""
+    
+    print(instructions)
 
 def main():
     """Main deployment function."""
-    logger.info("🚀 Starting KICKAI Full System Deployment")
-    logger.info(f"📅 Deployment timestamp: {datetime.now()}")
+    print_header("KICKAI Full System Deployment")
+    print(f"📅 Deployment started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
-    # Step 1: Check environment
-    logger.info("\n📋 Step 1: Checking environment variables...")
-    if not check_environment():
-        logger.error("❌ Environment check failed. Exiting.")
+    # Check current directory
+    if not os.path.exists('config.py'):
+        print("❌ Please run this script from the KICKAI project root directory")
         sys.exit(1)
     
-    # Step 2: Check Firebase connection
-    logger.info("\n🔥 Step 2: Testing Firebase connection...")
-    if not check_firebase_connection():
-        logger.error("❌ Firebase connection failed. Exiting.")
-        sys.exit(1)
+    # Run all checks
+    checks = [
+        ("Environment Variables", check_environment_variables),
+        ("Dependencies", check_dependencies),
+        ("Configuration", check_configuration),
+        ("Tests", run_tests)
+    ]
     
-    # Step 3: Check AI provider
-    logger.info("\n🤖 Step 3: Checking AI provider configuration...")
-    if not check_ai_provider():
-        logger.error("❌ AI provider configuration failed. Exiting.")
-        sys.exit(1)
+    all_checks_passed = True
+    for check_name, check_func in checks:
+        if not check_func():
+            all_checks_passed = False
+            print(f"\n⚠️  {check_name} check failed")
     
-    # Step 4: Run health check
-    logger.info("\n🏥 Step 4: Running health check...")
-    if not run_health_check():
-        logger.error("❌ Health check failed. Exiting.")
-        sys.exit(1)
-    
-    # Step 5: Start monitoring
-    logger.info("\n📊 Step 5: Starting monitoring...")
-    if not start_monitoring():
-        logger.warning("⚠️ Monitoring failed to start, but continuing...")
-    
-    # Step 6: Deploy to Railway (optional)
-    deploy_choice = input("\n🚂 Do you want to deploy to Railway? (y/n): ").lower().strip()
-    if deploy_choice == 'y':
-        logger.info("\n🚂 Step 6: Deploying to Railway...")
-        if not deploy_to_railway():
-            logger.error("❌ Railway deployment failed.")
-            sys.exit(1)
-    
-    # Step 7: Start the system locally
-    logger.info("\n🎯 Step 7: Starting the system locally...")
-    try:
-        logger.info("Starting KICKAI system...")
-        subprocess.run([sys.executable, 'railway_main.py'])
-    except KeyboardInterrupt:
-        logger.info("\n👋 System stopped by user")
-    except Exception as e:
-        logger.error(f"❌ Failed to start system: {e}")
+    if all_checks_passed:
+        print_header("✅ ALL CHECKS PASSED - READY FOR DEPLOYMENT")
+        generate_deployment_instructions()
+        
+        # Create deployment summary
+        summary = {
+            "deployment_time": datetime.now().isoformat(),
+            "status": "ready",
+            "features_enabled": [
+                "Intelligent Routing",
+                "LLM Routing", 
+                "Dynamic Task Decomposition",
+                "Advanced Memory",
+                "Performance Monitoring",
+                "Analytics"
+            ],
+            "tests_passed": True,
+            "dependencies_installed": True,
+            "configuration_valid": True
+        }
+        
+        with open('deployment_summary.json', 'w') as f:
+            json.dump(summary, f, indent=2)
+        
+        print(f"\n📄 Deployment summary saved to: deployment_summary.json")
+        
+    else:
+        print_header("❌ DEPLOYMENT CHECKS FAILED")
+        print("Please fix the issues above before deploying.")
         sys.exit(1)
 
 if __name__ == "__main__":

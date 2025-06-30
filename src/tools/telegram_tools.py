@@ -207,7 +207,7 @@ class SendTelegramMessageTool(BaseTool):
             data = {
                 'chat_id': chat_id,
                 'text': message,
-                'parse_mode': 'MarkdownV2'  # Support markdown formatting
+                'parse_mode': 'Markdown'  # Support markdown formatting
             }
             
             response = requests.post(url, data=data)
@@ -376,17 +376,17 @@ class SendSquadAnnouncementTool(BaseTool):
             team_name = get_team_name_by_id(self.team_id)
             
             # Create squad announcement message
-            message = f"⚽ <b>SQUAD ANNOUNCEMENT</b> ⚽\n\n"
-            message += f"<b>Match:</b> {fixture_details}\n"
-            message += f"<b>Date:</b> {match_date}\n"
-            message += f"<b>Time:</b> {match_time}\n\n"
+            message = f"⚽ **SQUAD ANNOUNCEMENT** ⚽\n\n"
+            message += f"**Match:** {fixture_details}\n"
+            message += f"**Date:** {match_date}\n"
+            message += f"**Time:** {match_time}\n\n"
             
-            message += "🟢 <b>STARTING XI:</b>\n"
+            message += "🟢 **STARTING XI:**\n"
             for i, player in enumerate(starters, 1):
                 message += f"{i}. {player}\n"
             
             if substitutes:
-                message += "\n🟡 <b>SUBSTITUTES:</b>\n"
+                message += "\n🟡 **SUBSTITUTES:**\n"
                 for i, player in enumerate(substitutes, 1):
                     message += f"{i}. {player}\n"
             
@@ -396,7 +396,7 @@ class SendSquadAnnouncementTool(BaseTool):
             data = {
                 'chat_id': chat_id,
                 'text': message,
-                'parse_mode': 'MarkdownV2'
+                'parse_mode': 'Markdown'
             }
             
             response = requests.post(url, data=data)
@@ -444,9 +444,9 @@ class SendPaymentReminderTool(BaseTool):
             team_name = get_team_name_by_id(self.team_id)
             
             # Create payment reminder message
-            message = f"💰 <b>PAYMENT REMINDER</b> 💰\n\n"
-            message += f"<b>Match:</b> {fixture_details}\n"
-            message += f"<b>Amount Due:</b> £{amount:.2f}\n\n"
+            message = f"💰 **PAYMENT REMINDER** 💰\n\n"
+            message += f"**Match:** {fixture_details}\n"
+            message += f"**Amount Due:** £{amount:.2f}\n\n"
             
             message += "The following players still need to pay:\n"
             for i, player in enumerate(unpaid_players, 1):
@@ -459,7 +459,7 @@ class SendPaymentReminderTool(BaseTool):
             data = {
                 'chat_id': chat_id,
                 'text': message,
-                'parse_mode': 'MarkdownV2'
+                'parse_mode': 'Markdown'
             }
             
             response = requests.post(url, data=data)
@@ -519,7 +519,7 @@ class SendLeadershipMessageTool(BaseTool):
             data = {
                 'chat_id': chat_id,
                 'text': message,
-                'parse_mode': 'MarkdownV2'  # Support markdown formatting
+                'parse_mode': 'Markdown'  # Support markdown formatting
             }
             
             response = requests.post(url, data=data)

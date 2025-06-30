@@ -1,56 +1,97 @@
 #!/usr/bin/env python3
 """
-Test script to verify markdown formatting works with Telegram's MarkdownV2 parse_mode.
+Test script to verify markdown formatting for Telegram messages.
 """
 
-def test_markdown_formatting():
-    """Test various markdown formatting examples."""
+def test_help_message_formatting():
+    """Test the help message formatting."""
     
-    # Test cases with expected markdown formatting
-    test_cases = [
-        {
-            "name": "Basic bold text",
-            "input": "**Hello World**",
-            "expected": "**Hello World**"
-        },
-        {
-            "name": "Bold with special characters",
-            "input": "**Match Created Successfully!**",
-            "expected": "**Match Created Successfully\\!**"
-        },
-        {
-            "name": "Code block",
-            "input": "`match_id_123`",
-            "expected": "`match_id_123`"
-        },
-        {
-            "name": "Mixed formatting",
-            "input": "✅ **Match Created Successfully!**\n\n🏆 **League**\n⚽ **BP Hatters FC vs Arsenal**\n📅 **Date:** 2024-07-01\n🕐 **Time:** 14:00\n📍 **Venue:** Home\n\n🆔 **Match ID:** `BPHARS-01JUL`\n💡 Use this ID for updates and availability polls.",
-            "expected": "✅ **Match Created Successfully\\!**\n\n🏆 **League**\n⚽ **BP Hatters FC vs Arsenal**\n📅 **Date:** 2024\\-07\\-01\n🕐 **Time:** 14:00\n📍 **Venue:** Home\n\n🆔 **Match ID:** `BPHARS\\-01JUL`\n💡 Use this ID for updates and availability polls\\."
-        }
-    ]
+    admin_help = """🤖 **KICKAI Bot Help (Admin)**
+
+**Available Commands:**
+
+**Player Management:**
+- "Add player John Doe with phone 123456789"
+- "List all players"
+- "Show player with phone 123456789"
+
+**Fixture Management:**
+- "Create a match against Arsenal on July 1st at 2pm"
+- "List all fixtures"
+- "Show upcoming matches"
+
+**Team Management:**
+- "Show team info"
+- "Update team name to BP Hatters United"
+
+**Bot Management:**
+- "Show bot configuration"
+
+**Messaging:**
+- "Send a message to the team: Training is at 7pm tonight!"
+
+**General:**
+- "Status" - Show system status
+- "Help" - Show this help message
+
+💡 You can use natural language or slash commands!"""
+
+    user_help = """🤖 **KICKAI Bot Help**
+
+**Available Commands:**
+
+**Player Management:**
+- "List all players"
+- "Show player with phone 123456789"
+
+**Fixture Management:**
+- "List all fixtures"
+- "Show upcoming matches"
+
+**Team Management:**
+- "Show team info"
+
+**Messaging:**
+- "Send a message to the team: Training is at 7pm tonight!"
+
+**General:**
+- "Status" - Show system status
+- "Help" - Show this help message
+
+💡 You can use natural language or slash commands!"""
+
+    status_message = """✅ **KICKAI Bot Status**
+
+🟢 **System Status:** Online
+🔥 **Database:** Firebase Firestore Connected
+🤖 **AI Model:** Google Gemini Active
+📱 **Telegram:** Connected and Ready
+👥 **Team:** BP Hatters FC
+
+**Available Tools:**
+- Player Management ✅
+- Fixture Management ✅
+- Team Management ✅
+- Messaging Tools ✅
+- Command Logging ✅
+
+Ready to help with team management! 🏆"""
+
+    print("=== ADMIN HELP MESSAGE ===")
+    print(admin_help)
+    print("\n" + "="*50 + "\n")
     
-    print("🧪 Testing MarkdownV2 Formatting")
-    print("=" * 50)
+    print("=== USER HELP MESSAGE ===")
+    print(user_help)
+    print("\n" + "="*50 + "\n")
     
-    for i, test_case in enumerate(test_cases, 1):
-        print(f"\n{i}. {test_case['name']}")
-        print(f"   Input: {test_case['input']}")
-        print(f"   Expected: {test_case['expected']}")
-        
-        # Check if input needs escaping for MarkdownV2
-        needs_escaping = test_case['input'] != test_case['expected']
-        if needs_escaping:
-            print("   ⚠️  Needs escaping for MarkdownV2")
-        else:
-            print("   ✅ No escaping needed")
+    print("=== STATUS MESSAGE ===")
+    print(status_message)
+    print("\n" + "="*50 + "\n")
     
-    print("\n" + "=" * 50)
-    print("💡 Key points for MarkdownV2:")
-    print("• Escape these characters: . ! ( ) [ ] { } < > # + - = | { } . !")
-    print("• Use ** for bold text")
-    print("• Use ` for inline code")
-    print("• Use \\n for line breaks")
+    print("✅ Markdown formatting test completed!")
+    print("📝 These messages should render properly in Telegram with parse_mode='Markdown'")
+    print("💡 No character escaping needed for Markdown mode!")
 
 if __name__ == "__main__":
-    test_markdown_formatting() 
+    test_help_message_formatting() 

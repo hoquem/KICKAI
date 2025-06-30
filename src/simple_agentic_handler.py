@@ -54,7 +54,19 @@ from src.tools.telegram_tools import (
 # Import configuration
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import config
+from config import config, ENABLE_ADVANCED_MEMORY
+
+# Import Advanced Memory System
+if ENABLE_ADVANCED_MEMORY:
+    try:
+        from src.advanced_memory import AdvancedMemorySystem, MemoryType
+        ADVANCED_MEMORY_AVAILABLE = True
+        logger.info("✅ Advanced Memory System imported successfully")
+    except ImportError as e:
+        ADVANCED_MEMORY_AVAILABLE = False
+        logger.warning(f"⚠️ Advanced Memory System not available: {e}")
+else:
+    ADVANCED_MEMORY_AVAILABLE = False
 
 class SimpleAgenticHandler:
     """Simple agentic handler using LangChain directly."""
@@ -63,6 +75,23 @@ class SimpleAgenticHandler:
         self.team_id = team_id
         self.llm = self._create_llm()
         self.tools = self._create_tools()
+        
+        # Initialize Advanced Memory System if available
+        self.memory_system = None
+        if ADVANCED_MEMORY_AVAILABLE and ENABLE_ADVANCED_MEMORY:
+            try:
+                memory_config = {
+                    'max_short_term_items': 100,
+                    'max_long_term_items': 500,
+                    'max_episodic_items': 200,
+                    'max_semantic_items': 100,
+                    'pattern_learning_enabled': True
+                }
+                self.memory_system = AdvancedMemorySystem(memory_config)
+                logger.info("✅ Advanced Memory System initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize Advanced Memory System: {e}")
+                self.memory_system = None
         
     def _create_llm(self):
         """Create LLM instance based on environment."""
@@ -135,6 +164,26 @@ class SimpleAgenticHandler:
         try:
             logger.info(f"Processing message: {message[:100]}...")
             
+            # Store conversation memory if Advanced Memory System is available
+            if self.memory_system and user_id and chat_id:
+                try:
+                    self.memory_system.store_memory(
+                        content={
+                            'message': message,
+                            'user_id': user_id,
+                            'chat_id': chat_id,
+                            'user_role': user_role,
+                            'is_leadership_chat': is_leadership_chat
+                        },
+                        memory_type=MemoryType.EPISODIC,
+                        user_id=user_id,
+                        chat_id=chat_id,
+                        importance=0.7,
+                        tags=['conversation', 'user_input']
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to store conversation memory: {e}")
+            
             # Log the command
             if user_id and chat_id:
                 logging_tool = CommandLoggingTools(self.team_id)
@@ -146,10 +195,42 @@ class SimpleAgenticHandler:
                     success=True
                 )
             
+            # Get conversation context if available
+            conversation_context = []
+            if self.memory_system and user_id:
+                try:
+                    conversation_context = self.memory_system.get_conversation_context(user_id, chat_id, limit=5)
+                except Exception as e:
+                    logger.warning(f"Failed to retrieve conversation context: {e}")
+            
             # Simple command routing based on keywords
-            response = self._route_command(message, user_role, is_leadership_chat)
+            response = self._route_command(message, user_role, is_leadership_chat, conversation_context)
+            
+            # Store response memory
+            if self.memory_system and user_id and chat_id:
+                try:
+                    self.memory_system.store_memory(
+                        content={
+                            'response': response,
+                            'original_message': message,
+                            'user_id': user_id,
+                            'chat_id': chat_id
+                        },
+                        memory_type=MemoryType.EPISODIC,
+                        user_id=user_id,
+                        chat_id=chat_id,
+                        importance=0.6,
+                        tags=['conversation', 'bot_response']
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to store response memory: {e}")
             
             logger.info(f"Response: {response[:100]}...")
+            
+            # Learn from interaction if Advanced Memory System is available
+            if self.memory_system and user_id:
+                self._learn_from_interaction(message, response, user_id, user_role)
+            
             return response
             
         except Exception as e:
@@ -172,7 +253,7 @@ class SimpleAgenticHandler:
             
             return f"Sorry, I encountered an error processing your request: {str(e)}"
     
-    def _route_command(self, message: str, user_role: str = None, is_leadership_chat: bool = False) -> str:
+    def _route_command(self, message: str, user_role: str = None, is_leadership_chat: bool = False, conversation_context: List = None) -> str:
         """Route commands to appropriate tools based on keywords."""
         message_lower = message.lower()
         
@@ -312,28 +393,28 @@ class SimpleAgenticHandler:
 **Available Commands:**
 
 **Player Management:**
-• "Add player John Doe with phone 123456789"
-• "List all players"
-• "Show player with phone 123456789"
+- "Add player John Doe with phone 123456789"
+- "List all players"
+- "Show player with phone 123456789"
 
 **Fixture Management:**
-• "Create a match against Arsenal on July 1st at 2pm"
-• "List all fixtures"
-• "Show upcoming matches"
+- "Create a match against Arsenal on July 1st at 2pm"
+- "List all fixtures"
+- "Show upcoming matches"
 
 **Team Management:**
-• "Show team info"
-• "Update team name to BP Hatters United"
+- "Show team info"
+- "Update team name to BP Hatters United"
 
 **Bot Management:**
-• "Show bot configuration"
+- "Show bot configuration"
 
 **Messaging:**
-• "Send a message to the team: Training is at 7pm tonight!"
+- "Send a message to the team: Training is at 7pm tonight!"
 
 **General:**
-• "Status" - Show system status
-• "Help" - Show this help message
+- "Status" - Show system status
+- "Help" - Show this help message
 
 💡 You can use natural language or slash commands!"""
         else:
@@ -342,28 +423,28 @@ class SimpleAgenticHandler:
 **Available Commands:**
 
 **Player Management:**
-• "List all players"
-• "Show player with phone 123456789"
+- "List all players"
+- "Show player with phone 123456789"
 
 **Fixture Management:**
-• "List all fixtures"
-• "Show upcoming matches"
+- "List all fixtures"
+- "Show upcoming matches"
 
 **Team Management:**
-• "Show team info"
+- "Show team info"
 
 **Messaging:**
-• "Send a message to the team: Training is at 7pm tonight!"
+- "Send a message to the team: Training is at 7pm tonight!"
 
 **General:**
-• "Status" - Show system status
-• "Help" - Show this help message
+- "Status" - Show system status
+- "Help" - Show this help message
 
 💡 You can use natural language or slash commands!"""
     
     def _get_status_message(self) -> str:
         """Get status message."""
-        return """✅ **KICKAI Bot Status**
+        status_message = """✅ **KICKAI Bot Status**
 
 🟢 **System Status:** Online
 🔥 **Database:** Firebase Firestore Connected
@@ -372,13 +453,28 @@ class SimpleAgenticHandler:
 👥 **Team:** BP Hatters FC
 
 **Available Tools:**
-• Player Management ✅
-• Fixture Management ✅
-• Team Management ✅
-• Messaging Tools ✅
-• Command Logging ✅
+- Player Management ✅
+- Fixture Management ✅
+- Team Management ✅
+- Messaging Tools ✅
+- Command Logging ✅"""
+
+        # Add Advanced Memory System status if available
+        if self.memory_system:
+            memory_stats = self.memory_system.get_memory_stats()
+            status_message += f"""
+🧠 **Advanced Memory System:** Active
+- Short-term: {memory_stats['short_term_count']} items
+- Long-term: {memory_stats['long_term_count']} items
+- Episodic: {memory_stats['episodic_count']} items
+- Semantic: {memory_stats['semantic_count']} items
+- User Preferences: {memory_stats['user_preferences_count']} items
+- Patterns: {memory_stats['patterns_count']} items"""
+
+        status_message += """
 
 Ready to help with team management! 🏆"""
+        return status_message
     
     def _use_llm_for_understanding(self, message: str) -> str:
         """Use LLM to understand and respond to complex requests."""
@@ -417,6 +513,73 @@ Response:"""
                 return "Please specify the new team name. Example: 'Update team name to BP Hatters United'"
         except Exception as e:
             return f"Error updating team: {str(e)}"
+    
+    def _learn_from_interaction(self, message: str, response: str, user_id: str, user_role: str = None):
+        """Learn from user interaction to improve future responses."""
+        if not self.memory_system:
+            return
+        
+        try:
+            # Learn user preferences based on interaction patterns
+            message_lower = message.lower()
+            
+            # Communication style preference
+            if any(word in message_lower for word in ['please', 'thank you', 'thanks']):
+                self.memory_system.learn_user_preference(
+                    user_id=user_id,
+                    preference_type='communication_style',
+                    value='formal',
+                    confidence=0.7
+                )
+            elif any(word in message_lower for word in ['yo', 'hey', 'hi']):
+                self.memory_system.learn_user_preference(
+                    user_id=user_id,
+                    preference_type='communication_style',
+                    value='casual',
+                    confidence=0.7
+                )
+            
+            # Response length preference
+            if len(response) > 200:
+                self.memory_system.learn_user_preference(
+                    user_id=user_id,
+                    preference_type='response_length',
+                    value='detailed',
+                    confidence=0.6
+                )
+            elif len(response) < 50:
+                self.memory_system.learn_user_preference(
+                    user_id=user_id,
+                    preference_type='response_length',
+                    value='concise',
+                    confidence=0.6
+                )
+            
+            # Learn patterns from successful interactions
+            if 'successfully' in response.lower() or 'done' in response.lower():
+                # Extract key words from message for pattern learning
+                key_words = [word for word in message_lower.split() if len(word) > 3]
+                if key_words:
+                    self.memory_system.learn_pattern(
+                        pattern_type='successful_request',
+                        trigger_conditions=key_words[:3],  # Use first 3 key words
+                        response_pattern=response[:100],  # First 100 chars of response
+                        success=True
+                    )
+            
+            # Learn from user role patterns
+            if user_role:
+                self.memory_system.learn_user_preference(
+                    user_id=user_id,
+                    preference_type='user_role',
+                    value=user_role,
+                    confidence=1.0
+                )
+            
+            logger.debug(f"Learned from interaction for user {user_id}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to learn from interaction: {e}")
 
 def create_simple_agentic_handler(team_id: str) -> SimpleAgenticHandler:
     """Factory function to create a simple agentic handler."""

@@ -15,15 +15,15 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Phase 1 Feature Flags
-ENABLE_INTELLIGENT_ROUTING = os.getenv('ENABLE_INTELLIGENT_ROUTING', 'false').lower() == 'true'
-ENABLE_DYNAMIC_TASK_DECOMPOSITION = os.getenv('ENABLE_DYNAMIC_TASK_DECOMPOSITION', 'false').lower() == 'true'
-ENABLE_ADVANCED_MEMORY = os.getenv('ENABLE_ADVANCED_MEMORY', 'false').lower() == 'true'
+# Phase 1 Feature Flags - Production Deployment
+ENABLE_INTELLIGENT_ROUTING = os.getenv('ENABLE_INTELLIGENT_ROUTING', 'true').lower() == 'true'
+ENABLE_DYNAMIC_TASK_DECOMPOSITION = os.getenv('ENABLE_DYNAMIC_TASK_DECOMPOSITION', 'true').lower() == 'true'
+ENABLE_ADVANCED_MEMORY = os.getenv('ENABLE_ADVANCED_MEMORY', 'true').lower() == 'true'
 
 # Phase 1 Configuration
 AGENTIC_MEMORY_ENABLED = os.getenv('AGENTIC_MEMORY_ENABLED', 'true').lower() == 'true'
 AGENTIC_PERFORMANCE_MONITORING = os.getenv('AGENTIC_PERFORMANCE_MONITORING', 'true').lower() == 'true'
-AGENTIC_ANALYTICS_ENABLED = os.getenv('AGENTIC_ANALYTICS_ENABLED', 'false').lower() == 'true'
+AGENTIC_ANALYTICS_ENABLED = os.getenv('AGENTIC_ANALYTICS_ENABLED', 'true').lower() == 'true'
 
 # Memory System Configuration
 MEMORY_RETENTION_DAYS = int(os.getenv('MEMORY_RETENTION_DAYS', '30'))
@@ -42,7 +42,7 @@ MAX_NEGOTIATION_ROUNDS = int(os.getenv('MAX_NEGOTIATION_ROUNDS', '3'))
 DEBUG_AGENTIC_SYSTEM = os.getenv('DEBUG_AGENTIC_SYSTEM', 'false').lower() == 'true'
 
 # New: LLM-powered routing feature flag
-ENABLE_LLM_ROUTING = os.getenv('ENABLE_LLM_ROUTING', 'false').lower() == 'true'
+ENABLE_LLM_ROUTING = os.getenv('ENABLE_LLM_ROUTING', 'true').lower() == 'true'
 
 # Database configuration
 database_config = {
