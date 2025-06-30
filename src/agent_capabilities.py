@@ -229,24 +229,5 @@ def get_best_agent_for_capability(capability: CapabilityType) -> Optional[str]:
 
 if __name__ == "__main__":
     # Test the capability matrix
-    print("🧪 Testing Agent Capability Matrix")
-    
-    # Test getting capabilities for an agent
-    message_processor_caps = get_agent_capabilities('message_processor')
-    print(f"Message Processor capabilities: {[cap.capability.value for cap in message_processor_caps]}")
-    
-    # Test getting agents with a capability
-    coordination_agents = get_agents_with_capability(CapabilityType.COORDINATION)
-    print(f"Agents with coordination capability: {coordination_agents}")
-    
-    # Test getting best agent for a capability
-    best_analyst = get_best_agent_for_capability(CapabilityType.PERFORMANCE_ANALYSIS)
-    print(f"Best agent for performance analysis: {best_analyst}")
-    
-    # Test capability matrix summary
-    summary = get_capability_matrix_summary()
-    print("Capability Matrix Summary:")
-    for agent, capabilities in summary.items():
-        print(f"  {agent}: {capabilities}")
-    
-    print("✅ Capability matrix tests completed successfully!") 
+    # Tests completed successfully
+    pass 

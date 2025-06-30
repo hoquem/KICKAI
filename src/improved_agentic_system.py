@@ -951,11 +951,11 @@ async def create_improved_agentic_system(agents: Dict[str, Agent], llm) -> Impro
 
 if __name__ == "__main__":
     # Example usage
-    print("🚀 Improved Agentic System for KICKAI")
-    print("This module provides advanced agentic capabilities including:")
-    print("- Intelligent agent routing")
-    print("- Dynamic task decomposition")
-    print("- Advanced communication protocols")
-    print("- Sophisticated memory management")
-    print("- Performance monitoring and optimization")
-    print("\nTo use this system, import and create an ImprovedAgenticSystem instance.") 
+    # Improved Agentic System for KICKAI
+    # This module provides advanced agentic capabilities including:
+    # - Intelligent agent routing
+    # - Dynamic task decomposition
+    # - Advanced communication protocols
+    # - Sophisticated memory management
+    # - Performance monitoring and optimization
+    pass 

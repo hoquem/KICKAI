@@ -40,6 +40,26 @@ KICKAI is an AI-powered football team management system that integrates Telegram
 - **src/multi_team_manager.py**: ✅ **COMPLETE** - Multi-team isolation and management
 - **kickai_cli.py**: ✅ **COMPLETE** - CLI tool for team and bot management
 
+#### Player Registration System
+- **src/player_registration.py**: ✅ **COMPLETE** - Core player management system
+  - Player dataclass with comprehensive fields (name, phone, email, position, fa_registered, fa_eligible, player_id, invite_link, onboarding_status)
+  - PlayerRegistrationManager for Firebase operations
+  - PlayerCommandHandler with leadership commands (/addplayer, /removeplayer, /listplayers, /playerstatus)
+  - Phone validation and unique player ID generation (e.g., JS1 for John Smith)
+  - Invite link generation and storage
+  - Leadership command `/generateinvite` for creating player invites
+  - Comprehensive test coverage
+
+#### Onboarding System
+- **OnboardingAgent**: ✅ **IMPLEMENTED** - CrewAI agent for player onboarding
+  - Role: Player Onboarding Specialist
+  - Goal: Guide new players through registration process
+  - Backstory: Experienced in player onboarding and team integration
+  - Tools: PlayerTools, SendTelegramMessageTool, SendLeadershipMessageTool, CommandLoggingTools
+  - State management for onboarding workflow
+  - Team-agnostic design (fetches team name from Firebase)
+  - Integration with main system (SimpleAgenticHandler and TelegramCommandHandler)
+
 #### Deployment & Operations
 - **deploy_full_system.py**: ✅ **COMPLETE** - Full system deployment script
 - **health_check.py**: ✅ **COMPLETE** - Health monitoring endpoint
@@ -55,6 +75,8 @@ KICKAI is an AI-powered football team management system that integrates Telegram
 - **test_agent_capabilities.py**: ✅ **COMPLETE** - Agent capability testing
 - **test_intelligent_router.py**: ✅ **COMPLETE** - Router functionality testing
 - **test_phase1_integration.py**: ✅ **COMPLETE** - Integration testing
+- **test_player_registration.py**: ✅ **COMPLETE** - Player registration testing
+- **test_onboarding_integration.py**: 🔄 **IN PROGRESS** - Onboarding integration testing (CrewAI compatibility issues)
 
 #### Phase 1 Implementation
 - **src/agent_capabilities.py**: ✅ **COMPLETE** - Agent capability matrix with proficiency levels
@@ -64,11 +86,19 @@ KICKAI is an AI-powered football team management system that integrates Telegram
 
 ### 🔄 IN PROGRESS
 
-#### Phase 1 Implementation (Remaining)
-- **Dynamic Task Decomposition**: 🔄 **PLANNED** - LLM-powered task breakdown
-- **Advanced Memory System**: 🔄 **PLANNED** - Context and memory management
+#### Player Onboarding Workflow
+- **Onboarding Integration**: 🔄 **TESTING** - Integration testing with CrewAI compatibility issues
+  - Agent implementation complete
+  - Integration with main system complete
+  - Test compatibility issues with CrewAI BaseTool requirements
+  - Mock tool compatibility problems in test environment
 
 ### 📋 PLANNED FEATURES
+
+#### Player Registration Workflow (Remaining)
+- **FA Registration Validation**: 📋 **PLANNED** - Validate player FA registration via FA website
+- **Leadership Notifications**: 📋 **PLANNED** - Notify leadership of registration status changes
+- **End-to-End Testing**: 📋 **PLANNED** - Complete workflow testing from invite to registration
 
 #### Advanced Agent System
 - Dynamic task decomposition
@@ -87,6 +117,28 @@ KICKAI is an AI-powered football team management system that integrates Telegram
 - Voice command support
 - Mobile app integration
 - Advanced notifications
+
+## 🔧 Code Quality & Refactoring Priorities
+
+### Current Technical Debt
+1. **CrewAI Compatibility Issues**: Mock tools in tests not fully compatible with BaseTool requirements
+2. **Pydantic Model Conflicts**: Dynamic attribute assignment conflicts with Pydantic validation
+3. **Test Infrastructure**: Complex mocking setup for CrewAI components
+4. **Code Organization**: Some modules have grown large and could benefit from better separation
+
+### Refactoring Goals
+1. **Improve Test Reliability**: Resolve CrewAI compatibility issues and simplify test mocking
+2. **Enhance Code Organization**: Better separation of concerns and module structure
+3. **Optimize Performance**: Reduce redundant operations and improve efficiency
+4. **Strengthen Type Safety**: Better type hints and validation
+5. **Simplify Dependencies**: Reduce library compatibility issues
+
+### Recommended Refactoring Steps
+1. **Create Test Utilities**: Build proper CrewAI-compatible test utilities
+2. **Refactor Agent Classes**: Separate agent logic from Pydantic model requirements
+3. **Optimize Database Operations**: Batch operations and reduce Firebase calls
+4. **Improve Error Handling**: Consistent error handling patterns across modules
+5. **Add Configuration Validation**: Validate all configuration at startup
 
 ## 🚀 Deployment Status
 
@@ -127,6 +179,8 @@ KICKAI is an AI-powered football team management system that integrates Telegram
 - **Natural Language Processing**: ✅ LLM-based command parsing
 - **Database Operations**: ✅ Firebase integration complete
 - **Real-time Communication**: ✅ Telegram bot operational
+- **Player Registration**: ✅ Core system complete
+- **Player Onboarding**: ✅ Agent implementation complete, testing in progress
 
 ### System Health
 - **Uptime**: 99.9% (Railway platform)
@@ -136,17 +190,17 @@ KICKAI is an AI-powered football team management system that integrates Telegram
 
 ## 🎯 Next Steps
 
-### Immediate (Phase 1)
-1. Complete intelligent routing system
-2. Implement advanced agent capabilities
-3. Add performance monitoring
-4. Enhance error handling
+### Immediate (Code Quality)
+1. **Resolve Test Issues**: Fix CrewAI compatibility problems in test environment
+2. **Refactor Agent Classes**: Improve separation of concerns and reduce Pydantic conflicts
+3. **Create Test Utilities**: Build proper CrewAI-compatible test mocking utilities
+4. **Optimize Database Operations**: Reduce Firebase calls and improve performance
 
-### Immediate (Phase 1 - Remaining)
-1. ✅ **COMPLETE**: LLM-powered intelligent routing system
-2. 🔄 **IN PROGRESS**: Dynamic task decomposition
-3. 🔄 **IN PROGRESS**: Advanced memory and context management
-4. 🔄 **IN PROGRESS**: Performance monitoring and optimization
+### Immediate (Player Registration)
+1. **Complete Onboarding Testing**: Resolve test compatibility issues
+2. **Implement FA Validation**: Add FA website validation for player registration
+3. **Add Leadership Notifications**: Complete notification system for registration status
+4. **End-to-End Testing**: Test complete player registration workflow
 
 ### Short-term (Phase 2)
 1. Advanced analytics dashboard
@@ -196,18 +250,47 @@ KICKAI is an AI-powered football team management system that integrates Telegram
 - ✅ CrewAI agent integration
 - ✅ Railway deployment success
 - ✅ Comprehensive testing framework
+- ✅ Player registration system implementation
+- ✅ Onboarding agent implementation
 
 ### User Experience
 - ✅ Natural language command processing
 - ✅ Role-based access control
-- ✅ Real-time team communication
-- ✅ Intuitive bot interface
+- ✅ Multi-team support
+- ✅ Player management capabilities
+- 🔄 Player onboarding workflow (implementation complete, testing in progress)
 
-### System Reliability
-- ✅ 99.9% uptime on Railway
-- ✅ Robust error handling
-- ✅ Comprehensive monitoring
-- ✅ Automated health checks
+## 🚨 Known Issues
+
+### Technical Issues
+1. **CrewAI Test Compatibility**: Mock tools not fully compatible with BaseTool requirements
+2. **Pydantic Model Conflicts**: Dynamic attribute assignment in agent classes
+3. **Test Complexity**: Complex mocking setup for CrewAI components
+
+### Performance Considerations
+1. **Database Calls**: Some operations make multiple Firebase calls that could be batched
+2. **Agent Initialization**: CrewAI agents have initialization overhead
+3. **Memory Usage**: Large conversation histories in memory system
+
+## 📊 Player Onboarding Process Status
+
+### ✅ Implemented Components
+1. **Player Data Model**: Complete with all required fields
+2. **Leadership Commands**: Add, remove, list, status, generate invite
+3. **Invite System**: Generate and store Telegram invite links
+4. **Onboarding Agent**: CrewAI agent with full workflow logic
+5. **System Integration**: Integrated with main workflow
+6. **Team-Agnostic Design**: Fetches team name from Firebase
+
+### 🔄 In Progress
+1. **Test Compatibility**: Resolving CrewAI compatibility issues in tests
+2. **Integration Testing**: Ensuring seamless workflow operation
+
+### 📋 Remaining Work
+1. **FA Registration Validation**: Website validation for FA registration status
+2. **Leadership Notifications**: Automated notifications for registration events
+3. **End-to-End Testing**: Complete workflow validation
+4. **Performance Optimization**: Optimize database operations and agent efficiency
 
 ---
 

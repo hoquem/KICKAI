@@ -43,6 +43,15 @@ except ImportError as e:
 VERSION = "1.3.0-llm-parsing"
 DEPLOYMENT_TIME = "2024-12-19 17:00 UTC"
 
+# Import OnboardingAgent
+try:
+    from src.agents import OnboardingAgent
+    ONBOARDING_AGENT_AVAILABLE = True
+    logger.info("✅ OnboardingAgent imported successfully")
+except ImportError as e:
+    ONBOARDING_AGENT_AVAILABLE = False
+    logger.warning(f"⚠️ OnboardingAgent not available: {e}")
+
 # --- LLM-based Command Parsing ---
 
 class LLMCommandParser:
@@ -591,6 +600,16 @@ class AgentBasedMessageHandler:
         self.intelligent_router = None
         self.improved_agentic_system = None
         self._initialize_agents()
+        
+        # Initialize OnboardingAgent if available
+        self.onboarding_agent = None
+        if ONBOARDING_AGENT_AVAILABLE:
+            try:
+                self.onboarding_agent = OnboardingAgent(team_id)
+                logger.info("✅ OnboardingAgent initialized in Telegram handler")
+            except Exception as e:
+                logger.error(f"Failed to initialize OnboardingAgent: {e}")
+                self.onboarding_agent = None
     
     def _initialize_agents(self):
         """Initialize CrewAI agents for message processing."""
@@ -919,6 +938,91 @@ class AgentBasedMessageHandler:
             }
         return agent_info
 
+    def handle_player_join(self, player_id: str, telegram_user_id: str, telegram_username: str = None) -> str:
+        """
+        Handle when a player joins via invite link
+        Args:
+            player_id: The player ID from the invite link
+            telegram_user_id: The Telegram user ID of the joining user
+            telegram_username: The Telegram username (optional)
+        Returns:
+            Success message or error
+        """
+        try:
+            if not self.onboarding_agent:
+                return "❌ Onboarding agent not available"
+            
+            # Update player status to joined
+            success, message = self.onboarding_agent.player_joined_via_invite(player_id, telegram_user_id, telegram_username)
+            
+            if success:
+                return f"✅ {message}\n�� Onboarding started!"
+            else:
+                return f"✅ {message}\n⚠️ Onboarding failed: {self.onboarding_agent.onboarding_message}"
+                
+        except Exception as e:
+            logger.error(f"Error handling player join: {e}")
+            return f"❌ Error processing player join: {str(e)}"
+
+    def handle_onboarding_response(self, telegram_user_id: str, response: str) -> str:
+        """
+        Handle onboarding responses from players
+        Args:
+            telegram_user_id: The Telegram user ID
+            response: The player's response
+        Returns:
+            Success message or error
+        """
+        try:
+            if not self.onboarding_agent:
+                return "❌ Onboarding agent not available"
+            
+            # Find player by telegram_user_id
+            players = self.agentic_handler.player_manager.get_all_players()
+            player = None
+            for p in players:
+                if p.telegram_id == telegram_user_id:
+                    player = p
+                    break
+            
+            if not player:
+                return "❌ Player not found. Please contact leadership if you believe this is an error."
+            
+            # Handle the response through the onboarding agent
+            success, message = self.onboarding_agent.handle_response(player.player_id, telegram_user_id, response)
+            
+            if success:
+                return f"✅ {message}"
+            else:
+                return f"⚠️ {message}"
+                
+        except Exception as e:
+            logger.error(f"Error handling onboarding response: {e}")
+            return f"❌ Error processing response: {str(e)}"
+
+    def handle_onboarding_message(self, message: str, user_id: str, username: str = None, is_leadership_chat: bool = False) -> str:
+        """Handle incoming messages and route to appropriate handlers."""
+        try:
+            # Check for onboarding responses first (from players)
+            if self.onboarding_agent and not is_leadership_chat:
+                # Check if this might be an onboarding response
+                onboarding_keywords = ['confirm', 'update', 'help', 'emergency', 'dob', 'position', 'name', 'phone', 'complete', 'done', 'no']
+                message_lower = message.lower()
+                if any(keyword in message_lower for keyword in onboarding_keywords):
+                    return self.handle_onboarding_response(user_id, message)
+            
+            # Check for player join via invite link
+            if message.startswith('/join_'):
+                player_id = message.replace('/join_', '')
+                return self.handle_player_join(player_id, user_id, username)
+            
+            # Handle regular commands and messages
+            return self.agentic_handler.handle_message(message, user_id, username, is_leadership_chat)
+            
+        except Exception as e:
+            logger.error(f"Error handling message: {e}")
+            return f"❌ Error processing message: {str(e)}"
+
 # --- Helper Functions ---
 
 def is_admin_command(command: str) -> bool:
@@ -1008,7 +1112,7 @@ async def listmatches_command(update, context, params: Dict[str, Any]):
     
     filter_type = params.get('filter', 'upcoming')
     
-    # TODO: Add Firebase integration to fetch actual matches
+            # Note: Firebase integration for fetching actual matches will be implemented in future updates
     message = f"📅 **Matches \\({filter_type}\\)**\n\n"
     message += "This feature is coming soon with LLM parsing\\!\n"
     message += f"Filter: {filter_type}"
@@ -1276,9 +1380,9 @@ def register_llm_commands(app):
         # Also handle slash commands for backward compatibility
         app.add_handler(MessageHandler(filters.COMMAND, llm_command_handler))
         
-        print("✅ LLM command parsing registered successfully")
-        print("📋 Available commands: newmatch, listmatches, help, status")
-        print("💡 Natural language parsing enabled!")
+        # LLM command parsing registered successfully
+        # Available commands: newmatch, listmatches, help, status
+        # Natural language parsing enabled
         
     except Exception as e:
         print(f"❌ Failed to register LLM commands: {e}")
@@ -1289,14 +1393,10 @@ def register_llm_commands(app):
 
 def main():
     """Test the command handler."""
-    print("🤖 KICKAI Telegram Command Handler (LLM Parsing)")
-    print("=" * 50)
-    print("✅ Command handler initialized")
-    print(" Available commands:")
-    for cmd, handler in COMMAND_HANDLERS.items():
-        print(f"  {cmd}")
-    print("\n💡 Natural language parsing enabled!")
-    print("   Try: \"Create a match against Arsenal on July 1st at 2pm\"")
+    # KICKAI Telegram Command Handler (LLM Parsing)
+    # Command handler initialized
+    # Available commands: newmatch, listmatches, help, status
+    # Natural language parsing enabled
 
 if __name__ == "__main__":
     main()
@@ -1375,9 +1475,9 @@ def register_agent_based_commands(app):
         # Also handle slash commands for backward compatibility
         app.add_handler(MessageHandler(filters.COMMAND, agent_based_command_handler))
         
-        print("✅ Agent-based command processing registered successfully")
-        print("🤖 Using 8-agent CrewAI system for message processing")
-        print("💡 Natural language processing with agent collaboration enabled!")
+        # Agent-based command processing registered successfully
+        # Using 8-agent CrewAI system for message processing
+        # Natural language processing with agent collaboration enabled
         
     except Exception as e:
         print(f"❌ Failed to register agent-based commands: {e}")
