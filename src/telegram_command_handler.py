@@ -1026,11 +1026,11 @@ async def newmatch_command(update, context, params: Dict[str, Any]):
     
     # Check if this is an admin command and enforce leadership chat requirement
     if is_admin_command('newmatch') and not is_leadership_chat(str(chat_id), team_id):
-        message = "❌ <b>Access Denied</b>\n\n"
-        message += "🔒 Admin commands can only be executed from the leadership chat.\n"
-        message += "💡 Please use the leadership chat to create matches."
+        message = "❌ **Access Denied**\n\n"
+        message += "🔒 Admin commands can only be executed from the leadership chat\\.\n"
+        message += "💡 Please use the leadership chat to create matches\\."
         
-        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
+        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='MarkdownV2')
         return
     
     # Extract parameters
@@ -1045,20 +1045,20 @@ async def newmatch_command(update, context, params: Dict[str, Any]):
     match_id = match_id_generator.generate_match_id(opponent, date, venue)
     
     # Create response message
-    message = f"✅ <b>Match Created Successfully!</b>\n\n"
-    message += f"🏆 <b>{competition}</b>\n"
-    message += f"⚽ <b>BP Hatters FC vs {opponent}</b>\n"
-    message += f"📅 <b>Date:</b> {date}\n"
-    message += f"🕐 <b>Time:</b> {time}\n"
-    message += f"📍 <b>Venue:</b> {venue}\n"
+    message = f"✅ **Match Created Successfully\\!**\n\n"
+    message += f"🏆 **{competition}**\n"
+    message += f"⚽ **BP Hatters FC vs {opponent}**\n"
+    message += f"📅 **Date:** {date}\n"
+    message += f"🕐 **Time:** {time}\n"
+    message += f"📍 **Venue:** {venue}\n"
     
     if notes:
-        message += f"📝 <b>Notes:</b> {notes}\n"
+        message += f"📝 **Notes:** {notes}\n"
     
-    message += f"\n🆔 <b>Match ID:</b> <code>{match_id}</code>\n"
-    message += "💡 Use this ID for updates and availability polls."
+    message += f"\n🆔 **Match ID:** `{match_id}`\n"
+    message += "💡 Use this ID for updates and availability polls\\."
     
-    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
+    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='MarkdownV2')
 
 async def listmatches_command(update, context, params: Dict[str, Any]):
     """Handle listmatches command."""
@@ -1069,11 +1069,11 @@ async def listmatches_command(update, context, params: Dict[str, Any]):
     filter_type = params.get('filter', 'upcoming')
     
     # TODO: Add Firebase integration to fetch actual matches
-    message = f"📅 <b>Matches ({filter_type})</b>\n\n"
-    message += "This feature is coming soon with LLM parsing!\n"
+    message = f"📅 **Matches \\({filter_type}\\)**\n\n"
+    message += "This feature is coming soon with LLM parsing\\!\n"
     message += f"Filter: {filter_type}"
     
-    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
+    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='MarkdownV2')
 
 async def help_command(update, context, params: Dict[str, Any]):
     """Handle help command with role-based permissions."""
@@ -1110,87 +1110,87 @@ async def help_command(update, context, params: Dict[str, Any]):
                 is_leadership_chat = True
         
         # Build help message based on chat type (not user role for main chat)
-        message = "🤖 <b>KICKAI Bot Help</b>\n\n"
+        message = "🤖 **KICKAI Bot Help**\n\n"
         
         if is_leadership_chat:
             # Leadership chat - show commands based on user role
-            message += f"👑 <b>Leadership Chat</b> - User Role: {user_role.title()}\n\n"
+            message += f"👑 **Leadership Chat** \\- User Role: {user_role.title()}\n\n"
             
             if user_role in ['admin', 'captain']:
-                message += "📅 <b>Match Management:</b>\n"
+                message += "📅 **Match Management:**\n"
                 message += "• \"Create a match against Arsenal on July 1st at 2pm\"\n"
                 message += "• \"List all fixtures\"\n"
                 message += "• \"Show upcoming matches\"\n\n"
                 
-                message += "👥 <b>Player Management:</b>\n"
+                message += "👥 **Player Management:**\n"
                 message += "• \"Add player John Doe with phone 123456789\"\n"
                 message += "• \"List all players\"\n"
                 message += "• \"Show player with phone 123456789\"\n"
                 message += "• \"Update player John's phone to 987654321\"\n\n"
                 
-                message += "🏆 <b>Team Management:</b>\n"
+                message += "🏆 **Team Management:**\n"
                 message += "• \"Show team info\"\n"
                 message += "• \"Update team name to BP Hatters United\"\n\n"
                 
-                message += "📢 <b>Communication:</b>\n"
-                message += "• \"Send a message to the team: Training is at 7pm tonight!\"\n"
-                message += "• \"Create a poll: Who's available for Saturday's match?\"\n\n"
+                message += "📢 **Communication:**\n"
+                message += "• \"Send a message to the team: Training is at 7pm tonight\\!\"\n"
+                message += "• \"Create a poll: Who's available for Saturday's match\\?\"\n\n"
                 
-                message += "💰 <b>Financial Management:</b>\n"
+                message += "💰 **Financial Management:**\n"
                 message += "• \"Send payment reminder for match fees\"\n"
                 message += "• \"Track player payments\"\n\n"
                 
-                message += "📊 <b>Analytics & Planning:</b>\n"
+                message += "📊 **Analytics & Planning:**\n"
                 message += "• \"Analyze our team performance\"\n"
                 message += "• \"Plan squad selection for next match\"\n"
                 message += "• \"Generate match report\"\n\n"
                 
             else:
                 # Other leadership roles (secretary, manager, treasurer)
-                message += "📅 <b>Match Management:</b>\n"
+                message += "📅 **Match Management:**\n"
                 message += "• \"List all fixtures\"\n"
                 message += "• \"Show upcoming matches\"\n\n"
                 
-                message += "👥 <b>Player Management:</b>\n"
+                message += "👥 **Player Management:**\n"
                 message += "• \"List all players\"\n"
                 message += "• \"Show player with phone 123456789\"\n\n"
                 
-                message += "🏆 <b>Team Management:</b>\n"
+                message += "🏆 **Team Management:**\n"
                 message += "• \"Show team info\"\n\n"
                 
-                message += "📢 <b>Communication:</b>\n"
-                message += "• \"Send a message to the team: Training is at 7pm tonight!\"\n\n"
+                message += "📢 **Communication:**\n"
+                message += "• \"Send a message to the team: Training is at 7pm tonight\\!\"\n\n"
                 
         else:
             # Main group chat - show only non-admin commands regardless of user role
-            message += f"👥 <b>Main Group Chat</b> - User Role: {user_role.title()}\n\n"
-            message += "💡 <b>Note:</b> Admin commands are only available in the leadership chat.\n\n"
+            message += f"👥 **Main Group Chat** \\- User Role: {user_role.title()}\n\n"
+            message += "💡 **Note:** Admin commands are only available in the leadership chat\\.\n\n"
             
             # Show only basic commands for all users in main chat
-            message += "📅 <b>Match Information:</b>\n"
+            message += "📅 **Match Information:**\n"
             message += "• \"List all fixtures\"\n"
             message += "• \"Show upcoming matches\"\n"
-            message += "• \"What games do we have coming up?\"\n\n"
+            message += "• \"What games do we have coming up\\?\"\n\n"
             
-            message += "👥 <b>Player Information:</b>\n"
+            message += "👥 **Player Information:**\n"
             message += "• \"List all players\"\n"
             message += "• \"Show player with phone 123456789\"\n\n"
             
-            message += "🏆 <b>Team Information:</b>\n"
+            message += "🏆 **Team Information:**\n"
             message += "• \"Show team info\"\n\n"
         
         # Common commands for all users
-        message += "📊 <b>General:</b>\n"
-        message += "• \"Status\" - Show system status\n"
-        message += "• \"Help\" - Show this help message\n\n"
+        message += "📊 **General:**\n"
+        message += "• \"Status\" \\- Show system status\n"
+        message += "• \"Help\" \\- Show this help message\n\n"
         
-        message += "💡 <b>Tips:</b>\n"
+        message += "💡 **Tips:**\n"
         message += "• You can use natural language or specific commands\n"
-        message += "• Try asking questions like \"What matches do we have?\"\n"
+        message += "• Try asking questions like \"What matches do we have\\?\"\n"
         if user_role in ['admin', 'captain'] and not is_leadership_chat:
             message += "• Use the leadership chat for admin management features\n"
         
-        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
+        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='MarkdownV2')
         
     except Exception as e:
         logger.error(f"Error in help_command: {e}")
@@ -1203,7 +1203,7 @@ async def help_command(update, context, params: Dict[str, Any]):
         fallback_message += "• \"Help\" - Show this help message\n\n"
         fallback_message += "💡 You can use natural language or specific commands!"
         
-        await context.bot.send_message(chat_id=chat_id, text=fallback_message, parse_mode='HTML')
+        await context.bot.send_message(chat_id=chat_id, text=fallback_message, parse_mode='MarkdownV2')
 
 async def status_command(update, context, params: Dict[str, Any]):
     """Handle status command."""
@@ -1215,15 +1215,15 @@ async def status_command(update, context, params: Dict[str, Any]):
         return
     user = update.effective_user
     
-    message = f"📊 <b>Bot Status</b>\n\n"
-    message += f"👤 <b>User:</b> {user.first_name} (@{user.username or 'No username'})\n"
-    message += f"🆔 <b>User ID:</b> {user.id}\n"
-    message += f"💬 <b>Chat ID:</b> {chat_id}\n"
-    message += f"🤖 <b>Framework:</b> LLM Command Parsing ✅\n"
-    message += f"📅 <b>Version:</b> 1.3.0-llm-parsing\n"
-    message += f"🟢 <b>Status:</b> Active"
+    message = f"📊 **Bot Status**\n\n"
+    message += f"👤 **User:** {user.first_name} (@{user.username or 'No username'})\n"
+    message += f"🆔 **User ID:** {user.id}\n"
+    message += f"💬 **Chat ID:** {chat_id}\n"
+    message += f"🤖 **Framework:** LLM Command Parsing ✅\n"
+    message += f"📅 **Version:** 1.3.0-llm-parsing\n"
+    message += f"🟢 **Status:** Active"
     
-    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
+    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='MarkdownV2')
 
 # --- Command Handler Mapping ---
 
@@ -1260,7 +1260,7 @@ async def llm_command_handler(update, context):
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text=f"❌ <b>Error:</b> {parsed['error']}",
-                    parse_mode='HTML'
+                    parse_mode='MarkdownV2'
                 )
             return
         
@@ -1281,7 +1281,7 @@ async def llm_command_handler(update, context):
                          "• \"Create a match against Red Lion FC on July 1st at 2pm\"\n"
                          "• \"Show upcoming matches\"\n"
                          "• \"Help\"",
-                    parse_mode='HTML'
+                    parse_mode='MarkdownV2'
                 )
             return
         
@@ -1293,21 +1293,21 @@ async def llm_command_handler(update, context):
                     chat_id=update.effective_chat.id,
                     text=f"❌ <b>Unknown command:</b> {command}\n\n"
                          f"💡 Type <code>/help</code> to see available commands.",
-                    parse_mode='HTML'
+                    parse_mode='MarkdownV2'
                 )
             return
         
         # Check admin command restrictions
         team_id = "0854829d-445c-4138-9fd3-4db562ea46ee"  # BP Hatters FC
         if is_admin_command(command) and not is_leadership_chat(str(update.effective_chat.id), team_id):
-            message = "❌ <b>Access Denied</b>\n\n"
-            message += "🔒 Admin commands can only be executed from the leadership chat.\n"
+            message = "❌ **Access Denied**\n\n"
+            message += "🔒 Admin commands can only be executed from the leadership chat\\.\n"
             message += "💡 Please use the leadership chat for admin management features."
             
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
-                parse_mode='HTML'
+                parse_mode='MarkdownV2'
             )
             return
         
@@ -1320,7 +1320,7 @@ async def llm_command_handler(update, context):
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=f"❌ <b>Error:</b> {str(e)}",
-                parse_mode='HTML'
+                parse_mode='MarkdownV2'
             )
 
 # --- Register commands with the bot ---
@@ -1396,7 +1396,7 @@ async def agent_based_command_handler(update, context):
             await context.bot.send_message(
                 chat_id=chat_id,
                 text="❌ <b>System Error:</b> Agent system is currently unavailable. Please try again later.",
-                parse_mode='HTML'
+                parse_mode='MarkdownV2'
             )
             return
         
@@ -1408,7 +1408,7 @@ async def agent_based_command_handler(update, context):
         await context.bot.send_message(
             chat_id=chat_id,
             text=response,
-            parse_mode='HTML'
+            parse_mode='MarkdownV2'
         )
         
         # Log successful processing
@@ -1420,7 +1420,7 @@ async def agent_based_command_handler(update, context):
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=f"❌ <b>Error:</b> {str(e)}",
-                parse_mode='HTML'
+                parse_mode='MarkdownV2'
             )
 
 # Add this function to register the agent-based handler

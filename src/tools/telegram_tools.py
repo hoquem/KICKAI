@@ -207,7 +207,7 @@ class SendTelegramMessageTool(BaseTool):
             data = {
                 'chat_id': chat_id,
                 'text': message,
-                'parse_mode': 'HTML'  # Support basic HTML formatting
+                'parse_mode': 'MarkdownV2'  # Support markdown formatting
             }
             
             response = requests.post(url, data=data)
@@ -396,7 +396,7 @@ class SendSquadAnnouncementTool(BaseTool):
             data = {
                 'chat_id': chat_id,
                 'text': message,
-                'parse_mode': 'HTML'
+                'parse_mode': 'MarkdownV2'
             }
             
             response = requests.post(url, data=data)
@@ -459,7 +459,7 @@ class SendPaymentReminderTool(BaseTool):
             data = {
                 'chat_id': chat_id,
                 'text': message,
-                'parse_mode': 'HTML'
+                'parse_mode': 'MarkdownV2'
             }
             
             response = requests.post(url, data=data)
@@ -519,7 +519,7 @@ class SendLeadershipMessageTool(BaseTool):
             data = {
                 'chat_id': chat_id,
                 'text': message,
-                'parse_mode': 'HTML'  # Support basic HTML formatting
+                'parse_mode': 'MarkdownV2'  # Support markdown formatting
             }
             
             response = requests.post(url, data=data)
