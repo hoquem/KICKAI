@@ -21,7 +21,7 @@ google-generativeai==0.8.5
 crewai==0.28.8
 
 # HTTP and utilities - COMPATIBLE VERSIONS
-httpx==0.28.1
+httpx==0.25.2
 pydantic==2.11.7
 pydantic_core==2.33.2
 python-dateutil==2.9.0.post0
