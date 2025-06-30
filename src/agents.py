@@ -425,18 +425,3 @@ def create_crew_for_team(agents):
     
     logger.info("Crew created successfully with 8 agents")
     return crew
-
-
-# Legacy function for backward compatibility
-def create_agents(llm):
-    """Legacy function - use create_agents_for_team instead."""
-    logger.warning("Using legacy create_agents function. Use create_agents_for_team with team_id instead.")
-    # Use a default team ID for backward compatibility
-    default_team_id = "0854829d-445c-4138-9fd3-4db562ea46ee"  # BP Hatters FC
-    return create_agents_for_team(llm, default_team_id)
-
-
-def create_crew(agents):
-    """Legacy function - use create_crew_for_team instead."""
-    logger.warning("Using legacy create_crew function. Use create_crew_for_team instead.")
-    return create_crew_for_team(agents)

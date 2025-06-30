@@ -1339,20 +1339,6 @@ def register_llm_commands(app):
 # --- DEPRECATED: Legacy telegram-click code ---
 # Keeping for reference but not using anymore
 
-@dataclass
-class CommandContext:
-    """Context for command execution."""
-    team_id: str
-    chat_id: str
-    user_id: str
-    username: str
-    user_role: str
-    is_leadership_chat: bool
-    command: str
-    arguments: str
-    message_text: str
-    bot_token: str
-
 def main():
     """Test the command handler."""
     print("🤖 KICKAI Telegram Command Handler (LLM Parsing)")

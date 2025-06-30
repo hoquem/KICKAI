@@ -2,6 +2,7 @@
 """
 Configuration Management for KICKAI
 Supports both local development and Railway production environments
+Includes feature flags for Phase 1 improvements.
 """
 
 import os
@@ -13,6 +14,32 @@ from typing import Optional, Dict, Any
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+# Phase 1 Feature Flags
+ENABLE_INTELLIGENT_ROUTING = os.getenv('ENABLE_INTELLIGENT_ROUTING', 'false').lower() == 'true'
+ENABLE_DYNAMIC_TASK_DECOMPOSITION = os.getenv('ENABLE_DYNAMIC_TASK_DECOMPOSITION', 'false').lower() == 'true'
+ENABLE_ADVANCED_MEMORY = os.getenv('ENABLE_ADVANCED_MEMORY', 'false').lower() == 'true'
+
+# Phase 1 Configuration
+AGENTIC_MEMORY_ENABLED = os.getenv('AGENTIC_MEMORY_ENABLED', 'true').lower() == 'true'
+AGENTIC_PERFORMANCE_MONITORING = os.getenv('AGENTIC_PERFORMANCE_MONITORING', 'true').lower() == 'true'
+AGENTIC_ANALYTICS_ENABLED = os.getenv('AGENTIC_ANALYTICS_ENABLED', 'false').lower() == 'true'
+
+# Memory System Configuration
+MEMORY_RETENTION_DAYS = int(os.getenv('MEMORY_RETENTION_DAYS', '30'))
+MAX_CONVERSATION_HISTORY = int(os.getenv('MAX_CONVERSATION_HISTORY', '50'))
+MAX_EPISODIC_MEMORY = int(os.getenv('MAX_EPISODIC_MEMORY', '1000'))
+
+# Performance Monitoring Configuration
+PERFORMANCE_MONITORING_INTERVAL = int(os.getenv('PERFORMANCE_MONITORING_INTERVAL', '300'))
+AGENT_OPTIMIZATION_ENABLED = os.getenv('AGENT_OPTIMIZATION_ENABLED', 'true').lower() == 'true'
+
+# Routing Configuration
+COMPLEXITY_THRESHOLD_FOR_COLLABORATION = float(os.getenv('COMPLEXITY_THRESHOLD_FOR_COLLABORATION', '7.0'))
+MAX_NEGOTIATION_ROUNDS = int(os.getenv('MAX_NEGOTIATION_ROUNDS', '3'))
+
+# Debug Configuration
+DEBUG_AGENTIC_SYSTEM = os.getenv('DEBUG_AGENTIC_SYSTEM', 'false').lower() == 'true'
 
 class KICKAIConfig:
     """Configuration manager for KICKAI system."""
@@ -118,6 +145,71 @@ class KICKAIConfig:
         logger.info(f"   AI Provider: {self.ai_provider}")
         logger.info(f"   Database: {db_config['type']}")
         return True
+
+def get_feature_flags():
+    """Get all feature flags for easy access."""
+    return {
+        'intelligent_routing': ENABLE_INTELLIGENT_ROUTING,
+        'dynamic_task_decomposition': ENABLE_DYNAMIC_TASK_DECOMPOSITION,
+        'advanced_memory': ENABLE_ADVANCED_MEMORY,
+        'performance_monitoring': AGENTIC_PERFORMANCE_MONITORING,
+        'analytics': AGENTIC_ANALYTICS_ENABLED,
+        'debug': DEBUG_AGENTIC_SYSTEM
+    }
+
+def is_phase1_enabled():
+    """Check if any Phase 1 features are enabled."""
+    return any([
+        ENABLE_INTELLIGENT_ROUTING,
+        ENABLE_DYNAMIC_TASK_DECOMPOSITION,
+        ENABLE_ADVANCED_MEMORY
+    ])
+
+def get_phase1_config():
+    """Get Phase 1 configuration for easy access."""
+    return {
+        'feature_flags': get_feature_flags(),
+        'memory': {
+            'retention_days': MEMORY_RETENTION_DAYS,
+            'max_conversation_history': MAX_CONVERSATION_HISTORY,
+            'max_episodic_memory': MAX_EPISODIC_MEMORY
+        },
+        'performance': {
+            'monitoring_interval': PERFORMANCE_MONITORING_INTERVAL,
+            'optimization_enabled': AGENT_OPTIMIZATION_ENABLED
+        },
+        'routing': {
+            'complexity_threshold': COMPLEXITY_THRESHOLD_FOR_COLLABORATION,
+            'max_negotiation_rounds': MAX_NEGOTIATION_ROUNDS
+        }
+    }
+
+if __name__ == "__main__":
+    # Print current configuration
+    print("🔧 KICKAI Phase 1 Configuration")
+    print("=" * 40)
+    
+    print("\n📋 Feature Flags:")
+    flags = get_feature_flags()
+    for flag, enabled in flags.items():
+        status = "✅ Enabled" if enabled else "❌ Disabled"
+        print(f"  {flag}: {status}")
+    
+    print(f"\n🚀 Phase 1 Status: {'✅ Active' if is_phase1_enabled() else '❌ Inactive'}")
+    
+    print("\n⚙️ Configuration:")
+    config = get_phase1_config()
+    for section, settings in config.items():
+        if section != 'feature_flags':
+            print(f"  {section}:")
+            for key, value in settings.items():
+                print(f"    {key}: {value}")
+    
+    print("\n📝 Environment Variables to Set:")
+    print("  ENABLE_INTELLIGENT_ROUTING=true")
+    print("  ENABLE_DYNAMIC_TASK_DECOMPOSITION=true")
+    print("  ENABLE_ADVANCED_MEMORY=true")
+    print("  DEBUG_AGENTIC_SYSTEM=true")
 
 # Global configuration instance
 config = KICKAIConfig() 
