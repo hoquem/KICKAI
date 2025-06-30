@@ -58,23 +58,14 @@ def test_imports():
         return False
     
     # Test 5: Google AI (primary)
-    print("\n5. Testing langchain_google_genai...")
+    print("\n5. Testing google-generativeai...")
     try:
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        print("✅ langchain_google_genai imported successfully")
+        import google.generativeai as genai
+        print("✅ google-generativeai imported successfully")
         return True
     except ImportError as e:
-        print(f"⚠️ langchain_google_genai import failed: {e}")
-        
-        # Test 6: Google AI (fallback)
-        print("\n6. Testing google-generativeai fallback...")
-        try:
-            import google.generativeai as genai
-            print("✅ google-generativeai fallback imported successfully")
-            return True
-        except ImportError as e:
-            print(f"❌ google-generativeai fallback also failed: {e}")
-            return False
+        print(f"❌ google-generativeai import failed: {e}")
+        return False
     
     return True
 

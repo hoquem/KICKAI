@@ -21,40 +21,13 @@ from langchain.tools import BaseTool
 
 # Try to import Google AI with fallback
 GOOGLE_AI_AVAILABLE = False
-ChatGoogleGenerativeAI = None
 try:
-    from langchain_google_genai import ChatGoogleGenerativeAI
+    import google.generativeai as genai
     GOOGLE_AI_AVAILABLE = True
-    logger.info("✅ langchain_google_genai imported successfully")
+    logger.info("✅ google-generativeai imported successfully")
 except ImportError:
-    logger.warning("⚠️ langchain_google_genai not available, will use fallback")
-    # Create a fallback using google-generativeai directly
-    try:
-        import google.generativeai as genai
-        GOOGLE_AI_AVAILABLE = True
-        logger.info("✅ Using google-generativeai as fallback")
-        
-        # Create a wrapper class
-        class ChatGoogleGenerativeAI:
-            def __init__(self, model="gemini-pro", google_api_key=None, **kwargs):
-                genai.configure(api_key=google_api_key)
-                self.model = genai.GenerativeModel(model)
-                self.temperature = kwargs.get('temperature', 0.7)
-                self.max_output_tokens = kwargs.get('max_output_tokens', 1000)
-            
-            def invoke(self, messages):
-                # Convert LangChain format to Google AI format
-                if isinstance(messages, str):
-                    prompt = messages
-                else:
-                    prompt = messages[-1].content if hasattr(messages[-1], 'content') else str(messages[-1])
-                
-                response = self.model.generate_content(prompt)
-                return response.text
-                
-    except ImportError:
-        logger.warning("⚠️ google-generativeai also not available")
-        GOOGLE_AI_AVAILABLE = False
+    logger.warning("⚠️ google-generativeai not available")
+    GOOGLE_AI_AVAILABLE = False
 
 # Try to import Ollama with fallback
 OLLAMA_AVAILABLE = False
@@ -98,21 +71,17 @@ class SimpleAgenticHandler:
             logger.info(f"Creating LLM with provider: {ai_config['provider']}")
             
             if ai_config['provider'] == 'google':
-                # Use Google AI for production
-                try:
-                    if GOOGLE_AI_AVAILABLE:
-                        llm = ChatGoogleGenerativeAI(
-                            model=ai_config['model'],
-                            google_api_key=ai_config['api_key'],
-                            temperature=0.7,
-                            max_output_tokens=1000
-                        )
-                        logger.info("✅ Google AI LLM created successfully")
-                        return llm
-                    else:
-                        logger.warning("⚠️ Google AI packages not available, using fallback")
+                if GOOGLE_AI_AVAILABLE:
+                    api_key = ai_config.get('api_key') or os.getenv('GOOGLE_API_KEY')
+                    model_name = ai_config.get('model') or 'gemini-pro'
+                    if not api_key or not model_name:
+                        logger.error("Google AI API key or model name missing.")
                         return None
-                except ImportError:
+                    genai.configure(api_key=api_key)
+                    llm = genai.GenerativeModel(model_name)
+                    logger.info("✅ Google AI LLM created successfully")
+                    return llm
+                else:
                     logger.warning("⚠️ Google AI packages not available, using fallback")
                     return None
                 
@@ -431,8 +400,8 @@ Please provide a helpful response. If the user is asking for something we can do
 
 Response:"""
             
-            response = self.llm.invoke(prompt)
-            return response.content
+            response = self.llm.generate_content(prompt)
+            return response.text.strip()
         except Exception as e:
             return f"I'm not sure how to help with that request. Try asking for 'help' to see what I can do. Error: {str(e)}"
     

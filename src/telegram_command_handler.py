@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 # Import configuration
 try:
-    from config import config
+    from config import config, ENABLE_INTELLIGENT_ROUTING
 except ImportError as e:
     logger.error(f"Configuration not available: {e}")
     raise ImportError("Configuration not available")
@@ -577,12 +577,6 @@ class MatchIDGenerator:
             candidate = f"{base_id}{i}"
             if candidate not in self.generated_ids:
                 return candidate
-        import random, string
-        while True:
-            suffix = ''.join(random.choices(string.ascii_uppercase, k=2))
-            candidate = f"{base_id}{suffix}"
-            if candidate not in self.generated_ids:
-                return candidate
 
 match_id_generator = MatchIDGenerator()
 
@@ -596,6 +590,7 @@ class AgentBasedMessageHandler:
         self.crew = None
         self.agents = {}
         self.conversation_memory = {}  # Store conversation context per chat
+        self.intelligent_router = None  # Add intelligent router
         self._initialize_agents()
     
     def _initialize_agents(self):
@@ -634,8 +629,19 @@ class AgentBasedMessageHandler:
             # Create crew for complex multi-agent tasks
             self.crew = create_crew_for_team(agents)
             
+            # Initialize intelligent router if enabled
+            if ENABLE_INTELLIGENT_ROUTING:
+                try:
+                    from src.intelligent_router_standalone import StandaloneIntelligentRouter
+                    self.intelligent_router = StandaloneIntelligentRouter(self.agents, llm)
+                    logger.info(f"✅ Intelligent router initialized for team {self.team_id}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize intelligent router: {e}")
+                    self.intelligent_router = None
+            
             logger.info(f"✅ Agent-based message handler initialized for team {self.team_id}")
             logger.info(f"📊 Loaded {len(self.agents)} agents: {list(self.agents.keys())}")
+            logger.info(f"🧠 Intelligent routing: {'✅ Enabled' if self.intelligent_router else '❌ Disabled'}")
             
         except Exception as e:
             logger.error(f"❌ Failed to initialize agents: {e}")
@@ -679,6 +685,65 @@ class AgentBasedMessageHandler:
     async def _handle_new_request(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
         """Handle a new request using intelligent agent routing."""
         try:
+            # Use intelligent routing if available
+            if self.intelligent_router:
+                return await self._handle_with_intelligent_routing(message_text, user_id, username, chat_id)
+            else:
+                return await self._handle_with_legacy_routing(message_text, user_id, username, chat_id)
+                
+        except Exception as e:
+            logger.error(f"Error handling new request: {e}")
+            return f"❌ Error processing your request: {str(e)}"
+    
+    async def _handle_with_intelligent_routing(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
+        """Handle request using intelligent routing."""
+        try:
+            from src.intelligent_router_standalone import RequestContext
+            
+            # Create request context
+            context_key = f"{chat_id}_{user_id}"
+            conversation_history = []
+            if context_key in self.conversation_memory:
+                # Convert conversation memory to history format
+                conversation_history = [{"role": "user", "content": self.conversation_memory[context_key]}]
+            
+            request_context = RequestContext(
+                user_id=user_id,
+                team_id=self.team_id,
+                message=message_text,
+                conversation_history=conversation_history,
+                user_preferences={},  # Could be enhanced with user preference learning
+                team_patterns={}      # Could be enhanced with team pattern analysis
+            )
+            
+            # Get routing decision
+            routing_decision = await self.intelligent_router.route_request(message_text, request_context)
+            
+            logger.info(f"🧠 Intelligent routing decision: {routing_decision.selected_agents} (confidence: {routing_decision.confidence_score:.2f})")
+            
+            # Execute with selected agents
+            if len(routing_decision.selected_agents) == 1:
+                # Single agent execution
+                agent_name = routing_decision.selected_agents[0]
+                agent = self.agents.get(agent_name)
+                if agent:
+                    return await self._execute_single_agent(agent, message_text, routing_decision)
+                else:
+                    logger.error(f"Agent {agent_name} not found")
+                    return await self._handle_with_legacy_routing(message_text, user_id, username, chat_id)
+            
+            else:
+                # Multi-agent execution using crew
+                return await self._execute_multi_agent(routing_decision.selected_agents, message_text, routing_decision)
+                
+        except Exception as e:
+            logger.error(f"Error in intelligent routing: {e}")
+            # Fallback to legacy routing
+            return await self._handle_with_legacy_routing(message_text, user_id, username, chat_id)
+    
+    async def _handle_with_legacy_routing(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
+        """Handle request using legacy routing (original implementation)."""
+        try:
             # First, use the message processor to understand the request
             message_processor = self.agents['message_processor']
             
@@ -704,8 +769,86 @@ class AgentBasedMessageHandler:
             return result
             
         except Exception as e:
-            logger.error(f"Error handling new request: {e}")
+            logger.error(f"Error in legacy routing: {e}")
             return f"❌ Error processing your request: {str(e)}"
+    
+    async def _execute_single_agent(self, agent: Any, message_text: str, routing_decision) -> str:
+        """Execute request with a single agent."""
+        try:
+            # Create a simple task for the agent
+            from src.tasks import MessageProcessingTasks
+            message_tasks = MessageProcessingTasks()
+            task = message_tasks.interpret_message_task(agent)
+            
+            # Update task description with routing context
+            task.description = f"""
+            {task.description}
+            
+            Routing Context:
+            - Selected for: {agent.role}
+            - Required capabilities: {routing_decision.required_capabilities}
+            - Complexity: {routing_decision.complexity_score}
+            - Reasoning: {routing_decision.reasoning}
+            """
+            
+            result = await self._execute_task(task)
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error executing single agent: {e}")
+            raise
+    
+    async def _execute_multi_agent(self, selected_agents: List[str], message_text: str, routing_decision) -> str:
+        """Execute request with multiple agents using crew."""
+        try:
+            # Create tasks for each selected agent
+            tasks = []
+            for agent_name in selected_agents:
+                agent = self.agents.get(agent_name)
+                if agent:
+                    from src.tasks import MessageProcessingTasks
+                    message_tasks = MessageProcessingTasks()
+                    task = message_tasks.interpret_message_task(agent)
+                    
+                    # Customize task for this agent
+                    task.description = f"""
+                    As {agent.role}, contribute to handling: {message_text}
+                    
+                    Routing Context:
+                    - Required capabilities: {routing_decision.required_capabilities}
+                    - Complexity: {routing_decision.complexity_score}
+                    - Reasoning: {routing_decision.reasoning}
+                    
+                    Focus on your area of expertise and provide your perspective.
+                    """
+                    
+                    tasks.append(task)
+            
+            if not tasks:
+                raise ValueError("No valid tasks created")
+            
+            # Execute with crew
+            if self.crew and len(tasks) > 1:
+                # Use crew for coordination
+                self.crew.tasks = tasks
+                result = await self.crew.kickoff()
+                return str(result)
+            else:
+                # Execute tasks sequentially
+                results = []
+                for task in tasks:
+                    result = await self._execute_task(task)
+                    results.append(result)
+                
+                # Combine results
+                if len(results) == 1:
+                    return results[0]
+                else:
+                    return "\n\n".join([f"From {task.agent.role}: {result}" for task, result in zip(tasks, results)])
+                    
+        except Exception as e:
+            logger.error(f"Error executing multi-agent: {e}")
+            raise
     
     async def _handle_followup(self, message_text: str, conversation_context: str, user_id: str, username: str, chat_id: str) -> str:
         """Handle a follow-up question maintaining conversation context."""

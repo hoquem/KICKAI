@@ -8,39 +8,12 @@ from langchain_community.llms import Ollama
 GOOGLE_AI_AVAILABLE = False
 ChatGoogleGenerativeAI = None
 try:
-    from langchain_google_genai import ChatGoogleGenerativeAI
+    import google.generativeai as genai
     GOOGLE_AI_AVAILABLE = True
-    logger.info("✅ langchain_google_genai imported successfully")
+    logger.info("✅ google-generativeai imported successfully")
 except ImportError:
-    logger.warning("⚠️ langchain_google_genai not available, will use fallback")
-    # Create a fallback using google-generativeai directly
-    try:
-        import google.generativeai as genai
-        GOOGLE_AI_AVAILABLE = True
-        logger.info("✅ Using google-generativeai as fallback")
-        
-        # Create a wrapper class
-        class ChatGoogleGenerativeAI:
-            def __init__(self, model="gemini-pro", google_api_key=None, **kwargs):
-                genai.configure(api_key=google_api_key)
-                self.model = genai.GenerativeModel(model)
-                self.temperature = kwargs.get('temperature', 0.7)
-                self.max_output_tokens = kwargs.get('max_output_tokens', 1000)
-                self.system = kwargs.get('system', '')
-            
-            def invoke(self, messages):
-                # Convert LangChain format to Google AI format
-                if isinstance(messages, str):
-                    prompt = messages
-                else:
-                    prompt = messages[-1].content if hasattr(messages[-1], 'content') else str(messages[-1])
-                
-                response = self.model.generate_content(prompt)
-                return response.text
-                
-    except ImportError:
-        logger.warning("⚠️ google-generativeai also not available")
-        GOOGLE_AI_AVAILABLE = False
+    logger.warning("⚠️ google-generativeai not available")
+    GOOGLE_AI_AVAILABLE = False
 
 from src.tools.firebase_tools import PlayerTools, FixtureTools, TeamTools, CommandLoggingTools, BotTools
 from src.tools.telegram_tools import (
@@ -210,21 +183,21 @@ def create_llm():
         # Validate configuration first
         if not config.validate_config():
             raise ValueError("Invalid configuration")
-        
         ai_config = config.ai_config
         logger.info(f"Creating LLM with provider: {ai_config['provider']}")
-        
         if ai_config['provider'] == 'google':
-            # Use Google AI for production
-            llm = ChatGoogleGenerativeAI(
-                model=ai_config['model'],
-                google_api_key=ai_config['api_key'],
-                temperature=0.7,
-                max_output_tokens=1000,
-                system=CREWAI_SYSTEM_PROMPT
-            )
-            logger.info("✅ Google AI LLM created successfully")
-            
+            if GOOGLE_AI_AVAILABLE:
+                api_key = ai_config.get('api_key') or os.getenv('GOOGLE_API_KEY')
+                model_name = ai_config.get('model') or 'gemini-pro'
+                if not api_key or not model_name:
+                    logger.error("Google AI API key or model name missing.")
+                    return None
+                genai.configure(api_key=api_key)
+                llm = genai.GenerativeModel(model_name)
+                logger.info("✅ Google AI LLM created successfully")
+            else:
+                logger.warning("⚠️ Google AI packages not available, using fallback")
+                llm = None
         else:
             # Use Ollama for local development
             llm = Ollama(
@@ -233,9 +206,7 @@ def create_llm():
                 system=CREWAI_SYSTEM_PROMPT
             )
             logger.info("✅ Ollama LLM created successfully")
-        
         return llm
-        
     except Exception as e:
         logger.error(f"Failed to create LLM: {e}")
         raise
