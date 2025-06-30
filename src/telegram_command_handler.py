@@ -16,21 +16,17 @@ from datetime import datetime, timedelta
 import requests
 import json
 
-# Monkey patch for httpx proxy issue with Supabase
+# Monkey patch for httpx proxy issue with Firebase
 import httpx
-original_init = httpx.Client.__init__
-original_async_init = httpx.AsyncClient.__init__
+original_request = httpx.Client.request
 
-def _patched_client_init(self, *args, **kwargs):
-    kwargs.pop('proxy', None)  # Remove proxy argument
-    return original_init(self, *args, **kwargs)
+def patched_request(self, method, url, **kwargs):
+    # Remove proxy argument if present (not supported in some environments)
+    if 'proxy' in kwargs:
+        del kwargs['proxy']
+    return original_request(self, method, url, **kwargs)
 
-def _patched_async_client_init(self, *args, **kwargs):
-    kwargs.pop('proxy', None)  # Remove proxy argument
-    return original_async_init(self, *args, **kwargs)
-
-httpx.Client.__init__ = _patched_client_init
-httpx.AsyncClient.__init__ = _patched_async_client_init
+httpx.Client.request = patched_request
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -1060,7 +1056,7 @@ async def listmatches_command(update, context, params: Dict[str, Any]):
     
     filter_type = params.get('filter', 'upcoming')
     
-    # TODO: Add Supabase integration to fetch actual matches
+    # TODO: Add Firebase integration to fetch actual matches
     message = f"📅 <b>Matches ({filter_type})</b>\n\n"
     message += "This feature is coming soon with LLM parsing!\n"
     message += f"Filter: {filter_type}"

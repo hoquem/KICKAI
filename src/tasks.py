@@ -1,5 +1,5 @@
 from crewai import Task
-from src.tools.supabase_tools import PlayerTools, FixtureTools, AvailabilityTools
+from src.tools.firebase_tools import PlayerTools, FixtureTools, TeamTools
 
 # --- Player Management Tasks ---
 

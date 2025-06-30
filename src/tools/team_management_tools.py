@@ -1,223 +1,261 @@
 #!/usr/bin/env python3
 """
 Team Management Tools for KICKAI
-Provides tools for creating teams, managing roles, and inviting members.
+Provides tools for managing teams, members, and team-related operations.
 """
 
 import os
 import logging
-from typing import List, Dict, Optional, Any
-from crewai.tools import BaseTool
-from supabase import create_client, Client
+from typing import Dict, List, Optional
+from datetime import datetime
+from firebase_admin import firestore
+from src.tools.firebase_tools import get_firebase_client
 
-# Set up logging
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def get_firebase_client() -> firestore.Client:
+    """Get Firebase client with proper error handling."""
+    try:
+        return get_firebase_client()
+    except Exception as e:
+        logger.error(f"Failed to get Firebase client: {e}")
+        raise
 
-def get_supabase_client() -> Client:
-    """Get Supabase client with proper error handling."""
-    url = os.getenv('SUPABASE_URL')
-    key = os.getenv('SUPABASE_KEY')
+class TeamManagementTools:
+    """Tools for team management operations."""
     
-    if not url or not key:
-        raise ValueError("Missing Supabase environment variables")
+    def __init__(self):
+        self.firebase = get_firebase_client()
     
-    return create_client(url, key)
-
-
-class TeamManagementTools(BaseTool):
-    """Tool for managing teams, roles, and memberships."""
+    def create_team(self, **kwargs) -> Dict:
+        """Create a new team."""
+        return self._create_team(self.firebase, **kwargs)
     
-    name: str = "Team Management Tool"
-    description: str = "A tool to manage teams, roles, and member invitations"
+    def add_team_member(self, **kwargs) -> Dict:
+        """Add a member to a team."""
+        return self._add_team_member(self.firebase, **kwargs)
     
-    def _run(self, command: str, **kwargs) -> str:
-        supabase = get_supabase_client()
-        
-        if command == 'create_team':
-            return self._create_team(supabase, **kwargs)
-        elif command == 'add_team_member':
-            return self._add_team_member(supabase, **kwargs)
-        elif command == 'get_team_members':
-            return self._get_team_members(supabase, **kwargs)
-        elif command == 'update_member_role':
-            return self._update_member_role(supabase, **kwargs)
-        elif command == 'get_team_info':
-            return self._get_team_info(supabase, **kwargs)
-        elif command == 'list_teams':
-            return self._list_teams(supabase)
-        else:
-            return "Error: Unknown command. Available commands: 'create_team', 'add_team_member', 'get_team_members', 'update_member_role', 'get_team_info', 'list_teams'."
-
-    def _create_team(self, supabase: Client, name: str, admin_phone: str, admin_name: str, 
-                    telegram_group: str, description: str = "") -> str:
-        """Create a new team with an admin."""
+    def get_team_members(self, **kwargs) -> str:
+        """Get all members of a team."""
+        return self._get_team_members(self.firebase, **kwargs)
+    
+    def update_member_role(self, **kwargs) -> Dict:
+        """Update a member's role in a team."""
+        return self._update_member_role(self.firebase, **kwargs)
+    
+    def get_team_info(self, **kwargs) -> str:
+        """Get information about a team."""
+        return self._get_team_info(self.firebase, **kwargs)
+    
+    def list_teams(self) -> str:
+        """List all teams."""
+        return self._list_teams(self.firebase)
+    
+    def _create_team(self, firebase, name: str, admin_phone: str, admin_name: str,
+                    description: str = "") -> Dict:
+        """Create a new team with an admin member."""
         try:
-            # First, create the team
-            team_response = supabase.table('teams').insert({
+            # Create team document
+            team_data = {
                 'name': name,
                 'description': description,
-                'telegram_group': telegram_group,
-                'created_by': admin_phone,
+                'admin_phone': admin_phone,
+                'created_at': datetime.now(),
                 'is_active': True
-            }).execute()
+            }
             
-            if not team_response.data:
-                return "Error: Failed to create team"
+            team_ref = firebase.collection('teams').document()
+            team_ref.set(team_data)
+            team_id = team_ref.id
             
-            team = team_response.data[0]
-            team_id = team['id']
-            
-            # Add the admin as a team member with admin role
-            member_response = supabase.table('team_members').insert({
+            # Add admin as first member
+            member_data = {
                 'team_id': team_id,
-                'player_id': None,  # Will be linked when player is created
                 'phone_number': admin_phone,
                 'name': admin_name,
                 'role': 'admin',
-                'is_active': True,
-                'joined_at': 'now()'
-            }).execute()
+                'joined_at': datetime.now(),
+                'is_active': True
+            }
             
-            if not member_response.data:
-                return f"Team created but failed to add admin. Team ID: {team_id}"
+            member_ref = firebase.collection('team_members').document()
+            member_ref.set(member_data)
             
-            return f"Team '{name}' created successfully! Team ID: {team_id}, Admin: {admin_name}"
+            logger.info(f"Created team '{name}' with ID {team_id}")
+            return {
+                'success': True,
+                'team_id': team_id,
+                'message': f"Team '{name}' created successfully"
+            }
             
         except Exception as e:
-            return f"Error creating team: {str(e)}"
-
-    def _add_team_member(self, supabase: Client, team_id: str, phone_number: str, 
-                        name: str, role: str = 'player', invited_by: Optional[str] = None) -> str:
-        """Add a new member to a team."""
+            logger.error(f"Failed to create team: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _add_team_member(self, firebase, team_id: str, phone_number: str,
+                        name: str, role: str = 'member') -> Dict:
+        """Add a member to a team."""
         try:
-            # Check if team exists
-            team_response = supabase.table('teams').select('*').eq('id', team_id).execute()
-            if not team_response.data:
-                return f"Error: Team with ID {team_id} not found"
+            # Verify team exists
+            team_ref = firebase.collection('teams').document(team_id)
+            team_doc = team_ref.get()
+            if not team_doc.exists:
+                return {
+                    'success': False,
+                    'error': f"Team with ID {team_id} not found"
+                }
             
             # Check if member already exists
-            existing_member = supabase.table('team_members').select('*').eq('team_id', team_id).eq('phone_number', phone_number).execute()
-            if existing_member.data:
-                return f"Error: Member {name} already exists in this team"
+            members_ref = firebase.collection('team_members')
+            existing_query = members_ref.where('team_id', '==', team_id).where('phone_number', '==', phone_number)
+            existing_docs = existing_query.get()
             
-            # Prepare member data
+            if existing_docs:
+                return {
+                    'success': False,
+                    'error': f"Member with phone {phone_number} already exists in team"
+                }
+            
+            # Add new member
             member_data = {
                 'team_id': team_id,
                 'phone_number': phone_number,
                 'name': name,
                 'role': role,
-                'is_active': True,
-                'joined_at': 'now()'
+                'joined_at': datetime.now(),
+                'is_active': True
             }
             
-            # Add invited_by if provided
-            if invited_by:
-                member_data['invited_by'] = invited_by
+            member_ref = firebase.collection('team_members').document()
+            member_ref.set(member_data)
             
-            # Add the member
-            member_response = supabase.table('team_members').insert(member_data).execute()
-            
-            if not member_response.data:
-                return "Error: Failed to add team member"
-            
-            member = member_response.data[0]
-            return f"Successfully added {name} as {role} to team. Member ID: {member['id']}"
+            logger.info(f"Added member {name} to team {team_id}")
+            return {
+                'success': True,
+                'message': f"Member {name} added successfully"
+            }
             
         except Exception as e:
-            return f"Error adding team member: {str(e)}"
-
-    def _get_team_members(self, supabase: Client, team_id: str) -> str:
+            logger.error(f"Failed to add team member: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _get_team_members(self, firebase, team_id: str) -> str:
         """Get all members of a team."""
         try:
-            response = supabase.table('team_members').select('*').eq('team_id', team_id).eq('is_active', True).execute()
+            members_ref = firebase.collection('team_members')
+            query = members_ref.where('team_id', '==', team_id).where('is_active', '==', True)
+            response = query.get()
             
-            if not response.data:
-                return f"No active members found for team {team_id}"
+            if not response:
+                return "No members found for this team."
             
-            members = response.data
-            result = f"Team Members ({len(members)}):\n"
+            members_list = []
+            for doc in response:
+                member_data = doc.to_dict()
+                members_list.append(
+                    f"• {member_data['name']} ({member_data['phone_number']}) - {member_data['role']}"
+                )
             
-            for member in members:
-                result += f"- {member['name']} ({member['role']}) - {member['phone_number']}\n"
-            
-            return result
+            return f"Team Members:\n" + "\n".join(members_list)
             
         except Exception as e:
-            return f"Error getting team members: {str(e)}"
-
-    def _update_member_role(self, supabase: Client, team_id: str, phone_number: str, 
-                           new_role: str, updated_by: str) -> str:
+            logger.error(f"Failed to get team members: {e}")
+            return f"Error retrieving team members: {str(e)}"
+    
+    def _update_member_role(self, firebase, team_id: str, phone_number: str,
+                           new_role: str) -> Dict:
         """Update a member's role in a team."""
         try:
-            # Check if member exists
-            member_response = supabase.table('team_members').select('*').eq('team_id', team_id).eq('phone_number', phone_number).execute()
-            if not member_response.data:
-                return f"Error: Member not found in team"
+            # Find member document
+            members_ref = firebase.collection('team_members')
+            query = members_ref.where('team_id', '==', team_id).where('phone_number', '==', phone_number)
+            member_docs = query.get()
             
-            # Update the role
-            update_response = supabase.table('team_members').update({
+            if not member_docs:
+                return {
+                    'success': False,
+                    'error': f"Member with phone {phone_number} not found in team"
+                }
+            
+            # Update role
+            member_doc = member_docs[0]
+            member_ref = firebase.collection('team_members').document(member_doc.id)
+            member_ref.update({
                 'role': new_role,
-                'updated_by': updated_by,
-                'updated_at': 'now()'
-            }).eq('team_id', team_id).eq('phone_number', phone_number).execute()
+                'updated_at': datetime.now()
+            })
             
-            if not update_response.data:
-                return "Error: Failed to update member role"
-            
-            member = update_response.data[0]
-            return f"Successfully updated {member['name']} role to {new_role}"
+            logger.info(f"Updated role for member {phone_number} to {new_role}")
+            return {
+                'success': True,
+                'message': f"Role updated to {new_role}"
+            }
             
         except Exception as e:
-            return f"Error updating member role: {str(e)}"
-
-    def _get_team_info(self, supabase: Client, team_id: str) -> str:
-        """Get detailed information about a team."""
+            logger.error(f"Failed to update member role: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _get_team_info(self, firebase, team_id: str) -> str:
+        """Get information about a team."""
         try:
             # Get team info
-            team_response = supabase.table('teams').select('*').eq('id', team_id).execute()
-            if not team_response.data:
-                return f"Error: Team with ID {team_id} not found"
+            team_ref = firebase.collection('teams').document(team_id)
+            team_doc = team_ref.get()
             
-            team = team_response.data[0]
+            if not team_doc.exists:
+                return f"Team with ID {team_id} not found."
+            
+            team_data = team_doc.to_dict()
             
             # Get member count
-            members_response = supabase.table('team_members').select('*').eq('team_id', team_id).eq('is_active', True).execute()
-            member_count = len(members_response.data) if members_response.data else 0
+            members_ref = firebase.collection('team_members')
+            members_query = members_ref.where('team_id', '==', team_id).where('is_active', '==', True)
+            members_response = members_query.get()
+            member_count = len(list(members_response))
             
-            result = f"Team: {team['name']}\n"
-            result += f"Description: {team['description']}\n"
-            result += f"Members: {member_count}\n"
-            result += f"Telegram Group: {team['telegram_group']}\n"
-            result += f"Created: {team['created_at']}\n"
-            result += f"Status: {'Active' if team['is_active'] else 'Inactive'}"
-            
-            return result
+            return f"Team: {team_data['name']}\n" \
+                   f"Description: {team_data.get('description', 'No description')}\n" \
+                   f"Admin: {team_data['admin_phone']}\n" \
+                   f"Members: {member_count}\n" \
+                   f"Status: {'Active' if team_data.get('is_active', True) else 'Inactive'}"
             
         except Exception as e:
-            return f"Error getting team info: {str(e)}"
-
-    def _list_teams(self, supabase: Client) -> str:
+            logger.error(f"Failed to get team info: {e}")
+            return f"Error retrieving team info: {str(e)}"
+    
+    def _list_teams(self, firebase) -> str:
         """List all teams."""
         try:
-            response = supabase.table('teams').select('*').eq('is_active', True).execute()
+            teams_ref = firebase.collection('teams')
+            query = teams_ref.where('is_active', '==', True)
+            response = query.get()
             
-            if not response.data:
-                return "No active teams found"
+            if not response:
+                return "No active teams found."
             
-            teams = response.data
-            result = f"Active Teams ({len(teams)}):\n"
+            teams_list = []
+            for doc in response:
+                team_data = doc.to_dict()
+                teams_list.append(f"• {team_data['name']} (ID: {doc.id})")
             
-            for team in teams:
-                result += f"- {team['name']} (ID: {team['id']}) - {team['description']}\n"
-            
-            return result
+            return f"Active Teams:\n" + "\n".join(teams_list)
             
         except Exception as e:
+            logger.error(f"Failed to list teams: {e}")
             return f"Error listing teams: {str(e)}"
 
 
-def get_team_management_tools() -> List[BaseTool]:
+def get_team_management_tools() -> List[TeamManagementTools]:
     """Get all team management tools."""
     return [TeamManagementTools()] 

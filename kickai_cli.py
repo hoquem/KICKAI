@@ -1,470 +1,389 @@
 #!/usr/bin/env python3
 """
-KICKAI Comprehensive CLI Tool
-Supports team management, bot management, dual-channel setup, and testing
+KICKAI CLI Tool
+Command-line interface for managing teams, bots, and system configuration.
 """
 
 import os
-import sys
 import argparse
-import subprocess
+import logging
 from typing import List, Dict, Optional
+from datetime import datetime
 from dotenv import load_dotenv
+from firebase_admin import firestore
+from src.tools.firebase_tools import get_firebase_client
 
 # Load environment variables
 load_dotenv()
 
-def get_supabase_client():
-    """Get Supabase client with proper error handling."""
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def get_firebase_client():
+    """Get Firebase client with proper error handling."""
     try:
-        from supabase import create_client
-        url = os.getenv('SUPABASE_URL')
-        key = os.getenv('SUPABASE_KEY')
-        
-        if not url or not key:
-            raise ValueError("Missing Supabase environment variables")
-        
-        return create_client(url, key)
+        return get_firebase_client()
     except ImportError:
-        print("❌ Supabase client not available. Install with: pip install supabase")
+        print("❌ Firebase client not available. Install with: pip install firebase-admin")
         return None
     except Exception as e:
-        print(f"❌ Error creating Supabase client: {e}")
+        print(f"❌ Error creating Firebase client: {e}")
         return None
 
-def list_teams(supabase) -> List[Dict]:
-    """List all teams in the database."""
+def list_teams(firebase) -> List[Dict]:
+    """List all active teams."""
     try:
-        response = supabase.table('teams').select('*').eq('is_active', True).execute()
-        return response.data if response.data else []
+        teams_ref = firebase.collection('teams')
+        query = teams_ref.where('is_active', '==', True)
+        response = query.get()
+        
+        teams = []
+        for doc in response:
+            team_data = doc.to_dict()
+            team_data['id'] = doc.id
+            teams.append(team_data)
+        
+        return teams
     except Exception as e:
-        print(f"❌ Error listing teams: {e}")
+        logger.error(f"Failed to list teams: {e}")
         return []
 
-def list_bot_mappings(supabase) -> List[Dict]:
-    """List all bot mappings in the database."""
+def list_bot_mappings(firebase) -> List[Dict]:
+    """List all bot mappings."""
     try:
-        response = supabase.table('team_bots').select('*, teams(name)').execute()
-        return response.data if response.data else []
+        bots_ref = firebase.collection('team_bots')
+        response = bots_ref.get()
+        
+        mappings = []
+        for doc in response:
+            mapping_data = doc.to_dict()
+            mapping_data['id'] = doc.id
+            
+            # Get team name
+            team_ref = firebase.collection('teams').document(mapping_data['team_id'])
+            team_doc = team_ref.get()
+            if team_doc.exists:
+                team_data = team_doc.to_dict()
+                mapping_data['team_name'] = team_data.get('name', 'Unknown')
+            else:
+                mapping_data['team_name'] = 'Unknown'
+            
+            mappings.append(mapping_data)
+        
+        return mappings
     except Exception as e:
-        print(f"❌ Error listing bot mappings: {e}")
+        logger.error(f"Failed to list bot mappings: {e}")
         return []
 
-def add_team(supabase, name: str, description: str = "", telegram_group: str = ""):
-    """Add a new team to the database."""
-    print(f"🏆 Adding team: {name}")
-    
+def add_team(firebase, name: str, description: str = "", telegram_group: str = ""):
+    """Add a new team."""
     try:
         team_data = {
             'name': name,
             'description': description,
             'telegram_group': telegram_group,
+            'created_at': datetime.now(),
             'is_active': True
         }
         
-        response = supabase.table('teams').insert(team_data).execute()
+        team_ref = firebase.collection('teams').document()
+        team_ref.set(team_data)
+        team_id = team_ref.id
         
-        if response.data:
-            team = response.data[0]
-            print(f"✅ Successfully added team: {team['name']} (ID: {team['id']})")
-            return team['id']
-        else:
-            print("❌ Failed to add team")
-            return None
-            
+        print(f"✅ Team '{name}' created with ID: {team_id}")
+        return team_id
+        
     except Exception as e:
-        print(f"❌ Error adding team: {e}")
+        print(f"❌ Failed to create team: {e}")
         return None
 
-def add_bot_mapping(supabase, team_name: str, bot_token: str, chat_id: str, bot_username: str, leadership_chat_id: Optional[str] = None):
-    """Add a new bot mapping for a team."""
-    print(f"🤖 Adding bot mapping for {team_name}...")
-    
+def add_bot_mapping(firebase, team_name: str, bot_token: str, chat_id: str, bot_username: str, leadership_chat_id: Optional[str] = None):
+    """Add a bot mapping for a team."""
     try:
-        # Find the team
-        teams_response = supabase.table('teams').select('*').eq('name', team_name).execute()
-        if not teams_response.data:
+        # Find team by name
+        teams_ref = firebase.collection('teams')
+        team_query = teams_ref.where('name', '==', team_name)
+        team_response = team_query.get()
+        
+        if not team_response:
             print(f"❌ Team '{team_name}' not found")
             return False
         
-        team_id = teams_response.data[0]['id']
-        print(f"✅ Found team: {team_name} (ID: {team_id})")
+        team_doc = team_response[0]
+        team_id = team_doc.id
         
         # Check if mapping already exists
-        existing_response = supabase.table('team_bots').select('*').eq('team_id', team_id).execute()
-        if existing_response.data:
-            print(f"⚠️  Bot mapping already exists for {team_name}")
-            overwrite = input("Do you want to overwrite it? (y/N): ").strip().lower()
-            if overwrite != 'y':
-                print("❌ Operation cancelled")
-                return False
-            
-            # Delete existing mapping
-            supabase.table('team_bots').delete().eq('team_id', team_id).execute()
-            print("  - Removed existing mapping")
+        bots_ref = firebase.collection('team_bots')
+        existing_query = bots_ref.where('team_id', '==', team_id)
+        existing_response = existing_query.get()
         
-        # Insert new mapping
+        if existing_response:
+            # Update existing mapping
+            existing_doc = existing_response[0]
+            existing_ref = firebase.collection('team_bots').document(existing_doc.id)
+            existing_ref.delete()
+            print(f"Removed existing bot mapping for team '{team_name}'")
+        
+        # Create new mapping
         mapping_data = {
             'team_id': team_id,
             'bot_token': bot_token,
             'chat_id': chat_id,
             'bot_username': bot_username,
+            'leadership_chat_id': leadership_chat_id,
+            'created_at': datetime.now(),
             'is_active': True
         }
         
-        if leadership_chat_id:
-            mapping_data['leadership_chat_id'] = leadership_chat_id
+        new_mapping_ref = firebase.collection('team_bots').document()
+        new_mapping_ref.set(mapping_data)
         
-        response = supabase.table('team_bots').insert(mapping_data).execute()
+        print(f"✅ Bot mapping added for team '{team_name}'")
+        return True
         
-        if response.data:
-            print(f"✅ Successfully mapped {team_name} to {bot_username}")
-            print(f"  - Bot Token: {bot_token[:20]}...")
-            print(f"  - Main Chat ID: {chat_id}")
-            if leadership_chat_id:
-                print(f"  - Leadership Chat ID: {leadership_chat_id}")
-            return True
-        else:
-            print("❌ Failed to create bot mapping")
-            return False
-            
     except Exception as e:
-        print(f"❌ Error adding bot mapping: {e}")
+        print(f"❌ Failed to add bot mapping: {e}")
         return False
 
-def setup_dual_channel(supabase, team_name: str, leadership_chat_id: str):
-    """Setup dual-channel architecture for a team."""
-    print(f"🔄 Setting up dual-channel for {team_name}...")
-    
+def setup_dual_channel(firebase, team_name: str, leadership_chat_id: str):
+    """Set up dual channel configuration for a team."""
     try:
-        # Find the team
-        teams_response = supabase.table('teams').select('*').eq('name', team_name).execute()
-        if not teams_response.data:
+        # Find team by name
+        teams_ref = firebase.collection('teams')
+        team_query = teams_ref.where('name', '==', team_name)
+        team_response = team_query.get()
+        
+        if not team_response:
             print(f"❌ Team '{team_name}' not found")
             return False
         
-        team_id = teams_response.data[0]['id']
+        team_doc = team_response[0]
+        team_id = team_doc.id
         
-        # Update the bot mapping
-        response = supabase.table('team_bots').update({
-            'leadership_chat_id': leadership_chat_id
-        }).eq('team_id', team_id).execute()
+        # Update bot mapping with leadership chat ID
+        bots_ref = firebase.collection('team_bots')
+        bot_query = bots_ref.where('team_id', '==', team_id)
+        bot_response = bot_query.get()
         
-        if response.data:
-            print(f"✅ Successfully updated {team_name} with leadership chat ID: {leadership_chat_id}")
+        if bot_response:
+            bot_doc = bot_response[0]
+            bot_ref = firebase.collection('team_bots').document(bot_doc.id)
+            bot_ref.update({
+                'leadership_chat_id': leadership_chat_id,
+                'updated_at': datetime.now()
+            })
+            
+            print(f"✅ Dual channel setup completed for team '{team_name}'")
+            print(f"   Main chat: {bot_doc.to_dict().get('chat_id', 'N/A')}")
+            print(f"   Leadership chat: {leadership_chat_id}")
             return True
         else:
-            print(f"❌ No bot mapping found for {team_name}")
+            print(f"❌ No bot mapping found for team '{team_name}'")
             return False
             
     except Exception as e:
-        print(f"❌ Error setting up dual-channel: {e}")
+        print(f"❌ Failed to setup dual channel: {e}")
         return False
 
-def add_team_member(supabase, team_name: str, name: str, role: str, phone: str = "", telegram_username: str = ""):
-    """Add a team member."""
-    print(f"👤 Adding team member: {name} to {team_name}")
-    
+def add_team_member(firebase, team_name: str, name: str, role: str, phone: str = "", telegram_username: str = ""):
+    """Add a member to a team."""
     try:
-        if not supabase:
-            print("❌ Database connection not available")
+        if not firebase:
+            print("❌ Firebase client not available")
             return False
-            
-        # Find the team
-        teams_response = supabase.table('teams').select('*').eq('name', team_name).execute()
-        if not teams_response.data:
+        
+        # Find team by name
+        teams_ref = firebase.collection('teams')
+        team_query = teams_ref.where('name', '==', team_name)
+        team_response = team_query.get()
+        
+        if not team_response:
             print(f"❌ Team '{team_name}' not found")
             return False
         
-        team_id = teams_response.data[0]['id']
+        team_doc = team_response[0]
+        team_id = team_doc.id
         
-        # Add member
+        # Check if member already exists
+        members_ref = firebase.collection('team_members')
+        existing_query = members_ref.where('team_id', '==', team_id).where('name', '==', name)
+        existing_response = existing_query.get()
+        
+        if existing_response:
+            print(f"⚠️ Member '{name}' already exists in team '{team_name}'")
+            return False
+        
+        # Add new member
         member_data = {
             'team_id': team_id,
             'name': name,
             'role': role,
-            'phone': phone,
+            'phone_number': phone,
             'telegram_username': telegram_username,
+            'joined_at': datetime.now(),
             'is_active': True
         }
         
-        response = supabase.table('team_members').insert(member_data).execute()
+        member_ref = firebase.collection('team_members').document()
+        member_ref.set(member_data)
         
-        if response.data:
-            print(f"✅ Successfully added {name} as {role}")
-            return True
-        else:
-            print("❌ Failed to add team member")
-            return False
-            
+        print(f"✅ Member '{name}' added to team '{team_name}' as {role}")
+        return True
+        
     except Exception as e:
-        print(f"❌ Error adding team member: {e}")
+        print(f"❌ Failed to add team member: {e}")
         return False
 
-def test_bot_connection(team_name: str):
-    """Test bot connection for a team."""
-    print(f"🧪 Testing bot connection for {team_name}...")
-    
+def test_team_setup(firebase, team_name: str):
+    """Test team setup and configuration."""
     try:
-        supabase = get_supabase_client()
+        if not firebase:
+            print("❌ Firebase client not available")
+            return False
         
-        # Find the team and bot mapping
-        teams_response = supabase.table('teams').select('*').eq('name', team_name).execute()
-        if not teams_response.data:
+        # Check team exists
+        teams_ref = firebase.collection('teams')
+        team_query = teams_ref.where('name', '==', team_name)
+        team_response = team_query.get()
+        
+        if not team_response:
             print(f"❌ Team '{team_name}' not found")
             return False
         
-        team_id = teams_response.data[0]['id']
+        team_doc = team_response[0]
+        team_id = team_doc.id
+        team_data = team_doc.to_dict()
         
-        bot_response = supabase.table('team_bots').select('*').eq('team_id', team_id).execute()
-        if not bot_response.data:
-            print(f"❌ No bot mapping found for {team_name}")
-            return False
+        print(f"✅ Team found: {team_name} (ID: {team_id})")
+        print(f"   Description: {team_data.get('description', 'No description')}")
+        print(f"   Telegram Group: {team_data.get('telegram_group', 'Not set')}")
         
-        bot = bot_response.data[0]
-        print(f"✅ Found bot mapping:")
-        print(f"  - Bot: {bot['bot_username']}")
-        print(f"  - Main Chat ID: {bot['chat_id']}")
-        print(f"  - Leadership Chat ID: {bot.get('leadership_chat_id', 'Not set')}")
-        print(f"  - Active: {bot['is_active']}")
+        # Check bot mapping
+        bots_ref = firebase.collection('team_bots')
+        bot_query = bots_ref.where('team_id', '==', team_id)
+        bot_response = bot_query.get()
         
-        # Test bot connection
-        import requests
-        url = f"https://api.telegram.org/bot{bot['bot_token']}/getMe"
-        response = requests.get(url)
-        
-        if response.status_code == 200:
-            bot_info = response.json()
-            if bot_info.get('ok'):
-                bot_data = bot_info['result']
-                print(f"✅ Bot connection successful!")
-                print(f"  - Name: {bot_data.get('first_name')}")
-                print(f"  - Username: @{bot_data.get('username')}")
-                print(f"  - ID: {bot_data.get('id')}")
-                return True
-            else:
-                print(f"❌ Bot connection failed: {bot_info}")
-                return False
+        if bot_response:
+            bot_data = bot_response[0].to_dict()
+            print(f"✅ Bot mapping found:")
+            print(f"   Bot Username: @{bot_data.get('bot_username', 'N/A')}")
+            print(f"   Main Chat ID: {bot_data.get('chat_id', 'N/A')}")
+            print(f"   Leadership Chat ID: {bot_data.get('leadership_chat_id', 'Not set')}")
         else:
-            print(f"❌ Bot connection failed: HTTP {response.status_code}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Error testing bot connection: {e}")
-        return False
-
-def run_sanity_check():
-    """Run comprehensive sanity check."""
-    print("🔍 Running comprehensive sanity check...")
-    
-    try:
-        result = subprocess.run([sys.executable, 'sanity_check.py'], 
-                              capture_output=True, text=True)
+            print("❌ No bot mapping found")
         
-        if result.returncode == 0:
-            print("✅ Sanity check passed!")
-            return True
-        else:
-            print("❌ Sanity check failed!")
-            print(result.stdout)
-            print(result.stderr)
-            return False
-            
-    except Exception as e:
-        print(f"❌ Error running sanity check: {e}")
-        return False
-
-def start_bot(team_name: str = None):
-    """Start the Telegram bot."""
-    print("🤖 Starting Telegram bot...")
-    
-    try:
-        if team_name:
-            print(f"📱 Starting bot for team: {team_name}")
-            # For now, the bot runner is hardcoded to BP Hatters FC
-            # In the future, this could be made configurable
+        # Check members
+        members_ref = firebase.collection('team_members')
+        members_query = members_ref.where('team_id', '==', team_id).where('is_active', '==', True)
+        members_response = members_query.get()
         
-        result = subprocess.run([sys.executable, 'run_telegram_bot.py'], 
-                              capture_output=False)
-        
-        if result.returncode == 0:
-            print("✅ Bot started successfully!")
-            return True
-        else:
-            print("❌ Bot failed to start!")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Error starting bot: {e}")
-        return False
-
-def show_status():
-    """Show system status."""
-    print("📊 KICKAI System Status")
-    print("=" * 40)
-    
-    try:
-        supabase = get_supabase_client()
-        if not supabase:
-            print("❌ Cannot connect to database")
-            return False
-        
-        # Teams
-        teams = list_teams(supabase)
-        print(f"🏆 Teams: {len(teams)}")
-        for team in teams:
-            print(f"  - {team['name']} ({'Active' if team['is_active'] else 'Inactive'})")
-        
-        # Bot mappings
-        bots = list_bot_mappings(supabase)
-        print(f"\n🤖 Bot Mappings: {len(bots)}")
-        for bot in bots:
-            team_name = bot.get('teams', {}).get('name', 'Unknown')
-            print(f"  - {team_name}: {bot['bot_username']}")
-            print(f"    Main: {bot['chat_id']}")
-            if bot.get('leadership_chat_id'):
-                print(f"    Leadership: {bot['leadership_chat_id']}")
-        
-        # Check if bot is running
-        bot_running = False
-        try:
-            import psutil
-            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-                try:
-                    if 'python' in proc.info['name'] and 'run_telegram_bot.py' in ' '.join(proc.info['cmdline']):
-                        bot_running = True
-                        break
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
-        except ImportError:
-            # Fallback: use subprocess to check
-            try:
-                result = subprocess.run(['pgrep', '-f', 'run_telegram_bot.py'], 
-                                      capture_output=True, text=True)
-                bot_running = result.returncode == 0
-            except:
-                bot_running = "Unknown (psutil not available)"
-        
-        print(f"\n🤖 Bot Process: {'✅ Running' if bot_running else '❌ Not running'}")
+        member_count = len(list(members_response))
+        print(f"✅ Team members: {member_count} active members")
         
         return True
         
     except Exception as e:
-        print(f"❌ Error getting status: {e}")
+        print(f"❌ Failed to test team setup: {e}")
         return False
 
 def main():
     """Main CLI function."""
-    parser = argparse.ArgumentParser(description='KICKAI Comprehensive CLI Tool')
-    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    parser = argparse.ArgumentParser(description='KICKAI CLI - Team and Bot Management')
+    parser.add_argument('command', choices=['teams', 'bots', 'add-team', 'add-bot', 'setup-dual', 'add-member', 'test', 'system'],
+                       help='Command to execute')
     
-    # Teams
-    teams_parser = subparsers.add_parser('teams', help='Team management')
-    teams_parser.add_argument('action', choices=['list', 'add'], help='Action to perform')
-    teams_parser.add_argument('--name', help='Team name for add command')
-    teams_parser.add_argument('--description', help='Team description for add command')
-    teams_parser.add_argument('--telegram-group', help='Telegram group for add command')
+    # Team commands
+    parser.add_argument('--name', help='Team name')
+    parser.add_argument('--description', help='Team description')
+    parser.add_argument('--telegram-group', help='Telegram group ID')
     
-    # Bots
-    bots_parser = subparsers.add_parser('bots', help='Bot management')
-    bots_parser.add_argument('action', choices=['list', 'add', 'test'], help='Action to perform')
-    bots_parser.add_argument('--team', help='Team name')
-    bots_parser.add_argument('--token', help='Bot token for add command')
-    bots_parser.add_argument('--chat-id', help='Main chat ID for add command')
-    bots_parser.add_argument('--username', help='Bot username for add command')
-    bots_parser.add_argument('--leadership-chat-id', help='Leadership chat ID for add command')
+    # Bot commands
+    parser.add_argument('--token', help='Bot token')
+    parser.add_argument('--chat-id', help='Chat ID')
+    parser.add_argument('--username', help='Bot username')
+    parser.add_argument('--leadership-chat-id', help='Leadership chat ID')
     
-    # Dual-channel
-    dual_parser = subparsers.add_parser('dual-channel', help='Dual-channel setup')
-    dual_parser.add_argument('--team', required=True, help='Team name')
-    dual_parser.add_argument('--leadership-chat-id', required=True, help='Leadership chat ID')
-    
-    # Members
-    members_parser = subparsers.add_parser('members', help='Team member management')
-    members_parser.add_argument('action', choices=['add'], help='Action to perform')
-    members_parser.add_argument('--team', required=True, help='Team name')
-    members_parser.add_argument('--name', required=True, help='Member name')
-    members_parser.add_argument('--role', required=True, help='Member role')
-    members_parser.add_argument('--phone', help='Phone number')
-    members_parser.add_argument('--telegram-username', help='Telegram username')
-    
-    # System
-    system_parser = subparsers.add_parser('system', help='System management')
-    system_parser.add_argument('action', choices=['status', 'sanity-check', 'start-bot'], help='Action to perform')
-    system_parser.add_argument('--team', help='Team name for start-bot command')
+    # Member commands
+    parser.add_argument('--role', help='Member role')
+    parser.add_argument('--phone', help='Phone number')
+    parser.add_argument('--telegram-username', help='Telegram username')
     
     args = parser.parse_args()
     
-    if not args.command:
-        parser.print_help()
+    # Initialize Firebase client
+    firebase = get_firebase_client()
+    if not firebase and args.command not in ['system']:
+        print("❌ Firebase client not available")
         return
     
-    try:
-        supabase = get_supabase_client()
-        if not supabase and args.command not in ['system']:
-            print("❌ Cannot connect to database")
-            sys.exit(1)
+    if args.command == 'teams':
+        teams = list_teams(firebase)
+        if teams:
+            print("\n📋 Teams:")
+            for team in teams:
+                print(f"• {team['name']} (ID: {team['id']})")
+                print(f"  Description: {team.get('description', 'No description')}")
+        else:
+            print("No teams found")
+    
+    elif args.command == 'bots':
+        bots = list_bot_mappings(firebase)
+        if bots:
+            print("\n🤖 Bot Mappings:")
+            for bot in bots:
+                print(f"• {bot['team_name']} -> @{bot.get('bot_username', 'N/A')}")
+                print(f"  Chat ID: {bot.get('chat_id', 'N/A')}")
+                print(f"  Leadership Chat: {bot.get('leadership_chat_id', 'Not set')}")
+        else:
+            print("No bot mappings found")
+    
+    elif args.command == 'add-team':
+        if not args.name:
+            print("❌ --name is required for add-team command")
+            return
         
-        if args.command == 'teams':
-            if args.action == 'list':
-                print("📋 Teams in Database:")
-                teams = list_teams(supabase)
-                for team in teams:
-                    print(f"  - {team['name']} (ID: {team['id']})")
-                    
-            elif args.action == 'add':
-                if not args.name:
-                    print("❌ Team name required: --name")
-                    sys.exit(1)
-                
-                add_team(supabase, args.name, args.description or "", args.telegram_group or "")
+        add_team(firebase, args.name, args.description or "", args.telegram_group or "")
+    
+    elif args.command == 'add-bot':
+        if not all([args.name, args.token, args.chat_id, args.username]):
+            print("❌ --name, --token, --chat-id, and --username are required for add-bot command")
+            return
         
-        elif args.command == 'bots':
-            if args.action == 'list':
-                print("🤖 Bot Mappings:")
-                mappings = list_bot_mappings(supabase)
-                if mappings:
-                    for mapping in mappings:
-                        team_name = mapping.get('teams', {}).get('name', 'Unknown')
-                        print(f"  - {team_name} → {mapping['bot_username']}")
-                        print(f"    Main Chat: {mapping['chat_id']}")
-                        print(f"    Leadership Chat: {mapping.get('leadership_chat_id', 'Not set')}")
-                        print(f"    Active: {mapping['is_active']}")
-                else:
-                    print("  No bot mappings found")
-                    
-            elif args.action == 'add':
-                if not all([args.team, args.token, args.chat_id, args.username]):
-                    print("❌ All arguments required: --team, --token, --chat-id, --username")
-                    sys.exit(1)
-                
-                add_bot_mapping(supabase, args.team, args.token, args.chat_id, args.username, args.leadership_chat_id)
-                
-            elif args.action == 'test':
-                if not args.team:
-                    print("❌ Team name required: --team")
-                    sys.exit(1)
-                
-                test_bot_connection(args.team)
+        add_bot_mapping(firebase, args.name, args.token, args.chat_id, args.username, args.leadership_chat_id)
+    
+    elif args.command == 'setup-dual':
+        if not all([args.name, args.leadership_chat_id]):
+            print("❌ --name and --leadership-chat-id are required for setup-dual command")
+            return
         
-        elif args.command == 'dual-channel':
-            setup_dual_channel(supabase, args.team, args.leadership_chat_id)
+        setup_dual_channel(firebase, args.name, args.leadership_chat_id)
+    
+    elif args.command == 'add-member':
+        if not all([args.name, args.role]):
+            print("❌ --name and --role are required for add-member command")
+            return
         
-        elif args.command == 'members':
-            if args.action == 'add':
-                add_team_member(supabase, args.team, args.name, args.role, args.phone or "", args.telegram_username or "")
+        add_team_member(firebase, args.name, args.name, args.role, args.phone or "", args.telegram_username or "")
+    
+    elif args.command == 'test':
+        if not args.name:
+            print("❌ --name is required for test command")
+            return
         
-        elif args.command == 'system':
-            if args.action == 'status':
-                show_status()
-            elif args.action == 'sanity-check':
-                run_sanity_check()
-            elif args.action == 'start-bot':
-                start_bot(args.team)
+        test_team_setup(firebase, args.name)
+    
+    elif args.command == 'system':
+        print("🔧 KICKAI System Information")
+        print(f"Python version: {os.sys.version}")
+        print(f"Working directory: {os.getcwd()}")
+        print(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
         
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        sys.exit(1)
+        # Check Firebase connection
+        if firebase:
+            print("✅ Firebase connection: Available")
+        else:
+            print("❌ Firebase connection: Not available")
 
 if __name__ == "__main__":
     main() 

@@ -8,8 +8,14 @@ import logging
 import os
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
-from supabase import create_client, Client
-from crewai import Crew
+from datetime import datetime
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+import threading
+import time
+
+from firebase_admin import firestore
+from src.tools.firebase_tools import get_firebase_client
 
 from src.agents import create_llm, create_agents_for_team, create_crew_for_team
 from src.tasks import create_tasks
@@ -18,61 +24,58 @@ from src.tasks import create_tasks
 load_dotenv()
 
 # Configure logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('kickai_multi_team.log'),
-        logging.StreamHandler()
-    ]
-)
-
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_supabase_client() -> Client:
-    """Get Supabase client with proper error handling."""
-    url = os.getenv('SUPABASE_URL')
-    key = os.getenv('SUPABASE_KEY')
-    
-    if not url or not key:
-        raise ValueError("Missing Supabase environment variables")
-    
-    return create_client(url, key)
+def get_firebase_client() -> firestore.Client:
+    """Get Firebase client with proper error handling."""
+    try:
+        return get_firebase_client()
+    except Exception as e:
+        logger.error(f"Failed to get Firebase client: {e}")
+        raise
 
 
 def get_active_teams() -> List[Dict]:
     """Get all active teams from the database."""
     try:
-        supabase = get_supabase_client()
-        response = supabase.table('teams').select('*').eq('is_active', True).execute()
+        firebase = get_firebase_client()
+        teams_ref = firebase.collection('teams')
+        query = teams_ref.where('is_active', '==', True)
+        response = query.get()
         
-        if response.data:
-            logger.info(f"Found {len(response.data)} active teams")
-            return response.data
-        else:
-            logger.warning("No active teams found")
-            return []
-            
+        teams = []
+        for doc in response:
+            team_data = doc.to_dict()
+            team_data['id'] = doc.id
+            teams.append(team_data)
+        
+        logger.info(f"Loaded {len(teams)} active teams")
+        return teams
     except Exception as e:
-        logger.error(f"Error fetching active teams: {e}")
+        logger.error(f"Failed to load teams: {e}")
         return []
 
 
 def get_team_bot_mapping(team_id: str) -> Optional[Dict]:
     """Get the bot mapping for a specific team."""
     try:
-        supabase = get_supabase_client()
-        response = supabase.table('team_bots').select('*').eq('team_id', team_id).eq('is_active', True).execute()
+        firebase = get_firebase_client()
+        bots_ref = firebase.collection('team_bots')
+        query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
+        response = query.get()
         
-        if response.data:
-            return response.data[0]
-        else:
-            logger.warning(f"No bot mapping found for team {team_id}")
-            return None
-            
+        bots = []
+        for doc in response:
+            bot_data = doc.to_dict()
+            bot_data['id'] = doc.id
+            bots.append(bot_data)
+        
+        logger.info(f"Loaded {len(bots)} bots for team {team_id}")
+        return bots[0] if bots else None
     except Exception as e:
-        logger.error(f"Error fetching bot mapping for team {team_id}: {e}")
+        logger.error(f"Failed to load bots for team {team_id}: {e}")
         return None
 
 
@@ -83,6 +86,8 @@ class MultiTeamManager:
         self.teams: Dict[str, Dict] = {}
         self.crews: Dict[str, Crew] = {}
         self.llm = None
+        self.executor = ThreadPoolExecutor(max_workers=10)
+        self.lock = threading.Lock()
         
     def initialize(self):
         """Initialize the multi-team manager."""

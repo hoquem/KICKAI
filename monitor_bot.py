@@ -1,91 +1,151 @@
 #!/usr/bin/env python3
 """
-Monitor Telegram bot status during testing
+Bot Monitoring Script
+Monitors the status of the Telegram bot and related services.
 """
 
 import os
 import time
+import logging
 import requests
+from datetime import datetime
 from dotenv import load_dotenv
+from src.tools.firebase_tools import get_firebase_client
 
 # Load environment variables
 load_dotenv()
 
-def get_bot_info():
-    """Get bot information from database and API."""
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def check_bot_status():
+    """Check if the bot is running and responding."""
     try:
-        from src.tools.supabase_tools import get_supabase_client
+        # Get bot token from environment
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        if not bot_token:
+            logger.error("TELEGRAM_BOT_TOKEN not found in environment")
+            return False
         
-        # Get bot token from database
-        supabase = get_supabase_client()
-        response = supabase.table('team_bots').select('bot_token').eq('team_id', '0854829d-445c-4138-9fd3-4db562ea46ee').eq('is_active', True).execute()
+        # Test bot API
+        url = f"https://api.telegram.org/bot{bot_token}/getMe"
+        response = requests.get(url, timeout=10)
         
-        if response.data:
-            bot_token = response.data[0]['bot_token']
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('ok'):
+                bot_info = data.get('result', {})
+                logger.info(f"✅ Bot is running: @{bot_info.get('username', 'Unknown')}")
+                return True
+            else:
+                logger.error(f"❌ Bot API error: {data.get('description', 'Unknown error')}")
+                return False
+        else:
+            logger.error(f"❌ Bot API request failed: {response.status_code}")
+            return False
             
-            # Test bot API
-            api_response = requests.get(f"https://api.telegram.org/bot{bot_token}/getMe", timeout=10)
-            if api_response.status_code == 200:
-                bot_info = api_response.json()['result']
-                return {
-                    'token': bot_token[:10] + '...',
-                    'name': bot_info['first_name'],
-                    'username': bot_info['username'],
-                    'id': bot_info['id'],
-                    'status': 'active'
-                }
+    except Exception as e:
+        logger.error(f"❌ Bot status check failed: {e}")
+        return False
+
+def check_firebase_connection():
+    """Check Firebase connection."""
+    try:
+        client = get_firebase_client()
+        # Test a simple query
+        client.collection('teams').limit(1).get()
+        logger.info("✅ Firebase connection successful")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Firebase connection failed: {e}")
+        return False
+
+def check_health_endpoint():
+    """Check if the health endpoint is responding."""
+    try:
+        # Try to connect to health endpoint
+        port = os.getenv('PORT', 8080)
+        url = f"http://localhost:{port}/health"
+        response = requests.get(url, timeout=5)
         
-        return None
+        if response.status_code == 200:
+            logger.info("✅ Health endpoint responding")
+            return True
+        else:
+            logger.error(f"❌ Health endpoint error: {response.status_code}")
+            return False
+            
+    except requests.exceptions.ConnectionError:
+        logger.warning("⚠️ Health endpoint not available (bot may not be running)")
+        return False
+    except Exception as e:
+        logger.error(f"❌ Health endpoint check failed: {e}")
+        return False
+
+def get_system_info():
+    """Get system information."""
+    try:
+        # Get environment info
+        environment = os.getenv('RAILWAY_ENVIRONMENT', 'development')
+        python_version = os.sys.version
+        working_dir = os.getcwd()
+        
+        # Get configuration info
+        from config import config
+        ai_provider = config.ai_provider
+        
+        return {
+            'environment': environment,
+            'python_version': python_version,
+            'working_directory': working_dir,
+            'ai_provider': ai_provider,
+            'timestamp': datetime.now().isoformat()
+        }
         
     except Exception as e:
-        return {'error': str(e)}
-
-def check_process():
-    """Check if bot process is running."""
-    import subprocess
-    try:
-        result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
-        if 'python run_telegram_bot.py' in result.stdout:
-            return True
-        return False
-    except:
-        return False
+        logger.error(f"Error getting system info: {e}")
+        return {
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }
 
 def main():
-    """Monitor bot status."""
-    print("🤖 KICKAI Telegram Bot Monitor")
-    print("=" * 40)
+    """Main monitoring function."""
+    logger.info("🔍 Starting KICKAI Bot Monitoring")
+    logger.info(f"📅 Check timestamp: {datetime.now()}")
     
-    while True:
-        # Check bot info
-        bot_info = get_bot_info()
-        process_running = check_process()
-        
-        print(f"\n⏰ {time.strftime('%H:%M:%S')}")
-        print("-" * 20)
-        
-        if bot_info and 'error' not in bot_info:
-            print(f"✅ Bot: {bot_info['name']} (@{bot_info['username']})")
-            print(f"   ID: {bot_info['id']}")
-            print(f"   Token: {bot_info['token']}")
-            print(f"   Status: {bot_info['status']}")
-        elif bot_info and 'error' in bot_info:
-            print(f"❌ Bot Error: {bot_info.get('error', 'Unknown error')}")
-        else:
-            print(f"❌ Bot: Not found or not accessible")
-        
-        if process_running:
-            print(f"✅ Process: Running")
-        else:
-            print(f"❌ Process: Not running")
-        
-        print(f"🌍 Environment: {os.getenv('RAILWAY_ENVIRONMENT', 'development')}")
-        
-        # Wait 10 seconds before next check
-        time.sleep(10)
+    # Get system info
+    system_info = get_system_info()
+    logger.info(f"🌍 Environment: {system_info.get('environment', 'Unknown')}")
+    logger.info(f"🤖 AI Provider: {system_info.get('ai_provider', 'Unknown')}")
+    
+    # Check bot status
+    logger.info("\n🤖 Checking bot status...")
+    bot_status = check_bot_status()
+    
+    # Check Firebase connection
+    logger.info("\n🔥 Checking Firebase connection...")
+    firebase_status = check_firebase_connection()
+    
+    # Check health endpoint
+    logger.info("\n🏥 Checking health endpoint...")
+    health_status = check_health_endpoint()
+    
+    # Summary
+    logger.info("\n📊 Monitoring Summary:")
+    logger.info(f"Bot Status: {'✅ OK' if bot_status else '❌ FAILED'}")
+    logger.info(f"Firebase: {'✅ OK' if firebase_status else '❌ FAILED'}")
+    logger.info(f"Health Endpoint: {'✅ OK' if health_status else '❌ FAILED'}")
+    
+    # Overall status
+    if bot_status and firebase_status:
+        logger.info("\n🎉 All critical services are running!")
+        return True
+    else:
+        logger.error("\n⚠️ Some services are not running properly")
+        return False
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n👋 Monitoring stopped") 
+    success = main()
+    exit(0 if success else 1) 

@@ -1,439 +1,227 @@
 #!/usr/bin/env python3
 """
-KICKAI Deployment Preview
-Shows what the deployment will look like and validates the setup
+Preview Deployment Script
+Shows what the deployment will look like without actually deploying.
 """
 
 import os
 import sys
-import json
-import subprocess
-from pathlib import Path
-from typing import Dict, List, Optional
+import logging
+from datetime import datetime
+from dotenv import load_dotenv
 
-# Colors for output
-class Colors:
-    GREEN = '\033[92m'
-    RED = '\033[91m'
-    YELLOW = '\033[93m'
-    BLUE = '\033[94m'
-    PURPLE = '\033[95m'
-    CYAN = '\033[96m'
-    WHITE = '\033[97m'
-    BOLD = '\033[1m'
-    END = '\033[0m'
+# Load environment variables
+load_dotenv()
 
-def print_header(text: str):
-    """Print a formatted header."""
-    print(f"\n{Colors.BOLD}{Colors.CYAN}{'='*60}{Colors.END}")
-    print(f"{Colors.BOLD}{Colors.CYAN}{text:^60}{Colors.END}")
-    print(f"{Colors.BOLD}{Colors.CYAN}{'='*60}{Colors.END}")
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def print_section(text: str):
-    """Print a formatted section."""
-    print(f"\n{Colors.BOLD}{Colors.BLUE}{text}{Colors.END}")
-    print(f"{Colors.BLUE}{'-' * len(text)}{Colors.END}")
-
-def print_status(status: str, message: str):
-    """Print a status message with color."""
-    if status == "success":
-        print(f"{Colors.GREEN}✅ {message}{Colors.END}")
-    elif status == "error":
-        print(f"{Colors.RED}❌ {message}{Colors.END}")
-    elif status == "warning":
-        print(f"{Colors.YELLOW}⚠️  {message}{Colors.END}")
-    elif status == "info":
-        print(f"{Colors.BLUE}ℹ️  {message}{Colors.END}")
-
-def check_file_exists(filepath: str) -> bool:
-    """Check if a file exists."""
-    return Path(filepath).exists()
-
-def check_railway_cli() -> bool:
-    """Check if Railway CLI is installed."""
-    try:
-        result = subprocess.run(['railway', '--version'], 
-                              capture_output=True, text=True)
-        return result.returncode == 0
-    except FileNotFoundError:
-        return False
-
-def check_python_dependencies() -> Dict[str, bool]:
-    """Check if required Python packages are installed."""
+def check_dependencies():
+    """Check if all required dependencies are installed."""
     required_packages = [
-        'flask', 'psutil', 'requests', 'python-telegram-bot',
-        'supabase', 'python-dotenv'
+        'firebase_admin',
+        'google.generativeai',
+        'openai',
+        'crewai',
+        'python-telegram-bot',
+        'requests',
+        'python-dotenv'
     ]
     
-    results = {}
+    missing_packages = []
     for package in required_packages:
         try:
             __import__(package.replace('-', '_'))
-            results[package] = True
         except ImportError:
-            results[package] = False
+            missing_packages.append(package)
     
-    return results
+    if missing_packages:
+        logger.error(f"❌ Missing packages: {', '.join(missing_packages)}")
+        return False
+    
+    logger.info("✅ All required packages are installed")
+    return True
 
-def check_environment_variables() -> Dict[str, bool]:
-    """Check if required environment variables are set."""
+def check_environment_variables():
+    """Check if all required environment variables are set."""
     required_vars = [
-        'SUPABASE_URL',
-        'SUPABASE_KEY'
+        'TELEGRAM_BOT_TOKEN',
+        'FIREBASE_PROJECT_ID',
+        'FIREBASE_PRIVATE_KEY_ID',
+        'FIREBASE_PRIVATE_KEY',
+        'FIREBASE_CLIENT_EMAIL',
+        'FIREBASE_CLIENT_ID',
+        'FIREBASE_AUTH_URI',
+        'FIREBASE_TOKEN_URI',
+        'FIREBASE_AUTH_PROVIDER_X509_CERT_URL',
+        'FIREBASE_CLIENT_X509_CERT_URL',
+        'GOOGLE_API_KEY',
+        'OPENAI_API_KEY'
     ]
     
-    results = {}
+    missing_vars = []
     for var in required_vars:
-        results[var] = var in os.environ and os.environ[var] != ''
+        if not os.getenv(var):
+            missing_vars.append(var)
     
-    return results
-
-def validate_deployment_files() -> Dict[str, bool]:
-    """Validate that all deployment files exist."""
-    required_files = [
-        'Procfile',
-        'railway.json',
-        'requirements.txt',
-        'runtime.txt',
-        'src/main.py',
-        'src/monitoring.py',
-        'scripts/deploy.sh',
-        'scripts/health_check.py',
-        'scripts/monitoring_dashboard.py'
-    ]
+    if missing_vars:
+        logger.error(f"❌ Missing environment variables: {', '.join(missing_vars)}")
+        return False
     
-    results = {}
-    for filepath in required_files:
-        results[filepath] = check_file_exists(filepath)
+    logger.info("✅ All required environment variables are set")
+    return True
+
+def check_firebase_connection():
+    """Test Firebase connection."""
+    try:
+        from src.tools.firebase_tools import get_firebase_client
+        client = get_firebase_client()
+        # Test a simple query
+        client.collection('teams').limit(1).get()
+        logger.info("✅ Firebase connection successful")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Firebase connection failed: {e}")
+        return False
+
+def check_telegram_bot():
+    """Test Telegram bot configuration."""
+    try:
+        import requests
+        
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        if not bot_token:
+            logger.error("❌ TELEGRAM_BOT_TOKEN not found")
+            return False
+        
+        # Test bot API
+        url = f"https://api.telegram.org/bot{bot_token}/getMe"
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('ok'):
+                bot_info = data.get('result', {})
+                logger.info(f"✅ Telegram bot configured: @{bot_info.get('username', 'Unknown')}")
+                return True
+            else:
+                logger.error(f"❌ Telegram bot API error: {data.get('description', 'Unknown error')}")
+                return False
+        else:
+            logger.error(f"❌ Telegram bot API request failed: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ Telegram bot check failed: {e}")
+        return False
+
+def show_deployment_info():
+    """Show deployment information."""
+    print("\n🚀 KICKAI Deployment Preview")
+    print("=" * 50)
     
-    return results
-
-def show_deployment_structure():
-    """Show the deployment structure."""
-    print_section("Deployment Structure")
+    # Environment info
+    environment = os.getenv('RAILWAY_ENVIRONMENT', 'development')
+    print(f"🌍 Environment: {environment}")
+    print(f"📅 Timestamp: {datetime.now()}")
     
-    structure = """
-KICKAI/
-├── 📁 src/
-│   ├── main.py              # Web server + bot runner + monitoring
-│   ├── monitoring.py        # Comprehensive monitoring system
-│   ├── telegram_command_handler.py
-│   └── tools/
-├── 📁 scripts/
-│   ├── deploy.sh            # Automated deployment script
-│   ├── health_check.py      # Health monitoring
-│   └── monitoring_dashboard.py  # Local dashboard
-├── 📁 .github/workflows/
-│   └── deploy.yml           # CI/CD pipeline
-├── Procfile                 # Railway process definitions
-├── railway.json             # Railway configuration
-├── requirements.txt         # Python dependencies
-├── runtime.txt              # Python version
-└── README.md
-"""
-    print(structure)
-
-def show_environment_configuration():
-    """Show environment configuration."""
-    print_section("Environment Configuration")
+    # Configuration info
+    print("\n⚙️ Configuration:")
+    print(f"   Database: Firebase Firestore")
+    print(f"   AI Provider: Google Gemini (Production) / Ollama (Development)")
+    print(f"   Bot Platform: Telegram")
+    print(f"   Deployment: Railway")
     
-    config = """
-Required Environment Variables:
-├── SUPABASE_URL=your_supabase_url
-├── SUPABASE_KEY=your_supabase_key
-├── ENVIRONMENT=testing
-├── LOG_LEVEL=INFO
-└── MONITORING_ENABLED=true
-
-Note: TELEGRAM_BOT_TOKEN is fetched from Supabase database per team
-"""
-    print(config)
-
-def show_monitoring_features():
-    """Show monitoring features."""
-    print_section("Monitoring Features")
+    # Environment variables
+    print("\n🔧 Environment Variables:")
+    print("   ├── TELEGRAM_BOT_TOKEN=***")
+    print("   ├── FIREBASE_PROJECT_ID=***")
+    print("   ├── FIREBASE_PRIVATE_KEY_ID=***")
+    print("   ├── FIREBASE_PRIVATE_KEY=***")
+    print("   ├── FIREBASE_CLIENT_EMAIL=***")
+    print("   ├── FIREBASE_CLIENT_ID=***")
+    print("   ├── FIREBASE_AUTH_URI=***")
+    print("   ├── FIREBASE_TOKEN_URI=***")
+    print("   ├── FIREBASE_AUTH_PROVIDER_X509_CERT_URL=***")
+    print("   ├── FIREBASE_CLIENT_X509_CERT_URL=***")
+    print("   ├── GOOGLE_API_KEY=***")
+    print("   └── OPENAI_API_KEY=***")
     
-    features = """
-📊 System Monitoring:
-├── CPU usage tracking
-├── Memory usage tracking
-├── Disk usage tracking
-├── Process count monitoring
-└── Uptime tracking
-
-🤖 Application Monitoring:
-├── Bot response times
-├── Command success/failure rates
-├── Database query performance
-├── Error rate tracking
-└── Bot status monitoring
-
-🧠 AI Quality Monitoring:
-├── Response relevance scoring
-├── Response completeness
-├── Technical accuracy
-├── User satisfaction tracking
-└── Quality trend analysis
-
-🔔 Alerting:
-├── High resource usage (>80%)
-├── Low success rates (<95%)
-├── High response times (>5s)
-├── Low AI quality scores (<6/10)
-└── Service downtime detection
-"""
-    print(features)
-
-def show_deployment_endpoints():
-    """Show deployment endpoints."""
-    print_section("Deployment Endpoints")
+    print("\n💡 Note: TELEGRAM_BOT_TOKEN is fetched from Firebase database per team")
     
-    endpoints = """
-🌐 Web Endpoints:
-├── /                    # Home page with service info
-├── /health             # Health check (Railway health check)
-├── /metrics            # Detailed metrics
-├── /bot/status         # Bot connection status
-└── /bot/restart        # Bot restart endpoint (POST)
-
-📱 Telegram Integration:
-├── Commands in main team group
-├── Admin commands in leadership group
-├── Dual-channel architecture
-└── Team isolation enforced
-"""
-    print(endpoints)
-
-def show_railway_services():
-    """Show Railway services configuration."""
-    print_section("Railway Services")
+    # Deployment steps
+    print("\n📋 Deployment Steps:")
+    print("1. ✅ Check dependencies")
+    print("2. ✅ Verify environment variables")
+    print("3. ✅ Test Firebase connection")
+    print("4. ✅ Test Telegram bot")
+    print("5. 🚀 Deploy to Railway")
+    print("6. 🔧 Configure webhook")
+    print("7. 🧪 Test bot functionality")
     
-    services = """
-🚂 Railway Services:
-├── web: python src/main.py
-│   ├── Flask web server
-│   ├── Health check endpoints
-│   ├── Metrics collection
-│   └── Bot management
-├── bot: python src/bot_runner.py (optional)
-│   ├── Dedicated bot process
-│   └── Alternative to web service bot
-└── monitor: python src/monitoring.py (optional)
-    ├── Dedicated monitoring
-    └── System metrics collection
-"""
-    print(services)
-
-def show_cost_analysis():
-    """Show cost analysis."""
-    print_section("Cost Analysis")
+    # Railway commands
+    print("\n🚂 Railway Commands:")
+    print("   railway login")
+    print("   railway link")
+    print("   railway variables set TELEGRAM_BOT_TOKEN=\"your_token\"")
+    print("   railway variables set FIREBASE_PROJECT_ID=\"your_project_id\"")
+    print("   railway variables set FIREBASE_PRIVATE_KEY_ID=\"your_key_id\"")
+    print("   railway variables set FIREBASE_PRIVATE_KEY=\"your_private_key\"")
+    print("   railway variables set FIREBASE_CLIENT_EMAIL=\"your_client_email\"")
+    print("   railway variables set FIREBASE_CLIENT_ID=\"your_client_id\"")
+    print("   railway variables set FIREBASE_AUTH_URI=\"https://accounts.google.com/o/oauth2/auth\"")
+    print("   railway variables set FIREBASE_TOKEN_URI=\"https://oauth2.googleapis.com/token\"")
+    print("   railway variables set FIREBASE_AUTH_PROVIDER_X509_CERT_URL=\"https://www.googleapis.com/oauth2/v1/certs\"")
+    print("   railway variables set FIREBASE_CLIENT_X509_CERT_URL=\"your_cert_url\"")
+    print("   railway variables set GOOGLE_API_KEY=\"your_google_api_key\"")
+    print("   railway variables set OPENAI_API_KEY=\"your_openai_api_key\"")
+    print("   railway deploy")
     
-    costs = """
-💰 Railway Pricing:
-├── Free Tier: $5/month credit
-│   ├── 1GB RAM per service
-│   ├── 1 CPU per service
-│   ├── Automatic HTTPS
-│   └── Built-in logging
-├── Testing Environment: Free tier sufficient
-├── Production Environment: $5-20/month typical
-└── Custom Domain: $5/month (optional)
-
-📈 Scaling Options:
-├── Start with single instance
-├── Scale up based on usage
-├── Monitor costs in Railway dashboard
-└── Optimize resource usage
-"""
-    print(costs)
-
-def show_deployment_steps():
-    """Show deployment steps."""
-    print_section("Deployment Steps")
-    
-    steps = """
-🚀 Quick Deployment:
-1. Install Railway CLI: npm install -g @railway/cli
-2. Login to Railway: railway login
-3. Initialize project: railway init
-4. Set environment variables:
-   railway variables set SUPABASE_URL="your_url"
-   railway variables set SUPABASE_KEY="your_key"
-   railway variables set ENVIRONMENT="testing"
-5. Deploy: railway up
-6. Get URL: railway status
-7. Test: curl your-url.railway.app/health
-
-🔧 Manual Deployment:
-1. Run: ./scripts/deploy.sh testing
-2. Follow prompts
-3. Verify deployment
-4. Test functionality
-
-🔄 CI/CD Deployment:
-1. Push to main branch
-2. GitHub Actions auto-deploys
-3. Monitor deployment logs
-4. Verify in Railway dashboard
-"""
-    print(steps)
-
-def show_monitoring_dashboard():
-    """Show monitoring dashboard preview."""
-    print_section("Monitoring Dashboard Preview")
-    
-    dashboard = """
-📊 Local Monitoring Dashboard:
-Run: python scripts/monitoring_dashboard.py --urls your-url
-
-Example Output:
-🏥 KICKAI Monitoring Dashboard
-============================================================
-Time: 2024-01-15 14:30:25
-
-Monitoring: https://your-app.railway.app
-
-📊 Health Summary
-----------------
-✅ Status: healthy
-Uptime: 2.5h
-✅ Bot Status: running
-Environment: testing
-
-📊 System Metrics
-----------------
-✅ CPU: 15.2%
-✅ Memory: 45.8%
-✅ Disk: 12.3%
-Processes: 23
-
-📊 Application Metrics
----------------------
-✅ Success Rate: 98.5%
-Commands Processed: 156
-Commands Failed: 2
-✅ Avg Response Time: 1.2s
-
-📊 Detailed Metrics
-------------------
-System Metrics Timestamp: 2024-01-15 14:30:25
-App Metrics Timestamp: 2024-01-15 14:30:25
-✅ AI Quality: 8.2/10
-Quality Distribution:
-  Excellent: 45
-  Good: 23
-  Average: 8
-  Poor: 2
-"""
-    print(dashboard)
-
-def run_validation_checks() -> Dict[str, bool]:
-    """Run all validation checks."""
-    print_section("Validation Checks")
-    
-    results = {}
-    
-    # Check Railway CLI
-    results['railway_cli'] = check_railway_cli()
-    if results['railway_cli']:
-        print_status("success", "Railway CLI is installed")
-    else:
-        print_status("error", "Railway CLI is not installed")
-        print(f"{Colors.YELLOW}Install with: npm install -g @railway/cli{Colors.END}")
-    
-    # Check deployment files
-    file_results = validate_deployment_files()
-    all_files_exist = all(file_results.values())
-    results['deployment_files'] = all_files_exist
-    
-    if all_files_exist:
-        print_status("success", "All deployment files exist")
-    else:
-        print_status("error", "Some deployment files are missing:")
-        for filepath, exists in file_results.items():
-            if not exists:
-                print(f"  ❌ {filepath}")
-    
-    # Check Python dependencies
-    dep_results = check_python_dependencies()
-    all_deps_installed = all(dep_results.values())
-    results['python_dependencies'] = all_deps_installed
-    
-    if all_deps_installed:
-        print_status("success", "All Python dependencies are installed")
-    else:
-        print_status("warning", "Some Python dependencies are missing:")
-        for package, installed in dep_results.items():
-            if not installed:
-                print(f"  ⚠️  {package}")
-        print(f"{Colors.YELLOW}Install with: pip install -r requirements.txt{Colors.END}")
-    
-    # Check environment variables
-    env_results = check_environment_variables()
-    all_env_set = all(env_results.values())
-    results['environment_variables'] = all_env_set
-    
-    if all_env_set:
-        print_status("success", "Required environment variables are set")
-    else:
-        print_status("warning", "Some environment variables are missing:")
-        for var, set_var in env_results.items():
-            if not set_var:
-                print(f"  ⚠️  {var}")
-        print(f"{Colors.YELLOW}Set in Railway dashboard or .env file{Colors.END}")
-    
-    return results
+    # Post-deployment
+    print("\n🎯 Post-Deployment:")
+    print("1. Set webhook URL in Telegram")
+    print("2. Test bot commands")
+    print("3. Monitor logs")
+    print("4. Configure team settings")
 
 def main():
-    """Main preview function."""
-    print_header("KICKAI Deployment Preview")
-    print(f"{Colors.CYAN}This preview shows what your KICKAI deployment will look like{Colors.END}")
+    """Main function."""
+    logger.info("🔍 Starting deployment preview...")
     
-    # Show deployment structure
-    show_deployment_structure()
+    # Check dependencies
+    logger.info("\n📦 Checking dependencies...")
+    deps_ok = check_dependencies()
     
-    # Show environment configuration
-    show_environment_configuration()
+    # Check environment variables
+    logger.info("\n🔧 Checking environment variables...")
+    env_ok = check_environment_variables()
     
-    # Show monitoring features
-    show_monitoring_features()
+    # Check Firebase connection
+    logger.info("\n🔥 Checking Firebase connection...")
+    firebase_ok = check_firebase_connection()
     
-    # Show deployment endpoints
-    show_deployment_endpoints()
+    # Check Telegram bot
+    logger.info("\n🤖 Checking Telegram bot...")
+    bot_ok = check_telegram_bot()
     
-    # Show Railway services
-    show_railway_services()
-    
-    # Show cost analysis
-    show_cost_analysis()
-    
-    # Show deployment steps
-    show_deployment_steps()
-    
-    # Show monitoring dashboard preview
-    show_monitoring_dashboard()
-    
-    # Run validation checks
-    validation_results = run_validation_checks()
+    # Show deployment info
+    show_deployment_info()
     
     # Summary
-    print_section("Deployment Readiness Summary")
+    logger.info("\n📊 Preview Summary:")
+    logger.info(f"Dependencies: {'✅ OK' if deps_ok else '❌ FAILED'}")
+    logger.info(f"Environment: {'✅ OK' if env_ok else '❌ FAILED'}")
+    logger.info(f"Firebase: {'✅ OK' if firebase_ok else '❌ FAILED'}")
+    logger.info(f"Telegram Bot: {'✅ OK' if bot_ok else '❌ FAILED'}")
     
-    all_checks_passed = all(validation_results.values())
-    
-    if all_checks_passed:
-        print_status("success", "All checks passed! Ready to deploy.")
-        print(f"{Colors.GREEN}You can now run: ./scripts/deploy.sh testing{Colors.END}")
+    if all([deps_ok, env_ok, firebase_ok, bot_ok]):
+        logger.info("\n🎉 All checks passed! Ready for deployment.")
+        return True
     else:
-        print_status("warning", "Some checks failed. Please fix issues before deploying.")
-        print(f"{Colors.YELLOW}See above for details on what needs to be fixed.{Colors.END}")
-    
-    print(f"\n{Colors.BOLD}Next Steps:{Colors.END}")
-    print("1. Fix any validation issues above")
-    print("2. Sign up for Railway account")
-    print("3. Run deployment script")
-    print("4. Test the deployment")
-    print("5. Set up monitoring alerts")
+        logger.error("\n⚠️ Some checks failed. Please fix the issues above.")
+        return False
 
 if __name__ == "__main__":
-    main() 
+    success = main()
+    exit(0 if success else 1) 

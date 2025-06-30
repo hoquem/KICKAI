@@ -1,312 +1,163 @@
 #!/usr/bin/env python3
 """
-Comprehensive Sanity Check for KICKAI
-Verifies team isolation, database integrity, and all functionality
+Sanity Check Script
+Performs basic sanity checks on the KICKAI system.
 """
 
 import os
-import sys
+import logging
+from datetime import datetime
 from dotenv import load_dotenv
-
-# Add src to path
-sys.path.append('src')
-
-from src.tools.supabase_tools import get_supabase_client
-from src.telegram_command_handler import TelegramCommandHandler
+from src.tools.firebase_tools import get_firebase_client
 
 # Load environment variables
 load_dotenv()
 
-def check_database_schema():
-    """Check database schema integrity."""
-    print("🗄️ Checking Database Schema")
-    print("=" * 40)
-    
-    try:
-        supabase = get_supabase_client()
-        
-        # Check required tables exist
-        required_tables = [
-            'teams', 'team_members', 'players', 'fixtures', 
-            'availability', 'squad_selections', 'ratings', 
-            'tasks', 'task_assignments', 'equipment', 
-            'team_bots', 'command_logs'
-        ]
-        
-        missing_tables = []
-        for table in required_tables:
-            try:
-                response = supabase.table(table).select('id').limit(1).execute()
-                print(f"✅ {table} table exists")
-            except Exception as e:
-                print(f"❌ {table} table missing: {e}")
-                missing_tables.append(table)
-        
-        if missing_tables:
-            print(f"\n⚠️  Missing tables: {', '.join(missing_tables)}")
-            return False
-        
-        print("✅ All required tables exist")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Database schema check failed: {e}")
-        return False
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def check_team_isolation():
-    """Check that teams are properly isolated."""
-    print("\n🔒 Checking Team Isolation")
-    print("=" * 40)
-    
-    try:
-        supabase = get_supabase_client()
-        
-        # Get all teams
-        teams_response = supabase.table('teams').select('*').execute()
-        teams = teams_response.data if teams_response.data else []
-        
-        print(f"📋 Found {len(teams)} teams:")
-        for team in teams:
-            print(f"  - {team['name']} (ID: {team['id']})")
-        
-        # Check team_bots isolation
-        bots_response = supabase.table('team_bots').select('*, teams(name)').execute()
-        bots = bots_response.data if bots_response.data else []
-        
-        print(f"\n🤖 Found {len(bots)} bot mappings:")
-        for bot in bots:
-            team_name = bot.get('teams', {}).get('name', 'Unknown')
-            print(f"  - {team_name}: {bot['chat_id']} (leadership: {bot.get('leadership_chat_id', 'None')})")
-        
-        # Verify BP Hatters FC has proper setup
-        bp_hatters = None
-        for team in teams:
-            if 'BP Hatters' in team['name']:
-                bp_hatters = team
-                break
-        
-        if bp_hatters:
-            print(f"\n🏆 BP Hatters FC Setup:")
-            print(f"  - Team ID: {bp_hatters['id']}")
-            print(f"  - Active: {bp_hatters['is_active']}")
-            
-            # Check bot mapping
-            bot_mapping = None
-            for bot in bots:
-                if bot['team_id'] == bp_hatters['id']:
-                    bot_mapping = bot
-                    break
-            
-            if bot_mapping:
-                print(f"  - Bot Token: {bot_mapping['bot_token'][:10]}...")
-                print(f"  - Main Chat: {bot_mapping['chat_id']}")
-                print(f"  - Leadership Chat: {bot_mapping.get('leadership_chat_id', 'Not set')}")
-                print(f"  - Bot Active: {bot_mapping['is_active']}")
-                
-                if bot_mapping.get('leadership_chat_id'):
-                    print("✅ Dual-channel architecture configured")
-                else:
-                    print("⚠️  Leadership chat not configured")
-            else:
-                print("❌ No bot mapping found for BP Hatters FC")
-                return False
-        else:
-            print("❌ BP Hatters FC team not found")
-            return False
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Team isolation check failed: {e}")
-        return False
-
-def check_command_handler_isolation():
-    """Check that command handler properly isolates teams."""
-    print("\n🤖 Checking Command Handler Isolation")
-    print("=" * 40)
-    
-    try:
-        handler = TelegramCommandHandler()
-        
-        # Test with BP Hatters FC chat IDs
-        supabase = get_supabase_client()
-        bp_response = supabase.table('teams').select('*').eq('name', 'BP Hatters FC').execute()
-        if not bp_response.data:
-            print("❌ BP Hatters FC team not found")
-            return False
-        
-        bp_team_id = bp_response.data[0]['id']
-        bot_response = supabase.table('team_bots').select('*').eq('team_id', bp_team_id).execute()
-        
-        if not bot_response.data:
-            print("❌ BP Hatters FC bot not found")
-            return False
-        
-        bot = bot_response.data[0]
-        
-        # Test 1: BP Hatters FC main chat (should work)
-        print("🧪 Test 1: BP Hatters FC main chat")
-        test_update = {
-            'message': {
-                'chat': {'id': bot['chat_id']},
-                'from': {'id': '123456', 'username': 'testuser'},
-                'text': '/help'
-            }
-        }
-        
-        result = handler.process_message(test_update)
-        print(f"   Result: {'✅ Success' if result else '❌ Failed'}")
-        
-        # Test 2: BP Hatters FC leadership chat (should work)
-        if bot.get('leadership_chat_id'):
-            print("🧪 Test 2: BP Hatters FC leadership chat")
-            test_update = {
-                'message': {
-                    'chat': {'id': bot['leadership_chat_id']},
-                    'from': {'id': '123456', 'username': 'testuser'},
-                    'text': '/help'
-                }
-            }
-            
-            result = handler.process_message(test_update)
-            print(f"   Result: {'✅ Success' if result else '❌ Failed'}")
-        
-        # Test 3: Unknown chat ID (should fail)
-        print("🧪 Test 3: Unknown chat ID")
-        test_update = {
-            'message': {
-                'chat': {'id': '999999999'},
-                'from': {'id': '123456', 'username': 'testuser'},
-                'text': '/help'
-            }
-        }
-        
-        result = handler.process_message(test_update)
-        print(f"   Result: {'❌ Correctly failed' if not result else '⚠️ Should have failed'}")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Command handler isolation check failed: {e}")
-        return False
-
-def check_database_constraints():
-    """Check database constraints and relationships."""
-    print("\n🔗 Checking Database Constraints")
-    print("=" * 40)
-    
-    try:
-        supabase = get_supabase_client()
-        
-        # Check foreign key relationships
-        print("📋 Checking foreign key relationships...")
-        
-        # Test team_members -> teams relationship
-        try:
-            response = supabase.table('team_members').select('*, teams(name)').limit(1).execute()
-            print("✅ team_members -> teams relationship works")
-        except Exception as e:
-            print(f"❌ team_members -> teams relationship failed: {e}")
-        
-        # Test team_bots -> teams relationship
-        try:
-            response = supabase.table('team_bots').select('*, teams(name)').limit(1).execute()
-            print("✅ team_bots -> teams relationship works")
-        except Exception as e:
-            print(f"❌ team_bots -> teams relationship failed: {e}")
-        
-        # Test unique constraints
-        print("\n📋 Checking unique constraints...")
-        
-        # Check team_bots unique constraints
-        bots_response = supabase.table('team_bots').select('team_id, bot_token').execute()
-        bots = bots_response.data if bots_response.data else []
-        
-        team_ids = [bot['team_id'] for bot in bots]
-        bot_tokens = [bot['bot_token'] for bot in bots]
-        
-        if len(team_ids) == len(set(team_ids)):
-            print("✅ team_bots.team_id unique constraint maintained")
-        else:
-            print("❌ team_bots.team_id unique constraint violated")
-        
-        if len(bot_tokens) == len(set(bot_tokens)):
-            print("✅ team_bots.bot_token unique constraint maintained")
-        else:
-            print("❌ team_bots.bot_token unique constraint violated")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Database constraints check failed: {e}")
-        return False
-
-def check_command_logs():
-    """Check command logging functionality."""
-    print("\n📝 Checking Command Logs")
-    print("=" * 40)
-    
-    try:
-        supabase = get_supabase_client()
-        
-        # Check command_logs table
-        response = supabase.table('command_logs').select('*').order('executed_at', desc=True).limit(5).execute()
-        logs = response.data if response.data else []
-        
-        print(f"📋 Found {len(logs)} recent command logs:")
-        for log in logs:
-            print(f"  - {log['command']} by {log['username']} in {log['chat_id']} ({log['success']})")
-        
-        if logs:
-            print("✅ Command logging is working")
-        else:
-            print("⚠️  No command logs found (may be normal if bot hasn't been used)")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Command logs check failed: {e}")
-        return False
-
-def main():
-    """Run all sanity checks."""
-    print("🏆 KICKAI Comprehensive Sanity Check")
-    print("=" * 50)
-    
-    checks = [
-        ("Database Schema", check_database_schema),
-        ("Team Isolation", check_team_isolation),
-        ("Command Handler Isolation", check_command_handler_isolation),
-        ("Database Constraints", check_database_constraints),
-        ("Command Logs", check_command_logs)
+def check_environment_variables():
+    """Check if all required environment variables are set."""
+    required_vars = [
+        'TELEGRAM_BOT_TOKEN',
+        'FIREBASE_PROJECT_ID',
+        'FIREBASE_PRIVATE_KEY_ID',
+        'FIREBASE_PRIVATE_KEY',
+        'FIREBASE_CLIENT_EMAIL',
+        'FIREBASE_CLIENT_ID',
+        'FIREBASE_AUTH_URI',
+        'FIREBASE_TOKEN_URI',
+        'FIREBASE_AUTH_PROVIDER_X509_CERT_URL',
+        'FIREBASE_CLIENT_X509_CERT_URL',
+        'GOOGLE_API_KEY',
+        'OPENAI_API_KEY'
     ]
     
-    results = []
-    for name, check_func in checks:
+    missing_vars = []
+    for var in required_vars:
+        if not os.getenv(var):
+            missing_vars.append(var)
+    
+    if missing_vars:
+        logger.error(f"❌ Missing environment variables: {', '.join(missing_vars)}")
+        return False
+    
+    logger.info("✅ All required environment variables are set")
+    return True
+
+def check_firebase_connection():
+    """Test Firebase connection."""
+    try:
+        client = get_firebase_client()
+        # Test a simple query
+        client.collection('teams').limit(1).get()
+        logger.info("✅ Firebase connection successful")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Firebase connection failed: {e}")
+        return False
+
+def check_ai_provider():
+    """Check AI provider configuration."""
+    try:
+        from config import config
+        ai_provider = config.ai_provider
+        logger.info(f"✅ AI Provider configured: {ai_provider}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ AI Provider configuration failed: {e}")
+        return False
+
+def check_telegram_bot():
+    """Check Telegram bot configuration."""
+    try:
+        import requests
+        
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        if not bot_token:
+            logger.error("❌ TELEGRAM_BOT_TOKEN not found")
+            return False
+        
+        # Test bot API
+        url = f"https://api.telegram.org/bot{bot_token}/getMe"
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('ok'):
+                bot_info = data.get('result', {})
+                logger.info(f"✅ Telegram bot configured: @{bot_info.get('username', 'Unknown')}")
+                return True
+            else:
+                logger.error(f"❌ Telegram bot API error: {data.get('description', 'Unknown error')}")
+                return False
+        else:
+            logger.error(f"❌ Telegram bot API request failed: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ Telegram bot check failed: {e}")
+        return False
+
+def check_python_dependencies():
+    """Check if all required Python packages are installed."""
+    required_packages = [
+        'firebase_admin',
+        'google.generativeai',
+        'openai',
+        'crewai',
+        'python-telegram-bot',
+        'requests',
+        'python-dotenv'
+    ]
+    
+    missing_packages = []
+    for package in required_packages:
         try:
-            result = check_func()
-            results.append((name, result))
-        except Exception as e:
-            print(f"❌ {name} check crashed: {e}")
-            results.append((name, False))
+            __import__(package.replace('-', '_'))
+        except ImportError:
+            missing_packages.append(package)
     
-    print("\n" + "=" * 50)
-    print("📊 Sanity Check Results:")
+    if missing_packages:
+        logger.error(f"❌ Missing Python packages: {', '.join(missing_packages)}")
+        return False
     
-    all_passed = True
-    for name, result in results:
-        status = "✅ PASS" if result else "❌ FAIL"
-        print(f"  {name:<25} {status}")
-        if not result:
-            all_passed = False
+    logger.info("✅ All required Python packages are installed")
+    return True
+
+def main():
+    """Main sanity check function."""
+    logger.info("🔍 Starting KICKAI Sanity Check")
+    logger.info(f"📅 Check timestamp: {datetime.now()}")
     
-    print("\n" + "=" * 50)
-    if all_passed:
-        print("🎉 All sanity checks passed! System is ready for production.")
+    checks = [
+        ("Environment Variables", check_environment_variables),
+        ("Firebase Connection", check_firebase_connection),
+        ("AI Provider", check_ai_provider),
+        ("Telegram Bot", check_telegram_bot),
+        ("Python Dependencies", check_python_dependencies)
+    ]
+    
+    passed_checks = 0
+    total_checks = len(checks)
+    
+    for check_name, check_func in checks:
+        logger.info(f"\n🔍 Checking {check_name}...")
+        if check_func():
+            passed_checks += 1
+    
+    # Summary
+    logger.info(f"\n📊 Sanity Check Summary:")
+    logger.info(f"Passed: {passed_checks}/{total_checks}")
+    
+    if passed_checks == total_checks:
+        logger.info("🎉 All checks passed! System is ready.")
+        return True
     else:
-        print("⚠️  Some sanity checks failed. Review the issues above.")
-    
-    return all_passed
+        logger.error("⚠️ Some checks failed. Please fix the issues above.")
+        return False
 
 if __name__ == "__main__":
-    main() 
+    success = main()
+    exit(0 if success else 1) 

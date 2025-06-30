@@ -1,229 +1,188 @@
 #!/usr/bin/env python3
 """
-Full KICKAI System Deployment Script
-Deploys the complete system including CrewAI agents to Railway
+Full System Deployment Script for KICKAI
+Deploys the complete system including CrewAI agents, Telegram bot, and monitoring.
 """
 
 import os
 import sys
 import logging
+import subprocess
 import time
-import threading
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Required environment variables
+REQUIRED_ENV_VARS = [
+    'TELEGRAM_BOT_TOKEN',
+    'FIREBASE_PROJECT_ID',
+    'FIREBASE_PRIVATE_KEY_ID',
+    'FIREBASE_PRIVATE_KEY',
+    'FIREBASE_CLIENT_EMAIL',
+    'FIREBASE_CLIENT_ID',
+    'FIREBASE_AUTH_URI',
+    'FIREBASE_TOKEN_URI',
+    'FIREBASE_AUTH_PROVIDER_X509_CERT_URL',
+    'FIREBASE_CLIENT_X509_CERT_URL',
+    'GOOGLE_API_KEY',
+    'OPENAI_API_KEY',  # Required by CrewAI even if using Gemini
+]
 
 def check_environment():
     """Check if all required environment variables are set."""
-    required_vars = [
-        'SUPABASE_URL',
-        'SUPABASE_KEY',
-        'GOOGLE_API_KEY'
-    ]
-    
     missing_vars = []
-    for var in required_vars:
+    
+    for var in REQUIRED_ENV_VARS:
         if not os.getenv(var):
             missing_vars.append(var)
     
     if missing_vars:
-        logger.error(f"❌ Missing required environment variables: {missing_vars}")
+        logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
+        logger.error("Please set these variables in your .env file or environment")
         return False
     
     logger.info("✅ All required environment variables are set")
     return True
 
-def test_database_connection():
-    """Test database connection and basic functionality."""
+def check_firebase_connection():
+    """Test Firebase connection."""
     try:
-        from src.tools.supabase_tools import get_supabase_client
-        supabase = get_supabase_client()
-        
-        # Test basic query
-        response = supabase.table('teams').select('*').limit(1).execute()
-        logger.info("✅ Database connection successful")
+        from src.tools.firebase_tools import get_firebase_client
+        client = get_firebase_client()
+        # Test a simple query
+        client.collection('teams').limit(1).get()
+        logger.info("✅ Firebase connection successful")
         return True
-        
     except Exception as e:
-        logger.error(f"❌ Database connection failed: {e}")
+        logger.error(f"❌ Firebase connection failed: {e}")
         return False
 
-def test_crewai_setup():
-    """Test CrewAI setup and agent creation."""
+def check_ai_provider():
+    """Check AI provider configuration."""
     try:
-        from src.agents import create_llm, create_agents_for_team, create_crew_for_team
-        
-        # Test LLM creation
-        logger.info("🧠 Testing LLM creation...")
-        llm = create_llm()
-        logger.info("✅ LLM created successfully")
-        
-        # Test agent creation for a team
-        logger.info("🤖 Testing agent creation...")
-        team_id = '0854829d-445c-4138-9fd3-4db562ea46ee'  # BP Hatters
-        agents = create_agents_for_team(llm, team_id)
-        logger.info(f"✅ Created {len(agents)} agents for team {team_id}")
-        
-        # Test crew creation
-        logger.info("👥 Testing crew creation...")
-        crew = create_crew_for_team(agents)
-        logger.info("✅ Crew created successfully")
-        
+        from config import config
+        ai_provider = config.ai_provider
+        logger.info(f"✅ AI Provider configured: {ai_provider}")
         return True
-        
     except Exception as e:
-        logger.error(f"❌ CrewAI setup failed: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
+        logger.error(f"❌ AI Provider configuration failed: {e}")
         return False
 
-def test_telegram_integration():
-    """Test Telegram bot integration."""
+def run_health_check():
+    """Run health check to verify system components."""
     try:
-        from src.tools.telegram_tools import get_telegram_tools_dual
+        result = subprocess.run([sys.executable, 'health_check.py'], 
+                              capture_output=True, text=True, timeout=30)
         
-        # Test Telegram tools creation
-        team_id = '0854829d-445c-4138-9fd3-4db562ea46ee'
-        tools = get_telegram_tools_dual(team_id)
-        logger.info("✅ Telegram tools created successfully")
-        
-        return True
-        
+        if result.returncode == 0:
+            logger.info("✅ Health check passed")
+            return True
+        else:
+            logger.error(f"❌ Health check failed: {result.stderr}")
+            return False
     except Exception as e:
-        logger.error(f"❌ Telegram integration failed: {e}")
+        logger.error(f"❌ Health check failed: {e}")
         return False
 
-def start_health_server():
-    """Start the health check server for Railway."""
+def start_monitoring():
+    """Start monitoring dashboard."""
     try:
-        from health_check import start_health_server
-        health_thread = start_health_server()
-        logger.info("✅ Health server started")
-        return health_thread
+        logger.info("Starting monitoring dashboard...")
+        # Start monitoring in background
+        subprocess.Popen([sys.executable, 'scripts/monitoring_dashboard.py'])
+        logger.info("✅ Monitoring dashboard started")
+        return True
     except Exception as e:
-        logger.error(f"❌ Health server failed: {e}")
-        return None
+        logger.error(f"❌ Failed to start monitoring: {e}")
+        return False
 
-def start_telegram_bot():
-    """Start the Telegram bot."""
+def deploy_to_railway():
+    """Deploy the system to Railway."""
     try:
-        from run_telegram_bot import TelegramBotRunner
+        logger.info("Deploying to Railway...")
         
-        # Create bot runner
-        bot_runner = TelegramBotRunner()
+        # Check if Railway CLI is installed
+        result = subprocess.run(['railway', '--version'], 
+                              capture_output=True, text=True)
         
-        # Test connection
-        if not bot_runner.test_connection():
-            logger.error("❌ Bot connection failed")
+        if result.returncode != 0:
+            logger.error("❌ Railway CLI not found. Please install it first.")
             return False
         
-        # Start bot in a separate thread
-        def run_bot():
-            try:
-                bot_runner.run_polling()
-            except Exception as e:
-                logger.error(f"❌ Bot error: {e}")
+        # Deploy to Railway
+        result = subprocess.run(['railway', 'deploy'], 
+                              capture_output=True, text=True, timeout=300)
         
-        bot_thread = threading.Thread(target=run_bot, daemon=True)
-        bot_thread.start()
-        logger.info("✅ Telegram bot started")
-        return True
-        
+        if result.returncode == 0:
+            logger.info("✅ Deployment to Railway successful")
+            return True
+        else:
+            logger.error(f"❌ Railway deployment failed: {result.stderr}")
+            return False
+            
     except Exception as e:
-        logger.error(f"❌ Telegram bot failed: {e}")
+        logger.error(f"❌ Railway deployment failed: {e}")
         return False
-
-def start_multi_team_manager():
-    """Start the multi-team manager."""
-    try:
-        from src.multi_team_manager import MultiTeamManager
-        
-        # Create and initialize multi-team manager
-        manager = MultiTeamManager()
-        manager.initialize()
-        
-        logger.info(f"✅ Multi-team manager initialized with {len(manager.crews)} teams")
-        return manager
-        
-    except Exception as e:
-        logger.error(f"❌ Multi-team manager failed: {e}")
-        return None
 
 def main():
     """Main deployment function."""
-    print("🚀 KICKAI Full System Deployment")
-    print("=" * 40)
+    logger.info("🚀 Starting KICKAI Full System Deployment")
+    logger.info(f"📅 Deployment timestamp: {datetime.now()}")
     
-    # Step 1: Environment check
-    print("\n1️⃣ Checking environment...")
+    # Step 1: Check environment
+    logger.info("\n📋 Step 1: Checking environment variables...")
     if not check_environment():
-        print("❌ Environment check failed")
-        return
+        logger.error("❌ Environment check failed. Exiting.")
+        sys.exit(1)
     
-    # Step 2: Database connection test
-    print("\n2️⃣ Testing database connection...")
-    if not test_database_connection():
-        print("❌ Database connection failed")
-        return
+    # Step 2: Check Firebase connection
+    logger.info("\n🔥 Step 2: Testing Firebase connection...")
+    if not check_firebase_connection():
+        logger.error("❌ Firebase connection failed. Exiting.")
+        sys.exit(1)
     
-    # Step 3: CrewAI setup test
-    print("\n3️⃣ Testing CrewAI setup...")
-    if not test_crewai_setup():
-        print("❌ CrewAI setup failed")
-        return
+    # Step 3: Check AI provider
+    logger.info("\n🤖 Step 3: Checking AI provider configuration...")
+    if not check_ai_provider():
+        logger.error("❌ AI provider configuration failed. Exiting.")
+        sys.exit(1)
     
-    # Step 4: Telegram integration test
-    print("\n4️⃣ Testing Telegram integration...")
-    if not test_telegram_integration():
-        print("❌ Telegram integration failed")
-        return
+    # Step 4: Run health check
+    logger.info("\n🏥 Step 4: Running health check...")
+    if not run_health_check():
+        logger.error("❌ Health check failed. Exiting.")
+        sys.exit(1)
     
-    # Step 5: Start health server
-    print("\n5️⃣ Starting health server...")
-    health_thread = start_health_server()
-    if not health_thread:
-        print("❌ Health server failed")
-        return
+    # Step 5: Start monitoring
+    logger.info("\n📊 Step 5: Starting monitoring...")
+    if not start_monitoring():
+        logger.warning("⚠️ Monitoring failed to start, but continuing...")
     
-    # Step 6: Start multi-team manager
-    print("\n6️⃣ Starting multi-team manager...")
-    manager = start_multi_team_manager()
-    if not manager:
-        print("❌ Multi-team manager failed")
-        return
+    # Step 6: Deploy to Railway (optional)
+    deploy_choice = input("\n🚂 Do you want to deploy to Railway? (y/n): ").lower().strip()
+    if deploy_choice == 'y':
+        logger.info("\n🚂 Step 6: Deploying to Railway...")
+        if not deploy_to_railway():
+            logger.error("❌ Railway deployment failed.")
+            sys.exit(1)
     
-    # Step 7: Start Telegram bot
-    print("\n7️⃣ Starting Telegram bot...")
-    if not start_telegram_bot():
-        print("❌ Telegram bot failed")
-        return
-    
-    print("\n✅ Full KICKAI system deployed successfully!")
-    print("\n📊 System Status:")
-    print("   🏥 Health Server: Running")
-    print("   🤖 Telegram Bot: Running")
-    print("   👥 Multi-Team Manager: Running")
-    print("   🧠 CrewAI Agents: Ready")
-    print("   🗄️  Database: Connected")
-    
-    print("\n🔗 Health Check: https://your-app.railway.app/health")
-    print("📱 Telegram Bot: @BPHatters_bot")
-    
-    # Keep the main thread alive
+    # Step 7: Start the system locally
+    logger.info("\n🎯 Step 7: Starting the system locally...")
     try:
-        while True:
-            time.sleep(60)  # Check every minute
-            logger.info("💓 System heartbeat - all services running")
+        logger.info("Starting KICKAI system...")
+        subprocess.run([sys.executable, 'railway_main.py'])
     except KeyboardInterrupt:
-        logger.info("🛑 Shutting down KICKAI system...")
+        logger.info("\n👋 System stopped by user")
+    except Exception as e:
+        logger.error(f"❌ Failed to start system: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main() 

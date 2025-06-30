@@ -1,159 +1,181 @@
 #!/usr/bin/env python3
 """
-Bot Status Checker for KICKAI
-Checks current bot status and identifies any conflicts
+Bot Status Check Script
+Checks the status of the Telegram bot and related services.
 """
 
 import os
-import requests
 import logging
+import requests
+from datetime import datetime
 from dotenv import load_dotenv
+from src.tools.firebase_tools import get_firebase_client
 
 # Load environment variables
 load_dotenv()
 
-# Set up logging
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def get_bot_token_from_db():
-    """Get bot token from Supabase database."""
+def get_firebase_client():
+    """Get Firebase client with proper error handling."""
     try:
-        from src.tools.supabase_tools import get_supabase_client
-        supabase = get_supabase_client()
-        
-        response = supabase.table('team_bots').select('bot_token').eq('team_id', '0854829d-445c-4138-9fd3-4db562ea46ee').eq('is_active', True).execute()
-        
-        if response and hasattr(response, 'data') and response.data:
-            return response.data[0]['bot_token']
-        else:
-            logger.error("No active bot found in database")
-            return None
-            
+        return get_firebase_client()
     except Exception as e:
-        logger.error(f"Error getting bot token: {e}")
-        return None
+        logger.error(f"Failed to get Firebase client: {e}")
+        raise
 
-def check_bot_status(bot_token):
-    """Check comprehensive bot status."""
+def check_bot_status():
+    """Check if the bot is running and responding."""
     try:
-        # Test bot connection
-        me_url = f"https://api.telegram.org/bot{bot_token}/getMe"
-        me_response = requests.get(me_url, timeout=10)
-        
-        if me_response.status_code == 200:
-            bot_info = me_response.json()
-            if bot_info.get('ok'):
-                bot = bot_info['result']
-                logger.info(f"✅ Bot connection successful!")
-                logger.info(f"   Name: {bot.get('first_name')}")
-                logger.info(f"   Username: @{bot.get('username')}")
-                logger.info(f"   ID: {bot.get('id')}")
-            else:
-                logger.error(f"❌ Bot connection failed: {bot_info}")
-                return False
-        else:
-            logger.error(f"❌ Bot connection failed: {me_response.status_code}")
+        # Get bot token from environment
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        if not bot_token:
+            logger.error("TELEGRAM_BOT_TOKEN not found in environment")
             return False
         
-        # Check webhook status
-        webhook_url = f"https://api.telegram.org/bot{bot_token}/getWebhookInfo"
-        webhook_response = requests.get(webhook_url, timeout=10)
+        # Test bot API
+        url = f"https://api.telegram.org/bot{bot_token}/getMe"
+        response = requests.get(url, timeout=10)
         
-        if webhook_response.status_code == 200:
-            webhook_info = webhook_response.json()
-            if webhook_info.get('ok'):
-                result = webhook_info['result']
-                if result.get('url'):
-                    logger.warning(f"⚠️ Webhook is active: {result['url']}")
-                    logger.warning(f"   Pending updates: {result.get('pending_update_count', 0)}")
-                    logger.warning(f"   Last error: {result.get('last_error_message', 'None')}")
-                    return False
-                else:
-                    logger.info("✅ Webhook is properly deleted")
-                    logger.info(f"   Pending updates: {result.get('pending_update_count', 0)}")
-            else:
-                logger.error(f"Failed to get webhook info: {webhook_info}")
-                return False
-        else:
-            logger.error(f"Failed to get webhook info: {webhook_response.status_code}")
-            return False
-        
-        # Test getUpdates
-        updates_url = f"https://api.telegram.org/bot{bot_token}/getUpdates"
-        updates_response = requests.get(updates_url, params={'limit': 1, 'timeout': 1}, timeout=5)
-        
-        if updates_response.status_code == 200:
-            updates_info = updates_response.json()
-            if updates_info.get('ok'):
-                logger.info("✅ getUpdates API working")
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('ok'):
+                bot_info = data.get('result', {})
+                logger.info(f"✅ Bot is running: @{bot_info.get('username', 'Unknown')}")
+                logger.info(f"📝 Bot name: {bot_info.get('first_name', 'Unknown')}")
+                logger.info(f"🆔 Bot ID: {bot_info.get('id', 'Unknown')}")
                 return True
             else:
-                logger.error(f"getUpdates failed: {updates_info}")
+                logger.error(f"❌ Bot API error: {data.get('description', 'Unknown error')}")
                 return False
-        elif updates_response.status_code == 409:
-            logger.error("❌ 409 Conflict: Another bot instance is running")
-            return False
         else:
-            logger.error(f"getUpdates failed: {updates_response.status_code}")
+            logger.error(f"❌ Bot API request failed: {response.status_code}")
             return False
             
     except Exception as e:
-        logger.error(f"Error checking bot status: {e}")
+        logger.error(f"❌ Bot status check failed: {e}")
         return False
 
-def force_cleanup_webhook(bot_token):
-    """Force cleanup webhook with multiple attempts."""
-    logger.info("🧹 Force cleaning up webhook...")
-    
-    for attempt in range(3):
-        try:
-            # Delete webhook
-            delete_url = f"https://api.telegram.org/bot{bot_token}/deleteWebhook"
-            delete_response = requests.post(delete_url, timeout=10)
-            
-            if delete_response.status_code == 200:
-                logger.info(f"✅ Webhook deletion attempt {attempt + 1} successful")
-            else:
-                logger.warning(f"Webhook deletion attempt {attempt + 1} failed: {delete_response.status_code}")
-            
-            # Wait between attempts
-            if attempt < 2:
-                import time
-                time.sleep(5)
+def check_webhook_status():
+    """Check webhook configuration."""
+    try:
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        if not bot_token:
+            logger.error("TELEGRAM_BOT_TOKEN not found in environment")
+            return False
+        
+        # Get webhook info
+        url = f"https://api.telegram.org/bot{bot_token}/getWebhookInfo"
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('ok'):
+                webhook_info = data.get('result', {})
                 
-        except Exception as e:
-            logger.warning(f"Webhook deletion attempt {attempt + 1} error: {e}")
-            if attempt < 2:
-                import time
-                time.sleep(5)
+                if webhook_info.get('url'):
+                    logger.info(f"📡 Webhook URL: {webhook_info['url']}")
+                    logger.info(f"📊 Pending updates: {webhook_info.get('pending_update_count', 0)}")
+                    
+                    if webhook_info.get('last_error_date'):
+                        logger.warning(f"⚠️ Last error: {webhook_info.get('last_error_message', 'Unknown error')}")
+                    else:
+                        logger.info("✅ Webhook is working properly")
+                    
+                    return True
+                else:
+                    logger.info("📡 No webhook is currently set")
+                    return True
+            else:
+                logger.error(f"❌ Failed to get webhook info: {data.get('description', 'Unknown error')}")
+                return False
+        else:
+            logger.error(f"❌ Webhook info request failed: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ Webhook status check failed: {e}")
+        return False
+
+def check_firebase_connection():
+    """Check Firebase connection."""
+    try:
+        client = get_firebase_client()
+        # Test a simple query
+        client.collection('teams').limit(1).get()
+        logger.info("✅ Firebase connection successful")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Firebase connection failed: {e}")
+        return False
+
+def check_environment():
+    """Check environment variables."""
+    required_vars = [
+        'TELEGRAM_BOT_TOKEN',
+        'FIREBASE_PROJECT_ID',
+        'FIREBASE_PRIVATE_KEY_ID',
+        'FIREBASE_PRIVATE_KEY',
+        'FIREBASE_CLIENT_EMAIL',
+        'FIREBASE_CLIENT_ID',
+        'FIREBASE_AUTH_URI',
+        'FIREBASE_TOKEN_URI',
+        'FIREBASE_AUTH_PROVIDER_X509_CERT_URL',
+        'FIREBASE_CLIENT_X509_CERT_URL',
+        'GOOGLE_API_KEY',
+        'OPENAI_API_KEY'
+    ]
     
-    # Final check
-    return check_bot_status(bot_token)
+    missing_vars = []
+    for var in required_vars:
+        if not os.getenv(var):
+            missing_vars.append(var)
+    
+    if missing_vars:
+        logger.error(f"❌ Missing environment variables: {', '.join(missing_vars)}")
+        return False
+    
+    logger.info("✅ All required environment variables are set")
+    return True
 
 def main():
-    """Main function."""
-    print("🔍 KICKAI Bot Status Checker")
-    print("=" * 30)
+    """Main status check function."""
+    logger.info("🔍 Starting Bot Status Check")
+    logger.info(f"📅 Check timestamp: {datetime.now()}")
     
-    # Get bot token
-    bot_token = get_bot_token_from_db()
-    if not bot_token:
-        print("❌ Could not get bot token from database")
-        return
+    # Check environment
+    logger.info("\n📋 Checking environment variables...")
+    env_ok = check_environment()
     
-    print(f"📱 Bot token: {bot_token[:10]}...")
+    # Check bot status
+    logger.info("\n🤖 Checking bot status...")
+    bot_ok = check_bot_status()
     
-    # Check current status
-    print("\n🔍 Checking current bot status...")
-    if check_bot_status(bot_token):
-        print("\n✅ Bot is ready to run!")
+    # Check webhook status
+    logger.info("\n📡 Checking webhook status...")
+    webhook_ok = check_webhook_status()
+    
+    # Check Firebase connection
+    logger.info("\n🔥 Checking Firebase connection...")
+    firebase_ok = check_firebase_connection()
+    
+    # Summary
+    logger.info("\n📊 Status Summary:")
+    logger.info(f"Environment: {'✅ OK' if env_ok else '❌ FAILED'}")
+    logger.info(f"Bot Status: {'✅ OK' if bot_ok else '❌ FAILED'}")
+    logger.info(f"Webhook: {'✅ OK' if webhook_ok else '❌ FAILED'}")
+    logger.info(f"Firebase: {'✅ OK' if firebase_ok else '❌ FAILED'}")
+    
+    # Overall status
+    if env_ok and bot_ok and firebase_ok:
+        logger.info("\n🎉 Bot is ready and operational!")
+        return True
     else:
-        print("\n❌ Bot has issues. Attempting cleanup...")
-        if force_cleanup_webhook(bot_token):
-            print("\n✅ Bot cleanup successful! Ready to run.")
-        else:
-            print("\n❌ Bot cleanup failed. Manual intervention may be needed.")
+        logger.error("\n⚠️ Bot has issues that need to be resolved")
+        return False
 
 if __name__ == "__main__":
-    main() 
+    success = main()
+    exit(0 if success else 1) 

@@ -1,100 +1,143 @@
 #!/usr/bin/env python3
 """
-Add Test Users for KICKAI
-Adds test users to the database for real user testing
+Add Test Users Script
+Adds test users to the database for development and testing.
 """
 
 import os
 import logging
+from datetime import datetime
 from dotenv import load_dotenv
+from src.tools.firebase_tools import get_firebase_client
 
 # Load environment variables
 load_dotenv()
 
-# Set up logging
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def get_supabase_client():
-    """Get Supabase client."""
+def get_firebase_client():
+    """Get Firebase client with proper error handling."""
     try:
-        from src.tools.supabase_tools import get_supabase_client
-        return get_supabase_client()
-    except ImportError:
-        from tools.supabase_tools import get_supabase_client
-        return get_supabase_client()
+        return get_firebase_client()
+    except Exception as e:
+        logger.error(f"Failed to get Firebase client: {e}")
+        raise
 
 def add_test_users():
     """Add test users to the database."""
     try:
-        supabase = get_supabase_client()
+        firebase = get_firebase_client()
         
         # Test users data
         test_users = [
             {
-                'team_id': '0854829d-445c-4138-9fd3-4db562ea46ee',
-                'telegram_user_id': '1581500055',  # Your user ID
-                'telegram_username': 'mahmud',
+                'name': 'John Smith',
+                'phone_number': '+1234567890',
+                'role': 'admin',
+                'team_id': '0854829d-445c-4138-9fd3-4db562ea46ee',  # BP Hatters FC
+                'joined_at': datetime.now(),
+                'is_active': True
+            },
+            {
+                'name': 'Mike Johnson',
+                'phone_number': '+1234567891',
                 'role': 'captain',
+                'team_id': '0854829d-445c-4138-9fd3-4db562ea46ee',
+                'joined_at': datetime.now(),
                 'is_active': True
             },
             {
-                'team_id': '0854829d-445c-4138-9fd3-4db562ea46ee',
-                'telegram_user_id': '123456789',  # Test user 1
-                'telegram_username': 'testuser1',
+                'name': 'David Wilson',
+                'phone_number': '+1234567892',
                 'role': 'player',
+                'team_id': '0854829d-445c-4138-9fd3-4db562ea46ee',
+                'joined_at': datetime.now(),
                 'is_active': True
             },
             {
-                'team_id': '0854829d-445c-4138-9fd3-4db562ea46ee',
-                'telegram_user_id': '987654321',  # Test user 2
-                'telegram_username': 'testuser2',
+                'name': 'Sarah Brown',
+                'phone_number': '+1234567893',
                 'role': 'player',
+                'team_id': '0854829d-445c-4138-9fd3-4db562ea46ee',
+                'joined_at': datetime.now(),
+                'is_active': True
+            },
+            {
+                'name': 'Tom Davis',
+                'phone_number': '+1234567894',
+                'role': 'player',
+                'team_id': '0854829d-445c-4138-9fd3-4db562ea46ee',
+                'joined_at': datetime.now(),
                 'is_active': True
             }
         ]
         
-        print("👥 Adding test users to database...")
+        # Add users to database
+        members_ref = firebase.collection('team_members')
+        added_count = 0
         
-        for user in test_users:
+        for user_data in test_users:
             try:
                 # Check if user already exists
-                existing = supabase.table('team_members').select('*').eq('telegram_user_id', user['telegram_user_id']).eq('team_id', user['team_id']).execute()
+                existing_query = members_ref.where('team_id', '==', user_data['team_id']).where('phone_number', '==', user_data['phone_number'])
+                existing_docs = existing_query.get()
                 
-                if existing.data:
-                    logger.info(f"✅ User {user['telegram_username']} already exists")
-                else:
-                    # Insert new user
-                    result = supabase.table('team_members').insert(user).execute()
-                    if result.data:
-                        logger.info(f"✅ Added user: {user['telegram_username']} (Role: {user['role']})")
-                    else:
-                        logger.error(f"❌ Failed to add user: {user['telegram_username']}")
-                        
+                if existing_docs:
+                    logger.info(f"User {user_data['name']} already exists, skipping...")
+                    continue
+                
+                # Add new user
+                doc_ref = members_ref.document()
+                doc_ref.set(user_data)
+                added_count += 1
+                logger.info(f"Added user: {user_data['name']} ({user_data['role']})")
+                
             except Exception as e:
-                logger.error(f"❌ Error adding user {user['telegram_username']}: {e}")
+                logger.error(f"Failed to add user {user_data['name']}: {e}")
         
-        print("\n📋 Current team members:")
-        members = supabase.table('team_members').select('*').eq('team_id', '0854829d-445c-4138-9fd3-4db562ea46ee').eq('is_active', True).execute()
+        logger.info(f"✅ Successfully added {added_count} test users")
+        return True
         
-        for member in members.data:
-            print(f"   👤 {member['telegram_username']} (ID: {member['telegram_user_id']}, Role: {member['role']})")
-            
     except Exception as e:
-        logger.error(f"❌ Error: {e}")
+        logger.error(f"Failed to add test users: {e}")
+        return False
+
+def list_users():
+    """List all users in the database."""
+    try:
+        firebase = get_firebase_client()
+        members_ref = firebase.collection('team_members')
+        query = members_ref.where('is_active', '==', True)
+        response = query.get()
+        
+        if not response:
+            logger.info("No users found in database")
+            return
+        
+        logger.info("📋 Users in database:")
+        for doc in response:
+            user_data = doc.to_dict()
+            logger.info(f"• {user_data['name']} ({user_data['phone_number']}) - {user_data['role']}")
+        
+    except Exception as e:
+        logger.error(f"Failed to list users: {e}")
 
 def main():
     """Main function."""
-    print("👥 KICKAI Test Users Setup")
-    print("=" * 30)
+    logger.info("👥 Starting Test Users Script")
     
-    add_test_users()
+    # Add test users
+    logger.info("\n➕ Adding test users...")
+    success = add_test_users()
     
-    print("\n✅ Test users setup completed!")
-    print("\n💡 Next steps:")
-    print("   1. Deploy to Railway")
-    print("   2. Invite users to Telegram groups")
-    print("   3. Test bot commands")
+    if success:
+        # List users
+        logger.info("\n📋 Listing all users...")
+        list_users()
+    else:
+        logger.error("❌ Failed to add test users")
 
 if __name__ == "__main__":
     main() 

@@ -1,236 +1,258 @@
 #!/usr/bin/env python3
 """
-Team Bot Management CLI for KICKAI
-Consolidated script for managing team to bot mappings.
+Team Bot Management Script
+Manages the mapping between teams and their Telegram bots.
 """
 
 import os
-import sys
 import argparse
-from typing import List, Dict, Optional
-from supabase import create_client
+import logging
+from typing import List, Dict
+from dotenv import load_dotenv
+from firebase_admin import firestore
+from src.tools.firebase_tools import get_firebase_client
 
-def get_supabase_client():
-    """Get Supabase client with proper error handling."""
-    url = os.getenv('SUPABASE_URL')
-    key = os.getenv('SUPABASE_KEY')
-    
-    if not url or not key:
-        raise ValueError("Missing Supabase environment variables")
-    
-    return create_client(url, key)
+# Load environment variables
+load_dotenv()
 
-def list_teams(supabase) -> List[Dict]:
-    """List all teams in the database."""
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def get_firebase_client():
+    """Get Firebase client with proper error handling."""
     try:
-        response = supabase.table('teams').select('*').eq('is_active', True).execute()
-        return response.data if response.data else []
+        return get_firebase_client()
     except Exception as e:
-        print(f"❌ Error listing teams: {e}")
+        logger.error(f"Failed to get Firebase client: {e}")
+        raise
+
+def list_teams(firebase) -> List[Dict]:
+    """List all active teams."""
+    try:
+        teams_ref = firebase.collection('teams')
+        query = teams_ref.where('is_active', '==', True)
+        response = query.get()
+        
+        teams = []
+        for doc in response:
+            team_data = doc.to_dict()
+            team_data['id'] = doc.id
+            teams.append(team_data)
+        
+        return teams
+    except Exception as e:
+        logger.error(f"Failed to list teams: {e}")
         return []
 
-def list_bot_mappings(supabase) -> List[Dict]:
-    """List all bot mappings in the database."""
+def list_bot_mappings(firebase) -> List[Dict]:
+    """List all bot mappings."""
     try:
-        response = supabase.table('team_bots').select('*, teams(name)').execute()
-        return response.data if response.data else []
+        bots_ref = firebase.collection('team_bots')
+        response = bots_ref.get()
+        
+        mappings = []
+        for doc in response:
+            mapping_data = doc.to_dict()
+            mapping_data['id'] = doc.id
+            
+            # Get team name
+            team_ref = firebase.collection('teams').document(mapping_data['team_id'])
+            team_doc = team_ref.get()
+            if team_doc.exists:
+                team_data = team_doc.to_dict()
+                mapping_data['team_name'] = team_data.get('name', 'Unknown')
+            else:
+                mapping_data['team_name'] = 'Unknown'
+            
+            mappings.append(mapping_data)
+        
+        return mappings
     except Exception as e:
-        print(f"❌ Error listing bot mappings: {e}")
+        logger.error(f"Failed to list bot mappings: {e}")
         return []
 
-def add_bot_mapping(supabase, team_name: str, bot_token: str, chat_id: str, bot_username: str):
+def add_bot_mapping(firebase, team_name: str, bot_token: str, chat_id: str, bot_username: str):
     """Add a new bot mapping for a team."""
-    print(f"🤖 Adding bot mapping for {team_name}...")
-    
     try:
-        # Find the team
-        teams_response = supabase.table('teams').select('*').eq('name', team_name).execute()
-        if not teams_response.data:
-            print(f"❌ Team '{team_name}' not found")
+        # Find team by name
+        teams_ref = firebase.collection('teams')
+        team_query = teams_ref.where('name', '==', team_name)
+        team_response = team_query.get()
+        
+        if not team_response:
+            logger.error(f"Team '{team_name}' not found")
             return False
         
-        team_id = teams_response.data[0]['id']
-        print(f"✅ Found team: {team_name} (ID: {team_id})")
+        team_doc = team_response[0]
+        team_id = team_doc.id
         
         # Check if mapping already exists
-        existing_response = supabase.table('team_bots').select('*').eq('team_id', team_id).execute()
-        if existing_response.data:
-            print(f"⚠️  Bot mapping already exists for {team_name}")
-            overwrite = input("Do you want to overwrite it? (y/N): ").strip().lower()
-            if overwrite != 'y':
-                print("❌ Operation cancelled")
-                return False
-            
-            # Delete existing mapping
-            supabase.table('team_bots').delete().eq('team_id', team_id).execute()
-            print("  - Removed existing mapping")
+        bots_ref = firebase.collection('team_bots')
+        existing_query = bots_ref.where('team_id', '==', team_id)
+        existing_response = existing_query.get()
         
-        # Insert new mapping
+        if existing_response:
+            # Update existing mapping
+            existing_doc = existing_response[0]
+            existing_ref = firebase.collection('team_bots').document(existing_doc.id)
+            existing_ref.delete()
+            logger.info(f"Removed existing bot mapping for team '{team_name}'")
+        
+        # Create new mapping
         mapping_data = {
             'team_id': team_id,
             'bot_token': bot_token,
             'chat_id': chat_id,
             'bot_username': bot_username,
+            'created_at': firestore.SERVER_TIMESTAMP,
             'is_active': True
         }
         
-        response = supabase.table('team_bots').insert(mapping_data).execute()
+        new_mapping_ref = firebase.collection('team_bots').document()
+        new_mapping_ref.set(mapping_data)
         
-        if response.data:
-            print(f"✅ Successfully mapped {team_name} to {bot_username}")
-            print(f"  - Bot Token: {bot_token[:20]}...")
-            print(f"  - Chat ID: {chat_id}")
-            return True
-        else:
-            print("❌ Failed to create bot mapping")
-            return False
-            
+        logger.info(f"Successfully added bot mapping for team '{team_name}'")
+        return True
+        
     except Exception as e:
-        print(f"❌ Error adding bot mapping: {e}")
+        logger.error(f"Failed to add bot mapping: {e}")
         return False
 
-def remove_bot_mapping(supabase, team_name: str):
-    """Remove a bot mapping for a team."""
-    print(f"🗑️  Removing bot mapping for {team_name}...")
-    
+def remove_bot_mapping(firebase, team_name: str):
+    """Remove bot mapping for a team."""
     try:
-        # Find the team
-        teams_response = supabase.table('teams').select('*').eq('name', team_name).execute()
-        if not teams_response.data:
-            print(f"❌ Team '{team_name}' not found")
+        # Find team by name
+        teams_ref = firebase.collection('teams')
+        team_query = teams_ref.where('name', '==', team_name)
+        team_response = team_query.get()
+        
+        if not team_response:
+            logger.error(f"Team '{team_name}' not found")
             return False
         
-        team_id = teams_response.data[0]['id']
+        team_doc = team_response[0]
+        team_id = team_doc.id
         
-        # Delete the mapping
-        response = supabase.table('team_bots').delete().eq('team_id', team_id).execute()
+        # Find and remove bot mapping
+        bots_ref = firebase.collection('team_bots')
+        mapping_query = bots_ref.where('team_id', '==', team_id)
+        mapping_response = mapping_query.get()
         
-        if response.data:
-            print(f"✅ Successfully removed bot mapping for {team_name}")
-            return True
-        else:
-            print(f"⚠️  No bot mapping found for {team_name}")
+        if not mapping_response:
+            logger.error(f"No bot mapping found for team '{team_name}'")
             return False
-            
+        
+        # Remove mapping
+        mapping_doc = mapping_response[0]
+        mapping_ref = firebase.collection('team_bots').document(mapping_doc.id)
+        mapping_ref.delete()
+        
+        logger.info(f"Successfully removed bot mapping for team '{team_name}'")
+        return True
+        
     except Exception as e:
-        print(f"❌ Error removing bot mapping: {e}")
+        logger.error(f"Failed to remove bot mapping: {e}")
         return False
 
-def test_bot_mapping(supabase, team_name: str):
-    """Test a bot mapping by sending a test message."""
-    print(f"🧪 Testing bot mapping for {team_name}...")
-    
+def test_bot_mapping(firebase, team_name: str):
+    """Test bot mapping for a team."""
     try:
-        # Find the team and bot mapping
-        teams_response = supabase.table('teams').select('*').eq('name', team_name).execute()
-        if not teams_response.data:
-            print(f"❌ Team '{team_name}' not found")
+        # Find team by name
+        teams_ref = firebase.collection('teams')
+        team_query = teams_ref.where('name', '==', team_name)
+        team_response = team_query.get()
+        
+        if not team_response:
+            logger.error(f"Team '{team_name}' not found")
             return False
         
-        team_id = teams_response.data[0]['id']
+        team_doc = team_response[0]
+        team_id = team_doc.id
         
-        bot_response = supabase.table('team_bots').select('*').eq('team_id', team_id).execute()
-        if not bot_response.data:
-            print(f"❌ No bot mapping found for {team_name}")
+        # Find bot mapping
+        bots_ref = firebase.collection('team_bots')
+        bot_query = bots_ref.where('team_id', '==', team_id)
+        bot_response = bot_query.get()
+        
+        if not bot_response:
+            logger.error(f"No bot mapping found for team '{team_name}'")
             return False
         
-        bot = bot_response.data[0]
-        print(f"✅ Found bot mapping:")
-        print(f"  - Bot: {bot['bot_username']}")
-        print(f"  - Chat ID: {bot['chat_id']}")
-        print(f"  - Active: {bot['is_active']}")
+        bot_doc = bot_response[0]
+        bot_data = bot_doc.to_dict()
         
-        # Import telegram tools for testing
-        try:
-            from src.tools.telegram_tools import TelegramTools
-            telegram_tools = TelegramTools()
-            
-            # Test sending a message
-            test_message = f"🧪 Test message from KICKAI - {team_name} bot mapping is working!"
-            result = telegram_tools._send_telegram_message(
-                bot['bot_token'], 
-                bot['chat_id'], 
-                test_message
-            )
-            
-            if "success" in result.lower():
-                print("✅ Test message sent successfully!")
-                return True
-            else:
-                print(f"❌ Failed to send test message: {result}")
-                return False
-                
-        except ImportError:
-            print("⚠️  Telegram tools not available for testing")
-            print("   Bot mapping appears to be configured correctly")
-            return True
-            
+        logger.info(f"Bot mapping for team '{team_name}':")
+        logger.info(f"  Bot Username: {bot_data.get('bot_username', 'N/A')}")
+        logger.info(f"  Chat ID: {bot_data.get('chat_id', 'N/A')}")
+        logger.info(f"  Active: {bot_data.get('is_active', False)}")
+        
+        return True
+        
     except Exception as e:
-        print(f"❌ Error testing bot mapping: {e}")
+        logger.error(f"Failed to test bot mapping: {e}")
         return False
 
 def main():
-    """Main CLI function."""
-    parser = argparse.ArgumentParser(description='KICKAI Team Bot Management CLI')
-    parser.add_argument('command', choices=['list', 'add', 'remove', 'test'], 
-                       help='Command to execute')
-    parser.add_argument('--team', help='Team name for add/remove/test commands')
-    parser.add_argument('--token', help='Bot token for add command')
-    parser.add_argument('--chat-id', help='Chat ID for add command')
-    parser.add_argument('--username', help='Bot username for add command')
+    """Main function."""
+    parser = argparse.ArgumentParser(description='Manage team bot mappings')
+    parser.add_argument('action', choices=['list', 'add', 'remove', 'test'],
+                       help='Action to perform')
+    parser.add_argument('--team', help='Team name')
+    parser.add_argument('--token', help='Bot token')
+    parser.add_argument('--chat-id', help='Chat ID')
+    parser.add_argument('--username', help='Bot username')
     
     args = parser.parse_args()
     
     try:
-        supabase = get_supabase_client()
+        firebase = get_firebase_client()
         
-        if args.command == 'list':
-            print("📋 Teams in Database:")
-            teams = list_teams(supabase)
+        if args.action == 'list':
+            print("\n=== Teams ===")
+            teams = list_teams(firebase)
             for team in teams:
-                print(f"  - {team['name']} (ID: {team['id']})")
+                print(f"• {team['name']} (ID: {team['id']})")
             
-            print("\n🤖 Bot Mappings:")
-            mappings = list_bot_mappings(supabase)
-            if mappings:
-                for mapping in mappings:
-                    team_name = mapping.get('teams', {}).get('name', 'Unknown')
-                    print(f"  - {team_name} → {mapping['bot_username']}")
-                    print(f"    Chat ID: {mapping['chat_id']}")
-                    print(f"    Active: {mapping['is_active']}")
-            else:
-                print("  No bot mappings found")
-                
-        elif args.command == 'add':
-            if not all([args.team, args.token, args.chat_id, args.username]):
-                print("❌ All arguments required: --team, --token, --chat-id, --username")
-                sys.exit(1)
-            
-            success = add_bot_mapping(supabase, args.team, args.token, args.chat_id, args.username)
-            if not success:
-                sys.exit(1)
-                
-        elif args.command == 'remove':
-            if not args.team:
-                print("❌ Team name required: --team")
-                sys.exit(1)
-            
-            success = remove_bot_mapping(supabase, args.team)
-            if not success:
-                sys.exit(1)
-                
-        elif args.command == 'test':
-            if not args.team:
-                print("❌ Team name required: --team")
-                sys.exit(1)
-            
-            success = test_bot_mapping(supabase, args.team)
-            if not success:
-                sys.exit(1)
+            print("\n=== Bot Mappings ===")
+            mappings = list_bot_mappings(firebase)
+            for mapping in mappings:
+                print(f"• {mapping['team_name']} -> @{mapping.get('bot_username', 'N/A')}")
         
+        elif args.action == 'add':
+            if not all([args.team, args.token, args.chat_id, args.username]):
+                print("Error: --team, --token, --chat-id, and --username are required for add action")
+                return
+            
+            success = add_bot_mapping(firebase, args.team, args.token, args.chat_id, args.username)
+            if success:
+                print(f"Successfully added bot mapping for team '{args.team}'")
+            else:
+                print(f"Failed to add bot mapping for team '{args.team}'")
+        
+        elif args.action == 'remove':
+            if not args.team:
+                print("Error: --team is required for remove action")
+                return
+            
+            success = remove_bot_mapping(firebase, args.team)
+            if success:
+                print(f"Successfully removed bot mapping for team '{args.team}'")
+            else:
+                print(f"Failed to remove bot mapping for team '{args.team}'")
+        
+        elif args.action == 'test':
+            if not args.team:
+                print("Error: --team is required for test action")
+                return
+            
+            success = test_bot_mapping(firebase, args.team)
+            if not success:
+                print(f"Failed to test bot mapping for team '{args.team}'")
+    
     except Exception as e:
-        print(f"❌ Error: {e}")
-        sys.exit(1)
+        logger.error(f"Script failed: {e}")
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     main() 

@@ -41,6 +41,22 @@ MAX_NEGOTIATION_ROUNDS = int(os.getenv('MAX_NEGOTIATION_ROUNDS', '3'))
 # Debug Configuration
 DEBUG_AGENTIC_SYSTEM = os.getenv('DEBUG_AGENTIC_SYSTEM', 'false').lower() == 'true'
 
+# Database configuration
+database_config = {
+    'type': 'firebase',
+    'firebase': {
+        'project_id': os.getenv('FIREBASE_PROJECT_ID'),
+        'private_key_id': os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+        'private_key': os.getenv('FIREBASE_PRIVATE_KEY'),
+        'client_email': os.getenv('FIREBASE_CLIENT_EMAIL'),
+        'client_id': os.getenv('FIREBASE_CLIENT_ID'),
+        'auth_uri': os.getenv('FIREBASE_AUTH_URI'),
+        'token_uri': os.getenv('FIREBASE_TOKEN_URI'),
+        'auth_provider_x509_cert_url': os.getenv('FIREBASE_AUTH_PROVIDER_X509_CERT_URL'),
+        'client_x509_cert_url': os.getenv('FIREBASE_CLIENT_X509_CERT_URL'),
+    }
+}
+
 class KICKAIConfig:
     """Configuration manager for KICKAI system."""
     
@@ -62,15 +78,22 @@ class KICKAIConfig:
         if self.is_production:
             # Production: Use Railway environment variables
             return {
-                'url': os.getenv('SUPABASE_URL'),
-                'key': os.getenv('SUPABASE_KEY'),
-                'type': 'cloud'
+                'type': 'firebase',
+                'firebase': {
+                    'project_id': os.getenv('FIREBASE_PROJECT_ID'),
+                    'private_key_id': os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+                    'private_key': os.getenv('FIREBASE_PRIVATE_KEY'),
+                    'client_email': os.getenv('FIREBASE_CLIENT_EMAIL'),
+                    'client_id': os.getenv('FIREBASE_CLIENT_ID'),
+                    'auth_uri': os.getenv('FIREBASE_AUTH_URI'),
+                    'token_uri': os.getenv('FIREBASE_TOKEN_URI'),
+                    'auth_provider_x509_cert_url': os.getenv('FIREBASE_AUTH_PROVIDER_X509_CERT_URL'),
+                    'client_x509_cert_url': os.getenv('FIREBASE_CLIENT_X509_CERT_URL'),
+                }
             }
         else:
             # Development: Use local .env file
             return {
-                'url': os.getenv('SUPABASE_URL'),
-                'key': os.getenv('SUPABASE_KEY'),
                 'type': 'local'
             }
     
@@ -126,15 +149,22 @@ class KICKAIConfig:
         """Validate configuration for current environment."""
         errors = []
         
-        # Check database config
-        db_config = self.database_config
-        if not db_config['url'] or not db_config['key']:
-            errors.append("Missing Supabase configuration")
-        
-        # Check AI config
+        # Check AI configuration
         ai_config = self.ai_config
         if self.is_production and not ai_config['api_key']:
             errors.append("Missing Google AI API key for production")
+        
+        # Check Firebase configuration
+        firebase_config = self.database_config.get('firebase', {})
+        required_firebase_vars = [
+            'project_id', 'private_key_id', 'private_key', 'client_email',
+            'client_id', 'auth_uri', 'token_uri', 'auth_provider_x509_cert_url',
+            'client_x509_cert_url'
+        ]
+        
+        for var in required_firebase_vars:
+            if not firebase_config.get(var):
+                errors.append(f"Missing Firebase configuration: {var}")
         
         if errors:
             for error in errors:
@@ -143,7 +173,7 @@ class KICKAIConfig:
         
         logger.info(f"✅ Configuration valid for {self.environment} environment")
         logger.info(f"   AI Provider: {self.ai_provider}")
-        logger.info(f"   Database: {db_config['type']}")
+        logger.info(f"   Database: {self.database_config['type']}")
         return True
 
 def get_feature_flags():
