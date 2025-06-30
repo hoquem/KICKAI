@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 # Import configuration
 try:
-    from config import config, ENABLE_INTELLIGENT_ROUTING
+    from config import config, ENABLE_INTELLIGENT_ROUTING, ENABLE_LLM_ROUTING
 except ImportError as e:
     logger.error(f"Configuration not available: {e}")
     raise ImportError("Configuration not available")
@@ -625,8 +625,17 @@ class AgentBasedMessageHandler:
             # Create crew for complex multi-agent tasks
             self.crew = create_crew_for_team(agents)
             
-            # Initialize intelligent router if enabled
-            if ENABLE_INTELLIGENT_ROUTING:
+            # Initialize LLM-powered routing if enabled
+            if ENABLE_LLM_ROUTING:
+                try:
+                    from src.intelligent_router_standalone import StandaloneIntelligentRouter
+                    self.intelligent_router = StandaloneIntelligentRouter(self.agents, llm)
+                    logger.info(f"✅ LLM-powered routing initialized for team {self.team_id}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize LLM-powered router: {e}")
+                    self.intelligent_router = None
+            # Otherwise, fall back to intelligent routing if enabled
+            elif ENABLE_INTELLIGENT_ROUTING:
                 try:
                     from src.intelligent_router_standalone import StandaloneIntelligentRouter
                     self.intelligent_router = StandaloneIntelligentRouter(self.agents, llm)
@@ -634,10 +643,9 @@ class AgentBasedMessageHandler:
                 except Exception as e:
                     logger.error(f"❌ Failed to initialize intelligent router: {e}")
                     self.intelligent_router = None
-            
             logger.info(f"✅ Agent-based message handler initialized for team {self.team_id}")
             logger.info(f"📊 Loaded {len(self.agents)} agents: {list(self.agents.keys())}")
-            logger.info(f"🧠 Intelligent routing: {'✅ Enabled' if self.intelligent_router else '❌ Disabled'}")
+            logger.info(f"🧠 Routing: {'✅ LLM-powered' if ENABLE_LLM_ROUTING and self.intelligent_router else ('✅ Intelligent' if ENABLE_INTELLIGENT_ROUTING and self.intelligent_router else '❌ Disabled')}")
             
         except Exception as e:
             logger.error(f"❌ Failed to initialize agents: {e}")
@@ -681,9 +689,13 @@ class AgentBasedMessageHandler:
     async def _handle_new_request(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
         """Handle a new request using intelligent agent routing."""
         try:
-            # Use intelligent routing if available
-            if self.intelligent_router:
+            # Use LLM-powered routing if enabled and available
+            if ENABLE_LLM_ROUTING and self.intelligent_router:
                 return await self._handle_with_intelligent_routing(message_text, user_id, username, chat_id)
+            # Otherwise, use intelligent routing if enabled and available
+            elif ENABLE_INTELLIGENT_ROUTING and self.intelligent_router:
+                return await self._handle_with_intelligent_routing(message_text, user_id, username, chat_id)
+            # Otherwise, fall back to legacy routing
             else:
                 return await self._handle_with_legacy_routing(message_text, user_id, username, chat_id)
                 

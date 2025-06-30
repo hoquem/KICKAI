@@ -41,6 +41,9 @@ MAX_NEGOTIATION_ROUNDS = int(os.getenv('MAX_NEGOTIATION_ROUNDS', '3'))
 # Debug Configuration
 DEBUG_AGENTIC_SYSTEM = os.getenv('DEBUG_AGENTIC_SYSTEM', 'false').lower() == 'true'
 
+# New: LLM-powered routing feature flag
+ENABLE_LLM_ROUTING = os.getenv('ENABLE_LLM_ROUTING', 'false').lower() == 'true'
+
 # Database configuration
 database_config = {
     'type': 'firebase',
@@ -73,7 +76,7 @@ class KICKAIConfig:
             return 'ollama'  # Use Ollama for local development
     
     @property
-    def database_config(self) -> Dict[str, str]:
+    def database_config(self) -> Dict[str, Any]:
         """Get database configuration."""
         if self.is_production:
             # Production: Use Railway environment variables
@@ -180,6 +183,7 @@ def get_feature_flags():
     """Get all feature flags for easy access."""
     return {
         'intelligent_routing': ENABLE_INTELLIGENT_ROUTING,
+        'llm_routing': ENABLE_LLM_ROUTING,
         'dynamic_task_decomposition': ENABLE_DYNAMIC_TASK_DECOMPOSITION,
         'advanced_memory': ENABLE_ADVANCED_MEMORY,
         'performance_monitoring': AGENTIC_PERFORMANCE_MONITORING,
@@ -211,7 +215,8 @@ def get_phase1_config():
         'routing': {
             'complexity_threshold': COMPLEXITY_THRESHOLD_FOR_COLLABORATION,
             'max_negotiation_rounds': MAX_NEGOTIATION_ROUNDS
-        }
+        },
+        'database': config.database_config if isinstance(config.database_config, dict) else {}
     }
 
 if __name__ == "__main__":
@@ -240,6 +245,7 @@ if __name__ == "__main__":
     print("  ENABLE_DYNAMIC_TASK_DECOMPOSITION=true")
     print("  ENABLE_ADVANCED_MEMORY=true")
     print("  DEBUG_AGENTIC_SYSTEM=true")
+    print("  ENABLE_LLM_ROUTING=true")
 
 # Global configuration instance
 config = KICKAIConfig() 
