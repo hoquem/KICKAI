@@ -1,4 +1,4 @@
-name: Deploy to Railway
+name: Deploy to Railway Services
 
 on:
   push:
@@ -71,7 +71,7 @@ jobs:
         run: mypy src/ --ignore-missing-imports
 
   deploy-testing:
-    name: Deploy to Testing
+    name: Deploy to Testing Service
     needs: [test, lint]
     if: github.ref == 'refs/heads/testing'
     runs-on: ubuntu-latest
@@ -80,11 +80,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to Railway Testing
+      - name: Deploy to Railway Testing Service
         uses: railway/deploy@v1
         with:
           service: kickai-testing
-          token: ${{ secrets.RAILWAY_TOKEN_TESTING }}
+          token: ${{ secrets.RAILWAY_TOKEN }}
 
       - name: Wait for deployment
         run: sleep 30
@@ -93,8 +93,16 @@ jobs:
         run: |
           curl -f ${{ secrets.TESTING_HEALTH_URL }}/health || exit 1
 
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "✅ Testing deployment successful!"
+          echo "Service: kickai-testing"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+
   deploy-staging:
-    name: Deploy to Staging
+    name: Deploy to Staging Service
     needs: [test, lint]
     if: github.ref == 'refs/heads/staging'
     runs-on: ubuntu-latest
@@ -103,11 +111,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to Railway Staging
+      - name: Deploy to Railway Staging Service
         uses: railway/deploy@v1
         with:
           service: kickai-staging
-          token: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+          token: ${{ secrets.RAILWAY_TOKEN }}
 
       - name: Wait for deployment
         run: sleep 30
@@ -116,8 +124,16 @@ jobs:
         run: |
           curl -f ${{ secrets.STAGING_HEALTH_URL }}/health || exit 1
 
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "✅ Staging deployment successful!"
+          echo "Service: kickai-staging"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+
   deploy-production:
-    name: Deploy to Production
+    name: Deploy to Production Service
     needs: [test, lint]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -126,11 +142,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to Railway Production
+      - name: Deploy to Railway Production Service
         uses: railway/deploy@v1
         with:
           service: kickai-production
-          token: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
+          token: ${{ secrets.RAILWAY_TOKEN }}
 
       - name: Wait for deployment
         run: sleep 30
@@ -143,7 +159,8 @@ jobs:
         if: success()
         run: |
           echo "✅ Production deployment successful!"
-          echo "Environment: ${{ github.ref_name }}"
+          echo "Service: kickai-production"
+          echo "Branch: ${{ github.ref_name }}"
           echo "Commit: ${{ github.sha }}"
 
   rollback:
@@ -155,29 +172,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Determine failed environment
-        id: failed-env
+      - name: Determine failed service
+        id: failed-service
         run: |
           if [ "${{ needs.deploy-testing.result }}" == "failure" ]; then
-            echo "env=testing" >> $GITHUB_OUTPUT
-            echo "token=${{ secrets.RAILWAY_TOKEN_TESTING }}" >> $GITHUB_OUTPUT
+            echo "service=kickai-testing" >> $GITHUB_OUTPUT
+            echo "environment=testing" >> $GITHUB_OUTPUT
           elif [ "${{ needs.deploy-staging.result }}" == "failure" ]; then
-            echo "env=staging" >> $GITHUB_OUTPUT
-            echo "token=${{ secrets.RAILWAY_TOKEN_STAGING }}" >> $GITHUB_OUTPUT
+            echo "service=kickai-staging" >> $GITHUB_OUTPUT
+            echo "environment=staging" >> $GITHUB_OUTPUT
           elif [ "${{ needs.deploy-production.result }}" == "failure" ]; then
-            echo "env=production" >> $GITHUB_OUTPUT
-            echo "token=${{ secrets.RAILWAY_TOKEN_PRODUCTION }}" >> $GITHUB_OUTPUT
+            echo "service=kickai-production" >> $GITHUB_OUTPUT
+            echo "environment=production" >> $GITHUB_OUTPUT
           fi
 
       - name: Rollback deployment
-        if: steps.failed-env.outputs.env != ''
+        if: steps.failed-service.outputs.service != ''
         run: |
-          echo "🔄 Rolling back ${{ steps.failed-env.outputs.env }} environment..."
-          # Add rollback logic here
-          echo "Rollback completed for ${{ steps.failed-env.outputs.env }}"
+          echo "🔄 Rolling back ${{ steps.failed-service.outputs.service }} service..."
+          # Add rollback logic here using Railway CLI
+          echo "Rollback completed for ${{ steps.failed-service.outputs.service }}"
 
       - name: Notify rollback
-        if: steps.failed-env.outputs.env != ''
+        if: steps.failed-service.outputs.service != ''
         run: |
-          echo "❌ Deployment failed for ${{ steps.failed-env.outputs.env }} environment"
-          echo "🔄 Rollback initiated" 
+          echo "❌ Deployment failed for ${{ steps.failed-service.outputs.service }} service"
+          echo "🔄 Rollback initiated for ${{ steps.failed-service.outputs.environment }} environment" 
