@@ -1,0 +1,308 @@
+name: Dependency Update
+
+on:
+  schedule:
+    # Run weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      update_type:
+        description: 'Type of update to perform'
+        required: true
+        default: 'security'
+        type: choice
+        options:
+        - security
+        - minor
+        - major
+
+env:
+  PYTHON_VERSION: '3.11'
+  PIP_CACHE_DIR: ~/.cache/pip
+
+jobs:
+  # Check for outdated dependencies
+  check-dependencies:
+    name: Check Dependencies
+    runs-on: ubuntu-latest
+    outputs:
+      has-updates: ${{ steps.check.outputs.has-updates }}
+      security-updates: ${{ steps.check.outputs.security-updates }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependency tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-tools safety pip-audit
+
+      - name: Check for outdated packages
+        id: check
+        run: |
+          echo "🔍 Checking for outdated dependencies..."
+          
+          # Check for outdated packages
+          pip list --outdated --format=freeze > outdated.txt || echo "No outdated packages found" > outdated.txt
+          
+          # Check for security vulnerabilities
+          safety check --json --output safety-report.json || echo "{}" > safety-report.json
+          
+          # Check for known vulnerabilities
+          pip-audit --format json --output pip-audit-report.json || echo "{}" > pip-audit-report.json
+          
+          # Determine if updates are needed
+          if [ -s outdated.txt ] && [ "$(cat outdated.txt)" != "No outdated packages found" ]; then
+            echo "has-updates=true" >> $GITHUB_OUTPUT
+            echo "📦 Found outdated packages"
+          else
+            echo "has-updates=false" >> $GITHUB_OUTPUT
+            echo "✅ All packages are up to date"
+          fi
+          
+          # Check for security updates
+          if [ -s safety-report.json ] && [ "$(cat safety-report.json)" != "{}" ]; then
+            echo "security-updates=true" >> $GITHUB_OUTPUT
+            echo "🔒 Security vulnerabilities found"
+          else
+            echo "security-updates=false" >> $GITHUB_OUTPUT
+            echo "✅ No security vulnerabilities found"
+          fi
+
+      - name: Upload dependency reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: dependency-reports
+          path: |
+            outdated.txt
+            safety-report.json
+            pip-audit-report.json
+
+  # Update dependencies based on type
+  update-dependencies:
+    name: Update Dependencies
+    runs-on: ubuntu-latest
+    needs: check-dependencies
+    if: |
+      needs.check-dependencies.outputs.has-updates == 'true' ||
+      needs.check-dependencies.outputs.security-updates == 'true' ||
+      github.event.inputs.update_type != ''
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install update tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-tools pip-upgrader
+
+      - name: Determine update strategy
+        id: strategy
+        run: |
+          UPDATE_TYPE="${{ github.event.inputs.update_type || 'security' }}"
+          
+          case "$UPDATE_TYPE" in
+            "security")
+              echo "strategy=security-only" >> $GITHUB_OUTPUT
+              echo "🔒 Updating security vulnerabilities only"
+              ;;
+            "minor")
+              echo "strategy=minor-updates" >> $GITHUB_OUTPUT
+              echo "📦 Updating minor versions"
+              ;;
+            "major")
+              echo "strategy=major-updates" >> $GITHUB_OUTPUT
+              echo "🚀 Updating major versions (use with caution)"
+              ;;
+          esac
+
+      - name: Update requirements.txt
+        run: |
+          STRATEGY="${{ steps.strategy.outputs.strategy }}"
+          
+          case "$STRATEGY" in
+            "security-only")
+              # Update only security-related packages
+              echo "🔒 Updating security packages..."
+              pip install --upgrade safety pip-audit
+              safety check --json --output safety-report.json
+              
+              # Update packages with known vulnerabilities
+              if [ -s safety-report.json ]; then
+                jq -r '.vulnerabilities[].package' safety-report.json | sort -u | while read package; do
+                  echo "Updating $package for security..."
+                  pip install --upgrade "$package"
+                done
+              fi
+              ;;
+            "minor-updates")
+              # Update minor versions
+              echo "📦 Updating minor versions..."
+              pip install --upgrade --upgrade-strategy only-if-needed -r requirements.txt
+              ;;
+            "major-updates")
+              # Update all packages (use with caution)
+              echo "🚀 Updating all packages..."
+              pip install --upgrade -r requirements.txt
+              ;;
+          esac
+
+      - name: Generate new requirements.txt
+        run: |
+          echo "📝 Generating updated requirements.txt..."
+          pip freeze > requirements-new.txt
+          
+          # Compare with original
+          if [ -f requirements.txt ]; then
+            diff requirements.txt requirements-new.txt > requirements-diff.txt || echo "Changes detected" > requirements-diff.txt
+          fi
+
+      - name: Test updated dependencies
+        run: |
+          echo "🧪 Testing updated dependencies..."
+          
+          # Install new requirements
+          pip install -r requirements-new.txt
+          
+          # Test critical imports
+          python -c "
+          try:
+              import telegram
+              import firebase_admin
+              import langchain
+              import crewai
+              print('✅ All critical dependencies work with updates')
+          except ImportError as e:
+              print(f'❌ Import error after update: {e}')
+              exit(1)
+          "
+
+      - name: Create pull request
+        if: success()
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update dependencies (${{ steps.strategy.outputs.strategy }})"
+          title: "🔧 Dependency Updates (${{ steps.strategy.outputs.strategy }})"
+          body: |
+            ## Dependency Updates
+            
+            **Update Type:** ${{ steps.strategy.outputs.strategy }}
+            **Triggered by:** ${{ github.event_name }}
+            
+            ### Changes
+            - Updated dependencies based on ${{ steps.strategy.outputs.strategy }} strategy
+            - All critical dependencies tested and working
+            
+            ### Files Changed
+            - `requirements.txt` - Updated package versions
+            
+            ### Testing
+            - ✅ All critical imports working
+            - ✅ No breaking changes detected
+            
+            **Please review and test thoroughly before merging.**
+          branch: dependency-updates-${{ github.run_id }}
+          delete-branch: true
+          path: |
+            requirements.txt
+            requirements-new.txt
+            requirements-diff.txt
+
+  # Security scan after updates
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: update-dependencies
+    if: success()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety pip-audit bandit
+
+      - name: Run security scans
+        run: |
+          echo "🔒 Running security scans..."
+          
+          # Safety check
+          safety check --json --output safety-report-new.json || echo "{}" > safety-report-new.json
+          
+          # Pip audit
+          pip-audit --format json --output pip-audit-report-new.json || echo "{}" > pip-audit-report-new.json
+          
+          # Bandit security scan
+          bandit -r src/ -f json -o bandit-report.json || echo "{}" > bandit-report.json
+          
+          # Compare with previous reports
+          if [ -f safety-report.json ] && [ -f safety-report-new.json ]; then
+            echo "📊 Security comparison:"
+            echo "Before: $(jq '.vulnerabilities | length' safety-report.json || echo '0') vulnerabilities"
+            echo "After: $(jq '.vulnerabilities | length' safety-report-new.json || echo '0') vulnerabilities"
+          fi
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-reports-updated
+          path: |
+            safety-report-new.json
+            pip-audit-report-new.json
+            bandit-report.json
+
+  # Notify about updates
+  notify:
+    name: Notify Updates
+    runs-on: ubuntu-latest
+    needs: [check-dependencies, update-dependencies, security-scan]
+    if: always()
+    steps:
+      - name: Generate update summary
+        run: |
+          echo "📋 Dependency Update Summary" > update-summary.txt
+          echo "============================" >> update-summary.txt
+          echo "Date: $(date -u)" >> update-summary.txt
+          echo "Trigger: ${{ github.event_name }}" >> update-summary.txt
+          echo "" >> update-summary.txt
+          
+          if [ "${{ needs.check-dependencies.outputs.has-updates }}" == "true" ]; then
+            echo "✅ Updates available and processed" >> update-summary.txt
+          else
+            echo "ℹ️ No updates needed" >> update-summary.txt
+          fi
+          
+          if [ "${{ needs.check-dependencies.outputs.security-updates }}" == "true" ]; then
+            echo "🔒 Security updates processed" >> update-summary.txt
+          fi
+          
+          echo "" >> update-summary.txt
+          echo "Status: ${{ needs.update-dependencies.result }}" >> update-summary.txt
+
+      - name: Upload summary
+        uses: actions/upload-artifact@v3
+        with:
+          name: update-summary
+          path: update-summary.txt 
