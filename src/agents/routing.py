@@ -10,8 +10,7 @@ from .standalone_router import (
     RequestContext
 )
 
-# Alias the class to match expected interface
-IntelligentAgentRouter = StandaloneIntelligentRouter
+from .intelligent_system import IntelligentAgentRouter
 
 # Re-export the classes
-__all__ = ['IntelligentAgentRouter', 'RoutingDecision', 'RequestContext'] 
+__all__ = ['IntelligentAgentRouter', 'StandaloneIntelligentRouter', 'RoutingDecision', 'RequestContext'] 

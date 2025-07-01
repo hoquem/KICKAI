@@ -6,9 +6,9 @@ This file demonstrates how to use the new test base classes, fixtures, and utili
 
 import pytest
 import pytest_asyncio
-from src.testing.test_base import BaseTestCase, AsyncBaseTestCase, IntegrationTestCase
-from src.testing.test_utils import MockTool, MockLLM, MockAgent
-from src.testing.test_fixtures import TestDataFactory, SampleData
+from .test_base import BaseTestCase, AsyncBaseTestCase, IntegrationTestCase
+from .test_utils import MockTool, MockLLM, MockAgent
+from .test_fixtures import TestDataFactory, SampleData
 
 
 class TestPlayerUtils(BaseTestCase):

@@ -6,7 +6,7 @@ Tests the complete flow from player registration to onboarding completion.
 
 import pytest
 import asyncio
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from datetime import datetime, date
 
 from src.testing.test_base import BaseTestCase, AsyncBaseTestCase
@@ -30,6 +30,10 @@ class TestPlayerRegistrationIntegration(AsyncBaseTestCase):
         self.player_id = "JS1"
         self.telegram_user_id = "123456789"
         self.telegram_username = "testuser"
+        # Patch Firebase client to avoid real connection
+        patcher = patch('src.database.firebase_client.get_firebase_client', return_value=None)
+        self.addCleanup(patcher.stop)
+        patcher.start()
         
         # Mock player data
         self.mock_player_data = {

@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock
 from src.testing.test_base import BaseTestCase, AsyncBaseTestCase
 from src.testing.test_fixtures import TestDataFactory, SampleData
 from src.testing.test_utils import MockLLM, MockAgent
-from src.improved_agentic_system import DynamicTaskDecomposer, ImprovedAgenticSystem, TaskContext
-from src.task_templates import TaskTemplateRegistry, TaskTemplate, TaskParameter, Task, TaskStatus
+from src.agents.intelligent_system import DynamicTaskDecomposer, ImprovedAgenticSystem, TaskContext
+from src.tasks.task_templates import TaskTemplateRegistry, TaskTemplate, TaskParameter, Task, TaskStatus
 from crewai import Agent
 from config import ENABLE_DYNAMIC_TASK_DECOMPOSITION
 
