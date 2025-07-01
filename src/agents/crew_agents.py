@@ -447,19 +447,22 @@ class OnboardingAgent(Agent):
         self._team_id = team_id
         self._team_name = team_name
         
+        # Store services in a separate object to avoid Pydantic conflicts
+        self._services = {}
+        
         # Initialize services after parent initialization
         try:
-            self.player_service = get_player_service()
-            self.team_service = get_team_service()
-            self.player_registration_handler = PlayerRegistrationHandler(team_id)
-            self.player_command_handler = PlayerCommandHandler(self.player_registration_handler)
+            self._services['player_service'] = get_player_service()
+            self._services['team_service'] = get_team_service()
+            self._services['player_registration_handler'] = PlayerRegistrationHandler(team_id)
+            self._services['player_command_handler'] = PlayerCommandHandler(self._services['player_registration_handler'])
         except Exception as e:
             logger.error(f"Failed to initialize OnboardingAgent services: {e}")
             # Set to None if services fail to initialize
-            self.player_service = None
-            self.team_service = None
-            self.player_registration_handler = None
-            self.player_command_handler = None
+            self._services['player_service'] = None
+            self._services['team_service'] = None
+            self._services['player_registration_handler'] = None
+            self._services['player_command_handler'] = None
     
     @property
     def team_id(self) -> str:
@@ -470,3 +473,23 @@ class OnboardingAgent(Agent):
     def team_name(self) -> Optional[str]:
         """Get the team name."""
         return self._team_name
+    
+    @property
+    def player_service(self):
+        """Get the player service."""
+        return self._services.get('player_service')
+    
+    @property
+    def team_service(self):
+        """Get the team service."""
+        return self._services.get('team_service')
+    
+    @property
+    def player_registration_handler(self):
+        """Get the player registration handler."""
+        return self._services.get('player_registration_handler')
+    
+    @property
+    def player_command_handler(self):
+        """Get the player command handler."""
+        return self._services.get('player_command_handler')
