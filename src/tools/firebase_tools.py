@@ -52,11 +52,11 @@ except ImportError as e:
 def get_firebase_client():
     """
     Get Firebase client with robust error handling.
-    Prioritizes FIREBASE_CREDENTIALS env var, then firebase_settings.json file, then legacy env vars.
+    Prioritizes separate Firebase env vars, then FIREBASE_CREDENTIALS env var, then firebase_settings.json file.
     Returns:
         firebase_admin.firestore.Client: Firebase Firestore client instance
     Raises:
-        ValueError: If neither FIREBASE_CREDENTIALS, file, nor legacy env vars are available
+        ValueError: If Firebase credentials are not available
         Exception: If client creation fails
     """
     try:
@@ -71,66 +71,19 @@ def get_firebase_client():
             # Initialize Firebase app
             logger.info("🔧 Initializing Firebase app...")
 
-            # 1. Try FIREBASE_CREDENTIALS env var (recommended for Railway)
-            firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS')
-            if firebase_creds_json:
-                logger.info("🔑 Using FIREBASE_CREDENTIALS environment variable")
+            # 1. Try separate Firebase environment variables (recommended for Railway)
+            project_id = os.getenv('FIREBASE_PROJECT_ID')
+            private_key = os.getenv('FIREBASE_PRIVATE_KEY')
+            client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
+            
+            if project_id and private_key and client_email:
+                logger.info("🔑 Using separate Firebase environment variables")
                 try:
-                    # Parse the JSON and create a temporary file to avoid corruption issues
-                    creds_dict = json.loads(firebase_creds_json)
-                    
-                    # Create a temporary file with the credentials
-                    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
-                        json.dump(creds_dict, temp_file, indent=2)
-                        temp_file_path = temp_file.name
-                    
-                    logger.info(f"📁 Created temporary credentials file: {temp_file_path}")
-                    
-                    # Use the temporary file for credentials
-                    cred = credentials.Certificate(temp_file_path)
-                    app = firebase_admin.initialize_app(cred)
-                    logger.info("✅ Firebase app initialized with FIREBASE_CREDENTIALS env var")
-                    
-                    # Clean up the temporary file
-                    try:
-                        os.unlink(temp_file_path)
-                        logger.info("🧹 Cleaned up temporary credentials file")
-                    except:
-                        pass  # Ignore cleanup errors
-                        
-                except Exception as cred_error:
-                    logger.error(f"❌ Failed to create Firebase credentials from FIREBASE_CREDENTIALS: {cred_error}")
-                    raise
-            else:
-                # 2. Try firebase_settings.json file
-                project_root = os.getcwd()
-                service_account_path = os.path.join(project_root, 'firebase_settings.json')
-                logger.info(f"🔍 Looking for Firebase settings file at: {service_account_path}")
-                if os.path.exists(service_account_path):
-                    logger.info(f"📁 Using Firebase service account file: {service_account_path}")
-                    cred = credentials.Certificate(service_account_path)
-                    app = firebase_admin.initialize_app(cred)
-                    logger.info("✅ Firebase app initialized with service account file")
-                else:
-                    # 3. Fall back to legacy env vars (not recommended)
-                    logger.info("📝 Using Firebase legacy environment variables (file and FIREBASE_CREDENTIALS not found)")
-                    project_id = os.getenv('FIREBASE_PROJECT_ID')
-                    private_key = os.getenv('FIREBASE_PRIVATE_KEY', '').replace('\\n', '\n')
-                    client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
-                    logger.info(f"🔍 Checking Firebase environment variables:")
-                    logger.info(f"   Project ID: {'✅ Set' if project_id else '❌ Missing'}")
-                    logger.info(f"   Private Key: {'✅ Set' if private_key else '❌ Missing'}")
-                    logger.info(f"   Client Email: {'✅ Set' if client_email else '❌ Missing'}")
-                    if not project_id:
-                        raise ValueError("Missing FIREBASE_PROJECT_ID environment variable")
-                    if not private_key:
-                        raise ValueError("Missing FIREBASE_PRIVATE_KEY environment variable")
-                    if not client_email:
-                        raise ValueError("Missing FIREBASE_CLIENT_EMAIL environment variable")
+                    # Build service account info from separate variables
                     service_account_info = {
                         "type": "service_account",
                         "project_id": project_id,
-                        "private_key": private_key,
+                        "private_key": private_key.replace('\\n', '\n'),
                         "client_email": client_email,
                         "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID', ''),
                         "client_id": os.getenv('FIREBASE_CLIENT_ID', ''),
@@ -139,13 +92,90 @@ def get_firebase_client():
                         "auth_provider_x509_cert_url": os.getenv('FIREBASE_AUTH_PROVIDER_X509_CERT_URL', 'https://www.googleapis.com/oauth2/v1/certs'),
                         "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_X509_CERT_URL', '')
                     }
+                    
+                    cred = credentials.Certificate(service_account_info)
+                    app = firebase_admin.initialize_app(cred)
+                    logger.info("✅ Firebase app initialized with separate environment variables")
+                    
+                except Exception as cred_error:
+                    logger.error(f"❌ Failed to create Firebase credentials from separate env vars: {cred_error}")
+                    raise
+            else:
+                # 2. Try FIREBASE_CREDENTIALS env var (fallback)
+                firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS')
+                if firebase_creds_json:
+                    logger.info("🔑 Using FIREBASE_CREDENTIALS environment variable")
                     try:
-                        cred = credentials.Certificate(service_account_info)
+                        # Parse the JSON and create a temporary file to avoid corruption issues
+                        creds_dict = json.loads(firebase_creds_json)
+                        
+                        # Create a temporary file with the credentials
+                        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+                            json.dump(creds_dict, temp_file, indent=2)
+                            temp_file_path = temp_file.name
+                        
+                        logger.info(f"📁 Created temporary credentials file: {temp_file_path}")
+                        
+                        # Use the temporary file for credentials
+                        cred = credentials.Certificate(temp_file_path)
                         app = firebase_admin.initialize_app(cred)
-                        logger.info("✅ Firebase app initialized with legacy environment variables")
+                        logger.info("✅ Firebase app initialized with FIREBASE_CREDENTIALS env var")
+                        
+                        # Clean up the temporary file
+                        try:
+                            os.unlink(temp_file_path)
+                            logger.info("🧹 Cleaned up temporary credentials file")
+                        except:
+                            pass  # Ignore cleanup errors
+                            
                     except Exception as cred_error:
-                        logger.error(f"❌ Failed to create Firebase credentials from legacy env vars: {cred_error}")
+                        logger.error(f"❌ Failed to create Firebase credentials from FIREBASE_CREDENTIALS: {cred_error}")
                         raise
+                else:
+                    # 3. Try firebase_settings.json file
+                    project_root = os.getcwd()
+                    service_account_path = os.path.join(project_root, 'firebase_settings.json')
+                    logger.info(f"🔍 Looking for Firebase settings file at: {service_account_path}")
+                    if os.path.exists(service_account_path):
+                        logger.info(f"📁 Using Firebase service account file: {service_account_path}")
+                        cred = credentials.Certificate(service_account_path)
+                        app = firebase_admin.initialize_app(cred)
+                        logger.info("✅ Firebase app initialized with service account file")
+                    else:
+                        # 4. Fall back to legacy env vars (not recommended)
+                        logger.info("📝 Using Firebase legacy environment variables (no other options found)")
+                        project_id = os.getenv('FIREBASE_PROJECT_ID')
+                        private_key = os.getenv('FIREBASE_PRIVATE_KEY', '').replace('\\n', '\n')
+                        client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
+                        logger.info(f"🔍 Checking Firebase environment variables:")
+                        logger.info(f"   Project ID: {'✅ Set' if project_id else '❌ Missing'}")
+                        logger.info(f"   Private Key: {'✅ Set' if private_key else '❌ Missing'}")
+                        logger.info(f"   Client Email: {'✅ Set' if client_email else '❌ Missing'}")
+                        if not project_id:
+                            raise ValueError("Missing FIREBASE_PROJECT_ID environment variable")
+                        if not private_key:
+                            raise ValueError("Missing FIREBASE_PRIVATE_KEY environment variable")
+                        if not client_email:
+                            raise ValueError("Missing FIREBASE_CLIENT_EMAIL environment variable")
+                        service_account_info = {
+                            "type": "service_account",
+                            "project_id": project_id,
+                            "private_key": private_key,
+                            "client_email": client_email,
+                            "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID', ''),
+                            "client_id": os.getenv('FIREBASE_CLIENT_ID', ''),
+                            "auth_uri": os.getenv('FIREBASE_AUTH_URI', 'https://accounts.google.com/o/oauth2/auth'),
+                            "token_uri": os.getenv('FIREBASE_TOKEN_URI', 'https://oauth2.googleapis.com/token'),
+                            "auth_provider_x509_cert_url": os.getenv('FIREBASE_AUTH_PROVIDER_X509_CERT_URL', 'https://www.googleapis.com/oauth2/v1/certs'),
+                            "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_X509_CERT_URL', '')
+                        }
+                        try:
+                            cred = credentials.Certificate(service_account_info)
+                            app = firebase_admin.initialize_app(cred)
+                            logger.info("✅ Firebase app initialized with legacy environment variables")
+                        except Exception as cred_error:
+                            logger.error(f"❌ Failed to create Firebase credentials from legacy env vars: {cred_error}")
+                            raise
         # Get Firestore client
         try:
             db = firestore.client()
