@@ -219,9 +219,23 @@ class ConfigurationManager:
         )
     
     def _load_telegram_config(self) -> TelegramConfig:
-        """Load Telegram configuration."""
+        """Load Telegram configuration.
+        
+        In production, bot tokens are loaded from Firestore via the bot configuration manager.
+        In development/testing, they can be loaded from environment variables or local config files.
+        """
+        # Get bot token from environment variable (for development/testing)
+        bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+        
+        # In production, we'll get the bot token from the bot configuration manager
+        # when needed, rather than storing it here
+        if self._environment == Environment.PRODUCTION and not bot_token:
+            # In production, we don't require TELEGRAM_BOT_TOKEN in environment
+            # as it will be loaded from Firestore when needed
+            bot_token = ""
+        
         return TelegramConfig(
-            bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
+            bot_token=bot_token,
             webhook_url=os.getenv("TELEGRAM_WEBHOOK_URL"),
             parse_mode=os.getenv("TELEGRAM_PARSE_MODE", "MarkdownV2"),
             message_timeout=int(os.getenv("TELEGRAM_TIMEOUT", "30"))
@@ -284,8 +298,18 @@ class ConfigurationManager:
                 if not self._config["ai"].api_key:
                     errors.append("AI_API_KEY is required in development environment")
             
+            # In development, we can use either environment variables or local config files
+            # Don't require TELEGRAM_BOT_TOKEN if using local config files
             if not self._config["telegram"].bot_token:
-                errors.append("TELEGRAM_BOT_TOKEN is required in development environment")
+                # Check if we have a local bot configuration
+                try:
+                    from .bot_config_manager import get_bot_config_manager
+                    manager = get_bot_config_manager()
+                    config = manager.load_configuration()
+                    if not config.teams:
+                        errors.append("TELEGRAM_BOT_TOKEN is required in development environment or configure local bot config")
+                except Exception:
+                    errors.append("TELEGRAM_BOT_TOKEN is required in development environment")
         
         # Validate ranges
         if not (0.0 <= self._config["ai"].temperature <= 2.0):

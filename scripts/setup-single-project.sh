@@ -71,13 +71,12 @@ setup_project() {
     print_status "Setting up Railway project: $PROJECT_NAME"
     
     # Check if project exists
-    if railway project list | grep -q "$PROJECT_NAME"; then
-        print_warning "Project $PROJECT_NAME already exists, using existing project"
-        railway project use "$PROJECT_NAME"
+    if railway list | grep -q "$PROJECT_NAME"; then
+        print_warning "Project $PROJECT_NAME already exists, linking to existing project"
+        railway link "$PROJECT_NAME"
     else
         print_status "Creating new project: $PROJECT_NAME"
-        railway project create "$PROJECT_NAME"
-        railway project use "$PROJECT_NAME"
+        railway init "$PROJECT_NAME"
     fi
     
     print_success "Project $PROJECT_NAME is ready"
