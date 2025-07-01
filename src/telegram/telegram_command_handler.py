@@ -1493,44 +1493,84 @@ def register_langchain_agentic_handler(app):
     agentic_handlers = {}
 
     async def langchain_agentic_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # Extract chat and user info
-        message = update.effective_message
-        chat = update.effective_chat
-        user = update.effective_user
-        chat_id = str(chat.id)
-        user_id = str(user.id)
-        username = user.username or user.full_name or "Unknown"
-        message_text = message.text or ""
-
-        # For now, use a fixed team_id (can be improved to map chat_id to team_id)
-        team_id = '0854829d-445c-4138-9fd3-4db562ea46ee'
-
-        # Get user role and check if it's a leadership chat
         try:
-            from src.tools.firebase_tools import get_user_role, is_leadership_chat
-            user_role = get_user_role(team_id, user_id)
-            is_leadership = is_leadership_chat(chat_id, team_id)
+            # Extract chat and user info
+            message = update.effective_message
+            chat = update.effective_chat
+            user = update.effective_user
+            chat_id = str(chat.id)
+            user_id = str(user.id)
+            username = user.username or user.full_name or "Unknown"
+            message_text = message.text or ""
+
+            # For now, use a fixed team_id (can be improved to map chat_id to team_id)
+            team_id = '0854829d-445c-4138-9fd3-4db562ea46ee'
+
+            # Get user role and check if it's a leadership chat
+            try:
+                from src.tools.firebase_tools import get_user_role, is_leadership_chat
+                user_role = get_user_role(team_id, user_id)
+                is_leadership = is_leadership_chat(chat_id, team_id)
+            except Exception as e:
+                logger.error(f"Error getting user role or chat type: {e}")
+                user_role = 'member'  # Default to member
+                is_leadership = False
+
+            # Get or create the handler for this team
+            try:
+                if team_id not in agentic_handlers:
+                    agentic_handlers[team_id] = SimpleAgenticHandler(team_id)
+                handler = agentic_handlers[team_id]
+            except Exception as e:
+                logger.error(f"Failed to initialize agent handler: {e}")
+                await message.reply_text(
+                    "❌ **System Error:** Agent system is currently unavailable. Please try again later or contact the admin.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            # Process the message with role and chat type information
+            try:
+                response = handler.process_message(
+                    message_text, 
+                    user_id=user_id, 
+                    chat_id=chat_id, 
+                    user_role=user_role, 
+                    is_leadership_chat=is_leadership
+                )
+            except Exception as e:
+                logger.error(f"Error processing message: {e}")
+                await message.reply_text(
+                    "❌ **Processing Error:** Unable to process your message. Please try again or contact the admin if the issue persists.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            # Reply to the user without markdown escaping (Markdown mode handles it automatically)
+            try:
+                await message.reply_text(response, parse_mode='Markdown')
+            except Exception as e:
+                logger.error(f"Error sending response: {e}")
+                # Try sending without markdown if markdown fails
+                try:
+                    await message.reply_text(response)
+                except Exception as e2:
+                    logger.error(f"Failed to send response even without markdown: {e2}")
+                    await message.reply_text(
+                        "❌ **Error:** Unable to send response. Please contact the admin.",
+                        parse_mode='Markdown'
+                    )
+
         except Exception as e:
-            logger.error(f"Error getting user role or chat type: {e}")
-            user_role = 'member'  # Default to member
-            is_leadership = False
-
-        # Get or create the handler for this team
-        if team_id not in agentic_handlers:
-            agentic_handlers[team_id] = SimpleAgenticHandler(team_id)
-        handler = agentic_handlers[team_id]
-
-        # Process the message with role and chat type information
-        response = handler.process_message(
-            message_text, 
-            user_id=user_id, 
-            chat_id=chat_id, 
-            user_role=user_role, 
-            is_leadership_chat=is_leadership
-        )
-
-        # Reply to the user without markdown escaping (Markdown mode handles it automatically)
-        await message.reply_text(response, parse_mode='Markdown')
+            logger.error(f"Unexpected error in langchain_agentic_message_handler: {e}")
+            try:
+                if update.effective_message:
+                    await update.effective_message.reply_text(
+                        "❌ **System Error:** An unexpected error occurred. Please contact the admin.",
+                        parse_mode='Markdown'
+                    )
+            except Exception as send_error:
+                logger.error(f"Failed to send error message to user: {send_error}")
 
     # Register the handler for all text messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, langchain_agentic_message_handler))
