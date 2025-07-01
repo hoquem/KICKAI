@@ -1,116 +1,187 @@
 #!/usr/bin/env python3
 """
-Main entry point for KICKAI application
+Main Application Entry Point for KICKAI
+
+This module provides the main application entry point with proper initialization,
+error handling, and graceful shutdown.
 """
 
-import os
-import logging
-from datetime import datetime
-from dotenv import load_dotenv
+import asyncio
+import signal
+import sys
+from typing import Optional, Any
+from contextlib import asynccontextmanager
 
-# Load environment variables
-load_dotenv()
+from .core.config import initialize_config, get_config
+from .core.logging import initialize_logging, get_logger, log_error
+from .core.exceptions import ConfigurationError, KICKAIError
+from .database.firebase_client import initialize_firebase_client, get_firebase_client
+from .services.player_service import initialize_player_service
+from .services.team_service import initialize_team_service
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-# Import monitoring
-from src.monitoring import AppMonitor
-
-# Import configuration
-from config import config
-
-# Version and deployment info
-VERSION = "1.4.5-signal-fix"
-DEPLOYMENT_TIME = "2024-12-19 19:15 UTC"
-
-def test_firebase_connection():
-    """Test Firebase connection."""
-    try:
-        from src.tools.firebase_tools import get_firebase_client
-        client = get_firebase_client()
-        # Test a simple query
-        client.collection('teams').limit(1).get()
-        return {"status": "success", "message": "Firebase connection successful"}
-    except Exception as e:
-        return {"status": "error", "message": f"Firebase connection failed: {str(e)}"}
-
-def get_system_info():
-    """Get comprehensive system information."""
-    try:
-        # Get environment info
-        environment = os.getenv('RAILWAY_ENVIRONMENT', 'development')
-        python_version = os.sys.version
-        working_dir = os.getcwd()
-        port = int(os.getenv('PORT', 8080))
-        
-        # Test Firebase connection
-        firebase_status = test_firebase_connection()
-        
-        # Get configuration info
-        ai_provider = config.ai_provider
-        database_type = config.database_config['type']
-        
-        return {
-            'version': VERSION,
-            'deployment_time': DEPLOYMENT_TIME,
-            'environment': environment,
-            'python_version': python_version,
-            'working_directory': working_dir,
-            'port': port,
-            'ai_provider': ai_provider,
-            'database_type': database_type,
-            'firebase': firebase_status,
-        }
-        
-    except Exception as e:
-        logger.error(f"Error getting system info: {e}")
-        return {
-            'version': VERSION,
-            'deployment_time': DEPLOYMENT_TIME,
-            'error': str(e)
-        }
-
-def main():
-    """Main application entry point."""
-    logger.info("🚀 Starting KICKAI on Railway...")
-    logger.info(f"📅 Deployment timestamp: {DEPLOYMENT_TIME}")
-    logger.info(f"🏆 Version: {VERSION}")
-    logger.info("🏆 Match Management System: ACTIVE")
-    logger.info("🏥 Enhanced Logging: ACTIVE")
+class KICKAIApplication:
+    """Main KICKAI application class."""
     
-    # Get system info
-    system_info = get_system_info()
-    logger.info(f"🌍 Environment: {system_info['environment']}")
-    logger.info(f"🔢 Port: {system_info['port']}")
-    logger.info(f"🐍 Python version: {system_info['python_version']}")
-    logger.info(f"📁 Working directory: {system_info['working_directory']}")
+    def __init__(self):
+        self._logger: Optional[Any] = None
+        self._firebase_client: Optional[Any] = None
+        self._player_service: Optional[Any] = None
+        self._team_service: Optional[Any] = None
+        self._running = False
+        self._shutdown_event = asyncio.Event()
     
-    # Test Firebase connection first
-    firebase_status = test_firebase_connection()
-    if firebase_status['status'] != 'success':
-        logger.error(f"Firebase connection failed: {firebase_status['message']}")
-        app_metrics.metrics['bot_status'] = 'firebase_error'
-    else:
-        logger.info("✅ Firebase connection successful")
+    async def initialize(self) -> None:
+        """Initialize the application."""
+        try:
+            # Initialize configuration
+            config = initialize_config()
+            
+            # Initialize logging first
+            initialize_logging(config.logging)
+            self._logger = get_logger("main")
+            self._logger.info("Logging system initialized")
+            
+            # Initialize Firebase client
+            self._firebase_client = initialize_firebase_client(config.database)
+            self._logger.info("Firebase client initialized")
+            
+            # Initialize services
+            self._player_service = initialize_player_service()
+            self._team_service = initialize_team_service()
+            self._logger.info("Services initialized")
+            
+            # Perform health checks
+            await self._perform_health_checks()
+            
+            self._logger.info("KICKAI application initialized successfully")
+            
+        except ConfigurationError as e:
+            self._logger.error("Configuration error during initialization", error=e)
+            raise
+        except Exception as e:
+            if self._logger:
+                self._logger.error("Failed to initialize application", error=e)
+            else:
+                print(f"Failed to initialize application: {e}")
+            raise
     
-    # Start health server
-    logger.info("🏥 Starting health server...")
+    async def _perform_health_checks(self) -> None:
+        """Perform health checks on all components."""
+        try:
+            # Database health check
+            db_health = await self._firebase_client.health_check()
+            if db_health['status'] != 'healthy':
+                raise KICKAIError(f"Database health check failed: {db_health}")
+            
+            self._logger.info("Health checks passed")
+            
+        except Exception as e:
+            self._logger.error("Health checks failed", error=e)
+            raise
+    
+    async def start(self) -> None:
+        """Start the application."""
+        try:
+            self._running = True
+            self._logger.info("Starting KICKAI application")
+            
+            # Set up signal handlers
+            self._setup_signal_handlers()
+            
+            # Start main application loop
+            await self._main_loop()
+            
+        except Exception as e:
+            self._logger.error("Error during application startup", error=e)
+            raise
+        finally:
+            await self.shutdown()
+    
+    def _setup_signal_handlers(self) -> None:
+        """Set up signal handlers for graceful shutdown."""
+        def signal_handler(signum, frame):
+            self._logger.info(f"Received signal {signum}, initiating shutdown")
+            self._shutdown_event.set()
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+    
+    async def _main_loop(self) -> None:
+        """Main application loop."""
+        self._logger.info("Entering main application loop")
+        
+        try:
+            while self._running and not self._shutdown_event.is_set():
+                # Main application logic here
+                # For now, just wait for shutdown signal
+                await asyncio.sleep(1)
+                
+        except Exception as e:
+            self._logger.error("Error in main loop", error=e)
+            raise
+    
+    async def shutdown(self) -> None:
+        """Shutdown the application gracefully."""
+        if not self._running:
+            return
+        
+        self._logger.info("Shutting down KICKAI application")
+        self._running = False
+        
+        try:
+            # Perform cleanup tasks
+            await self._cleanup()
+            
+            self._logger.info("KICKAI application shutdown complete")
+            
+        except Exception as e:
+            self._logger.error("Error during shutdown", error=e)
+    
+    async def _cleanup(self) -> None:
+        """Perform cleanup tasks."""
+        # Close database connections
+        if self._firebase_client:
+            # Firebase client doesn't need explicit cleanup
+            pass
+        
+        # Close any other resources
+        pass
+
+
+@asynccontextmanager
+async def application_context():
+    """Context manager for application lifecycle."""
+    app = KICKAIApplication()
     try:
-        from health_check import start_health_server
-        health_thread = start_health_server()
-        logger.info("✅ Health server started successfully")
-    except Exception as e:
-        logger.error(f"❌ Failed to start health server: {e}")
-    
-    # Start the main application
+        await app.initialize()
+        yield app
+    finally:
+        await app.shutdown()
+
+
+async def main():
+    """Main entry point."""
     try:
-        from run_telegram_bot import main as start_bot
-        start_bot()
+        async with application_context() as app:
+            await app.start()
+    except KeyboardInterrupt:
+        print("\nShutdown requested by user")
     except Exception as e:
-        logger.error(f"❌ Failed to start bot: {e}")
-        raise
+        print(f"Application error: {e}")
+        sys.exit(1)
+
+
+def run():
+    """Run the application."""
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nShutdown requested by user")
+    except Exception as e:
+        print(f"Failed to start application: {e}")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
-    main()
+    run()
