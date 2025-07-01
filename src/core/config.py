@@ -199,9 +199,19 @@ class ConfigurationManager:
             logging.warning(f"Unknown AI provider '{provider_str}', defaulting to google_gemini")
             provider = AIProvider.GOOGLE_GEMINI
         
+        # Load API key based on provider
+        api_key = ""
+        if provider == AIProvider.GOOGLE_GEMINI:
+            api_key = os.getenv("GOOGLE_API_KEY", "")
+        elif provider == AIProvider.OPENAI:
+            api_key = os.getenv("OPENAI_API_KEY", "")
+        else:
+            # Fallback to generic AI_API_KEY
+            api_key = os.getenv("AI_API_KEY", "")
+        
         return AIConfig(
             provider=provider,
-            api_key=os.getenv("AI_API_KEY", ""),
+            api_key=api_key,
             model_name=os.getenv("AI_MODEL_NAME", "gemini-pro"),
             temperature=float(os.getenv("AI_TEMPERATURE", "0.7")),
             max_tokens=int(os.getenv("AI_MAX_TOKENS", "1000")),
@@ -263,8 +273,16 @@ class ConfigurationManager:
         # For production, AI_API_KEY and TELEGRAM_BOT_TOKEN may be loaded from Firebase
         # Only validate if we're in development or if they're explicitly required
         if self._environment == Environment.DEVELOPMENT:
-            if not self._config["ai"].api_key:
-                errors.append("AI_API_KEY is required in development environment")
+            # Check for appropriate API key based on provider
+            if self._config["ai"].provider == AIProvider.GOOGLE_GEMINI:
+                if not self._config["ai"].api_key:
+                    errors.append("GOOGLE_API_KEY is required in development environment for Gemini")
+            elif self._config["ai"].provider == AIProvider.OPENAI:
+                if not self._config["ai"].api_key:
+                    errors.append("OPENAI_API_KEY is required in development environment for OpenAI")
+            else:
+                if not self._config["ai"].api_key:
+                    errors.append("AI_API_KEY is required in development environment")
             
             if not self._config["telegram"].bot_token:
                 errors.append("TELEGRAM_BOT_TOKEN is required in development environment")
