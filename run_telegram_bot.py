@@ -130,13 +130,8 @@ def main():
     print("🏆 KICKAI Telegram Bot Runner (Firebase + LLM Parsing)")
     print("=" * 50)
     
-    # Start health server for Railway monitoring
-    try:
-        from health_check import start_health_server
-        health_thread = start_health_server()
-        logger.info("✅ Health server started for Railway monitoring")
-    except Exception as e:
-        logger.warning(f"⚠️ Could not start health server: {e}")
+    # Note: Health server is handled by railway_main.py, not needed here
+    logger.info("✅ Health server managed by railway_main.py")
     
     try:
         # Get bot token from database

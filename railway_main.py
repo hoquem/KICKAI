@@ -96,17 +96,37 @@ def start_simple_health_server():
                 # Test if port is available
                 import socket
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1)
                 result = sock.connect_ex(('localhost', port))
                 sock.close()
                 
                 if result == 0:
-                    logger.warning(f"⚠️ Port {port} might be in use")
+                    logger.error(f"❌ Port {port} is already in use by another process")
+                    logger.error("❌ This will prevent the health server from starting")
+                    logger.error("❌ Check if another Flask server is running")
+                    return
                 else:
                     logger.info(f"✅ Port {port} is available")
+                
+                # Use a different port if 8080 is taken
+                if port == 8080 and result == 0:
+                    alternative_port = 8081
+                    logger.info(f"🔄 Trying alternative port {alternative_port}")
+                    port = alternative_port
                 
                 app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
                 logger.info("✅ Flask server started successfully")
                 
+            except OSError as e:
+                if "Address already in use" in str(e):
+                    logger.error(f"❌ Port {port} is already in use")
+                    logger.error("❌ This prevents the health server from starting")
+                    logger.error("❌ The bot may still work but health checks will fail")
+                else:
+                    logger.error(f"❌ Flask server failed to start: {e}")
+                logger.error(f"❌ Error type: {type(e).__name__}")
+                import traceback
+                logger.error(f"❌ Traceback: {traceback.format_exc()}")
             except Exception as e:
                 logger.error(f"❌ Flask server failed to start: {e}")
                 logger.error(f"❌ Error type: {type(e).__name__}")
