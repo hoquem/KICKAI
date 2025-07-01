@@ -30,13 +30,13 @@ from .handlers import (
 
 from .intelligent_system import (
     ImprovedAgenticSystem,
-    IntelligentAgentRouter,
     AgentCommunicationProtocol,
     AgentPerformanceMonitor
 )
 
 from .routing import (
     IntelligentAgentRouter,
+    StandaloneIntelligentRouter,
     RoutingDecision,
     RequestContext
 )
@@ -65,12 +65,12 @@ __all__ = [
     
     # Intelligent System
     'ImprovedAgenticSystem',
-    'IntelligentAgentRouter',
     'AgentCommunicationProtocol',
     'AgentPerformanceMonitor',
     
     # Routing
     'IntelligentAgentRouter',
+    'StandaloneIntelligentRouter',
     'RoutingDecision',
     'RequestContext'
 ] 

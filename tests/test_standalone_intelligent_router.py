@@ -9,7 +9,7 @@ from datetime import datetime
 from src.testing.test_base import AsyncBaseTestCase
 from src.testing.test_fixtures import TestDataFactory, SampleData
 from src.testing.test_utils import MockLLM, MockAgent
-from src.intelligent_router_standalone import StandaloneIntelligentRouter, RoutingDecision, RequestContext
+from src.agents import StandaloneIntelligentRouter, RoutingDecision, RequestContext
 
 
 @pytest.mark.asyncio

@@ -1542,39 +1542,55 @@ from src.services.team_service import get_team_service
 
 # Initialize the new player registration handler and command handler
 TEAM_ID = os.getenv('KICKAI_TEAM_ID', 'default_team')
-player_registration_handler = PlayerRegistrationHandler(team_id=TEAM_ID)
-player_command_handler = PlayerCommandHandler(player_registration_handler)
+
+# Lazy initialization to prevent Firebase initialization during module import
+_player_registration_handler = None
+_player_command_handler = None
+
+def get_player_registration_handler():
+    """Get the player registration handler instance (lazy initialization)."""
+    global _player_registration_handler
+    if _player_registration_handler is None:
+        _player_registration_handler = PlayerRegistrationHandler(team_id=TEAM_ID)
+    return _player_registration_handler
+
+def get_player_command_handler():
+    """Get the player command handler instance (lazy initialization)."""
+    global _player_command_handler
+    if _player_command_handler is None:
+        _player_command_handler = PlayerCommandHandler(get_player_registration_handler())
+    return _player_command_handler
 
 # Example refactored command handler for /addplayer
 import asyncio
 
 async def handle_addplayer_command(command: str, user_id: str) -> str:
     """Handle /addplayer command using the new architecture."""
-    return await player_command_handler._handle_add_player(command, user_id)
+    return await get_player_command_handler()._handle_add_player(command, user_id)
 
 # TODO: Refactor all other player/team commands to use player_command_handler
 
 # --- Refactored player/team command handlers ---
 
 async def handle_removeplayer_command(command: str, user_id: str) -> str:
-    return await player_command_handler._handle_remove_player(command, user_id)
+    return await get_player_command_handler()._handle_remove_player(command, user_id)
 
 async def handle_listplayers_command(user_id: str) -> str:
-    return await player_command_handler._handle_list_players()
+    return await get_player_command_handler()._handle_list_players()
 
 async def handle_playerstatus_command(command: str, user_id: str) -> str:
-    return await player_command_handler._handle_player_status(command)
+    return await get_player_command_handler()._handle_player_status(command)
 
 async def handle_playerstats_command(user_id: str) -> str:
-    return await player_command_handler._handle_player_stats()
+    return await get_player_command_handler()._handle_player_stats()
 
 async def handle_generateinvite_command(command: str, user_id: str) -> str:
-    return await player_command_handler._handle_generate_invite(command)
+    return await get_player_command_handler()._handle_generate_invite(command)
 
 async def handle_myinfo_command(user_id: str) -> str:
-    return await player_command_handler._handle_myinfo(user_id)
+    return await get_player_command_handler()._handle_myinfo(user_id)
 
 async def handle_help_command(user_id: str) -> str:
-    return player_command_handler._get_help_message()
+    return get_player_command_handler()._get_help_message()
 
 # TODO: Remove legacy logic for these commands and route all player/team commands through these handlers.
