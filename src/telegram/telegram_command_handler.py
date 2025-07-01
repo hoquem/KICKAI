@@ -586,7 +586,7 @@ match_id_generator = MatchIDGenerator()
 
 # --- Agent-Based Message Processing ---
 
-from src.improved_agentic_system import ImprovedAgenticSystem
+from src.agents import ImprovedAgenticSystem
 
 class AgentBasedMessageHandler:
     """Agent-based message handler using CrewAI for intelligent message processing."""
@@ -640,7 +640,7 @@ class AgentBasedMessageHandler:
                     self.improved_agentic_system = None
             if ENABLE_LLM_ROUTING:
                 try:
-                    from src.intelligent_router_standalone import StandaloneIntelligentRouter
+                    from src.agents import StandaloneIntelligentRouter
                     self.intelligent_router = StandaloneIntelligentRouter(self.agents, llm)
                     logger.info(f"✅ LLM-powered routing initialized for team {self.team_id}")
                 except Exception as e:
@@ -648,7 +648,7 @@ class AgentBasedMessageHandler:
                     self.intelligent_router = None
             elif ENABLE_INTELLIGENT_ROUTING:
                 try:
-                    from src.intelligent_router_standalone import StandaloneIntelligentRouter
+                    from src.agents import StandaloneIntelligentRouter
                     self.intelligent_router = StandaloneIntelligentRouter(self.agents, llm)
                     logger.info(f"✅ Intelligent router initialized for team {self.team_id}")
                 except Exception as e:
@@ -688,7 +688,7 @@ class AgentBasedMessageHandler:
     async def _handle_with_intelligent_routing(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
         """Handle request using intelligent routing."""
         try:
-            from src.intelligent_router_standalone import RequestContext
+            from src.agents import RequestContext
             
             # Create request context
             context_key = f"{chat_id}_{user_id}"
@@ -1483,7 +1483,7 @@ def register_agent_based_commands(app):
         print(f"❌ Failed to register agent-based commands: {e}")
         raise
 
-from src.simple_agentic_handler import SimpleAgenticHandler
+from src.agents import SimpleAgenticHandler
 from telegram import Update
 from telegram.ext import ContextTypes, MessageHandler, filters
 

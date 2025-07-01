@@ -9,9 +9,9 @@ from typing import List
 from src.testing.test_base import BaseTestCase
 from src.testing.test_fixtures import TestDataFactory, SampleData
 from src.testing.test_utils import MockLLM, MockAgent
-from src.agent_capabilities import (
-    AgentCapabilityMatrix, 
-    AgentCapability, 
+from src.agents import (
+    AgentCapability,
+    AgentCapabilityMatrix,
     CapabilityType,
     get_agent_capabilities,
     get_agents_with_capability,

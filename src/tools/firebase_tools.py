@@ -39,7 +39,7 @@ except ImportError as e:
 
 # Import MatchIDGenerator for human-readable fixture IDs
 try:
-    from src.telegram_command_handler import MatchIDGenerator
+    from src.telegram.telegram_command_handler import MatchIDGenerator
     match_id_generator = MatchIDGenerator()
     logger.info("✅ MatchIDGenerator imported successfully")
 except ImportError as e:

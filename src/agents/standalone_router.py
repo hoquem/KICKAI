@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 
-from src.agent_capabilities import AgentCapabilityMatrix, CapabilityType
+from .capabilities import AgentCapabilityMatrix, CapabilityType
 
 logger = logging.getLogger(__name__)
 

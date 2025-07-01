@@ -7,7 +7,7 @@ import pytest
 from src.testing.test_base import BaseTestCase
 from src.testing.test_fixtures import TestDataFactory, SampleData
 from src.testing.test_utils import MockLLM, MockAgent
-from src.agent_capabilities import AgentCapabilityMatrix, CapabilityType
+from src.agents import AgentCapabilityMatrix, CapabilityType
 from config import get_feature_flags, is_phase1_enabled
 
 class TestPhase1Integration(BaseTestCase):

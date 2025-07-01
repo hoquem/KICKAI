@@ -10,8 +10,8 @@ from typing import Dict, List
 from src.testing.test_base import BaseTestCase, AsyncBaseTestCase
 from src.testing.test_fixtures import TestDataFactory, SampleData
 from src.testing.test_utils import MockLLM, MockAgent
-from src.intelligent_router import IntelligentAgentRouter, RoutingDecision, RequestContext
-from src.agent_capabilities import CapabilityType
+from src.agents import IntelligentAgentRouter, RoutingDecision, RequestContext
+from src.agents import CapabilityType
 
 
 class TestIntelligentRouter(BaseTestCase):

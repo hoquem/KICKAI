@@ -13,7 +13,7 @@ from src.testing.test_base import BaseTestCase, AsyncBaseTestCase
 from src.testing.test_fixtures import TestDataFactory, SampleData
 from src.testing.test_utils import MockLLM, MockAgent, MockTool
 from src.telegram.player_registration_handler import PlayerRegistrationHandler
-from src.telegram_command_handler import PlayerCommandHandler
+from src.telegram.telegram_command_handler import PlayerCommandHandler
 from src.database.models import Player, PlayerPosition, PlayerRole, OnboardingStatus
 from src.services.player_service import PlayerService
 from src.services.team_service import TeamService

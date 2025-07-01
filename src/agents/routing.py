@@ -4,7 +4,7 @@ Intelligent Router Module - Wrapper for Standalone Implementation
 Provides the expected interface for tests and other modules.
 """
 
-from src.intelligent_router_standalone import (
+from .standalone_router import (
     StandaloneIntelligentRouter,
     RoutingDecision,
     RequestContext
