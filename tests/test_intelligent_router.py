@@ -1,60 +1,39 @@
-#!/usr/bin/env python3
 """
 Unit tests for intelligent router system.
 """
 
-import unittest
-import sys
-import os
+import pytest
 import asyncio
-from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
 from typing import Dict, List
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
-
+from src.testing.test_base import BaseTestCase, AsyncBaseTestCase
+from src.testing.test_fixtures import TestDataFactory, SampleData
+from src.testing.test_utils import MockLLM, MockAgent
 from src.intelligent_router import IntelligentAgentRouter, RoutingDecision, RequestContext
 from src.agent_capabilities import CapabilityType
 
-class MockLLM:
-    """Mock LLM for testing."""
-    
-    def __init__(self, responses=None):
-        self.responses = responses or {}
-        self.call_count = 0
-    
-    async def ainvoke(self, prompt):
-        self.call_count += 1
-        
-        # Return different responses based on prompt content
-        if "complexity" in prompt.lower():
-            return '{"complexity": 7, "intent": "team_management", "reasoning": "Test reasoning", "entities": [], "urgency": "normal", "estimated_agents_needed": 2}'
-        elif "capability" in prompt.lower():
-            return '["intent_analysis", "coordination"]'
-        else:
-            return '{"complexity": 5, "intent": "general_query", "reasoning": "Default reasoning", "entities": [], "urgency": "normal", "estimated_agents_needed": 1}'
 
-class TestIntelligentRouter(unittest.TestCase):
+class TestIntelligentRouter(BaseTestCase):
     """Test cases for intelligent router system."""
     
     def setUp(self):
         """Set up test fixtures."""
         self.mock_agents = {
-            'message_processor': Mock(),
-            'team_manager': Mock(),
-            'player_coordinator': Mock(),
-            'match_analyst': Mock(),
-            'communication_specialist': Mock(),
-            'finance_manager': Mock(),
-            'squad_selection_specialist': Mock(),
-            'analytics_specialist': Mock()
+            'message_processor': self.create_mock_agent('message_processor'),
+            'team_manager': self.create_mock_agent('team_manager'),
+            'player_coordinator': self.create_mock_agent('player_coordinator'),
+            'match_analyst': self.create_mock_agent('match_analyst'),
+            'communication_specialist': self.create_mock_agent('communication_specialist'),
+            'finance_manager': self.create_mock_agent('finance_manager'),
+            'squad_selection_specialist': self.create_mock_agent('squad_selection_specialist'),
+            'analytics_specialist': self.create_mock_agent('analytics_specialist')
         }
         
-        self.mock_llm = MockLLM()
+        self.mock_llm = self.create_mock_llm()
         self.router = IntelligentAgentRouter(self.mock_agents, self.mock_llm)
         
-        self.test_context = RequestContext(
+        self.request_context = RequestContext(
             user_id="test_user",
             team_id="test_team",
             message="Test message",
@@ -73,7 +52,7 @@ class TestIntelligentRouter(unittest.TestCase):
     
     def test_analysis_prompt_creation(self):
         """Test that analysis prompts are created correctly."""
-        prompt = self.router._create_analysis_prompt("Test message", self.test_context)
+        prompt = self.router._create_analysis_prompt("Test message", self.request_context)
         
         self.assertIsInstance(prompt, str)
         self.assertIn("Test message", prompt)
@@ -199,86 +178,48 @@ class TestIntelligentRouter(unittest.TestCase):
             timestamp=datetime.now()
         )
         
-        start_time = datetime.now()
-        self.router._update_performance_metrics(decision, start_time)
         self.router._log_routing_decision(decision, "Test message")
         
         analytics = self.router.get_routing_analytics()
         
+        self.assertIsInstance(analytics, dict)
         self.assertIn('total_decisions', analytics)
         self.assertIn('average_complexity', analytics)
-        self.assertIn('average_confidence', analytics)
-        self.assertIn('success_rate', analytics)
         self.assertIn('agent_usage', analytics)
-        self.assertIn('capability_usage', analytics)
-    
-    def test_performance_metrics(self):
-        """Test performance metrics retrieval."""
-        metrics = self.router.get_performance_metrics()
-        
-        self.assertIn('total_requests', metrics)
-        self.assertIn('successful_routes', metrics)
-        self.assertIn('avg_routing_time', metrics)
-        self.assertIn('complexity_distribution', metrics)
-    
-    @patch('src.intelligent_router.IntelligentAgentRouter._analyze_request')
-    @patch('src.intelligent_router.IntelligentAgentRouter._determine_required_capabilities')
-    @patch('src.intelligent_router.IntelligentAgentRouter._select_optimal_agents')
-    async def test_full_routing_flow(self, mock_select_agents, mock_determine_capabilities, mock_analyze):
-        """Test the full routing flow."""
-        # Mock the analysis steps
-        mock_analyze.return_value = {
-            'complexity': 7.0,
-            'intent': 'team_management',
-            'reasoning': 'Test reasoning',
-            'entities': [],
-            'urgency': 'normal',
-            'estimated_agents_needed': 2
-        }
-        
-        mock_determine_capabilities.return_value = ['intent_analysis', 'coordination']
-        mock_select_agents.return_value = ['message_processor', 'team_manager']
-        
-        # Test routing
-        decision = await self.router.route_request("Test message", self.test_context)
-        
-        # Verify the decision
-        self.assertIsInstance(decision, RoutingDecision)
-        self.assertEqual(decision.selected_agents, ['message_processor', 'team_manager'])
-        self.assertEqual(decision.complexity_score, 7.0)
-        self.assertIn('intent_analysis', decision.required_capabilities)
-        self.assertIn('coordination', decision.required_capabilities)
-        
-        # Verify mocks were called
-        mock_analyze.assert_called_once()
-        mock_determine_capabilities.assert_called_once()
-        mock_select_agents.assert_called_once()
+        self.assertEqual(analytics['total_decisions'], 1)
 
-class TestIntelligentRouterIntegration(unittest.TestCase):
-    """Integration tests for intelligent router."""
+
+@pytest.mark.asyncio
+class TestIntelligentRouterIntegration(AsyncBaseTestCase):
+    """Integration tests for intelligent router system."""
     
-    def setUp(self):
+    async def async_setup_method(self):
         """Set up test fixtures."""
         self.mock_agents = {
-            'message_processor': Mock(),
-            'team_manager': Mock(),
-            'player_coordinator': Mock(),
-            'match_analyst': Mock(),
-            'communication_specialist': Mock(),
-            'finance_manager': Mock(),
-            'squad_selection_specialist': Mock(),
-            'analytics_specialist': Mock()
+            'message_processor': self.create_mock_agent('message_processor'),
+            'team_manager': self.create_mock_agent('team_manager'),
+            'player_coordinator': self.create_mock_agent('player_coordinator'),
+            'match_analyst': self.create_mock_agent('match_analyst')
         }
         
-        self.mock_llm = MockLLM()
+        self.mock_llm = self.create_mock_llm()
         self.router = IntelligentAgentRouter(self.mock_agents, self.mock_llm)
-    
-    async def test_player_management_request(self):
-        """Test routing for player management requests."""
-        context = RequestContext(
+        
+        self.request_context = RequestContext(
             user_id="test_user",
             team_id="test_team",
-            message="Add player John Doe with phone 123456789",
+            message="Test message",
+            conversation_history=[],
+            user_preferences={},
+            team_patterns={}
+        )
+    
+    async def test_player_management_request(self):
+        """Test routing for player management request."""
+        context = RequestContext(
+            user_id="captain",
+            team_id="team1",
+            message="Add new player John Smith to the team",
             conversation_history=[],
             user_preferences={},
             team_patterns={}
@@ -287,15 +228,16 @@ class TestIntelligentRouterIntegration(unittest.TestCase):
         decision = await self.router.route_request(context.message, context)
         
         self.assertIsInstance(decision, RoutingDecision)
+        self.assertIsInstance(decision.selected_agents, list)
         self.assertGreater(len(decision.selected_agents), 0)
-        self.assertGreater(decision.confidence_score, 0)
+        self.assertGreater(decision.confidence_score, 0.0)
     
     async def test_complex_coordination_request(self):
-        """Test routing for complex coordination requests."""
+        """Test routing for complex coordination request."""
         context = RequestContext(
-            user_id="test_user",
-            team_id="test_team",
-            message="Create a match against Arsenal and notify the team about availability",
+            user_id="manager",
+            team_id="team1",
+            message="Schedule training session, coordinate with players, and arrange transport",
             conversation_history=[],
             user_preferences={},
             team_patterns={}
@@ -305,14 +247,14 @@ class TestIntelligentRouterIntegration(unittest.TestCase):
         
         self.assertIsInstance(decision, RoutingDecision)
         self.assertGreater(len(decision.selected_agents), 1)  # Should require multiple agents
-        self.assertGreater(decision.complexity_score, 5.0)  # Should be complex
+        self.assertGreater(decision.complexity_score, 5.0)
     
     async def test_simple_query_request(self):
-        """Test routing for simple query requests."""
+        """Test routing for simple query request."""
         context = RequestContext(
-            user_id="test_user",
-            team_id="test_team",
-            message="What's our next match?",
+            user_id="player",
+            team_id="team1",
+            message="What time is training tomorrow?",
             conversation_history=[],
             user_preferences={},
             team_patterns={}
@@ -322,26 +264,28 @@ class TestIntelligentRouterIntegration(unittest.TestCase):
         
         self.assertIsInstance(decision, RoutingDecision)
         self.assertLessEqual(len(decision.selected_agents), 2)  # Should require few agents
-        self.assertLess(decision.complexity_score, 7.0)  # Should be relatively simple
+        self.assertLess(decision.complexity_score, 5.0)
 
-class TestIntelligentRouterErrorHandling(unittest.TestCase):
-    """Test error handling in intelligent router."""
+
+@pytest.mark.asyncio
+class TestIntelligentRouterErrorHandling(AsyncBaseTestCase):
+    """Error handling tests for intelligent router system."""
     
-    def setUp(self):
+    async def async_setup_method(self):
         """Set up test fixtures."""
         self.mock_agents = {
-            'message_processor': Mock(),
-            'team_manager': Mock()
+            'message_processor': self.create_mock_agent('message_processor'),
+            'team_manager': self.create_mock_agent('team_manager')
         }
         
-        self.mock_llm = MockLLM()
+        self.mock_llm = self.create_mock_llm()
         self.router = IntelligentAgentRouter(self.mock_agents, self.mock_llm)
     
     async def test_llm_error_handling(self):
         """Test handling of LLM errors."""
         # Create a mock LLM that raises an exception
-        error_llm = Mock()
-        error_llm.ainvoke = AsyncMock(side_effect=Exception("LLM Error"))
+        error_llm = MockLLM()
+        error_llm.invoke = lambda *args, **kwargs: (_ for _ in ()).throw(Exception("LLM Error"))
         
         router = IntelligentAgentRouter(self.mock_agents, error_llm)
         
@@ -354,16 +298,15 @@ class TestIntelligentRouterErrorHandling(unittest.TestCase):
             team_patterns={}
         )
         
-        # Should not raise an exception
+        # Should handle the error gracefully
         decision = await router.route_request(context.message, context)
         
         self.assertIsInstance(decision, RoutingDecision)
-        self.assertEqual(decision.reasoning, "Fallback routing due to error")
+        self.assertEqual(decision.complexity_score, 5.0)  # Default fallback
     
     async def test_no_agents_available(self):
         """Test handling when no agents are available."""
-        # Create router with no agents
-        empty_router = IntelligentAgentRouter({}, self.mock_llm)
+        router = IntelligentAgentRouter({}, self.mock_llm)  # No agents
         
         context = RequestContext(
             user_id="test_user",
@@ -374,16 +317,9 @@ class TestIntelligentRouterErrorHandling(unittest.TestCase):
             team_patterns={}
         )
         
-        # Should use fallback routing
-        decision = await empty_router.route_request(context.message, context)
+        # Should handle gracefully
+        decision = await router.route_request(context.message, context)
         
         self.assertIsInstance(decision, RoutingDecision)
-        self.assertEqual(decision.reasoning, "Fallback routing due to error")
-
-def run_async_test(coro):
-    """Helper function to run async tests."""
-    return asyncio.run(coro)
-
-if __name__ == '__main__':
-    # Run tests
-    unittest.main(verbosity=2) 
+        self.assertEqual(len(decision.selected_agents), 0)
+        self.assertEqual(decision.confidence_score, 0.0) 

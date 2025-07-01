@@ -8,13 +8,16 @@ DEPLOYMENT VERSION: 2024-12-19-17:00 - LLM Command Parsing Active
 """
 
 import os
-import logging
 import re
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import requests
 import json
+
+# Use new structured logging
+from src.core.logging import get_logger
+logger = get_logger(__name__)
 
 # Monkey patch for httpx proxy issue with Firebase
 import httpx
@@ -28,15 +31,11 @@ def patched_request(self, method, url, **kwargs):
 
 httpx.Client.request = patched_request
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # Import configuration
 try:
     from config import config, ENABLE_INTELLIGENT_ROUTING, ENABLE_LLM_ROUTING, ENABLE_DYNAMIC_TASK_DECOMPOSITION
 except ImportError as e:
-    logger.error(f"Configuration not available: {e}")
+    logger.error("Configuration not available", error=e)
     raise ImportError("Configuration not available")
 
 # Version check - this will force Railway to reload
@@ -50,7 +49,7 @@ try:
     logger.info("✅ OnboardingAgent imported successfully")
 except ImportError as e:
     ONBOARDING_AGENT_AVAILABLE = False
-    logger.warning(f"⚠️ OnboardingAgent not available: {e}")
+    logger.warning("⚠️ OnboardingAgent not available", error=e)
 
 # --- LLM-based Command Parsing ---
 
@@ -121,7 +120,7 @@ class LLMCommandParser:
             return self._parse_natural_language(message_text)
             
         except Exception as e:
-            logger.error(f"Error parsing command: {e}")
+            logger.error("Error parsing command", error=e)
             return {
                 'command': None,
                 'params': {},
@@ -282,7 +281,7 @@ JSON response:"""
             return response.text.strip()
             
         except Exception as e:
-            logger.error(f"Google AI error: {e}")
+            logger.error("Google AI error", error=e)
             raise
     
     def _call_ollama(self, prompt: str) -> str:
@@ -308,7 +307,7 @@ JSON response:"""
             return result.get('response', '').strip()
             
         except Exception as e:
-            logger.error(f"Ollama error: {e}")
+            logger.error("Ollama error", error=e)
             raise
     
     def _parse_llm_response(self, llm_response: str, original_message: str) -> Dict[str, Any]:
@@ -346,8 +345,8 @@ JSON response:"""
             return parsed
             
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse LLM response as JSON: {e}")
-            logger.error(f"Response: {llm_response}")
+            logger.error("Failed to parse LLM response as JSON", error=e)
+            logger.error("Response", response=llm_response)
             return {
                 'command': None,
                 'params': {},
@@ -355,7 +354,7 @@ JSON response:"""
                 'error': f"Invalid JSON response: {e}"
             }
         except Exception as e:
-            logger.error(f"Error parsing LLM response: {e}")
+            logger.error("Error parsing LLM response", error=e)
             return {
                 'command': None,
                 'params': {},
@@ -525,7 +524,7 @@ class MatchIDGenerator:
             return '0101'  # Default fallback
             
         except Exception as e:
-            logger.error(f"Date parsing error: {e}")
+            logger.error("Date parsing error", error=e)
             return '0101'  # Default fallback
     
     def generate_match_id(self, opponent: str, date: str, venue: str = '') -> str:
@@ -572,7 +571,7 @@ class MatchIDGenerator:
             return '01JAN'  # Default fallback
             
         except Exception as e:
-            logger.error(f"Date parsing error: {e}")
+            logger.error("Date parsing error", error=e)
             return '01JAN'  # Default fallback
     
     def _resolve_conflicts(self, base_id: str) -> str:
@@ -608,7 +607,7 @@ class AgentBasedMessageHandler:
                 self.onboarding_agent = OnboardingAgent(team_id)
                 logger.info("✅ OnboardingAgent initialized in Telegram handler")
             except Exception as e:
-                logger.error(f"Failed to initialize OnboardingAgent: {e}")
+                logger.error("Failed to initialize OnboardingAgent", error=e)
                 self.onboarding_agent = None
     
     def _initialize_agents(self):
@@ -637,7 +636,7 @@ class AgentBasedMessageHandler:
                     self.improved_agentic_system = ImprovedAgenticSystem(self.agents, llm)
                     logger.info(f"✅ Dynamic task decomposition initialized for team {self.team_id}")
                 except Exception as e:
-                    logger.error(f"❌ Failed to initialize improved agentic system: {e}")
+                    logger.error("❌ Failed to initialize improved agentic system", error=e)
                     self.improved_agentic_system = None
             if ENABLE_LLM_ROUTING:
                 try:
@@ -645,7 +644,7 @@ class AgentBasedMessageHandler:
                     self.intelligent_router = StandaloneIntelligentRouter(self.agents, llm)
                     logger.info(f"✅ LLM-powered routing initialized for team {self.team_id}")
                 except Exception as e:
-                    logger.error(f"❌ Failed to initialize LLM-powered router: {e}")
+                    logger.error("❌ Failed to initialize LLM-powered router", error=e)
                     self.intelligent_router = None
             elif ENABLE_INTELLIGENT_ROUTING:
                 try:
@@ -653,36 +652,37 @@ class AgentBasedMessageHandler:
                     self.intelligent_router = StandaloneIntelligentRouter(self.agents, llm)
                     logger.info(f"✅ Intelligent router initialized for team {self.team_id}")
                 except Exception as e:
-                    logger.error(f"❌ Failed to initialize intelligent router: {e}")
+                    logger.error("❌ Failed to initialize intelligent router", error=e)
                     self.intelligent_router = None
             logger.info(f"✅ Agent-based message handler initialized for team {self.team_id}")
             logger.info(f"📊 Loaded {len(self.agents)} agents: {list(self.agents.keys())}")
             logger.info(f"🧠 Routing: {'✅ LLM-powered' if ENABLE_LLM_ROUTING and self.intelligent_router else ('✅ Intelligent' if ENABLE_INTELLIGENT_ROUTING and self.intelligent_router else '❌ Disabled')}")
             logger.info(f"🔧 Dynamic Task Decomposition: {'✅ Enabled' if ENABLE_DYNAMIC_TASK_DECOMPOSITION and self.improved_agentic_system else '❌ Disabled'}")
         except Exception as e:
-            logger.error(f"❌ Failed to initialize agents: {e}")
+            logger.error("❌ Failed to initialize agents", error=e)
             raise
     
     async def handle_message(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
         """Main entrypoint: handle incoming messages with dynamic task decomposition if enabled, else fallback."""
         try:
             if ENABLE_DYNAMIC_TASK_DECOMPOSITION and self.improved_agentic_system:
-                logger.info(f"🔧 [DynamicTaskDecomposition] Handling request: {message_text[:50]}...")
+                logger.info("🔧 [DynamicTaskDecomposition] Handling request", message_text=message_text[:50])
                 try:
                     result = await self.improved_agentic_system.process_request(message_text, user_id, self.team_id)
                     context_key = f"{chat_id}_{user_id}"
                     self.conversation_memory[context_key] = f"User: {message_text}\nAssistant: {result}"
                     return result
                 except Exception as e:
-                    logger.error(f"[DynamicTaskDecomposition] Error: {e}. Falling back to intelligent/legacy routing.")
+                    logger.error("[DynamicTaskDecomposition] Error", error=e, message_text=message_text)
+                    logger.error("[DynamicTaskDecomposition] Falling back to intelligent/legacy routing.")
             if self.intelligent_router:
-                logger.info(f"🧠 [IntelligentRouting] Handling request: {message_text[:50]}...")
+                logger.info("🧠 [IntelligentRouting] Handling request", message_text=message_text[:50])
                 return await self._handle_with_intelligent_routing(message_text, user_id, username, chat_id)
             else:
-                logger.info(f"📝 [LegacyRouting] Handling request: {message_text[:50]}...")
+                logger.info("📝 [LegacyRouting] Handling request", message_text=message_text[:50])
                 return await self._handle_with_legacy_routing(message_text, user_id, username, chat_id)
         except Exception as e:
-            logger.error(f"[MessageHandler] Fatal error: {e}")
+            logger.error("[MessageHandler] Fatal error", error=e)
             return f"❌ Sorry, I encountered an error processing your request: {str(e)}"
     
     async def _handle_with_intelligent_routing(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
@@ -709,7 +709,7 @@ class AgentBasedMessageHandler:
             # Get routing decision
             routing_decision = await self.intelligent_router.route_request(message_text, request_context)
             
-            logger.info(f"🧠 Intelligent routing decision: {routing_decision.selected_agents} (confidence: {routing_decision.confidence_score:.2f})")
+            logger.info("🧠 Intelligent routing decision", routing_decision=routing_decision.selected_agents, confidence_score=routing_decision.confidence_score)
             
             # Execute with selected agents
             if len(routing_decision.selected_agents) == 1:
@@ -719,7 +719,7 @@ class AgentBasedMessageHandler:
                 if agent:
                     return await self._execute_single_agent(agent, message_text, routing_decision)
                 else:
-                    logger.error(f"Agent {agent_name} not found")
+                    logger.error("Agent", agent_name=agent_name, message="not found")
                     return await self._handle_with_legacy_routing(message_text, user_id, username, chat_id)
             
             else:
@@ -727,7 +727,7 @@ class AgentBasedMessageHandler:
                 return await self._execute_multi_agent(routing_decision.selected_agents, message_text, routing_decision)
                 
         except Exception as e:
-            logger.error(f"Error in intelligent routing: {e}")
+            logger.error("Error in intelligent routing", error=e)
             # Fallback to legacy routing
             return await self._handle_with_legacy_routing(message_text, user_id, username, chat_id)
     
@@ -759,7 +759,7 @@ class AgentBasedMessageHandler:
             return result
             
         except Exception as e:
-            logger.error(f"Error in legacy routing: {e}")
+            logger.error("Error in legacy routing", error=e)
             return f"❌ Error processing your request: {str(e)}"
     
     async def _execute_single_agent(self, agent: Any, message_text: str, routing_decision) -> str:
@@ -785,7 +785,7 @@ class AgentBasedMessageHandler:
             return result
             
         except Exception as e:
-            logger.error(f"Error executing single agent: {e}")
+            logger.error("Error executing single agent", error=e)
             raise
     
     async def _execute_multi_agent(self, selected_agents: List[str], message_text: str, routing_decision) -> str:
@@ -837,7 +837,7 @@ class AgentBasedMessageHandler:
                     return "\n\n".join([f"From {task.agent.role}: {result}" for task, result in zip(tasks, results)])
                     
         except Exception as e:
-            logger.error(f"Error executing multi-agent: {e}")
+            logger.error("Error executing multi-agent", error=e)
             raise
     
     async def _handle_complex_request(self, message_text: str, user_id: str, username: str, chat_id: str) -> str:
@@ -859,7 +859,7 @@ class AgentBasedMessageHandler:
             return result
             
         except Exception as e:
-            logger.error(f"Error handling complex request: {e}")
+            logger.error("Error handling complex request", error=e)
             return f"❌ Error processing your complex request: {str(e)}"
     
     def _requires_multi_agent_coordination(self, message_text: str) -> bool:
@@ -888,7 +888,7 @@ class AgentBasedMessageHandler:
                 return str(result)
                 
         except Exception as e:
-            logger.error(f"Error executing task: {e}")
+            logger.error("Error executing task", error=e)
             raise
     
     async def _execute_crew_task(self, task) -> str:
@@ -906,7 +906,7 @@ class AgentBasedMessageHandler:
                 return str(result)
                 
         except Exception as e:
-            logger.error(f"Error executing crew task: {e}")
+            logger.error("Error executing crew task", error=e)
             raise
     
     def clear_conversation_memory(self, chat_id: str, user_id: str):
@@ -914,7 +914,7 @@ class AgentBasedMessageHandler:
         context_key = f"{chat_id}_{user_id}"
         if context_key in self.conversation_memory:
             del self.conversation_memory[context_key]
-            logger.info(f"Cleared conversation memory for {context_key}")
+            logger.info("Cleared conversation memory for", context_key=context_key)
     
     def get_conversation_stats(self) -> dict:
         """Get statistics about conversation memory usage."""
@@ -956,12 +956,12 @@ class AgentBasedMessageHandler:
             success, message = self.onboarding_agent.player_joined_via_invite(player_id, telegram_user_id, telegram_username)
             
             if success:
-                return f"✅ {message}\n�� Onboarding started!"
+                return f"✅ {message}\n⚠️ Onboarding started!"
             else:
                 return f"✅ {message}\n⚠️ Onboarding failed: {self.onboarding_agent.onboarding_message}"
                 
         except Exception as e:
-            logger.error(f"Error handling player join: {e}")
+            logger.error("Error handling player join", error=e)
             return f"❌ Error processing player join: {str(e)}"
 
     def handle_onboarding_response(self, telegram_user_id: str, response: str) -> str:
@@ -997,7 +997,7 @@ class AgentBasedMessageHandler:
                 return f"⚠️ {message}"
                 
         except Exception as e:
-            logger.error(f"Error handling onboarding response: {e}")
+            logger.error("Error handling onboarding response", error=e)
             return f"❌ Error processing response: {str(e)}"
 
     def handle_onboarding_message(self, message: str, user_id: str, username: str = None, is_leadership_chat: bool = False) -> str:
@@ -1020,7 +1020,7 @@ class AgentBasedMessageHandler:
             return self.agentic_handler.handle_message(message, user_id, username, is_leadership_chat)
             
         except Exception as e:
-            logger.error(f"Error handling message: {e}")
+            logger.error("Error handling message", error=e)
             return f"❌ Error processing message: {str(e)}"
 
 # --- Helper Functions ---
@@ -1051,7 +1051,7 @@ def is_leadership_chat(chat_id: str, team_id: str) -> bool:
         
         return False
     except Exception as e:
-        logger.error(f"Error checking leadership chat: {e}")
+        logger.error("Error checking leadership chat", error=e)
         return False
 
 async def newmatch_command(update, context, params: Dict[str, Any]):
@@ -1237,7 +1237,7 @@ async def help_command(update, context, params: Dict[str, Any]):
         await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
         
     except Exception as e:
-        logger.error(f"Error in help_command: {e}")
+        logger.error("Error in help_command", error=e)
         # Fallback to basic help if there's an error
         fallback_message = "🤖 **KICKAI Bot Help**\n\n"
         fallback_message += "📅 **Basic Commands:**\n"
@@ -1299,7 +1299,7 @@ async def llm_command_handler(update, context):
         parsed = parser.parse_command(text)
         
         if parsed.get('error'):
-            logger.error(f"Command parsing error: {parsed['error']}")
+            logger.error("Command parsing error", error=parsed['error'])
             if update.effective_chat:
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
@@ -1313,8 +1313,8 @@ async def llm_command_handler(update, context):
         confidence = parsed.get('confidence', 0.0)
         
         # Log the parsing result
-        logger.info(f"Parsed command: {command} (confidence: {confidence:.2f})")
-        logger.info(f"Parameters: {params}")
+        logger.info("Parsed command", command=command, confidence=confidence)
+        logger.info("Parameters", params=params)
         
         # If no command found or low confidence
         if not command or confidence < 0.3:
@@ -1359,7 +1359,7 @@ async def llm_command_handler(update, context):
         await handler_func(update, context, params)
         
     except Exception as e:
-        logger.error(f"Error in llm_command_handler: {e}")
+        logger.error("Error in llm_command_handler", error=e)
         if update.effective_chat:
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
@@ -1385,7 +1385,7 @@ def register_llm_commands(app):
         # Natural language parsing enabled
         
     except Exception as e:
-        print(f"❌ Failed to register LLM commands: {e}")
+        logger.error("Failed to register LLM commands", error=e)
         raise
 
 # --- DEPRECATED: Legacy telegram-click code ---
@@ -1534,3 +1534,47 @@ def register_langchain_agentic_handler(app):
 
     # Register the handler for all text messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, langchain_agentic_message_handler))
+
+# --- New Player Registration Handler Integration ---
+from src.telegram.player_registration_handler import PlayerRegistrationHandler, PlayerCommandHandler
+from src.services.player_service import get_player_service
+from src.services.team_service import get_team_service
+
+# Initialize the new player registration handler and command handler
+TEAM_ID = os.getenv('KICKAI_TEAM_ID', 'default_team')
+player_registration_handler = PlayerRegistrationHandler(team_id=TEAM_ID)
+player_command_handler = PlayerCommandHandler(player_registration_handler)
+
+# Example refactored command handler for /addplayer
+import asyncio
+
+async def handle_addplayer_command(command: str, user_id: str) -> str:
+    """Handle /addplayer command using the new architecture."""
+    return await player_command_handler._handle_add_player(command, user_id)
+
+# TODO: Refactor all other player/team commands to use player_command_handler
+
+# --- Refactored player/team command handlers ---
+
+async def handle_removeplayer_command(command: str, user_id: str) -> str:
+    return await player_command_handler._handle_remove_player(command, user_id)
+
+async def handle_listplayers_command(user_id: str) -> str:
+    return await player_command_handler._handle_list_players()
+
+async def handle_playerstatus_command(command: str, user_id: str) -> str:
+    return await player_command_handler._handle_player_status(command)
+
+async def handle_playerstats_command(user_id: str) -> str:
+    return await player_command_handler._handle_player_stats()
+
+async def handle_generateinvite_command(command: str, user_id: str) -> str:
+    return await player_command_handler._handle_generate_invite(command)
+
+async def handle_myinfo_command(user_id: str) -> str:
+    return await player_command_handler._handle_myinfo(user_id)
+
+async def handle_help_command(user_id: str) -> str:
+    return player_command_handler._get_help_message()
+
+# TODO: Remove legacy logic for these commands and route all player/team commands through these handlers.

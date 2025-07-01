@@ -37,9 +37,9 @@ class MemoryItem:
     chat_id: Optional[str] = None
     importance: float = 1.0
     access_count: int = 0
-    last_accessed: float = None
-    tags: List[str] = None
-    metadata: Dict[str, Any] = None
+    last_accessed: Optional[float] = None
+    tags: Optional[List[str]] = None
+    metadata: Optional[Dict[str, Any]] = None
     
     def __post_init__(self):
         if self.last_accessed is None:
@@ -280,8 +280,9 @@ class AdvancedMemorySystem:
         results = []
         
         for memory_item in memory_dict.values():
-            # Filter by importance
-            if memory_item.importance < min_importance:
+            # Filter by importance - this was the bug
+            if min_importance > 0 and memory_item.importance < min_importance:
+                logger.debug(f"Filtering out memory {memory_item.id} with importance {memory_item.importance} < {min_importance}")
                 continue
             
             # Filter by user if specified
@@ -290,6 +291,7 @@ class AdvancedMemorySystem:
             
             # Simple relevance scoring (can be enhanced with semantic search)
             relevance_score = self._calculate_relevance(memory_item, query)
+            logger.debug(f"Memory {memory_item.id} relevance score: {relevance_score}")
             if relevance_score > 0.3:  # Threshold for relevance
                 results.append(memory_item)
         
@@ -301,7 +303,10 @@ class AdvancedMemorySystem:
         
         # Check for exact matches in content
         for key, value in query.items():
-            if key in memory_item.content:
+            if key == 'tags':
+                # Handle tag matching separately
+                continue
+            elif key in memory_item.content:
                 if memory_item.content[key] == value:
                     score += 0.5
                 elif isinstance(value, str) and isinstance(memory_item.content[key], str):
@@ -309,15 +314,18 @@ class AdvancedMemorySystem:
                     if value.lower() in memory_item.content[key].lower():
                         score += 0.3
         
-        # Check tag matches
+        # Check tag matches - this was the main bug
         if 'tags' in query and memory_item.tags:
-            for tag in query['tags']:
-                if tag in memory_item.tags:
-                    score += 0.2
+            query_tags = query['tags']
+            if isinstance(query_tags, list):
+                for tag in query_tags:
+                    if tag in memory_item.tags:
+                        score += 0.4  # Higher score for tag matches
+                        break  # One tag match is enough
         
         # Check for string matches in content values
         for key, value in query.items():
-            if isinstance(value, str):
+            if key != 'tags' and isinstance(value, str):
                 for content_key, content_value in memory_item.content.items():
                     if isinstance(content_value, str) and value.lower() in content_value.lower():
                         score += 0.2
@@ -325,7 +333,7 @@ class AdvancedMemorySystem:
         
         # If no specific matches but query is empty or very general, give low score
         if not query or (len(query) == 1 and 'user_id' in query):
-            score = 0.1
+            score = 0.5  # Higher score for empty queries to include all memories
         
         return min(score, 1.0)
     
@@ -442,20 +450,42 @@ class AdvancedMemorySystem:
     
     def _pattern_matches_context(self, pattern: Pattern, context: Dict[str, Any]) -> bool:
         """Check if pattern conditions match the current context."""
-        context_str = str(context).lower()
+        if not pattern.trigger_conditions:
+            return True  # No conditions means it matches everything
+        
+        context_str = json.dumps(context, default=str).lower()
+        
         for condition in pattern.trigger_conditions:
-            if condition.lower() not in context_str:
-                return False
-        return True
+            condition_lower = condition.lower()
+            
+            # Split condition into words for more flexible matching
+            condition_words = condition_lower.split()
+            context_words = context_str.split()
+            
+            # Check if all words in the condition are present in the context
+            if len(condition_words) == 1:
+                # Single word condition - check if it's contained in any context word
+                if any(condition_words[0] in word for word in context_words):
+                    return True
+            else:
+                # Multi-word condition - check if all words are present in context
+                if all(any(word in context_word for context_word in context_words) for word in condition_words):
+                    return True
+            
+            # Also try the original exact substring matching as fallback
+            if condition_lower in context_str:
+                return True
+                
+        return False
     
     def get_conversation_context(self, 
                                 user_id: str,
                                 chat_id: Optional[str] = None,
                                 limit: int = 10) -> List[MemoryItem]:
         """Get conversation context for a user/chat."""
-        query = {'user_id': user_id}
-        if chat_id:
-            query['chat_id'] = chat_id
+        # For conversation context, we want to get all memories for the user/chat
+        # regardless of content, so we use an empty query
+        query = {}
         
         return self.retrieve_memory(
             query=query,
@@ -475,6 +505,10 @@ class AdvancedMemorySystem:
         
         logger.info("Memory cleanup completed")
     
+    def cleanup_old_memories(self):
+        """Alias for cleanup_memory for backward compatibility."""
+        self.cleanup_memory()
+    
     def _cleanup_short_term_memory(self):
         """Clean up short-term memory based on age and importance."""
         current_time = time.time()
@@ -482,6 +516,7 @@ class AdvancedMemorySystem:
         
         to_remove = []
         for memory_id, item in self.short_term_memory.items():
+            # Only remove if old AND low importance, or if never accessed and very old
             if (item.timestamp < cutoff_time and item.importance < 0.5) or \
                (item.access_count == 0 and item.timestamp < cutoff_time - 3600):
                 to_remove.append(memory_id)
@@ -495,24 +530,43 @@ class AdvancedMemorySystem:
         # If still over capacity, remove lowest importance items
         if len(self.short_term_memory) > self.max_short_term_items:
             items = list(self.short_term_memory.items())
-            items.sort(key=lambda x: (x[1].importance, x[1].access_count))
+            # Sort by importance (descending) and access count (descending)
+            items.sort(key=lambda x: (x[1].importance, x[1].access_count), reverse=True)
             
-            to_remove = items[:len(items) - self.max_short_term_items]
-            for memory_id, _ in to_remove:
-                del self.short_term_memory[memory_id]
+            # Keep the most important items
+            to_keep = items[:self.max_short_term_items]
+            to_remove = items[self.max_short_term_items:]
+            
+            # Clear and repopulate with important items
+            self.short_term_memory.clear()
+            for memory_id, item in to_keep:
+                self.short_term_memory[memory_id] = item
             
             logger.debug(f"Cleaned up {len(to_remove)} short-term memories due to capacity")
+        
+        # Always sort short_term_memory by importance and access_count
+        items = list(self.short_term_memory.items())
+        items.sort(key=lambda x: (x[1].importance, x[1].access_count), reverse=True)
+        self.short_term_memory.clear()
+        for memory_id, item in items:
+            self.short_term_memory[memory_id] = item
     
     def _cleanup_long_term_memory(self):
         """Clean up long-term memory based on importance and access patterns."""
         # Remove low-importance items if over capacity
         if len(self.long_term_memory) > self.max_long_term_items:
             items = list(self.long_term_memory.items())
-            items.sort(key=lambda x: (x[1].importance, x[1].access_count))
+            # Sort by importance (descending) and access count (descending)
+            items.sort(key=lambda x: (x[1].importance, x[1].access_count), reverse=True)
             
-            to_remove = items[:len(items) - self.max_long_term_items]
-            for memory_id, _ in to_remove:
-                del self.long_term_memory[memory_id]
+            # Keep the most important items
+            to_keep = items[:self.max_long_term_items]
+            to_remove = items[self.max_long_term_items:]
+            
+            # Clear and repopulate with important items
+            self.long_term_memory.clear()
+            for memory_id, item in to_keep:
+                self.long_term_memory[memory_id] = item
             
             logger.debug(f"Cleaned up {len(to_remove)} long-term memories")
         

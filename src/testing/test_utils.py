@@ -13,11 +13,13 @@ from datetime import datetime
 import json
 
 from crewai import Agent, Task, Crew
-from crewai.tools import BaseTool
+from langchain.schema import BaseMessage, HumanMessage, AIMessage
+from src.tools.firebase_tools import BaseTool
+from pydantic import Field
 
-from ..core.config import DatabaseConfig, AIConfig, TelegramConfig, AIProvider
-from ..core.exceptions import KICKAIError
-from ..database.models import Player, Team, PlayerPosition, PlayerRole, OnboardingStatus, TeamStatus
+from src.core.config import DatabaseConfig, AIConfig, TelegramConfig, AIProvider
+from src.core.exceptions import KICKAIError
+from src.database.models import Player, Team, PlayerPosition, PlayerRole, OnboardingStatus, TeamStatus
 
 
 @dataclass
@@ -144,112 +146,284 @@ class MockFirebaseClient:
         }
 
 
-class MockLLM:
-    """Mock LLM for testing."""
+class MockTool(BaseTool):
+    """
+    CrewAI-compatible mock tool for testing.
     
-    def __init__(self, responses: Optional[Dict[str, str]] = None):
-        self.responses = responses or {}
-        self._call_count = 0
+    This tool can be used in place of real tools during testing,
+    providing predictable responses without external dependencies.
+    """
     
-    async def ainvoke(self, prompt: str) -> str:
-        """Mock async invoke."""
-        self._call_count += 1
-        
-        # Return predefined response based on prompt content
-        for key, response in self.responses.items():
-            if key.lower() in prompt.lower():
-                return response
-        
-        # Default responses
-        if "complexity" in prompt.lower():
-            return '{"complexity": 5, "intent": "player_management", "reasoning": "Test reasoning"}'
-        elif "capabilities" in prompt.lower():
-            return '["player_management", "messaging"]'
-        else:
-            return '{"result": "success", "message": "Test response"}'
+    name: str = "mock_tool"
+    description: str = "A mock tool for testing purposes"
+    return_value: Any = Field(default="mock_result")
+    call_count: int = Field(default=0)
+    call_args: list = Field(default_factory=list)
 
+    def __init__(self, name: str = "mock_tool", description: str = "Mock tool", return_value: Any = "mock_result", **kwargs):
+        super().__init__(name=name, description=description)
+        self.return_value = return_value
+        self.call_count = 0
+        self.call_args = []
 
-class CrewAICompatibleTool(BaseTool):
-    """CrewAI-compatible tool for testing."""
-    
-    name: str = "test_tool"
-    description: str = "A test tool for CrewAI compatibility"
-    
-    def __init__(self, name: str = "test_tool", description: str = "Test tool", **kwargs):
-        super().__init__(name=name, description=description, **kwargs)
-        self._mock_function = None
-    
-    def set_mock_function(self, func: Callable):
-        """Set a mock function for this tool."""
-        self._mock_function = func
-    
     def _run(self, *args, **kwargs) -> str:
-        """Run the tool."""
-        if self._mock_function:
-            result = self._mock_function(*args, **kwargs)
-            return str(result)
-        return "Mock tool executed"
+        """Synchronous run method."""
+        self.call_count += 1
+        self.call_args.append((args, kwargs))
+        return str(self.return_value)
     
     async def _arun(self, *args, **kwargs) -> str:
-        """Async run the tool."""
-        if self._mock_function:
-            if asyncio.iscoroutinefunction(self._mock_function):
-                result = await self._mock_function(*args, **kwargs)
-            else:
-                result = self._mock_function(*args, **kwargs)
-            return str(result)
-        return "Mock tool executed"
+        """Asynchronous run method."""
+        self.call_count += 1
+        self.call_args.append((args, kwargs))
+        return str(self.return_value)
+
+    class Config:
+        extra = "allow"
 
 
-class MockAgent(Agent):
-    """Mock CrewAI agent for testing."""
+class MockLLM:
+    """
+    Mock LLM for testing agent interactions.
     
-    def __init__(self, name: str = "test_agent", role: str = "Test Agent", 
-                 goal: str = "Test goal", backstory: str = "Test backstory", **kwargs):
-        super().__init__(
-            name=name,
-            role=role,
-            goal=goal,
-            backstory=backstory,
-            **kwargs
-        )
-        self._mock_tools = []
-        self._execution_history = []
+    Provides predictable responses for testing without requiring
+    actual LLM API calls.
+    """
     
-    def add_mock_tool(self, tool: CrewAICompatibleTool):
+    def __init__(self, responses: Optional[Union[str, List[str]]] = None):
+        self.responses = responses if responses else "Mock LLM response"
+        self.call_count = 0
+        self.call_history = []
+        
+    def bind(self, *args, **kwargs):
+        """Bind method for compatibility with LangChain."""
+        return self
+    
+    def invoke(self, *args, **kwargs) -> str:
+        """Invoke method for LangChain compatibility."""
+        self.call_count += 1
+        self.call_history.append((args, kwargs))
+        
+        if isinstance(self.responses, list):
+            response = self.responses[self.call_count - 1] if self.call_count <= len(self.responses) else self.responses[-1]
+        else:
+            response = self.responses
+            
+        return response
+    
+    def __call__(self, *args, **kwargs) -> str:
+        """Call method for direct invocation."""
+        return self.invoke(*args, **kwargs)
+
+
+class MockAgent:
+    """
+    Mock agent for testing agent interactions.
+    
+    Simulates agent behavior without requiring full CrewAI agent initialization.
+    """
+    
+    def __init__(self, name: str = "mock_agent", role: str = "Mock Agent", 
+                 goal: str = "Mock goal", backstory: str = "Mock backstory",
+                 response: str = "Mock agent response"):
+        self.name = name
+        self.role = role
+        self.goal = goal
+        self.backstory = backstory
+        self.response = response
+        self.call_count = 0
+        self.call_history = []
+        self.tools = []
+        
+    def add_mock_tool(self, tool: BaseTool):
         """Add a mock tool to the agent."""
-        self._mock_tools.append(tool)
-        self.tools = self._mock_tools
+        self.tools.append(tool)
+        
+    def execute_task(self, task: Task) -> str:
+        """Execute a task and return a response."""
+        self.call_count += 1
+        self.call_history.append(task)
+        return self.response
     
-    def execute_task(self, task: str) -> str:
-        """Mock task execution."""
-        self._execution_history.append(task)
-        return f"Mock execution result for: {task}"
-    
-    def get_execution_history(self) -> List[str]:
-        """Get execution history."""
-        return self._execution_history
+    async def execute_task_async(self, task: Task) -> str:
+        """Execute a task asynchronously."""
+        self.call_count += 1
+        self.call_history.append(task)
+        return self.response
 
 
-class MockTask(Task):
-    """Mock CrewAI task for testing."""
+class MockService:
+    """
+    Base mock service class for testing service layer interactions.
     
-    def __init__(self, description: str = "Test task", **kwargs):
-        super().__init__(
-            description=description,
-            **kwargs
-        )
-        self._execution_result = None
+    Provides common functionality for mocking service classes.
+    """
     
-    def set_execution_result(self, result: str):
-        """Set the execution result."""
-        self._execution_result = result
+    def __init__(self, service_name: str = "mock_service"):
+        self.service_name = service_name
+        self.call_count = 0
+        self.call_history = []
+        
+    def _record_call(self, method_name: str, *args, **kwargs):
+        """Record a method call for testing verification."""
+        self.call_count += 1
+        self.call_history.append({
+            'method': method_name,
+            'args': args,
+            'kwargs': kwargs,
+            'call_number': self.call_count
+        })
+
+
+class AsyncMockService(MockService):
+    """
+    Async mock service for testing async service methods.
     
-    def execute(self, agent: Agent) -> str:
-        """Mock task execution."""
-        if self._execution_result:
-            return self._execution_result
-        return f"Mock task executed: {self.description}"
+    Provides async-compatible mocking for service classes.
+    """
+    
+    def __init__(self, service_name: str = "mock_service"):
+        super().__init__(service_name)
+        self._mock_methods = {}
+        
+    def mock_method(self, method_name: str, return_value: Any = None, 
+                   side_effect: Optional[Exception] = None):
+        """Mock a specific method with return value or side effect."""
+        mock = AsyncMock()
+        if side_effect:
+            mock.side_effect = side_effect
+        else:
+            mock.return_value = return_value
+        self._mock_methods[method_name] = mock
+        setattr(self, method_name, mock)
+        
+    def __getattr__(self, name):
+        """Auto-create async mocks for undefined methods."""
+        if name not in self._mock_methods:
+            self.mock_method(name)
+        return self._mock_methods[name]
+
+
+class MockDatabase:
+    """
+    Mock database for testing database operations.
+    
+    Provides in-memory storage for testing without requiring
+    actual database connections.
+    """
+    
+    def __init__(self):
+        self.data = {}
+        self.call_count = 0
+        self.call_history = []
+        
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get a value from the mock database."""
+        self._record_call('get', key, default)
+        return self.data.get(key, default)
+        
+    def set(self, key: str, value: Any) -> None:
+        """Set a value in the mock database."""
+        self._record_call('set', key, value)
+        self.data[key] = value
+        
+    def delete(self, key: str) -> bool:
+        """Delete a value from the mock database."""
+        self._record_call('delete', key)
+        if key in self.data:
+            del self.data[key]
+            return True
+        return False
+        
+    def exists(self, key: str) -> bool:
+        """Check if a key exists in the mock database."""
+        self._record_call('exists', key)
+        return key in self.data
+        
+    def _record_call(self, method: str, *args, **kwargs):
+        """Record a database call."""
+        self.call_count += 1
+        self.call_history.append({
+            'method': method,
+            'args': args,
+            'kwargs': kwargs,
+            'call_number': self.call_count
+        })
+
+
+class MockTelegramBot:
+    """
+    Mock Telegram bot for testing bot interactions.
+    
+    Simulates Telegram bot behavior without requiring
+    actual Telegram API calls.
+    """
+    
+    def __init__(self, bot_token: str = "mock_token"):
+        self.bot_token = bot_token
+        self.sent_messages = []
+        self.call_count = 0
+        
+    async def send_message(self, chat_id: str, text: str, **kwargs) -> Dict[str, Any]:
+        """Send a message and record it for testing."""
+        self.call_count += 1
+        message = {
+            'chat_id': chat_id,
+            'text': text,
+            'kwargs': kwargs,
+            'timestamp': asyncio.get_event_loop().time()
+        }
+        self.sent_messages.append(message)
+        return {'message_id': self.call_count, 'chat': {'id': chat_id}, 'text': text}
+        
+    async def edit_message_text(self, chat_id: str, message_id: int, text: str, **kwargs) -> Dict[str, Any]:
+        """Edit a message and record it for testing."""
+        self.call_count += 1
+        # Find and update the message
+        for msg in self.sent_messages:
+            if msg.get('message_id') == message_id:
+                msg['text'] = text
+                msg['edited'] = True
+                break
+        return {'message_id': message_id, 'chat': {'id': chat_id}, 'text': text}
+
+
+class TestContext:
+    """
+    Test context manager for managing test state and cleanup.
+    
+    Provides a context for test execution with automatic cleanup.
+    """
+    
+    def __init__(self):
+        self.mocks = []
+        self.temp_data = {}
+        
+    def add_mock(self, mock):
+        """Add a mock to the context for cleanup."""
+        self.mocks.append(mock)
+        return mock
+        
+    def set_temp_data(self, key: str, value: Any):
+        """Set temporary data for the test context."""
+        self.temp_data[key] = value
+        
+    def get_temp_data(self, key: str, default: Any = None) -> Any:
+        """Get temporary data from the test context."""
+        return self.temp_data.get(key, default)
+        
+    def cleanup(self):
+        """Clean up all mocks and temporary data."""
+        for mock in self.mocks:
+            if hasattr(mock, 'reset_mock'):
+                mock.reset_mock()
+        self.temp_data.clear()
+        
+    def __enter__(self):
+        return self
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cleanup()
 
 
 class MockCrew(Crew):
@@ -327,7 +501,7 @@ def create_mock_team(name: str = "Test Team", team_id: str = "test-team-1") -> T
     )
 
 
-def create_mock_agent_with_tools(name: str = "test_agent", tools: Optional[List[CrewAICompatibleTool]] = None) -> MockAgent:
+def create_mock_agent_with_tools(name: str = "test_agent", tools: Optional[List[BaseTool]] = None) -> MockAgent:
     """Create a mock agent with tools."""
     agent = MockAgent(
         name=name,
@@ -343,14 +517,16 @@ def create_mock_agent_with_tools(name: str = "test_agent", tools: Optional[List[
     return agent
 
 
-def create_mock_tool(name: str = "test_tool", description: str = "Test tool") -> CrewAICompatibleTool:
-    """Create a mock tool."""
-    return CrewAICompatibleTool(name=name, description=description)
+def create_mock_tool(name: str = "test_tool", return_value: Any = "test_result") -> MockTool:
+    """Create a mock tool with default test values."""
+    return MockTool(name=name, return_value=return_value)
 
 
-def create_mock_task(description: str = "Test task") -> MockTask:
+def create_mock_task(description: str = "Test task") -> Task:
     """Create a mock task."""
-    return MockTask(description=description)
+    return Task(
+        description=description
+    )
 
 
 def create_mock_crew(agents: Optional[List[Agent]] = None, tasks: Optional[List[Task]] = None) -> MockCrew:
@@ -444,4 +620,29 @@ def create_success_response(data: Any) -> Dict[str, Any]:
         "success": True,
         "data": data,
         "timestamp": datetime.now().isoformat()
-    } 
+    }
+
+
+def create_mock_llm(responses: Optional[Union[str, List[str]]] = None) -> MockLLM:
+    """Create a mock LLM with default test values."""
+    return MockLLM(responses=responses)
+
+
+def create_mock_agent(name: str = "test_agent", role: str = "Mock Agent", response: str = "test response") -> MockAgent:
+    """Create a mock agent with default test values."""
+    return MockAgent(name=name, role=role, response=response)
+
+
+def create_mock_service(service_name: str = "test_service") -> AsyncMockService:
+    """Create a mock service with default test values."""
+    return AsyncMockService(service_name=service_name)
+
+
+def create_mock_database() -> MockDatabase:
+    """Create a mock database for testing."""
+    return MockDatabase()
+
+
+def create_mock_telegram_bot(bot_token: str = "test_token") -> MockTelegramBot:
+    """Create a mock Telegram bot for testing."""
+    return MockTelegramBot(bot_token=bot_token) 

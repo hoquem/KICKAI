@@ -34,6 +34,7 @@ class PlayerRole(Enum):
 class OnboardingStatus(Enum):
     """Player onboarding status."""
     PENDING = "pending"
+    PENDING_APPROVAL = "pending_approval"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -69,6 +70,11 @@ class Player:
     player_id: str = ""  # e.g., JS1 for John Smith
     invite_link: Optional[str] = None
     onboarding_status: OnboardingStatus = OnboardingStatus.PENDING
+    onboarding_step: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    telegram_id: Optional[str] = None
+    telegram_username: Optional[str] = None
     team_id: str = ""
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)

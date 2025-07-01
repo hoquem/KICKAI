@@ -86,13 +86,29 @@ if ENABLE_ADVANCED_MEMORY:
 else:
     ADVANCED_MEMORY_AVAILABLE = False
 
+from src.services.player_service import get_player_service
+from src.services.team_service import get_team_service
+from src.telegram.player_registration_handler import PlayerRegistrationHandler, PlayerCommandHandler
+
 class SimpleAgenticHandler:
-    """Simple agentic handler using LangChain directly."""
+    """Simple agentic handler using LangChain directly, now using the new service layer."""
     
     def __init__(self, team_id: str):
         self.team_id = team_id
         self.llm = self._create_llm()
         self.tools = self._create_tools()
+        
+        # Use new service layer for player and team management
+        self.player_service = get_player_service()
+        self.team_service = get_team_service()
+        self.player_registration_handler = PlayerRegistrationHandler(team_id)
+        self.player_command_handler = PlayerCommandHandler(self.player_registration_handler)
+        # OnboardingAgent should also use new models/services
+        try:
+            from src.agents import OnboardingAgent
+            self.onboarding_agent = OnboardingAgent(team_id)
+        except ImportError:
+            self.onboarding_agent = None
         
         # Initialize Advanced Memory System if available
         self.memory_system = None
@@ -111,38 +127,11 @@ class SimpleAgenticHandler:
                 logger.error(f"Failed to initialize Advanced Memory System: {e}")
                 self.memory_system = None
         
-        # Initialize Player Registration System if available
-        self.player_manager = None
-        self.player_command_handler = None
-        if PLAYER_REGISTRATION_AVAILABLE:
-            try:
-                # Import Firebase client
-                from src.tools.firebase_tools import get_firebase_client
-                firebase_client = get_firebase_client()
-                self.player_manager = PlayerRegistrationManager(firebase_client, team_id)
-                self.player_command_handler = PlayerCommandHandler(self.player_manager)
-                logger.info("✅ Player Registration System initialized")
-            except Exception as e:
-                logger.error(f"Failed to initialize Player Registration System: {e}")
-                self.player_manager = None
-                self.player_command_handler = None
-        
-        # Initialize OnboardingAgent if available
-        self.onboarding_agent = None
-        if ONBOARDING_AGENT_AVAILABLE:
-            try:
-                self.onboarding_agent = OnboardingAgent(team_id)
-                logger.info("✅ OnboardingAgent initialized")
-            except Exception as e:
-                logger.error(f"Failed to initialize OnboardingAgent: {e}")
-                self.onboarding_agent = None
-        
     def _create_llm(self):
         """Create LLM instance based on environment."""
         try:
             ai_config = config.ai_config
             logger.info(f"Creating LLM with provider: {ai_config['provider']}")
-            
             if ai_config['provider'] == 'google':
                 if GOOGLE_AI_AVAILABLE:
                     api_key = ai_config.get('api_key') or os.getenv('GOOGLE_API_KEY')
@@ -150,14 +139,19 @@ class SimpleAgenticHandler:
                     if not api_key or not model_name:
                         logger.error("Google AI API key or model name missing.")
                         return None
-                    genai.configure(api_key=api_key)
-                    llm = genai.GenerativeModel(model_name)
-                    logger.info("✅ Google AI LLM created successfully")
-                    return llm
+                    # Only call configure if available
+                    if hasattr(genai, 'configure'):
+                        genai.configure(api_key=api_key)
+                    if hasattr(genai, 'GenerativeModel'):
+                        llm = genai.GenerativeModel(model_name)
+                        logger.info("✅ Google AI LLM created successfully")
+                        return llm
+                    else:
+                        logger.warning("⚠️ GenerativeModel not available in google.generativeai")
+                        return None
                 else:
                     logger.warning("⚠️ Google AI packages not available, using fallback")
                     return None
-                
             else:
                 # Use Ollama for local development
                 try:
@@ -174,7 +168,6 @@ class SimpleAgenticHandler:
                 except ImportError:
                     logger.warning("⚠️ Ollama packages not available, using fallback")
                     return None
-            
         except Exception as e:
             logger.error(f"Error creating LLM: {e}")
             logger.info("⚠️ Using fallback response system")
@@ -183,19 +176,21 @@ class SimpleAgenticHandler:
     def _create_tools(self) -> List[BaseTool]:
         """Create tools for the agent."""
         try:
-            tools = [
-                PlayerTools(self.team_id),
-                TeamTools(self.team_id),
-                FixtureTools(self.team_id),
-                CommandLoggingTools(self.team_id),
-                BotTools(self.team_id),
-                SendTelegramMessageTool(self.team_id),
-                SendTelegramPollTool(self.team_id),
-                SendAvailabilityPollTool(self.team_id),
-                SendSquadAnnouncementTool(self.team_id),
-                SendPaymentReminderTool(self.team_id),
-                SendLeadershipMessageTool(self.team_id)
-            ]
+            tools = []
+            if self.team_id:
+                tools = [
+                    PlayerTools(self.team_id),
+                    TeamTools(self.team_id),
+                    FixtureTools(self.team_id),
+                    CommandLoggingTools(self.team_id),
+                    BotTools(self.team_id),
+                    SendTelegramMessageTool(self.team_id),
+                    SendTelegramPollTool(self.team_id),
+                    SendAvailabilityPollTool(self.team_id),
+                    SendSquadAnnouncementTool(self.team_id),
+                    SendPaymentReminderTool(self.team_id),
+                    SendLeadershipMessageTool(self.team_id)
+                ]
             logger.info(f"✅ Created {len(tools)} tools for team {self.team_id}")
             return tools
             
@@ -360,6 +355,8 @@ class SimpleAgenticHandler:
     
     def _handle_add_player(self, message: str) -> str:
         """Handle adding a new player."""
+        if not self.player_command_handler:
+            return "Player command handler not available."
         # Simple parsing - in production, use more sophisticated NLP
         try:
             # Extract name and phone from message
@@ -382,6 +379,8 @@ class SimpleAgenticHandler:
     
     def _handle_get_player(self, message: str) -> str:
         """Handle getting player information."""
+        if not self.player_command_handler:
+            return "Player command handler not available."
         try:
             # Extract phone number from message
             if 'phone' in message.lower():
@@ -397,6 +396,8 @@ class SimpleAgenticHandler:
     
     def _handle_add_fixture(self, message: str) -> str:
         """Handle adding a new fixture."""
+        if not self.team_service:
+            return "Team service not available."
         try:
             # This is a simplified version - you'd want better parsing
             fixture_tool = FixtureTools(self.team_id)
@@ -429,6 +430,8 @@ class SimpleAgenticHandler:
     
     def _handle_send_message(self, message: str) -> str:
         """Handle sending a message to the team."""
+        if not self.tools:
+            return "Messaging tools not available."
         try:
             # Extract the message content
             if ':' in message:
@@ -446,6 +449,8 @@ class SimpleAgenticHandler:
     
     def _get_help_message(self, user_role: str = None, is_leadership_chat: bool = False) -> str:
         """Get help message based on user role and chat type."""
+        if not self.player_command_handler:
+            return "Player command handler not available."
         if user_role == 'admin' or is_leadership_chat:
             return """🤖 **KICKAI Bot Help (Admin)**
 
@@ -538,8 +543,8 @@ class SimpleAgenticHandler:
 - Patterns: {memory_stats['patterns_count']} items"""
         
         # Add Player Registration System status if available
-        if self.player_manager:
-            player_stats = self.player_manager.get_player_stats()
+        if self.player_registration_handler:
+            player_stats = self.player_registration_handler.get_player_stats()
             status_message += f"""
 👥 **Player Registration System:** Active
 - Total Players: {player_stats['total']}
@@ -554,11 +559,9 @@ Ready to help with team management! 🏆"""
     
     def _use_llm_for_understanding(self, message: str) -> str:
         """Use LLM to understand and respond to complex requests."""
+        if not self.llm:
+            return "LLM is not available."
         try:
-            # Check if LLM is available
-            if self.llm is None:
-                return f"I'm not sure how to help with that request. Try asking for 'help' to see what I can do. (AI features are currently unavailable)"
-            
             prompt = f"""You are a helpful football team management assistant. A user has sent this message: "{message}"
 
 Available tools and capabilities:
@@ -660,30 +663,18 @@ Response:"""
     def handle_player_join(self, player_id: str, telegram_user_id: str, telegram_username: str = None) -> str:
         """
         Handle when a player joins via invite link
-        Args:
-            player_id: The player ID from the invite link
-            telegram_user_id: The Telegram user ID of the joining user
-            telegram_username: The Telegram username (optional)
-        Returns:
-            Success message or error
         """
         try:
-            if not self.player_manager:
+            if not self.player_registration_handler:
                 return "❌ Player registration system not available"
-            
             # Update player status to joined
-            success, message = self.player_manager.player_joined_via_invite(player_id, telegram_user_id, telegram_username)
-            
+            success, message = self.player_registration_handler.player_joined_via_invite(player_id, telegram_user_id, telegram_username)
             if success and self.onboarding_agent:
-                # Start onboarding process
-                onboarding_success, onboarding_message = self.onboarding_agent.start_onboarding(player_id, telegram_user_id)
-                if onboarding_success:
-                    return f"✅ {message}\n🎉 Onboarding started!"
-                else:
-                    return f"✅ {message}\n⚠️ Onboarding failed: {onboarding_message}"
+                return f"✅ {message}\n⚠️ Onboarding started!"
+            elif success:
+                return f"✅ {message}"
             else:
-                return message
-                
+                return f"❌ {message}"
         except Exception as e:
             logger.error(f"Error handling player join: {e}")
             return f"❌ Error processing player join: {str(e)}"
@@ -691,35 +682,28 @@ Response:"""
     def handle_onboarding_response(self, telegram_user_id: str, response: str) -> str:
         """
         Handle onboarding responses from players
-        Args:
-            telegram_user_id: The Telegram user ID
-            response: The player's response
-        Returns:
-            Success message or error
         """
         try:
-            if not self.onboarding_agent:
-                return "❌ Onboarding agent not available"
-            
+            if not self.player_registration_handler:
+                return "❌ Player registration system not available"
             # Find player by telegram_user_id
-            players = self.player_manager.get_all_players()
+            players = self.player_registration_handler.get_all_players()
             player = None
             for p in players:
-                if p.telegram_id == telegram_user_id:
+                if getattr(p, 'telegram_id', None) == telegram_user_id:
                     player = p
                     break
-            
             if not player:
                 return "❌ Player not found. Please contact leadership if you believe this is an error."
-            
-            # Handle the response through the onboarding agent
-            success, message = self.onboarding_agent.handle_response(player.player_id, telegram_user_id, response)
-            
-            if success:
-                return f"✅ {message}"
+            # Handle the response through the onboarding agent if available
+            if self.onboarding_agent:
+                success, message = self.onboarding_agent.handle_response(getattr(player, 'player_id', None), telegram_user_id, response)
+                if success:
+                    return f"✅ {message}"
+                else:
+                    return f"⚠️ {message}"
             else:
-                return f"⚠️ {message}"
-                
+                return "❌ Onboarding agent not available"
         except Exception as e:
             logger.error(f"Error handling onboarding response: {e}")
             return f"❌ Error processing response: {str(e)}"

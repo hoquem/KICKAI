@@ -1,69 +1,35 @@
 #!/usr/bin/env python3
 """
-Test OnboardingAgent Integration
-
-This test verifies the complete onboarding workflow integration:
-1. Player join via invite
-2. Onboarding agent initialization
-3. Onboarding conversation flow
-4. Response handling
-5. Completion and leadership notification
+Integration tests for player registration and onboarding workflows.
+Tests the complete flow from player registration to onboarding completion.
 """
 
-import sys
-import os
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from langchain.tools import BaseTool
+import asyncio
+from unittest.mock import Mock
+from datetime import datetime, date
 
-# Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+from src.testing.test_base import BaseTestCase, AsyncBaseTestCase
+from src.testing.test_fixtures import TestDataFactory, SampleData
+from src.testing.test_utils import MockLLM, MockAgent, MockTool
+from src.telegram.player_registration_handler import PlayerRegistrationHandler
+from src.telegram_command_handler import PlayerCommandHandler
+from src.database.models import Player, PlayerPosition, PlayerRole, OnboardingStatus
+from src.services.player_service import PlayerService
+from src.services.team_service import TeamService
 
-from src.agents import OnboardingAgent
-from src.simple_agentic_handler import SimpleAgenticHandler
-from src.telegram_command_handler import AgentBasedMessageHandler
-from src.player_registration import PlayerRegistrationManager, Player
 
-class DummyTool(BaseTool):
-    name = "dummy"
-    description = "dummy tool"
+@pytest.mark.asyncio
+class TestPlayerRegistrationIntegration(AsyncBaseTestCase):
+    """Test the complete player registration integration workflow."""
     
-    def __init__(self, team_id=None, *args, **kwargs):
-        super().__init__(name="dummy", description="dummy tool")
-        
-    def _run(self, *args, **kwargs):
-        return "dummy result"
-        
-    def _arun(self, *args, **kwargs):
-        return "dummy result"
-
-class DummyLLM:
-    def bind(self, *args, **kwargs):
-        return self
-    
-    def invoke(self, *args, **kwargs):
-        return "Dummy response"
-    
-    def __call__(self, *args, **kwargs):
-        return "Dummy response"
-
-class TestOnboardingIntegration:
-    """Test the complete onboarding integration workflow."""
-    
-    def setup_method(self):
+    def setup_method(self, method=None):
         """Set up test environment."""
+        super().setup_method(method)
         self.team_id = "test-team-123"
         self.player_id = "JS1"
         self.telegram_user_id = "123456789"
         self.telegram_username = "testuser"
-        self.mock_llm = DummyLLM()
-        
-        # Mock Firebase client
-        self.mock_firebase = Mock()
-        self.mock_collection = Mock()
-        self.mock_doc = Mock()
-        self.mock_firebase.collection.return_value = self.mock_collection
-        self.mock_collection.document.return_value = self.mock_doc
         
         # Mock player data
         self.mock_player_data = {
@@ -79,201 +45,459 @@ class TestOnboardingIntegration:
             'date_of_birth': None,
             'fa_eligible': False
         }
-
-    @patch('src.tools.firebase_tools.get_firebase_client')
-    @patch('src.agents.PlayerTools', new=DummyTool)
-    @patch('src.agents.SendTelegramMessageTool', new=DummyTool)
-    @patch('src.agents.SendLeadershipMessageTool', new=DummyTool)
-    @patch('src.agents.CommandLoggingTools', new=DummyTool)
-    def test_onboarding_agent_initialization(self, mock_firebase):
-        """Test OnboardingAgent initialization."""
-        # Mock Firebase client
-        mock_firebase.return_value = self.mock_firebase
+    
+    def test_player_registration_handler_initialization(self):
+        """Test PlayerRegistrationHandler initialization."""
+        # Mock services
+        mock_player_service = self.create_mock_service('player_service')
+        mock_team_service = self.create_mock_service('team_service')
         
-        # Initialize agent
-        agent = OnboardingAgent(self.team_id, team_name="Test Team", llm=self.mock_llm)
+        # Initialize handler
+        handler = PlayerRegistrationHandler(
+            self.team_id,
+            player_service=mock_player_service,
+            team_service=mock_team_service
+        )
         
         # Verify initialization
-        assert agent._player_tools is not None
-        assert agent._message_tool is not None
-        assert agent._leadership_tool is not None
-        assert agent._log_tool is not None
-
-    @patch('src.tools.firebase_tools.get_firebase_client')
-    @patch('src.agents.PlayerTools', new=DummyTool)
-    @patch('src.agents.SendTelegramMessageTool', new=DummyTool)
-    @patch('src.agents.SendLeadershipMessageTool', new=DummyTool)
-    @patch('src.agents.CommandLoggingTools', new=DummyTool)
-    @patch('src.agents.PlayerTools', new_callable=lambda: type('CustomPlayerTool', (DummyTool,), {
-        '_run': lambda self, command, **kwargs: f"Player: John Smith (JS1)" if command == 'get_player' else "ok"
-    }))
-    def test_start_onboarding(self, mock_player_tools, mock_firebase):
-        """Test starting the onboarding process."""
-        # Mock Firebase client
-        mock_firebase.return_value = self.mock_firebase
+        self.assertEqual(handler.team_id, self.team_id)
+        self.assertIsNotNone(handler.player_service)
+        self.assertIsNotNone(handler.team_service)
+    
+    async def test_add_player(self):
+        """Test adding a player via the registration handler."""
+        # Mock services
+        mock_player_service = self.create_mock_service('player_service')
+        mock_player_service.create_player.return_value = Player(
+            id="test-id",
+            player_id="JS1",
+            name="John Smith",
+            phone="07123456789",
+            team_id=self.team_id,
+            position=PlayerPosition.MIDFIELDER,
+            role=PlayerRole.PLAYER,
+            fa_registered=False
+        )
         
-        # Initialize agent
-        agent = OnboardingAgent(self.team_id, team_name="Test Team", llm=self.mock_llm)
+        mock_team_service = self.create_mock_service('team_service')
         
-        # Start onboarding
-        success, message = agent.start_onboarding(self.player_id, self.telegram_user_id)
+        # Initialize handler with dependency injection
+        handler = PlayerRegistrationHandler(
+            self.team_id,
+            player_service=mock_player_service,
+            team_service=mock_team_service
+        )
         
-        # Verify success
-        assert success is True
-        assert "started successfully" in message
-
-    @patch('src.tools.firebase_tools.get_firebase_client')
-    @patch('src.agents.PlayerTools', new=DummyTool)
-    @patch('src.agents.SendTelegramMessageTool', new=DummyTool)
-    @patch('src.agents.SendLeadershipMessageTool', new=DummyTool)
-    @patch('src.agents.CommandLoggingTools', new=DummyTool)
-    @patch('src.agents.PlayerTools', new_callable=lambda: type('CustomPlayerTool', (DummyTool,), {
-        '_run': lambda self, command, **kwargs: "ok"
-    }))
-    def test_welcome_response_confirm(self, mock_player_tools, mock_firebase):
-        """Test handling 'confirm' response to welcome message."""
-        # Mock Firebase client
-        mock_firebase.return_value = self.mock_firebase
-        
-        # Initialize agent
-        agent = OnboardingAgent(self.team_id, team_name="Test Team", llm=self.mock_llm)
-        
-        # Handle confirm response
-        success, message = agent.handle_welcome_response(self.player_id, self.telegram_user_id, "confirm")
+        # Add player
+        success, message = await handler.add_player(
+            name="John Smith",
+            phone="07123456789",
+            position="midfielder",
+            added_by="123456789"
+        )
         
         # Verify success
-        assert success is True
-        assert "Moved to info collection" in message
-
-    @patch('src.tools.firebase_tools.get_firebase_client')
-    @patch('src.agents.PlayerTools', new=DummyTool)
-    @patch('src.agents.SendTelegramMessageTool', new=DummyTool)
-    @patch('src.agents.SendLeadershipMessageTool', new=DummyTool)
-    @patch('src.agents.CommandLoggingTools', new=DummyTool)
-    @patch('src.agents.PlayerTools', new_callable=lambda: type('CustomPlayerTool', (DummyTool,), {
-        '_run': lambda self, command, **kwargs: "ok"
-    }))
-    def test_info_collection_emergency_contact(self, mock_player_tools, mock_firebase):
-        """Test collecting emergency contact information."""
-        # Mock Firebase client
-        mock_firebase.return_value = self.mock_firebase
-        
-        # Initialize agent
-        agent = OnboardingAgent(self.team_id, team_name="Test Team", llm=self.mock_llm)
-        
-        # Handle emergency contact response
-        success, message = agent.handle_info_collection(self.player_id, self.telegram_user_id, "emergency Jane Doe 07987654321")
-        
-        # Verify success
-        assert success is True
-        assert "Emergency contact saved" in message
-
-    @patch('src.tools.firebase_tools.get_firebase_client')
-    @patch('src.agents.PlayerTools', new=DummyTool)
-    @patch('src.agents.SendTelegramMessageTool', new=DummyTool)
-    @patch('src.agents.SendLeadershipMessageTool', new=DummyTool)
-    @patch('src.agents.CommandLoggingTools', new=DummyTool)
-    @patch('src.agents.PlayerTools', new_callable=lambda: type('CustomPlayerTool', (DummyTool,), {
-        '_run': lambda self, command, **kwargs: "ok"
-    }))
-    def test_info_collection_date_of_birth(self, mock_player_tools, mock_firebase):
-        """Test collecting date of birth information."""
-        # Mock Firebase client
-        mock_firebase.return_value = self.mock_firebase
-        
-        # Initialize agent
-        agent = OnboardingAgent(self.team_id, team_name="Test Team", llm=self.mock_llm)
-        
-        # Handle date of birth response
-        success, message = agent.handle_info_collection(self.player_id, self.telegram_user_id, "dob 15/03/1990")
-        
-        # Verify success
-        assert success is True
-        assert "Date of birth saved" in message
-
-    @patch('src.tools.firebase_tools.get_firebase_client')
-    @patch('src.agents.PlayerTools', new=DummyTool)
-    @patch('src.agents.SendTelegramMessageTool', new=DummyTool)
-    @patch('src.agents.SendLeadershipMessageTool', new=DummyTool)
-    @patch('src.agents.CommandLoggingTools', new=DummyTool)
-    @patch('src.agents.PlayerTools', new_callable=lambda: type('CustomPlayerTool', (DummyTool,), {
-        '_run': lambda self, command, **kwargs: "ok"
-    }))
-    def test_complete_onboarding(self, mock_player_tools, mock_firebase):
-        """Test completing the onboarding process."""
-        # Mock Firebase client
-        mock_firebase.return_value = self.mock_firebase
-        
-        # Initialize agent
-        agent = OnboardingAgent(self.team_id, team_name="Test Team", llm=self.mock_llm)
-        
-        # Complete onboarding
-        success, message = agent.complete_onboarding(self.player_id, self.telegram_user_id)
-        
-        # Verify success
-        assert success is True
-        assert "completed successfully" in message
-
-    @patch('src.tools.firebase_tools.get_firebase_client')
-    def test_simple_agentic_handler_integration(self, mock_firebase):
-        """Test OnboardingAgent integration with SimpleAgenticHandler."""
-        # Mock Firebase client
-        mock_firebase.return_value = self.mock_firebase
-        
-        # Mock player manager
-        with patch('src.simple_agentic_handler.PlayerRegistrationManager') as mock_player_manager:
-            mock_player_manager.return_value.player_joined_via_invite.return_value = (True, "Player joined successfully")
-            
-            # Initialize handler
-            handler = SimpleAgenticHandler(self.team_id)
-            
-            # Verify onboarding agent is initialized
-            assert handler.onboarding_agent is not None
-            
-            # Test player join
-            result = handler.handle_player_join(self.player_id, self.telegram_user_id, self.telegram_username)
-            assert "joined successfully" in result
-
-    @patch('src.tools.firebase_tools.get_firebase_client')
-    def test_telegram_handler_integration(self, mock_firebase):
-        """Test OnboardingAgent integration with Telegram command handler."""
-        # Mock Firebase client
-        mock_firebase.return_value = self.mock_firebase
-        
-        # Mock agentic handler
-        with patch('src.simple_agentic_handler.create_simple_agentic_handler') as mock_create_handler:
-            mock_handler = Mock()
-            mock_handler.player_manager = Mock()
-            mock_handler.player_manager.player_joined_via_invite.return_value = (True, "Player joined successfully")
-            mock_create_handler.return_value = mock_handler
-            
-            # Initialize handler
-            handler = AgentBasedMessageHandler(self.team_id)
-            
-            # Verify onboarding agent is initialized
-            assert handler.onboarding_agent is not None
-            
-            # Test onboarding message handling
-            result = handler.handle_onboarding_message("confirm", self.telegram_user_id, self.telegram_username, False)
-            assert "Error processing message" in result  # Expected since we don't have a real player
-
-    def test_onboarding_workflow_complete(self):
-        """Test the complete onboarding workflow end-to-end."""
-        # This test would require more complex mocking but demonstrates the workflow
-        workflow_steps = [
-            "1. Player joins via invite link",
-            "2. Onboarding agent starts conversation",
-            "3. Player confirms details",
-            "4. Player provides emergency contact",
-            "5. Player provides date of birth",
-            "6. Player completes onboarding",
-            "7. Leadership is notified"
+        self.assertTrue(success)
+        self.assertIn("added successfully", message)
+    
+    async def test_get_onboarding_message(self):
+        """Test getting onboarding message for a player."""
+        # Mock services
+        mock_player_service = self.create_mock_service('player_service')
+        mock_player_service.get_team_players.return_value = [
+            Player(
+                id="test-id",
+                player_id="JS1",
+                name="John Smith",
+                phone="07123456789",
+                team_id=self.team_id,
+                position=PlayerPosition.MIDFIELDER,
+                role=PlayerRole.PLAYER,
+                fa_registered=False
+            )
         ]
         
-        # Verify workflow steps are defined
-        assert len(workflow_steps) == 7
-        assert "Player joins via invite link" in workflow_steps[0]
-        assert "Leadership is notified" in workflow_steps[6]
+        mock_team_service = self.create_mock_service('team_service')
+        mock_team_service.get_team.return_value = Mock(name="Test Team")
+        
+        # Initialize handler with dependency injection
+        handler = PlayerRegistrationHandler(
+            self.team_id,
+            player_service=mock_player_service,
+            team_service=mock_team_service
+        )
+        
+        # Get onboarding message
+        success, message = await handler.get_onboarding_message(self.player_id)
+        
+        # Verify success
+        self.assertTrue(success)
+        self.assertIn("Welcome", message)
+    
+    async def test_process_onboarding_response(self):
+        """Test processing onboarding response."""
+        # Mock services
+        mock_player_service = self.create_mock_service('player_service')
+        mock_player_service.get_player.return_value = Player(
+            id="test-id",
+            player_id="JS1",
+            name="John Smith",
+            phone="07123456789",
+            team_id=self.team_id,
+            position=PlayerPosition.MIDFIELDER,
+            role=PlayerRole.PLAYER,
+            fa_registered=False,
+            onboarding_status=OnboardingStatus.PENDING
+        )
+        mock_player_service.update_player.return_value = Player(
+            id="test-id",
+            player_id="JS1",
+            name="John Smith",
+            phone="07123456789",
+            team_id=self.team_id,
+            position=PlayerPosition.MIDFIELDER,
+            role=PlayerRole.PLAYER,
+            fa_registered=False
+        )
+        
+        mock_team_service = self.create_mock_service('team_service')
+        
+        # Initialize handler with dependency injection
+        handler = PlayerRegistrationHandler(
+            self.team_id,
+            player_service=mock_player_service,
+            team_service=mock_team_service
+        )
+        
+        # Process onboarding response
+        success, message = await handler.process_onboarding_response(
+            self.player_id,
+            "Yes, I confirm"
+        )
+        
+        # Verify success
+        self.assertTrue(success)
+        self.assertIn("confirmed", message)
+    
+    async def test_player_command_handler(self):
+        """Test player command handler functionality."""
+        # Mock services
+        mock_player_service = self.create_mock_service('player_service')
+        mock_team_service = self.create_mock_service('team_service')
+        
+        # Initialize registration handler first
+        registration_handler = PlayerRegistrationHandler(
+            self.team_id,
+            player_service=mock_player_service,
+            team_service=mock_team_service
+        )
+        
+        # Initialize command handler with registration handler
+        command_handler = PlayerCommandHandler(registration_handler)
+        
+        # Test help command
+        response = await command_handler.handle_command("help", self.telegram_user_id)
+        self.assertIsInstance(response, str)
+        self.assertIn("Available commands", response)
+    
+    async def test_complete_onboarding_workflow(self):
+        """Test the complete onboarding workflow from start to finish."""
+        # Mock services with stateful behavior
+        mock_player_service = self.create_mock_service('player_service')
+        mock_team_service = self.create_mock_service('team_service')
+        
+        # Mock player data that changes during onboarding
+        player_data = {
+            'id': 'test-id',
+            'player_id': 'JS1',
+            'name': 'John Smith',
+            'phone': '07123456789',
+            'team_id': self.team_id,
+            'position': PlayerPosition.MIDFIELDER,
+            'role': PlayerRole.PLAYER,
+            'fa_registered': False,
+            'onboarding_status': OnboardingStatus.PENDING,
+            'onboarding_step': None
+        }
+        
+        def get_player_mock(*args, **kwargs):
+            return Player(**player_data)
+        
+        def update_player_side_effect(*args, **kwargs):
+            # Simulate onboarding status transitions
+            if 'onboarding_status' in kwargs:
+                player_data['onboarding_status'] = kwargs['onboarding_status']
+            if 'onboarding_step' in kwargs:
+                player_data['onboarding_step'] = kwargs['onboarding_step']
+            return Player(**player_data)
+        
+        def get_team_players_mock(*args, **kwargs):
+            return [Player(**player_data)]
+        
+        mock_player_service.get_player.side_effect = get_player_mock
+        mock_player_service.update_player.side_effect = update_player_side_effect
+        mock_player_service.get_team_players.side_effect = get_team_players_mock
+        mock_player_service.create_player.return_value = Player(**player_data)
+        
+        mock_team_service.get_team.return_value = Mock(name="Test Team")
+        
+        # Initialize handler
+        handler = PlayerRegistrationHandler(
+            self.team_id,
+            player_service=mock_player_service,
+            team_service=mock_team_service
+        )
+        
+        # Step 1: Add player
+        success, message = await handler.add_player(
+            name="John Smith",
+            phone="07123456789",
+            position="midfielder",
+            added_by=self.telegram_user_id
+        )
+        self.assertTrue(success)
+        
+        # Step 2: Get onboarding message
+        success, message = await handler.get_onboarding_message(self.player_id)
+        self.assertTrue(success)
+        self.assertIn("Welcome", message)
+        
+        # Step 3: Process onboarding response
+        success, message = await handler.process_onboarding_response(
+            self.player_id,
+            "Yes, I confirm"
+        )
+        self.assertTrue(success)
+        
+        # Verify final state
+        final_player = await mock_player_service.get_player(self.player_id)
+        self.assertEqual(final_player.onboarding_status, OnboardingStatus.COMPLETED)
+    
+    async def test_edge_case_duplicate_phone(self):
+        """Test handling of duplicate phone numbers."""
+        # Mock services
+        mock_player_service = self.create_mock_service('player_service')
+        mock_player_service.create_player.side_effect = Exception("Phone number already exists")
+        
+        mock_team_service = self.create_mock_service('team_service')
+        
+        # Initialize handler
+        handler = PlayerRegistrationHandler(
+            self.team_id,
+            player_service=mock_player_service,
+            team_service=mock_team_service
+        )
+        
+        # Try to add player with duplicate phone
+        success, message = await handler.add_player(
+            name="John Smith",
+            phone="07123456789",
+            position="midfielder",
+            added_by=self.telegram_user_id
+        )
+        
+        # Should handle error gracefully
+        self.assertFalse(success)
+        self.assertIn("already exists", message)
+    
+    async def test_edge_case_invalid_position(self):
+        """Test handling of invalid position."""
+        # Mock services
+        mock_player_service = self.create_mock_service('player_service')
+        mock_team_service = self.create_mock_service('team_service')
+        
+        # Initialize handler
+        handler = PlayerRegistrationHandler(
+            self.team_id,
+            player_service=mock_player_service,
+            team_service=mock_team_service
+        )
+        
+        # Try to add player with invalid position
+        success, message = await handler.add_player(
+            name="John Smith",
+            phone="07123456789",
+            position="invalid_position",
+            added_by=self.telegram_user_id
+        )
+        
+        # Should handle error gracefully
+        self.assertFalse(success)
+        self.assertIn("invalid", message.lower())
+    
+    async def test_edge_case_invalid_phone(self):
+        """Test handling of invalid phone number."""
+        # Mock services
+        mock_player_service = self.create_mock_service('player_service')
+        mock_team_service = self.create_mock_service('team_service')
+        
+        # Initialize handler
+        handler = PlayerRegistrationHandler(
+            self.team_id,
+            player_service=mock_player_service,
+            team_service=mock_team_service
+        )
+        
+        # Try to add player with invalid phone
+        success, message = await handler.add_player(
+            name="John Smith",
+            phone="invalid_phone",
+            position="midfielder",
+            added_by=self.telegram_user_id
+        )
+        
+        # Should handle error gracefully
+        self.assertFalse(success)
+        self.assertIn("phone", message.lower())
+    
+    async def test_partial_onboarding_handling(self):
+        """Test handling of partial onboarding completion."""
+        # Mock services
+        mock_player_service = self.create_mock_service('player_service')
+        mock_player_service.get_player.return_value = Player(
+            id="test-id",
+            player_id="JS1",
+            name="John Smith",
+            phone="07123456789",
+            team_id=self.team_id,
+            position=PlayerPosition.MIDFIELDER,
+            role=PlayerRole.PLAYER,
+            fa_registered=False,
+            onboarding_status=OnboardingStatus.IN_PROGRESS,
+            onboarding_step="emergency_contact"
+        )
+        
+        mock_team_service = self.create_mock_service('team_service')
+        
+        # Initialize handler
+        handler = PlayerRegistrationHandler(
+            self.team_id,
+            player_service=mock_player_service,
+            team_service=mock_team_service
+        )
+        
+        # Process partial onboarding response
+        success, message = await handler.process_onboarding_response(
+            self.player_id,
+            "John Doe, 07987654321"
+        )
+        
+        # Should handle partial completion
+        self.assertTrue(success)
+        self.assertIn("emergency contact", message)
+    
+    async def test_admin_approval_workflow(self):
+        """Test admin approval workflow."""
+        # Mock services
+        mock_player_service = self.create_mock_service('player_service')
+        mock_player_service.get_player.return_value = Player(
+            id="test-id",
+            player_id="JS1",
+            name="John Smith",
+            phone="07123456789",
+            team_id=self.team_id,
+            position=PlayerPosition.MIDFIELDER,
+            role=PlayerRole.PLAYER,
+            fa_registered=False,
+            onboarding_status=OnboardingStatus.PENDING_APPROVAL
+        )
+        
+        mock_team_service = self.create_mock_service('team_service')
+        
+        # Initialize registration handler first
+        registration_handler = PlayerRegistrationHandler(
+            self.team_id,
+            player_service=mock_player_service,
+            team_service=mock_team_service
+        )
+        
+        # Initialize command handler with registration handler
+        command_handler = PlayerCommandHandler(registration_handler)
+        
+        # Test admin approval command
+        response = await command_handler.handle_command(
+            f"approve {self.player_id}",
+            "admin_user_id"
+        )
+        
+        self.assertIsInstance(response, str)
+        self.assertIn("approved", response)
+    
+    async def test_security_validation(self):
+        """Test security validation in player registration."""
+        # Mock services
+        mock_player_service = self.create_mock_service('player_service')
+        mock_team_service = self.create_mock_service('team_service')
+        
+        # Initialize handler
+        handler = PlayerRegistrationHandler(
+            self.team_id,
+            player_service=mock_player_service,
+            team_service=mock_team_service
+        )
+        
+        # Test with invalid user ID
+        success, message = await handler.add_player(
+            name="John Smith",
+            phone="07123456789",
+            position="midfielder",
+            added_by="invalid_user"
+        )
+        
+        # Should validate user permissions
+        self.assertFalse(success)
+        self.assertIn("unauthorized", message.lower())
+    
+    async def test_invite_link_security(self):
+        """Test invite link security and validation."""
+        # Mock services
+        mock_player_service = self.create_mock_service('player_service')
+        mock_team_service = self.create_mock_service('team_service')
+        
+        def get_player_by_phone_mock(*args, **kwargs):
+            return None  # Player doesn't exist yet
+        
+        def update_player_mock(*args, **kwargs):
+            # Simulate player joining via invite
+            return Player(
+                id="test-id",
+                player_id="JS1",
+                name="John Smith",
+                phone="07123456789",
+                team_id=self.team_id,
+                position=PlayerPosition.MIDFIELDER,
+                role=PlayerRole.PLAYER,
+                fa_registered=False
+            )
+        
+        def generate_invite_link_mock(*args, **kwargs):
+            # Simulate invite link generation
+            return "https://t.me/joinchat/test_invite_link"
+        
+        def get_team_players_mock(*args, **kwargs):
+            return []
+        
+        mock_player_service.get_player_by_phone.side_effect = get_player_by_phone_mock
+        mock_player_service.update_player.side_effect = update_player_mock
+        mock_player_service.get_team_players.side_effect = get_team_players_mock
+        mock_team_service.generate_invite_link.side_effect = generate_invite_link_mock
+        
+        # Initialize handler
+        handler = PlayerRegistrationHandler(
+            self.team_id,
+            player_service=mock_player_service,
+            team_service=mock_team_service
+        )
+        
+        # Test invite link generation
+        success, message = await handler.generate_invite_link(
+            self.telegram_user_id,
+            "https://t.me/joinchat/"
+        )
+        
+        # Should generate secure invite link
+        self.assertTrue(success)
+        self.assertIn("https://t.me/joinchat/", message)
 
 if __name__ == "__main__":
     # Run tests

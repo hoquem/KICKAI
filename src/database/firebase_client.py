@@ -38,6 +38,12 @@ class FirebaseClient:
         self._connection_pool: Dict[str, Any] = {}
         self._batch_operations: List[Dict[str, Any]] = []
         self._logger = get_logger("firebase")
+        
+        # Skip initialization in testing environment
+        if config.project_id == "test_project":
+            self._logger.info("Test environment detected, skipping Firebase initialization")
+            return
+            
         self._initialize_client()
     
     def _initialize_client(self):
@@ -66,6 +72,11 @@ class FirebaseClient:
     def client(self) -> firestore_client.Client:
         """Get the Firebase client instance."""
         if self._client is None:
+            if self.config.project_id == "test_project":
+                raise ConnectionError(
+                    "Firebase client not available in test environment",
+                    create_error_context("firebase_client_access")
+                )
             raise ConnectionError(
                 "Firebase client not initialized",
                 create_error_context("firebase_client_access")

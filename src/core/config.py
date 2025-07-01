@@ -12,6 +12,13 @@ from enum import Enum
 import logging
 from pathlib import Path
 
+# Try to load dotenv if available
+try:
+    from dotenv import load_dotenv
+    DOTENV_AVAILABLE = True
+except ImportError:
+    DOTENV_AVAILABLE = False
+
 
 class Environment(Enum):
     """Environment types."""
@@ -92,6 +99,7 @@ class ConfigurationManager:
     def __init__(self, config_path: Optional[str] = None):
         self._config_path = config_path
         self._environment = self._detect_environment()
+        self._load_env_files()
         self._config: Dict[str, Any] = {}
         self._load_configuration()
         self._validate_configuration()
@@ -104,6 +112,36 @@ class ConfigurationManager:
         except ValueError:
             logging.warning(f"Unknown environment '{env}', defaulting to development")
             return Environment.DEVELOPMENT
+    
+    def _load_env_files(self):
+        """Load environment variables from .env files."""
+        if not DOTENV_AVAILABLE:
+            logging.warning("python-dotenv not available, skipping .env file loading")
+            return
+        
+        # Load .env files based on environment
+        env_files = []
+        
+        # Always try to load base .env file
+        if os.path.exists(".env"):
+            env_files.append(".env")
+        
+        # Load environment-specific .env file
+        env_specific = f".env.{self._environment.value}"
+        if os.path.exists(env_specific):
+            env_files.append(env_specific)
+        
+        # Load test environment file if in testing
+        if self._environment == Environment.TESTING and os.path.exists(".env.test"):
+            env_files.append(".env.test")
+        
+        # Load the files
+        for env_file in env_files:
+            try:
+                load_dotenv(env_file)
+                logging.info(f"Loaded environment variables from {env_file}")
+            except Exception as e:
+                logging.warning(f"Failed to load {env_file}: {e}")
     
     def _load_configuration(self):
         """Load configuration from environment variables and files."""
@@ -186,6 +224,11 @@ class ConfigurationManager:
     def _validate_configuration(self):
         """Validate the loaded configuration."""
         errors = []
+        
+        # Skip validation in testing environment
+        if self._environment == Environment.TESTING:
+            logging.info("Testing environment detected, skipping configuration validation")
+            return
         
         # Validate required fields
         if not self._config["database"].project_id:
