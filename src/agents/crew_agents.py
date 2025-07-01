@@ -432,17 +432,7 @@ from src.telegram.player_registration_handler import PlayerRegistrationHandler, 
 
 class OnboardingAgent(Agent):
     def __init__(self, team_id: str, team_name: Optional[str] = None, llm=None):
-        # Store team_id as instance variable, not Pydantic field
-        self._team_id = team_id
-        self._team_name = team_name
-        
-        # Use new service layer for player and team management
-        self.player_service = get_player_service()
-        self.team_service = get_team_service()
-        self.player_registration_handler = PlayerRegistrationHandler(team_id)
-        self.player_command_handler = PlayerCommandHandler(self.player_registration_handler)
-        
-        # Initialize the parent Agent class properly
+        # Initialize the parent Agent class first
         super().__init__(
             role="Onboarding Agent",
             goal="Handle player onboarding and registration processes",
@@ -452,6 +442,24 @@ class OnboardingAgent(Agent):
             tools=[],  # Will be populated as needed
             llm=llm
         )
+        
+        # Store team info in a way that doesn't conflict with Pydantic
+        self._team_id = team_id
+        self._team_name = team_name
+        
+        # Initialize services after parent initialization
+        try:
+            self.player_service = get_player_service()
+            self.team_service = get_team_service()
+            self.player_registration_handler = PlayerRegistrationHandler(team_id)
+            self.player_command_handler = PlayerCommandHandler(self.player_registration_handler)
+        except Exception as e:
+            logger.error(f"Failed to initialize OnboardingAgent services: {e}")
+            # Set to None if services fail to initialize
+            self.player_service = None
+            self.team_service = None
+            self.player_registration_handler = None
+            self.player_command_handler = None
     
     @property
     def team_id(self) -> str:
