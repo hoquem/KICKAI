@@ -1,15 +1,88 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "NIXPACKS",
+    "buildCommand": "pip install -r requirements.txt --no-cache-dir",
+    "buildTimeout": 600,
+    "watchPatterns": [
+      "src/**/*",
+      "requirements*.txt",
+      "railway-production.json"
+    ]
   },
   "deploy": {
-    "startCommand": "python railway_main.py",
+    "startCommand": "python src/main.py",
     "healthcheckPath": "/health",
-    "healthcheckTimeout": 600,
+    "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10,
-    "numReplicas": 2,
-    "environment": "production"
-  }
+    "restartPolicyMaxRetries": 5,
+    "deploymentTimeout": 900
+  },
+  "variables": {
+    "ENVIRONMENT": "production",
+    "LOG_LEVEL": "INFO",
+    "TELEGRAM_BOT_TOKEN": "${TELEGRAM_BOT_TOKEN_PROD}",
+    "FIREBASE_CREDENTIALS": "${FIREBASE_CREDENTIALS_PROD}",
+    "GOOGLE_AI_API_KEY": "${GOOGLE_AI_API_KEY_PROD}",
+    "RAILWAY_ENVIRONMENT": "production",
+    "PYTHONPATH": "src",
+    "PYTHONUNBUFFERED": "1",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PIP_NO_CACHE_DIR": "1",
+    "PIP_DISABLE_PIP_VERSION_CHECK": "1"
+  },
+  "healthcheck": {
+    "path": "/health",
+    "interval": 30,
+    "timeout": 10,
+    "retries": 5,
+    "gracePeriod": 60
+  },
+  "scaling": {
+    "minInstances": 2,
+    "maxInstances": 5,
+    "targetCPUUtilization": 70,
+    "targetMemoryUtilization": 80,
+    "cooldownPeriod": 300
+  },
+  "resources": {
+    "cpu": "1.0",
+    "memory": "1Gi",
+    "disk": "2Gi"
+  },
+  "monitoring": {
+    "metrics": {
+      "enabled": true,
+      "interval": 30,
+      "retention": "30d"
+    },
+    "logs": {
+      "enabled": true,
+      "retention": "30d",
+      "level": "INFO"
+    },
+    "alerts": {
+      "enabled": true,
+      "cpuThreshold": 80,
+      "memoryThreshold": 85,
+      "errorRateThreshold": 5
+    }
+  },
+  "networking": {
+    "ports": [8000],
+    "protocol": "https",
+    "cors": {
+      "enabled": true,
+      "origins": ["*"]
+    }
+  },
+  "backup": {
+    "enabled": true,
+    "schedule": "0 2 * * *",
+    "retention": "7d"
+  },
+  "domains": [
+    "kickai-production.railway.app",
+    "api.kickai.com"
+  ]
 } 

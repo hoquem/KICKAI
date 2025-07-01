@@ -1,0 +1,122 @@
+name: Testing Deployment Pipeline
+
+on:
+  push:
+    branches: [testing, develop]
+  pull_request:
+    branches: [testing, develop, main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Testing environment'
+        required: true
+        default: 'testing'
+        type: choice
+        options:
+        - testing
+        - develop
+
+env:
+  PYTHON_VERSION: '3.11'
+  PIP_CACHE_DIR: ~/.cache/pip
+
+jobs:
+  # Fast dependency check
+  dependencies:
+    name: Quick Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install core dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Quick validation
+        run: |
+          python -c "import telegram, firebase_admin; print('✅ Core deps OK')"
+
+  # Fast tests for testing environment
+  test:
+    name: Quick Tests
+    runs-on: ubuntu-latest
+    needs: dependencies
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-local.txt
+          pip install pytest pytest-mock
+
+      - name: Run quick tests
+        run: |
+          # Run only critical tests for speed
+          pytest tests/test_telegram/ -v --tb=line -x
+          
+          # Run basic integration tests
+          pytest tests/test_integration/ -v --tb=line -x
+
+  # Deploy to testing environment
+  deploy:
+    name: Deploy to Testing
+    runs-on: ubuntu-latest
+    needs: [dependencies, test]
+    if: |
+      github.ref == 'refs/heads/testing' ||
+      github.ref == 'refs/heads/develop' ||
+      github.event_name == 'workflow_dispatch'
+    environment: testing
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install Railway CLI
+        run: |
+          npm install -g @railway/cli@latest
+
+      - name: Deploy to Railway Testing
+        uses: railway/deploy@v1
+        with:
+          service: kickai-testing
+          token: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Quick health check
+        run: |
+          echo "🏥 Quick health check..."
+          sleep 20
+          
+          SERVICE_URL=$(railway service status --json | jq -r '.url')
+          
+          if [ "$SERVICE_URL" != "null" ] && [ "$SERVICE_URL" != "" ]; then
+            curl -f -s "$SERVICE_URL/health" && echo "✅ Testing deployment healthy" || echo "⚠️ Health check failed"
+          fi
+
+      - name: Notify testing deployment
+        run: |
+          echo "✅ Testing deployment completed!"
+          echo "Environment: testing"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}" 

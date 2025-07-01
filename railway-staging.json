@@ -1,15 +1,82 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "NIXPACKS",
+    "buildCommand": "pip install -r requirements.txt -r requirements-local.txt",
+    "buildTimeout": 300,
+    "watchPatterns": [
+      "src/**/*",
+      "requirements*.txt",
+      "railway-staging.json"
+    ]
   },
   "deploy": {
-    "startCommand": "python railway_main.py",
+    "startCommand": "python src/main.py",
     "healthcheckPath": "/health",
-    "healthcheckTimeout": 300,
+    "healthcheckTimeout": 180,
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 5,
-    "numReplicas": 1,
-    "environment": "staging"
-  }
+    "restartPolicyMaxRetries": 3,
+    "deploymentTimeout": 600
+  },
+  "variables": {
+    "ENVIRONMENT": "staging",
+    "LOG_LEVEL": "DEBUG",
+    "TELEGRAM_BOT_TOKEN": "${TELEGRAM_BOT_TOKEN_STAGING}",
+    "FIREBASE_CREDENTIALS": "${FIREBASE_CREDENTIALS_STAGING}",
+    "GOOGLE_AI_API_KEY": "${GOOGLE_AI_API_KEY_STAGING}",
+    "RAILWAY_ENVIRONMENT": "staging",
+    "PYTHONPATH": "src",
+    "PYTHONUNBUFFERED": "1",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "DEBUG": "true",
+    "TESTING": "false"
+  },
+  "healthcheck": {
+    "path": "/health",
+    "interval": 60,
+    "timeout": 15,
+    "retries": 3,
+    "gracePeriod": 30
+  },
+  "scaling": {
+    "minInstances": 1,
+    "maxInstances": 3,
+    "targetCPUUtilization": 80,
+    "targetMemoryUtilization": 85,
+    "cooldownPeriod": 180
+  },
+  "resources": {
+    "cpu": "0.5",
+    "memory": "512Mi",
+    "disk": "1Gi"
+  },
+  "monitoring": {
+    "metrics": {
+      "enabled": true,
+      "interval": 60,
+      "retention": "7d"
+    },
+    "logs": {
+      "enabled": true,
+      "retention": "7d",
+      "level": "DEBUG"
+    },
+    "alerts": {
+      "enabled": true,
+      "cpuThreshold": 90,
+      "memoryThreshold": 90,
+      "errorRateThreshold": 10
+    }
+  },
+  "networking": {
+    "ports": [8000],
+    "protocol": "https",
+    "cors": {
+      "enabled": true,
+      "origins": ["*"]
+    }
+  },
+  "domains": [
+    "kickai-staging.railway.app"
+  ]
 } 
