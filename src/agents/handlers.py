@@ -73,6 +73,7 @@ except ImportError as e:
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from config import config, ENABLE_ADVANCED_MEMORY
+from src.core.config import AIProvider
 
 # Import Advanced Memory System
 if ENABLE_ADVANCED_MEMORY:
@@ -130,12 +131,12 @@ class SimpleAgenticHandler:
     def _create_llm(self):
         """Create LLM instance based on environment."""
         try:
-            ai_config = config.ai_config
-            logger.info(f"Creating LLM with provider: {ai_config['provider']}")
-            if ai_config['provider'] == 'google':
+            ai_config = config.ai
+            logger.info(f"Creating LLM with provider: {ai_config.provider}")
+            if ai_config.provider == AIProvider.GOOGLE_GEMINI:
                 if GOOGLE_AI_AVAILABLE:
-                    api_key = ai_config.get('api_key') or os.getenv('GOOGLE_API_KEY')
-                    model_name = ai_config.get('model') or 'gemini-pro'
+                    api_key = ai_config.api_key or os.getenv('GOOGLE_API_KEY')
+                    model_name = ai_config.model_name or 'gemini-pro'
                     if not api_key or not model_name:
                         logger.error("Google AI API key or model name missing.")
                         return None
@@ -152,13 +153,17 @@ class SimpleAgenticHandler:
                 else:
                     logger.warning("⚠️ Google AI packages not available, using fallback")
                     return None
+            elif ai_config.provider == AIProvider.OPENAI:
+                # Handle OpenAI provider
+                logger.warning("⚠️ OpenAI provider not fully implemented, using fallback")
+                return None
             else:
                 # Use Ollama for local development
                 try:
                     if OLLAMA_AVAILABLE:
                         llm = Ollama(
-                            model=ai_config['model'],
-                            base_url=ai_config['base_url']
+                            model=ai_config.model_name,
+                            base_url=os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
                         )
                         logger.info("✅ Ollama LLM created successfully")
                         return llm
