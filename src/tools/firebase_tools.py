@@ -13,6 +13,7 @@ from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from dotenv import load_dotenv
 import json
 import tempfile
+import base64
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -52,7 +53,8 @@ except ImportError as e:
 def get_firebase_client():
     """
     Get Firebase client with robust error handling.
-    Prioritizes separate Firebase env vars, then FIREBASE_CREDENTIALS env var, then firebase_settings.json file.
+    Creates credentials file at runtime to avoid environment variable size limits.
+    Supports base64 encoded private keys for Railway compatibility.
     Returns:
         firebase_admin.firestore.Client: Firebase Firestore client instance
     Raises:
@@ -62,6 +64,7 @@ def get_firebase_client():
     try:
         import firebase_admin
         from firebase_admin import credentials, firestore
+        import tempfile
         
         # Check if Firebase app is already initialized
         try:
@@ -71,15 +74,30 @@ def get_firebase_client():
             # Initialize Firebase app
             logger.info("🔧 Initializing Firebase app...")
 
-            # 1. Try separate Firebase environment variables (recommended for Railway)
+            # Try to create credentials from environment variables
             project_id = os.getenv('FIREBASE_PROJECT_ID')
-            private_key = os.getenv('FIREBASE_PRIVATE_KEY')
             client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
             
-            if project_id and private_key and client_email:
-                logger.info("🔑 Using separate Firebase environment variables")
+            # Try to get private key (support both regular and base64 encoded)
+            private_key = None
+            private_key_b64 = os.getenv('FIREBASE_PRIVATE_KEY_B64')
+            if private_key_b64:
                 try:
-                    # Build service account info from separate variables
+                    # Decode base64 private key
+                    private_key = base64.b64decode(private_key_b64).decode('utf-8')
+                    logger.info("🔑 Using base64 encoded private key")
+                except Exception as e:
+                    logger.error(f"❌ Failed to decode base64 private key: {e}")
+            else:
+                # Try regular private key
+                private_key = os.getenv('FIREBASE_PRIVATE_KEY')
+                if private_key:
+                    logger.info("🔑 Using regular private key")
+            
+            if project_id and private_key and client_email:
+                logger.info("🔑 Creating Firebase credentials from environment variables")
+                try:
+                    # Build service account info
                     service_account_info = {
                         "type": "service_account",
                         "project_id": project_id,
@@ -93,15 +111,30 @@ def get_firebase_client():
                         "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_X509_CERT_URL', '')
                     }
                     
-                    cred = credentials.Certificate(service_account_info)
-                    app = firebase_admin.initialize_app(cred)
-                    logger.info("✅ Firebase app initialized with separate environment variables")
+                    # Create a temporary credentials file
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+                        json.dump(service_account_info, temp_file, indent=2)
+                        temp_file_path = temp_file.name
                     
+                    logger.info(f"📁 Created temporary credentials file: {temp_file_path}")
+                    
+                    # Use the temporary file for credentials
+                    cred = credentials.Certificate(temp_file_path)
+                    app = firebase_admin.initialize_app(cred)
+                    logger.info("✅ Firebase app initialized with environment variables")
+                    
+                    # Clean up the temporary file
+                    try:
+                        os.unlink(temp_file_path)
+                        logger.info("🧹 Cleaned up temporary credentials file")
+                    except:
+                        pass  # Ignore cleanup errors
+                        
                 except Exception as cred_error:
-                    logger.error(f"❌ Failed to create Firebase credentials from separate env vars: {cred_error}")
+                    logger.error(f"❌ Failed to create Firebase credentials from env vars: {cred_error}")
                     raise
             else:
-                # 2. Try FIREBASE_CREDENTIALS env var (fallback)
+                # Try FIREBASE_CREDENTIALS env var (fallback)
                 firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS')
                 if firebase_creds_json:
                     logger.info("🔑 Using FIREBASE_CREDENTIALS environment variable")
@@ -132,7 +165,7 @@ def get_firebase_client():
                         logger.error(f"❌ Failed to create Firebase credentials from FIREBASE_CREDENTIALS: {cred_error}")
                         raise
                 else:
-                    # 3. Try firebase_settings.json file
+                    # Try firebase_settings.json file
                     project_root = os.getcwd()
                     service_account_path = os.path.join(project_root, 'firebase_settings.json')
                     logger.info(f"🔍 Looking for Firebase settings file at: {service_account_path}")
@@ -142,7 +175,7 @@ def get_firebase_client():
                         app = firebase_admin.initialize_app(cred)
                         logger.info("✅ Firebase app initialized with service account file")
                     else:
-                        # 4. Fall back to legacy env vars (not recommended)
+                        # Fall back to legacy env vars (not recommended)
                         logger.info("📝 Using Firebase legacy environment variables (no other options found)")
                         project_id = os.getenv('FIREBASE_PROJECT_ID')
                         private_key = os.getenv('FIREBASE_PRIVATE_KEY', '').replace('\\n', '\n')
