@@ -52,8 +52,8 @@ except ImportError as e:
 # --- Firebase Client Factory ---
 def get_firebase_client():
     """
-    Get Firebase client using Railway's official secrets management.
-    Only uses FIREBASE_CREDENTIALS_JSON from Railway dashboard.
+    Get Firebase client using Railway's official approach for large sensitive data.
+    Uses Railway's file upload feature for credentials files.
     Returns:
         firebase_admin.firestore.Client: Firebase Firestore client instance
     Raises:
@@ -72,39 +72,81 @@ def get_firebase_client():
             # Initialize Firebase app
             logger.info("🔧 Initializing Firebase app...")
 
-            # Use FIREBASE_CREDENTIALS_JSON from Railway dashboard (official recommendation)
-            firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
-            if not firebase_creds_json:
-                raise ValueError("FIREBASE_CREDENTIALS_JSON environment variable not set. Please add it in Railway dashboard.")
-            
-            logger.info("🔑 Using FIREBASE_CREDENTIALS_JSON from Railway dashboard")
-            try:
-                # Parse the JSON and create a temporary file
-                creds_dict = json.loads(firebase_creds_json)
-                
-                # Create a temporary file with the credentials
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
-                    json.dump(creds_dict, temp_file, indent=2)
-                    temp_file_path = temp_file.name
-                
-                logger.info(f"📁 Created temporary credentials file: {temp_file_path}")
-                
-                # Use the temporary file for credentials
-                cred = credentials.Certificate(temp_file_path)
-                app = firebase_admin.initialize_app(cred)
-                logger.info("✅ Firebase app initialized with Railway dashboard credentials")
-                
-                # Clean up the temporary file
+            # 1. Try Railway file upload path (official approach for large files)
+            credentials_path = os.getenv('FIREBASE_CREDENTIALS_PATH')
+            if credentials_path and os.path.exists(credentials_path):
+                logger.info(f"🔑 Using Firebase credentials from Railway file upload: {credentials_path}")
                 try:
-                    os.unlink(temp_file_path)
-                    logger.info("🧹 Cleaned up temporary credentials file")
-                except:
-                    pass  # Ignore cleanup errors
+                    cred = credentials.Certificate(credentials_path)
+                    app = firebase_admin.initialize_app(cred)
+                    logger.info("✅ Firebase app initialized with Railway file upload")
+                except Exception as cred_error:
+                    logger.error(f"❌ Failed to create Firebase credentials from file: {cred_error}")
+                    raise
+            else:
+                # 2. Try FIREBASE_CREDENTIALS_JSON (fallback, but may have size issues)
+                firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
+                if firebase_creds_json:
+                    logger.info("🔑 Using FIREBASE_CREDENTIALS_JSON (may have size limitations)")
+                    try:
+                        # Parse the JSON and create a temporary file
+                        creds_dict = json.loads(firebase_creds_json)
+                        
+                        # Create a temporary file with the credentials
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+                            json.dump(creds_dict, temp_file, indent=2)
+                            temp_file_path = temp_file.name
+                        
+                        logger.info(f"📁 Created temporary credentials file: {temp_file_path}")
+                        
+                        # Use the temporary file for credentials
+                        cred = credentials.Certificate(temp_file_path)
+                        app = firebase_admin.initialize_app(cred)
+                        logger.info("✅ Firebase app initialized with FIREBASE_CREDENTIALS_JSON")
+                        
+                        # Clean up the temporary file
+                        try:
+                            os.unlink(temp_file_path)
+                            logger.info("🧹 Cleaned up temporary credentials file")
+                        except:
+                            pass  # Ignore cleanup errors
+                            
+                    except Exception as cred_error:
+                        logger.error(f"❌ Failed to create Firebase credentials from JSON: {cred_error}")
+                        raise
+                else:
+                    # 3. Try individual environment variables (not recommended for large keys)
+                    project_id = os.getenv('FIREBASE_PROJECT_ID')
+                    client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
+                    private_key = os.getenv('FIREBASE_PRIVATE_KEY')
                     
-            except Exception as cred_error:
-                logger.error(f"❌ Failed to create Firebase credentials from Railway dashboard: {cred_error}")
-                raise
+                    if project_id and private_key and client_email:
+                        logger.info("🔑 Using individual environment variables (not recommended for large keys)")
+                        try:
+                            # Build service account info
+                            service_account_info = {
+                                "type": "service_account",
+                                "project_id": project_id,
+                                "private_key": private_key.replace('\\n', '\n'),
+                                "client_email": client_email,
+                                "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID', ''),
+                                "client_id": os.getenv('FIREBASE_CLIENT_ID', ''),
+                                "auth_uri": os.getenv('FIREBASE_AUTH_URI', 'https://accounts.google.com/o/oauth2/auth'),
+                                "token_uri": os.getenv('FIREBASE_TOKEN_URI', 'https://oauth2.googleapis.com/token'),
+                                "auth_provider_x509_cert_url": os.getenv('FIREBASE_AUTH_PROVIDER_X509_CERT_URL', 'https://www.googleapis.com/oauth2/v1/certs'),
+                                "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_X509_CERT_URL', '')
+                            }
+                            
+                            cred = credentials.Certificate(service_account_info)
+                            app = firebase_admin.initialize_app(cred)
+                            logger.info("✅ Firebase app initialized with environment variables")
+                            
+                        except Exception as cred_error:
+                            logger.error(f"❌ Failed to create Firebase credentials from env vars: {cred_error}")
+                            raise
+                    else:
+                        raise ValueError("No Firebase credentials found. Please set FIREBASE_CREDENTIALS_PATH for Railway file upload or FIREBASE_CREDENTIALS_JSON.")
         
         # Get Firestore client
         try:
