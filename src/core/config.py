@@ -106,7 +106,32 @@ class ConfigurationManager:
     
     def _detect_environment(self) -> Environment:
         """Detect the current environment."""
-        env = os.getenv("KICKAI_ENV", "development").lower()
+        # Check for explicit environment variable
+        env = os.getenv("KICKAI_ENV", "").lower()
+        
+        # Auto-detect production environments
+        if env == "production":
+            return Environment.PRODUCTION
+        
+        # Check for Railway environment
+        if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"):
+            logging.info("Railway environment detected, setting to production")
+            return Environment.PRODUCTION
+        
+        # Check for other production indicators
+        if os.getenv("PORT") and not os.getenv("VIRTUAL_ENV"):
+            # Common production indicator
+            logging.info("Production environment detected (PORT set, no VIRTUAL_ENV)")
+            return Environment.PRODUCTION
+        
+        # Check for testing environment
+        if env == "testing" or os.getenv("PYTEST_CURRENT_TEST"):
+            return Environment.TESTING
+        
+        # Default to development
+        if not env:
+            env = "development"
+        
         try:
             return Environment(env)
         except ValueError:
@@ -230,15 +255,19 @@ class ConfigurationManager:
             logging.info("Testing environment detected, skipping configuration validation")
             return
         
-        # Validate required fields
+        # In production, some tokens may be stored in Firebase rather than environment variables
+        # Only validate essential configuration that must be available at startup
         if not self._config["database"].project_id:
             errors.append("FIREBASE_PROJECT_ID is required")
         
-        if not self._config["ai"].api_key:
-            errors.append("AI_API_KEY is required")
-        
-        if not self._config["telegram"].bot_token:
-            errors.append("TELEGRAM_BOT_TOKEN is required")
+        # For production, AI_API_KEY and TELEGRAM_BOT_TOKEN may be loaded from Firebase
+        # Only validate if we're in development or if they're explicitly required
+        if self._environment == Environment.DEVELOPMENT:
+            if not self._config["ai"].api_key:
+                errors.append("AI_API_KEY is required in development environment")
+            
+            if not self._config["telegram"].bot_token:
+                errors.append("TELEGRAM_BOT_TOKEN is required in development environment")
         
         # Validate ranges
         if not (0.0 <= self._config["ai"].temperature <= 2.0):
