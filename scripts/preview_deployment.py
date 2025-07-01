@@ -315,18 +315,18 @@ class DeploymentPreviewer:
             with open("env.example", "r") as f:
                 env_example = f.read()
             
-            required_vars = [
+    required_vars = [
                 "TELEGRAM_BOT_TOKEN",
                 "FIREBASE_CREDENTIALS",
                 "GOOGLE_AI_API_KEY"
-            ]
-            
-            missing_vars = []
-            for var in required_vars:
+    ]
+    
+    missing_vars = []
+    for var in required_vars:
                 if var not in env_example:
-                    missing_vars.append(var)
-            
-            if missing_vars:
+            missing_vars.append(var)
+    
+    if missing_vars:
                 return ValidationResult(
                     check_name="Environment Variables",
                     passed=False,
@@ -388,7 +388,7 @@ class DeploymentPreviewer:
                 message="No obvious security issues detected"
             )
             
-        except Exception as e:
+    except Exception as e:
             return ValidationResult(
                 check_name="Security",
                 passed=False,

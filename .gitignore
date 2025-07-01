@@ -106,8 +106,16 @@ ENV/
 env.bak/
 venv.bak/
 
-# Firebase credentials
+# Firebase credentials (should never be committed)
+firebase_creds_*.json
+firebase-credentials-*.json
 firebase_settings.json
+firebase_creds_production.json
+firebase_creds_staging.json
+firebase_creds_testing.json
+firebase-credentials-production.json
+firebase-credentials-staging.json
+firebase-credentials-testing.json
 
 # Bot configuration files (contain sensitive tokens)
 config/bot_config.json
