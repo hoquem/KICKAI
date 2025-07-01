@@ -109,6 +109,13 @@ venv.bak/
 # Firebase credentials
 firebase_settings.json
 
+# Bot configuration files (contain sensitive tokens)
+config/bot_config.json
+config/bot_config.staging.json
+config/bot_config.production.json
+config/bot_config.*.json
+!config/bot_config.example.json
+
 # Spyder project settings
 .spyderproject
 .spyderworkspace

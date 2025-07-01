@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 Telegram Tools for KICKAI
-Provides tools for sending and receiving Telegram messages via Bot API.
-Supports multi-team isolation with team_id parameter.
+
+This module provides utilities for Telegram bot operations including
+credential management, message formatting, and user role checking.
 """
 
 import os
@@ -11,87 +12,39 @@ import requests
 from typing import List, Dict, Optional, Any, Tuple
 from langchain.tools import BaseTool
 import json
+from datetime import datetime
+
+from ..core.bot_config_manager import get_bot_config_manager, BotType
+from ..database.firebase_client import get_firebase_client
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_firebase_client():
-    """Get Firebase client with proper error handling."""
-    try:
-        import firebase_admin
-        from firebase_admin import credentials, firestore
-        
-        # Check if Firebase app is already initialized
-        try:
-            app = firebase_admin.get_app()
-            logger.info("✅ Using existing Firebase app")
-        except ValueError:
-            # Initialize Firebase app
-            logger.info("🔧 Initializing Firebase app...")
-            
-            # Check for service account key file
-            service_account_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH')
-            if service_account_path and os.path.exists(service_account_path):
-                # Use service account file
-                cred = credentials.Certificate(service_account_path)
-                app = firebase_admin.initialize_app(cred)
-                logger.info("✅ Firebase app initialized with service account file")
-            else:
-                # Use environment variables for Railway deployment
-                service_account_info = {
-                    "type": "service_account",
-                    "project_id": os.getenv('FIREBASE_PROJECT_ID'),
-                    "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
-                    "private_key": os.getenv('FIREBASE_PRIVATE_KEY', '').replace('\\n', '\n'),
-                    "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
-                    "client_id": os.getenv('FIREBASE_CLIENT_ID'),
-                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                    "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_CERT_URL')
-                }
-                
-                # Validate required fields
-                required_fields = ['project_id', 'private_key', 'client_email']
-                missing_fields = [field for field in required_fields if not service_account_info.get(field)]
-                if missing_fields:
-                    raise ValueError(f"Missing Firebase environment variables: {missing_fields}")
-                
-                cred = credentials.Certificate(service_account_info)
-                app = firebase_admin.initialize_app(cred)
-                logger.info("✅ Firebase app initialized with environment variables")
-        
-        # Get Firestore client
-        db = firestore.client()
-        logger.info("✅ Firebase Firestore client created successfully")
-        return db
-        
-    except ImportError as e:
-        logger.error(f"Firebase client not available: {e}")
-        raise ImportError("Firebase client not available. Install with: pip install firebase-admin")
-    except Exception as e:
-        logger.error(f"Error in get_firebase_client: {e}")
-        raise e
-
-
 def get_team_bot_credentials(team_id: str) -> Tuple[str, str]:
-    """Fetch the Telegram bot token and chat ID for a specific team from the database."""
+    """Fetch the Telegram bot token and chat ID for a specific team.
+    
+    This function uses the new bot configuration manager which supports
+    both local files (testing/staging) and Firestore (production).
+    
+    Args:
+        team_id (str): The team ID
+        
+    Returns:
+        Tuple[str, str]: (bot_token, chat_id)
+        
+    Raises:
+        ValueError: If no bot mapping is found for the team
+    """
     try:
-        db = get_firebase_client()
+        manager = get_bot_config_manager()
+        bot_config = manager.get_bot_config(team_id, BotType.MAIN)
         
-        # Find the bot mapping for the specific team
-        bots_ref = db.collection('team_bots')
-        query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
-        docs = query.stream()
-        docs_list = list(docs)
+        if not bot_config:
+            raise ValueError(f"No main bot found for team ID: {team_id}")
         
-        if not docs_list:
-            raise ValueError(f"No bot mapping found for team ID: {team_id}")
-        
-        bot_data = docs_list[0].to_dict()
-        return bot_data['bot_token'], bot_data['chat_id']
+        return bot_config.token, bot_config.chat_id
         
     except Exception as e:
         logger.error(f"Error getting bot credentials for team {team_id}: {e}")
@@ -101,40 +54,329 @@ def get_team_bot_credentials(team_id: str) -> Tuple[str, str]:
 def get_team_bot_credentials_dual(team_id: str, chat_type: str = 'main') -> Tuple[str, str]:
     """Fetch the Telegram bot token and chat ID for a specific team from the database.
     
+    This function uses the new bot configuration manager which supports
+    both local files (testing/staging) and Firestore (production).
+    
     Args:
         team_id (str): The team ID
         chat_type (str): Either 'main' or 'leadership'
         
     Returns:
         Tuple[str, str]: (bot_token, chat_id)
+        
+    Raises:
+        ValueError: If no bot mapping is found for the team or invalid chat type
     """
     try:
-        db = get_firebase_client()
-        
-        # Find the bot mapping for the specific team
-        bots_ref = db.collection('team_bots')
-        query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
-        docs = query.stream()
-        docs_list = list(docs)
-        
-        if not docs_list:
-            raise ValueError(f"No bot mapping found for team ID: {team_id}")
-        
-        bot_data = docs_list[0].to_dict()
+        manager = get_bot_config_manager()
         
         if chat_type == 'main':
-            return bot_data['bot_token'], bot_data['chat_id']
+            bot_type = BotType.MAIN
         elif chat_type == 'leadership':
-            if bot_data.get('leadership_chat_id'):
-                return bot_data['bot_token'], bot_data['leadership_chat_id']
-            else:
-                raise ValueError(f"No leadership chat configured for team ID: {team_id}")
+            bot_type = BotType.LEADERSHIP
         else:
             raise ValueError(f"Invalid chat_type: {chat_type}. Must be 'main' or 'leadership'")
+        
+        bot_config = manager.get_bot_config(team_id, bot_type)
+        
+        if not bot_config:
+            raise ValueError(f"No {chat_type} bot found for team ID: {team_id}")
+        
+        return bot_config.token, bot_config.chat_id
         
     except Exception as e:
         logger.error(f"Error getting bot credentials for team {team_id} ({chat_type}): {e}")
         raise
+
+
+def get_team_bot_username(team_id: str, chat_type: str = 'main') -> str:
+    """Get the bot username for a team.
+    
+    Args:
+        team_id (str): The team ID
+        chat_type (str): Either 'main' or 'leadership'
+        
+    Returns:
+        str: Bot username
+        
+    Raises:
+        ValueError: If no bot is found for the team
+    """
+    try:
+        manager = get_bot_config_manager()
+        
+        if chat_type == 'main':
+            bot_type = BotType.MAIN
+        elif chat_type == 'leadership':
+            bot_type = BotType.LEADERSHIP
+        else:
+            raise ValueError(f"Invalid chat_type: {chat_type}. Must be 'main' or 'leadership'")
+        
+        bot_config = manager.get_bot_config(team_id, bot_type)
+        
+        if not bot_config:
+            raise ValueError(f"No {chat_type} bot found for team ID: {team_id}")
+        
+        return bot_config.username
+        
+    except Exception as e:
+        logger.error(f"Error getting bot username for team {team_id} ({chat_type}): {e}")
+        raise
+
+
+def get_all_team_bots(team_id: str) -> Dict[str, Dict[str, str]]:
+    """Get all bot configurations for a team.
+    
+    Args:
+        team_id (str): The team ID
+        
+    Returns:
+        Dict[str, Dict[str, str]]: Dictionary with bot configurations
+        Format: {
+            'main': {'token': '...', 'chat_id': '...', 'username': '...'},
+            'leadership': {'token': '...', 'chat_id': '...', 'username': '...'}
+        }
+    """
+    try:
+        manager = get_bot_config_manager()
+        team_config = manager.get_team_config(team_id)
+        
+        if not team_config:
+            return {}
+        
+        bots = {}
+        for bot_type, bot_config in team_config.bots.items():
+            if bot_config.is_active:
+                bots[bot_type.value] = {
+                    'token': bot_config.token,
+                    'chat_id': bot_config.chat_id,
+                    'username': bot_config.username
+                }
+        
+        return bots
+        
+    except Exception as e:
+        logger.error(f"Error getting all bots for team {team_id}: {e}")
+        return {}
+
+
+def get_user_role_in_team(team_id: str, user_id: str) -> str:
+    """Get the role of a user in a specific team.
+    
+    Args:
+        team_id (str): The team ID
+        user_id (str): The user ID
+        
+    Returns:
+        str: User role ('admin', 'member', 'guest', etc.) or 'unknown' if not found
+    """
+    try:
+        db = get_firebase_client()
+        
+        # Query team members collection
+        members_ref = db.collection('team_members')
+        query = members_ref.where('team_id', '==', team_id).where('user_id', '==', user_id).where('is_active', '==', True)
+        docs = list(query.stream())
+        
+        if docs:
+            member_data = docs[0].to_dict()
+            return member_data.get('role', 'member')
+        else:
+            return 'unknown'
+            
+    except Exception as e:
+        logger.error(f"Error getting user role for user {user_id} in team {team_id}: {e}")
+        return 'unknown'
+
+
+def is_user_admin(team_id: str, user_id: str) -> bool:
+    """Check if a user is an admin in a specific team.
+    
+    Args:
+        team_id (str): The team ID
+        user_id (str): The user ID
+        
+    Returns:
+        bool: True if user is admin, False otherwise
+    """
+    role = get_user_role_in_team(team_id, user_id)
+    return role in ['admin', 'owner', 'manager']
+
+
+def is_user_member(team_id: str, user_id: str) -> bool:
+    """Check if a user is a member in a specific team.
+    
+    Args:
+        team_id (str): The team ID
+        user_id (str): The user ID
+        
+    Returns:
+        bool: True if user is a member, False otherwise
+    """
+    role = get_user_role_in_team(team_id, user_id)
+    return role in ['admin', 'owner', 'manager', 'member']
+
+
+def escape_markdown(text: str) -> str:
+    """Escape text for Telegram MarkdownV2 format.
+    
+    Args:
+        text (str): Text to escape
+        
+    Returns:
+        str: Escaped text
+    """
+    # Characters that need to be escaped in MarkdownV2
+    escape_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    
+    for char in escape_chars:
+        text = text.replace(char, f'\\{char}')
+    
+    return text
+
+
+def format_message_for_telegram(message: str, parse_mode: str = "MarkdownV2") -> str:
+    """Format a message for Telegram with proper escaping.
+    
+    Args:
+        message (str): The message to format
+        parse_mode (str): Telegram parse mode ('MarkdownV2', 'HTML', 'Markdown')
+        
+    Returns:
+        str: Formatted message
+    """
+    if parse_mode == "MarkdownV2":
+        return escape_markdown(message)
+    elif parse_mode == "HTML":
+        # Basic HTML escaping
+        return message.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    else:
+        return message
+
+
+def get_team_info(team_id: str) -> Optional[Dict[str, Any]]:
+    """Get team information including bot configurations.
+    
+    Args:
+        team_id (str): The team ID
+        
+    Returns:
+        Optional[Dict[str, Any]]: Team information or None if not found
+    """
+    try:
+        manager = get_bot_config_manager()
+        team_config = manager.get_team_config(team_id)
+        
+        if not team_config:
+            return None
+        
+        # Get team info from Firebase
+        db = get_firebase_client()
+        team_ref = db.collection('teams').document(team_id)
+        team_doc = team_ref.get()
+        
+        team_info = {
+            'id': team_id,
+            'name': team_config.name,
+            'description': team_config.description,
+            'settings': team_config.settings,
+            'bots': {}
+        }
+        
+        if team_doc.exists:
+            firebase_data = team_doc.to_dict()
+            team_info.update(firebase_data)
+        
+        # Add bot information
+        for bot_type, bot_config in team_config.bots.items():
+            team_info['bots'][bot_type.value] = {
+                'username': bot_config.username,
+                'chat_id': bot_config.chat_id,
+                'is_active': bot_config.is_active
+            }
+        
+        return team_info
+        
+    except Exception as e:
+        logger.error(f"Error getting team info for team {team_id}: {e}")
+        return None
+
+
+def validate_bot_configuration(team_id: str) -> Dict[str, Any]:
+    """Validate bot configuration for a team.
+    
+    Args:
+        team_id (str): The team ID
+        
+    Returns:
+        Dict[str, Any]: Validation results
+    """
+    results = {
+        'valid': True,
+        'errors': [],
+        'warnings': [],
+        'bots': {}
+    }
+    
+    try:
+        manager = get_bot_config_manager()
+        team_config = manager.get_team_config(team_id)
+        
+        if not team_config:
+            results['valid'] = False
+            results['errors'].append(f"Team '{team_id}' not found")
+            return results
+        
+        # Check each bot
+        for bot_type, bot_config in team_config.bots.items():
+            bot_results = {
+                'valid': True,
+                'errors': [],
+                'warnings': []
+            }
+            
+            # Check token
+            if not bot_config.token:
+                bot_results['valid'] = False
+                bot_results['errors'].append("Bot token is missing")
+            elif len(bot_config.token) < 10:
+                bot_results['warnings'].append("Bot token seems too short")
+            
+            # Check username
+            if not bot_config.username:
+                bot_results['valid'] = False
+                bot_results['errors'].append("Bot username is missing")
+            
+            # Check chat ID
+            if not bot_config.chat_id:
+                bot_results['valid'] = False
+                bot_results['errors'].append("Chat ID is missing")
+            elif not bot_config.chat_id.startswith('-'):
+                bot_results['warnings'].append("Chat ID should start with '-' for groups")
+            
+            # Check if bot is active
+            if not bot_config.is_active:
+                bot_results['warnings'].append("Bot is marked as inactive")
+            
+            results['bots'][bot_type.value] = bot_results
+            
+            # Update overall validity
+            if not bot_results['valid']:
+                results['valid'] = False
+                results['errors'].extend([f"{bot_type.value} bot: {error}" for error in bot_results['errors']])
+            
+            results['warnings'].extend([f"{bot_type.value} bot: {warning}" for warning in bot_results['warnings']])
+        
+        # Check if team has any bots
+        if not team_config.bots:
+            results['valid'] = False
+            results['errors'].append("No bots configured for team")
+        
+    except Exception as e:
+        results['valid'] = False
+        results['errors'].append(f"Validation error: {str(e)}")
+    
+    return results
 
 
 def get_team_name_by_id(team_id: str) -> str:

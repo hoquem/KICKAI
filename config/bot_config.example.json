@@ -1,0 +1,41 @@
+{
+  "environment": "testing",
+  "teams": {
+    "example-team": {
+      "name": "Example Team",
+      "description": "Example team configuration",
+      "bots": {
+        "main": {
+          "token": "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz",
+          "username": "your_main_bot",
+          "chat_id": "-1001234567890",
+          "is_active": true
+        },
+        "leadership": {
+          "token": "0987654321:ZYXwvuTSRqpONMlkjIHGfedCBA",
+          "username": "your_leadership_bot",
+          "chat_id": "-1000987654321",
+          "is_active": true
+        }
+      },
+      "settings": {
+        "ai_provider": "google_gemini",
+        "ai_model": "gemini-pro",
+        "max_members": 50,
+        "allow_public_join": false
+      }
+    }
+  },
+  "default_team": "example-team",
+  "firebase_config": {
+    "project_id": "your-firebase-project-id",
+    "credentials_path": null
+  },
+  "ai_config": {
+    "provider": "google_gemini",
+    "api_key": "your-google-ai-api-key",
+    "model": "gemini-pro",
+    "temperature": 0.7,
+    "max_tokens": 1000
+  }
+} 
