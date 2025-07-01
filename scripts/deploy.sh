@@ -59,7 +59,7 @@ check_prerequisites() {
         print_warning "Not in project $PROJECT_NAME, switching..."
         railway project use "$PROJECT_NAME" || {
             print_error "Failed to switch to project $PROJECT_NAME"
-            exit 1
+        exit 1
         }
     fi
     
@@ -323,10 +323,10 @@ RETRIES=5
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -h|--help)
+    -h|--help)
             usage
-            exit 0
-            ;;
+        exit 0
+        ;;
         -t|--timeout)
             TIMEOUT="$2"
             shift 2
@@ -438,9 +438,9 @@ main() {
         *)
             print_error "Unknown command: $COMMAND"
             usage
-            exit 1
-            ;;
-    esac
+        exit 1
+        ;;
+esac 
 }
 
 # Run main function

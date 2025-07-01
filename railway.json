@@ -10,7 +10,7 @@
     ]
   },
   "deploy": {
-    "startCommand": "python src/main.py",
+    "startCommand": "python railway_main.py",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
