@@ -27,7 +27,7 @@ class TestDynamicTaskDecompositionIntegration(BaseTestCase):
     
     def test_task_templates_availability(self):
         """Test that task templates are available and properly structured."""
-        from src.task_templates import TaskTemplateRegistry
+        from src.tasks.task_templates import TaskTemplateRegistry
         registry = TaskTemplateRegistry()
         self.assertIsNotNone(registry)
         self.assertIsInstance(registry.templates, dict)
@@ -46,13 +46,13 @@ class TestDynamicTaskDecompositionIntegration(BaseTestCase):
     
     def test_improved_agentic_system_import(self):
         """Test that ImprovedAgenticSystem can be imported."""
-        from src.improved_agentic_system import ImprovedAgenticSystem, DynamicTaskDecomposer
+        from src.agents.intelligent_system import ImprovedAgenticSystem, DynamicTaskDecomposer
         self.assertIsNotNone(ImprovedAgenticSystem)
         self.assertIsNotNone(DynamicTaskDecomposer)
     
     def test_agentic_system_initialization(self):
         """Test that ImprovedAgenticSystem can be initialized."""
-        from src.improved_agentic_system import ImprovedAgenticSystem
+        from src.agents.intelligent_system import ImprovedAgenticSystem
         mock_agents = {'test_agent': MockAgent('test_agent')}
         mock_llm = MockLLM()
         system = ImprovedAgenticSystem(mock_agents, mock_llm)
@@ -60,7 +60,7 @@ class TestDynamicTaskDecompositionIntegration(BaseTestCase):
     
     def test_message_handler_integration(self):
         """Test that message handler can import and use dynamic task decomposition."""
-        from src.telegram_command_handler import AgentBasedMessageHandler
+        from src.telegram.telegram_command_handler import AgentBasedMessageHandler
         self.assertIsNotNone(AgentBasedMessageHandler)
         handler_class = AgentBasedMessageHandler
         expected_methods = [
@@ -89,7 +89,7 @@ class TestDynamicTaskDecompositionIntegration(BaseTestCase):
     
     def test_template_registry_functionality(self):
         """Test that template registry provides expected functionality."""
-        from src.task_templates import TaskTemplateRegistry, TaskTemplate, TaskParameter
+        from src.tasks.task_templates import TaskTemplateRegistry, TaskTemplate, TaskParameter
         registry = TaskTemplateRegistry()
         test_template = TaskTemplate(
             name="test_integration_template",
@@ -116,10 +116,11 @@ class TestDynamicTaskDecompositionWorkflow(BaseTestCase):
     
     def test_workflow_components_availability(self):
         """Test that all components needed for the workflow are available."""
+        # Test that all required components can be imported
         components = [
-            'src.task_templates',
-            'src.improved_agentic_system',
-            'src.telegram_command_handler'
+            'src.tasks.task_templates',
+            'src.agents.intelligent_system',
+            'src.telegram.telegram_command_handler'
         ]
         for component in components:
             try:

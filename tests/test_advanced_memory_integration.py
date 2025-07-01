@@ -9,14 +9,14 @@ import json
 from src.testing.test_base import BaseTestCase
 from src.testing.test_fixtures import TestDataFactory, SampleData
 from src.testing.test_utils import MockLLM, MockAgent
-from src.advanced_memory import (
+from src.core.advanced_memory import (
     AdvancedMemorySystem,
     MemoryType,
     MemoryItem,
     UserPreference,
     Pattern
 )
-from src.simple_agentic_handler import SimpleAgenticHandler
+from src.agents import SimpleAgenticHandler
 from config import ENABLE_ADVANCED_MEMORY
 
 class TestAdvancedMemoryIntegration(BaseTestCase):

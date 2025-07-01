@@ -53,7 +53,7 @@ from src.tools.telegram_tools import (
 
 # Import Player Registration System
 try:
-    from src.player_registration import PlayerRegistrationManager, PlayerCommandHandler
+    from src.services.player_registration import PlayerRegistrationManager, PlayerCommandHandler
     PLAYER_REGISTRATION_AVAILABLE = True
     logger.info("✅ Player Registration System imported successfully")
 except ImportError as e:
@@ -62,7 +62,7 @@ except ImportError as e:
 
 # Import OnboardingAgent
 try:
-    from src.agents import OnboardingAgent
+    from .crew_agents import OnboardingAgent
     ONBOARDING_AGENT_AVAILABLE = True
     logger.info("✅ OnboardingAgent imported successfully")
 except ImportError as e:
@@ -71,13 +71,13 @@ except ImportError as e:
 
 # Import configuration
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from config import config, ENABLE_ADVANCED_MEMORY
 
 # Import Advanced Memory System
 if ENABLE_ADVANCED_MEMORY:
     try:
-        from src.advanced_memory import AdvancedMemorySystem, MemoryType
+        from src.core.advanced_memory import AdvancedMemorySystem, MemoryType
         ADVANCED_MEMORY_AVAILABLE = True
         logger.info("✅ Advanced Memory System imported successfully")
     except ImportError as e:
@@ -105,7 +105,7 @@ class SimpleAgenticHandler:
         self.player_command_handler = PlayerCommandHandler(self.player_registration_handler)
         # OnboardingAgent should also use new models/services
         try:
-            from src.agents import OnboardingAgent
+            from .crew_agents import OnboardingAgent
             self.onboarding_agent = OnboardingAgent(team_id)
         except ImportError:
             self.onboarding_agent = None

@@ -157,7 +157,7 @@ def main():
         
         # Register agent-based commands
         try:
-            from src.telegram_command_handler import register_langchain_agentic_handler
+            from src.telegram.telegram_command_handler import register_langchain_agentic_handler
             register_langchain_agentic_handler(app)
             logger.info("✅ LangChain agentic handler registered")
         except Exception as e:

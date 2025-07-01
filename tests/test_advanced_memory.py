@@ -9,7 +9,7 @@ import time
 from src.testing.test_base import BaseTestCase
 from src.testing.test_fixtures import TestDataFactory, SampleData
 from src.testing.test_utils import MockTool, MockLLM
-from src.advanced_memory import (
+from src.core.advanced_memory import (
     AdvancedMemorySystem,
     MemoryType,
     MemoryItem,
