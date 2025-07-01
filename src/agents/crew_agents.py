@@ -432,13 +432,33 @@ from src.telegram.player_registration_handler import PlayerRegistrationHandler, 
 
 class OnboardingAgent(Agent):
     def __init__(self, team_id: str, team_name: Optional[str] = None, llm=None):
+        # Store team_id as instance variable, not Pydantic field
+        self._team_id = team_id
+        self._team_name = team_name
+        
         # Use new service layer for player and team management
-        self.team_id = team_id
         self.player_service = get_player_service()
         self.team_service = get_team_service()
         self.player_registration_handler = PlayerRegistrationHandler(team_id)
         self.player_command_handler = PlayerCommandHandler(self.player_registration_handler)
-        # ... rest of the initialization ...
-        super().__init__(team_id, team_name, llm)
-
-    # ... rest of the class, update all player/team/fixture logic to use the new services/handlers ...
+        
+        # Initialize the parent Agent class properly
+        super().__init__(
+            role="Onboarding Agent",
+            goal="Handle player onboarding and registration processes",
+            backstory="You are an onboarding specialist who helps new players join the team and existing players update their information.",
+            verbose=True,
+            allow_delegation=False,
+            tools=[],  # Will be populated as needed
+            llm=llm
+        )
+    
+    @property
+    def team_id(self) -> str:
+        """Get the team ID."""
+        return self._team_id
+    
+    @property
+    def team_name(self) -> Optional[str]:
+        """Get the team name."""
+        return self._team_name
