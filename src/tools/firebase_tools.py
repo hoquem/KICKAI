@@ -340,7 +340,7 @@ class PlayerTools(BaseTool):
     def _get_all_players(self, db) -> str:
         try:
             players_ref = db.collection('team_members')
-            query = players_ref.where('team_id', '==', self.team_id).order_by('name')
+            query = players_ref.filter('team_id', '==', self.team_id).order_by('name')
             docs = query.stream()
             
             player_list = []
@@ -379,7 +379,7 @@ class PlayerTools(BaseTool):
                 else:
                     return "Player not found."
             else:
-                query = players_ref.where('team_id', '==', self.team_id).where('phone_number', '==', phone_number)
+                query = players_ref.filter('team_id', '==', self.team_id).filter('phone_number', '==', phone_number)
                 docs = query.stream()
                 docs_list = list(docs)
                 
@@ -534,7 +534,7 @@ class FixtureTools(BaseTool):
     def _get_all_fixtures(self, db) -> str:
         try:
             fixtures_ref = db.collection('fixtures')
-            query = fixtures_ref.where('team_id', '==', self.team_id).order_by('match_date')
+            query = fixtures_ref.filter('team_id', '==', self.team_id).order_by('match_date')
             docs = query.stream()
             
             fixture_list = []
@@ -687,7 +687,7 @@ class BotTools(BaseTool):
     def _get_bot_config(self, db) -> str:
         try:
             bots_ref = db.collection('team_bots')
-            query = bots_ref.where('team_id', '==', self.team_id).where('is_active', '==', True)
+            query = bots_ref.filter('team_id', '==', self.team_id).filter('is_active', '==', True)
             docs = query.stream()
             docs_list = list(docs)
             
@@ -710,7 +710,7 @@ class BotTools(BaseTool):
             update_data['updated_at'] = datetime_to_timestamp(None)
             
             bots_ref = db.collection('team_bots')
-            query = bots_ref.where('team_id', '==', self.team_id).where('is_active', '==', True)
+            query = bots_ref.filter('team_id', '==', self.team_id).filter('is_active', '==', True)
             docs = query.stream()
             docs_list = list(docs)
             
