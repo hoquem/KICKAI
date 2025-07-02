@@ -96,19 +96,53 @@ class SimpleAgenticHandler:
     
     def __init__(self, team_id: str):
         self.team_id = team_id
-        self.llm = self._create_llm()
-        self.tools = self._create_tools()
+        
+        # Initialize LLM with error handling
+        try:
+            self.llm = self._create_llm()
+            logger.info("✅ LLM initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM: {e}")
+            self.llm = None
+        
+        # Initialize tools with error handling
+        try:
+            self.tools = self._create_tools()
+            logger.info("✅ Tools initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize tools: {e}")
+            self.tools = []
         
         # Use new service layer for player and team management
-        self.player_service = get_player_service()
-        self.team_service = get_team_service()
-        self.player_registration_handler = PlayerRegistrationHandler(team_id)
-        self.player_command_handler = PlayerCommandHandler(self.player_registration_handler)
+        try:
+            self.player_service = get_player_service()
+            self.team_service = get_team_service()
+            logger.info("✅ Services initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize services: {e}")
+            self.player_service = None
+            self.team_service = None
+        
+        # Initialize player registration handler
+        try:
+            self.player_registration_handler = PlayerRegistrationHandler(team_id)
+            self.player_command_handler = PlayerCommandHandler(self.player_registration_handler)
+            logger.info("✅ Player registration handlers initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize player registration handlers: {e}")
+            self.player_registration_handler = None
+            self.player_command_handler = None
+        
         # OnboardingAgent should also use new models/services
         try:
             from .crew_agents import OnboardingAgent
             self.onboarding_agent = OnboardingAgent(team_id)
-        except ImportError:
+            logger.info("✅ OnboardingAgent initialized successfully")
+        except ImportError as e:
+            logger.warning(f"OnboardingAgent not available: {e}")
+            self.onboarding_agent = None
+        except Exception as e:
+            logger.error(f"Failed to initialize OnboardingAgent: {e}")
             self.onboarding_agent = None
         
         # Initialize Advanced Memory System if available
@@ -128,22 +162,24 @@ class SimpleAgenticHandler:
                 logger.error(f"Failed to initialize Advanced Memory System: {e}")
                 self.memory_system = None
         
+        logger.info(f"✅ SimpleAgenticHandler initialized for team {team_id}")
+        
     def _create_llm(self):
         """Create LLM instance based on environment."""
         try:
             ai_config = config.ai
             logger.info(f"Creating LLM with provider: {ai_config.provider}")
             if ai_config.provider == AIProvider.GOOGLE_GEMINI:
-                if GOOGLE_AI_AVAILABLE:
+                if GOOGLE_AI_AVAILABLE and genai is not None:
                     api_key = ai_config.api_key or os.getenv('GOOGLE_API_KEY')
                     model_name = ai_config.model_name or 'gemini-pro'
                     if not api_key or not model_name:
                         logger.error("Google AI API key or model name missing.")
                         return None
-                    # Only call configure if available
-                    if hasattr(genai, 'configure'):
+                    # Only call configure if available and genai is not None
+                    if hasattr(genai, 'configure') and genai.configure is not None:
                         genai.configure(api_key=api_key)
-                    if hasattr(genai, 'GenerativeModel'):
+                    if hasattr(genai, 'GenerativeModel') and genai.GenerativeModel is not None:
                         llm = genai.GenerativeModel(model_name)
                         logger.info("✅ Google AI LLM created successfully")
                         return llm
@@ -160,7 +196,7 @@ class SimpleAgenticHandler:
             else:
                 # Use Ollama for local development
                 try:
-                    if OLLAMA_AVAILABLE:
+                    if OLLAMA_AVAILABLE and Ollama is not None:
                         llm = Ollama(
                             model=ai_config.model_name,
                             base_url=os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
