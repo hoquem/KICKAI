@@ -109,8 +109,25 @@ class ConfigurationManager:
     
     def _detect_environment(self) -> Environment:
         """Detect the current environment."""
-        # Check for explicit environment variable
+        # Check for explicit environment variable first (highest priority)
+        env = os.getenv("ENVIRONMENT", "").lower()
+        if env:
+            try:
+                detected_env = Environment(env)
+                logging.info(f"Environment explicitly set to: {detected_env}")
+                return detected_env
+            except ValueError:
+                logging.warning(f"Unknown environment '{env}', will use other detection methods")
+        
+        # Check for KICKAI_ENV as fallback
         env = os.getenv("KICKAI_ENV", "").lower()
+        if env:
+            try:
+                detected_env = Environment(env)
+                logging.info(f"KICKAI_ENV set to: {detected_env}")
+                return detected_env
+            except ValueError:
+                logging.warning(f"Unknown KICKAI_ENV '{env}', will use other detection methods")
         
         # Check for Railway environment and determine which one
         if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"):
