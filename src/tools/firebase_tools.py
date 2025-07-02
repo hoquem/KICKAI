@@ -156,12 +156,6 @@ def get_firebase_client():
         except ValueError:
             logger.info("🔄 Initializing new Firebase app...")
         
-        project_id = os.getenv('FIREBASE_PROJECT_ID')
-        if not project_id:
-            raise RuntimeError("FIREBASE_PROJECT_ID environment variable is required.")
-        
-        logger.info(f"✅ Project ID: {project_id}")
-        
         # Get credentials from environment variable
         firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
         if not firebase_creds_json:
@@ -249,7 +243,7 @@ def get_user_role(team_id: str, user_id: str) -> str:
     try:
         db = get_firebase_client()
         members_ref = db.collection('team_members')
-        query = members_ref.filter('team_id', '==', team_id).filter('telegram_id', '==', user_id)
+        query = members_ref.where('team_id', '==', team_id).where('telegram_id', '==', user_id)
         docs = query.stream()
         
         for doc in docs:
@@ -277,7 +271,7 @@ def is_leadership_chat(chat_id: str, team_id: str) -> bool:
     try:
         db = get_firebase_client()
         bots_ref = db.collection('team_bots')
-        query = bots_ref.filter('team_id', '==', team_id).filter('is_active', '==', True)
+        query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
         docs = query.stream()
         
         for doc in docs:
@@ -340,7 +334,7 @@ class PlayerTools(BaseTool):
     def _get_all_players(self, db) -> str:
         try:
             players_ref = db.collection('team_members')
-            query = players_ref.filter('team_id', '==', self.team_id).order_by('name')
+            query = players_ref.where('team_id', '==', self.team_id).order_by('name')
             docs = query.stream()
             
             player_list = []
@@ -379,7 +373,7 @@ class PlayerTools(BaseTool):
                 else:
                     return "Player not found."
             else:
-                query = players_ref.filter('team_id', '==', self.team_id).filter('phone_number', '==', phone_number)
+                query = players_ref.where('team_id', '==', self.team_id).where('phone_number', '==', phone_number)
                 docs = query.stream()
                 docs_list = list(docs)
                 
@@ -534,7 +528,7 @@ class FixtureTools(BaseTool):
     def _get_all_fixtures(self, db) -> str:
         try:
             fixtures_ref = db.collection('fixtures')
-            query = fixtures_ref.filter('team_id', '==', self.team_id).order_by('match_date')
+            query = fixtures_ref.where('team_id', '==', self.team_id).order_by('match_date')
             docs = query.stream()
             
             fixture_list = []
@@ -687,7 +681,7 @@ class BotTools(BaseTool):
     def _get_bot_config(self, db) -> str:
         try:
             bots_ref = db.collection('team_bots')
-            query = bots_ref.filter('team_id', '==', self.team_id).filter('is_active', '==', True)
+            query = bots_ref.where('team_id', '==', self.team_id).where('is_active', '==', True)
             docs = query.stream()
             docs_list = list(docs)
             
@@ -710,7 +704,7 @@ class BotTools(BaseTool):
             update_data['updated_at'] = datetime_to_timestamp(None)
             
             bots_ref = db.collection('team_bots')
-            query = bots_ref.filter('team_id', '==', self.team_id).filter('is_active', '==', True)
+            query = bots_ref.where('team_id', '==', self.team_id).where('is_active', '==', True)
             docs = query.stream()
             docs_list = list(docs)
             
@@ -722,4 +716,5 @@ class BotTools(BaseTool):
                 return "No active bot found for this team."
         except Exception as e:
             return f"An exception occurred while updating bot config: {e}"
+
 # Updated Wed  2 Jul 2025 13:03:26 BST

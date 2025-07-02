@@ -102,7 +102,6 @@ def setup_firebase_project(environment: str, service: str):
         json.loads(credentials)
         
         # Set Railway variables
-        set_railway_variable(service, "FIREBASE_PROJECT_ID", project_id)
         set_railway_variable(service, "FIREBASE_CREDENTIALS", credentials)
         
         # Save credentials file for reference
@@ -123,7 +122,7 @@ def verify_firebase_setup(service: str):
     
     result = run_command(f"railway variables --service {service}")
     if result:
-        if "FIREBASE_PROJECT_ID" in result and "FIREBASE_CREDENTIALS" in result:
+        if "FIREBASE_CREDENTIALS" in result:
             print_success(f"Firebase configured for {service}")
         else:
             print_warning(f"Firebase not fully configured for {service}")

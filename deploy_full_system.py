@@ -48,11 +48,8 @@ def check_environment_variables():
     
     required_vars = [
         'TELEGRAM_BOT_TOKEN',
-        'FIREBASE_PROJECT_ID',
+        'FIREBASE_CREDENTIALS_JSON',
         'FIREBASE_PRIVATE_KEY_ID',
-        'FIREBASE_PRIVATE_KEY',
-        'FIREBASE_CLIENT_EMAIL',
-        'FIREBASE_CLIENT_ID',
         'FIREBASE_AUTH_URI',
         'FIREBASE_TOKEN_URI',
         'FIREBASE_AUTH_PROVIDER_X509_CERT_URL',
