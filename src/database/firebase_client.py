@@ -62,130 +62,36 @@ class FirebaseClient:
                 except ValueError:
                     self._logger.info("🔄 Initializing new Firebase app...")
                     
-                    # Try to get credentials from environment variables
-                    cred = None
-                    
-                    # Method 1: Plain text JSON with PEM repair (preferred)
+                    # Get credentials from FIREBASE_CREDENTIALS_JSON
                     firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
-                    if firebase_creds_json:
-                        try:
-                            self._logger.info("🔄 Using FIREBASE_CREDENTIALS_JSON (plain text)...")
-                            
-                            # Check for common Railway corruption patterns
-                            if '\\n' in firebase_creds_json:
-                                self._logger.warning("🚨 RAILWAY CORRUPTION DETECTED in FIREBASE_CREDENTIALS_JSON!")
-                                self._logger.warning("🔧 Found '\\n' instead of real newlines - Railway corrupted the environment variable")
-                                self._logger.warning("🔧 SOLUTION: Re-upload the original Firebase JSON file with real newlines")
-                                self._logger.warning("🔧 DO NOT use base64 encoding or split into individual variables")
-                            
-                            creds_dict = json.loads(firebase_creds_json)
-                            
-                            # Log private key details for debugging
-                            private_key = creds_dict.get('private_key', '')
-                            self._logger.info(f"🔍 Private key length: {len(private_key)} characters")
-                            self._logger.info(f"🔍 Private key starts with: {private_key[:50]}...")
-                            self._logger.info(f"🔍 Private key ends with: ...{private_key[-50:]}")
-                            
-                            # Check for corruption indicators
-                            if len(private_key) < 100:
-                                self._logger.error("🚨 PRIVATE KEY TOO SHORT - Railway likely truncated the environment variable!")
-                                self._logger.error("🔧 SOLUTION: Check Railway environment variable size limits")
-                                self._logger.error("🔧 Use FIREBASE_CREDENTIALS_JSON as single variable, not split into individual vars")
-                            
-                            if private_key.count('-----BEGIN') > 1 or private_key.count('-----END') > 1:
-                                self._logger.warning("🚨 MULTIPLE PEM HEADERS DETECTED - Railway may have concatenated variables!")
-                                self._logger.warning("🔧 SOLUTION: Use single FIREBASE_CREDENTIALS_JSON variable")
-                            
-                            # Validate and repair the private key
-                            repaired_creds = self._extract_private_key_from_json(creds_dict)
-                            
-                            cred = credentials.Certificate(repaired_creds)
-                            self._logger.info("✅ Credentials created from JSON string (with PEM repair)")
-                        except Exception as e:
-                            self._logger.warning(f"⚠️ JSON credentials failed: {e}")
-                            self._logger.error("🚨 This error is likely due to Railway environment variable corruption!")
-                            self._logger.error("🔧 COMMON CAUSES:")
-                            self._logger.error("   - Railway truncated the environment variable")
-                            self._logger.error("   - Railway corrupted newlines (\\n instead of \\n)")
-                            self._logger.error("   - Railway concatenated multiple variables")
-                            self._logger.error("🔧 SOLUTION: Use FIREBASE_CREDENTIALS_JSON with original Firebase JSON file")
-                            self._logger.info("🔄 Trying alternative JSON parsing...")
-                            
-                            # Try alternative parsing method
-                            try:
-                                # Remove any potential encoding issues
-                                cleaned_json = firebase_creds_json.replace('\\n', '\n').replace('\\"', '"')
-                                creds_dict = json.loads(cleaned_json)
-                                repaired_creds = self._extract_private_key_from_json(creds_dict)
-                                cred = credentials.Certificate(repaired_creds)
-                                self._logger.info("✅ Credentials created from cleaned JSON string")
-                            except Exception as e2:
-                                self._logger.warning(f"⚠️ Alternative JSON parsing also failed: {e2}")
-                                self._logger.error("🚨 BOTH JSON PARSING METHODS FAILED!")
-                                self._logger.error("🔧 This confirms Railway environment variable corruption")
-                                self._logger.error("🔧 SOLUTION: Re-upload the original Firebase JSON file as FIREBASE_CREDENTIALS_JSON")
+                    if not firebase_creds_json:
+                        raise RuntimeError("FIREBASE_CREDENTIALS_JSON environment variable is not set. Please set it with your Firebase service account credentials.")
                     
-                    # Method 2: Individual variables with PEM repair
-                    if not cred:
-                        private_key = os.getenv('FIREBASE_PRIVATE_KEY')
-                        client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
-                        if private_key and client_email:
-                            try:
-                                self._logger.info("🔄 Using individual Firebase variables...")
-                                
-                                # Log private key details for debugging
-                                self._logger.info(f"🔍 Individual private key length: {len(private_key)} characters")
-                                self._logger.info(f"🔍 Individual private key starts with: {private_key[:50]}...")
-                                
-                                # Validate and repair the private key
-                                repaired_private_key = self._validate_and_repair_pem_key(private_key)
-                                
-                                cred_dict = {
-                                    "type": "service_account",
-                                    "project_id": self.config.project_id,
-                                    "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
-                                    "private_key": repaired_private_key,
-                                    "client_email": client_email,
-                                    "client_id": os.getenv('FIREBASE_CLIENT_ID'),
-                                    "auth_uri": os.getenv('FIREBASE_AUTH_URI'),
-                                    "token_uri": os.getenv('FIREBASE_TOKEN_URI'),
-                                    "auth_provider_x509_cert_url": os.getenv('FIREBASE_AUTH_PROVIDER_X509_CERT_URL'),
-                                    "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_X509_CERT_URL')
-                                }
-                                cred = credentials.Certificate(cred_dict)
-                                self._logger.info("✅ Credentials created from individual variables (with PEM repair)")
-                            except Exception as e:
-                                self._logger.warning(f"⚠️ Individual variables failed: {e}")
-                    
-                    # Method 3: Try using a temporary file approach
-                    if not cred:
-                        try:
-                            self._logger.info("🔄 Trying temporary file approach...")
-                            import tempfile
-                            
-                            # Get the JSON credentials
-                            firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
-                            if firebase_creds_json:
-                                creds_dict = json.loads(firebase_creds_json)
-                                repaired_creds = self._extract_private_key_from_json(creds_dict)
-                                
-                                # Create temporary file
-                                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                                    json.dump(repaired_creds, f)
-                                    temp_file_path = f.name
-                                
-                                try:
-                                    cred = credentials.Certificate(temp_file_path)
-                                    self._logger.info("✅ Credentials created from temporary file")
-                                finally:
-                                    # Clean up temporary file
-                                    os.unlink(temp_file_path)
-                                    
-                        except Exception as e:
-                            self._logger.warning(f"⚠️ Temporary file approach failed: {e}")
-                    
-                    if not cred:
-                        raise RuntimeError("No valid Firebase credentials found. Please set FIREBASE_CREDENTIALS_JSON or individual Firebase variables.")
+                    try:
+                        self._logger.info("🔄 Using FIREBASE_CREDENTIALS_JSON...")
+                        creds_dict = json.loads(firebase_creds_json)
+                        
+                        # Log private key details for debugging
+                        private_key = creds_dict.get('private_key', '')
+                        self._logger.info(f"🔍 Private key length: {len(private_key)} characters")
+                        
+                        # Validate the credentials
+                        if not private_key or len(private_key) < 100:
+                            raise ValueError("Invalid private key in Firebase credentials")
+                        
+                        if not creds_dict.get('client_email'):
+                            raise ValueError("Missing client_email in Firebase credentials")
+                        
+                        if not creds_dict.get('project_id'):
+                            raise ValueError("Missing project_id in Firebase credentials")
+                        
+                        cred = credentials.Certificate(creds_dict)
+                        self._logger.info("✅ Credentials created from JSON string")
+                        
+                    except json.JSONDecodeError as e:
+                        raise RuntimeError(f"Invalid JSON in FIREBASE_CREDENTIALS_JSON: {e}")
+                    except Exception as e:
+                        raise RuntimeError(f"Failed to create Firebase credentials: {e}")
                     
                     # Initialize Firebase app
                     self._logger.info("🔄 Initializing Firebase app...")
@@ -524,166 +430,6 @@ class FirebaseClient:
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }
-
-    def _validate_and_repair_pem_key(self, private_key: str) -> str:
-        """
-        Validate and repair PEM private key format.
-        
-        Args:
-            private_key: The private key string to validate/repair
-            
-        Returns:
-            str: Repaired private key or original if valid
-        """
-        if not private_key:
-            self._logger.warning("🚨 EMPTY PRIVATE KEY DETECTED - This indicates Railway environment variable corruption!")
-            self._logger.warning("🔧 SOLUTION: Set FIREBASE_CREDENTIALS_JSON as a single environment variable with real newlines")
-            return private_key
-        
-        # Log key characteristics for debugging
-        key_length = len(private_key)
-        self._logger.info(f"🔍 PEM validation: Key length = {key_length} characters")
-        
-        # Check for common Railway corruption patterns
-        if '\\n' in private_key:
-            self._logger.warning("🚨 RAILWAY CORRUPTION DETECTED: Found '\\n' instead of real newlines!")
-            self._logger.warning("🔧 This is a known Railway issue where environment variables get corrupted")
-            self._logger.warning("🔧 SOLUTION: Use FIREBASE_CREDENTIALS_JSON with real newlines, not base64 or individual vars")
-        
-        if private_key.count('-----BEGIN') > 1 or private_key.count('-----END') > 1:
-            self._logger.warning("🚨 MULTIPLE PEM HEADERS DETECTED - Railway may have concatenated variables!")
-            self._logger.warning("🔧 SOLUTION: Use single FIREBASE_CREDENTIALS_JSON variable")
-        
-        if len(private_key) < 100:
-            self._logger.error("🚨 PRIVATE KEY TOO SHORT - Railway likely truncated the environment variable!")
-            self._logger.error("🔧 SOLUTION: Check Railway environment variable size limits")
-            self._logger.error("🔧 Use FIREBASE_CREDENTIALS_JSON as single variable, not split into individual vars")
-        
-        # Remove any extra whitespace and normalize line endings
-        private_key = private_key.strip()
-        
-        # Check if it's already properly formatted
-        if (private_key.startswith('-----BEGIN PRIVATE KEY-----') and 
-            private_key.endswith('-----END PRIVATE KEY-----')):
-            self._logger.info("✅ PEM key appears to be properly formatted")
-            return private_key
-        
-        self._logger.info("🔧 Attempting to repair PEM key format...")
-        
-        # Try to repair common issues
-        lines = private_key.split('\n')
-        repaired_lines = []
-        
-        for i, line in enumerate(lines):
-            line = line.strip()
-            if line:
-                # Remove any extra characters that might have been added
-                if line.startswith('\\n'):
-                    line = line[2:]
-                    self._logger.info(f"🔧 Fixed line {i+1}: Removed leading '\\n'")
-                if line.endswith('\\n'):
-                    line = line[:-2]
-                    self._logger.info(f"🔧 Fixed line {i+1}: Removed trailing '\\n'")
-                repaired_lines.append(line)
-        
-        # Reconstruct the PEM
-        if len(repaired_lines) >= 3:
-            header = repaired_lines[0]
-            footer = repaired_lines[-1]
-            key_lines = repaired_lines[1:-1]
-            
-            # Ensure proper header/footer
-            if not header.startswith('-----BEGIN'):
-                header = '-----BEGIN PRIVATE KEY-----'
-                self._logger.info("🔧 Fixed PEM header")
-            if not footer.startswith('-----END'):
-                footer = '-----END PRIVATE KEY-----'
-                self._logger.info("🔧 Fixed PEM footer")
-            
-            # Join key lines with proper line breaks
-            key_content = '\n'.join(key_lines)
-            
-            # Ensure proper PEM format
-            repaired_key = f"{header}\n{key_content}\n{footer}"
-            
-            self._logger.info("✅ PEM key repair completed successfully")
-            return repaired_key
-        else:
-            self._logger.error("🚨 PEM REPAIR FAILED - Insufficient key content!")
-            self._logger.error("🔧 This usually means Railway corrupted the environment variable")
-            self._logger.error("🔧 SOLUTION: Re-upload the original Firebase JSON file as FIREBASE_CREDENTIALS_JSON")
-            self._logger.error(f"🔧 Current key content: {private_key[:100]}...")
-        
-        return private_key
-
-    def _extract_private_key_from_json(self, creds_dict: dict) -> dict:
-        """
-        Extract and validate private key from credentials dictionary.
-        
-        Args:
-            creds_dict: Firebase credentials dictionary
-            
-        Returns:
-            dict: Credentials dict with repaired private key
-        """
-        private_key = creds_dict.get('private_key', '')
-        if not private_key:
-            return creds_dict
-        
-        # Validate and repair the private key
-        repaired_key = self._validate_and_repair_pem_key(private_key)
-        
-        # Create a new dict with the repaired key
-        repaired_creds = creds_dict.copy()
-        repaired_creds['private_key'] = repaired_key
-        
-        return repaired_creds
-
-    def _diagnose_railway_corruption(self, firebase_creds_json: str, private_key: str = None):
-        """
-        Diagnose common Railway environment variable corruption issues.
-        
-        Args:
-            firebase_creds_json: The raw Firebase credentials JSON string
-            private_key: The extracted private key (optional)
-        """
-        self._logger.info("🔍 Running Railway corruption diagnostics...")
-        
-        # Check for common corruption patterns
-        corruption_indicators = []
-        
-        if '\\n' in firebase_creds_json:
-            corruption_indicators.append("Found '\\n' instead of real newlines")
-        
-        if firebase_creds_json.count('-----BEGIN') > 1:
-            corruption_indicators.append("Multiple PEM headers detected")
-        
-        if firebase_creds_json.count('-----END') > 1:
-            corruption_indicators.append("Multiple PEM footers detected")
-        
-        if len(firebase_creds_json) < 500:
-            corruption_indicators.append("Credentials JSON too short (likely truncated)")
-        
-        if private_key and len(private_key) < 100:
-            corruption_indicators.append("Private key too short (likely truncated)")
-        
-        if corruption_indicators:
-            self._logger.error("🚨 RAILWAY ENVIRONMENT VARIABLE CORRUPTION DETECTED!")
-            self._logger.error("🔧 CORRUPTION INDICATORS:")
-            for indicator in corruption_indicators:
-                self._logger.error(f"   - {indicator}")
-            self._logger.error("🔧 SOLUTION:")
-            self._logger.error("   1. Download the original Firebase JSON file from Firebase Console")
-            self._logger.error("   2. Set it as FIREBASE_CREDENTIALS_JSON environment variable in Railway")
-            self._logger.error("   3. Use real newlines, NOT base64 encoding or individual variables")
-            self._logger.error("   4. Ensure the entire JSON is in a single environment variable")
-            self._logger.error("🔧 COMMON MISTAKES TO AVOID:")
-            self._logger.error("   - Don't split credentials into individual variables")
-            self._logger.error("   - Don't use base64 encoding")
-            self._logger.error("   - Don't use Railway secrets (they have size limits)")
-            self._logger.error("   - Don't use Railway volumes (they're complex to set up)")
-        else:
-            self._logger.info("✅ No obvious Railway corruption detected")
 
 
 # Global Firebase client instance
