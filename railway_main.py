@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
 Railway Main Entry Point for KICKAI
-Deployment timestamp: 2024-12-19 19:15 UTC - Signal Fix
-Version: 1.4.5-signal-fix
-FORCE DEPLOYMENT: 2024-12-19 19:15 UTC - Fix signal handling in main thread
+Deployment timestamp: 2025-07-02 16:20 UTC - Environment Detection Fix
+Version: 1.4.6-env-fix
+DESCRIPTION: Fixed environment detection to prioritize ENVIRONMENT variable over RAILWAY_ENVIRONMENT
+CHANGES: 
+- Environment detection now prioritizes ENVIRONMENT variable
+- Testing/staging environments use environment variables for bot tokens
+- Only production uses Firestore database for bot tokens
+- Added detailed version logging for debugging
 """
 
 # --- MONKEY-PATCH MUST BE FIRST - before any other imports ---
@@ -176,6 +181,15 @@ def start_telegram_bot():
 def main():
     """Main entry point for Railway deployment."""
     try:
+        # === VERSION LOGGING ===
+        logger.info("🚀 KICKAI RAILWAY DEPLOYMENT STARTING")
+        logger.info("=" * 80)
+        logger.info("🏆 Version: 1.4.6-env-fix")
+        logger.info("📅 Deployment: 2025-07-02 16:20 UTC")
+        logger.info("🔧 Description: Fixed environment detection to prioritize ENVIRONMENT variable")
+        logger.info("🔄 Changes: Testing/staging use env vars, production uses Firestore")
+        logger.info("=" * 80)
+        
         # === FIREBASE DEBUG CODE ===
         logger.info("🔍 FIREBASE CREDENTIALS DEBUG - STARTING")
         logger.info("=" * 80)
