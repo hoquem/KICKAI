@@ -14,7 +14,7 @@ from langchain.tools import BaseTool
 import json
 from datetime import datetime
 
-from ..core.bot_config_manager import get_bot_config_manager, BotType
+from ..core.bot_config_manager import get_bot_config_manager, ChatType
 from ..database.firebase_client import get_firebase_client
 
 # Set up logging
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_team_bot_credentials(team_id: str) -> Tuple[str, str]:
-    """Fetch the Telegram bot token and chat ID for a specific team.
+    """Fetch the Telegram bot token and main chat ID for a specific team.
     
     This function uses the new bot configuration manager which supports
     both local files (testing/staging) and Firestore (production).
@@ -32,19 +32,19 @@ def get_team_bot_credentials(team_id: str) -> Tuple[str, str]:
         team_id (str): The team ID
         
     Returns:
-        Tuple[str, str]: (bot_token, chat_id)
+        Tuple[str, str]: (bot_token, main_chat_id)
         
     Raises:
         ValueError: If no bot mapping is found for the team
     """
     try:
         manager = get_bot_config_manager()
-        bot_config = manager.get_bot_config(team_id, BotType.MAIN)
+        bot_config = manager.get_bot_config(team_id)
         
         if not bot_config:
-            raise ValueError(f"No main bot found for team ID: {team_id}")
+            raise ValueError(f"No bot found for team ID: {team_id}")
         
-        return bot_config.token, bot_config.chat_id
+        return bot_config.token, bot_config.main_chat_id
         
     except Exception as e:
         logger.error(f"Error getting bot credentials for team {team_id}: {e}")
@@ -69,20 +69,17 @@ def get_team_bot_credentials_dual(team_id: str, chat_type: str = 'main') -> Tupl
     """
     try:
         manager = get_bot_config_manager()
-        
-        if chat_type == 'main':
-            bot_type = BotType.MAIN
-        elif chat_type == 'leadership':
-            bot_type = BotType.LEADERSHIP
-        else:
-            raise ValueError(f"Invalid chat_type: {chat_type}. Must be 'main' or 'leadership'")
-        
-        bot_config = manager.get_bot_config(team_id, bot_type)
+        bot_config = manager.get_bot_config(team_id)
         
         if not bot_config:
-            raise ValueError(f"No {chat_type} bot found for team ID: {team_id}")
+            raise ValueError(f"No bot found for team ID: {team_id}")
         
-        return bot_config.token, bot_config.chat_id
+        if chat_type == 'main':
+            return bot_config.token, bot_config.main_chat_id
+        elif chat_type == 'leadership':
+            return bot_config.token, bot_config.leadership_chat_id
+        else:
+            raise ValueError(f"Invalid chat_type: {chat_type}. Must be 'main' or 'leadership'")
         
     except Exception as e:
         logger.error(f"Error getting bot credentials for team {team_id} ({chat_type}): {e}")
@@ -94,7 +91,7 @@ def get_team_bot_username(team_id: str, chat_type: str = 'main') -> str:
     
     Args:
         team_id (str): The team ID
-        chat_type (str): Either 'main' or 'leadership'
+        chat_type (str): Either 'main' or 'leadership' (not used in single bot design)
         
     Returns:
         str: Bot username
@@ -104,23 +101,15 @@ def get_team_bot_username(team_id: str, chat_type: str = 'main') -> str:
     """
     try:
         manager = get_bot_config_manager()
-        
-        if chat_type == 'main':
-            bot_type = BotType.MAIN
-        elif chat_type == 'leadership':
-            bot_type = BotType.LEADERSHIP
-        else:
-            raise ValueError(f"Invalid chat_type: {chat_type}. Must be 'main' or 'leadership'")
-        
-        bot_config = manager.get_bot_config(team_id, bot_type)
+        bot_config = manager.get_bot_config(team_id)
         
         if not bot_config:
-            raise ValueError(f"No {chat_type} bot found for team ID: {team_id}")
+            raise ValueError(f"No bot found for team ID: {team_id}")
         
         return bot_config.username
         
     except Exception as e:
-        logger.error(f"Error getting bot username for team {team_id} ({chat_type}): {e}")
+        logger.error(f"Error getting bot username for team {team_id}: {e}")
         raise
 
 
@@ -139,21 +128,23 @@ def get_all_team_bots(team_id: str) -> Dict[str, Dict[str, str]]:
     """
     try:
         manager = get_bot_config_manager()
-        team_config = manager.get_team_config(team_id)
+        bot_config = manager.get_bot_config(team_id)
         
-        if not team_config:
+        if not bot_config:
             return {}
         
-        bots = {}
-        for bot_type, bot_config in team_config.bots.items():
-            if bot_config.is_active:
-                bots[bot_type.value] = {
-                    'token': bot_config.token,
-                    'chat_id': bot_config.chat_id,
-                    'username': bot_config.username
-                }
-        
-        return bots
+        return {
+            'main': {
+                'token': bot_config.token,
+                'chat_id': bot_config.main_chat_id,
+                'username': bot_config.username
+            },
+            'leadership': {
+                'token': bot_config.token,
+                'chat_id': bot_config.leadership_chat_id,
+                'username': bot_config.username
+            }
+        }
         
     except Exception as e:
         logger.error(f"Error getting all bots for team {team_id}: {e}")
