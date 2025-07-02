@@ -3,6 +3,8 @@
 Configuration Management for KICKAI
 Supports both local development and Railway production environments
 Includes feature flags for Phase 1 improvements.
+
+NOTE: All config/secrets must be loaded via src/core/config.py. Do not load secrets directly from environment or files in other modules.
 """
 
 import os

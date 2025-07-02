@@ -2,6 +2,9 @@
 """
 Deploy with Firebase Credentials
 This script copies Firebase credentials files to the correct location during Railway deployment.
+
+# NOTE: This script is for local setup only. Do not use file-based credential loading at runtime.
+# All runtime Firebase credential loading must use environment variables only.
 """
 
 import json

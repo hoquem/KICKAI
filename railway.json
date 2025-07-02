@@ -10,7 +10,7 @@
     ]
   },
   "deploy": {
-    "startCommand": "python scripts/deploy_with_firebase.py && python railway_main.py",
+    "startCommand": "python railway_main.py",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
@@ -22,7 +22,7 @@
         "ENVIRONMENT": "production",
         "LOG_LEVEL": "INFO",
         "TELEGRAM_BOT_TOKEN": "${TELEGRAM_BOT_TOKEN_PROD}",
-        "FIREBASE_CREDENTIALS": "${FIREBASE_CREDENTIALS_PROD}",
+        "FIREBASE_CREDENTIALS_JSON": "${FIREBASE_CREDENTIALS_JSON_PROD}",
         "GOOGLE_AI_API_KEY": "${GOOGLE_AI_API_KEY_PROD}",
         "RAILWAY_ENVIRONMENT": "production"
       }
@@ -32,7 +32,7 @@
         "ENVIRONMENT": "staging",
         "LOG_LEVEL": "DEBUG",
         "TELEGRAM_BOT_TOKEN": "${TELEGRAM_BOT_TOKEN_STAGING}",
-        "FIREBASE_CREDENTIALS": "${FIREBASE_CREDENTIALS_STAGING}",
+        "FIREBASE_CREDENTIALS_JSON": "${FIREBASE_CREDENTIALS_JSON_STAGING}",
         "GOOGLE_AI_API_KEY": "${GOOGLE_AI_API_KEY_STAGING}",
         "RAILWAY_ENVIRONMENT": "staging"
       }
@@ -42,7 +42,7 @@
         "ENVIRONMENT": "testing",
         "LOG_LEVEL": "DEBUG",
         "TELEGRAM_BOT_TOKEN": "${TELEGRAM_BOT_TOKEN_TESTING}",
-        "FIREBASE_CREDENTIALS": "${FIREBASE_CREDENTIALS_TESTING}",
+        "FIREBASE_CREDENTIALS_JSON": "${FIREBASE_CREDENTIALS_JSON_TESTING}",
         "GOOGLE_AI_API_KEY": "${GOOGLE_AI_API_KEY_TESTING}",
         "RAILWAY_ENVIRONMENT": "testing"
       }

@@ -41,6 +41,8 @@ from config import config
 # Load environment variables
 load_dotenv()
 
+# NOTE: All configuration must be loaded via src/core/config.py. Do not load secrets or config directly here.
+
 def get_messaging_tools(team_id: str):
     """Get Telegram messaging tools for a specific team."""
     try:

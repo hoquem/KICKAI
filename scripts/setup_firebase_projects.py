@@ -3,6 +3,9 @@
 Firebase Projects Setup Script
 
 This script helps set up separate Firebase projects for different environments.
+
+# NOTE: This script is for local setup only. Do not use file-based credential loading at runtime.
+# All runtime Firebase credential loading must use environment variables only.
 """
 
 import os

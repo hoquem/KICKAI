@@ -116,6 +116,9 @@ firebase_creds_testing.json
 firebase-credentials-production.json
 firebase-credentials-staging.json
 firebase-credentials-testing.json
+firebase_creds.json
+firebase.env
+fixed-private-key.txt
 
 # Bot configuration files (contain sensitive tokens)
 config/bot_config.json
@@ -123,6 +126,34 @@ config/bot_config.staging.json
 config/bot_config.production.json
 config/bot_config.*.json
 !config/bot_config.example.json
+
+# Debug and temporary files
+debug_*.py
+fix_*.py
+check_*.py
+test_*.py
+*_debug.py
+*_test.py
+*.backup
+*.original
+*.tmp
+*.temp
+
+# Railway configuration backups
+railway*.backup
+railway*.original
+railway-debug.json
+railway-testing.json
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # Spyder project settings
 .spyderproject
@@ -141,3 +172,18 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+temp/
+tmp/
