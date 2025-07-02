@@ -237,19 +237,19 @@ def datetime_to_timestamp(dt):
 
 def get_user_role(team_id: str, user_id: str) -> str:
     """
-    Get user role from Firebase database.
+    Get the role of a user in a specific team.
     
     Args:
         team_id: The team ID
-        user_id: The Telegram user ID
+        user_id: The user ID
         
     Returns:
-        str: User role ('admin', 'captain', 'member', etc.) or 'member' as default
+        str: User role ('admin', 'member', 'guest', etc.) or 'member' if not found
     """
     try:
         db = get_firebase_client()
         members_ref = db.collection('team_members')
-        query = members_ref.where('team_id', '==', team_id).where('telegram_id', '==', user_id)
+        query = members_ref.filter('team_id', '==', team_id).filter('telegram_id', '==', user_id)
         docs = query.stream()
         
         for doc in docs:
@@ -277,7 +277,7 @@ def is_leadership_chat(chat_id: str, team_id: str) -> bool:
     try:
         db = get_firebase_client()
         bots_ref = db.collection('team_bots')
-        query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
+        query = bots_ref.filter('team_id', '==', team_id).filter('is_active', '==', True)
         docs = query.stream()
         
         for doc in docs:
