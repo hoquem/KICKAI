@@ -50,22 +50,74 @@ class FirebaseClient:
         """Initialize Firebase client with proper error handling."""
         try:
             if not firebase_admin._apps:
-                if self.config.credentials_path:
-                    cred = credentials.Certificate(self.config.credentials_path)
+                import os
+                import json
+                
+                self._logger.info("🔍 Starting Firebase client initialization...")
+                
+                # Check if Firebase app is already initialized
+                try:
+                    app = firebase_admin.get_app()
+                    self._logger.info("✅ Using existing Firebase app")
+                except ValueError:
+                    self._logger.info("🔄 Initializing new Firebase app...")
+                    
+                    # Try to get credentials from environment variables
+                    cred = None
+                    
+                    # Method 1: Plain text JSON (preferred)
+                    firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
+                    if firebase_creds_json:
+                        try:
+                            self._logger.info("🔄 Using FIREBASE_CREDENTIALS_JSON (plain text)...")
+                            creds_dict = json.loads(firebase_creds_json)
+                            cred = credentials.Certificate(creds_dict)
+                            self._logger.info("✅ Credentials created from JSON string")
+                        except Exception as e:
+                            self._logger.warning(f"⚠️ JSON credentials failed: {e}")
+                    
+                    # Method 2: Individual variables
+                    if not cred:
+                        private_key = os.getenv('FIREBASE_PRIVATE_KEY')
+                        client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
+                        if private_key and client_email:
+                            try:
+                                self._logger.info("🔄 Using individual Firebase variables...")
+                                cred_dict = {
+                                    "type": "service_account",
+                                    "project_id": self.config.project_id,
+                                    "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+                                    "private_key": private_key,
+                                    "client_email": client_email,
+                                    "client_id": os.getenv('FIREBASE_CLIENT_ID'),
+                                    "auth_uri": os.getenv('FIREBASE_AUTH_URI'),
+                                    "token_uri": os.getenv('FIREBASE_TOKEN_URI'),
+                                    "auth_provider_x509_cert_url": os.getenv('FIREBASE_AUTH_PROVIDER_X509_CERT_URL'),
+                                    "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_X509_CERT_URL')
+                                }
+                                cred = credentials.Certificate(cred_dict)
+                                self._logger.info("✅ Credentials created from individual variables")
+                            except Exception as e:
+                                self._logger.warning(f"⚠️ Individual variables failed: {e}")
+                    
+                    if not cred:
+                        raise RuntimeError("No valid Firebase credentials found. Please set FIREBASE_CREDENTIALS_JSON or individual Firebase variables.")
+                    
+                    # Initialize Firebase app
+                    self._logger.info("🔄 Initializing Firebase app...")
                     firebase_admin.initialize_app(cred, {
                         'projectId': self.config.project_id
                     })
-                else:
-                    firebase_admin.initialize_app()
+                    self._logger.info("✅ Firebase app initialized successfully")
             
             self._client = firestore.client()
-            self._logger.info("Firebase client initialized successfully")
+            self._logger.info("✅ Firebase Firestore client created successfully")
             
         except Exception as e:
             self._logger.error("Failed to initialize Firebase client", error=e)
             raise ConnectionError(
                 f"Failed to initialize Firebase client: {str(e)}",
-                create_error_context("firebase_initialization")
+                create_error_context("firebase", error=e)
             )
     
     @property
