@@ -49,6 +49,86 @@ except ImportError as e:
     match_id_generator = None
 
 # --- Firebase Client Factory ---
+def validate_and_repair_pem_key(private_key: str) -> str:
+    """
+    Validate and repair PEM private key format.
+    
+    Args:
+        private_key: The private key string to validate/repair
+        
+    Returns:
+        str: Repaired private key or original if valid
+    """
+    if not private_key:
+        return private_key
+    
+    # Remove any extra whitespace and normalize line endings
+    private_key = private_key.strip()
+    
+    # Check if it's already properly formatted
+    if (private_key.startswith('-----BEGIN PRIVATE KEY-----') and 
+        private_key.endswith('-----END PRIVATE KEY-----')):
+        return private_key
+    
+    # Try to repair common issues
+    lines = private_key.split('\n')
+    repaired_lines = []
+    
+    for line in lines:
+        line = line.strip()
+        if line:
+            # Remove any extra characters that might have been added
+            if line.startswith('\\n'):
+                line = line[2:]
+            if line.endswith('\\n'):
+                line = line[:-2]
+            repaired_lines.append(line)
+    
+    # Reconstruct the PEM
+    if len(repaired_lines) >= 3:
+        header = repaired_lines[0]
+        footer = repaired_lines[-1]
+        key_lines = repaired_lines[1:-1]
+        
+        # Ensure proper header/footer
+        if not header.startswith('-----BEGIN'):
+            header = '-----BEGIN PRIVATE KEY-----'
+        if not footer.startswith('-----END'):
+            footer = '-----END PRIVATE KEY-----'
+        
+        # Join key lines with proper line breaks
+        key_content = '\n'.join(key_lines)
+        
+        # Ensure proper PEM format
+        repaired_key = f"{header}\n{key_content}\n{footer}"
+        
+        return repaired_key
+    
+    return private_key
+
+def extract_private_key_from_json(creds_dict: dict) -> dict:
+    """
+    Extract and validate private key from credentials dictionary.
+    
+    Args:
+        creds_dict: Firebase credentials dictionary
+        
+    Returns:
+        dict: Credentials dict with repaired private key
+    """
+    private_key = creds_dict.get('private_key', '')
+    if not private_key:
+        return creds_dict
+    
+    # Validate and repair the private key
+    repaired_key = validate_and_repair_pem_key(private_key)
+    
+    # Create a new dict with the repaired key
+    repaired_creds = creds_dict.copy()
+    repaired_creds['private_key'] = repaired_key
+    
+    return repaired_creds
+
 def get_firebase_client():
     """
     Get Firebase Firestore client with proper initialization.
@@ -83,29 +163,59 @@ def get_firebase_client():
         # Try to get credentials from environment variables
         cred = None
         
-        # Method 1: Plain text JSON (preferred)
+        # Method 1: Plain text JSON with PEM repair (preferred)
         firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
         if firebase_creds_json:
             try:
                 logger.info("🔄 Using FIREBASE_CREDENTIALS_JSON (plain text)...")
                 creds_dict = json.loads(firebase_creds_json)
-                cred = credentials.Certificate(creds_dict)
-                logger.info("✅ Credentials created from JSON string")
+                
+                # Log private key details for debugging
+                private_key = creds_dict.get('private_key', '')
+                logger.info(f"🔍 Private key length: {len(private_key)} characters")
+                logger.info(f"🔍 Private key starts with: {private_key[:50]}...")
+                logger.info(f"🔍 Private key ends with: ...{private_key[-50:]}")
+                
+                # Validate and repair the private key
+                repaired_creds = extract_private_key_from_json(creds_dict)
+                
+                cred = credentials.Certificate(repaired_creds)
+                logger.info("✅ Credentials created from JSON string (with PEM repair)")
             except Exception as e:
                 logger.warning(f"⚠️ JSON credentials failed: {e}")
+                logger.info("🔄 Trying alternative JSON parsing...")
+                
+                # Try alternative parsing method
+                try:
+                    # Remove any potential encoding issues
+                    cleaned_json = firebase_creds_json.replace('\\n', '\n').replace('\\"', '"')
+                    creds_dict = json.loads(cleaned_json)
+                    repaired_creds = extract_private_key_from_json(creds_dict)
+                    cred = credentials.Certificate(repaired_creds)
+                    logger.info("✅ Credentials created from cleaned JSON string")
+                except Exception as e2:
+                    logger.warning(f"⚠️ Alternative JSON parsing also failed: {e2}")
         
-        # Method 2: Individual variables
+        # Method 2: Individual variables with PEM repair
         if not cred:
             private_key = os.getenv('FIREBASE_PRIVATE_KEY')
             client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
             if private_key and client_email:
                 try:
                     logger.info("🔄 Using individual Firebase variables...")
+                    
+                    # Log private key details for debugging
+                    logger.info(f"🔍 Individual private key length: {len(private_key)} characters")
+                    logger.info(f"🔍 Individual private key starts with: {private_key[:50]}...")
+                    
+                    # Validate and repair the private key
+                    repaired_private_key = validate_and_repair_pem_key(private_key)
+                    
                     cred_dict = {
                         "type": "service_account",
                         "project_id": project_id,
                         "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
-                        "private_key": private_key,
+                        "private_key": repaired_private_key,
                         "client_email": client_email,
                         "client_id": os.getenv('FIREBASE_CLIENT_ID'),
                         "auth_uri": os.getenv('FIREBASE_AUTH_URI'),
@@ -114,9 +224,36 @@ def get_firebase_client():
                         "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_X509_CERT_URL')
                     }
                     cred = credentials.Certificate(cred_dict)
-                    logger.info("✅ Credentials created from individual variables")
+                    logger.info("✅ Credentials created from individual variables (with PEM repair)")
                 except Exception as e:
                     logger.warning(f"⚠️ Individual variables failed: {e}")
+        
+        # Method 3: Try using a temporary file approach
+        if not cred:
+            try:
+                logger.info("🔄 Trying temporary file approach...")
+                import tempfile
+                
+                # Get the JSON credentials
+                firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
+                if firebase_creds_json:
+                    creds_dict = json.loads(firebase_creds_json)
+                    repaired_creds = extract_private_key_from_json(creds_dict)
+                    
+                    # Create temporary file
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                        json.dump(repaired_creds, f)
+                        temp_file_path = f.name
+                    
+                    try:
+                        cred = credentials.Certificate(temp_file_path)
+                        logger.info("✅ Credentials created from temporary file")
+                    finally:
+                        # Clean up temporary file
+                        os.unlink(temp_file_path)
+                        
+            except Exception as e:
+                logger.warning(f"⚠️ Temporary file approach failed: {e}")
         
         if not cred:
             raise RuntimeError("No valid Firebase credentials found. Please set FIREBASE_CREDENTIALS_JSON or individual Firebase variables.")
