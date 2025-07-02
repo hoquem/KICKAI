@@ -4,7 +4,7 @@ Bot Configuration Manager for KICKAI
 This module provides centralized bot configuration management supporting:
 - Local file-based configuration for testing/staging
 - Firestore-based configuration for production
-- Multiple teams with dual bots (main + leadership)
+- Multiple teams with single bot for dual chats (main + leadership)
 - Environment-specific configuration loading
 """
 
@@ -22,28 +22,37 @@ from ..database.firebase_client import get_firebase_client
 logger = logging.getLogger(__name__)
 
 
-class BotType(Enum):
-    """Bot types for different chat purposes."""
+class ChatType(Enum):
+    """Chat types for different purposes."""
     MAIN = "main"
     LEADERSHIP = "leadership"
 
 
 @dataclass
+class ChatConfig:
+    """Configuration for a single chat."""
+    chat_id: str
+    chat_type: ChatType
+    is_active: bool = True
+
+
+@dataclass
 class BotConfig:
-    """Configuration for a single bot."""
+    """Configuration for a single bot with dual chats."""
     token: str
     username: str
-    chat_id: str
+    main_chat_id: str
+    leadership_chat_id: str
     is_active: bool = True
     webhook_url: Optional[str] = None
 
 
 @dataclass
 class TeamConfig:
-    """Configuration for a team with dual bots."""
+    """Configuration for a team with single bot and dual chats."""
     name: str
     description: str
-    bots: Dict[BotType, BotConfig]
+    bot: BotConfig
     settings: Dict[str, Any] = field(default_factory=dict)
     team_id: Optional[str] = None
 
@@ -131,14 +140,14 @@ class BotConfigManager:
                 team_data = team_doc.to_dict()
                 team_id = team_doc.id
                 
-                # Load bot mappings for this team
-                bots = self._load_team_bots_from_firestore(team_id)
+                # Load bot configuration for this team
+                bot_config = self._load_team_bot_from_firestore(team_id)
                 
-                if bots:  # Only include teams with active bots
+                if bot_config:  # Only include teams with active bots
                     teams[team_id] = TeamConfig(
                         name=team_data.get('name', 'Unknown'),
                         description=team_data.get('description', ''),
-                        bots=bots,
+                        bot=bot_config,
                         settings=team_data.get('settings', {}),
                         team_id=team_id
                     )
@@ -158,118 +167,67 @@ class BotConfigManager:
             logger.error(f"Failed to load production config: {e}")
             raise
     
-    def _load_team_bots_from_firestore(self, team_id: str) -> Dict[BotType, BotConfig]:
-        """Load bot configurations for a team from Firestore."""
-        bots = {}
-        
-        try:
-            # Load main bot
-            main_bot = self._get_bot_from_firestore(team_id, BotType.MAIN)
-            if main_bot:
-                bots[BotType.MAIN] = main_bot
-            
-            # Load leadership bot
-            leadership_bot = self._get_bot_from_firestore(team_id, BotType.LEADERSHIP)
-            if leadership_bot:
-                bots[BotType.LEADERSHIP] = leadership_bot
-            
-        except Exception as e:
-            logger.error(f"Failed to load bots for team {team_id}: {e}")
-        
-        return bots
-    
-    def _get_bot_from_firestore(self, team_id: str, bot_type: BotType) -> Optional[BotConfig]:
-        """Get a specific bot configuration from Firestore."""
+    def _load_team_bot_from_firestore(self, team_id: str) -> Optional[BotConfig]:
+        """Load bot configuration for a team from Firestore."""
         try:
             bots_ref = self._firebase_client.collection('team_bots')
-            
-            if bot_type == BotType.MAIN:
-                # Main bot uses the standard chat_id
-                query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
-            else:
-                # Leadership bot uses leadership_chat_id
-                query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
-            
+            query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
             docs = list(query.stream())
             
             if docs:
                 bot_data = docs[0].to_dict()
                 
-                # Determine chat_id based on bot type
-                if bot_type == BotType.MAIN:
-                    chat_id = bot_data.get('chat_id')
-                else:
-                    chat_id = bot_data.get('leadership_chat_id')
-                
-                if chat_id:
-                    return BotConfig(
-                        token=bot_data.get('bot_token', ''),
-                        username=bot_data.get('bot_username', ''),
-                        chat_id=chat_id,
-                        is_active=bot_data.get('is_active', True)
-                    )
+                return BotConfig(
+                    token=bot_data.get('token', ''),
+                    username=bot_data.get('username', ''),
+                    main_chat_id=bot_data.get('chat_id', ''),
+                    leadership_chat_id=bot_data.get('leadership_chat_id', ''),
+                    is_active=bot_data.get('is_active', True)
+                )
             
         except Exception as e:
-            logger.error(f"Failed to get {bot_type.value} bot for team {team_id}: {e}")
+            logger.error(f"Failed to load bot for team {team_id}: {e}")
         
         return None
     
     def _parse_team_config_with_env_overrides(self, team_id: str, team_data: Dict[str, Any]) -> TeamConfig:
-        """Parse team configuration from JSON data with environment variable overrides for bot tokens and chat IDs."""
-        bots = {}
+        """Parse team configuration from JSON data with environment variable overrides for bot token and chat IDs."""
         
-        # Parse main bot with environment variable overrides
-        if 'main' in team_data.get('bots', {}):
-            main_bot_data = team_data['bots']['main']
-            # Use environment variable if available, otherwise use JSON value
-            main_token = os.getenv("TELEGRAM_BOT_TOKEN", main_bot_data.get('token', ''))
-            main_chat_id = os.getenv("TELEGRAM_CHAT_ID", main_bot_data.get('chat_id', ''))
-            
-            if main_token:
-                logger.info(f"Using environment variable for main bot token in team {team_id}")
-            else:
-                logger.warning(f"No main bot token found in environment or config for team {team_id}")
-            
-            if main_chat_id:
-                logger.info(f"Using environment variable for main bot chat ID in team {team_id}")
-            else:
-                logger.warning(f"No main bot chat ID found in environment or config for team {team_id}")
-            
-            bots[BotType.MAIN] = BotConfig(
-                token=main_token,
-                username=main_bot_data.get('username', ''),
-                chat_id=main_chat_id,
-                is_active=main_bot_data.get('is_active', True)
-            )
+        # Get bot data from JSON
+        bot_data = team_data.get('bot', {})
         
-        # Parse leadership bot with environment variable overrides
-        if 'leadership' in team_data.get('bots', {}):
-            leadership_bot_data = team_data['bots']['leadership']
-            # Use environment variable if available, otherwise use JSON value
-            leadership_token = os.getenv("TELEGRAM_LEADERSHIP_BOT_TOKEN", leadership_bot_data.get('token', ''))
-            leadership_chat_id = os.getenv("TELEGRAM_LEADERSHIP_CHAT_ID", leadership_bot_data.get('chat_id', ''))
-            
-            if leadership_token:
-                logger.info(f"Using environment variable for leadership bot token in team {team_id}")
-            else:
-                logger.warning(f"No leadership bot token found in environment or config for team {team_id}")
-            
-            if leadership_chat_id:
-                logger.info(f"Using environment variable for leadership bot chat ID in team {team_id}")
-            else:
-                logger.warning(f"No leadership bot chat ID found in environment or config for team {team_id}")
-            
-            bots[BotType.LEADERSHIP] = BotConfig(
-                token=leadership_token,
-                username=leadership_bot_data.get('username', ''),
-                chat_id=leadership_chat_id,
-                is_active=leadership_bot_data.get('is_active', True)
-            )
+        # Use environment variables if available, otherwise use JSON values
+        bot_token = os.getenv("TELEGRAM_BOT_TOKEN", bot_data.get('token', ''))
+        main_chat_id = os.getenv("TELEGRAM_MAIN_CHAT_ID", bot_data.get('main_chat_id', ''))
+        leadership_chat_id = os.getenv("TELEGRAM_LEADERSHIP_CHAT_ID", bot_data.get('leadership_chat_id', ''))
+        
+        if bot_token:
+            logger.info(f"Using environment variable for bot token in team {team_id}")
+        else:
+            logger.warning(f"No bot token found in environment or config for team {team_id}")
+        
+        if main_chat_id:
+            logger.info(f"Using environment variable for main chat ID in team {team_id}")
+        else:
+            logger.warning(f"No main chat ID found in environment or config for team {team_id}")
+        
+        if leadership_chat_id:
+            logger.info(f"Using environment variable for leadership chat ID in team {team_id}")
+        else:
+            logger.warning(f"No leadership chat ID found in environment or config for team {team_id}")
+        
+        bot_config = BotConfig(
+            token=bot_token,
+            username=bot_data.get('username', ''),
+            main_chat_id=main_chat_id,
+            leadership_chat_id=leadership_chat_id,
+            is_active=bot_data.get('is_active', True)
+        )
         
         return TeamConfig(
             name=team_data.get('name', team_id),
             description=team_data.get('description', ''),
-            bots=bots,
+            bot=bot_config,
             settings=team_data.get('settings', {}),
             team_id=team_id
         )
@@ -307,11 +265,11 @@ class BotConfigManager:
         config = self.load_configuration()
         return config.teams.get(team_id)
     
-    def get_bot_config(self, team_id: str, bot_type: BotType) -> Optional[BotConfig]:
-        """Get configuration for a specific bot."""
+    def get_bot_config(self, team_id: str) -> Optional[BotConfig]:
+        """Get bot configuration for a specific team."""
         team_config = self.get_team_config(team_id)
         if team_config:
-            return team_config.bots.get(bot_type)
+            return team_config.bot
         return None
     
     def get_default_team_config(self) -> Optional[TeamConfig]:
@@ -326,31 +284,31 @@ class BotConfigManager:
         config = self.load_configuration()
         return list(config.teams.keys())
     
-    def get_team_bot_tokens(self, team_id: str) -> Dict[BotType, str]:
-        """Get bot tokens for a team."""
-        team_config = self.get_team_config(team_id)
-        if not team_config:
-            return {}
-        
-        tokens = {}
-        for bot_type, bot_config in team_config.bots.items():
-            if bot_config.is_active:
-                tokens[bot_type] = bot_config.token
-        
-        return tokens
+    def get_bot_token(self, team_id: str) -> str:
+        """Get bot token for a team."""
+        bot_config = self.get_bot_config(team_id)
+        if bot_config:
+            return bot_config.token
+        return ''
     
-    def get_team_chat_ids(self, team_id: str) -> Dict[BotType, str]:
+    def get_chat_ids(self, team_id: str) -> Dict[ChatType, str]:
         """Get chat IDs for a team."""
-        team_config = self.get_team_config(team_id)
-        if not team_config:
+        bot_config = self.get_bot_config(team_id)
+        if not bot_config:
             return {}
         
-        chat_ids = {}
-        for bot_type, bot_config in team_config.bots.items():
-            if bot_config.is_active:
-                chat_ids[bot_type] = bot_config.chat_id
+        return {
+            ChatType.MAIN: bot_config.main_chat_id,
+            ChatType.LEADERSHIP: bot_config.leadership_chat_id
+        }
+    
+    def is_leadership_chat(self, chat_id: str, team_id: str) -> bool:
+        """Check if a chat is a leadership chat for the team."""
+        bot_config = self.get_bot_config(team_id)
+        if not bot_config:
+            return False
         
-        return chat_ids
+        return str(chat_id) == str(bot_config.leadership_chat_id)
     
     def validate_configuration(self) -> List[str]:
         """Validate the current configuration and return any errors."""
@@ -362,21 +320,19 @@ class BotConfigManager:
             return errors
         
         for team_id, team_config in config.teams.items():
-            # Check if team has at least one bot
-            if not team_config.bots:
-                errors.append(f"Team '{team_id}' has no bots configured")
-                continue
+            bot_config = team_config.bot
             
-            # Validate each bot
-            for bot_type, bot_config in team_config.bots.items():
-                if not bot_config.token:
-                    errors.append(f"Team '{team_id}' {bot_type.value} bot has no token")
-                
-                if not bot_config.username:
-                    errors.append(f"Team '{team_id}' {bot_type.value} bot has no username")
-                
-                if not bot_config.chat_id:
-                    errors.append(f"Team '{team_id}' {bot_type.value} bot has no chat ID")
+            if not bot_config.token:
+                errors.append(f"Team '{team_id}' has no bot token")
+            
+            if not bot_config.username:
+                errors.append(f"Team '{team_id}' has no bot username")
+            
+            if not bot_config.main_chat_id:
+                errors.append(f"Team '{team_id}' has no main chat ID")
+            
+            if not bot_config.leadership_chat_id:
+                errors.append(f"Team '{team_id}' has no leadership chat ID")
         
         # Check default team
         if config.default_team and config.default_team not in config.teams:
@@ -407,17 +363,15 @@ class BotConfigManager:
                 data['teams'][team_id] = {
                     'name': team_config.name,
                     'description': team_config.description,
-                    'bots': {},
+                    'bot': {
+                        'token': team_config.bot.token,
+                        'username': team_config.bot.username,
+                        'main_chat_id': team_config.bot.main_chat_id,
+                        'leadership_chat_id': team_config.bot.leadership_chat_id,
+                        'is_active': team_config.bot.is_active
+                    },
                     'settings': team_config.settings
                 }
-                
-                for bot_type, bot_config in team_config.bots.items():
-                    data['teams'][team_id]['bots'][bot_type.value] = {
-                        'token': bot_config.token,
-                        'username': bot_config.username,
-                        'chat_id': bot_config.chat_id,
-                        'is_active': bot_config.is_active
-                    }
             
             with open(config_path, 'w') as f:
                 json.dump(data, f, indent=2)
@@ -430,20 +384,11 @@ class BotConfigManager:
             return False
 
 
-# Global instance
-_bot_config_manager: Optional[BotConfigManager] = None
-
-
 def get_bot_config_manager() -> BotConfigManager:
-    """Get the global bot configuration manager instance."""
-    global _bot_config_manager
-    if _bot_config_manager is None:
-        _bot_config_manager = BotConfigManager()
-    return _bot_config_manager
+    """Get the bot configuration manager instance."""
+    return BotConfigManager()
 
 
 def initialize_bot_config_manager() -> BotConfigManager:
-    """Initialize the global bot configuration manager."""
-    global _bot_config_manager
-    _bot_config_manager = BotConfigManager()
-    return _bot_config_manager 
+    """Initialize and return a new bot configuration manager instance."""
+    return BotConfigManager() 

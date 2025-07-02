@@ -57,7 +57,7 @@ def get_bot_token():
         # Import the bot configuration manager
         logger.info("📦 Importing bot configuration manager...")
         try:
-            from src.core.bot_config_manager import get_bot_config_manager, BotType
+            from src.core.bot_config_manager import get_bot_config_manager
             logger.info("✅ Imported bot configuration manager")
         except ImportError as import_error:
             logger.error(f"❌ Failed to import bot configuration manager: {import_error}")
@@ -92,12 +92,12 @@ def get_bot_token():
             logger.error("❌ No teams found in configuration")
             return None
         
-        # Get the main bot configuration for the team
-        logger.info(f"🔍 Getting main bot for team: {team_id}")
+        # Get the bot configuration for the team
+        logger.info(f"🔍 Getting bot for team: {team_id}")
         try:
-            bot_config = manager.get_bot_config(team_id, BotType.MAIN)
+            bot_config = manager.get_bot_config(team_id)
             if not bot_config:
-                logger.error(f"❌ No main bot found for team: {team_id}")
+                logger.error(f"❌ No bot found for team: {team_id}")
                 return None
             
             bot_token = bot_config.token
@@ -108,7 +108,8 @@ def get_bot_token():
             logger.info(f"✅ Bot token retrieved successfully: {bot_token[:10]}...")
             logger.info(f"   Team: {team_id}")
             logger.info(f"   Bot Username: {bot_config.username}")
-            logger.info(f"   Chat ID: {bot_config.chat_id}")
+            logger.info(f"   Main Chat ID: {bot_config.main_chat_id}")
+            logger.info(f"   Leadership Chat ID: {bot_config.leadership_chat_id}")
             return bot_token
             
         except Exception as bot_error:
