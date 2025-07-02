@@ -14,7 +14,7 @@ from typing import Dict, Any
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from core.bot_config_manager import BotConfiguration, TeamConfig, BotConfig, BotType
+from core.bot_config_manager import BotConfiguration, TeamConfig, BotConfig, ChatType
 
 
 def print_success(message: str):
@@ -83,38 +83,22 @@ def setup_team() -> Dict[str, Any]:
     description = get_input("Team Description", required=False)
     
     # Bot configuration
-    print("\n🤖 Bot Configuration")
-    print("=" * 30)
+    print("\n🤖 Bot Configuration (Single Bot with Dual Chats)")
+    print("=" * 50)
     
-    bots = {}
+    # Single bot with dual chats
+    bot_token = get_input("Bot Token")
+    bot_username = get_input("Bot Username (without @)")
+    main_chat_id = get_input("Main Chat ID (for general team chat)")
+    leadership_chat_id = get_input("Leadership Chat ID (for leadership group)")
     
-    # Main bot
-    print("\n📱 Main Bot (for general team chat):")
-    main_token = get_input("Bot Token", required=False)
-    if main_token:
-        main_username = get_input("Bot Username (without @)")
-        main_chat_id = get_input("Main Chat ID")
-        
-        bots["main"] = {
-            "token": main_token,
-            "username": main_username,
-            "chat_id": main_chat_id,
-            "is_active": True
-        }
-    
-    # Leadership bot
-    print("\n👑 Leadership Bot (for leadership group):")
-    leadership_token = get_input("Bot Token", required=False)
-    if leadership_token:
-        leadership_username = get_input("Bot Username (without @)")
-        leadership_chat_id = get_input("Leadership Chat ID")
-        
-        bots["leadership"] = {
-            "token": leadership_token,
-            "username": leadership_username,
-            "chat_id": leadership_chat_id,
-            "is_active": True
-        }
+    bot_config = {
+        "token": bot_token,
+        "username": bot_username,
+        "main_chat_id": main_chat_id,
+        "leadership_chat_id": leadership_chat_id,
+        "is_active": True
+    }
     
     # Team settings
     print("\n⚙️ Team Settings")
@@ -139,7 +123,7 @@ def setup_team() -> Dict[str, Any]:
     return {
         "name": name,
         "description": description,
-        "bots": bots,
+        "bot": bot_config,
         "settings": settings
     }
 
@@ -270,7 +254,7 @@ def main():
     print(f"Teams: {len(teams)}")
     for team_id, team_config in teams.items():
         print(f"  • {team_id}: {team_config['name']}")
-        print(f"    Bots: {len(team_config['bots'])}")
+        print(f"    Bots: {len(team_config['bot'])}")
     print(f"Default Team: {default_team}")
     print(f"AI Provider: {ai_config['provider']}")
     

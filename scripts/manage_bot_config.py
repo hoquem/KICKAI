@@ -20,7 +20,7 @@ from typing import Dict, Any, Optional
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from core.bot_config_manager import (
-    get_bot_config_manager, BotType, BotConfig, TeamConfig, BotConfiguration
+    get_bot_config_manager, ChatType, BotConfig, TeamConfig, BotConfiguration
 )
 from core.config import Environment
 
@@ -60,12 +60,14 @@ def list_teams():
     for team_id, team_config in config.teams.items():
         print(f"\n🏆 {team_config.name} (ID: {team_id})")
         print(f"   Description: {team_config.description}")
-        print(f"   Bots: {len(team_config.bots)} configured")
         
-        for bot_type, bot_config in team_config.bots.items():
-            status = "🟢 Active" if bot_config.is_active else "🔴 Inactive"
-            print(f"   • {bot_type.value.title()} Bot: @{bot_config.username} {status}")
-            print(f"     Chat ID: {bot_config.chat_id}")
+        if team_config.bot:
+            status = "🟢 Active" if team_config.bot.is_active else "🔴 Inactive"
+            print(f"   🤖 Bot: @{team_config.bot.username} {status}")
+            print(f"     Main Chat ID: {team_config.bot.main_chat_id}")
+            print(f"     Leadership Chat ID: {team_config.bot.leadership_chat_id}")
+        else:
+            print("   🤖 No bot configured")
         
         if team_config.settings:
             print(f"   Settings: {', '.join(team_config.settings.keys())}")
@@ -88,16 +90,15 @@ def show_team(team_id: str):
     print(f"ID: {team_id}")
     print(f"Description: {team_config.description}")
     
-    if team_config.bots:
-        print(f"\n🤖 Bots ({len(team_config.bots)}):")
-        for bot_type, bot_config in team_config.bots.items():
-            print(f"\n  {bot_type.value.title()} Bot:")
-            print(f"    Username: @{bot_config.username}")
-            print(f"    Chat ID: {bot_config.chat_id}")
-            print(f"    Status: {'🟢 Active' if bot_config.is_active else '🔴 Inactive'}")
-            print(f"    Token: {bot_config.token[:10]}..." if bot_config.token else "    Token: Not set")
+    if team_config.bot:
+        print(f"\n🤖 Bot Configuration:")
+        print(f"  Username: @{team_config.bot.username}")
+        print(f"  Main Chat ID: {team_config.bot.main_chat_id}")
+        print(f"  Leadership Chat ID: {team_config.bot.leadership_chat_id}")
+        print(f"  Status: {'🟢 Active' if team_config.bot.is_active else '🔴 Inactive'}")
+        print(f"  Token: {team_config.bot.token[:10]}..." if team_config.bot.token else "  Token: Not set")
     else:
-        print("\n🤖 No bots configured")
+        print("\n🤖 No bot configured")
     
     if team_config.settings:
         print(f"\n⚙️ Settings:")
@@ -118,7 +119,7 @@ def add_team(team_id: str, name: str, description: str = ""):
     new_team = TeamConfig(
         name=name,
         description=description,
-        bots={},
+        bot=None,
         settings={}
     )
     
@@ -137,7 +138,7 @@ def add_team(team_id: str, name: str, description: str = ""):
         print_error("Failed to save configuration")
 
 
-def add_bot(team_id: str, bot_type: str, token: str, username: str, chat_id: str):
+def add_bot(team_id: str, token: str, username: str, main_chat_id: str, leadership_chat_id: str):
     """Add a bot to a team."""
     manager = get_bot_config_manager()
     config = manager.load_configuration()
@@ -146,32 +147,28 @@ def add_bot(team_id: str, bot_type: str, token: str, username: str, chat_id: str
         print_error(f"Team '{team_id}' not found")
         return
     
-    try:
-        bot_type_enum = BotType(bot_type.lower())
-    except ValueError:
-        print_error(f"Invalid bot type '{bot_type}'. Must be 'main' or 'leadership'")
-        return
-    
     # Create bot configuration
     bot_config = BotConfig(
         token=token,
         username=username,
-        chat_id=chat_id,
+        main_chat_id=main_chat_id,
+        leadership_chat_id=leadership_chat_id,
         is_active=True
     )
     
-    config.teams[team_id].bots[bot_type_enum] = bot_config
+    config.teams[team_id].bot = bot_config
     
     # Save configuration
     if manager.save_local_config(config):
-        print_success(f"{bot_type.title()} bot added to team '{team_id}'")
+        print_success(f"Bot added to team '{team_id}'")
         print_info(f"Username: @{username}")
-        print_info(f"Chat ID: {chat_id}")
+        print_info(f"Main Chat ID: {main_chat_id}")
+        print_info(f"Leadership Chat ID: {leadership_chat_id}")
     else:
         print_error("Failed to save configuration")
 
 
-def remove_bot(team_id: str, bot_type: str):
+def remove_bot(team_id: str):
     """Remove a bot from a team."""
     manager = get_bot_config_manager()
     config = manager.load_configuration()
@@ -180,22 +177,16 @@ def remove_bot(team_id: str, bot_type: str):
         print_error(f"Team '{team_id}' not found")
         return
     
-    try:
-        bot_type_enum = BotType(bot_type.lower())
-    except ValueError:
-        print_error(f"Invalid bot type '{bot_type}'. Must be 'main' or 'leadership'")
-        return
-    
-    if bot_type_enum not in config.teams[team_id].bots:
-        print_error(f"No {bot_type} bot configured for team '{team_id}'")
+    if not config.teams[team_id].bot:
+        print_error(f"No bot configured for team '{team_id}'")
         return
     
     # Remove bot
-    del config.teams[team_id].bots[bot_type_enum]
+    config.teams[team_id].bot = None
     
     # Save configuration
     if manager.save_local_config(config):
-        print_success(f"{bot_type.title()} bot removed from team '{team_id}'")
+        print_success(f"Bot removed from team '{team_id}'")
     else:
         print_error("Failed to save configuration")
 
@@ -251,17 +242,9 @@ def export_config(output_file: str):
             data['teams'][team_id] = {
                 'name': team_config.name,
                 'description': team_config.description,
-                'bots': {},
+                'bot': team_config.bot,
                 'settings': team_config.settings
             }
-            
-            for bot_type, bot_config in team_config.bots.items():
-                data['teams'][team_id]['bots'][bot_type.value] = {
-                    'token': bot_config.token,
-                    'username': bot_config.username,
-                    'chat_id': bot_config.chat_id,
-                    'is_active': bot_config.is_active
-                }
         
         with open(output_file, 'w') as f:
             json.dump(data, f, indent=2)
@@ -315,19 +298,12 @@ def create_example_config():
             "example-team": {
                 "name": "Example Team",
                 "description": "Example team for testing",
-                "bots": {
-                    "main": {
-                        "token": "YOUR_MAIN_BOT_TOKEN_HERE",
-                        "username": "your_main_bot",
-                        "chat_id": "YOUR_MAIN_CHAT_ID_HERE",
-                        "is_active": True
-                    },
-                    "leadership": {
-                        "token": "YOUR_LEADERSHIP_BOT_TOKEN_HERE",
-                        "username": "your_leadership_bot",
-                        "chat_id": "YOUR_LEADERSHIP_CHAT_ID_HERE",
-                        "is_active": True
-                    }
+                "bot": {
+                    "token": "YOUR_MAIN_BOT_TOKEN_HERE",
+                    "username": "your_main_bot",
+                    "main_chat_id": "YOUR_MAIN_CHAT_ID_HERE",
+                    "leadership_chat_id": "YOUR_LEADERSHIP_CHAT_ID_HERE",
+                    "is_active": True
                 },
                 "settings": {
                     "ai_provider": "google_gemini",
@@ -395,15 +371,14 @@ Examples:
     # Add bot command
     add_bot_parser = subparsers.add_parser('add-bot', help='Add a bot to a team')
     add_bot_parser.add_argument('team_id', help='Team ID')
-    add_bot_parser.add_argument('bot_type', choices=['main', 'leadership'], help='Bot type')
     add_bot_parser.add_argument('token', help='Bot token')
     add_bot_parser.add_argument('username', help='Bot username')
-    add_bot_parser.add_argument('chat_id', help='Chat ID')
+    add_bot_parser.add_argument('main_chat_id', help='Main Chat ID')
+    add_bot_parser.add_argument('leadership_chat_id', help='Leadership Chat ID')
     
     # Remove bot command
     remove_bot_parser = subparsers.add_parser('remove-bot', help='Remove a bot from a team')
     remove_bot_parser.add_argument('team_id', help='Team ID')
-    remove_bot_parser.add_argument('bot_type', choices=['main', 'leadership'], help='Bot type')
     
     # Set default team command
     default_parser = subparsers.add_parser('set-default', help='Set default team')
@@ -437,9 +412,9 @@ Examples:
         elif args.command == 'add-team':
             add_team(args.team_id, args.name, args.description)
         elif args.command == 'add-bot':
-            add_bot(args.team_id, args.bot_type, args.token, args.username, args.chat_id)
+            add_bot(args.team_id, args.token, args.username, args.main_chat_id, args.leadership_chat_id)
         elif args.command == 'remove-bot':
-            remove_bot(args.team_id, args.bot_type)
+            remove_bot(args.team_id)
         elif args.command == 'set-default':
             set_default_team(args.team_id)
         elif args.command == 'validate':
