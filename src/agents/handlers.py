@@ -70,22 +70,17 @@ except ImportError as e:
     logger.warning(f"⚠️ OnboardingAgent not available: {e}")
 
 # Import configuration
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from config import config, ENABLE_ADVANCED_MEMORY
-from src.core.config import AIProvider
+from src.core.config import get_config, AIProvider
+config = get_config()
 
 # Import Advanced Memory System
-if ENABLE_ADVANCED_MEMORY:
-    try:
-        from src.core.advanced_memory import AdvancedMemorySystem, MemoryType
-        ADVANCED_MEMORY_AVAILABLE = True
-        logger.info("✅ Advanced Memory System imported successfully")
-    except ImportError as e:
-        ADVANCED_MEMORY_AVAILABLE = False
-        logger.warning(f"⚠️ Advanced Memory System not available: {e}")
-else:
+try:
+    from src.core.advanced_memory import AdvancedMemorySystem, MemoryType
+    ADVANCED_MEMORY_AVAILABLE = True
+    logger.info("✅ Advanced Memory System imported successfully")
+except ImportError as e:
     ADVANCED_MEMORY_AVAILABLE = False
+    logger.warning(f"⚠️ Advanced Memory System not available: {e}")
 
 from src.services.player_service import get_player_service
 from src.services.team_service import get_team_service
@@ -147,7 +142,7 @@ class SimpleAgenticHandler:
         
         # Initialize Advanced Memory System if available
         self.memory_system = None
-        if ADVANCED_MEMORY_AVAILABLE and ENABLE_ADVANCED_MEMORY:
+        if ADVANCED_MEMORY_AVAILABLE:
             try:
                 memory_config = {
                     'max_short_term_items': 100,
@@ -167,12 +162,36 @@ class SimpleAgenticHandler:
     def _create_llm(self):
         """Create LLM instance based on environment."""
         try:
-            ai_config = config.ai
+            # Debug: Check what config contains
+            logger.info(f"Config object type: {type(config)}")
+            logger.info(f"Config attributes: {dir(config)}")
+            
+            # Try to get AI config safely
+            try:
+                ai_config = config.ai
+                logger.info(f"AI config: {ai_config}")
+            except AttributeError as e:
+                logger.error(f"Config has no 'ai' attribute: {e}")
+                # Fallback to environment variables
+                api_key = os.getenv('GOOGLE_API_KEY')
+                model_name = os.getenv('AI_MODEL_NAME', 'gemini-1.5-flash')
+                provider = os.getenv('AI_PROVIDER', 'google_gemini')
+                
+                if provider == 'google_gemini' and api_key:
+                    if GOOGLE_AI_AVAILABLE and genai is not None:
+                        genai.configure(api_key=api_key)
+                        llm = genai.GenerativeModel(model_name)
+                        logger.info("✅ Google AI LLM created successfully (fallback)")
+                        return llm
+                
+                logger.warning("⚠️ Using fallback response system")
+                return None
+            
             logger.info(f"Creating LLM with provider: {ai_config.provider}")
             if ai_config.provider == AIProvider.GOOGLE_GEMINI:
                 if GOOGLE_AI_AVAILABLE and genai is not None:
                     api_key = ai_config.api_key or os.getenv('GOOGLE_API_KEY')
-                    model_name = ai_config.model_name or 'gemini-pro'
+                    model_name = ai_config.model_name or 'gemini-1.5-flash'
                     if not api_key or not model_name:
                         logger.error("Google AI API key or model name missing.")
                         return None
