@@ -176,6 +176,9 @@ def get_firebase_client():
         
         # Initialize Firebase app
         logger.info("🔄 Initializing Firebase app...")
+        project_id = creds_dict.get('project_id')
+        if not project_id:
+            raise RuntimeError("project_id not found in Firebase credentials")
         app = firebase_admin.initialize_app(cred, {'projectId': project_id})
         logger.info("✅ Firebase app initialized successfully")
         
