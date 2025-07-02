@@ -70,11 +70,6 @@ def setup_service_variables(service: str, environment: str):
         set_railway_variable(service, f"GOOGLE_AI_API_KEY_{environment.upper()}", google_api_key)
         set_railway_variable(service, "GOOGLE_AI_API_KEY", google_api_key)
     
-    # Get Firebase Project ID
-    firebase_project_id = get_input(f"Enter Firebase Project ID for {environment}")
-    if firebase_project_id:
-        set_railway_variable(service, "FIREBASE_PROJECT_ID", firebase_project_id)
-    
     # Get Firebase Credentials
     print(f"\n📄 Firebase Credentials for {environment}:")
     print("1. Paste the JSON content directly")

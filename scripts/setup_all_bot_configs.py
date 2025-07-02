@@ -87,11 +87,6 @@ def update_testing_config():
     config['teams']['test-team']['bots']['main']['username'] = 'kickai_testing_bot'
     config['teams']['test-team']['bots']['main']['chat_id'] = '-1001234567890'  # Placeholder
     
-    # Update Firebase project ID
-    firebase_project = get_railway_variable('kickai-testing', 'FIREBASE_PROJECT_ID')
-    if firebase_project:
-        config['firebase_config']['project_id'] = firebase_project
-    
     # Save updated config
     with open(config_path, 'w') as f:
         json.dump(config, f, indent=2)
@@ -99,7 +94,6 @@ def update_testing_config():
     print("✅ Testing configuration updated")
     print(f"   Team Name: kickai-testing")
     print(f"   Bot Token: {bot_token[:10]}...")
-    print(f"   Firebase Project: {firebase_project}")
     
     return True
 
@@ -134,11 +128,6 @@ def update_staging_config():
     config['teams']['staging-team']['bots']['main']['username'] = 'kickai_staging_bot'
     config['teams']['staging-team']['bots']['main']['chat_id'] = '-1001234567890'  # Placeholder
     
-    # Update Firebase project ID
-    firebase_project = get_railway_variable('kickai-staging', 'FIREBASE_PROJECT_ID')
-    if firebase_project:
-        config['firebase_config']['project_id'] = firebase_project
-    
     # Save updated config
     with open(config_path, 'w') as f:
         json.dump(config, f, indent=2)
@@ -146,7 +135,6 @@ def update_staging_config():
     print("✅ Staging configuration updated")
     print(f"   Team Name: kickai-staging")
     print(f"   Bot Token: {bot_token[:10]}...")
-    print(f"   Firebase Project: {firebase_project}")
     
     return True
 

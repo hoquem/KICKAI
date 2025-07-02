@@ -21,15 +21,6 @@ def check_environment_variables():
     """Check if all required environment variables are set."""
     required_vars = [
         'TELEGRAM_BOT_TOKEN',
-        'FIREBASE_PROJECT_ID',
-        'FIREBASE_PRIVATE_KEY_ID',
-        'FIREBASE_PRIVATE_KEY',
-        'FIREBASE_CLIENT_EMAIL',
-        'FIREBASE_CLIENT_ID',
-        'FIREBASE_AUTH_URI',
-        'FIREBASE_TOKEN_URI',
-        'FIREBASE_AUTH_PROVIDER_X509_CERT_URL',
-        'FIREBASE_CLIENT_X509_CERT_URL',
         'GOOGLE_API_KEY',
         'OPENAI_API_KEY'
     ]
