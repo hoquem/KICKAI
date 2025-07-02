@@ -308,14 +308,28 @@ class PlayerService:
         if not name:
             return ""
         
-        # Extract initials from name
+        # Split name into first and last name
         name_parts = name.strip().split()
         if len(name_parts) >= 2:
-            initials = ''.join(part[0].upper() for part in name_parts[:2])
+            first_name = name_parts[0]
+            last_name = name_parts[-1]
         else:
-            initials = name[:2].upper()
+            first_name = name
+            last_name = ""
         
-        return f"{initials}1"  # Simple format, could be enhanced with numbering
+        # Use the new ID generator system
+        from ..utils.id_generator import generate_player_id as generate_human_readable_id
+        
+        # Get existing player IDs to avoid collisions
+        existing_ids = set()
+        try:
+            # Get all existing player IDs from the database
+            players = self._firebase_client.get_all_players(self.team_id)
+            existing_ids = {player.player_id for player in players if player.player_id}
+        except Exception as e:
+            logger.warning(f"Could not load existing player IDs for collision detection: {e}")
+        
+        return generate_human_readable_id(first_name, last_name, existing_ids)
 
 
 # Global player service instance

@@ -31,13 +31,6 @@ def patched_request(self, method, url, **kwargs):
 
 httpx.Client.request = patched_request
 
-# Import configuration
-try:
-    from config import config, ENABLE_INTELLIGENT_ROUTING, ENABLE_LLM_ROUTING, ENABLE_DYNAMIC_TASK_DECOMPOSITION
-except ImportError as e:
-    logger.error("Configuration not available", error=e)
-    raise ImportError("Configuration not available")
-
 # Version check - this will force Railway to reload
 VERSION = "1.3.0-llm-parsing"
 DEPLOYMENT_TIME = "2024-12-19 17:00 UTC"
@@ -801,7 +794,7 @@ class AgentBasedMessageHandler:
                 return self.handle_player_join(player_id, user_id, username)
             
             # Handle regular commands and messages
-            return self.agentic_handler.handle_message(message, user_id, username, is_leadership_chat)
+            return await self.agentic_handler.handle_message(message, user_id, username, is_leadership_chat)
             
         except Exception as e:
             logger.error("Error handling message", error=e)
@@ -1311,7 +1304,7 @@ def register_langchain_agentic_handler(app):
 
             # Process the message with role and chat type information
             try:
-                response = handler.process_message(
+                response = await handler.process_message(
                     message_text, 
                     user_id=user_id, 
                     chat_id=chat_id, 

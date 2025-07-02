@@ -258,7 +258,7 @@ class SimpleAgenticHandler:
             logger.error(f"Error creating tools: {e}")
             raise
     
-    def process_message(self, message: str, user_id: str = None, chat_id: str = None, user_role: str = None, is_leadership_chat: bool = False) -> str:
+    async def process_message(self, message: str, user_id: str = None, chat_id: str = None, user_role: str = None, is_leadership_chat: bool = False) -> str:
         """Process a message using the agentic system."""
         try:
             logger.info(f"Processing message: {message[:100]}...")
@@ -303,7 +303,7 @@ class SimpleAgenticHandler:
                     logger.warning(f"Failed to retrieve conversation context: {e}")
             
             # Simple command routing based on keywords
-            response = self._route_command(message, user_role, is_leadership_chat, conversation_context)
+            response = await self._route_command(message, user_role, is_leadership_chat, conversation_context)
             
             # Store response memory
             if self.memory_system and user_id and chat_id:
@@ -352,7 +352,7 @@ class SimpleAgenticHandler:
             
             return f"Sorry, I encountered an error processing your request: {str(e)}"
     
-    def _route_command(self, message: str, user_role: str = None, is_leadership_chat: bool = False, conversation_context: List = None) -> str:
+    async def _route_command(self, message: str, user_role: str = None, is_leadership_chat: bool = False, conversation_context: List = None) -> str:
         """Route commands to appropriate tools based on keywords."""
         message_lower = message.lower()
         
@@ -369,7 +369,7 @@ class SimpleAgenticHandler:
         if self.player_command_handler:
             # Check for player registration commands first
             if any(word in message_lower for word in ['add player', 'remove player', 'list players', 'player status', 'player stats']):
-                return self.player_command_handler.handle_command(message_lower, user_id="system")
+                return await self.player_command_handler.handle_command(message_lower, user_id="system")
         
         # Legacy player management (fallback)
         if any(word in message_lower for word in ['add player', 'new player', 'create player']):

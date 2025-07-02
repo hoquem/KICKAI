@@ -33,11 +33,6 @@ from src.tools.telegram_tools import (
     get_telegram_tools_dual
 )
 
-# Import configuration
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from config import config
-
 # Load environment variables
 load_dotenv()
 
@@ -177,15 +172,18 @@ Final Answer: The team has been notified about the next match via Telegram.
 def create_llm():
     """Create and configure the LLM instance based on environment."""
     try:
-        # Validate configuration first
-        if not config.validate_config():
-            raise ValueError("Invalid configuration")
-        ai_config = config.ai_config
-        logger.info(f"Creating LLM with provider: {ai_config['provider']}")
-        if ai_config['provider'] == 'google':
+        # Use the new configuration system
+        from src.core.config import ConfigurationManager, AIProvider
+        config_manager = ConfigurationManager()
+        
+        # Get AI configuration
+        ai_config = config_manager.ai
+        logger.info(f"Creating LLM with provider: {ai_config.provider}")
+        
+        if ai_config.provider == AIProvider.GOOGLE_GEMINI:
             if GOOGLE_AI_AVAILABLE:
-                api_key = ai_config.get('api_key') or os.getenv('GOOGLE_API_KEY')
-                model_name = ai_config.get('model') or 'gemini-pro'
+                api_key = ai_config.api_key
+                model_name = ai_config.model_name
                 if not api_key or not model_name:
                     logger.error("Google AI API key or model name missing.")
                     return None
@@ -198,8 +196,8 @@ def create_llm():
         else:
             # Use Ollama for local development
             llm = Ollama(
-                model=ai_config['model'],
-                base_url=ai_config['base_url'],
+                model=ai_config.model_name,
+                base_url=getattr(ai_config, 'base_url', None),
                 system=CREWAI_SYSTEM_PROMPT
             )
             logger.info("✅ Ollama LLM created successfully")
@@ -465,6 +463,10 @@ class OnboardingAgent(Agent):
             self._services['team_service'] = None
             self._services['player_registration_handler'] = None
             self._services['player_command_handler'] = None
+        # Warn if any service is None
+        for key, value in self._services.items():
+            if value is None:
+                logger.warning(f"OnboardingAgent service '{key}' is None after initialization. Some features may not work.")
     
     @property
     def team_id(self) -> str:
@@ -478,20 +480,28 @@ class OnboardingAgent(Agent):
     
     @property
     def player_service(self):
-        """Get the player service."""
-        return self._services.get('player_service')
+        service = self._services.get('player_service')
+        if service is None:
+            logger.error("OnboardingAgent: player_service is not initialized!")
+        return service
     
     @property
     def team_service(self):
-        """Get the team service."""
-        return self._services.get('team_service')
+        service = self._services.get('team_service')
+        if service is None:
+            logger.error("OnboardingAgent: team_service is not initialized!")
+        return service
     
     @property
     def player_registration_handler(self):
-        """Get the player registration handler."""
-        return self._services.get('player_registration_handler')
+        handler = self._services.get('player_registration_handler')
+        if handler is None:
+            logger.error("OnboardingAgent: player_registration_handler is not initialized!")
+        return handler
     
     @property
     def player_command_handler(self):
-        """Get the player command handler."""
-        return self._services.get('player_command_handler')
+        handler = self._services.get('player_command_handler')
+        if handler is None:
+            logger.error("OnboardingAgent: player_command_handler is not initialized!")
+        return handler

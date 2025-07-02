@@ -15,6 +15,7 @@ from ..core.exceptions import (
 from ..core.logging import get_logger, performance_timer
 from ..database.firebase_client import get_firebase_client
 from ..database.models import Team, TeamStatus, TeamMember, BotMapping
+from ..utils.id_generator import generate_team_id
 
 
 class TeamService:
@@ -40,8 +41,12 @@ class TeamService:
                     create_error_context("create_team", additional_info={'team_name': name})
                 )
             
-            # Create team object
+            # Generate human-readable team ID
+            team_id = generate_team_id(name)
+            
+            # Create team object with the generated ID
             team = Team(
+                id=team_id,  # Use the human-readable ID
                 name=name.strip(),
                 description=description.strip() if description else None,
                 status=TeamStatus.ACTIVE,
@@ -49,13 +54,14 @@ class TeamService:
             )
             
             # Save to database
-            team_id = await self._firebase_client.create_team(team)
-            team.id = team_id
+            saved_team_id = await self._firebase_client.create_team(team)
+            team.id = saved_team_id  # Use the actual saved ID
             
             self._logger.info(
-                f"Team created successfully: {team.name} ({team_id})",
+                f"Team created successfully: {team.name} (ID: {team_id}, Saved ID: {saved_team_id})",
                 operation="create_team",
-                entity_id=team_id
+                entity_id=saved_team_id,
+                human_readable_id=team_id
             )
             
             return team
