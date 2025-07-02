@@ -45,60 +45,78 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def get_bot_token_from_db():
-    """Get bot token from Firebase database."""
+def get_bot_token():
+    """Get bot token based on environment.
+    
+    - Testing/Staging: Uses environment variables or local config files
+    - Production: Uses Firestore database
+    """
     try:
-        logger.info("🔍 Starting bot token retrieval from Firebase...")
+        logger.info("🔍 Starting bot token retrieval...")
         
-        # Import the Firebase client
-        logger.info("📦 Importing Firebase client...")
+        # Import the bot configuration manager
+        logger.info("📦 Importing bot configuration manager...")
         try:
-            from tools.firebase_tools import get_firebase_client
-            logger.info("✅ Imported from tools.firebase_tools")
+            from src.core.bot_config_manager import get_bot_config_manager, BotType
+            logger.info("✅ Imported bot configuration manager")
         except ImportError as import_error:
-            logger.warning(f"⚠️ Import failed from tools.firebase_tools: {import_error}")
-            # Fallback for local development
-            try:
-                from src.tools.firebase_tools import get_firebase_client
-                logger.info("✅ Imported from src.tools.firebase_tools")
-            except ImportError as fallback_error:
-                logger.error(f"❌ Both import paths failed: {fallback_error}")
-                raise
-            
-        # Create Firebase client
-        logger.info("🔧 Creating Firebase client...")
-        try:
-            db = get_firebase_client()
-            logger.info("✅ Firebase client created successfully")
-        except Exception as client_error:
-            logger.error(f"❌ Failed to create Firebase client: {client_error}")
+            logger.error(f"❌ Failed to import bot configuration manager: {import_error}")
             raise
         
-        # Execute database query
-        logger.info("🔍 Executing Firebase query...")
+        # Get the bot configuration manager
+        logger.info("🔧 Getting bot configuration manager...")
         try:
-            bots_ref = db.collection('team_bots')
-            query = bots_ref.where('team_id', '==', '0854829d-445c-4138-9fd3-4db562ea46ee').where('is_active', '==', True)
-            docs = query.stream()
-            docs_list = list(docs)
-            logger.info("✅ Firebase query executed successfully")
-            logger.info(f"📊 Found {len(docs_list)} bot configurations")
-        except Exception as query_error:
-            logger.error(f"❌ Firebase query failed: {query_error}")
+            manager = get_bot_config_manager()
+            logger.info(f"✅ Bot configuration manager initialized for environment: {manager.environment}")
+        except Exception as manager_error:
+            logger.error(f"❌ Failed to get bot configuration manager: {manager_error}")
             raise
         
-        # Process response
-        if docs_list:
-            bot_data = docs_list[0].to_dict()
-            bot_token = bot_data['bot_token']
-            logger.info(f"✅ Bot token retrieved successfully: {bot_token[:10]}...")
-            return bot_token
-        else:
-            logger.error("❌ No active bot found in Firebase database")
+        # Load configuration
+        logger.info("📋 Loading bot configuration...")
+        try:
+            config = manager.load_configuration()
+            logger.info(f"✅ Configuration loaded for environment: {config.environment}")
+            logger.info(f"📊 Available teams: {list(config.teams.keys())}")
+        except Exception as config_error:
+            logger.error(f"❌ Failed to load configuration: {config_error}")
+            raise
+        
+        # Get the default team or first available team
+        team_id = config.default_team
+        if not team_id and config.teams:
+            team_id = list(config.teams.keys())[0]
+            logger.info(f"📋 No default team set, using first available team: {team_id}")
+        
+        if not team_id:
+            logger.error("❌ No teams found in configuration")
             return None
+        
+        # Get the main bot configuration for the team
+        logger.info(f"🔍 Getting main bot for team: {team_id}")
+        try:
+            bot_config = manager.get_bot_config(team_id, BotType.MAIN)
+            if not bot_config:
+                logger.error(f"❌ No main bot found for team: {team_id}")
+                return None
+            
+            bot_token = bot_config.token
+            if not bot_token:
+                logger.error(f"❌ Bot token is empty for team: {team_id}")
+                return None
+            
+            logger.info(f"✅ Bot token retrieved successfully: {bot_token[:10]}...")
+            logger.info(f"   Team: {team_id}")
+            logger.info(f"   Bot Username: {bot_config.username}")
+            logger.info(f"   Chat ID: {bot_config.chat_id}")
+            return bot_token
+            
+        except Exception as bot_error:
+            logger.error(f"❌ Failed to get bot configuration for team {team_id}: {bot_error}")
+            raise
             
     except Exception as e:
-        logger.error(f"❌ Error getting bot token from Firebase: {e}")
+        logger.error(f"❌ Error getting bot token: {e}")
         return None
 
 def test_bot_connection(bot_token):
@@ -134,8 +152,8 @@ def main():
     logger.info("✅ Health server managed by railway_main.py")
     
     try:
-        # Get bot token from database
-        bot_token = get_bot_token_from_db()
+        # Get bot token based on environment
+        bot_token = get_bot_token()
         if not bot_token:
             print("❌ Bot token not found. Exiting.")
             return
@@ -180,7 +198,7 @@ def main():
         
     except ValueError as e:
         print(f"❌ Configuration error: {e}")
-        print("💡 Make sure bot token is available in the Firebase database")
+        print("💡 Make sure bot token is available in the environment or configuration")
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
         logger.error(f"Bot error: {e}", exc_info=True)

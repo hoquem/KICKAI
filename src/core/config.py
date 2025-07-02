@@ -112,16 +112,35 @@ class ConfigurationManager:
         # Check for explicit environment variable
         env = os.getenv("KICKAI_ENV", "").lower()
         
-        # Auto-detect production environments
+        # Check for Railway environment and determine which one
+        if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"):
+            # Check Railway service name to determine environment
+            railway_service = os.getenv("RAILWAY_SERVICE_NAME", "").lower()
+            
+            if "testing" in railway_service or "test" in railway_service:
+                logging.info(f"Railway testing environment detected: {railway_service}")
+                return Environment.TESTING
+            elif "staging" in railway_service or "stage" in railway_service:
+                logging.info(f"Railway staging environment detected: {railway_service}")
+                return Environment.DEVELOPMENT  # Treat staging as development for config purposes
+            elif "production" in railway_service or "prod" in railway_service:
+                logging.info(f"Railway production environment detected: {railway_service}")
+                return Environment.PRODUCTION
+            else:
+                # Default Railway environment - check if it's explicitly set to production
+                if env == "production":
+                    logging.info("Railway environment with explicit production setting")
+                    return Environment.PRODUCTION
+                else:
+                    # Default Railway environment - treat as development/staging
+                    logging.info(f"Railway environment detected (defaulting to development): {railway_service}")
+                    return Environment.DEVELOPMENT
+        
+        # Auto-detect production environments (non-Railway)
         if env == "production":
             return Environment.PRODUCTION
         
-        # Check for Railway environment
-        if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"):
-            logging.info("Railway environment detected, setting to production")
-            return Environment.PRODUCTION
-        
-        # Check for other production indicators
+        # Check for other production indicators (non-Railway)
         if os.getenv("PORT") and not os.getenv("VIRTUAL_ENV"):
             # Common production indicator
             logging.info("Production environment detected (PORT set, no VIRTUAL_ENV)")
