@@ -221,8 +221,23 @@ class ConfigurationManager:
     
     def _load_database_config(self) -> DatabaseConfig:
         """Load database configuration."""
+        # Extract project_id from FIREBASE_CREDENTIALS_JSON if available
+        project_id = ""
+        firebase_creds_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
+        if firebase_creds_json:
+            try:
+                import json
+                creds_dict = json.loads(firebase_creds_json)
+                project_id = creds_dict.get("project_id", "")
+            except (json.JSONDecodeError, KeyError):
+                pass
+        
+        # Fallback to environment variable if JSON parsing failed
+        if not project_id:
+            project_id = os.getenv("FIREBASE_PROJECT_ID", "")
+        
         return DatabaseConfig(
-            project_id=os.getenv("FIREBASE_PROJECT_ID", ""),
+            project_id=project_id,
             credentials_path=os.getenv("FIREBASE_CREDENTIALS_PATH"),
             collection_prefix=os.getenv("FIREBASE_COLLECTION_PREFIX", "kickai"),
             batch_size=int(os.getenv("FIREBASE_BATCH_SIZE", "500")),
@@ -318,10 +333,23 @@ class ConfigurationManager:
             logging.info("Testing environment detected, skipping configuration validation")
             return
         
-        # In production, some tokens may be stored in Firebase rather than environment variables
-        # Only validate essential configuration that must be available at startup
-        if not self._config["database"].project_id:
-            errors.append("FIREBASE_PROJECT_ID is required")
+        # Check for Firebase credentials
+        firebase_creds_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
+        if not firebase_creds_json:
+            errors.append("FIREBASE_CREDENTIALS_JSON is required")
+        else:
+            # Validate that the JSON contains required fields
+            try:
+                import json
+                creds_dict = json.loads(firebase_creds_json)
+                if not creds_dict.get("project_id"):
+                    errors.append("FIREBASE_CREDENTIALS_JSON must contain project_id")
+                if not creds_dict.get("private_key"):
+                    errors.append("FIREBASE_CREDENTIALS_JSON must contain private_key")
+                if not creds_dict.get("client_email"):
+                    errors.append("FIREBASE_CREDENTIALS_JSON must contain client_email")
+            except json.JSONDecodeError:
+                errors.append("FIREBASE_CREDENTIALS_JSON must be valid JSON")
         
         # For production, AI_API_KEY and TELEGRAM_BOT_TOKEN may be loaded from Firebase
         # Only validate if we're in development or if they're explicitly required
