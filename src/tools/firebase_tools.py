@@ -162,154 +162,23 @@ def get_firebase_client():
         
         logger.info(f"✅ Project ID: {project_id}")
         
-        # Try to get credentials from environment variables
-        cred = None
-        
-        # Method 1: Plain text JSON with PEM repair (preferred for testing/staging)
+        # Get credentials from environment variable
         firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
-        if firebase_creds_json:
-            try:
-                logger.info("🔄 Using FIREBASE_CREDENTIALS_JSON (environment variable)...")
-                creds_dict = json.loads(firebase_creds_json)
-                
-                # Log private key details for debugging
-                private_key = creds_dict.get('private_key', '')
-                logger.info(f"🔍 Private key length: {len(private_key)} characters")
-                logger.info(f"🔍 Private key starts with: {private_key[:50]}...")
-                logger.info(f"🔍 Private key ends with: ...{private_key[-50:]}")
-                
-                # Validate and repair the private key
-                repaired_creds = extract_private_key_from_json(creds_dict)
-                
-                cred = credentials.Certificate(repaired_creds)
-                logger.info("✅ Credentials created from JSON string (with PEM repair)")
-            except Exception as e:
-                logger.warning(f"⚠️ JSON credentials failed: {e}")
-                logger.info("🔄 Trying alternative JSON parsing...")
-                
-                # Try alternative parsing method
-                try:
-                    # Remove any potential encoding issues
-                    cleaned_json = firebase_creds_json.replace('\\n', '\n').replace('\\"', '"')
-                    creds_dict = json.loads(cleaned_json)
-                    repaired_creds = extract_private_key_from_json(creds_dict)
-                    cred = credentials.Certificate(repaired_creds)
-                    logger.info("✅ Credentials created from cleaned JSON string")
-                except Exception as e2:
-                    logger.warning(f"⚠️ Alternative JSON parsing also failed: {e2}")
+        if not firebase_creds_json:
+            raise RuntimeError("FIREBASE_CREDENTIALS_JSON environment variable is required.")
         
-        # Method 2: Individual variables with PEM repair (fallback)
-        if not cred:
-            private_key = os.getenv('FIREBASE_PRIVATE_KEY')
-            client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
-            if private_key and client_email:
-                try:
-                    logger.info("🔄 Using individual Firebase variables...")
-                    
-                    # Log private key details for debugging
-                    logger.info(f"🔍 Individual private key length: {len(private_key)} characters")
-                    logger.info(f"🔍 Individual private key starts with: {private_key[:50]}...")
-                    
-                    # Validate and repair the private key
-                    repaired_private_key = validate_and_repair_pem_key(private_key)
-                    
-                    cred_dict = {
-                        "type": "service_account",
-                        "project_id": project_id,
-                        "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
-                        "private_key": repaired_private_key,
-                        "client_email": client_email,
-                        "client_id": os.getenv('FIREBASE_CLIENT_ID'),
-                        "auth_uri": os.getenv('FIREBASE_AUTH_URI'),
-                        "token_uri": os.getenv('FIREBASE_TOKEN_URI'),
-                        "auth_provider_x509_cert_url": os.getenv('FIREBASE_AUTH_PROVIDER_X509_CERT_URL'),
-                        "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_X509_CERT_URL')
-                    }
-                    cred = credentials.Certificate(cred_dict)
-                    logger.info("✅ Credentials created from individual variables (with PEM repair)")
-                except Exception as e:
-                    logger.warning(f"⚠️ Individual variables failed: {e}")
-        
-        # Method 3: Railway Secrets (only for production)
-        if not cred:
-            try:
-                logger.info("🔄 Checking Railway secrets (production fallback)...")
-                # Railway secrets are accessible via environment variables but with different handling
-                # Let's try to access them directly
-                firebase_creds_secret = os.getenv('FIREBASE_CREDENTIALS_JSON_SECRET')
-                if firebase_creds_secret:
-                    try:
-                        logger.info("🔄 Using Railway secrets for Firebase credentials...")
-                        creds_dict = json.loads(firebase_creds_secret)
-                        
-                        # Log private key details for debugging
-                        private_key = creds_dict.get('private_key', '')
-                        logger.info(f"🔍 Secret private key length: {len(private_key)} characters")
-                        logger.info(f"🔍 Secret private key starts with: {private_key[:50]}...")
-                        logger.info(f"🔍 Secret private key ends with: ...{private_key[-50:]}")
-                        
-                        # Validate and repair the private key
-                        repaired_creds = extract_private_key_from_json(creds_dict)
-                        
-                        cred = credentials.Certificate(repaired_creds)
-                        logger.info("✅ Credentials created from Railway secrets")
-                    except Exception as e:
-                        logger.warning(f"⚠️ Railway secrets failed: {e}")
-            except Exception as e:
-                logger.warning(f"⚠️ Railway secrets check failed: {e}")
-        
-        # Method 4: Try using a temporary file approach
-        if not cred:
-            try:
-                logger.info("🔄 Trying temporary file approach...")
-                import tempfile
-                
-                # Get the JSON credentials
-                firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
-                if firebase_creds_json:
-                    creds_dict = json.loads(firebase_creds_json)
-                    repaired_creds = extract_private_key_from_json(creds_dict)
-                    
-                    # Create temporary file
-                    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                        json.dump(repaired_creds, f)
-                        temp_file_path = f.name
-                    
-                    try:
-                        cred = credentials.Certificate(temp_file_path)
-                        logger.info("✅ Credentials created from temporary file")
-                    finally:
-                        # Clean up temporary file
-                        os.unlink(temp_file_path)
-                        
-            except Exception as e:
-                logger.warning(f"⚠️ Temporary file approach failed: {e}")
-        
-        # Method 5: Try to read from a mounted file (Railway volumes)
-        if not cred:
-            try:
-                logger.info("🔄 Trying mounted file approach...")
-                # Check if credentials file is mounted
-                possible_paths = [
-                    '/app/firebase-credentials.json',
-                    '/app/firebase_creds.json',
-                    '/app/credentials.json',
-                    './firebase-credentials.json',
-                    './firebase_creds.json'
-                ]
-                
-                for file_path in possible_paths:
-                    if os.path.exists(file_path):
-                        logger.info(f"🔄 Found credentials file at: {file_path}")
-                        cred = credentials.Certificate(file_path)
-                        logger.info("✅ Credentials created from mounted file")
-                        break
-                        
-            except Exception as e:
-                logger.warning(f"⚠️ Mounted file approach failed: {e}")
-        
-        if not cred:
-            raise RuntimeError("No valid Firebase credentials found. Please set FIREBASE_CREDENTIALS_JSON, individual Firebase variables, or Railway secrets.")
+        try:
+            logger.info("🔄 Loading Firebase credentials from FIREBASE_CREDENTIALS_JSON...")
+            creds_dict = json.loads(firebase_creds_json)
+            
+            # Validate and repair the private key
+            repaired_creds = extract_private_key_from_json(creds_dict)
+            
+            cred = credentials.Certificate(repaired_creds)
+            logger.info("✅ Firebase credentials created successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to parse FIREBASE_CREDENTIALS_JSON: {e}")
+            raise RuntimeError(f"Failed to parse FIREBASE_CREDENTIALS_JSON: {e}")
         
         # Initialize Firebase app
         logger.info("🔄 Initializing Firebase app...")
