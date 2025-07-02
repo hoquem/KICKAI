@@ -4,19 +4,12 @@
     "test-team": {
       "name": "kickai-testing",
       "description": "Testing environment for KICKAI",
-      "bots": {
-        "main": {
-          "token": "YOUR_TESTING_BOT_TOKEN_HERE",
-          "username": "kickai_testing_bot",
-          "chat_id": "-1001234567890",
-          "is_active": true
-        },
-        "leadership": {
-          "token": "YOUR_TESTING_LEADERSHIP_BOT_TOKEN_HERE",
-          "username": "kickai_testing_leadership_bot",
-          "chat_id": "-1001234567890",
-          "is_active": true
-        }
+      "bot": {
+        "token": "YOUR_TESTING_BOT_TOKEN_HERE",
+        "username": "kickai_testing_bot",
+        "main_chat_id": "YOUR_MAIN_CHAT_ID_HERE",
+        "leadership_chat_id": "YOUR_LEADERSHIP_CHAT_ID_HERE",
+        "is_active": true
       },
       "settings": {
         "ai_provider": "google_gemini",

@@ -821,19 +821,10 @@ def is_admin_command(command: str) -> bool:
 def is_leadership_chat(chat_id: str, team_id: str) -> bool:
     """Check if the current chat is a leadership chat."""
     try:
-        from src.tools.firebase_tools import get_firebase_client
+        from src.core.bot_config_manager import get_bot_config_manager
         
-        db = get_firebase_client()
-        bots_ref = db.collection('team_bots')
-        query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
-        docs = list(query.stream())
-        
-        if docs:
-            bot_data = docs[0].to_dict()
-            leadership_chat_id = bot_data.get('leadership_chat_id')
-            return leadership_chat_id and str(chat_id) == str(leadership_chat_id)
-        
-        return False
+        manager = get_bot_config_manager()
+        return manager.is_leadership_chat(chat_id, team_id)
     except Exception as e:
         logger.error("Error checking leadership chat", error=e)
         return False
@@ -918,24 +909,15 @@ async def help_command(update, context, params: Dict[str, Any]):
     
     try:
         # Import the necessary functions
-        from src.tools.telegram_tools import get_user_role_in_team, get_team_bot_credentials_dual
-        from src.tools.firebase_tools import get_firebase_client
+        from src.tools.firebase_tools import get_user_role
+        from src.core.bot_config_manager import get_bot_config_manager
         
         # Get user role
-        user_role = get_user_role_in_team(team_id, str(user_id))
+        user_role = get_user_role(team_id, str(user_id))
         
-        # Determine if this is a leadership chat
-        db = get_firebase_client()
-        bots_ref = db.collection('team_bots')
-        query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
-        docs = list(query.stream())
-        
-        is_leadership_chat = False
-        if docs:
-            bot_data = docs[0].to_dict()
-            leadership_chat_id = bot_data.get('leadership_chat_id')
-            if leadership_chat_id and str(chat_id) == str(leadership_chat_id):
-                is_leadership_chat = True
+        # Determine if this is a leadership chat using the bot config manager
+        manager = get_bot_config_manager()
+        is_leadership_chat = manager.is_leadership_chat(str(chat_id), team_id)
         
         # Build help message based on chat type (not user role for main chat)
         message = "🤖 **KICKAI Bot Help**\n\n"
