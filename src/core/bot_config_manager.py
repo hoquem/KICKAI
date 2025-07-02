@@ -87,7 +87,7 @@ class BotConfigManager:
         return self._bot_config
     
     def _load_local_config(self) -> BotConfiguration:
-        """Load configuration from local JSON files."""
+        """Load configuration from local JSON files with environment variable overrides."""
         config_path = self._get_config_file_path()
         
         if not config_path.exists():
@@ -101,7 +101,7 @@ class BotConfigManager:
             # Validate and parse configuration
             teams = {}
             for team_id, team_data in data.get('teams', {}).items():
-                teams[team_id] = self._parse_team_config(team_id, team_data)
+                teams[team_id] = self._parse_team_config_with_env_overrides(team_id, team_data)
             
             return BotConfiguration(
                 environment=data.get('environment', self.environment.value),
@@ -214,25 +214,39 @@ class BotConfigManager:
         
         return None
     
-    def _parse_team_config(self, team_id: str, team_data: Dict[str, Any]) -> TeamConfig:
-        """Parse team configuration from JSON data."""
+    def _parse_team_config_with_env_overrides(self, team_id: str, team_data: Dict[str, Any]) -> TeamConfig:
+        """Parse team configuration from JSON data with environment variable overrides for bot tokens."""
         bots = {}
         
-        # Parse main bot
+        # Parse main bot with environment variable override
         if 'main' in team_data.get('bots', {}):
             main_bot_data = team_data['bots']['main']
+            # Use environment variable if available, otherwise use JSON value
+            main_token = os.getenv("TELEGRAM_BOT_TOKEN", main_bot_data.get('token', ''))
+            if main_token:
+                logger.info(f"Using environment variable for main bot token in team {team_id}")
+            else:
+                logger.warning(f"No main bot token found in environment or config for team {team_id}")
+            
             bots[BotType.MAIN] = BotConfig(
-                token=main_bot_data.get('token', ''),
+                token=main_token,
                 username=main_bot_data.get('username', ''),
                 chat_id=main_bot_data.get('chat_id', ''),
                 is_active=main_bot_data.get('is_active', True)
             )
         
-        # Parse leadership bot
+        # Parse leadership bot with environment variable override
         if 'leadership' in team_data.get('bots', {}):
             leadership_bot_data = team_data['bots']['leadership']
+            # Use environment variable if available, otherwise use JSON value
+            leadership_token = os.getenv("TELEGRAM_LEADERSHIP_BOT_TOKEN", leadership_bot_data.get('token', ''))
+            if leadership_token:
+                logger.info(f"Using environment variable for leadership bot token in team {team_id}")
+            else:
+                logger.warning(f"No leadership bot token found in environment or config for team {team_id}")
+            
             bots[BotType.LEADERSHIP] = BotConfig(
-                token=leadership_bot_data.get('token', ''),
+                token=leadership_token,
                 username=leadership_bot_data.get('username', ''),
                 chat_id=leadership_bot_data.get('chat_id', ''),
                 is_active=leadership_bot_data.get('is_active', True)
@@ -250,12 +264,16 @@ class BotConfigManager:
         """Get the path to the configuration file for the current environment."""
         config_dir = Path("config")
         
+        # Check for Railway staging environment specifically
+        if os.getenv("RAILWAY_SERVICE_NAME", "").lower() in ["kickai-staging", "staging"]:
+            return config_dir / "bot_config.staging.json"
+        
         if self.environment == Environment.TESTING:
             return config_dir / "bot_config.json"
         elif self.environment == Environment.DEVELOPMENT:
             return config_dir / "bot_config.json"
         else:
-            # Staging or other environments
+            # Production or other environments
             return config_dir / f"bot_config.{self.environment.value}.json"
     
     def _create_default_config(self) -> BotConfiguration:

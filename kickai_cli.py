@@ -20,17 +20,6 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def get_firebase_client():
-    """Get Firebase client with proper error handling."""
-    try:
-        return get_firebase_client()
-    except ImportError:
-        print("❌ Firebase client not available. Install with: pip install firebase-admin")
-        return None
-    except Exception as e:
-        print(f"❌ Error creating Firebase client: {e}")
-        return None
-
 def list_teams(firebase) -> List[Dict]:
     """List all active teams."""
     try:
@@ -186,7 +175,7 @@ def setup_dual_channel(firebase, team_name: str, leadership_chat_id: str):
         print(f"❌ Failed to setup dual channel: {e}")
         return False
 
-def add_team_member(firebase, team_name: str, name: str, role: str, phone: str = "", telegram_username: str = ""):
+def add_team_member(firebase, team_name: str, member_name: str, role: str, phone: str = "", telegram_username: str = ""):
     """Add a member to a team."""
     try:
         if not firebase:
@@ -207,17 +196,17 @@ def add_team_member(firebase, team_name: str, name: str, role: str, phone: str =
         
         # Check if member already exists
         members_ref = firebase.collection('team_members')
-        existing_query = members_ref.where('team_id', '==', team_id).where('name', '==', name)
+        existing_query = members_ref.where('team_id', '==', team_id).where('name', '==', member_name)
         existing_response = existing_query.get()
         
         if existing_response:
-            print(f"⚠️ Member '{name}' already exists in team '{team_name}'")
+            print(f"⚠️ Member '{member_name}' already exists in team '{team_name}'")
             return False
         
         # Add new member
         member_data = {
             'team_id': team_id,
-            'name': name,
+            'name': member_name,
             'role': role,
             'phone_number': phone,
             'telegram_username': telegram_username,
@@ -228,7 +217,7 @@ def add_team_member(firebase, team_name: str, name: str, role: str, phone: str =
         member_ref = firebase.collection('team_members').document()
         member_ref.set(member_data)
         
-        print(f"✅ Member '{name}' added to team '{team_name}' as {role}")
+        print(f"✅ Member '{member_name}' added to team '{team_name}' as {role}")
         return True
         
     except Exception as e:
@@ -305,6 +294,8 @@ def main():
     parser.add_argument('--leadership-chat-id', help='Leadership chat ID')
     
     # Member commands
+    parser.add_argument('--team', help='Team name (for member operations)')
+    parser.add_argument('--member-name', help='Member name')
     parser.add_argument('--role', help='Member role')
     parser.add_argument('--phone', help='Phone number')
     parser.add_argument('--telegram-username', help='Telegram username')
@@ -312,7 +303,12 @@ def main():
     args = parser.parse_args()
     
     # Initialize Firebase client
-    firebase = get_firebase_client()
+    try:
+        firebase = get_firebase_client()
+    except Exception as e:
+        print(f"❌ Error creating Firebase client: {e}")
+        firebase = None
+    
     if not firebase and args.command not in ['system']:
         print("❌ Firebase client not available")
         return
@@ -360,11 +356,11 @@ def main():
         setup_dual_channel(firebase, args.name, args.leadership_chat_id)
     
     elif args.command == 'add-member':
-        if not all([args.name, args.role]):
-            print("❌ --name and --role are required for add-member command")
+        if not all([args.team, args.member_name, args.role]):
+            print("❌ --team, --member-name, and --role are required for add-member command")
             return
         
-        add_team_member(firebase, args.name, args.name, args.role, args.phone or "", args.telegram_username or "")
+        add_team_member(firebase, args.team, args.member_name, args.role, args.phone or "", args.telegram_username or "")
     
     elif args.command == 'test':
         if not args.name:

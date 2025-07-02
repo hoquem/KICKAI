@@ -120,13 +120,6 @@ firebase_creds.json
 firebase.env
 fixed-private-key.txt
 
-# Bot configuration files (contain sensitive tokens)
-config/bot_config.json
-config/bot_config.staging.json
-config/bot_config.production.json
-config/bot_config.*.json
-!config/bot_config.example.json
-
 # Debug and temporary files
 debug_*.py
 fix_*.py

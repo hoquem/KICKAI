@@ -1,0 +1,41 @@
+{
+  "environment": "testing",
+  "teams": {
+    "test-team": {
+      "name": "kickai-testing",
+      "description": "Testing environment for KICKAI",
+      "bots": {
+        "main": {
+          "token": "YOUR_TESTING_BOT_TOKEN_HERE",
+          "username": "kickai_testing_bot",
+          "chat_id": "-1001234567890",
+          "is_active": true
+        },
+        "leadership": {
+          "token": "YOUR_TESTING_LEADERSHIP_BOT_TOKEN_HERE",
+          "username": "kickai_testing_leadership_bot",
+          "chat_id": "-1001234567890",
+          "is_active": true
+        }
+      },
+      "settings": {
+        "ai_provider": "google_gemini",
+        "ai_model": "gemini-pro",
+        "max_members": 50,
+        "allow_public_join": false
+      }
+    }
+  },
+  "default_team": "test-team",
+  "firebase_config": {
+    "project_id": "kickai-954c2",
+    "credentials_path": null
+  },
+  "ai_config": {
+    "provider": "google_gemini",
+    "api_key": "YOUR_GOOGLE_AI_API_KEY_HERE",
+    "model": "gemini-pro",
+    "temperature": 0.7,
+    "max_tokens": 1000
+  }
+}
