@@ -215,40 +215,54 @@ class BotConfigManager:
         return None
     
     def _parse_team_config_with_env_overrides(self, team_id: str, team_data: Dict[str, Any]) -> TeamConfig:
-        """Parse team configuration from JSON data with environment variable overrides for bot tokens."""
+        """Parse team configuration from JSON data with environment variable overrides for bot tokens and chat IDs."""
         bots = {}
         
-        # Parse main bot with environment variable override
+        # Parse main bot with environment variable overrides
         if 'main' in team_data.get('bots', {}):
             main_bot_data = team_data['bots']['main']
             # Use environment variable if available, otherwise use JSON value
             main_token = os.getenv("TELEGRAM_BOT_TOKEN", main_bot_data.get('token', ''))
+            main_chat_id = os.getenv("TELEGRAM_CHAT_ID", main_bot_data.get('chat_id', ''))
+            
             if main_token:
                 logger.info(f"Using environment variable for main bot token in team {team_id}")
             else:
                 logger.warning(f"No main bot token found in environment or config for team {team_id}")
             
+            if main_chat_id:
+                logger.info(f"Using environment variable for main bot chat ID in team {team_id}")
+            else:
+                logger.warning(f"No main bot chat ID found in environment or config for team {team_id}")
+            
             bots[BotType.MAIN] = BotConfig(
                 token=main_token,
                 username=main_bot_data.get('username', ''),
-                chat_id=main_bot_data.get('chat_id', ''),
+                chat_id=main_chat_id,
                 is_active=main_bot_data.get('is_active', True)
             )
         
-        # Parse leadership bot with environment variable override
+        # Parse leadership bot with environment variable overrides
         if 'leadership' in team_data.get('bots', {}):
             leadership_bot_data = team_data['bots']['leadership']
             # Use environment variable if available, otherwise use JSON value
             leadership_token = os.getenv("TELEGRAM_LEADERSHIP_BOT_TOKEN", leadership_bot_data.get('token', ''))
+            leadership_chat_id = os.getenv("TELEGRAM_LEADERSHIP_CHAT_ID", leadership_bot_data.get('chat_id', ''))
+            
             if leadership_token:
                 logger.info(f"Using environment variable for leadership bot token in team {team_id}")
             else:
                 logger.warning(f"No leadership bot token found in environment or config for team {team_id}")
             
+            if leadership_chat_id:
+                logger.info(f"Using environment variable for leadership bot chat ID in team {team_id}")
+            else:
+                logger.warning(f"No leadership bot chat ID found in environment or config for team {team_id}")
+            
             bots[BotType.LEADERSHIP] = BotConfig(
                 token=leadership_token,
                 username=leadership_bot_data.get('username', ''),
-                chat_id=leadership_bot_data.get('chat_id', ''),
+                chat_id=leadership_chat_id,
                 is_active=leadership_bot_data.get('is_active', True)
             )
         
