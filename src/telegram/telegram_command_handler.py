@@ -1287,6 +1287,20 @@ def register_langchain_agentic_handler(app):
             username = user.username or user.full_name or "Unknown"
             message_text = message.text or ""
 
+            # Handle /chatid command to get chat ID
+            if message_text.strip().lower() in ['/chatid', 'chatid', 'chat id', 'get chat id']:
+                await message.reply_text(
+                    f"📋 **Chat Information:**\n"
+                    f"🆔 **Chat ID:** `{chat_id}`\n"
+                    f"👤 **User ID:** `{user_id}`\n"
+                    f"👥 **Chat Type:** {chat.type}\n"
+                    f"📝 **Chat Title:** {chat.title or 'Private Chat'}\n\n"
+                    f"💡 **Use this Chat ID in Railway:**\n"
+                    f"`railway variables --set \"TELEGRAM_CHAT_ID={chat_id}\"`",
+                    parse_mode='Markdown'
+                )
+                return
+
             # For now, use a fixed team_id (can be improved to map chat_id to team_id)
             team_id = '0854829d-445c-4138-9fd3-4db562ea46ee'
 
