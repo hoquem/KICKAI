@@ -53,7 +53,7 @@ from src.tools.telegram_tools import (
 
 # Import Player Registration System
 try:
-    from src.services.player_registration import PlayerRegistrationManager, PlayerCommandHandler
+    from src.telegram.player_registration_handler import PlayerRegistrationHandler, PlayerCommandHandler
     PLAYER_REGISTRATION_AVAILABLE = True
     logger.info("✅ Player Registration System imported successfully")
 except ImportError as e:

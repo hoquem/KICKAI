@@ -40,13 +40,9 @@ except ImportError as e:
     logger.warning("⚠️ Using fallback BaseTool class")
 
 # Import MatchIDGenerator for human-readable fixture IDs
-try:
-    from src.telegram.telegram_command_handler import MatchIDGenerator
-    match_id_generator = MatchIDGenerator()
-    logger.info("✅ MatchIDGenerator imported successfully")
-except ImportError as e:
-    logger.error(f"Failed to import MatchIDGenerator: {e}")
-    match_id_generator = None
+from src.utils.match_id_generator import MatchIDGenerator
+match_id_generator = MatchIDGenerator()
+logger.info("✅ MatchIDGenerator imported from utils successfully")
 
 # --- Firebase Client Factory ---
 def validate_and_repair_pem_key(private_key: str) -> str:
@@ -64,6 +60,12 @@ def validate_and_repair_pem_key(private_key: str) -> str:
     
     # Remove any extra whitespace and normalize line endings
     private_key = private_key.strip()
+    
+    # CRITICAL FIX: Convert escaped newlines to actual newlines
+    # This is the main issue - Firebase often provides keys with \\n instead of \n
+    if '\\n' in private_key:
+        private_key = private_key.replace('\\n', '\n')
+        logger.info("🔧 Fixed escaped newlines in private key")
     
     # Check if it's already properly formatted
     if (private_key.startswith('-----BEGIN PRIVATE KEY-----') and 
@@ -163,38 +165,66 @@ def get_firebase_client():
         # Try to get credentials from environment variables
         cred = None
         
-        # Method 1: Plain text JSON with PEM repair (preferred)
-        firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
-        if firebase_creds_json:
-            try:
-                logger.info("🔄 Using FIREBASE_CREDENTIALS_JSON (plain text)...")
-                creds_dict = json.loads(firebase_creds_json)
-                
-                # Log private key details for debugging
-                private_key = creds_dict.get('private_key', '')
-                logger.info(f"🔍 Private key length: {len(private_key)} characters")
-                logger.info(f"🔍 Private key starts with: {private_key[:50]}...")
-                logger.info(f"🔍 Private key ends with: ...{private_key[-50:]}")
-                
-                # Validate and repair the private key
-                repaired_creds = extract_private_key_from_json(creds_dict)
-                
-                cred = credentials.Certificate(repaired_creds)
-                logger.info("✅ Credentials created from JSON string (with PEM repair)")
-            except Exception as e:
-                logger.warning(f"⚠️ JSON credentials failed: {e}")
-                logger.info("🔄 Trying alternative JSON parsing...")
-                
-                # Try alternative parsing method
+        # Method 0: Railway Secrets (highest priority - most reliable)
+        try:
+            logger.info("🔄 Checking Railway secrets...")
+            # Railway secrets are accessible via environment variables but with different handling
+            # Let's try to access them directly
+            firebase_creds_secret = os.getenv('FIREBASE_CREDENTIALS_JSON_SECRET') or os.getenv('FIREBASE_CREDENTIALS_JSON')
+            if firebase_creds_secret:
                 try:
-                    # Remove any potential encoding issues
-                    cleaned_json = firebase_creds_json.replace('\\n', '\n').replace('\\"', '"')
-                    creds_dict = json.loads(cleaned_json)
+                    logger.info("🔄 Using Railway secrets for Firebase credentials...")
+                    creds_dict = json.loads(firebase_creds_secret)
+                    
+                    # Log private key details for debugging
+                    private_key = creds_dict.get('private_key', '')
+                    logger.info(f"🔍 Secret private key length: {len(private_key)} characters")
+                    logger.info(f"🔍 Secret private key starts with: {private_key[:50]}...")
+                    logger.info(f"🔍 Secret private key ends with: ...{private_key[-50:]}")
+                    
+                    # Validate and repair the private key
                     repaired_creds = extract_private_key_from_json(creds_dict)
+                    
                     cred = credentials.Certificate(repaired_creds)
-                    logger.info("✅ Credentials created from cleaned JSON string")
-                except Exception as e2:
-                    logger.warning(f"⚠️ Alternative JSON parsing also failed: {e2}")
+                    logger.info("✅ Credentials created from Railway secrets")
+                except Exception as e:
+                    logger.warning(f"⚠️ Railway secrets failed: {e}")
+        except Exception as e:
+            logger.warning(f"⚠️ Railway secrets check failed: {e}")
+        
+        # Method 1: Plain text JSON with PEM repair (preferred)
+        if not cred:
+            firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
+            if firebase_creds_json:
+                try:
+                    logger.info("🔄 Using FIREBASE_CREDENTIALS_JSON (plain text)...")
+                    creds_dict = json.loads(firebase_creds_json)
+                    
+                    # Log private key details for debugging
+                    private_key = creds_dict.get('private_key', '')
+                    logger.info(f"🔍 Private key length: {len(private_key)} characters")
+                    logger.info(f"🔍 Private key starts with: {private_key[:50]}...")
+                    logger.info(f"🔍 Private key ends with: ...{private_key[-50:]}")
+                    
+                    # Validate and repair the private key
+                    repaired_creds = extract_private_key_from_json(creds_dict)
+                    
+                    cred = credentials.Certificate(repaired_creds)
+                    logger.info("✅ Credentials created from JSON string (with PEM repair)")
+                except Exception as e:
+                    logger.warning(f"⚠️ JSON credentials failed: {e}")
+                    logger.info("🔄 Trying alternative JSON parsing...")
+                    
+                    # Try alternative parsing method
+                    try:
+                        # Remove any potential encoding issues
+                        cleaned_json = firebase_creds_json.replace('\\n', '\n').replace('\\"', '"')
+                        creds_dict = json.loads(cleaned_json)
+                        repaired_creds = extract_private_key_from_json(creds_dict)
+                        cred = credentials.Certificate(repaired_creds)
+                        logger.info("✅ Credentials created from cleaned JSON string")
+                    except Exception as e2:
+                        logger.warning(f"⚠️ Alternative JSON parsing also failed: {e2}")
         
         # Method 2: Individual variables with PEM repair
         if not cred:
@@ -255,8 +285,31 @@ def get_firebase_client():
             except Exception as e:
                 logger.warning(f"⚠️ Temporary file approach failed: {e}")
         
+        # Method 4: Try to read from a mounted file (Railway volumes)
         if not cred:
-            raise RuntimeError("No valid Firebase credentials found. Please set FIREBASE_CREDENTIALS_JSON or individual Firebase variables.")
+            try:
+                logger.info("🔄 Trying mounted file approach...")
+                # Check if credentials file is mounted
+                possible_paths = [
+                    '/app/firebase-credentials.json',
+                    '/app/firebase_creds.json',
+                    '/app/credentials.json',
+                    './firebase-credentials.json',
+                    './firebase_creds.json'
+                ]
+                
+                for file_path in possible_paths:
+                    if os.path.exists(file_path):
+                        logger.info(f"🔄 Found credentials file at: {file_path}")
+                        cred = credentials.Certificate(file_path)
+                        logger.info("✅ Credentials created from mounted file")
+                        break
+                        
+            except Exception as e:
+                logger.warning(f"⚠️ Mounted file approach failed: {e}")
+        
+        if not cred:
+            raise RuntimeError("No valid Firebase credentials found. Please set Railway secrets, FIREBASE_CREDENTIALS_JSON, or individual Firebase variables.")
         
         # Initialize Firebase app
         logger.info("🔄 Initializing Firebase app...")

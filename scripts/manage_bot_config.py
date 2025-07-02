@@ -4,6 +4,9 @@ Bot Configuration Management CLI
 
 This script provides a command-line interface for managing bot configurations
 across different environments (testing, staging, production).
+
+# NOTE: This script is for local setup only. Do not use file-based credential loading at runtime.
+# All runtime Firebase credential loading must use environment variables only.
 """
 
 import os

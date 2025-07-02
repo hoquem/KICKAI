@@ -1,6 +1,9 @@
 """
 Core Configuration Management for KICKAI
 
+All configuration (Firebase, Telegram, AI, etc.) must be loaded through this module.
+No other module should load config or secrets directly.
+
 This module provides centralized configuration management with validation,
 type safety, and environment-specific settings.
 """

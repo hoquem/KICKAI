@@ -1,3 +1,6 @@
+# SECURITY WARNING: Never store Telegram bot tokens or secrets in code. Use Railway environment variables or Firestore only.
+# Replace any hardcoded tokens with placeholders.
+
 import firebase_admin
 from firebase_admin import credentials, firestore
 import os
@@ -33,7 +36,7 @@ team_ref.set(team_data)
 main_bot_data = {
     'team_id': 'bp-hatters-fc',
     'bot_type': 'main',
-    'bot_token': '7693359073:AAEnLqhdbCOfnf0RDfjn71z8GLRooNKNYsM',
+    'bot_token': 'YOUR_PRODUCTION_BOT_TOKEN_HERE',
     'bot_username': 'kickai_bp_hatters_main_bot',
     'chat_id': '-1001234567890',  # You'll need to update this
     'is_active': True,
