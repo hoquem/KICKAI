@@ -183,7 +183,7 @@ def create_llm():
         if ai_config.provider == AIProvider.GOOGLE_GEMINI:
             if GOOGLE_AI_AVAILABLE:
                 api_key = ai_config.api_key
-                model_name = ai_config.model_name
+                model_name = ai_config.model_name  # Always use config
                 if not api_key or not model_name:
                     logger.error("Google AI API key or model name missing.")
                     return None

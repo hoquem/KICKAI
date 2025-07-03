@@ -175,7 +175,7 @@ class SimpleAgenticHandler:
                 logger.error(f"Config has no 'ai' attribute: {e}")
                 # Fallback to environment variables
                 api_key = os.getenv('GOOGLE_API_KEY')
-                model_name = os.getenv('AI_MODEL_NAME', 'gemini-1.5-flash')
+                model_name = os.getenv('AI_MODEL_NAME', 'gemini-2.0-flash-001')
                 provider = os.getenv('AI_PROVIDER', 'google_gemini')
                 
                 if provider == 'google_gemini' and api_key:
@@ -192,7 +192,7 @@ class SimpleAgenticHandler:
             if ai_config.provider == AIProvider.GOOGLE_GEMINI:
                 if GOOGLE_AI_AVAILABLE and genai is not None:
                     api_key = ai_config.api_key or os.getenv('GOOGLE_API_KEY')
-                    model_name = ai_config.model_name or 'gemini-1.5-flash'
+                    model_name = ai_config.model_name or 'gemini-2.0-flash-001'
                     if not api_key or not model_name:
                         logger.error("Google AI API key or model name missing.")
                         return None
