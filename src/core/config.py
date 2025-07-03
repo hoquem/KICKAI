@@ -272,7 +272,7 @@ class ConfigurationManager:
         return AIConfig(
             provider=provider,
             api_key=api_key,
-            model_name=os.getenv("AI_MODEL_NAME", "gemini-pro"),
+            model_name=os.getenv("AI_MODEL_NAME", "gemini-2.0-flash-001"),
             temperature=float(os.getenv("AI_TEMPERATURE", "0.7")),
             max_tokens=int(os.getenv("AI_MAX_TOKENS", "1000")),
             timeout_seconds=int(os.getenv("AI_TIMEOUT", "60"))
