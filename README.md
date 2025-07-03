@@ -1,6 +1,6 @@
 # KICKAI - AI-Powered Football Team Management
 
-**Status:** ✅ **PRODUCTION READY** - v1.5.0  
+**Status:** ✅ **PRODUCTION READY** - v1.6.0  
 **Deployment:** 🚀 **Live on Railway**  
 **AI Provider:** 🤖 **Google Gemini (Production)**  
 **Architecture:** 🏗️ **8-Agent CrewAI System**
@@ -20,7 +20,8 @@ KICKAI is **fully operational** in production with **advanced AI capabilities**:
 - ✅ **Player Registration & Onboarding** with automated workflows
 - ✅ **Multi-team Management** with isolated environments
 - ✅ **Role-based Access Control** for leadership and members
-- ✅ **Comprehensive Testing Infrastructure** with pytest
+- ✅ **FA Registration Checking** with automated status updates
+- ✅ **Daily Status Reports** with comprehensive team analytics
 - ✅ **Human-readable IDs** for teams, players, and matches
 
 ## 🏗️ **Architecture Overview**
@@ -53,6 +54,8 @@ src/
 ├── services/             # Business Logic Layer
 │   ├── player_service.py # Player management service
 │   ├── team_service.py   # Team management service
+│   ├── fa_registration_checker.py # FA registration checking
+│   ├── daily_status_service.py # Daily status reports
 │   └── monitoring.py     # System monitoring
 ├── tools/                # LangChain Tools
 │   ├── firebase_tools.py # Database operations
@@ -184,6 +187,8 @@ railway up
 - **Onboarding**: AI-guided onboarding process with status tracking
 - **Leadership Commands**: Admin tools for player management
 - **Human-readable IDs**: Player IDs like "JS1" for John Smith
+- **FA Registration**: Automated checking of FA registration status
+- **Daily Status**: Comprehensive team analytics and reports
 
 ### **Match & Fixture Management**
 - **Smart ID Generation**: Human-readable match IDs (e.g., BP-ARS-2024-07-01)
@@ -207,16 +212,20 @@ railway up
 ## 📝 **Commands & Usage**
 
 ### **Player Commands**
-- `/register` - Start player registration process
-- `/profile` - View your player profile
-- `/status` - Check your onboarding status
+- `/myinfo` - View your player profile
+- `/start` - Start player registration process
 
 ### **Leadership Commands**
-- `/addplayer` - Add a new player to the team
-- `/removeplayer` - Remove a player from the team
-- `/listplayers` - List all team players
-- `/playerstatus` - Check player onboarding status
-- `/generateinvite` - Generate player invite link
+- `/add <name> <phone> <position>` - Add a new player to the team
+- `/remove <phone>` - Remove a player from the team
+- `/list` - List all team players
+- `/status <phone>` - Check player onboarding status
+- `/invite <phone_or_player_id>` - Generate player invite link
+- `/approve <player_id>` - Approve a player registration
+- `/reject <player_id> [reason]` - Reject a player registration
+- `/pending` - List players pending approval
+- `/checkfa` - Check FA registration status for all players
+- `/dailystatus` - Generate daily team status report
 
 ### **Team Commands**
 - `/teams` - List all teams
@@ -230,14 +239,15 @@ railway up
 - `/status` - Check system status
 - `/memory` - View conversation memory
 
-## 🧪 **Testing**
+### **Natural Language Commands**
+- "Add player John Smith with phone 07123456789 as midfielder"
+- "List all players"
+- "Show player with phone 07123456789"
+- "Create a match against Arsenal on July 1st at 2pm"
+- "Check FA registration status"
+- "Generate daily status report"
 
-### **Mock Data Generation**
-```bash
-# Generate mock data for testing
-python railway_mock_data.py  # For Railway environment
-python generate_mock_data.py  # For local environment
-```
+## 🧪 **Testing**
 
 ### **Test Coverage**
 - Unit tests for all core components
@@ -245,10 +255,23 @@ python generate_mock_data.py  # For local environment
 - End-to-end tests for complete workflows
 - Performance tests for system optimization
 
+### **Running Tests**
+```bash
+# Run all tests
+pytest
+
+# Run specific test categories
+pytest tests/test_agents/
+pytest tests/test_integration/
+pytest tests/test_services/
+
+# Run with coverage
+pytest --cov=src tests/
+```
+
 ## 📊 **Monitoring & Health**
 
 ### **Health Checks**
-- `/health` - System health endpoint
 - Real-time monitoring with structured logging
 - Performance metrics and error tracking
 - Automated alerting for system issues
@@ -295,4 +318,4 @@ For support and questions:
 
 ---
 
-**KICKAI v1.5.0** - AI-Powered Football Team Management System 
+**KICKAI v1.6.0** - AI-Powered Football Team Management System 

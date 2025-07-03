@@ -19,6 +19,7 @@ class PlayerPosition(Enum):
     DEFENDER = "defender"
     MIDFIELDER = "midfielder"
     FORWARD = "forward"
+    STRIKER = "striker"
     UTILITY = "utility"
 
 
@@ -85,10 +86,12 @@ class Player:
         if not self.name.strip():
             raise ValueError("Player name cannot be empty")
         
-        if not self.phone.strip():
-            raise ValueError("Player phone cannot be empty")
-        
-        if not self._validate_phone(self.phone):
+        # Allow empty phone only during onboarding (pending approval or in progress)
+        if self.onboarding_status not in [OnboardingStatus.PENDING_APPROVAL, OnboardingStatus.IN_PROGRESS]:
+            if not self.phone.strip():
+                raise ValueError("Player phone cannot be empty")
+        # If phone is provided, validate format
+        if self.phone.strip() and not self._validate_phone(self.phone):
             raise ValueError("Invalid phone number format")
         
         if self.email and not self._validate_email(self.email):
@@ -277,9 +280,12 @@ class TeamMember:
     """Team member data model."""
     id: str = field(default_factory=lambda: str(uuid4()))
     team_id: str = ""
-    user_id: str = ""
-    role: str = "player"  # player, captain, manager, etc.
-    permissions: List[str] = field(default_factory=list)
+    user_id: str = ""  # References player.id or external user ID
+    roles: List[str] = field(default_factory=list)  # List of roles: player, captain, vice_captain, manager, coach, admin, volunteer
+    permissions: List[str] = field(default_factory=list)  # admin, manage_players, manage_fixtures, etc.
+    chat_access: Dict[str, bool] = field(default_factory=lambda: {"main_chat": True, "leadership_chat": False})
+    telegram_id: Optional[str] = None
+    telegram_username: Optional[str] = None
     joined_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     additional_info: Dict[str, Any] = field(default_factory=dict)
@@ -291,6 +297,29 @@ class TeamMember:
         
         if not self.user_id:
             raise ValueError("User ID cannot be empty")
+        
+        # Validate that roles list is not empty
+        if not self.roles:
+            raise ValueError("Team member must have at least one role")
+        
+        # Validate role values
+        valid_roles = {'player', 'captain', 'vice_captain', 'manager', 'coach', 'admin', 'volunteer'}
+        invalid_roles = set(self.roles) - valid_roles
+        if invalid_roles:
+            raise ValueError(f"Invalid roles: {invalid_roles}. Valid roles: {valid_roles}")
+    
+    def has_role(self, role: str) -> bool:
+        """Check if team member has a specific role."""
+        return role in self.roles
+    
+    def has_any_leadership_role(self) -> bool:
+        """Check if team member has any leadership role."""
+        leadership_roles = {'captain', 'vice_captain', 'manager', 'coach', 'admin', 'volunteer'}
+        return any(role in leadership_roles for role in self.roles)
+    
+    def is_player(self) -> bool:
+        """Check if team member is a player."""
+        return 'player' in self.roles
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert team member to dictionary."""

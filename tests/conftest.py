@@ -91,6 +91,13 @@ def mock_config_manager(test_environment, mock_firebase_credentials, mock_ai_con
         config_instance.ai.model_name = mock_ai_config["model_name"]
         config_instance.telegram.bot_token = mock_telegram_config["bot_token"]
         
+        # Mock logging configuration with proper string values
+        logging_config = Mock()
+        logging_config.level = "DEBUG"  # String value, not Mock
+        logging_config.format = "json"
+        logging_config.output = "console"
+        config_instance.logging = logging_config
+        
         mock_config.return_value = config_instance
         yield config_instance
 
@@ -190,6 +197,20 @@ def mock_agent_system():
         
         mock_handler.return_value = handler_instance
         yield handler_instance
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_logging():
+    """Set up logging for tests to avoid configuration issues."""
+    # Disable logging during tests to avoid configuration issues
+    import logging
+    logging.getLogger().setLevel(logging.CRITICAL)
+    
+    # Mock the logging manager to prevent initialization issues
+    with patch('src.core.logging._logging_manager', None):
+        with patch('src.core.logging.initialize_logging') as mock_init:
+            mock_manager = Mock()
+            mock_init.return_value = mock_manager
+            yield mock_manager
 
 # Test utilities
 def create_test_message(text: str = "test message", user_id: str = "123456", chat_id: str = "-987654321") -> Dict[str, Any]:

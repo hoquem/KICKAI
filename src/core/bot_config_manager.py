@@ -132,7 +132,7 @@ class BotConfigManager:
         try:
             # Load teams from Firestore
             teams = {}
-            teams_ref = self._firebase_client.collection('teams')
+            teams_ref = self._firebase_client.client.collection('teams')
             teams_query = teams_ref.where('is_active', '==', True)
             teams_docs = teams_query.stream()
             
@@ -169,19 +169,24 @@ class BotConfigManager:
     
     def _load_team_bot_from_firestore(self, team_id: str) -> Optional[BotConfig]:
         """Load bot configuration for a team from Firestore."""
+        if not self._firebase_client:
+            logger.error("Firebase client not available")
+            return None
+            
         try:
-            bots_ref = self._firebase_client.collection('team_bots')
+            bots_ref = self._firebase_client.client.collection('team_bots')
             query = bots_ref.where('team_id', '==', team_id).where('is_active', '==', True)
             docs = list(query.stream())
             
             if docs:
                 bot_data = docs[0].to_dict()
                 
+                # Map database fields to expected field names
                 return BotConfig(
-                    token=bot_data.get('token', ''),
-                    username=bot_data.get('username', ''),
-                    main_chat_id=bot_data.get('chat_id', ''),
-                    leadership_chat_id=bot_data.get('leadership_chat_id', ''),
+                    token=bot_data.get('bot_token', ''),  # Database: bot_token
+                    username=bot_data.get('bot_username', ''),  # Database: bot_username
+                    main_chat_id=bot_data.get('chat_id', ''),  # Database: chat_id
+                    leadership_chat_id=bot_data.get('leadership_chat_id', ''),  # Database: leadership_chat_id
                     is_active=bot_data.get('is_active', True)
                 )
             
@@ -198,6 +203,7 @@ class BotConfigManager:
         
         # Use environment variables if available, otherwise use JSON values
         bot_token = os.getenv("TELEGRAM_BOT_TOKEN", bot_data.get('token', ''))
+        bot_username = os.getenv("TELEGRAM_BOT_USERNAME", bot_data.get('username', ''))
         main_chat_id = os.getenv("TELEGRAM_MAIN_CHAT_ID", bot_data.get('main_chat_id', ''))
         leadership_chat_id = os.getenv("TELEGRAM_LEADERSHIP_CHAT_ID", bot_data.get('leadership_chat_id', ''))
         
@@ -205,6 +211,13 @@ class BotConfigManager:
             logger.info(f"Using environment variable for bot token in team {team_id}")
         else:
             logger.warning(f"No bot token found in environment or config for team {team_id}")
+        
+        if bot_username:
+            logger.info(f"Using environment variable for bot username in team {team_id}")
+        else:
+            error_msg = f"CRITICAL ERROR: TELEGRAM_BOT_USERNAME environment variable is not set for team {team_id}. Bot cannot function without a valid username."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
         
         if main_chat_id:
             logger.info(f"Using environment variable for main chat ID in team {team_id}")
@@ -218,7 +231,7 @@ class BotConfigManager:
         
         bot_config = BotConfig(
             token=bot_token,
-            username=bot_data.get('username', ''),
+            username=bot_username,
             main_chat_id=main_chat_id,
             leadership_chat_id=leadership_chat_id,
             is_active=bot_data.get('is_active', True)

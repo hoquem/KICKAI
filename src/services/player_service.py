@@ -275,11 +275,16 @@ class PlayerService:
                 create_error_context("validate_phone")
             )
         
-        # UK phone number validation
-        phone_pattern = r'^(\+44|0)[1-9]\d{8,9}$'
-        if not re.match(phone_pattern, phone.replace(' ', '')):
+        # Clean the phone number
+        phone_clean = phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+        
+        # UK phone number validation - more lenient
+        # Mobile: 07xxx, 08xxx, +447xxx, +448xxx
+        # Landline: 01xxx, 02xxx, +441xxx, +442xxx
+        phone_pattern = r'^(\+44|0)(7\d{9}|8\d{9}|1\d{9}|2\d{9})$'
+        if not re.match(phone_pattern, phone_clean):
             raise PlayerValidationError(
-                "Invalid phone number format. Must be a valid UK phone number",
+                "Invalid phone number format. Must be a valid UK phone number (e.g., 07123456789, +447123456789)",
                 create_error_context("validate_phone")
             )
     

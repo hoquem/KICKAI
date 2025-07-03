@@ -44,6 +44,15 @@ except ImportError as e:
     ONBOARDING_AGENT_AVAILABLE = False
     logger.warning("⚠️ OnboardingAgent not available", error=e)
 
+# Import OnboardingHandler
+try:
+    from src.telegram.onboarding_handler import get_onboarding_workflow
+    ONBOARDING_HANDLER_AVAILABLE = True
+    logger.info("✅ OnboardingHandler imported successfully")
+except ImportError as e:
+    ONBOARDING_HANDLER_AVAILABLE = False
+    logger.warning("⚠️ OnboardingHandler not available", error=e)
+
 # --- LLM-based Command Parsing ---
 
 class LLMCommandParser:
@@ -844,7 +853,7 @@ async def newmatch_command(update, context, params: Dict[str, Any]):
         message += "🔒 Admin commands can only be executed from the leadership chat\\.\n"
         message += "💡 Please use the leadership chat to create matches\\."
         
-        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
+        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
         return
     
     # Extract parameters
@@ -872,7 +881,7 @@ async def newmatch_command(update, context, params: Dict[str, Any]):
     message += f"\n🆔 **Match ID:** `{match_id}`\n"
     message += "💡 Use this ID for updates and availability polls\\."
     
-    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
+    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
 
 async def listmatches_command(update, context, params: Dict[str, Any]):
     """Handle listmatches command."""
@@ -887,7 +896,7 @@ async def listmatches_command(update, context, params: Dict[str, Any]):
     message += "This feature is coming soon with LLM parsing\\!\n"
     message += f"Filter: {filter_type}"
     
-    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
+    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
 
 async def help_command(update, context, params: Dict[str, Any]):
     """Handle help command with role-based permissions."""
@@ -995,7 +1004,7 @@ async def help_command(update, context, params: Dict[str, Any]):
         if user_role in ['admin', 'captain'] and not is_leadership_chat:
             message += "- Use the leadership chat for admin management features\n"
         
-        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
+        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
         
     except Exception as e:
         logger.error("Error in help_command", error=e)
@@ -1008,7 +1017,7 @@ async def help_command(update, context, params: Dict[str, Any]):
         fallback_message += "- \"Help\" - Show this help message\n\n"
         fallback_message += "💡 You can use natural language or specific commands!"
         
-        await context.bot.send_message(chat_id=chat_id, text=fallback_message, parse_mode='Markdown')
+        await context.bot.send_message(chat_id=chat_id, text=fallback_message, parse_mode='HTML')
 
 async def status_command(update, context, params: Dict[str, Any]):
     """Handle status command."""
@@ -1028,7 +1037,7 @@ async def status_command(update, context, params: Dict[str, Any]):
     message += f"📅 **Version:** 1.3.0-llm-parsing\n"
     message += f"🟢 **Status:** Active"
     
-    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
+    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
 
 # --- Command Handler Mapping ---
 
@@ -1064,8 +1073,8 @@ async def llm_command_handler(update, context):
             if update.effective_chat:
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
-                    text=f"❌ **Error:** {parsed['error']}",
-                    parse_mode='Markdown'
+                    text=message,
+                    parse_mode='HTML'
                 )
             return
         
@@ -1086,7 +1095,7 @@ async def llm_command_handler(update, context):
                          "- \"Create a match against Red Lion FC on July 1st at 2pm\"\n"
                          "- \"Show upcoming matches\"\n"
                          "- \"Help\"",
-                    parse_mode='Markdown'
+                    parse_mode='HTML'
                 )
             return
         
@@ -1096,9 +1105,9 @@ async def llm_command_handler(update, context):
             if update.effective_chat:
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
-                    text=f"❌ **Unknown command:** {command}\n\n"
+                    text=f"\u274c **Unknown command:** {command}\n\n"
                          f"💡 Type `/help` to see available commands.",
-                    parse_mode='Markdown'
+                    parse_mode='HTML'
                 )
             return
         
@@ -1112,7 +1121,7 @@ async def llm_command_handler(update, context):
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=message,
-                parse_mode='Markdown'
+                parse_mode='HTML'
             )
             return
         
@@ -1125,7 +1134,7 @@ async def llm_command_handler(update, context):
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=f"❌ **Error:** {str(e)}",
-                parse_mode='Markdown'
+                parse_mode='HTML'
             )
 
 # --- Register commands with the bot ---
@@ -1196,8 +1205,8 @@ async def agent_based_command_handler(update, context):
             logger.error(f"Failed to initialize agent handler: {e}")
             await context.bot.send_message(
                 chat_id=chat_id,
-                text="❌ **System Error:** Agent system is currently unavailable. Please try again later.",
-                parse_mode='Markdown'
+                text=message,
+                parse_mode='HTML'
             )
             return
         
@@ -1209,7 +1218,7 @@ async def agent_based_command_handler(update, context):
         await context.bot.send_message(
             chat_id=chat_id,
             text=response,
-            parse_mode='Markdown'
+            parse_mode='HTML'
         )
         
         # Log successful processing
@@ -1221,7 +1230,7 @@ async def agent_based_command_handler(update, context):
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=f"❌ **Error:** {str(e)}",
-                parse_mode='Markdown'
+                parse_mode='HTML'
             )
 
 # Add this function to register the agent-based handler
@@ -1250,9 +1259,7 @@ from telegram.ext import ContextTypes, MessageHandler, filters
 
 def register_langchain_agentic_handler(app):
     """Register a message handler that uses SimpleAgenticHandler for agentic processing."""
-    # Dictionary to cache handlers per team
-    agentic_handlers = {}
-
+    
     async def langchain_agentic_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             # Extract chat and user info
@@ -1274,12 +1281,54 @@ def register_langchain_agentic_handler(app):
                     f"📝 **Chat Title:** {chat.title or 'Private Chat'}\n\n"
                     f"💡 **Use this Chat ID in Railway:**\n"
                     f"`railway variables --set \"TELEGRAM_CHAT_ID={chat_id}\"`",
-                    parse_mode='Markdown'
+                    parse_mode='HTML'
                 )
                 return
 
+            # Check for new chat members (new users joining)
+            if update.message and update.message.new_chat_members:
+                for new_member in update.message.new_chat_members:
+                    # Skip if it's the bot itself
+                    if new_member.is_bot:
+                        continue
+                    
+                    # Handle new member joining
+                    if ONBOARDING_HANDLER_AVAILABLE:
+                        try:
+                            team_id = os.getenv('TEAM_ID', '0854829d-445c-4138-9fd3-4db562ea46ee')
+                            onboarding_workflow = get_onboarding_workflow(team_id)
+                            
+                            success, response = await onboarding_workflow.detect_new_member(
+                                chat_id=chat_id,
+                                user_id=str(new_member.id),
+                                username=new_member.username,
+                                first_name=new_member.first_name,
+                                last_name=new_member.last_name
+                            )
+                            
+                            if success:
+                                await message.reply_text(response, parse_mode='HTML')
+                                logger.info(f"New member onboarding triggered for user {new_member.id}")
+                            else:
+                                logger.info(f"New member detection result: {response}")
+                                
+                        except Exception as e:
+                            logger.error(f"Error handling new member: {e}")
+                            await message.reply_text(
+                                "🎉 Welcome to the team! Please contact an admin to get started.",
+                                parse_mode='HTML'
+                            )
+                    else:
+                        # Fallback welcome message
+                        await message.reply_text(
+                            "🎉 Welcome to the team! Please contact an admin to get started.",
+                            parse_mode='HTML'
+                        )
+                
+                return  # Don't process further for new member events
+
             # For now, use a fixed team_id (can be improved to map chat_id to team_id)
-            team_id = '0854829d-445c-4138-9fd3-4db562ea46ee'
+            team_id = os.getenv('TEAM_ID', '0854829d-445c-4138-9fd3-4db562ea46ee')
 
             # Get user role and check if it's a leadership chat
             try:
@@ -1291,16 +1340,14 @@ def register_langchain_agentic_handler(app):
                 user_role = 'member'  # Default to member
                 is_leadership = False
 
-            # Get or create the handler for this team
+            # Create a fresh handler for each request to avoid state issues
             try:
-                if team_id not in agentic_handlers:
-                    agentic_handlers[team_id] = SimpleAgenticHandler(team_id)
-                handler = agentic_handlers[team_id]
+                handler = SimpleAgenticHandler(team_id)
             except Exception as e:
                 logger.error(f"Failed to initialize agent handler: {e}")
                 await message.reply_text(
                     "❌ **System Error:** Agent system is currently unavailable. Please try again later or contact the admin.",
-                    parse_mode='Markdown'
+                    parse_mode='HTML'
                 )
                 return
 
@@ -1317,13 +1364,13 @@ def register_langchain_agentic_handler(app):
                 logger.error(f"Error processing message: {e}")
                 await message.reply_text(
                     "❌ **Processing Error:** Unable to process your message. Please try again or contact the admin if the issue persists.",
-                    parse_mode='Markdown'
+                    parse_mode='HTML'
                 )
                 return
 
             # Reply to the user without markdown escaping (Markdown mode handles it automatically)
             try:
-                await message.reply_text(response, parse_mode='Markdown')
+                await message.reply_text(response, parse_mode='HTML')
             except Exception as e:
                 logger.error(f"Error sending response: {e}")
                 # Try sending without markdown if markdown fails
@@ -1333,7 +1380,7 @@ def register_langchain_agentic_handler(app):
                     logger.error(f"Failed to send response even without markdown: {e2}")
                     await message.reply_text(
                         "❌ **Error:** Unable to send response. Please contact the admin.",
-                        parse_mode='Markdown'
+                        parse_mode='HTML'
                     )
 
         except Exception as e:
@@ -1342,15 +1389,13 @@ def register_langchain_agentic_handler(app):
                 if update.effective_message:
                     await update.effective_message.reply_text(
                         "❌ **System Error:** An unexpected error occurred. Please contact the admin.",
-                        parse_mode='Markdown'
+                        parse_mode='HTML'
                     )
             except Exception as send_error:
                 logger.error(f"Failed to send error message to user: {send_error}")
 
-    # Register the handler for all text messages
+    # Register the handler for all text messages and slash commands
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, langchain_agentic_message_handler))
-    
-    # Also register for slash commands to handle /help, /status, etc.
     app.add_handler(MessageHandler(filters.COMMAND, langchain_agentic_message_handler))
 
 # --- New Player Registration Handler Integration ---
@@ -1420,5 +1465,5 @@ async def fallback_system_error_handler(update, context):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="❌ System Error: The agent system is currently unavailable. Please contact the admin.",
-            parse_mode='Markdown'
+            parse_mode='HTML'
         )

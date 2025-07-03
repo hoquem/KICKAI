@@ -28,6 +28,8 @@ import logging
 import sys
 from dotenv import load_dotenv
 from telegram.ext import Application
+from src.services.bot_status_service import send_startup_messages, send_shutdown_messages
+import signal
 
 # Add src directory to Python path for Railway deployment
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -53,6 +55,21 @@ def get_bot_token():
     """
     try:
         logger.info("🔍 Starting bot token retrieval...")
+        
+        # Validate required environment variables
+        required_vars = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_BOT_USERNAME", "TELEGRAM_MAIN_CHAT_ID", "TELEGRAM_LEADERSHIP_CHAT_ID"]
+        missing_vars = []
+        
+        for var in required_vars:
+            if not os.getenv(var):
+                missing_vars.append(var)
+        
+        if missing_vars:
+            error_msg = f"❌ CRITICAL ERROR: Missing required environment variables: {', '.join(missing_vars)}"
+            logger.error(error_msg)
+            logger.error("The bot cannot function without these environment variables.")
+            logger.error("Please set them in your environment or .env file.")
+            raise ValueError(error_msg)
         
         # Import the bot configuration manager
         logger.info("📦 Importing bot configuration manager...")
@@ -165,6 +182,16 @@ def main():
             print("❌ Bot connection failed. Check your bot token.")
             return
         
+        # Get team_id for status messages
+        from src.core.bot_config_manager import get_bot_config_manager
+        manager = get_bot_config_manager()
+        config = manager.load_configuration()
+        team_id = config.default_team or (list(config.teams.keys())[0] if config.teams else None)
+        
+        # Send startup message
+        if bot_token and team_id:
+            send_startup_messages(bot_token, team_id)
+        
         # Set up python-telegram-bot Application
         print("\n🚀 Setting up LLM-based bot...")
         app = Application.builder().token(bot_token).build()
@@ -197,6 +224,15 @@ def main():
         print("💡 Try: \"Plan our next match including squad selection\"")
         print("💡 Try: \"Analyze our team performance and suggest improvements\"")
         print("💡 Press Ctrl+C to stop the bot.")
+
+        def handle_shutdown(signum, frame):
+            logger.info(f"Received signal {signum}, sending shutdown messages...")
+            if bot_token and team_id:
+                send_shutdown_messages(bot_token, team_id)
+            sys.exit(0)
+
+        signal.signal(signal.SIGINT, handle_shutdown)
+        signal.signal(signal.SIGTERM, handle_shutdown)
         
         # Run the bot with polling
         app.run_polling()
@@ -207,6 +243,18 @@ def main():
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
         logger.error(f"Bot error: {e}", exc_info=True)
+    finally:
+        # On normal exit, send shutdown message
+        try:
+            bot_token = get_bot_token()
+            from src.core.bot_config_manager import get_bot_config_manager
+            manager = get_bot_config_manager()
+            config = manager.load_configuration()
+            team_id = config.default_team or (list(config.teams.keys())[0] if config.teams else None)
+            if bot_token and team_id:
+                send_shutdown_messages(bot_token, team_id)
+        except Exception as e:
+            logger.error(f"❌ Error sending shutdown message on exit: {e}")
 
 if __name__ == "__main__":
     main() 

@@ -226,6 +226,10 @@ class GeneralValidationError(KICKAIError):
     pass
 
 
+# Alias for backward compatibility
+ValidationError = GeneralValidationError
+
+
 class InputValidationError(GeneralValidationError):
     """Input validation errors."""
     pass
@@ -249,6 +253,11 @@ class AuthenticationError(SecurityError):
 
 class AuthorizationError(SecurityError):
     """Authorization errors."""
+    pass
+
+
+class AccessDeniedError(AuthorizationError):
+    """Access denied errors."""
     pass
 
 
