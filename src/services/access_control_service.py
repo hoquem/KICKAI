@@ -52,8 +52,11 @@ class AccessControlService:
         from src.database.firebase_client import get_firebase_client
         firebase_client = get_firebase_client()
         self.team_member_service = TeamMemberService(firebase_client)
-        self.admin_commands: Set[str] = set()
-        self.read_only_commands: Set[str] = set()
+        
+        # Initialize command sets from AccessControlConfig
+        config = AccessControlConfig()
+        self.admin_commands: Set[str] = config.admin_commands or set()
+        self.read_only_commands: Set[str] = config.read_only_commands or set()
         self._bot_token: Optional[str] = None
     
     def _get_bot_token(self) -> str:

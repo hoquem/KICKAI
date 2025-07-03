@@ -17,6 +17,7 @@ import json
 
 # Use new structured logging
 from src.core.logging import get_logger
+from src.core import config
 logger = get_logger(__name__)
 
 # Monkey patch for httpx proxy issue with Firebase
@@ -899,125 +900,47 @@ async def listmatches_command(update, context, params: Dict[str, Any]):
     await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
 
 async def help_command(update, context, params: Dict[str, Any]):
-    """Handle help command with role-based permissions."""
-    if not update.effective_chat:
-        return
-    chat_id = update.effective_chat.id
-    
-    if not update.effective_user:
-        return
-    user_id = update.effective_user.id
-    
-    # Get team ID (using the default team for now)
-    team_id = "0854829d-445c-4138-9fd3-4db562ea46ee"  # BP Hatters FC
-    
+    """Handle help command with context-aware responses."""
     try:
-        # Import the necessary functions
-        from src.tools.firebase_tools import get_user_role
-        from src.core.bot_config_manager import get_bot_config_manager
+        chat_id = str(update.effective_chat.id)
+        user_id = str(update.effective_user.id)
+        username = update.effective_user.username
+        message_text = update.message.text
         
-        # Get user role
-        user_role = get_user_role(team_id, str(user_id))
+        logger.info(f"Help command received from {username} ({user_id}) in chat {chat_id}")
         
-        # Determine if this is a leadership chat using the bot config manager
-        manager = get_bot_config_manager()
-        is_leadership_chat = manager.is_leadership_chat(str(chat_id), team_id)
+        # Get team ID from config
+        from src.core.config import get_config
+        config_manager = get_config()
+        team_id = config_manager.get("team_id", "0854829d-445c-4138-9fd3-4db562ea46ee")
         
-        # Build help message based on chat type (not user role for main chat)
-        message = "🤖 **KICKAI Bot Help**\n\n"
+        # Use new command dispatcher
+        from src.telegram.command_dispatcher import get_command_dispatcher
+        dispatcher = get_command_dispatcher()
         
-        if is_leadership_chat:
-            # Leadership chat - show commands based on user role
-            message += f"👑 **Leadership Chat** \\- User Role: {user_role.title()}\n\n"
-            
-            if user_role in ['admin', 'captain']:
-                message += "📅 **Match Management:**\n"
-                message += "- \"Create a match against Arsenal on July 1st at 2pm\"\n"
-                message += "- \"List all fixtures\"\n"
-                message += "- \"Show upcoming matches\"\n\n"
-                
-                message += "👥 **Player Management:**\n"
-                message += "- \"Add player John Doe with phone 123456789\"\n"
-                message += "- \"List all players\"\n"
-                message += "- \"Show player with phone 123456789\"\n"
-                message += "- \"Update player John's phone to 987654321\"\n\n"
-                
-                message += "🏆 **Team Management:**\n"
-                message += "- \"Show team info\"\n"
-                message += "- \"Update team name to BP Hatters United\"\n\n"
-                
-                message += "📢 **Communication:**\n"
-                message += "- \"Send a message to the team: Training is at 7pm tonight!\"\n"
-                message += "- \"Create a poll: Who's available for Saturday's match?\"\n\n"
-                
-                message += "💰 **Financial Management:**\n"
-                message += "- \"Send payment reminder for match fees\"\n"
-                message += "- \"Track player payments\"\n\n"
-                
-                message += "📊 **Analytics & Planning:**\n"
-                message += "- \"Analyze our team performance\"\n"
-                message += "- \"Plan squad selection for next match\"\n"
-                message += "- \"Generate match report\"\n\n"
-                
-            else:
-                # Other leadership roles (secretary, manager, treasurer)
-                message += "📅 **Match Management:**\n"
-                message += "- \"List all fixtures\"\n"
-                message += "- \"Show upcoming matches\"\n\n"
-                
-                message += "👥 **Player Management:**\n"
-                message += "- \"List all players\"\n"
-                message += "- \"Show player with phone 123456789\"\n\n"
-                
-                message += "🏆 **Team Management:**\n"
-                message += "- \"Show team info\"\n\n"
-                
-                message += "📢 **Communication:**\n"
-                message += "- \"Send a message to the team: Training is at 7pm tonight!\"\n\n"
-                
-        else:
-            # Main group chat - show only non-admin commands regardless of user role
-            message += f"👥 **Main Group Chat** \\- User Role: {user_role.title()}\n\n"
-            message += "💡 **Note:** Admin commands are only available in the leadership chat\\.\n\n"
-            
-            # Show only basic commands for all users in main chat
-            message += "📅 **Match Information:**\n"
-            message += "- \"List all fixtures\"\n"
-            message += "- \"Show upcoming matches\"\n"
-            message += "- \"What games do we have coming up?\"\n\n"
-            
-            message += "👥 **Player Information:**\n"
-            message += "- \"List all players\"\n"
-            message += "- \"Show player with phone 123456789\"\n\n"
-            
-            message += "🏆 **Team Information:**\n"
-            message += "- \"Show team info\"\n\n"
+        help_message = await dispatcher.dispatch_command(
+            command="/help",
+            user_id=user_id,
+            chat_id=chat_id,
+            team_id=team_id,
+            message_text=message_text
+        )
         
-        # Common commands for all users
-        message += "📊 **General:**\n"
-        message += "- \"Status\" - Show system status\n"
-        message += "- \"Help\" - Show this help message\n\n"
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=help_message,
+            parse_mode='HTML'
+        )
         
-        message += "💡 **Tips:**\n"
-        message += "- You can use natural language or specific commands\n"
-        message += "- Try asking questions like \"What matches do we have?\"\n"
-        if user_role in ['admin', 'captain'] and not is_leadership_chat:
-            message += "- Use the leadership chat for admin management features\n"
-        
-        await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='HTML')
+        logger.info(f"Help message sent to {username} in chat {chat_id}")
         
     except Exception as e:
-        logger.error("Error in help_command", error=e)
-        # Fallback to basic help if there's an error
-        fallback_message = "🤖 **KICKAI Bot Help**\n\n"
-        fallback_message += "📅 **Basic Commands:**\n"
-        fallback_message += "- \"List all fixtures\"\n"
-        fallback_message += "- \"Show team info\"\n"
-        fallback_message += "- \"Status\" - Show system status\n"
-        fallback_message += "- \"Help\" - Show this help message\n\n"
-        fallback_message += "💡 You can use natural language or specific commands!"
-        
-        await context.bot.send_message(chat_id=chat_id, text=fallback_message, parse_mode='HTML')
+        logger.error(f"Error in help command: {e}")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="❌ Error displaying help. Please try again.",
+            parse_mode='HTML'
+        )
 
 async def status_command(update, context, params: Dict[str, Any]):
     """Handle status command."""
@@ -1453,8 +1376,27 @@ async def handle_generateinvite_command(command: str, user_id: str) -> str:
 async def handle_myinfo_command(user_id: str) -> str:
     return await get_player_command_handler()._handle_myinfo(user_id)
 
-async def handle_help_command(user_id: str) -> str:
-    return get_player_command_handler()._get_help_message()
+async def handle_help_command(user_id: str, chat_id: str = None, team_id: str = None) -> str:
+    """Handle help command using the new Command Dispatcher."""
+    try:
+        if not chat_id:
+            chat_id = "-4889304885"  # Default main chat ID
+        if not team_id:
+            team_id = "0854829d-445c-4138-9fd3-4db562ea46ee"  # Default team ID
+        
+        from src.telegram.command_dispatcher import get_command_dispatcher
+        dispatcher = get_command_dispatcher()
+        
+        return await dispatcher.dispatch_command(
+            command="/help",
+            user_id=user_id,
+            chat_id=chat_id,
+            team_id=team_id,
+            message_text="/help"
+        )
+    except Exception as e:
+        logger.error(f"Error in handle_help_command: {e}")
+        return "❌ Error displaying help. Please try again."
 
 # TODO: Remove legacy logic for these commands and route all player/team commands through these handlers.
 

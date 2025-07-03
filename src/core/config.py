@@ -140,6 +140,13 @@ class ConfigurationManager:
             # Check Railway service name to determine environment
             railway_service = os.getenv("RAILWAY_SERVICE_NAME", "").lower()
             
+            # For local development, if we have a .env file with ENVIRONMENT=development,
+            # prioritize that over Railway environment detection
+            if os.path.exists(".env") and os.getenv("VIRTUAL_ENV"):
+                # We're in a virtual environment with a .env file, likely local development
+                logging.info("Local development environment detected (virtual env + .env file)")
+                return Environment.DEVELOPMENT
+            
             if "testing" in railway_service or "test" in railway_service:
                 logging.info(f"Railway testing environment detected: {railway_service}")
                 return Environment.TESTING
