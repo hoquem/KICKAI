@@ -265,14 +265,24 @@ class ConfigurationManager:
             api_key = os.getenv("GOOGLE_API_KEY", "")
         elif provider == AIProvider.OPENAI:
             api_key = os.getenv("OPENAI_API_KEY", "")
+        elif provider == AIProvider.OLLAMA:
+            # For Ollama, we don't need an API key, but we need to ensure Ollama is running
+            api_key = "ollama_local"  # Placeholder for Ollama
         else:
             # Fallback to generic AI_API_KEY
             api_key = os.getenv("AI_API_KEY", "")
         
+        # Set default model name based on provider
+        default_model = "gemini-2.0-flash-001"
+        if provider == AIProvider.OLLAMA:
+            default_model = "llama3.1:8b-instruct-q4_0"
+        elif provider == AIProvider.OPENAI:
+            default_model = "gpt-4"
+        
         return AIConfig(
             provider=provider,
             api_key=api_key,
-            model_name=os.getenv("AI_MODEL_NAME", "gemini-2.0-flash-001"),
+            model_name=os.getenv("AI_MODEL_NAME", default_model),
             temperature=float(os.getenv("AI_TEMPERATURE", "0.7")),
             max_tokens=int(os.getenv("AI_MAX_TOKENS", "1000")),
             timeout_seconds=int(os.getenv("AI_TIMEOUT", "60"))
@@ -377,6 +387,17 @@ class ConfigurationManager:
             elif self._config["ai"].provider == AIProvider.OPENAI:
                 if not self._config["ai"].api_key:
                     errors.append("OPENAI_API_KEY is required in development environment for OpenAI")
+            elif self._config["ai"].provider == AIProvider.OLLAMA:
+                # For Ollama, check if the service is running
+                try:
+                    import subprocess
+                    result = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=5)
+                    if result.returncode != 0:
+                        errors.append("Ollama is not running. Please start Ollama with 'ollama serve'")
+                    elif self._config["ai"].model_name not in result.stdout:
+                        errors.append(f"Ollama model '{self._config['ai'].model_name}' not found. Available models: {result.stdout}")
+                except (subprocess.TimeoutExpired, FileNotFoundError):
+                    errors.append("Ollama is not installed or not accessible. Please install Ollama and start it with 'ollama serve'")
             else:
                 if not self._config["ai"].api_key:
                     errors.append("AI_API_KEY is required in development environment")
