@@ -617,9 +617,9 @@ class SimpleAgenticHandler:
             player_stats = await self.player_registration_handler.get_player_stats()
             status_message += f"""
 👥 **Player Registration System:** Active
-- Total Players: {player_stats['total']}
-- Active: {player_stats['active']}
-- Pending: {player_stats['pending']}
+- Total Players: {player_stats['total_players']}
+- Active: {player_stats['active_players']}
+- Pending: {player_stats['pending_players']}
 - FA Registered: {player_stats['fa_registered']}"""
 
         status_message += """
