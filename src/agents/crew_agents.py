@@ -172,38 +172,44 @@ Final Answer: The team has been notified about the next match via Telegram.
 def create_llm():
     """Create and configure the LLM instance based on environment."""
     try:
-        # Use the new configuration system
         from src.core.config import ConfigurationManager, AIProvider
         config_manager = ConfigurationManager()
-        
-        # Get AI configuration
         ai_config = config_manager.ai
-        logger.info(f"Creating LLM with provider: {ai_config.provider}")
-        
+        logger.info(f"[LLM DEBUG] Creating LLM with provider: {ai_config.provider}")
+        logger.info(f"[LLM DEBUG] GOOGLE_AI_AVAILABLE={GOOGLE_AI_AVAILABLE}")
+        logger.info(f"[LLM DEBUG] api_key={'SET' if ai_config.api_key else 'MISSING'}")
+        logger.info(f"[LLM DEBUG] model_name={ai_config.model_name}")
         if ai_config.provider == AIProvider.GOOGLE_GEMINI:
             if GOOGLE_AI_AVAILABLE:
                 api_key = ai_config.api_key
-                model_name = ai_config.model_name  # Always use config
+                model_name = ai_config.model_name
                 if not api_key or not model_name:
-                    logger.error("Google AI API key or model name missing.")
+                    logger.error("[LLM DEBUG] Google AI API key or model name missing.")
                     return None
-                genai.configure(api_key=api_key)
-                llm = genai.GenerativeModel(model_name)
-                logger.info("✅ Google AI LLM created successfully")
+                try:
+                    genai.configure(api_key=api_key)
+                    llm = genai.GenerativeModel(model_name)
+                    logger.info("[LLM DEBUG] ✅ Google AI LLM created successfully")
+                except Exception as e:
+                    logger.error(f"[LLM DEBUG] Exception during GenerativeModel creation: {e}")
+                    return None
             else:
-                logger.warning("⚠️ Google AI packages not available, using fallback")
+                logger.warning("[LLM DEBUG] Google AI packages not available, using fallback")
                 llm = None
         else:
-            # Use Ollama for local development
-            llm = Ollama(
-                model=ai_config.model_name,
-                base_url=getattr(ai_config, 'base_url', None),
-                system=CREWAI_SYSTEM_PROMPT
-            )
-            logger.info("✅ Ollama LLM created successfully")
+            try:
+                llm = Ollama(
+                    model=ai_config.model_name,
+                    base_url=getattr(ai_config, 'base_url', None),
+                    system=CREWAI_SYSTEM_PROMPT
+                )
+                logger.info("[LLM DEBUG] ✅ Ollama LLM created successfully")
+            except Exception as e:
+                logger.error(f"[LLM DEBUG] Exception during Ollama LLM creation: {e}")
+                llm = None
         return llm
     except Exception as e:
-        logger.error(f"Failed to create LLM: {e}")
+        logger.error(f"[LLM DEBUG] Failed to create LLM: {e}")
         raise
 
 
