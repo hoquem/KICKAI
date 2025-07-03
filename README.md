@@ -21,6 +21,7 @@ KICKAI is **fully operational** in production with **advanced AI capabilities**:
 - ✅ **Multi-team Management** with isolated environments
 - ✅ **Role-based Access Control** for leadership and members
 - ✅ **Comprehensive Testing Infrastructure** with pytest
+- ✅ **Human-readable IDs** for teams, players, and matches
 
 ## 🏗️ **Architecture Overview**
 
@@ -63,10 +64,14 @@ src/
 ├── tasks/                # Task Definitions
 │   ├── tasks.py         # CrewAI task definitions
 │   └── task_templates.py # Task templates
+├── database/             # Database Layer
+│   ├── firebase_client.py # Firebase client
+│   └── models.py         # Data models
+├── utils/                # Utilities
+│   ├── id_generator.py   # Human-readable ID generation
+│   └── match_id_generator.py # Match ID generation
 └── testing/              # Testing Infrastructure
-    ├── test_base.py     # Base test classes
-    ├── test_fixtures.py # Test fixtures and mocks
-    └── test_utils.py    # Testing utilities
+    └── __init__.py       # Test package
 ```
 
 ### **Technology Stack**
@@ -85,14 +90,7 @@ Set these in your Railway project:
 
 **Firebase Service Account:**
 ```
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
-FIREBASE_CLIENT_ID=your-client-id
-FIREBASE_AUTH_URI=https://accounts.google.com/o/oauth2/auth
-FIREBASE_TOKEN_URI=https://oauth2.googleapis.com/token
-FIREBASE_AUTH_PROVIDER_X509_CERT_URL=https://www.googleapis.com/oauth2/v1/certs
-FIREBASE_CLIENT_X509_CERT_URL=https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-xxxxx%40your-project.iam.gserviceaccount.com
+FIREBASE_CREDENTIALS_JSON={"type":"service_account","project_id":"your-project-id",...}
 ```
 
 **AI Provider:**
@@ -100,6 +98,13 @@ FIREBASE_CLIENT_X509_CERT_URL=https://www.googleapis.com/robot/v1/metadata/x509/
 GOOGLE_API_KEY=your_google_api_key_here
 AI_PROVIDER=google_gemini
 AI_MODEL_NAME=gemini-pro
+```
+
+**Telegram Bot:**
+```
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+MAIN_CHAT_ID=your_main_chat_id
+LEADERSHIP_CHAT_ID=your_leadership_chat_id
 ```
 
 **Environment:**
@@ -178,6 +183,7 @@ railway up
 - **Profiles**: Comprehensive player profiles with FA registration status
 - **Onboarding**: AI-guided onboarding process with status tracking
 - **Leadership Commands**: Admin tools for player management
+- **Human-readable IDs**: Player IDs like "JS1" for John Smith
 
 ### **Match & Fixture Management**
 - **Smart ID Generation**: Human-readable match IDs (e.g., BP-ARS-2024-07-01)
@@ -190,6 +196,7 @@ railway up
 - **Role-based Access**: Different permissions for admins and members
 - **Communication Tools**: Polls, announcements, and messaging
 - **Financial Tracking**: Payment reminders and financial management
+- **Human-readable IDs**: Team IDs like "BH" for BP Hatters FC
 
 ### **Advanced AI Capabilities**
 - **Intelligent Routing**: LLM-powered request routing to appropriate agents
@@ -199,124 +206,80 @@ railway up
 
 ## 📝 **Commands & Usage**
 
-### **For All Users**
-- "List all players" - Show team roster
-- "Show upcoming matches" - Display fixtures
-- "Help" - Show available commands
-- "Status" - Check bot status
-- "My info" - View personal profile
+### **Player Commands**
+- `/register` - Start player registration process
+- `/profile` - View your player profile
+- `/status` - Check your onboarding status
 
-### **For Leadership**
-- "Add player John with phone 123456789" - Register new player
-- "Create a match against Arsenal on July 1st at 2pm" - Schedule fixture
-- "Update team name to BP Hatters United" - Modify team details
-- "Generate invite for John" - Create player invitation
-- "Send squad announcement for next match" - Announce team selection
+### **Leadership Commands**
+- `/addplayer` - Add a new player to the team
+- `/removeplayer` - Remove a player from the team
+- `/listplayers` - List all team players
+- `/playerstatus` - Check player onboarding status
+- `/generateinvite` - Generate player invite link
 
-### **Natural Language Examples**
-- "Plan our next match including squad selection"
-- "Analyze our team performance and suggest improvements"
-- "Remind everyone about the match fee for Saturday's game"
-- "Who's available for the Arsenal match?"
+### **Team Commands**
+- `/teams` - List all teams
+- `/players` - List players for a team
+- `/matches` - List upcoming matches
+- `/creatematch` - Create a new match
+- `/squad` - View current squad
 
-## 🧪 **Testing & Quality Assurance**
+### **General Commands**
+- `/help` - Show available commands
+- `/status` - Check system status
+- `/memory` - View conversation memory
 
-### **Test Coverage**
-- **Unit Tests**: Individual component testing
-- **Integration Tests**: End-to-end workflow testing
-- **Agent Tests**: AI agent capability validation
-- **Database Tests**: Firebase operation verification
+## 🧪 **Testing**
 
-### **Test Categories**
+### **Mock Data Generation**
 ```bash
-# Run all tests
-pytest
-
-# Run specific test suites
-pytest tests/test_agents/          # Agent functionality
-pytest tests/test_integration/     # Integration workflows
-pytest tests/test_player_registration/  # Player management
-pytest tests/test_advanced_memory/      # Memory system
+# Generate mock data for testing
+python railway_mock_data.py  # For Railway environment
+python generate_mock_data.py  # For local environment
 ```
 
-### **Quality Metrics**
-- **Code Coverage**: >90% test coverage
-- **Type Safety**: Full type hints with mypy validation
-- **Code Quality**: flake8 linting compliance
-- **Performance**: <2s response time for most operations
+### **Test Coverage**
+- Unit tests for all core components
+- Integration tests for agent interactions
+- End-to-end tests for complete workflows
+- Performance tests for system optimization
 
-## 🚀 **Recent Achievements**
+## 📊 **Monitoring & Health**
 
-### **Architecture Improvements**
-- ✅ **Refactored codebase** with proper module organization
-- ✅ **Implemented comprehensive testing infrastructure**
-- ✅ **Enhanced error handling** with user-friendly messages
-- ✅ **Optimized database operations** with Firebase best practices
-- ✅ **Improved configuration management** with environment detection
+### **Health Checks**
+- `/health` - System health endpoint
+- Real-time monitoring with structured logging
+- Performance metrics and error tracking
+- Automated alerting for system issues
 
-### **AI System Enhancements**
-- ✅ **8-agent CrewAI system** fully operational
-- ✅ **Intelligent routing** with LLM-powered agent selection
-- ✅ **Advanced memory system** with persistent context
-- ✅ **Dynamic task decomposition** for complex requests
-- ✅ **Natural language processing** with Google Gemini
+### **Logging**
+- Structured logging with correlation IDs
+- Performance timing for all operations
+- Error tracking with full stack traces
+- Environment-aware log levels
 
-### **Production Stability**
-- ✅ **Railway deployment** with health monitoring
-- ✅ **Comprehensive error handling** and user feedback
-- ✅ **Multi-team support** with isolated environments
-- ✅ **Role-based access control** for security
-- ✅ **Real-time monitoring** and logging
+## 🔒 **Security**
 
-## 📊 **Performance & Monitoring**
+### **Access Control**
+- Role-based permissions (Leadership vs Members)
+- Team isolation for multi-team environments
+- Secure API key management
+- Environment variable protection
 
-### **System Metrics**
-- **Uptime**: 99.9% (Railway platform)
-- **Response Time**: <2 seconds for most operations
-- **Error Rate**: <1% (monitored)
-- **Database Performance**: Excellent (Firebase)
-
-### **Health Monitoring**
-- **Health Endpoint**: `/health` for Railway monitoring
-- **Logging**: Structured logging with different levels
-- **Error Tracking**: Comprehensive error handling and reporting
-- **Performance Monitoring**: Real-time system metrics
-
-## 🎯 **Development Roadmap**
-
-### **Phase 2: Enhanced Features**
-- [ ] **Advanced Analytics**: Player performance metrics and insights
-- [ ] **Payment Integration**: Automated payment tracking and reminders
-- [ ] **Match Results**: Score tracking and result analysis
-- [ ] **Communication Enhancements**: Advanced messaging and notifications
-
-### **Phase 3: Advanced AI**
-- [ ] **Predictive Analytics**: Match outcome predictions
-- [ ] **Tactical Analysis**: AI-powered tactical recommendations
-- [ ] **Player Recommendations**: AI-suggested squad selections
-- [ ] **Performance Optimization**: Advanced agent coordination
-
-### **Phase 4: Platform Expansion**
-- [ ] **Mobile App**: Native mobile application
-- [ ] **Web Dashboard**: Web-based management interface
-- [ ] **API Integration**: RESTful API for third-party integrations
-- [ ] **Multi-sport Support**: Expand beyond football
-
-## 📚 **Documentation**
-
-- **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Detailed project status and progress
-- **[DEPLOYMENT_STRATEGY.md](DEPLOYMENT_STRATEGY.md)** - Deployment guidelines
-- **[TESTING_PLAN.md](TESTING_PLAN.md)** - Testing strategy and procedures
-- **[SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md)** - Security considerations
-- **[KICKAI_TEAM_MANAGEMENT_PRD.md](KICKAI_TEAM_MANAGEMENT_PRD.md)** - Product requirements
+### **Data Protection**
+- Firebase security rules
+- Encrypted communication
+- Secure credential storage
+- Audit logging for all operations
 
 ## 🤝 **Contributing**
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Submit a pull request
 
 ## 📄 **License**
 
@@ -324,10 +287,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 **Support**
 
-- **Documentation**: Check the documentation files in the repository
-- **Issues**: Report bugs and feature requests via GitHub Issues
-- **Discussions**: Use GitHub Discussions for questions and ideas
+For support and questions:
+- Check the [BOT_CONFIGURATION_GUIDE.md](BOT_CONFIGURATION_GUIDE.md)
+- Review the [ENVIRONMENT_VARIABLES_GUIDE.md](ENVIRONMENT_VARIABLES_GUIDE.md)
+- Check the [DEPLOYMENT_PIPELINE_GUIDE.md](DEPLOYMENT_PIPELINE_GUIDE.md)
+- Open an issue on GitHub
 
 ---
 
-**KICKAI** - Revolutionizing football team management with AI-powered intelligence. ⚽🤖 
+**KICKAI v1.5.0** - AI-Powered Football Team Management System 

@@ -159,8 +159,9 @@ class RailwayMockDataGenerator:
                     )
                     
                     # Save to database
-                    saved_player = await self.firebase_client.create_player(player)
-                    self.generated_players.append(saved_player)
+                    saved_player_id = await self.firebase_client.create_player(player)
+                    # Store the player object, not the ID
+                    self.generated_players.append(player)
                     
                     logger.info(f"  ✅ Created player: {name} ({player_id}) for team {team.name}")
                     
@@ -203,8 +204,9 @@ class RailwayMockDataGenerator:
                 )
                 
                 # Save to database
-                saved_match = await self.firebase_client.create_match(match)
-                self.generated_matches.append(saved_match)
+                saved_match_id = await self.firebase_client.create_match(match)
+                # Store the match object, not the ID
+                self.generated_matches.append(match)
                 
                 logger.info(f"  ✅ Created match: {home_team.name} vs {away_team.name} on {date_str} ({match_id})")
                 
@@ -226,11 +228,23 @@ class RailwayMockDataGenerator:
         
         print("\n👥 Sample Players:")
         for player in self.generated_players[:5]:
-            print(f"  - {player.name} ({player.player_id}) - {player.position.value}")
+            try:
+                if hasattr(player, 'name') and hasattr(player, 'player_id') and hasattr(player, 'position'):
+                    print(f"  - {player.name} ({player.player_id}) - {player.position.value}")
+                else:
+                    print(f"  - Player object: {type(player)} - {player}")
+            except Exception as e:
+                print(f"  - Error displaying player: {e}")
         
         print("\n⚽ Sample Matches:")
         for match in self.generated_matches[:5]:
-            print(f"  - Team {match.team_id} vs {match.opponent} on {match.date.strftime('%d/%m/%Y')}")
+            try:
+                if hasattr(match, 'team_id') and hasattr(match, 'opponent') and hasattr(match, 'date'):
+                    print(f"  - Team {match.team_id} vs {match.opponent} on {match.date.strftime('%d/%m/%Y')}")
+                else:
+                    print(f"  - Match object: {type(match)} - {match}")
+            except Exception as e:
+                print(f"  - Error displaying match: {e}")
         
         print("\n✅ Mock data generation complete!")
         print("="*60)
