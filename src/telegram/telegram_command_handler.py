@@ -377,12 +377,18 @@ class AgentBasedMessageHandler:
         self.improved_agentic_system = None
         self._initialize_agents()
         
-        # Initialize OnboardingAgent if available
+        # Initialize OnboardingAgent if available (after LLM is created)
         self.onboarding_agent = None
         if ONBOARDING_AGENT_AVAILABLE:
             try:
-                self.onboarding_agent = OnboardingAgent(team_id)
-                logger.info("✅ OnboardingAgent initialized in Telegram handler")
+                # Get the LLM from the agents initialization
+                from src.agents import create_llm
+                llm = create_llm()
+                if llm is not None:
+                    self.onboarding_agent = OnboardingAgent(team_id, llm=llm)
+                    logger.info("✅ OnboardingAgent initialized in Telegram handler")
+                else:
+                    logger.warning("⚠️ Skipping OnboardingAgent initialization - LLM is None")
             except Exception as e:
                 logger.error("Failed to initialize OnboardingAgent", error=e)
                 self.onboarding_agent = None

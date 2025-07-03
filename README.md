@@ -90,7 +90,7 @@ Set these in your Railway project:
 
 **Firebase Service Account:**
 ```
-FIREBASE_CREDENTIALS_JSON={"type":"service_account","project_id":"your-project-id",...}
+FIREBASE_CREDENTIALS_JSON={"type":"service_account","project_id":"your-project-id",...}  # REQUIRED: Must be a JSON string with all service account fields. No base64 or other formats are supported.
 ```
 
 **AI Provider:**

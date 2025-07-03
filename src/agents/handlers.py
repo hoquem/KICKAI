@@ -132,8 +132,12 @@ class SimpleAgenticHandler:
         # OnboardingAgent should also use new models/services
         try:
             from .crew_agents import OnboardingAgent
-            self.onboarding_agent = OnboardingAgent(team_id)
-            logger.info("✅ OnboardingAgent initialized successfully")
+            if self.llm is not None:
+                self.onboarding_agent = OnboardingAgent(team_id, llm=self.llm)
+                logger.info("✅ OnboardingAgent initialized successfully")
+            else:
+                logger.warning("⚠️ Skipping OnboardingAgent initialization - LLM is None")
+                self.onboarding_agent = None
         except ImportError as e:
             logger.warning(f"OnboardingAgent not available: {e}")
             self.onboarding_agent = None
@@ -163,75 +167,79 @@ class SimpleAgenticHandler:
     def _create_llm(self):
         """Create LLM instance based on environment."""
         try:
-            # Debug: Check what config contains
-            logger.info(f"Config object type: {type(config)}")
-            logger.info(f"Config attributes: {dir(config)}")
-            
-            # Try to get AI config safely
+            logger.info(f"[LLM DEBUG] Config object type: {type(config)}")
+            logger.info(f"[LLM DEBUG] Config attributes: {dir(config)}")
             try:
                 ai_config = config.ai
-                logger.info(f"AI config: {ai_config}")
+                logger.info(f"[LLM DEBUG] AI config: {ai_config}")
             except AttributeError as e:
-                logger.error(f"Config has no 'ai' attribute: {e}")
-                # Fallback to environment variables
+                logger.error(f"[LLM DEBUG] Config has no 'ai' attribute: {e}")
                 api_key = os.getenv('GOOGLE_API_KEY')
                 model_name = os.getenv('AI_MODEL_NAME', 'gemini-2.0-flash-001')
                 provider = os.getenv('AI_PROVIDER', 'google_gemini')
-                
+                logger.info(f"[LLM DEBUG] GOOGLE_AI_AVAILABLE={GOOGLE_AI_AVAILABLE}")
+                logger.info(f"[LLM DEBUG] api_key={'SET' if api_key else 'MISSING'}")
+                logger.info(f"[LLM DEBUG] model_name={model_name}")
                 if provider == 'google_gemini' and api_key:
                     if GOOGLE_AI_AVAILABLE and genai is not None:
-                        genai.configure(api_key=api_key)
-                        llm = genai.GenerativeModel(model_name)
-                        logger.info("✅ Google AI LLM created successfully (fallback)")
-                        return llm
-                
-                logger.warning("⚠️ Using fallback response system")
+                        try:
+                            genai.configure(api_key=api_key)
+                            llm = genai.GenerativeModel(model_name)
+                            logger.info("[LLM DEBUG] ✅ Google AI LLM created successfully (fallback)")
+                            return llm
+                        except Exception as e:
+                            logger.error(f"[LLM DEBUG] Exception during GenerativeModel creation: {e}")
+                            return None
+                logger.warning("[LLM DEBUG] Using fallback response system")
                 return None
-            
-            logger.info(f"Creating LLM with provider: {ai_config.provider}")
+            logger.info(f"[LLM DEBUG] Creating LLM with provider: {ai_config.provider}")
             if ai_config.provider == AIProvider.GOOGLE_GEMINI:
                 if GOOGLE_AI_AVAILABLE and genai is not None:
                     api_key = ai_config.api_key or os.getenv('GOOGLE_API_KEY')
                     model_name = ai_config.model_name or 'gemini-2.0-flash-001'
+                    logger.info(f"[LLM DEBUG] GOOGLE_AI_AVAILABLE={GOOGLE_AI_AVAILABLE}")
+                    logger.info(f"[LLM DEBUG] api_key={'SET' if api_key else 'MISSING'}")
+                    logger.info(f"[LLM DEBUG] model_name={model_name}")
                     if not api_key or not model_name:
-                        logger.error("Google AI API key or model name missing.")
+                        logger.error("[LLM DEBUG] Google AI API key or model name missing.")
                         return None
-                    # Only call configure if available and genai is not None
-                    if hasattr(genai, 'configure') and genai.configure is not None:
-                        genai.configure(api_key=api_key)
-                    if hasattr(genai, 'GenerativeModel') and genai.GenerativeModel is not None:
-                        llm = genai.GenerativeModel(model_name)
-                        logger.info("✅ Google AI LLM created successfully")
-                        return llm
-                    else:
-                        logger.warning("⚠️ GenerativeModel not available in google.generativeai")
+                    try:
+                        if hasattr(genai, 'configure') and genai.configure is not None:
+                            genai.configure(api_key=api_key)
+                        if hasattr(genai, 'GenerativeModel') and genai.GenerativeModel is not None:
+                            llm = genai.GenerativeModel(model_name)
+                            logger.info("[LLM DEBUG] ✅ Google AI LLM created successfully")
+                            return llm
+                        else:
+                            logger.warning("[LLM DEBUG] GenerativeModel not available in google.generativeai")
+                            return None
+                    except Exception as e:
+                        logger.error(f"[LLM DEBUG] Exception during GenerativeModel creation: {e}")
                         return None
                 else:
-                    logger.warning("⚠️ Google AI packages not available, using fallback")
+                    logger.warning("[LLM DEBUG] Google AI packages not available, using fallback")
                     return None
             elif ai_config.provider == AIProvider.OPENAI:
-                # Handle OpenAI provider
-                logger.warning("⚠️ OpenAI provider not fully implemented, using fallback")
+                logger.warning("[LLM DEBUG] OpenAI provider not fully implemented, using fallback")
                 return None
             else:
-                # Use Ollama for local development
                 try:
                     if OLLAMA_AVAILABLE and Ollama is not None:
                         llm = Ollama(
                             model=ai_config.model_name,
                             base_url=os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
                         )
-                        logger.info("✅ Ollama LLM created successfully")
+                        logger.info("[LLM DEBUG] ✅ Ollama LLM created successfully")
                         return llm
                     else:
-                        logger.warning("⚠️ Ollama packages not available, using fallback")
+                        logger.warning("[LLM DEBUG] Ollama packages not available, using fallback")
                         return None
                 except ImportError:
-                    logger.warning("⚠️ Ollama packages not available, using fallback")
+                    logger.warning("[LLM DEBUG] Ollama packages not available, using fallback")
                     return None
         except Exception as e:
-            logger.error(f"Error creating LLM: {e}")
-            logger.info("⚠️ Using fallback response system")
+            logger.error(f"[LLM DEBUG] Error creating LLM: {e}")
+            logger.info("[LLM DEBUG] Using fallback response system")
             return None
     
     def _create_tools(self) -> List[BaseTool]:
