@@ -405,6 +405,34 @@ class FirebaseClient:
         """Delete a bot mapping."""
         return await self.delete_document('bot_mappings', mapping_id)
     
+    # Match-specific operations
+    async def create_match(self, match: Match) -> str:
+        """Create a new match."""
+        data = match.to_dict()
+        return await self.create_document('matches', data, match.id)
+    
+    async def get_match(self, match_id: str) -> Optional[Match]:
+        """Get a match by ID."""
+        data = await self.get_document('matches', match_id)
+        if data:
+            return Match.from_dict(data)
+        return None
+    
+    async def update_match(self, match: Match) -> bool:
+        """Update a match."""
+        data = match.to_dict()
+        return await self.update_document('matches', match.id, data)
+    
+    async def delete_match(self, match_id: str) -> bool:
+        """Delete a match."""
+        return await self.delete_document('matches', match_id)
+    
+    async def get_matches_by_team(self, team_id: str) -> List[Match]:
+        """Get all matches for a team."""
+        filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
+        data_list = await self.query_documents('matches', filters)
+        return [Match.from_dict(data) for data in data_list]
+    
     # Health check
     async def health_check(self) -> Dict[str, Any]:
         """Perform a health check on the database connection."""
