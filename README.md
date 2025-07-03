@@ -145,8 +145,16 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements-local.txt
 
+# Install and start Ollama (for local development)
+# Download from https://ollama.ai
+ollama serve  # Start Ollama service
+ollama pull llama3.1:8b-instruct-q4_0  # Download the model
+
+# Test Ollama setup
+python test_ollama_setup.py
+
 # Set up environment variables
-cp env.example .env
+cp env.local.example .env
 # Edit .env with your configuration
 
 # Run tests
@@ -172,6 +180,49 @@ mypy src/
 # Deploy to Railway
 railway up
 ```
+
+### Local Development with Ollama
+
+For local development, KICKAI uses **Ollama** with **Llama 3.1 8B Instruct** for fast, efficient AI processing:
+
+#### **Why Ollama for Local Development?**
+- **Fast**: Local inference with no API latency
+- **Efficient**: 4.7GB model size, perfect for development
+- **Private**: No data sent to external APIs
+- **Cost-effective**: No API costs during development
+- **Reliable**: No internet dependency for AI features
+
+#### **Ollama Setup**
+```bash
+# Install Ollama
+# Download from https://ollama.ai
+
+# Start Ollama service
+ollama serve
+
+# Download the required model
+ollama pull llama3.1:8b-instruct-q4_0
+
+# Test the setup
+python test_ollama_setup.py
+```
+
+#### **Environment Configuration**
+```bash
+# Copy local development config
+cp env.local.example .env
+
+# Key settings for local development:
+AI_PROVIDER=ollama
+AI_MODEL_NAME=llama3.1:8b-instruct-q4_0
+ENVIRONMENT=development
+```
+
+#### **Model Performance**
+- **Response Time**: ~2-5 seconds for typical queries
+- **Memory Usage**: ~8GB RAM during inference
+- **Quality**: Excellent for development and testing
+- **Context Length**: 8K tokens (sufficient for most tasks)
 
 ## 🔧 **Core Features**
 

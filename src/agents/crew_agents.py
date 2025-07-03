@@ -22,6 +22,16 @@ except ImportError:
     logger.warning("⚠️ google-generativeai not available")
     GOOGLE_AI_AVAILABLE = False
 
+# Try to import Ollama with fallback
+OLLAMA_AVAILABLE = False
+try:
+    from langchain_community.llms import Ollama
+    OLLAMA_AVAILABLE = True
+    logger.info("✅ Ollama imported successfully")
+except ImportError:
+    logger.warning("⚠️ Ollama not available")
+    OLLAMA_AVAILABLE = False
+
 from src.tools.firebase_tools import PlayerTools, FixtureTools, TeamTools, CommandLoggingTools, BotTools
 from src.tools.telegram_tools import (
     SendTelegramMessageTool,
@@ -196,17 +206,25 @@ def create_llm():
             else:
                 logger.warning("[LLM DEBUG] Google AI packages not available, using fallback")
                 llm = None
-        else:
+        elif ai_config.provider == AIProvider.OLLAMA:
             try:
-                llm = Ollama(
-                    model=ai_config.model_name,
-                    base_url=getattr(ai_config, 'base_url', None),
-                    system=CREWAI_SYSTEM_PROMPT
-                )
-                logger.info("[LLM DEBUG] ✅ Ollama LLM created successfully")
+                if OLLAMA_AVAILABLE and Ollama is not None:
+                    llm = Ollama(
+                        model=ai_config.model_name,
+                        base_url=os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434'),
+                        temperature=ai_config.temperature,
+                        timeout=ai_config.timeout_seconds
+                    )
+                    logger.info("[LLM DEBUG] ✅ Ollama LLM created successfully")
+                else:
+                    logger.warning("[LLM DEBUG] Ollama packages not available, using fallback")
+                    llm = None
             except Exception as e:
                 logger.error(f"[LLM DEBUG] Exception during Ollama LLM creation: {e}")
                 llm = None
+        else:
+            logger.warning(f"[LLM DEBUG] Unknown provider {ai_config.provider}, using fallback")
+            llm = None
         return llm
     except Exception as e:
         logger.error(f"[LLM DEBUG] Failed to create LLM: {e}")
