@@ -432,6 +432,10 @@ from src.telegram.player_registration_handler import PlayerRegistrationHandler, 
 
 class OnboardingAgent(Agent):
     def __init__(self, team_id: str, team_name: Optional[str] = None, llm=None):
+        # Defensive check: LLM must not be None
+        if llm is None:
+            logger.error("OnboardingAgent initialization failed: llm (language model) is None. Cannot proceed.")
+            raise ValueError("OnboardingAgent requires a valid LLM (language model) instance. Got None.")
         # Initialize the parent Agent class first
         super().__init__(
             role="Onboarding Agent",
@@ -442,14 +446,11 @@ class OnboardingAgent(Agent):
             tools=[],  # Will be populated as needed
             llm=llm
         )
-        
         # Store team info in a way that doesn't conflict with Pydantic
         self._team_id = team_id
         self._team_name = team_name
-        
         # Store services in a separate object to avoid Pydantic conflicts
         self._services = {}
-        
         # Initialize services after parent initialization
         try:
             self._services['player_service'] = get_player_service()
@@ -463,9 +464,15 @@ class OnboardingAgent(Agent):
             self._services['team_service'] = None
             self._services['player_registration_handler'] = None
             self._services['player_command_handler'] = None
-        # Warn if any service is None
+        # Defensive check: If any critical service is None, raise exception
+        critical_services = ['player_service', 'team_service', 'player_registration_handler', 'player_command_handler']
+        for key in critical_services:
+            if self._services.get(key) is None:
+                logger.error(f"OnboardingAgent critical service '{key}' is None after initialization. Cannot proceed.")
+                raise RuntimeError(f"OnboardingAgent failed to initialize critical service: {key}")
+        # Warn if any non-critical service is None (future-proofing)
         for key, value in self._services.items():
-            if value is None:
+            if value is None and key not in critical_services:
                 logger.warning(f"OnboardingAgent service '{key}' is None after initialization. Some features may not work.")
     
     @property

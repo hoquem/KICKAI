@@ -304,7 +304,12 @@ class SimpleAgenticHandler:
                     logger.warning(f"Failed to retrieve conversation context: {e}")
             
             # Simple command routing based on keywords
-            response = await self._route_command(message, user_role, is_leadership_chat, conversation_context)
+            response = await self._route_command(
+                message,
+                user_role or "",
+                is_leadership_chat,
+                conversation_context
+            )
             
             # Store response memory
             if self.memory_system and user_id and chat_id:
@@ -354,21 +359,17 @@ class SimpleAgenticHandler:
             return f"Sorry, I encountered an error processing your request: {str(e)}"
     
     async def _route_command(self, message: str, user_role: str = None, is_leadership_chat: bool = False, conversation_context: List = None) -> str:
-        """Route commands to appropriate tools based on keywords."""
+        """Route commands to appropriate tools based on keywords (async)."""
         message_lower = message.lower()
         
         # Check for onboarding responses (from players)
         if self.onboarding_agent and user_role != 'admin':
-            # Check if this might be an onboarding response
             onboarding_keywords = ['confirm', 'update', 'help', 'emergency', 'dob', 'position', 'name', 'phone', 'complete', 'done', 'no']
             if any(keyword in message_lower for keyword in onboarding_keywords):
-                # Note: user_id would need to be passed from the calling context
-                # For now, we'll skip this routing until we have proper user context
                 pass
         
         # Player Registration System commands (Phase 1)
         if self.player_command_handler:
-            # Check for player registration commands first
             if any(word in message_lower for word in ['add player', 'remove player', 'list players', 'player status', 'player stats']):
                 return await self.player_command_handler.handle_command(message_lower, user_id="system")
         
@@ -408,7 +409,7 @@ class SimpleAgenticHandler:
         elif any(word in message_lower for word in ['help', 'what can you do']):
             return self._get_help_message(user_role, is_leadership_chat)
         elif any(word in message_lower for word in ['status', 'system status']):
-            return self._get_status_message()
+            return await self._get_status_message()
         
         # Default: try to use LLM to understand the request
         else:
@@ -574,8 +575,8 @@ class SimpleAgenticHandler:
 
 💡 You can use natural language or slash commands!"""
     
-    def _get_status_message(self) -> str:
-        """Get status message."""
+    async def _get_status_message(self) -> str:
+        """Get status message (async)."""
         status_message = """✅ **KICKAI Bot Status**
 
 🟢 **System Status:** Online
@@ -605,7 +606,7 @@ class SimpleAgenticHandler:
         
         # Add Player Registration System status if available
         if self.player_registration_handler:
-            player_stats = self.player_registration_handler.get_player_stats()
+            player_stats = await self.player_registration_handler.get_player_stats()
             status_message += f"""
 👥 **Player Registration System:** Active
 - Total Players: {player_stats['total']}
