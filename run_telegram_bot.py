@@ -176,7 +176,11 @@ def main():
             logger.info("✅ LangChain agentic handler registered")
         except Exception as e:
             logger.error(f"❌ Failed to register agent-based commands: {e}")
-            return
+            print("❌ Failed to register agent-based commands. Registering fallback system error handler.")
+            from src.telegram.telegram_command_handler import fallback_system_error_handler
+            from telegram.ext import MessageHandler, filters
+            app.add_handler(MessageHandler(filters.ALL, fallback_system_error_handler))
+            logger.info("✅ Fallback system error handler registered for all messages")
         
         print("✅ Bot is running with Firebase + 8-agent CrewAI system! Send messages to your Telegram groups to test.")
         print("🔥 Firebase Firestore database enabled")

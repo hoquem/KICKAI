@@ -105,7 +105,8 @@ class ConfigurationManager:
         self._load_env_files()
         self._config: Dict[str, Any] = {}
         self._load_configuration()
-        self._validate_configuration()
+        # Remove validation from __init__ - make it lazy
+        self._validated = False
     
     def _detect_environment(self) -> Environment:
         """Detect the current environment."""
@@ -128,6 +129,11 @@ class ConfigurationManager:
                 return detected_env
             except ValueError:
                 logging.warning(f"Unknown KICKAI_ENV '{env}', will use other detection methods")
+        
+        # Check for CI/testing environments
+        if os.getenv("CI") or os.getenv("GITHUB_ACTIONS") or os.getenv("PYTEST_CURRENT_TEST"):
+            logging.info("CI/testing environment detected")
+            return Environment.TESTING
         
         # Check for Railway environment and determine which one
         if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"):
@@ -164,7 +170,7 @@ class ConfigurationManager:
             return Environment.PRODUCTION
         
         # Check for testing environment
-        if env == "testing" or os.getenv("PYTEST_CURRENT_TEST"):
+        if env == "testing":
             return Environment.TESTING
         
         # Default to development
@@ -324,14 +330,18 @@ class ConfigurationManager:
             password_min_length=int(os.getenv("PASSWORD_MIN_LENGTH", "8"))
         )
     
-    def _validate_configuration(self):
-        """Validate the loaded configuration."""
-        errors = []
+    def validate_configuration(self):
+        """Validate the loaded configuration (lazy validation)."""
+        if self._validated:
+            return
         
         # Skip validation in testing environment
         if self._environment == Environment.TESTING:
             logging.info("Testing environment detected, skipping configuration validation")
+            self._validated = True
             return
+        
+        errors = []
         
         # Check for Firebase credentials
         firebase_creds_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
@@ -387,6 +397,17 @@ class ConfigurationManager:
         
         if errors:
             raise ConfigurationError(f"Configuration validation failed: {'; '.join(errors)}")
+        
+        self._validated = True
+    
+    def _needs_validation(self) -> bool:
+        """Check if validation is needed for the current environment."""
+        # Skip validation in testing environment
+        if self._environment == Environment.TESTING:
+            return False
+        
+        # Only validate in development and production
+        return self._environment in [Environment.DEVELOPMENT, Environment.PRODUCTION]
     
     @property
     def environment(self) -> Environment:
@@ -396,16 +417,22 @@ class ConfigurationManager:
     @property
     def database(self) -> DatabaseConfig:
         """Get database configuration."""
+        if self._needs_validation():
+            self.validate_configuration()
         return self._config["database"]
     
     @property
     def ai(self) -> AIConfig:
         """Get AI configuration."""
+        if self._needs_validation():
+            self.validate_configuration()
         return self._config["ai"]
     
     @property
     def telegram(self) -> TelegramConfig:
         """Get Telegram configuration."""
+        if self._needs_validation():
+            self.validate_configuration()
         return self._config["telegram"]
     
     @property
