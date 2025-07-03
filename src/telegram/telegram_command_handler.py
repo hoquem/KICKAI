@@ -777,7 +777,7 @@ class AgentBasedMessageHandler:
             logger.error("Error handling onboarding response", error=e)
             return f"❌ Error processing response: {str(e)}"
 
-    def handle_onboarding_message(self, message: str, user_id: str, username: str = None, is_leadership_chat: bool = False) -> str:
+    async def handle_onboarding_message(self, message: str, user_id: str, username: str = None, is_leadership_chat: bool = False) -> str:
         """Handle incoming messages and route to appropriate handlers."""
         try:
             # Check for onboarding responses first (from players)
@@ -1407,3 +1407,13 @@ async def handle_help_command(user_id: str) -> str:
     return get_player_command_handler()._get_help_message()
 
 # TODO: Remove legacy logic for these commands and route all player/team commands through these handlers.
+
+# --- Fallback handler for system errors ---
+async def fallback_system_error_handler(update, context):
+    """Fallback handler that always replies with a system error message."""
+    if update.effective_chat:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="❌ System Error: The agent system is currently unavailable. Please contact the admin.",
+            parse_mode='Markdown'
+        )
