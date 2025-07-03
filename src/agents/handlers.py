@@ -369,6 +369,8 @@ class SimpleAgenticHandler:
     async def _route_command(self, message: str, user_role: str = None, is_leadership_chat: bool = False, conversation_context: List = None) -> str:
         """Route commands to appropriate tools based on keywords (async)."""
         message_lower = message.lower()
+        logger.info(f"[ROUTE DEBUG] Processing message: '{message}' -> '{message_lower}'")
+        logger.info(f"[ROUTE DEBUG] User role: {user_role}, Leadership chat: {is_leadership_chat}")
         
         # Check for onboarding responses (from players)
         if self.onboarding_agent and user_role != 'admin':
