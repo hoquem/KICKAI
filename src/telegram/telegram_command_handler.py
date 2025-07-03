@@ -715,7 +715,7 @@ class AgentBasedMessageHandler:
             }
         return agent_info
 
-    def handle_player_join(self, player_id: str, telegram_user_id: str, telegram_username: str = None) -> str:
+    async def handle_player_join(self, player_id: str, telegram_user_id: str, telegram_username: str = None) -> str:
         """
         Handle when a player joins via invite link
         Args:
@@ -730,7 +730,7 @@ class AgentBasedMessageHandler:
                 return "❌ Onboarding agent not available"
             
             # Update player status to joined
-            success, message = self.onboarding_agent.player_joined_via_invite(player_id, telegram_user_id, telegram_username)
+            success, message = await self.onboarding_agent.player_joined_via_invite(player_id, telegram_user_id, telegram_username)
             
             if success:
                 return f"✅ {message}\n⚠️ Onboarding started!"
@@ -741,7 +741,7 @@ class AgentBasedMessageHandler:
             logger.error("Error handling player join", error=e)
             return f"❌ Error processing player join: {str(e)}"
 
-    def handle_onboarding_response(self, telegram_user_id: str, response: str) -> str:
+    async def handle_onboarding_response(self, telegram_user_id: str, response: str) -> str:
         """
         Handle onboarding responses from players
         Args:
@@ -766,7 +766,7 @@ class AgentBasedMessageHandler:
                 return "❌ Player not found. Please contact leadership if you believe this is an error."
             
             # Handle the response through the onboarding agent
-            success, message = self.onboarding_agent.handle_response(player.player_id, telegram_user_id, response)
+            success, message = await self.onboarding_agent.handle_response(player.player_id, telegram_user_id, response)
             
             if success:
                 return f"✅ {message}"
@@ -782,20 +782,16 @@ class AgentBasedMessageHandler:
         try:
             # Check for onboarding responses first (from players)
             if self.onboarding_agent and not is_leadership_chat:
-                # Check if this might be an onboarding response
                 onboarding_keywords = ['confirm', 'update', 'help', 'emergency', 'dob', 'position', 'name', 'phone', 'complete', 'done', 'no']
                 message_lower = message.lower()
                 if any(keyword in message_lower for keyword in onboarding_keywords):
-                    return self.handle_onboarding_response(user_id, message)
-            
+                    return await self.handle_onboarding_response(user_id, message)
             # Check for player join via invite link
             if message.startswith('/join_'):
                 player_id = message.replace('/join_', '')
-                return self.handle_player_join(player_id, user_id, username)
-            
+                return await self.handle_player_join(player_id, user_id, username)
             # Handle regular commands and messages
             return await self.agentic_handler.handle_message(message, user_id, username, is_leadership_chat)
-            
         except Exception as e:
             logger.error("Error handling message", error=e)
             return f"❌ Error processing message: {str(e)}"

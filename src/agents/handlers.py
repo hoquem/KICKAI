@@ -8,6 +8,7 @@ import logging
 import os
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
+import asyncio
 
 # Load environment variables
 load_dotenv()
@@ -720,28 +721,9 @@ Response:"""
         except Exception as e:
             logger.warning(f"Failed to learn from interaction: {e}")
 
-    def handle_player_join(self, player_id: str, telegram_user_id: str, telegram_username: str = None) -> str:
+    async def handle_onboarding_response(self, telegram_user_id: str, response: str) -> str:
         """
-        Handle when a player joins via invite link
-        """
-        try:
-            if not self.player_registration_handler:
-                return "❌ Player registration system not available"
-            # Update player status to joined
-            success, message = self.player_registration_handler.player_joined_via_invite(player_id, telegram_user_id, telegram_username)
-            if success and self.onboarding_agent:
-                return f"✅ {message}\n⚠️ Onboarding started!"
-            elif success:
-                return f"✅ {message}"
-            else:
-                return f"❌ {message}"
-        except Exception as e:
-            logger.error(f"Error handling player join: {e}")
-            return f"❌ Error processing player join: {str(e)}"
-
-    def handle_onboarding_response(self, telegram_user_id: str, response: str) -> str:
-        """
-        Handle onboarding responses from players
+        Handle onboarding responses from players (async version)
         """
         try:
             if not self.player_registration_handler:
@@ -757,7 +739,12 @@ Response:"""
                 return "❌ Player not found. Please contact leadership if you believe this is an error."
             # Handle the response through the onboarding agent if available
             if self.onboarding_agent:
-                success, message = self.onboarding_agent.handle_response(getattr(player, 'player_id', None), telegram_user_id, response)
+                # If onboarding_agent.handle_response is async, await it
+                result = self.onboarding_agent.handle_response(getattr(player, 'player_id', None), telegram_user_id, response)
+                if asyncio.iscoroutine(result):
+                    success, message = await result
+                else:
+                    success, message = result
                 if success:
                     return f"✅ {message}"
                 else:
@@ -767,6 +754,50 @@ Response:"""
         except Exception as e:
             logger.error(f"Error handling onboarding response: {e}")
             return f"❌ Error processing response: {str(e)}"
+
+    async def handle_player_join(self, player_id: str, telegram_user_id: str, telegram_username: str = None) -> str:
+        """
+        Handle when a player joins via invite link (async version)
+        """
+        try:
+            if not self.player_registration_handler:
+                return "❌ Player registration system not available"
+            # Update player status to joined
+            result = self.player_registration_handler.player_joined_via_invite(player_id, telegram_user_id, telegram_username)
+            if asyncio.iscoroutine(result):
+                success, message = await result
+            else:
+                success, message = result
+            if success and self.onboarding_agent:
+                return f"✅ {message}\n⚠️ Onboarding started!"
+            elif success:
+                return f"✅ {message}"
+            else:
+                return f"❌ {message}"
+        except Exception as e:
+            logger.error(f"Error handling player join: {e}")
+            return f"❌ Error processing player join: {str(e)}"
+
+    async def handle_onboarding_message(self, message: str, user_id: str, username: str = None, is_leadership_chat: bool = False) -> str:
+        """Handle incoming messages and route to appropriate handlers (async everywhere)."""
+        try:
+            # Check for onboarding responses first (from players)
+            if self.onboarding_agent and not is_leadership_chat:
+                onboarding_keywords = ['confirm', 'update', 'help', 'emergency', 'dob', 'position', 'name', 'phone', 'complete', 'done', 'no']
+                message_lower = message.lower()
+                if any(keyword in message_lower for keyword in onboarding_keywords):
+                    return await self.handle_onboarding_response(user_id or "", message)
+            # Check for player join via invite link
+            if message.startswith('/join_'):
+                player_id = message.replace('/join_', '')
+                return await self.handle_player_join(player_id, user_id or "", username)
+            # Handle regular commands and messages
+            # Use self if this is the main handler, or self.agentic_handler if that's the correct handler
+            handler = getattr(self, 'agentic_handler', self)
+            return await handler.process_message(message, user_id or "", chat_id="", user_role="", is_leadership_chat=is_leadership_chat)
+        except Exception as e:
+            logger.error("Error handling message", error=e)
+            return f"❌ Error processing message: {str(e)}"
 
 def create_simple_agentic_handler(team_id: str) -> SimpleAgenticHandler:
     """Factory function to create a simple agentic handler."""
