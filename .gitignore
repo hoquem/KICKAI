@@ -120,6 +120,11 @@ firebase_creds.json
 firebase.env
 fixed-private-key.txt
 
+# Credentials directory (contains sensitive files)
+credentials/
+*.json
+!config/*.json
+
 # Debug and temporary files
 debug_*.py
 fix_*.py

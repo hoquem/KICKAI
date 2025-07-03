@@ -145,6 +145,10 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements-local.txt
 
+# Set up Firebase credentials
+python setup_credentials.py
+# Follow the prompts to set up your Firebase credentials
+
 # Install and start Ollama (for local development)
 # Download from https://ollama.ai
 ollama serve  # Start Ollama service
