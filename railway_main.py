@@ -189,199 +189,32 @@ def main():
         logger.info("🔧 Description: Fixed environment detection to prioritize ENVIRONMENT variable")
         logger.info("🔄 Changes: Testing/staging use env vars, production uses Firestore")
         logger.info("=" * 80)
-        
-        # === FIREBASE DEBUG CODE ===
-        logger.info("🔍 FIREBASE CREDENTIALS DEBUG - STARTING")
-        logger.info("=" * 80)
-        
-        # List all Firebase environment variables
-        firebase_vars = [k for k in os.environ.keys() if 'FIREBASE' in k.upper()]
-        logger.info(f"🔍 Found {len(firebase_vars)} Firebase-related environment variables:")
-        
-        for var in sorted(firebase_vars):
-            value = os.getenv(var, '')
-            logger.info(f"   {var}: {'SET' if value else 'NOT SET'} (length: {len(value)})")
-            if value and len(value) > 100:
-                logger.info(f"      Preview: {value[:50]}...{value[-50:]}")
-            elif value and len(value) > 0:
-                logger.info(f"      Value: {value}")
-        
-        # Test base64 credentials
-        logger.info("\n" + "=" * 60)
-        logger.info("🔑 TESTING BASE64 ENCODED CREDENTIALS")
-        logger.info("=" * 60)
-        
-        firebase_creds_b64 = os.getenv('FIREBASE_CREDENTIALS_B64')
-        if not firebase_creds_b64:
-            logger.error("❌ FIREBASE_CREDENTIALS_B64 not found")
-        else:
-            logger.info(f"✅ Found FIREBASE_CREDENTIALS_B64 (length: {len(firebase_creds_b64)})")
-            logger.info(f"   Preview: {firebase_creds_b64[:50]}...{firebase_creds_b64[-50:]}")
-            
-            try:
-                # Decode base64
-                logger.info("🔄 Decoding base64...")
-                import base64
-                decoded_bytes = base64.b64decode(firebase_creds_b64)
-                logger.info(f"✅ Decoded successfully (bytes: {len(decoded_bytes)})")
-                
-                # Convert to string
-                decoded_str = decoded_bytes.decode('utf-8')
-                logger.info(f"✅ Converted to string (chars: {len(decoded_str)})")
-                logger.info(f"   Preview: {decoded_str[:100]}...")
-                
-                # Parse JSON
-                logger.info("🔄 Parsing JSON...")
-                import json
-                creds_dict = json.loads(decoded_str)
-                logger.info(f"✅ JSON parsed successfully")
-                logger.info(f"   Project ID: {creds_dict.get('project_id', 'NOT FOUND')}")
-                logger.info(f"   Client Email: {creds_dict.get('client_email', 'NOT FOUND')}")
-                logger.info(f"   Private Key Length: {len(creds_dict.get('private_key', ''))}")
-                
-                # Check private key format
-                private_key = creds_dict.get('private_key', '')
-                if private_key:
-                    logger.info(f"   Private Key Preview: {private_key[:50]}...{private_key[-50:]}")
-                    if '-----BEGIN PRIVATE KEY-----' in private_key:
-                        logger.info("✅ Private key has correct PEM format")
-                    else:
-                        logger.warning("⚠️ Private key may not have correct PEM format")
-                    
-                    # Check for truncation
-                    if len(private_key) < 1000:
-                        logger.warning("⚠️ Private key seems too short (possible truncation)")
-                    else:
-                        logger.info("✅ Private key length looks reasonable")
-                
-            except Exception as e:
-                logger.error(f"❌ Base64 decoding failed: {e}")
-                logger.error(f"   Error type: {type(e).__name__}")
-                import traceback
-                logger.error(f"   Traceback: {traceback.format_exc()}")
-        
-        # Test JSON credentials
-        logger.info("\n" + "=" * 60)
-        logger.info("📄 TESTING JSON CREDENTIALS")
-        logger.info("=" * 60)
-        
-        firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
-        if not firebase_creds_json:
-            logger.error("❌ FIREBASE_CREDENTIALS_JSON not found")
-        else:
-            logger.info(f"✅ Found FIREBASE_CREDENTIALS_JSON (length: {len(firebase_creds_json)})")
-            logger.info(f"   Preview: {firebase_creds_json[:100]}...")
-            
-            try:
-                # Parse JSON
-                logger.info("🔄 Parsing JSON...")
-                creds_dict = json.loads(firebase_creds_json)
-                logger.info(f"✅ JSON parsed successfully")
-                logger.info(f"   Project ID: {creds_dict.get('project_id', 'NOT FOUND')}")
-                logger.info(f"   Client Email: {creds_dict.get('client_email', 'NOT FOUND')}")
-                logger.info(f"   Private Key Length: {len(creds_dict.get('private_key', ''))}")
-                
-            except Exception as e:
-                logger.error(f"❌ JSON parsing failed: {e}")
-                logger.error(f"   Error type: {type(e).__name__}")
-                import traceback
-                logger.error(f"   Traceback: {traceback.format_exc()}")
-        
-        # Test individual variables
-        logger.info("\n" + "=" * 60)
-        logger.info("🔧 TESTING INDIVIDUAL ENVIRONMENT VARIABLES")
-        logger.info("=" * 60)
-        
-        project_id = os.getenv('FIREBASE_PROJECT_ID')
-        client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
-        private_key = os.getenv('FIREBASE_PRIVATE_KEY')
-        
-        logger.info(f"📝 Project ID: {project_id or 'NOT SET'}")
-        logger.info(f"📝 Client Email: {client_email or 'NOT SET'}")
-        logger.info(f"📝 Private Key: {'SET' if private_key else 'NOT SET'} (length: {len(private_key) if private_key else 0})")
-        
-        if private_key:
-            logger.info(f"   Private Key Preview: {private_key[:50]}...{private_key[-50:]}")
-            if '-----BEGIN PRIVATE KEY-----' in private_key:
-                logger.info("✅ Private key has correct PEM format")
-            else:
-                logger.warning("⚠️ Private key may not have correct PEM format")
-        
-        # Test Firebase Admin import
-        logger.info("\n" + "=" * 60)
-        logger.info("🔥 TESTING FIREBASE ADMIN SDK")
-        logger.info("=" * 60)
-        
-        try:
-            import firebase_admin
-            from firebase_admin import credentials, firestore
-            logger.info("✅ Firebase Admin SDK imported successfully")
-            
-            # Check if app is already initialized
-            try:
-                app = firebase_admin.get_app()
-                logger.info("✅ Firebase app already initialized")
-            except ValueError:
-                logger.info("🔄 No Firebase app initialized yet")
-                
-        except ImportError as e:
-            logger.error(f"❌ Firebase Admin SDK import failed: {e}")
-        except Exception as e:
-            logger.error(f"❌ Firebase Admin SDK error: {e}")
-        
-        # Summary
-        logger.info("\n" + "=" * 80)
-        logger.info("📊 FIREBASE DEBUG SUMMARY")
-        logger.info("=" * 80)
-        logger.info("✅ Environment variables checked")
-        logger.info("✅ Base64 credentials tested")
-        logger.info("✅ JSON credentials tested")
-        logger.info("✅ Individual variables tested")
-        logger.info("✅ Firebase Admin SDK tested")
-        logger.info("🎯 Firebase debug completed!")
-        logger.info("=" * 80)
-        # === END FIREBASE DEBUG CODE ===
-        
         logger.info("🚀 Starting KICKAI on Railway...")
         logger.info("📅 Deployment timestamp: 2024-12-19 19:15 UTC")
         logger.info("🏆 Version: 1.4.5-signal-fix")
         logger.info("🏆 Match Management System: ACTIVE")
         logger.info("🏥 Enhanced Logging: ACTIVE")
-        
-        # Log environment info
         logger.info(f"🌍 Environment: {os.getenv('RAILWAY_ENVIRONMENT', 'development')}")
         logger.info(f"🔢 Port: {os.getenv('PORT', '8080')}")
         logger.info(f"🐍 Python version: {sys.version}")
         logger.info(f"📁 Working directory: {os.getcwd()}")
-        
-        # Start health server first (for Railway health checks)
         logger.info("🏥 Starting health server...")
         health_thread = start_simple_health_server()
         if not health_thread:
             logger.error("❌ Health server failed to start")
             sys.exit(1)
-        
-        # Wait a moment for health server to start
         logger.info("⏳ Waiting for health server to start...")
         time.sleep(5)
-        
-        # Check if health server is still alive
         if health_thread.is_alive():
             logger.info("✅ Health server thread is still alive")
         else:
             logger.error("❌ Health server thread died")
             sys.exit(1)
-        
-        # Start Telegram bot in the main thread
         logger.info("🤖 Starting Telegram bot...")
         start_telegram_bot()
-        
         logger.info("✅ KICKAI system started successfully!")
         logger.info("🏥 Health endpoint: /health")
         logger.info("🤖 Telegram bot: Running in main thread")
-        
-        # Bot will handle the main thread, no need for infinite loop
-        
     except Exception as e:
         logger.error(f"❌ Failed to start KICKAI: {e}")
         logger.error(f"❌ Error type: {type(e).__name__}")
