@@ -19,6 +19,11 @@ from ..services.team_service import get_team_service
 from ..database.models import Player, PlayerPosition, PlayerRole, OnboardingStatus
 
 
+def format_player_name(name: str) -> str:
+    """Format player name for display (ALL CAPS)."""
+    return name.upper()
+
+
 class PlayerRegistrationHandler:
     """Telegram-specific player registration handler using new architecture."""
     
@@ -76,7 +81,19 @@ class PlayerRegistrationHandler:
                 user_id=added_by
             )
             
-            return True, f"✅ Player {name} ({player.player_id}) added successfully! Phone: {phone} (FA eligible: {'Yes' if fa_eligible else 'No'})"
+            return True, f"""✅ <b>Player Added Successfully!</b>
+
+👤 <b>Name:</b> {format_player_name(name)}
+🆔 <b>Player ID:</b> {player.player_id.upper()}
+📱 <b>Phone:</b> {phone}
+⚽ <b>Position:</b> {position.title()}
+🏆 <b>FA Eligible:</b> {'Yes' if fa_eligible else 'No'}
+📊 <b>Status:</b> Pending Onboarding
+
+💡 <b>Next Steps:</b>
+• Send invitation message to player
+• Player completes onboarding via Telegram
+• Admin approves player for team access"""
             
         except PlayerDuplicateError as e:
             return False, f"❌ Player with phone {phone} already exists"
@@ -87,22 +104,36 @@ class PlayerRegistrationHandler:
             return False, f"❌ Error adding player: {str(e)}"
     
     @performance_timer("player_registration_remove_player")
-    async def remove_player(self, phone: str, removed_by: str) -> Tuple[bool, str]:
+    async def remove_player(self, identifier: str, removed_by: str) -> Tuple[bool, str]:
         """
         Remove a player from the team using the new service layer.
         
         Args:
-            phone: Player's phone number
+            identifier: Player's phone number or player ID (e.g., "07123456789" or "JS1")
             removed_by: Telegram user ID of leadership member
             
         Returns:
             (success, message)
         """
         try:
-            # Get player by phone
-            player = await self.player_service.get_player_by_phone(phone, self.team_id)
-            if not player:
-                return False, f"❌ Player with phone {phone} not found"
+            player = None
+            
+            # Check if identifier is a player ID (contains letters) or phone number
+            if any(char.isalpha() for char in identifier):
+                # It's a player ID, find player by ID (case-insensitive)
+                players = await self.player_service.get_team_players(self.team_id)
+                for p in players:
+                    if p.player_id.lower() == identifier.lower():
+                        player = p
+                        break
+                
+                if not player:
+                    return False, f"❌ Player with ID {identifier} not found"
+            else:
+                # It's a phone number
+                player = await self.player_service.get_player_by_phone(identifier, self.team_id)
+                if not player:
+                    return False, f"❌ Player with phone {identifier} not found"
             
             # Delete player using service layer
             success = await self.player_service.delete_player(player.id)
@@ -110,17 +141,17 @@ class PlayerRegistrationHandler:
                 return False, "❌ Failed to remove player from database"
             
             self.logger.info(
-                f"Player removed via Telegram: {player.name} ({phone}) by {removed_by}",
+                f"Player removed via Telegram: {player.name} ({player.phone}) by {removed_by}",
                 operation="remove_player",
                 entity_id=player.id,
                 team_id=self.team_id,
                 user_id=removed_by
             )
             
-            return True, f"✅ Player {player.name} removed successfully"
+            return True, f"✅ Player {format_player_name(player.name)} removed successfully"
             
         except PlayerNotFoundError:
-            return False, f"❌ Player with phone {phone} not found"
+            return False, f"❌ Player not found"
         except Exception as e:
             self.logger.error("Failed to remove player via Telegram", error=e, team_id=self.team_id)
             return False, f"❌ Error removing player: {str(e)}"
@@ -166,7 +197,7 @@ class PlayerRegistrationHandler:
                 team_id=self.team_id
             )
             
-            return True, f"✅ Player {player.name} status updated to {status}"
+            return True, f"✅ Player {format_player_name(player.name)} status updated to {status}"
             
         except PlayerNotFoundError:
             return False, f"❌ Player with phone {phone} not found"
@@ -195,13 +226,112 @@ class PlayerRegistrationHandler:
                 team_id=self.team_id
             )
             
-            return True, f"✅ Invite link generated for {player.name}: {invite_link}"
+            return True, f"✅ Invite link generated for {format_player_name(player.name)}: {invite_link}"
             
         except PlayerNotFoundError:
             return False, f"❌ Player with phone {phone} not found"
         except Exception as e:
             self.logger.error("Failed to generate invite link via Telegram", error=e, team_id=self.team_id)
             return False, f"❌ Error generating invite link: {str(e)}"
+
+    @performance_timer("player_registration_generate_invitation_message")
+    async def generate_invitation_message(self, phone: str, team_name: Optional[str] = None, 
+                                        telegram_group_invite_base: Optional[str] = None) -> Tuple[bool, str]:
+        """
+        Generate a formatted invitation message for a player.
+        
+        Args:
+            phone: Player's phone number
+            team_name: Team name for the invitation (optional, will be fetched if not provided)
+            telegram_group_invite_base: Base URL for Telegram group invite (optional)
+            
+        Returns:
+            (success, message)
+        """
+        try:
+            player = await self.player_service.get_player_by_phone(str(phone), self.team_id)
+            if not player:
+                return False, f"❌ Player with phone {str(phone)} not found"
+            
+            # Get actual team name if not provided
+            if not team_name:
+                try:
+                    team = await self.team_service.get_team(self.team_id)
+                    team_name = team.name if team and team.name else "KICKAI Team"
+                except Exception as e:
+                    self.logger.warning(f"Could not get team name: {e}")
+                    team_name = "KICKAI Team"
+            team_name = str(team_name) if team_name else "KICKAI Team"
+            
+            # Get actual Telegram link if not provided
+            if not telegram_group_invite_base:
+                try:
+                    from src.core.bot_config_manager import get_bot_config_manager
+                    manager = get_bot_config_manager()
+                    bot_config = manager.get_bot_config(self.team_id)
+                    if bot_config and bot_config.main_chat_id:
+                        # Create a proper Telegram group invite link
+                        invite_link = await self._create_telegram_invite_link(bot_config)
+                    else:
+                        error_msg = f"CRITICAL ERROR: Main chat ID not available for team {self.team_id}. Cannot generate invitation link."
+                        self.logger.error(error_msg)
+                        raise ValueError(error_msg)
+                except Exception as e:
+                    error_msg = f"CRITICAL ERROR: Failed to get bot configuration for team {self.team_id}: {e}"
+                    self.logger.error(error_msg)
+                    raise ValueError(error_msg)
+            else:
+                invite_link = str(telegram_group_invite_base) if telegram_group_invite_base else ""
+            
+            # Create invitation message
+            invitation_message = f"""🎉 <b>Welcome to {team_name}!</b>
+
+Hi {format_player_name(player.name)},
+
+You've been invited to join {team_name}! We're excited to have you on the team.
+
+📋 <b>Your Details:</b>
+• Name: {format_player_name(player.name)}
+• Position: {player.position.value.title()}
+• Player ID: {player.player_id.upper()}
+
+🔗 <b>Join Our Main Team Chat:</b>
+{invite_link}
+
+📱 <b>Next Steps:</b>
+1. Click the link above to join our main team group directly
+2. Introduce yourself in the group
+3. Complete your onboarding process
+4. Get ready for training and matches!
+
+⚠️ <b>Note:</b> This invitation is for our main team chat only. Leadership chat access is managed separately.
+
+⚽ <b>What to Expect:</b>
+• Team announcements and updates
+• Training schedules
+• Match information
+• Team communication
+
+If you have any questions, please contact the team leadership.
+
+Welcome aboard! 🏆
+
+- {team_name} Management"""
+            
+            self.logger.info(
+                f"Invitation message generated for player: {player.name}",
+                operation="generate_invitation_message",
+                entity_id=player.id,
+                team_id=self.team_id
+            )
+            
+            return True, invitation_message
+            
+        except PlayerNotFoundError:
+            return False, f"❌ Player with phone {str(phone)} not found"
+        except Exception as e:
+            self.logger.error("Failed to generate invitation message", error=e, team_id=self.team_id)
+            return False, f"❌ Error generating invitation message: {str(e)}"
     
     @performance_timer("player_registration_player_joined_via_invite")
     async def player_joined_via_invite(self, player_id: str, telegram_user_id: str, 
@@ -237,7 +367,7 @@ class PlayerRegistrationHandler:
                 user_id=telegram_user_id
             )
             
-            return True, f"✅ Welcome {player.name}! Let's get you set up. Please complete your profile."
+            return True, f"✅ Welcome {format_player_name(player.name)}! Let's get you set up. Please complete your profile."
             
         except Exception as e:
             self.logger.error("Failed to handle player join via invite", error=e, team_id=self.team_id)
@@ -264,24 +394,24 @@ class PlayerRegistrationHandler:
             
             # Generate onboarding message based on current status
             if player.onboarding_status == OnboardingStatus.PENDING:
-                message = f"""🎉 Welcome to {team_name}, {player.name}!
+                message = f"""🎉 Welcome to {team_name}, {format_player_name(player.name)}!
 
 I'm here to help you complete your registration. Let's start by confirming your details:
 
-📋 **Current Information:**
-• Name: {player.name}
+📋 <b>Current Information:</b>
+• Name: {format_player_name(player.name)}
 • Phone: {player.phone}
 • Position: {player.position.value if hasattr(player.position, 'value') else player.position}
 
 Please confirm if this information is correct by replying with 'yes' or 'no'."""
             
             elif player.onboarding_status == OnboardingStatus.IN_PROGRESS:
-                message = f"""🔄 Onboarding in progress for {player.name}
+                message = f"""🔄 Onboarding in progress for {format_player_name(player.name)}
 
 Please continue with the onboarding process. If you need help, type 'help'."""
             
             else:
-                message = f"""✅ Onboarding completed for {player.name}
+                message = f"""✅ Onboarding completed for {format_player_name(player.name)}
 
 You're all set up! You can now use team features."""
             
@@ -355,7 +485,7 @@ You're all set up! You can now use team features."""
                         fa_eligible=fa_eligible,
                         onboarding_status=OnboardingStatus.COMPLETED
                     )
-                    return True, f"✅ Onboarding completed! Welcome to the team, {player.name}! You are now ready to play."
+                    return True, f"✅ Onboarding completed! Welcome to the team, {format_player_name(player.name)}! You are now ready to play."
             
             return False, "❌ Invalid onboarding state"
             
@@ -383,7 +513,7 @@ You're all set up! You can now use team features."""
             
             # Check if player needs approval
             if player.onboarding_status != OnboardingStatus.PENDING_APPROVAL:
-                return False, f"❌ Player {player.name} does not require approval (status: {player.onboarding_status.value})"
+                return False, f"❌ Player {format_player_name(player.name)} does not require approval (status: {player.onboarding_status.value})"
             
             # Approve player
             updated_player = await self.player_service.update_player(
@@ -400,7 +530,7 @@ You're all set up! You can now use team features."""
                 user_id=approved_by
             )
             
-            return True, f"✅ Player {player.name} approved successfully! They can now start onboarding."
+            return True, f"✅ Player {format_player_name(player.name)} approved successfully! They can now start onboarding."
             
         except Exception as e:
             self.logger.error("Failed to approve player", error=e, player_id=player_id)
@@ -427,7 +557,7 @@ You're all set up! You can now use team features."""
             
             # Check if player needs approval
             if player.onboarding_status != OnboardingStatus.PENDING_APPROVAL:
-                return False, f"❌ Player {player.name} does not require approval (status: {player.onboarding_status.value})"
+                return False, f"❌ Player {format_player_name(player.name)} does not require approval (status: {player.onboarding_status.value})"
             
             # Reject player
             updated_player = await self.player_service.update_player(
@@ -444,21 +574,41 @@ You're all set up! You can now use team features."""
             )
             
             reason_msg = f" Reason: {reason}" if reason else ""
-            return True, f"✅ Player {player.name} rejected.{reason_msg}"
+            return True, f"✅ Player {format_player_name(player.name)} rejected.{reason_msg}"
             
         except Exception as e:
             self.logger.error("Failed to reject player", error=e, player_id=player_id)
             return False, f"❌ Error rejecting player: {str(e)}"
 
     @performance_timer("player_registration_get_pending_approvals")
-    async def get_pending_approvals(self) -> List[Player]:
-        """Get all players pending approval."""
+    async def get_pending_approvals(self) -> Tuple[bool, str]:
+        """Get list of players pending approval."""
         try:
+            # Get all players with pending approval status
             players = await self.player_service.get_team_players(self.team_id)
-            return [p for p in players if p.onboarding_status == OnboardingStatus.PENDING_APPROVAL]
+            pending_players = [p for p in players if p.onboarding_status == OnboardingStatus.PENDING_APPROVAL]
+            
+            if not pending_players:
+                return True, "✅ No players pending approval."
+            
+            message = "📋 <b>Players Pending Approval:</b>\n\n"
+            for player in pending_players:
+                message += f"• <b>{format_player_name(player.name)}</b> ({player.player_id.upper()})\n"
+                message += f"  📱 Phone: {player.phone or 'Not provided'}\n"
+                message += f"  ⚽ Position: {player.position.value.title() if hasattr(player.position, 'value') else player.position}\n"
+                if player.telegram_username:
+                    message += f"  📱 Telegram: @{player.telegram_username}\n"
+                message += "\n"
+            
+            message += "💡 <b>Commands:</b>\n"
+            message += "• `/approve <player_id>` - Approve player\n"
+            message += "• `/reject <player_id> [reason]` - Reject player"
+            
+            return True, message
+            
         except Exception as e:
-            self.logger.error("Failed to get pending approvals", error=e, team_id=self.team_id)
-            return []
+            self.logger.error(f"Error getting pending approvals: {e}")
+            return False, f"❌ Error getting pending approvals: {str(e)}"
 
     def _validate_emergency_contact(self, contact: str) -> bool:
         """Validate emergency contact format."""
@@ -498,6 +648,40 @@ You're all set up! You can now use team features."""
         """Validate UK phone number format."""
         pattern = r'^07\d{9}$'
         return bool(re.match(pattern, phone.replace(' ', '')))
+    
+    async def _create_telegram_invite_link(self, bot_config) -> str:
+        """Create a Telegram group invite link using the Bot API."""
+        try:
+            import requests
+            
+            # Create invite link using Telegram Bot API
+            url = f"https://api.telegram.org/bot{bot_config.token}/createChatInviteLink"
+            data = {
+                'chat_id': bot_config.main_chat_id,
+                'name': 'KICKAI Team Invite',
+                'creates_join_request': False,
+                'expire_date': None,  # No expiration
+                'member_limit': None  # No member limit
+            }
+            
+            response = requests.post(url, json=data, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            
+            if result.get('ok') and result.get('result'):
+                invite_link = result['result']['invite_link']
+                self.logger.info(f"Created Telegram invite link: {invite_link}")
+                return invite_link
+            else:
+                error_msg = f"Failed to create invite link: {result.get('description', 'Unknown error')}"
+                self.logger.error(error_msg)
+                # Fallback to a placeholder link
+                return f"https://t.me/+{bot_config.main_chat_id.replace('-', '')}"
+                
+        except Exception as e:
+            self.logger.error(f"Error creating Telegram invite link: {e}")
+            # Fallback to a placeholder link
+            return f"https://t.me/+{bot_config.main_chat_id.replace('-', '')}"
 
     @performance_timer("player_registration_get_player_info")
     async def get_player_info(self, telegram_user_id: str) -> Tuple[bool, str]:
@@ -515,17 +699,17 @@ You're all set up! You can now use team features."""
                 return False, "❌ Player not found. Please contact team leadership."
             
             # Format player information
-            info = f"""📋 **Player Information**
+            info = f"""📋 <b>Player Information</b>
 
-👤 **Name:** {player.name}
-🆔 **Player ID:** {player.player_id}
-📱 **Phone:** {player.phone}
-⚽ **Position:** {player.position.value if hasattr(player.position, 'value') else player.position}
-📧 **Email:** {player.email or 'Not provided'}
-🏆 **FA Registered:** {'Yes' if player.fa_registered else 'No'}
-✅ **FA Eligible:** {'Yes' if player.fa_eligible else 'No'}
-📊 **Status:** {player.onboarding_status.value if hasattr(player.onboarding_status, 'value') else player.onboarding_status}
-📅 **Date Added:** {player.created_at.strftime('%Y-%m-%d') if player.created_at else 'Unknown'}"""
+👤 <b>Name:</b> {format_player_name(player.name)}
+🆔 <b>Player ID:</b> {player.player_id.upper()}
+📱 <b>Phone:</b> {player.phone}
+⚽ <b>Position:</b> {player.position.value if hasattr(player.position, 'value') else player.position}
+📧 <b>Email:</b> {player.email or 'Not provided'}
+🏆 <b>FA Registered:</b> {'Yes' if player.fa_registered else 'No'}
+✅ <b>FA Eligible:</b> {'Yes' if player.fa_eligible else 'No'}
+📊 <b>Status:</b> {player.onboarding_status.value if hasattr(player.onboarding_status, 'value') else player.onboarding_status}
+📅 <b>Date Added:</b> {player.created_at.strftime('%Y-%m-%d') if player.created_at else 'Unknown'}"""
             
             return True, info
             
@@ -603,7 +787,7 @@ class PlayerCommandHandler:
             elif command == '/stats':
                 return await self._handle_player_stats()
             elif command.startswith('/invite '):
-                return await self._handle_generate_invite(command)
+                return await self._handle_generate_invitation_message(command)
             elif command == '/myinfo':
                 return await self._handle_myinfo(user_id)
             elif command.startswith('/approve '):
@@ -612,8 +796,14 @@ class PlayerCommandHandler:
                 return await self._handle_reject_player(command, user_id)
             elif command == '/pending':
                 return await self._handle_pending_approvals()
-            elif command in ['/help', '/start']:
+            elif command == '/checkfa':
+                return await self._handle_check_fa_registration()
+            elif command == '/dailystatus':
+                return await self._handle_daily_status()
+            elif command == '/help':
                 return self._get_help_message()
+            elif command.startswith('/start'):
+                return await self._handle_start_command(command, user_id)
             else:
                 return "❌ Unknown command. Type /help for available commands."
                 
@@ -621,16 +811,38 @@ class PlayerCommandHandler:
             return f"❌ Error processing command: {str(e)}"
 
     async def _handle_add_player(self, command: str, user_id: str) -> str:
-        """Handle /addplayer command."""
+        """Handle /add command."""
         try:
-            parts = command.split()
-            if len(parts) < 4:
-                return "❌ Usage: /addplayer <name> <phone> <position> [fa_eligible]"
+            # Remove the /add part and split the rest
+            command_parts = command[5:].strip()  # Remove "/add "
             
-            name = parts[1]
-            phone = parts[2]
-            position = parts[3]
-            fa_eligible = len(parts) > 4 and parts[4].lower() in ['true', 'yes', 'y']
+            # Use a more sophisticated parsing approach
+            # Look for phone number pattern to separate name from phone
+            import re
+            phone_pattern = r'\b(?:07\d{9}|08\d{9}|\+44\d{10}|01\d{8,9}|02\d{8,9})\b'
+            phone_match = re.search(phone_pattern, command_parts)
+            
+            if not phone_match:
+                return "❌ Usage: /add &lt;name&gt; &lt;phone&gt; &lt;position&gt; [fa_eligible]\n\nPlease provide a valid UK phone number (e.g., 07123456789, +447123456789)"
+            
+            phone = phone_match.group()
+            phone_start = phone_match.start()
+            phone_end = phone_match.end()
+            
+            # Extract position (last word after phone)
+            after_phone = command_parts[phone_end:].strip()
+            if not after_phone:
+                return "❌ Usage: /add &lt;name&gt; &lt;phone&gt; &lt;position&gt; [fa_eligible]\n\nPlease provide a position (goalkeeper, defender, midfielder, forward, striker, utility)"
+            
+            # Split after phone to get position and optional fa_eligible
+            position_parts = after_phone.split()
+            position = position_parts[0]
+            fa_eligible = len(position_parts) > 1 and position_parts[1].lower() in ['true', 'yes', 'y']
+            
+            # Extract name (everything before phone)
+            name = command_parts[:phone_start].strip()
+            if not name:
+                return "❌ Usage: /add &lt;name&gt; &lt;phone&gt; &lt;position&gt; [fa_eligible]\n\nPlease provide a player name"
             
             success, message = await self.player_handler.add_player(
                 name, phone, position, user_id, fa_eligible
@@ -646,7 +858,7 @@ class PlayerCommandHandler:
         try:
             parts = command.split()
             if len(parts) < 2:
-                return "❌ Usage: /removeplayer <phone>"
+                return "❌ Usage: /removeplayer &lt;phone&gt;"
             
             phone = parts[1]
             success, message = await self.player_handler.remove_player(phone, user_id)
@@ -668,18 +880,18 @@ class PlayerCommandHandler:
             active_players = [p for p in players if p.onboarding_status == OnboardingStatus.COMPLETED]
             pending_players = [p for p in players if p.onboarding_status == OnboardingStatus.PENDING]
             
-            message = "📋 **Team Players**\n\n"
+            message = "📋 <b>Team Players</b>\n\n"
             
             if active_players:
-                message += "✅ **Active Players:**\n"
+                message += "✅ <b>Active Players:</b>\n"
                 for player in active_players:
-                    message += f"• {player.name} ({player.player_id}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                    message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
                 message += "\n"
             
             if pending_players:
-                message += "⏳ **Pending Players:**\n"
+                message += "⏳ <b>Pending Players:</b>\n"
                 for player in pending_players:
-                    message += f"• {player.name} ({player.player_id}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                    message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
             
             return message
             
@@ -692,7 +904,7 @@ class PlayerCommandHandler:
         try:
             parts = command.split()
             if len(parts) < 2:
-                return "❌ Usage: /playerstatus <phone>"
+                return "❌ Usage: /playerstatus &lt;phone&gt;"
             
             phone = parts[1]
             player = await self.player_handler.get_player_by_phone(phone)
@@ -700,16 +912,16 @@ class PlayerCommandHandler:
             if not player:
                 return f"❌ Player with phone {phone} not found"
             
-            status_message = f"""📊 **Player Status**
+            status_message = f"""📊 <b>Player Status</b>
 
-👤 **Name:** {player.name}
-🆔 **Player ID:** {player.player_id}
-📱 **Phone:** {player.phone}
-⚽ **Position:** {player.position.value if hasattr(player.position, 'value') else player.position}
-📊 **Onboarding Status:** {player.onboarding_status.value if hasattr(player.onboarding_status, 'value') else player.onboarding_status}
-🏆 **FA Registered:** {'Yes' if player.fa_registered else 'No'}
-✅ **FA Eligible:** {'Yes' if player.fa_eligible else 'No'}
-📅 **Date Added:** {player.created_at.strftime('%Y-%m-%d') if player.created_at else 'Unknown'}"""
+👤 <b>Name:</b> {format_player_name(player.name)}
+🆔 <b>Player ID:</b> {player.player_id.upper()}
+📱 <b>Phone:</b> {player.phone}
+⚽ <b>Position:</b> {player.position.value if hasattr(player.position, 'value') else player.position}
+📊 <b>Onboarding Status:</b> {player.onboarding_status.value if hasattr(player.onboarding_status, 'value') else player.onboarding_status}
+🏆 <b>FA Registered:</b> {'Yes' if player.fa_registered else 'No'}
+✅ <b>FA Eligible:</b> {'Yes' if player.fa_eligible else 'No'}
+📅 <b>Date Added:</b> {player.created_at.strftime('%Y-%m-%d') if player.created_at else 'Unknown'}"""
             
             return status_message
             
@@ -722,23 +934,23 @@ class PlayerCommandHandler:
         try:
             stats = await self.player_handler.get_player_stats()
             
-            message = f"""📊 **Team Statistics**
+            message = f"""📊 <b>Team Statistics</b>
 
-👥 **Total Players:** {stats['total_players']}
-✅ **Active Players:** {stats['active_players']}
-⏳ **Pending Players:** {stats['pending_players']}
-🏆 **FA Registered:** {stats['fa_registered']}
-✅ **FA Eligible:** {stats['fa_eligible']}
+👥 <b>Total Players:</b> {stats['total_players']}
+✅ <b>Active Players:</b> {stats['active_players']}
+⏳ <b>Pending Players:</b> {stats['pending_players']}
+🏆 <b>FA Registered:</b> {stats['fa_registered']}
+✅ <b>FA Eligible:</b> {stats['fa_eligible']}
 
-⚽ **Position Breakdown:**"""
+⚽ <b>Position Breakdown:</b>"""
             
             for position, count in stats['positions'].items():
                 message += f"\n• {position}: {count}"
             
             if stats['recent_additions']:
-                message += "\n\n🆕 **Recent Additions:**"
+                message += "\n\n🆕 <b>Recent Additions:</b>"
                 for addition in stats['recent_additions'][:5]:  # Show last 5
-                    message += f"\n• {addition['name']} ({addition['date']})"
+                    message += f"\n• {format_player_name(addition['name'])} ({addition['date']})"
             
             return message
             
@@ -751,7 +963,7 @@ class PlayerCommandHandler:
         try:
             parts = command.split()
             if len(parts) < 2:
-                return "❌ Usage: /generateinvite <phone>"
+                return "❌ Usage: /generateinvite &lt;phone&gt;"
             
             phone = parts[1]
             # Note: telegram_group_invite_base should be configured
@@ -764,6 +976,39 @@ class PlayerCommandHandler:
             self.logger.error("Failed to handle generate invite command", error=e)
             return f"❌ Error generating invite: {str(e)}"
     
+    async def _handle_generate_invitation_message(self, command: str) -> str:
+        """Handle /invitation command."""
+        try:
+            parts = command.split()
+            if len(parts) < 2:
+                return "❌ Usage: /invite &lt;phone_or_player_id&gt;"
+            
+            identifier = parts[1]
+            
+            # Check if it's a player ID (contains letters) or phone number
+            if any(char.isalpha() for char in identifier):
+                # It's a player ID, find player by ID (case-insensitive)
+                players = await self.player_handler.get_all_players()
+                player = None
+                for p in players:
+                    if p.player_id.lower() == identifier.lower():
+                        player = p
+                        break
+                
+                if not player:
+                    return f"❌ Player with ID {identifier} not found"
+                
+                success, message = await self.player_handler.generate_invitation_message(player.phone)
+            else:
+                # It's a phone number
+                success, message = await self.player_handler.generate_invitation_message(identifier)
+            
+            return message
+            
+        except Exception as e:
+            self.logger.error("Failed to handle generate invitation message command", error=e)
+            return f"❌ Error generating invitation message: {str(e)}"
+    
     async def _handle_myinfo(self, user_id: str) -> str:
         """Handle /myinfo command."""
         try:
@@ -775,13 +1020,13 @@ class PlayerCommandHandler:
             return f"❌ Error getting player info: {str(e)}"
     
     async def _handle_approve_player(self, command: str, user_id: str) -> str:
-        """Handle player approval command."""
+        """Handle /approve command for admin approval."""
         try:
             parts = command.split()
             if len(parts) < 2:
-                return "❌ Usage: /approve <player_id>"
+                return "❌ Usage: /approve &lt;player_id&gt;"
             
-            player_id = parts[1]
+            player_id = parts[1].upper()
             success, message = await self.player_handler.approve_player(player_id, user_id)
             return message
             
@@ -789,14 +1034,15 @@ class PlayerCommandHandler:
             return f"❌ Error approving player: {str(e)}"
 
     async def _handle_reject_player(self, command: str, user_id: str) -> str:
-        """Handle player rejection command."""
+        """Handle /reject command for admin rejection."""
         try:
             parts = command.split()
             if len(parts) < 2:
-                return "❌ Usage: /reject <player_id> [reason]"
+                return "❌ Usage: /reject &lt;player_id&gt; [reason]"
             
-            player_id = parts[1]
-            reason = ' '.join(parts[2:]) if len(parts) > 2 else None
+            player_id = parts[1].upper()
+            reason = " ".join(parts[2:]) if len(parts) > 2 else None
+            
             success, message = await self.player_handler.reject_player(player_id, user_id, reason)
             return message
             
@@ -804,54 +1050,163 @@ class PlayerCommandHandler:
             return f"❌ Error rejecting player: {str(e)}"
 
     async def _handle_pending_approvals(self) -> str:
-        """Handle pending approvals command."""
+        """Handle /pending command to show pending approvals."""
         try:
-            pending_players = await self.player_handler.get_pending_approvals()
-            
-            if not pending_players:
-                return "✅ No players pending approval."
-            
-            message = "📋 **Players Pending Approval:**\n\n"
-            for player in pending_players:
-                message += f"• **{player.name}** ({player.player_id})\n"
-                message += f"  📱 Phone: {player.phone}\n"
-                message += f"  ⚽ Position: {player.position.value}\n\n"
-            
-            message += "Use `/approve <player_id>` to approve or `/reject <player_id> [reason]` to reject."
+            success, message = await self.player_handler.get_pending_approvals()
             return message
             
         except Exception as e:
             return f"❌ Error getting pending approvals: {str(e)}"
 
+    async def _handle_check_fa_registration(self) -> str:
+        """Handle /checkfa command."""
+        try:
+            from src.services.fa_registration_checker import run_fa_registration_check
+            
+            # Get team ID from player handler
+            team_id = self.player_handler.team_id
+            
+            # Run FA registration check
+            updates = await run_fa_registration_check(team_id, self.player_handler.player_service)
+            
+            if updates:
+                message = "✅ <b>FA Registration Check Complete</b>\n\n"
+                message += f"Found {len(updates)} new FA registrations:\n"
+                for player_id, registered in updates.items():
+                    if registered:
+                        message += f"• Player {player_id} is now FA registered!\n"
+            else:
+                message = "ℹ️ <b>FA Registration Check Complete</b>\n\n"
+                message += "No new FA registrations found."
+            
+            return message
+            
+        except Exception as e:
+            self.logger.error("Failed to handle FA registration check command", error=e)
+            return f"❌ Error checking FA registration: {str(e)}"
+
+    async def _handle_daily_status(self) -> str:
+        """Handle /dailystatus command."""
+        try:
+            from src.services.daily_status_service import DailyStatusService
+            from src.core.bot_config_manager import get_bot_config_manager
+            
+            # Get team ID and bot token
+            team_id = self.player_handler.team_id
+            manager = get_bot_config_manager()
+            bot_config = manager.get_bot_config(team_id)
+            
+            if not bot_config:
+                return "❌ Bot configuration not found for this team."
+            
+            # Create daily status service
+            service = DailyStatusService(
+                player_service=self.player_handler.player_service,
+                team_service=self.player_handler.team_service,
+                team_member_service=None,  # Not needed for this operation
+                bot_token=bot_config.token
+            )
+            
+            # Generate stats
+            team_stats = await service.generate_team_stats(team_id)
+            
+            # Format message
+            message = service.format_daily_status_message(team_stats)
+            
+            return message
+            
+        except Exception as e:
+            self.logger.error("Failed to handle daily status command", error=e)
+            return f"❌ Error generating daily status: {str(e)}"
+
+    async def _handle_start_command(self, command: str, user_id: str) -> str:
+        """Handle /start command with optional player ID parameter."""
+        try:
+            parts = command.split()
+            
+            # If no parameters, show welcome message
+            if len(parts) == 1:
+                return """🎉 <b>Welcome to KICKAI Team Management Bot!</b>
+
+I'm here to help you manage your football team. Here's what I can do:
+
+📋 <b>Player Management:</b>
+• Add and remove players
+• Track player status and statistics
+• Generate invitation messages
+• Manage player registrations
+
+👑 <b>Leadership Features:</b>
+• Approve/reject player registrations
+• View pending approvals
+• Team management tools
+
+💡 <b>Getting Started:</b>
+• Type `/help` to see all available commands
+• Use `/add &lt;name&gt; &lt;phone&gt; &lt;position&gt;` to add a player
+• Use `/list` to see all team players
+
+⚽ <b>Need Help?</b>
+Type `/help` for a complete list of commands and examples.
+
+🏆 <b>Team Access:</b>
+• Main team chat: For all players and general communication
+• Leadership chat: For team management (access granted separately)
+
+Welcome to the team! 🏆"""
+            
+            # If there's a player ID parameter, handle player join
+            if len(parts) > 1:
+                player_id = parts[1]
+                success, message = await self.player_handler.player_joined_via_invite(player_id, user_id)
+                
+                if success:
+                    # Get onboarding message for the player
+                    onboarding_success, onboarding_message = await self.player_handler.get_onboarding_message(player_id)
+                    if onboarding_success:
+                        return f"{message}\n\n{onboarding_message}"
+                    else:
+                        return f"{message}\n\n❌ Error getting onboarding message: {onboarding_message}"
+                else:
+                    return f"❌ {message}\n\n💡 Please contact the team admin if you believe this is an error."
+            
+            return "❌ Invalid start command format. Use `/start` or `/start &lt;player_id&gt;`"
+            
+        except Exception as e:
+            self.logger.error("Failed to handle start command", error=e, user_id=user_id)
+            return f"❌ Error processing start command: {str(e)}"
+
     def _get_help_message(self) -> str:
         """Get help message with all available commands."""
-        return """🤖 **KICKAI Player Registration Bot**
+        return """🤖 <b>KICKAI Player Registration Bot</b>
 
-📋 **Available Commands:**
+📋 <b>Available Commands:</b>
 
-👥 **Player Management:**
-• `/add <name> <phone> <position>` - Add a new player
-• `/remove <phone>` - Remove a player
+👥 <b>Player Management:</b>
+• `/add &lt;name&gt; &lt;phone&gt; &lt;position&gt;` - Add a new player
+• `/remove &lt;phone&gt;` - Remove a player
 • `/list` - List all players
-• `/status <phone>` - Get player status
+• `/status &lt;phone&gt;` - Get player status
 • `/stats` - Get team statistics
-• `/invite <phone>` - Generate invite link
+• `/invite &lt;phone_or_player_id&gt;` - Generate invitation message
 
-👤 **Player Commands:**
+👤 <b>Player Commands:</b>
 • `/myinfo` - Get your player information
 
-👨‍💼 **Admin Commands:**
-• `/approve <player_id>` - Approve a player
-• `/reject <player_id> [reason]` - Reject a player
+👨‍💼 <b>Admin Commands:</b>
+• `/approve &lt;player_id&gt;` - Approve a player
+• `/reject &lt;player_id&gt; [reason]` - Reject a player
 • `/pending` - List players pending approval
+• `/checkfa` - Check FA registration status
+• `/dailystatus` - Generate daily team status report
 
-❓ **Help:**
+❓ <b>Help:</b>
 • `/help` - Show this help message
 
-📝 **Examples:**
+📝 <b>Examples:</b>
 • `/add John Smith 07123456789 midfielder`
 • `/status 07123456789`
 • `/approve JS1`
 • `/reject JS1 Not available for matches`
 
-⚽ **Valid Positions:** goalkeeper, defender, midfielder, forward, utility""" 
+⚽ <b>Valid Positions:</b> goalkeeper, defender, midfielder, forward, utility""" 

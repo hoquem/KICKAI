@@ -1,6 +1,23 @@
 {
   "environment": "testing",
   "teams": {
+    "0854829d-445c-4138-9fd3-4db562ea46ee": {
+      "name": "KICKAI Team",
+      "description": "Main KICKAI football team",
+      "bot": {
+        "token": "YOUR_TESTING_BOT_TOKEN_HERE",
+        "username": "kickai_testing_bot",
+        "main_chat_id": "YOUR_MAIN_CHAT_ID_HERE",
+        "leadership_chat_id": "YOUR_LEADERSHIP_CHAT_ID_HERE",
+        "is_active": true
+      },
+      "settings": {
+        "ai_provider": "google_gemini",
+        "ai_model": "gemini-pro",
+        "max_members": 50,
+        "allow_public_join": false
+      }
+    },
     "test-team": {
       "name": "kickai-testing",
       "description": "Testing environment for KICKAI",
@@ -19,7 +36,7 @@
       }
     }
   },
-  "default_team": "test-team",
+  "default_team": "0854829d-445c-4138-9fd3-4db562ea46ee",
   "firebase_config": {
     "project_id": "kickai-954c2",
     "credentials_path": null

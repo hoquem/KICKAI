@@ -86,83 +86,60 @@ except ImportError as e:
 from src.services.player_service import get_player_service
 from src.services.team_service import get_team_service
 from src.telegram.player_registration_handler import PlayerRegistrationHandler, PlayerCommandHandler
+from src.database.firebase_client import get_firebase_client
+from src.services.team_member_service import TeamMemberService
+from src.services.access_control_service import AccessControlService
+
+# Import OnboardingHandler
+try:
+    from src.telegram.onboarding_handler import get_onboarding_workflow
+    ONBOARDING_HANDLER_AVAILABLE = True
+    logger.info("✅ OnboardingHandler imported successfully")
+except ImportError as e:
+    ONBOARDING_HANDLER_AVAILABLE = False
+    logger.warning(f"⚠️ OnboardingHandler not available: {e}")
 
 class SimpleAgenticHandler:
     """Simple agentic handler using LangChain directly, now using the new service layer."""
     
     def __init__(self, team_id: str):
+        """Initialize the SimpleAgenticHandler with dependency injection."""
         self.team_id = team_id
-        
-        # Initialize LLM with error handling
-        try:
-            self.llm = self._create_llm()
-            logger.info("✅ LLM initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize LLM: {e}")
-            self.llm = None
-        
-        # Initialize tools with error handling
-        try:
-            self.tools = self._create_tools()
-            logger.info("✅ Tools initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize tools: {e}")
-            self.tools = []
-        
-        # Use new service layer for player and team management
-        try:
-            self.player_service = get_player_service()
-            self.team_service = get_team_service()
-            logger.info("✅ Services initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize services: {e}")
-            self.player_service = None
-            self.team_service = None
-        
-        # Initialize player registration handler
-        try:
-            self.player_registration_handler = PlayerRegistrationHandler(team_id)
-            self.player_command_handler = PlayerCommandHandler(self.player_registration_handler)
-            logger.info("✅ Player registration handlers initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize player registration handlers: {e}")
-            self.player_registration_handler = None
-            self.player_command_handler = None
-        
-        # OnboardingAgent should also use new models/services
-        try:
-            from .crew_agents import OnboardingAgent
-            if self.llm is not None:
-                self.onboarding_agent = OnboardingAgent(team_id, llm=self.llm)
-                logger.info("✅ OnboardingAgent initialized successfully")
-            else:
-                logger.warning("⚠️ Skipping OnboardingAgent initialization - LLM is None")
-                self.onboarding_agent = None
-        except ImportError as e:
-            logger.warning(f"OnboardingAgent not available: {e}")
-            self.onboarding_agent = None
-        except Exception as e:
-            logger.error(f"Failed to initialize OnboardingAgent: {e}")
-            self.onboarding_agent = None
-        
-        # Initialize Advanced Memory System if available
+        # Initialize player registration and command handlers
+        self.player_registration_handler = PlayerRegistrationHandler(self.team_id)
+        self.player_command_handler = PlayerCommandHandler(self.player_registration_handler)
         self.memory_system = None
-        if ADVANCED_MEMORY_AVAILABLE:
-            try:
-                memory_config = {
-                    'max_short_term_items': 100,
-                    'max_long_term_items': 500,
-                    'max_episodic_items': 200,
-                    'max_semantic_items': 100,
-                    'pattern_learning_enabled': True
-                }
-                self.memory_system = AdvancedMemorySystem(memory_config)
-                logger.info("✅ Advanced Memory System initialized")
-            except Exception as e:
-                logger.error(f"Failed to initialize Advanced Memory System: {e}")
-                self.memory_system = None
+        self.onboarding_agent = None
+        self.team_service = None
+        
+        # Initialize services with dependency injection
+        self.firebase_client = get_firebase_client()
+        self.team_member_service = TeamMemberService(self.firebase_client)
+        self.access_control_service = AccessControlService()
+        
+        # Initialize LLM and tools
+        self.llm = self._create_llm()
+        self.tools = self._create_tools()
+        
+        # Initialize AI config
+        self.ai_config = self._get_ai_config()
         
         logger.info(f"✅ SimpleAgenticHandler initialized for team {team_id}")
+        
+    def _get_ai_config(self):
+        """Get AI configuration from the config system."""
+        try:
+            return config.ai
+        except AttributeError:
+            # Fallback to environment variables
+            return type('AIConfig', (), {
+                'provider': os.getenv('AI_PROVIDER', 'google_gemini'),
+                'api_key': os.getenv('GOOGLE_API_KEY', ''),
+                'model_name': os.getenv('AI_MODEL_NAME', 'gemini-2.0-flash-001'),
+                'temperature': float(os.getenv('AI_TEMPERATURE', '0.7')),
+                'max_tokens': int(os.getenv('AI_MAX_TOKENS', '1000')),
+                'timeout_seconds': int(os.getenv('AI_TIMEOUT', '60'))
+            })()
         
     def _create_llm(self):
         """Create LLM instance based on environment."""
@@ -183,10 +160,17 @@ class SimpleAgenticHandler:
                 if provider == 'google_gemini' and api_key:
                     if GOOGLE_AI_AVAILABLE and genai is not None:
                         try:
-                            genai.configure(api_key=api_key)
-                            llm = genai.GenerativeModel(model_name)
-                            logger.info("[LLM DEBUG] ✅ Google AI LLM created successfully (fallback)")
-                            return llm
+                            # Only use genai if GenerativeModel is available
+                            if hasattr(genai, 'GenerativeModel'):
+                                # If configure is available, call it
+                                if hasattr(genai, 'configure'):
+                                    getattr(genai, 'configure')(api_key=api_key)
+                                llm = getattr(genai, 'GenerativeModel')(model_name)
+                                logger.info("[LLM DEBUG] ✅ Google AI LLM created successfully (fallback)")
+                                return llm
+                            else:
+                                logger.warning("[LLM DEBUG] GenerativeModel not available in google.generativeai")
+                                return None
                         except Exception as e:
                             logger.error(f"[LLM DEBUG] Exception during GenerativeModel creation: {e}")
                             return None
@@ -204,10 +188,10 @@ class SimpleAgenticHandler:
                         logger.error("[LLM DEBUG] Google AI API key or model name missing.")
                         return None
                     try:
-                        if hasattr(genai, 'configure') and genai.configure is not None:
-                            genai.configure(api_key=api_key)
-                        if hasattr(genai, 'GenerativeModel') and genai.GenerativeModel is not None:
-                            llm = genai.GenerativeModel(model_name)
+                        if hasattr(genai, 'GenerativeModel'):
+                            if hasattr(genai, 'configure'):
+                                getattr(genai, 'configure')(api_key=api_key)
+                            llm = getattr(genai, 'GenerativeModel')(model_name)
                             logger.info("[LLM DEBUG] ✅ Google AI LLM created successfully")
                             return llm
                         else:
@@ -267,7 +251,7 @@ class SimpleAgenticHandler:
             logger.error(f"Error creating tools: {e}")
             raise
     
-    async def process_message(self, message: str, user_id: str = None, chat_id: str = None, user_role: str = None, is_leadership_chat: bool = False) -> str:
+    async def process_message(self, message: str, user_id: str = "", chat_id: str = "", user_role: str = "", is_leadership_chat: bool = False) -> str:
         """Process a message using the agentic system."""
         try:
             logger.info(f"Processing message: {message[:100]}...")
@@ -304,19 +288,24 @@ class SimpleAgenticHandler:
                 )
             
             # Get conversation context if available
-            conversation_context = []
+            conversation_context_list = []
             if self.memory_system and user_id:
                 try:
-                    conversation_context = self.memory_system.get_conversation_context(user_id, chat_id, limit=5)
+                    conversation_context_list = self.memory_system.get_conversation_context(user_id, chat_id, limit=5) or []
                 except Exception as e:
                     logger.warning(f"Failed to retrieve conversation context: {e}")
             
-            # Simple command routing based on keywords
+            # Ensure all parameters are correct types
+            chat_id_str = chat_id or ""
+            user_id_str = user_id or ""
+            user_role_str = user_role or ""
             response = await self._route_command(
                 message,
-                user_role or "",
-                is_leadership_chat,
-                conversation_context
+                user_id_str,
+                chat_id_str,
+                user_role_str,
+                bool(is_leadership_chat),
+                conversation_context_list
             )
             
             # Store response memory
@@ -366,11 +355,78 @@ class SimpleAgenticHandler:
             
             return f"Sorry, I encountered an error processing your request: {str(e)}"
     
-    async def _route_command(self, message: str, user_role: str = None, is_leadership_chat: bool = False, conversation_context: List = None) -> str:
-        """Route commands to appropriate tools based on keywords (async)."""
+    async def _route_command(self, message: str, user_id: str = "", chat_id: str = "", user_role: str = "", is_leadership_chat: bool = False, conversation_context: list = None) -> str:
+        """Route commands to appropriate tools based on keywords (async) with proper access control."""
         message_lower = message.lower()
-        logger.info(f"[ROUTE DEBUG] Processing message: '{message}' -> '{message_lower}'")
-        logger.info(f"[ROUTE DEBUG] User role: {user_role}, Leadership chat: {is_leadership_chat}")
+        
+        # Ensure all string parameters
+        telegram_id = user_id or ""
+        chat_id = chat_id or ""
+        user_role = user_role or ""
+        if conversation_context is None:
+            conversation_context = []
+        
+        # Handle slash commands with proper access control
+        if message.startswith('/'):
+            logger.info(f"[ROUTING DEBUG] Processing slash command: {message}")
+            # Check access control for admin commands
+            if telegram_id and chat_id:
+                has_access = await self.access_control_service.check_access(message, chat_id, telegram_id, self.team_id)
+                if not has_access:
+                    return self.access_control_service.get_access_denied_message(message, chat_id, self.team_id)
+            
+            # Player Registration System slash commands
+            if self.player_command_handler:
+                logger.info(f"[ROUTING DEBUG] player_command_handler available, checking command patterns")
+                if message.startswith('/add '):
+                    logger.info(f"[ROUTING DEBUG] Routing /add command to player_command_handler")
+                    return await self.player_command_handler.handle_command(message, user_id)
+                elif message.startswith('/remove '):
+                    logger.info(f"[ROUTING DEBUG] Routing /remove command to player_command_handler")
+                    return await self.player_command_handler.handle_command(message, user_id)
+                elif message == '/list':
+                    logger.info(f"[ROUTING DEBUG] Routing /list command to player_command_handler")
+                    return await self.player_command_handler.handle_command(message, user_id)
+                elif message.startswith('/status '):
+                    logger.info(f"[ROUTING DEBUG] Routing /status command to player_command_handler")
+                    return await self.player_command_handler.handle_command(message, user_id)
+                elif message == '/stats':
+                    logger.info(f"[ROUTING DEBUG] Routing /stats command to player_command_handler")
+                    return await self.player_command_handler.handle_command(message, user_id)
+                elif message.startswith('/invite '):
+                    logger.info(f"[ROUTING DEBUG] Routing /invite command to player_command_handler")
+                    return await self.player_command_handler.handle_command(message, user_id)
+                elif message == '/myinfo':
+                    logger.info(f"[ROUTING DEBUG] Routing /myinfo command to player_command_handler")
+                    return await self.player_command_handler.handle_command(message, user_id)
+                elif message.startswith('/approve '):
+                    logger.info(f"[ROUTING DEBUG] Routing /approve command to player_command_handler")
+                    return await self.player_command_handler.handle_command(message, user_id)
+                elif message.startswith('/reject '):
+                    logger.info(f"[ROUTING DEBUG] Routing /reject command to player_command_handler")
+                    return await self.player_command_handler.handle_command(message, user_id)
+                elif message == '/pending':
+                    logger.info(f"[ROUTING DEBUG] Routing /pending command to player_command_handler")
+                    return await self.player_command_handler.handle_command(message, user_id)
+                elif message == '/checkfa':
+                    logger.info(f"[ROUTING DEBUG] Routing /checkfa command to player_command_handler")
+                    return await self.player_command_handler.handle_command(message, user_id)
+                elif message == '/dailystatus':
+                    logger.info(f"[ROUTING DEBUG] Routing /dailystatus command to player_command_handler")
+                    return await self.player_command_handler.handle_command(message, user_id)
+                elif message in ['/help', '/start']:
+                    logger.info(f"[ROUTING DEBUG] Routing /help or /start command to player_command_handler")
+                    return await self.player_command_handler.handle_command(message, user_id)
+                else:
+                    logger.info(f"[ROUTING DEBUG] Slash command not matched: {message}")
+            else:
+                logger.warning(f"[ROUTING DEBUG] player_command_handler is None - this is the problem!")
+        
+        # Check access control using the new service (for non-slash commands)
+        if telegram_id and chat_id:
+            has_access = await self.access_control_service.check_access(message, chat_id, telegram_id, self.team_id)
+            if not has_access:
+                return self.access_control_service.get_access_denied_message(message, chat_id, self.team_id)
         
         # Check for onboarding responses (from players)
         if self.onboarding_agent and user_role != 'admin':
@@ -378,24 +434,43 @@ class SimpleAgenticHandler:
             if any(keyword in message_lower for keyword in onboarding_keywords):
                 pass
         
-        # Player Registration System commands (Phase 1)
+        # Check for onboarding responses using new onboarding handler
+        if ONBOARDING_HANDLER_AVAILABLE and user_role != 'admin':
+            onboarding_keywords = ['yes', 'no', 'confirm', 'update', 'help', 'emergency', 'dob', 'position', 'name', 'phone', 'complete', 'done', 'skip', 'ready']
+            if any(keyword in message_lower for keyword in onboarding_keywords):
+                try:
+                    onboarding_workflow = get_onboarding_workflow(self.team_id)
+                    success, response = await onboarding_workflow.process_response(user_id, message)
+                    if success:
+                        return response
+                    else:
+                        # If onboarding response failed, continue with normal processing
+                        logger.info(f"Onboarding response failed: {response}")
+                except Exception as e:
+                    logger.error(f"Error processing onboarding response: {e}")
+                    # Continue with normal processing
+        
+        # Player Registration System commands (Phase 1) - natural language
         if self.player_command_handler:
             if any(word in message_lower for word in ['add player', 'remove player', 'list players', 'player status', 'player stats']):
-                return await self.player_command_handler.handle_command(message_lower, user_id="system")
+                return await self.player_command_handler.handle_command(message_lower, user_id)
         
-        # Legacy player management (fallback)
+        # Legacy player management (fallback) - now with access control
         if any(word in message_lower for word in ['add player', 'new player', 'create player']):
             return self._handle_add_player(message)
         elif any(word in message_lower for word in ['list players', 'show players', 'all players']):
+            # Read-only command - allowed in all chats
             player_tool = PlayerTools(self.team_id)
             return player_tool._run('get_all_players')
         elif any(word in message_lower for word in ['player', 'players']) and 'phone' in message_lower:
+            # Read-only command - allowed in all chats
             return self._handle_get_player(message)
         
-        # Fixture management
+        # Fixture management - with access control
         elif any(word in message_lower for word in ['new match', 'create match', 'schedule match', 'add fixture']):
             return self._handle_add_fixture(message)
         elif any(word in message_lower for word in ['list matches', 'show matches', 'fixtures', 'games']):
+            # Read-only command - allowed in all chats
             fixture_tool = FixtureTools(self.team_id)
             return fixture_tool._run('get_all_fixtures')
         
@@ -403,11 +478,11 @@ class SimpleAgenticHandler:
         elif any(word in message_lower for word in ['team info', 'team information']):
             team_tool = TeamTools(self.team_id)
             return team_tool._run('get_team_info')
-        elif any(word in message_lower for word in ['update team', 'change team name']) and (user_role == 'admin' or is_leadership_chat):
+        elif any(word in message_lower for word in ['update team', 'change team name']):
             return self._handle_update_team(message)
         
         # Bot management (admin only)
-        elif any(word in message_lower for word in ['bot config', 'bot configuration']) and (user_role == 'admin' or is_leadership_chat):
+        elif any(word in message_lower for word in ['bot config', 'bot configuration']):
             bot_tool = BotTools(self.team_id)
             return bot_tool._run('get_bot_config')
         
@@ -423,6 +498,7 @@ class SimpleAgenticHandler:
         
         # Default: try to use LLM to understand the request
         else:
+            logger.info(f"[ROUTING DEBUG] Command fell through to LLM handler: {message}")
             return self._use_llm_for_understanding(message)
     
     def _handle_add_player(self, message: str) -> str:
@@ -528,17 +604,25 @@ class SimpleAgenticHandler:
 
 **Available Commands:**
 
-**Player Registration (New):**
+**Player Registration (Slash Commands):**
+- `/add &lt;name&gt; &lt;phone&gt; &lt;position&gt;` - Add a new player
+- `/remove &lt;phone&gt;` - Remove a player
+- `/list` - List all players
+- `/status &lt;phone&gt;` - Get player status
+- `/stats` - Get team statistics
+- `/invite &lt;phone&gt;` - Generate invite link
+- `/invite <phone_or_player_id>` - Generate invitation message
+- `/myinfo` - Get your player information
+- `/approve <player_id>` - Approve a player
+- `/reject <player_id> [reason]` - Reject a player
+- `/pending` - List players pending approval
+
+**Player Registration (Natural Language):**
 - "add player John Smith 07123456789 striker"
 - "remove player 07123456789"
 - "list players"
 - "player status 07123456789"
 - "player stats"
-
-**Player Management (Legacy):**
-- "Add player John Doe with phone 123456789"
-- "List all players"
-- "Show player with phone 123456789"
 
 **Fixture Management:**
 - "Create a match against Arsenal on July 1st at 2pm"
@@ -566,6 +650,8 @@ class SimpleAgenticHandler:
 **Available Commands:**
 
 **Player Management:**
+- `/list` - List all players
+- `/myinfo` - Get your player information
 - "List all players"
 - "Show player with phone 123456789"
 
@@ -740,7 +826,13 @@ Response:"""
             if not self.player_registration_handler:
                 return "❌ Player registration system not available"
             # Find player by telegram_user_id
-            players = self.player_registration_handler.get_all_players()
+            players_coro = self.player_registration_handler.get_all_players()
+            if players_coro is None or not hasattr(players_coro, '__await__'):
+                players = []
+            else:
+                players = await players_coro
+                if players is None:
+                    players = []
             player = None
             for p in players:
                 if getattr(p, 'telegram_id', None) == telegram_user_id:
@@ -751,11 +843,12 @@ Response:"""
             # Handle the response through the onboarding agent if available
             if self.onboarding_agent:
                 # If onboarding_agent.handle_response is async, await it
-                result = self.onboarding_agent.handle_response(getattr(player, 'player_id', None), telegram_user_id, response)
-                if asyncio.iscoroutine(result):
-                    success, message = await result
-                else:
-                    success, message = result
+                result = self.onboarding_agent.handle_response(getattr(player, 'player_id', ""), telegram_user_id or "", response or "")
+                if result is not None and hasattr(result, '__await__'):
+                    result = await result
+                if result is None:
+                    return "❌ Error processing onboarding response: No result returned"
+                success, message = result
                 if success:
                     return f"✅ {message}"
                 else:
@@ -763,7 +856,7 @@ Response:"""
             else:
                 return "❌ Onboarding agent not available"
         except Exception as e:
-            logger.error(f"Error handling onboarding response: {e}")
+            logger.error(f"Error handling onboarding response: {e}", exc_info=True)
             return f"❌ Error processing response: {str(e)}"
 
     async def handle_player_join(self, player_id: str, telegram_user_id: str, telegram_username: str = None) -> str:
@@ -774,11 +867,13 @@ Response:"""
             if not self.player_registration_handler:
                 return "❌ Player registration system not available"
             # Update player status to joined
-            result = self.player_registration_handler.player_joined_via_invite(player_id, telegram_user_id, telegram_username)
-            if asyncio.iscoroutine(result):
-                success, message = await result
-            else:
-                success, message = result
+            result_coro = self.player_registration_handler.player_joined_via_invite(player_id or "", telegram_user_id or "", telegram_username or "")
+            if result_coro is None or not hasattr(result_coro, '__await__'):
+                return "❌ Error processing player join: No result returned"
+            result = await result_coro
+            if result is None:
+                return "❌ Error processing player join: No result returned"
+            success, message = result
             if success and self.onboarding_agent:
                 return f"✅ {message}\n⚠️ Onboarding started!"
             elif success:
@@ -786,7 +881,7 @@ Response:"""
             else:
                 return f"❌ {message}"
         except Exception as e:
-            logger.error(f"Error handling player join: {e}")
+            logger.error(f"Error handling player join: {e}", exc_info=True)
             return f"❌ Error processing player join: {str(e)}"
 
     async def handle_onboarding_message(self, message: str, user_id: str, username: str = None, is_leadership_chat: bool = False) -> str:
@@ -797,17 +892,17 @@ Response:"""
                 onboarding_keywords = ['confirm', 'update', 'help', 'emergency', 'dob', 'position', 'name', 'phone', 'complete', 'done', 'no']
                 message_lower = message.lower()
                 if any(keyword in message_lower for keyword in onboarding_keywords):
-                    return await self.handle_onboarding_response(user_id or "", message)
+                    return await self.handle_onboarding_response(user_id or "", message or "")
             # Check for player join via invite link
             if message.startswith('/join_'):
                 player_id = message.replace('/join_', '')
-                return await self.handle_player_join(player_id, user_id or "", username)
+                return await self.handle_player_join(player_id or "", user_id or "", username or "")
             # Handle regular commands and messages
             # Use self if this is the main handler, or self.agentic_handler if that's the correct handler
             handler = getattr(self, 'agentic_handler', self)
-            return await handler.process_message(message, user_id or "", chat_id="", user_role="", is_leadership_chat=is_leadership_chat)
+            return await handler.process_message(message or "", user_id or "", chat_id="", user_role="", is_leadership_chat=is_leadership_chat)
         except Exception as e:
-            logger.error("Error handling message", error=e)
+            logger.error(f"Error handling message: {e}", exc_info=True)
             return f"❌ Error processing message: {str(e)}"
 
 def create_simple_agentic_handler(team_id: str) -> SimpleAgenticHandler:

@@ -345,9 +345,11 @@ class ConfigurationManager:
         
         # Check for Firebase credentials
         firebase_creds_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
-        if not firebase_creds_json:
-            errors.append("FIREBASE_CREDENTIALS_JSON is required")
-        else:
+        firebase_creds_file = os.getenv("FIREBASE_CREDENTIALS_FILE")
+        
+        if not firebase_creds_json and not firebase_creds_file:
+            errors.append("Either FIREBASE_CREDENTIALS_JSON or FIREBASE_CREDENTIALS_FILE is required")
+        elif firebase_creds_json:
             # Validate that the JSON contains required fields
             try:
                 import json
@@ -360,6 +362,10 @@ class ConfigurationManager:
                     errors.append("FIREBASE_CREDENTIALS_JSON must contain client_email")
             except json.JSONDecodeError:
                 errors.append("FIREBASE_CREDENTIALS_JSON must be valid JSON")
+        elif firebase_creds_file:
+            # Validate that the file exists
+            if not os.path.exists(firebase_creds_file):
+                errors.append(f"FIREBASE_CREDENTIALS_FILE does not exist: {firebase_creds_file}")
         
         # For production, AI_API_KEY and TELEGRAM_BOT_TOKEN may be loaded from Firebase
         # Only validate if we're in development or if they're explicitly required

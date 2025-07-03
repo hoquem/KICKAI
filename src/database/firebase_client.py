@@ -12,6 +12,7 @@ import json
 import time
 from contextlib import asynccontextmanager
 from functools import wraps
+import os
 
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -27,7 +28,6 @@ from ..core.exceptions import (
 )
 from ..core.logging import get_logger, performance_timer
 from .models import Player, Team, Match, TeamMember, BotMapping
-
 
 class FirebaseClient:
     """Robust Firebase client wrapper with connection pooling and error handling."""
@@ -62,43 +62,53 @@ class FirebaseClient:
                 except ValueError:
                     self._logger.info("🔄 Initializing new Firebase app...")
                     
-                    # Get credentials from FIREBASE_CREDENTIALS_JSON
+                    # Get credentials from FIREBASE_CREDENTIALS_JSON or FIREBASE_CREDENTIALS_FILE
                     firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
-                    if not firebase_creds_json:
-                        raise RuntimeError("FIREBASE_CREDENTIALS_JSON environment variable is not set. Please set it with your Firebase service account credentials.")
+                    creds_dict = None
+                    if firebase_creds_json:
+                        try:
+                            self._logger.info("🔄 Using FIREBASE_CREDENTIALS_JSON...")
+                            creds_dict = json.loads(firebase_creds_json)
+                        except json.JSONDecodeError as e:
+                            raise RuntimeError(f"Invalid JSON in FIREBASE_CREDENTIALS_JSON: {e}")
+                    else:
+                        firebase_creds_file = os.getenv('FIREBASE_CREDENTIALS_FILE')
+                        if firebase_creds_file:
+                            try:
+                                self._logger.info(f"🔄 Using FIREBASE_CREDENTIALS_FILE: {firebase_creds_file} ...")
+                                with open(firebase_creds_file, 'r') as f:
+                                    creds_dict = json.load(f)
+                            except Exception as e:
+                                raise RuntimeError(f"Failed to load credentials from file {firebase_creds_file}: {e}")
+                        else:
+                            raise RuntimeError("Neither FIREBASE_CREDENTIALS_JSON nor FIREBASE_CREDENTIALS_FILE environment variable is set. Please set one with your Firebase service account credentials.")
+
+                    # Log private key details for debugging
+                    private_key = creds_dict.get('private_key', '')
+                    self._logger.info(f"🔍 Private key length: {len(private_key)} characters")
                     
-                    try:
-                        self._logger.info("🔄 Using FIREBASE_CREDENTIALS_JSON...")
-                        creds_dict = json.loads(firebase_creds_json)
-                        
-                        # Log private key details for debugging
-                        private_key = creds_dict.get('private_key', '')
-                        self._logger.info(f"🔍 Private key length: {len(private_key)} characters")
-                        
-                        # Validate the credentials
-                        if not private_key or len(private_key) < 100:
-                            raise ValueError("Invalid private key in Firebase credentials")
-                        
-                        if not creds_dict.get('client_email'):
-                            raise ValueError("Missing client_email in Firebase credentials")
-                        
-                        if not creds_dict.get('project_id'):
-                            raise ValueError("Missing project_id in Firebase credentials")
-                        
-                        cred = credentials.Certificate(creds_dict)
-                        self._logger.info("✅ Credentials created from JSON string")
-                        
-                    except json.JSONDecodeError as e:
-                        raise RuntimeError(f"Invalid JSON in FIREBASE_CREDENTIALS_JSON: {e}")
-                    except Exception as e:
-                        raise RuntimeError(f"Failed to create Firebase credentials: {e}")
+                    # Validate the credentials
+                    if not private_key or len(private_key) < 100:
+                        raise ValueError("Invalid private key in Firebase credentials")
                     
-                    # Initialize Firebase app
-                    self._logger.info("🔄 Initializing Firebase app...")
-                    firebase_admin.initialize_app(cred, {
-                        'projectId': self.config.project_id
-                    })
-                    self._logger.info("✅ Firebase app initialized successfully")
+                    if not creds_dict.get('client_email'):
+                        raise ValueError("Missing client_email in Firebase credentials")
+                    
+                    if not creds_dict.get('project_id'):
+                        raise ValueError("Missing project_id in Firebase credentials")
+                    
+                    cred = credentials.Certificate(creds_dict)
+                    self._logger.info("✅ Credentials created from JSON string")
+                    
+                except Exception as e:
+                    raise RuntimeError(f"Failed to create Firebase credentials: {e}")
+                
+                # Initialize Firebase app
+                self._logger.info("🔄 Initializing Firebase app...")
+                firebase_admin.initialize_app(cred, {
+                    'projectId': self.config.project_id
+                })
+                self._logger.info("✅ Firebase app initialized successfully")
             
             self._client = firestore.client()
             self._logger.info("✅ Firebase Firestore client created successfully")
@@ -432,6 +442,76 @@ class FirebaseClient:
         filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
         data_list = await self.query_documents('matches', filters)
         return [Match.from_dict(data) for data in data_list]
+    
+    # Team Member methods
+    async def create_team_member(self, team_member: TeamMember) -> str:
+        """Create a new team member."""
+        data = team_member.to_dict()
+        return await self.create_document('team_members', data)
+    
+    async def get_team_member(self, member_id: str) -> Optional[TeamMember]:
+        """Get a team member by ID."""
+        data = await self.get_document('team_members', member_id)
+        if data:
+            data['id'] = member_id
+            return TeamMember.from_dict(data)
+        return None
+    
+    async def update_team_member(self, team_member: TeamMember) -> bool:
+        """Update a team member."""
+        data = team_member.to_dict()
+        return await self.update_document('team_members', team_member.id, data)
+    
+    async def delete_team_member(self, member_id: str) -> bool:
+        """Delete a team member."""
+        return await self.delete_document('team_members', member_id)
+    
+    async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]:
+        """Get all team members for a team."""
+        try:
+            filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
+            documents = await self.query_documents('team_members', filters)
+            return [TeamMember.from_dict(doc) for doc in documents]
+        except Exception as e:
+            self._handle_firebase_error(e, "get_team_members_by_team", team_id=team_id)
+    
+    async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[TeamMember]:
+        """Get a team member by telegram_id and team_id."""
+        try:
+            filters = [
+                {'field': 'telegram_id', 'operator': '==', 'value': telegram_id},
+                {'field': 'team_id', 'operator': '==', 'value': team_id}
+            ]
+            documents = await self.query_documents('team_members', filters)
+            
+            if documents:
+                return TeamMember.from_dict(documents[0])
+            return None
+            
+        except Exception as e:
+            self._handle_firebase_error(e, "get_team_member_by_telegram_id", 
+                                      telegram_id=telegram_id, team_id=team_id)
+    
+    async def get_team_members_by_role(self, team_id: str, role: str) -> List[TeamMember]:
+        """Get team members by role."""
+        filters = [
+            {'field': 'team_id', 'operator': '==', 'value': team_id},
+            {'field': 'role', 'operator': '==', 'value': role}
+        ]
+        data_list = await self.query_documents('team_members', filters)
+        
+        team_members = []
+        for data in data_list:
+            if 'id' in data:
+                team_members.append(TeamMember.from_dict(data))
+        
+        return team_members
+    
+    async def get_leadership_members(self, team_id: str) -> List[TeamMember]:
+        """Get all leadership members (with leadership chat access)."""
+        team_members = await self.get_team_members_by_team(team_id)
+        return [member for member in team_members 
+                if member.chat_access.get('leadership_chat', False)]
     
     # Health check
     async def health_check(self) -> Dict[str, Any]:

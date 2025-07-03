@@ -156,23 +156,30 @@ def get_firebase_client():
         except ValueError:
             logger.info("🔄 Initializing new Firebase app...")
         
-        # Get credentials from environment variable
+        # Get credentials from environment variable or file
         firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
-        if not firebase_creds_json:
-            raise RuntimeError("FIREBASE_CREDENTIALS_JSON environment variable is required.")
-        
-        try:
+        creds_dict = None
+        if firebase_creds_json:
             logger.info("🔄 Loading Firebase credentials from FIREBASE_CREDENTIALS_JSON...")
             creds_dict = json.loads(firebase_creds_json)
-            
+        else:
+            firebase_creds_file = os.getenv('FIREBASE_CREDENTIALS_FILE')
+            if firebase_creds_file:
+                logger.info(f"🔄 Loading Firebase credentials from file: {firebase_creds_file} ...")
+                with open(firebase_creds_file, 'r') as f:
+                    creds_dict = json.load(f)
+            else:
+                raise RuntimeError("Either FIREBASE_CREDENTIALS_JSON or FIREBASE_CREDENTIALS_FILE environment variable is required.")
+        
+        try:
             # Validate and repair the private key
             repaired_creds = extract_private_key_from_json(creds_dict)
             
             cred = credentials.Certificate(repaired_creds)
             logger.info("✅ Firebase credentials created successfully")
         except Exception as e:
-            logger.error(f"❌ Failed to parse FIREBASE_CREDENTIALS_JSON: {e}")
-            raise RuntimeError(f"Failed to parse FIREBASE_CREDENTIALS_JSON: {e}")
+            logger.error(f"❌ Failed to create Firebase credentials: {e}")
+            raise RuntimeError(f"Failed to create Firebase credentials: {e}")
         
         # Initialize Firebase app
         logger.info("🔄 Initializing Firebase app...")
@@ -336,7 +343,7 @@ class PlayerTools(BaseTool):
 
     def _get_all_players(self, db) -> str:
         try:
-            players_ref = db.collection('team_members')
+            players_ref = db.collection('players')
             query = players_ref.where('team_id', '==', self.team_id).order_by('name')
             docs = query.stream()
             
@@ -363,7 +370,7 @@ class PlayerTools(BaseTool):
         if not player_id and not phone_number:
             return "Error: Either 'player_id' or 'phone_number' is required."
         try:
-            players_ref = db.collection('team_members')
+            players_ref = db.collection('players')
             
             if player_id:
                 doc = players_ref.document(player_id).get()
@@ -401,7 +408,7 @@ class PlayerTools(BaseTool):
             
             update_data['updated_at'] = datetime_to_timestamp(None)
             
-            doc_ref = db.collection('team_members').document(player_id)
+            doc_ref = db.collection('players').document(player_id)
             doc = doc_ref.get()
             
             if not doc.exists:
