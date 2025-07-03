@@ -66,7 +66,8 @@ class IntelligentAgentRouter:
             'communication_specialist': ['messaging', 'announcements', 'polls', 'broadcast_management'],
             'finance_manager': ['payment_tracking', 'financial_reporting', 'reminders', 'budget_management'],
             'squad_selection_specialist': ['squad_selection', 'form_analysis', 'tactical_fit', 'player_evaluation'],
-            'analytics_specialist': ['trend_analysis', 'performance_metrics', 'predictions', 'data_analysis']
+            'analytics_specialist': ['trend_analysis', 'performance_metrics', 'predictions', 'data_analysis'],
+            'learning_agent': ['pattern_learning', 'user_preference_analysis', 'response_optimization', 'system_improvement']
         }
     
     async def route_request(self, message: str, context: TaskContext) -> List[Agent]:

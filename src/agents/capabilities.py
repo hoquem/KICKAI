@@ -43,6 +43,10 @@ class CapabilityType(Enum):
     PLAYER_EVALUATION = "player_evaluation"
     DATA_ANALYSIS = "data_analysis"
     PREDICTIONS = "predictions"
+    PATTERN_LEARNING = "pattern_learning"
+    USER_PREFERENCE_ANALYSIS = "user_preference_analysis"
+    RESPONSE_OPTIMIZATION = "response_optimization"
+    SYSTEM_IMPROVEMENT = "system_improvement"
 
 @dataclass
 class AgentCapability:
@@ -110,6 +114,12 @@ class AgentCapabilityMatrix:
                 AgentCapability(CapabilityType.DATA_ANALYSIS, 0.85, "Analyze data", True),
                 AgentCapability(CapabilityType.PREDICTIONS, 0.80, "Make predictions", True),
                 AgentCapability(CapabilityType.PERFORMANCE_ANALYSIS, 0.85, "Analyze performance data", False),
+            ],
+            'learning_agent': [
+                AgentCapability(CapabilityType.PATTERN_LEARNING, 0.95, "Learn from interaction patterns", True),
+                AgentCapability(CapabilityType.USER_PREFERENCE_ANALYSIS, 0.90, "Analyze and learn user preferences", True),
+                AgentCapability(CapabilityType.RESPONSE_OPTIMIZATION, 0.85, "Optimize responses based on learned patterns", True),
+                AgentCapability(CapabilityType.SYSTEM_IMPROVEMENT, 0.80, "Suggest system improvements", True),
             ]
         }
     
@@ -145,7 +155,11 @@ class AgentCapabilityMatrix:
             CapabilityType.TACTICAL_FIT: "Assess tactical fit of players",
             CapabilityType.PLAYER_EVALUATION: "Evaluate player performance and potential",
             CapabilityType.DATA_ANALYSIS: "Analyze data and statistics",
-            CapabilityType.PREDICTIONS: "Make predictions based on data and trends"
+            CapabilityType.PREDICTIONS: "Make predictions based on data and trends",
+            CapabilityType.PATTERN_LEARNING: "Learn from interaction patterns and improve responses",
+            CapabilityType.USER_PREFERENCE_ANALYSIS: "Analyze and learn user preferences and behavior",
+            CapabilityType.RESPONSE_OPTIMIZATION: "Optimize responses based on learned patterns and preferences",
+            CapabilityType.SYSTEM_IMPROVEMENT: "Suggest system improvements based on learned insights"
         }
     
     def get_agent_capabilities(self, agent_name: str) -> List[AgentCapability]:

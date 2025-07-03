@@ -42,6 +42,7 @@ from src.tools.telegram_tools import (
     SendLeadershipMessageTool,
     get_telegram_tools_dual
 )
+from src.tools.learning_tools import LearningTools
 
 # Load environment variables
 load_dotenv()
@@ -241,6 +242,7 @@ def create_agents_for_team(llm, team_id: str):
     team_tools = TeamTools(team_id)
     bot_tools = BotTools(team_id)
     command_logging_tools = CommandLoggingTools(team_id)
+    learning_tools = LearningTools(team_id)
     
     # Get Telegram messaging tools for this team
     messaging_tools = get_messaging_tools(team_id)
@@ -259,7 +261,8 @@ def create_agents_for_team(llm, team_id: str):
         allow_delegation=True,  # This agent can delegate to other agents
         tools=[
             command_logging_tools,  # For logging all incoming messages
-            messaging_tools['message_tool']  # For asking clarifying questions
+            messaging_tools['message_tool'],  # For asking clarifying questions
+            learning_tools  # For learning from interactions
         ],
         llm=llm
     )
@@ -408,7 +411,29 @@ def create_agents_for_team(llm, team_id: str):
     )
     logger.info(f"Analytics Specialist agent created for team {team_id}")
 
-    logger.info(f"All 8 agents created successfully for team {team_id}")
+    # 9. Learning Agent (NEW - Learning and Optimization)
+    learning_agent = Agent(
+        role='Learning and Optimization Specialist',
+        goal='Learn from interactions, improve natural language understanding, and optimize agent performance',
+        backstory="""You are an advanced learning specialist who continuously improves the system's natural 
+        language processing capabilities. You analyze user interactions, learn from patterns, and optimize 
+        how the system understands and responds to requests. You work with the memory system to identify 
+        improvement opportunities and suggest optimizations for better user experience. You specialize in 
+        understanding user intent, improving response quality, and adapting to team-specific communication 
+        patterns. You collaborate with all other agents to ensure the system learns and improves over time.""",
+        verbose=True,
+        allow_delegation=True,  # Can delegate learning tasks to other agents
+        tools=[
+            command_logging_tools,  # For analyzing interaction patterns
+            messaging_tools['message_tool'],  # For asking clarifying questions
+            team_tools,  # For team-specific learning
+            player_tools,  # For player interaction patterns
+        ],
+        llm=llm
+    )
+    logger.info(f"Learning Agent created for team {team_id}")
+
+    logger.info(f"All 9 agents created successfully for team {team_id}")
     return (
         message_processor,      # Primary interface
         team_manager,           # Strategic coordination
@@ -417,7 +442,8 @@ def create_agents_for_team(llm, team_id: str):
         communication_specialist, # Broadcast management
         finance_manager,        # Financial management
         squad_selection_specialist, # Squad selection
-        analytics_specialist    # Performance analytics
+        analytics_specialist,   # Performance analytics
+        learning_agent          # Learning and optimization
     )
 
 
@@ -425,7 +451,7 @@ def create_crew_for_team(agents):
     """Create a CrewAI crew with the specified agents for a team."""
     logger.info("Creating CrewAI crew with refined architecture...")
     
-    message_processor, team_manager, player_coordinator, match_analyst, communication_specialist, finance_manager, squad_selection_specialist, analytics_specialist = agents
+    message_processor, team_manager, player_coordinator, match_analyst, communication_specialist, finance_manager, squad_selection_specialist, analytics_specialist, learning_agent = agents
     
     crew = Crew(
         agents=[
@@ -436,13 +462,14 @@ def create_crew_for_team(agents):
             communication_specialist, # Broadcast management
             finance_manager,        # Financial management
             squad_selection_specialist, # Squad selection
-            analytics_specialist    # Performance analytics
+            analytics_specialist,   # Performance analytics
+            learning_agent          # Learning and optimization
         ],
         verbose=True,
         memory=True
     )
     
-    logger.info("Crew created successfully with 8 agents")
+    logger.info("Crew created successfully with 9 agents")
     return crew
 
 """

@@ -771,7 +771,7 @@ class PlayerCommandHandler:
         self.player_handler = player_handler
         self.logger = get_logger("player_command_handler")
     
-    async def handle_command(self, command: str, user_id: str) -> str:
+    async def handle_command(self, command: str, user_id: str, is_leadership_chat: bool = False) -> str:
         """Handle player registration commands."""
         try:
             command = command.strip().lower()
@@ -801,7 +801,7 @@ class PlayerCommandHandler:
             elif command == '/dailystatus':
                 return await self._handle_daily_status()
             elif command == '/help':
-                return self._get_help_message()
+                return self._get_help_message(is_leadership_chat)
             elif command.startswith('/start'):
                 return await self._handle_start_command(command, user_id)
             else:
@@ -1176,9 +1176,10 @@ Welcome to the team! 🏆"""
             self.logger.error("Failed to handle start command", error=e, user_id=user_id)
             return f"❌ Error processing start command: {str(e)}"
 
-    def _get_help_message(self) -> str:
-        """Get help message with all available commands."""
-        return """🤖 <b>KICKAI Player Registration Bot</b>
+    def _get_help_message(self, is_leadership_chat: bool = False) -> str:
+        """Get help message with context-aware commands."""
+        if is_leadership_chat:
+            return """🤖 <b>KICKAI Player Registration Bot (Leadership)</b>
 
 📋 <b>Available Commands:</b>
 
@@ -1209,4 +1210,23 @@ Welcome to the team! 🏆"""
 • `/approve JS1`
 • `/reject JS1 Not available for matches`
 
-⚽ <b>Valid Positions:</b> goalkeeper, defender, midfielder, forward, utility""" 
+⚽ <b>Valid Positions:</b> goalkeeper, defender, midfielder, forward, utility"""
+        else:
+            return """🤖 <b>KICKAI Player Registration Bot</b>
+
+📋 <b>Available Commands:</b>
+
+👥 <b>Player Information:</b>
+• `/list` - List all players
+• `/myinfo` - Get your player information
+• `/status &lt;phone&gt;` - Get player status
+• `/stats` - Get team statistics
+
+❓ <b>Help:</b>
+• `/help` - Show this help message
+
+📝 <b>Examples:</b>
+• `/status 07123456789`
+• `/myinfo`
+
+💡 <b>Note:</b> Admin commands are only available in the leadership chat.""" 

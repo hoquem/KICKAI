@@ -50,13 +50,31 @@ logger = logging.getLogger(__name__)
 def get_bot_token():
     """Get bot token based on environment.
     
-    - Testing/Staging: Uses environment variables or local config files
+    - Local Development: Uses environment variables directly
     - Production: Uses Firestore database
     """
     try:
         logger.info("🔍 Starting bot token retrieval...")
         
-        # Validate required environment variables
+        # Check if we're in local development mode
+        environment = os.getenv("ENVIRONMENT", "development")
+        
+        if environment == "development":
+            # For local development, use environment variables directly
+            bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+            if not bot_token:
+                logger.error("❌ TELEGRAM_BOT_TOKEN not found in environment variables")
+                logger.error("💡 For local development, create a test bot with @BotFather and set TELEGRAM_BOT_TOKEN in your .env file")
+                return None
+            
+            logger.info("✅ Using bot token from environment variables (local development)")
+            logger.info(f"   Bot Token: {bot_token[:10]}...")
+            return bot_token
+        
+        # For production, use the existing Firestore-based configuration
+        logger.info("🔧 Using Firestore-based bot configuration (production)")
+        
+        # Validate required environment variables for production
         required_vars = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_BOT_USERNAME", "TELEGRAM_MAIN_CHAT_ID", "TELEGRAM_LEADERSHIP_CHAT_ID"]
         missing_vars = []
         
@@ -196,14 +214,17 @@ def main():
         print("\n🚀 Setting up LLM-based bot...")
         app = Application.builder().token(bot_token).build()
         
-        # Register agent-based commands
+        # Register unified message handler (replaces all complex routing)
         try:
-            from src.telegram.telegram_command_handler import register_langchain_agentic_handler
-            register_langchain_agentic_handler(app)
-            logger.info("✅ LangChain agentic handler registered")
+            from src.telegram.unified_message_handler import register_unified_handler
+            if team_id:
+                register_unified_handler(app, team_id)
+            else:
+                register_unified_handler(app)  # Use default team ID
+            logger.info("✅ Unified message handler registered")
         except Exception as e:
-            logger.error(f"❌ Failed to register agent-based commands: {e}")
-            print("❌ Failed to register agent-based commands. Registering fallback system error handler.")
+            logger.error(f"❌ Failed to register unified message handler: {e}")
+            print("❌ Failed to register unified message handler. Registering fallback system error handler.")
             from src.telegram.telegram_command_handler import fallback_system_error_handler
             from telegram.ext import MessageHandler, filters
             app.add_handler(MessageHandler(filters.ALL, fallback_system_error_handler))

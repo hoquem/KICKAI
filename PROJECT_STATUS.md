@@ -92,6 +92,8 @@ src/
 #### Telegram Integration
 - **src/telegram/telegram_command_handler.py**: ✅ **COMPLETE** - Command handling with LLM parsing
 - **src/telegram/player_registration_handler.py**: ✅ **COMPLETE** - Player onboarding system
+- **src/telegram/unified_command_system.py**: ✅ **COMPLETE** - Unified command architecture using design patterns
+- **src/telegram/unified_message_handler.py**: ✅ **COMPLETE** - Single entry point for all message processing
 
 #### Services Layer
 - **src/services/player_service.py**: ✅ **COMPLETE** - Player management service
@@ -175,6 +177,14 @@ src/
   - AI provider fallback mechanisms
   - Error handling enhancements
   - Performance optimization
+
+#### Architecture Migration
+- **Unified Command System**: ✅ **COMPLETE** - Migration from complex routing to clean architecture
+  - Command Pattern implementation
+  - Strategy Pattern for permissions
+  - Chain of Responsibility for processing
+  - Factory Pattern for command creation
+  - Facade Pattern for single entry point
 
 ### 📋 PLANNED FEATURES
 
@@ -281,4 +291,4 @@ src/
 
 ---
 
-**KICKAI v1.6.0** - AI-Powered Football Team Management System 
+**KICKAI v1.7.0** - AI-Powered Football Team Management System with Unified Command Architecture 

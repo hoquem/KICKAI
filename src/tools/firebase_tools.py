@@ -325,21 +325,79 @@ class PlayerTools(BaseTool):
         if not name or not phone_number:
             return "Error: Both 'name' and 'phone_number' are required to add a player."
         try:
+            # Clean up the name - remove common prefixes and extract just the actual name
+            clean_name = name.strip()
+            
+            # Remove common prefixes that might be included in natural language
+            prefixes_to_remove = [
+                "add a called", "add a", "add", "called", "player called", "new player called",
+                "add new player called", "add player called", "player named", "add player named"
+            ]
+            
+            # Convert to lowercase for comparison
+            clean_name_lower = clean_name.lower()
+            
+            for prefix in prefixes_to_remove:
+                if clean_name_lower.startswith(prefix.lower()):
+                    # Remove the prefix and clean up
+                    clean_name = clean_name[len(prefix):].strip()
+                    clean_name_lower = clean_name.lower()
+                    break
+            
+            # Remove any trailing text after the name (like "with phone" or "as a")
+            if " with " in clean_name:
+                clean_name = clean_name.split(" with ")[0].strip()
+            if " as " in clean_name:
+                clean_name = clean_name.split(" as ")[0].strip()
+            
+            # Additional cleanup: remove any remaining "called" at the beginning
+            if clean_name.lower().startswith("called "):
+                clean_name = clean_name[7:].strip()
+            
+            # Generate human-readable player ID
+            from ..utils.id_generator import generate_player_id
+            
+            # Split name into first and last name
+            name_parts = clean_name.split()
+            if len(name_parts) >= 2:
+                first_name = name_parts[0]
+                last_name = name_parts[-1]
+            else:
+                first_name = clean_name
+                last_name = ""
+            
+            # Get existing player IDs to avoid collisions
+            existing_ids = set()
+            try:
+                players_ref = db.collection('team_members')
+                query = players_ref.where('team_id', '==', self.team_id)
+                docs = query.stream()
+                existing_ids = {doc.to_dict().get('player_id', '') for doc in docs if doc.to_dict().get('player_id')}
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Could not load existing player IDs for collision detection: {e}")
+            
+            # Generate human-readable ID
+            player_id = generate_player_id(first_name, last_name, existing_ids)
+            
             player_data = {
-                'name': name,
+                'name': clean_name,
                 'phone_number': phone_number,
+                'player_id': player_id,  # Add the human-readable ID
                 'is_active': True,
                 'team_id': self.team_id,
                 'created_at': datetime_to_timestamp(None),
                 'updated_at': datetime_to_timestamp(None)
             }
             
-            doc_ref = db.collection('team_members').document()
+            # Use the human-readable ID as the document ID
+            doc_ref = db.collection('team_members').document(player_id)
             doc_ref.set(player_data)
             
-            return f"Successfully added player: {name} (ID: {doc_ref.id})."
+            return f"✅ <b>Player Added Successfully!</b>\n\n👤 <b>Name:</b> {clean_name}\n📱 <b>Phone:</b> {phone_number}\n🆔 <b>ID:</b> {player_id}\n\n🎉 Player has been added to the team database."
         except Exception as e:
-            return f"An exception occurred while adding a player: {e}"
+            return f"❌ <b>Error adding player:</b> {e}"
 
     def _get_all_players(self, db) -> str:
         try:
@@ -544,14 +602,36 @@ class FixtureTools(BaseTool):
             fixture_list = []
             for doc in docs:
                 data = doc.to_dict()
-                fixture_list.append(f"- ID: {doc.id}, {data.get('opponent')} on {data.get('match_date')} at {data.get('kickoff_time')} ({data.get('status')})")
+                # Format the date nicely
+                match_date = data.get('match_date', 'Unknown')
+                kickoff_time = data.get('kickoff_time', 'Unknown')
+                venue = data.get('venue', 'Unknown')
+                competition = data.get('competition', 'League')
+                
+                # Format time from HH:MM to readable format
+                try:
+                    if ':' in kickoff_time:
+                        hour, minute = kickoff_time.split(':')
+                        hour = int(hour)
+                        if hour < 12:
+                            time_str = f"{hour}:{minute}am"
+                        elif hour == 12:
+                            time_str = f"{hour}:{minute}pm"
+                        else:
+                            time_str = f"{hour-12}:{minute}pm"
+                    else:
+                        time_str = kickoff_time
+                except:
+                    time_str = kickoff_time
+                
+                fixture_list.append(f"🏆 **{data.get('opponent', 'Unknown')}**\n📅 {match_date} at {time_str}\n📍 {venue} ({competition})")
             
             if fixture_list:
-                return f"All Fixtures:\n" + "\n".join(fixture_list)
+                return f"📋 **Upcoming Matches:**\n\n" + "\n\n".join(fixture_list)
             else:
-                return "No fixtures found."
+                return "📝 **No matches scheduled yet.**\n\n💡 Try creating a match with: 'Create a match against Arsenal on July 1st at 2pm'"
         except Exception as e:
-            return f"An exception occurred while fetching fixtures: {e}"
+            return f"❌ Error fetching matches: {e}"
 
     def _get_fixture(self, db, fixture_id: str) -> str:
         if not fixture_id:
