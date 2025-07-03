@@ -1349,6 +1349,9 @@ def register_langchain_agentic_handler(app):
 
     # Register the handler for all text messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, langchain_agentic_message_handler))
+    
+    # Also register for slash commands to handle /help, /status, etc.
+    app.add_handler(MessageHandler(filters.COMMAND, langchain_agentic_message_handler))
 
 # --- New Player Registration Handler Integration ---
 from src.telegram.player_registration_handler import PlayerRegistrationHandler, PlayerCommandHandler
