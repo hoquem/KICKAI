@@ -2,182 +2,90 @@ name: Deploy to Railway
 
 on:
   push:
-    branches: [main, staging, testing]
-  pull_request:
     branches: [main]
-
-env:
-  PYTHON_VERSION: '3.11'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'testing'
+        type: choice
+        options:
+        - testing
+        - staging
+        - production
 
 jobs:
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Cache pip dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-local.txt
-          pip install pytest pytest-cov pytest-mock
-
-      - name: Run tests with coverage
-        run: |
-          pytest tests/ --cov=src --cov-report=xml --cov-report=term-missing
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
-
-  lint:
-    name: Code Quality Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install linting tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install flake8 mypy
-
-      - name: Run flake8
-        run: flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
-
-      - name: Run mypy
-        run: mypy src/ --ignore-missing-imports
-
   deploy-testing:
-    name: Deploy to Testing
-    needs: [test, lint]
-    if: github.ref == 'refs/heads/testing'
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'testing'))
     environment: testing
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to Railway Testing
-        uses: railway/deploy@v1
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          service: kickai-testing
-          token: ${{ secrets.RAILWAY_TOKEN_TESTING }}
+          python-version: '3.11'
 
-      - name: Wait for deployment
-        run: sleep 30
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
 
-      - name: Health check
+      - name: Deploy to Testing
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          curl -f ${{ secrets.TESTING_HEALTH_URL }}/health || exit 1
+          railway login --token $RAILWAY_TOKEN
+          railway link --project kickai-testing
+          railway up --environment testing
 
   deploy-staging:
-    name: Deploy to Staging
-    needs: [test, lint]
-    if: github.ref == 'refs/heads/staging'
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging'
     environment: staging
+    needs: deploy-testing
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to Railway Staging
-        uses: railway/deploy@v1
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          service: kickai-staging
-          token: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+          python-version: '3.11'
 
-      - name: Wait for deployment
-        run: sleep 30
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
 
-      - name: Health check
+      - name: Deploy to Staging
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          curl -f ${{ secrets.STAGING_HEALTH_URL }}/health || exit 1
+          railway login --token $RAILWAY_TOKEN
+          railway link --project kickai-staging
+          railway up --environment staging
 
   deploy-production:
-    name: Deploy to Production
-    needs: [test, lint]
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
     environment: production
+    needs: deploy-staging
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to Railway Production
-        uses: railway/deploy@v1
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          service: kickai-production
-          token: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
+          python-version: '3.11'
 
-      - name: Wait for deployment
-        run: sleep 30
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
 
-      - name: Health check
+      - name: Deploy to Production
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          curl -f ${{ secrets.PRODUCTION_HEALTH_URL }}/health || exit 1
-
-      - name: Notify deployment success
-        if: success()
-        run: |
-          echo "✅ Production deployment successful!"
-          echo "Environment: ${{ github.ref_name }}"
-          echo "Commit: ${{ github.sha }}"
-
-  rollback:
-    name: Rollback on Failure
-    needs: [deploy-testing, deploy-staging, deploy-production]
-    if: failure()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Determine failed environment
-        id: failed-env
-        run: |
-          if [ "${{ needs.deploy-testing.result }}" == "failure" ]; then
-            echo "env=testing" >> $GITHUB_OUTPUT
-            echo "token=${{ secrets.RAILWAY_TOKEN_TESTING }}" >> $GITHUB_OUTPUT
-          elif [ "${{ needs.deploy-staging.result }}" == "failure" ]; then
-            echo "env=staging" >> $GITHUB_OUTPUT
-            echo "token=${{ secrets.RAILWAY_TOKEN_STAGING }}" >> $GITHUB_OUTPUT
-          elif [ "${{ needs.deploy-production.result }}" == "failure" ]; then
-            echo "env=production" >> $GITHUB_OUTPUT
-            echo "token=${{ secrets.RAILWAY_TOKEN_PRODUCTION }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Rollback deployment
-        if: steps.failed-env.outputs.env != ''
-        run: |
-          echo "🔄 Rolling back ${{ steps.failed-env.outputs.env }} environment..."
-          # Add rollback logic here
-          echo "Rollback completed for ${{ steps.failed-env.outputs.env }}"
-
-      - name: Notify rollback
-        if: steps.failed-env.outputs.env != ''
-        run: |
-          echo "❌ Deployment failed for ${{ steps.failed-env.outputs.env }} environment"
-          echo "🔄 Rollback initiated" 
+          railway login --token $RAILWAY_TOKEN
+          railway link --project kickai-production
+          railway up --environment production 

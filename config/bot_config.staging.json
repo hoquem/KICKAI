@@ -1,32 +1,16 @@
 {
   "environment": "staging",
   "teams": {
-    "staging-team": {
-      "name": "kickai-staging",
-      "description": "Staging environment for KICKAI",
-      "bots": {
-        "main": {
-          "token": "YOUR_STAGING_BOT_TOKEN_HERE",
-          "username": "kickai_staging_bot",
-          "chat_id": "-1001234567890",
-          "is_active": true
-        },
-        "leadership": {
-          "token": "YOUR_STAGING_LEADERSHIP_BOT_TOKEN_HERE",
-          "username": "kickai_staging_leadership_bot",
-          "chat_id": "-1001234567890",
-          "is_active": true
-        }
-      },
-      "settings": {
-        "ai_provider": "google_gemini",
-        "ai_model": "gemini-pro",
-        "max_members": 100,
-        "allow_public_join": false
-      }
+    "staging-team-id": {
+      "name": "KICKAI Staging Team",
+      "bot_token": "STAGING_BOT_TOKEN",
+      "username": "kickai_staging_bot",
+      "main_chat_id": "-1001234567892",
+      "leadership_chat_id": "-1001234567893",
+      "webhook_url": "https://staging-kickai.railway.app/webhook"
     }
   },
-  "default_team": "staging-team",
+  "default_team": "staging-team-id",
   "firebase_config": {
     "project_id": "kickai-staging",
     "credentials_path": null

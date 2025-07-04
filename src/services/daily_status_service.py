@@ -10,28 +10,13 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from dataclasses import dataclass
+import logging
 
-from src.core.logging import get_logger, performance_timer
 from src.services.player_service import PlayerService
 from src.services.team_service import TeamService
 from src.services.team_member_service import TeamMemberService
 from src.services.fa_registration_checker import run_fa_registration_check, run_fa_fixtures_check
 from src.database.models import Player, PlayerRole, PlayerPosition, OnboardingStatus
-
-logger = get_logger("daily_status_service")
-
-@dataclass
-class TeamStats:
-    """Team statistics for daily status report."""
-    total_players: int
-    active_players: int
-    pending_approval: int
-    fa_registered: int
-    fa_eligible: int
-    positions: Dict[str, int]
-    recent_additions: List[Player]
-    fa_updates: Dict[str, bool]
-    fixtures: List[Dict]
 
 class DailyStatusService:
     """Service to generate and send daily team status reports."""
@@ -46,8 +31,7 @@ class DailyStatusService:
         self.team_member_service = team_member_service
         self.bot_token = bot_token
         
-    @performance_timer("daily_status_generate_stats")
-    async def generate_team_stats(self, team_id: str) -> TeamStats:
+    async def generate_team_stats(self, team_id: str) -> Dict:
         """
         Generate comprehensive team statistics.
         
@@ -88,24 +72,33 @@ class DailyStatusService:
             # Get recent fixtures
             fixtures = await run_fa_fixtures_check(self.player_service)
             
-            return TeamStats(
-                total_players=total_players,
-                active_players=active_players,
-                pending_approval=pending_approval,
-                fa_registered=fa_registered,
-                fa_eligible=fa_eligible,
-                positions=positions,
-                recent_additions=recent_additions,
-                fa_updates=fa_updates,
-                fixtures=fixtures
-            )
+            return {
+                "total_players": total_players,
+                "active_players": active_players,
+                "pending_approval": pending_approval,
+                "fa_registered": fa_registered,
+                "fa_eligible": fa_eligible,
+                "positions": positions,
+                "recent_additions": recent_additions,
+                "fa_updates": fa_updates,
+                "fixtures": fixtures
+            }
             
         except Exception as e:
-            logger.error(f"❌ Error generating team stats: {e}")
-            return TeamStats(0, 0, 0, 0, 0, {}, [], {}, [])
+            logging.error(f"❌ Error generating team stats: {e}")
+            return {
+                "total_players": 0,
+                "active_players": 0,
+                "pending_approval": 0,
+                "fa_registered": 0,
+                "fa_eligible": 0,
+                "positions": {},
+                "recent_additions": [],
+                "fa_updates": {},
+                "fixtures": []
+            }
     
-    @performance_timer("daily_status_format_message")
-    def format_daily_status_message(self, team_stats: TeamStats, team_name: str = "BP Hatters FC") -> str:
+    def format_daily_status_message(self, team_stats: Dict, team_name: str = "BP Hatters FC") -> str:
         """
         Format the daily status message with HTML formatting.
         
@@ -123,32 +116,32 @@ class DailyStatusService:
 🏆 <b>Team:</b> {team_name}
 
 👥 <b>Player Statistics:</b>
-• Total Players: {team_stats.total_players}
-• Active Players: {team_stats.active_players}
-• Pending Approval: {team_stats.pending_approval}
-• FA Registered: {team_stats.fa_registered}
-• FA Eligible: {team_stats.fa_eligible}
+• Total Players: {team_stats["total_players"]}
+• Active Players: {team_stats["active_players"]}
+• Pending Approval: {team_stats["pending_approval"]}
+• FA Registered: {team_stats["fa_registered"]}
+• FA Eligible: {team_stats["fa_eligible"]}
 
 ⚽ <b>Position Breakdown:</b>"""
         
-        for position, count in team_stats.positions.items():
+        for position, count in team_stats["positions"].items():
             message += f"\n• {position.title()}: {count}"
         
-        if team_stats.recent_additions:
+        if team_stats["recent_additions"]:
             message += f"\n\n🆕 <b>Recent Additions (Last 7 Days):</b>"
-            for player in team_stats.recent_additions[:5]:  # Show max 5
+            for player in team_stats["recent_additions"][:5]:  # Show max 5
                 message += f"\n• {player.name.upper()} ({player.player_id})"
         
-        if team_stats.fa_updates:
+        if team_stats["fa_updates"]:
             message += f"\n\n✅ <b>New FA Registrations:</b>"
-            for player_id, registered in team_stats.fa_updates.items():
+            for player_id, registered in team_stats["fa_updates"].items():
                 if registered:
                     # Get player name from ID (simplified)
                     message += f"\n• Player {player_id} is now FA registered!"
         
-        if team_stats.fixtures:
+        if team_stats["fixtures"]:
             message += f"\n\n📅 <b>Recent Fixtures/Results:</b>"
-            for fixture in team_stats.fixtures[:3]:  # Show max 3
+            for fixture in team_stats["fixtures"][:3]:  # Show max 3
                 message += f"\n• {fixture['text'][:100]}..."  # Truncate long text
         
         message += f"""
@@ -159,7 +152,7 @@ class DailyStatusService:
 • Bot: ✅ Online
 
 💡 <b>Next Actions:</b>
-• Review pending approvals: {team_stats.pending_approval} players
+• Review pending approvals: {team_stats["pending_approval"]} players
 • Monitor FA registration progress
 • Check upcoming fixtures
 
@@ -168,7 +161,6 @@ class DailyStatusService:
         
         return message
     
-    @performance_timer("daily_status_send_report")
     async def send_daily_status_report(self, team_id: str, leadership_chat_id: str) -> bool:
         """
         Generate and send daily status report to leadership chat.
@@ -181,7 +173,7 @@ class DailyStatusService:
             True if successful, False otherwise
         """
         try:
-            logger.info(f"📊 Generating daily status report for team {team_id}")
+            logging.info(f"📊 Generating daily status report for team {team_id}")
             
             # Get team info
             team = await self.team_service.get_team(team_id)
@@ -195,11 +187,15 @@ class DailyStatusService:
             
             # Send to leadership chat using requests
             import requests
+            from src.tools.telegram_tools import format_message_for_telegram
+            
+            # Format message for Telegram HTML
+            formatted_message = format_message_for_telegram(message)
             
             url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
             data = {
                 "chat_id": leadership_chat_id,
-                "text": message,
+                "text": formatted_message,
                 "parse_mode": "HTML"
             }
             
@@ -207,21 +203,20 @@ class DailyStatusService:
                 response = requests.post(url, json=data, timeout=10)
                 success = response.status_code == 200
             except Exception as e:
-                logger.error(f"❌ Error sending Telegram message: {e}")
+                logging.error(f"❌ Error sending Telegram message: {e}")
                 success = False
             
             if success:
-                logger.info(f"✅ Daily status report sent to leadership chat {leadership_chat_id}")
+                logging.info(f"✅ Daily status report sent to leadership chat {leadership_chat_id}")
             else:
-                logger.error(f"❌ Failed to send daily status report to leadership chat")
+                logging.error(f"❌ Failed to send daily status report to leadership chat")
                 
             return success
             
         except Exception as e:
-            logger.error(f"❌ Error sending daily status report: {e}")
+            logging.error(f"❌ Error sending daily status report: {e}")
             return False
     
-    @performance_timer("daily_status_schedule_task")
     async def schedule_daily_status_task(self, team_id: str, leadership_chat_id: str) -> None:
         """
         Schedule the daily status report task to run every day at 9:00 AM.
@@ -242,8 +237,8 @@ class DailyStatusService:
                 # Calculate sleep time
                 sleep_seconds = (next_run - now).total_seconds()
                 
-                logger.info(f"⏰ Daily status report scheduled for {next_run.strftime('%Y-%m-%d %H:%M:%S')}")
-                logger.info(f"💤 Sleeping for {sleep_seconds/3600:.1f} hours until next report")
+                logging.info(f"⏰ Daily status report scheduled for {next_run.strftime('%Y-%m-%d %H:%M:%S')}")
+                logging.info(f"💤 Sleeping for {sleep_seconds/3600:.1f} hours until next report")
                 
                 # Sleep until next run time
                 await asyncio.sleep(sleep_seconds)
@@ -252,7 +247,7 @@ class DailyStatusService:
                 await self.send_daily_status_report(team_id, leadership_chat_id)
                 
             except Exception as e:
-                logger.error(f"❌ Error in daily status task: {e}")
+                logging.error(f"❌ Error in daily status task: {e}")
                 # Wait 1 hour before retrying
                 await asyncio.sleep(3600)
 

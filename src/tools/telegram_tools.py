@@ -13,6 +13,7 @@ from typing import List, Dict, Optional, Any, Tuple
 from langchain.tools import BaseTool
 import json
 from datetime import datetime
+import re
 
 from ..core.bot_config_manager import get_bot_config_manager, ChatType
 from ..database.firebase_client import get_firebase_client
@@ -208,41 +209,33 @@ def is_user_member(team_id: str, user_id: str) -> bool:
     return role in ['admin', 'owner', 'manager', 'member']
 
 
-def escape_markdown(text: str) -> str:
-    """Escape text for Telegram MarkdownV2 format.
+def format_message_for_telegram(message: str) -> str:
+    """Format a message for Telegram with proper HTML escaping (only supported tags)."""
+    # Define supported HTML tags
+    supported_tags = ['b', 'strong', 'i', 'em', 'u', 'ins', 's', 'strike', 'del', 
+                     'span', 'tg-spoiler', 'a', 'code', 'pre']
     
-    Args:
-        text (str): Text to escape
-        
-    Returns:
-        str: Escaped text
-    """
-    # Characters that need to be escaped in MarkdownV2
-    escape_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    # Create a pattern to match supported HTML tags
+    tag_pattern = r'</?(?:' + '|'.join(supported_tags) + r')(?:\s+[^>]*)?>'
     
-    for char in escape_chars:
-        text = text.replace(char, f'\\{char}')
+    # Find all HTML tags in the message
+    tags = re.findall(tag_pattern, message, re.IGNORECASE)
     
-    return text
-
-
-def format_message_for_telegram(message: str, parse_mode: str = "MarkdownV2") -> str:
-    """Format a message for Telegram with proper escaping.
+    # Temporarily replace HTML tags with placeholders
+    tag_placeholders = {}
+    for i, tag in enumerate(tags):
+        placeholder = f"__HTML_TAG_{i}__"
+        tag_placeholders[placeholder] = tag
+        message = message.replace(tag, placeholder, 1)
     
-    Args:
-        message (str): The message to format
-        parse_mode (str): Telegram parse mode ('MarkdownV2', 'HTML', 'Markdown')
-        
-    Returns:
-        str: Formatted message
-    """
-    if parse_mode == "MarkdownV2":
-        return escape_markdown(message)
-    elif parse_mode == "HTML":
-        # Basic HTML escaping
-        return message.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-    else:
-        return message
+    # Escape remaining angle brackets (not part of HTML tags)
+    message = message.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    
+    # Restore HTML tags
+    for placeholder, tag in tag_placeholders.items():
+        message = message.replace(placeholder, tag)
+    
+    return message
 
 
 def get_team_info(team_id: str) -> Optional[Dict[str, Any]]:
@@ -440,7 +433,7 @@ class SendTelegramMessageTool(BaseTool):
             data = {
                 'chat_id': chat_id,
                 'text': message,
-                'parse_mode': 'Markdown'  # Support markdown formatting
+                'parse_mode': 'HTML'
             }
             
             response = requests.post(url, data=data)
@@ -629,7 +622,7 @@ class SendSquadAnnouncementTool(BaseTool):
             data = {
                 'chat_id': chat_id,
                 'text': message,
-                'parse_mode': 'Markdown'
+                'parse_mode': 'HTML'
             }
             
             response = requests.post(url, data=data)
@@ -692,7 +685,7 @@ class SendPaymentReminderTool(BaseTool):
             data = {
                 'chat_id': chat_id,
                 'text': message,
-                'parse_mode': 'Markdown'
+                'parse_mode': 'HTML'
             }
             
             response = requests.post(url, data=data)
@@ -752,7 +745,7 @@ class SendLeadershipMessageTool(BaseTool):
             data = {
                 'chat_id': chat_id,
                 'text': message,
-                'parse_mode': 'Markdown'  # Support markdown formatting
+                'parse_mode': 'HTML'
             }
             
             response = requests.post(url, data=data)

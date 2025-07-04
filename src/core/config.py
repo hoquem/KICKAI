@@ -26,8 +26,9 @@ except ImportError:
 class Environment(Enum):
     """Environment types."""
     DEVELOPMENT = "development"
-    PRODUCTION = "production"
     TESTING = "testing"
+    STAGING = "staging"
+    PRODUCTION = "production"
 
 
 class AIProvider(Enum):
@@ -152,7 +153,7 @@ class ConfigurationManager:
                 return Environment.TESTING
             elif "staging" in railway_service or "stage" in railway_service:
                 logging.info(f"Railway staging environment detected: {railway_service}")
-                return Environment.DEVELOPMENT  # Treat staging as development for config purposes
+                return Environment.STAGING
             elif "production" in railway_service or "prod" in railway_service:
                 logging.info(f"Railway production environment detected: {railway_service}")
                 return Environment.PRODUCTION
@@ -497,8 +498,12 @@ class ConfigurationManager:
         return self._environment == Environment.PRODUCTION
     
     def is_testing(self) -> bool:
-        """Check if running in testing environment."""
+        """Check if current environment is testing."""
         return self._environment == Environment.TESTING
+    
+    def is_staging(self) -> bool:
+        """Check if current environment is staging."""
+        return self._environment == Environment.STAGING
 
 
 class ConfigurationError(Exception):

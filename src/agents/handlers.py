@@ -42,7 +42,7 @@ except ImportError:
     OLLAMA_AVAILABLE = False
 
 # Import our tools
-from src.tools.firebase_tools import PlayerTools, TeamTools, FixtureTools, CommandLoggingTools, BotTools
+from src.tools.firebase_tools import TeamTools, FixtureTools, CommandLoggingTools, BotTools
 from src.tools.telegram_tools import (
     SendTelegramMessageTool,
     SendTelegramPollTool,
@@ -232,7 +232,6 @@ class SimpleAgenticHandler:
             tools = []
             if self.team_id:
                 tools = [
-                    PlayerTools(self.team_id),
                     TeamTools(self.team_id),
                     FixtureTools(self.team_id),
                     CommandLoggingTools(self.team_id),
@@ -434,13 +433,106 @@ class SimpleAgenticHandler:
         # Note: Access control for natural language messages is handled by the unified command system
         # This agentic handler only processes natural language, not slash commands
         
-        # Check for onboarding responses (from players)
+        # PRIORITY 1: Check if player is in onboarding - if so, route ALL messages to onboarding handler
+        if user_role != 'admin':
+            try:
+                logger.info(f"[ROUTING DEBUG] Checking onboarding status for user {user_id} (role: {user_role})")
+                from src.services.player_service import get_player_service
+                player_service = get_player_service()
+                
+                # Find player by Telegram ID
+                players = await player_service.get_team_players(self.team_id)
+                logger.info(f"[ROUTING DEBUG] Found {len(players) if players else 0} players for team {self.team_id}")
+                player = None
+                if players:
+                    for p in players:
+                        logger.info(f"[ROUTING DEBUG] Checking player {p.name} (telegram_id: {p.telegram_id}) against user_id: {user_id}")
+                        if p.telegram_id == user_id:
+                            player = p
+                            logger.info(f"[ROUTING DEBUG] Found matching player: {player.name} with onboarding_status: {player.onboarding_status}")
+                            break
+                
+                if not player:
+                    logger.info(f"[ROUTING DEBUG] No player found for user_id: {user_id}")
+                
+                # If player is in onboarding, route to improved onboarding handler
+                if player and player.onboarding_status in ['PENDING', 'IN_PROGRESS']:
+                    logger.info(f"[ROUTING DEBUG] Player {player.name} is in onboarding ({player.onboarding_status}), routing to improved onboarding handler")
+                    
+                    # Use improved onboarding workflow
+                    try:
+                        from src.telegram.onboarding_handler_improved import get_improved_onboarding_workflow
+                        improved_workflow = get_improved_onboarding_workflow(self.team_id)
+                        success, response = await improved_workflow.process_response(user_id, message)
+                        if success:
+                            logger.info(f"[ROUTING DEBUG] Improved onboarding response successful")
+                            return response
+                        else:
+                            logger.info(f"Improved onboarding response failed: {response}")
+                    except Exception as e:
+                        logger.error(f"Error processing improved onboarding response: {e}")
+                    
+                    # Fallback to old onboarding handler if improved workflow fails
+                    if ONBOARDING_HANDLER_AVAILABLE:
+                        try:
+                            logger.info(f"[ROUTING DEBUG] Falling back to old onboarding handler")
+                            onboarding_workflow = get_onboarding_workflow(self.team_id)
+                            success, response = await onboarding_workflow.process_response(user_id, message)
+                            if success:
+                                logger.info(f"[ROUTING DEBUG] Old onboarding response successful")
+                                return response
+                            else:
+                                logger.info(f"Old onboarding response failed: {response}")
+                        except Exception as e:
+                            logger.error(f"Error processing old onboarding response: {e}")
+                    
+                    # If both onboarding handlers fail, give helpful message
+                    return "❌ I'm having trouble processing your onboarding response. Please try again or contact an admin for help."
+                else:
+                    if player:
+                        logger.info(f"[ROUTING DEBUG] Player {player.name} is not in onboarding (status: {player.onboarding_status}), continuing with normal routing")
+                    else:
+                        logger.info(f"[ROUTING DEBUG] No player found, continuing with normal routing")
+                    
+            except Exception as e:
+                logger.error(f"Error checking player onboarding status: {e}")
+                # Continue with normal processing if we can't check onboarding status
+        
+        # PRIORITY 2: Handle natural language updates for completed players
+        if user_role != 'admin':
+            try:
+                from src.services.player_service import get_player_service
+                player_service = get_player_service()
+                
+                # Find player by Telegram ID
+                players = await player_service.get_team_players(self.team_id)
+                player = None
+                if players:
+                    for p in players:
+                        if p.telegram_id == user_id:
+                            player = p
+                            break
+                
+                # If player is completed and trying to update their info
+                if player and player.onboarding_status == 'COMPLETED':
+                    update_keywords = ['update', 'change', 'my', 'phone', 'emergency', 'contact', 'date', 'birth', 'dob', 'position']
+                    if any(keyword in message_lower for keyword in update_keywords):
+                        logger.info(f"[ROUTING DEBUG] Completed player {player.name} requesting update, routing to player update handler")
+                        
+                        # Route to player update handler
+                        if self.player_command_handler:
+                            return await self.player_command_handler.handle_natural_language_update(user_id, message)
+                        
+            except Exception as e:
+                logger.error(f"Error handling player update: {e}")
+        
+        # Check for onboarding responses (from players) - LEGACY CODE, now handled above
         if self.onboarding_agent and user_role != 'admin':
             onboarding_keywords = ['confirm', 'update', 'help', 'emergency', 'dob', 'position', 'name', 'phone', 'complete', 'done', 'no']
             if any(keyword in message_lower for keyword in onboarding_keywords):
                 pass
         
-        # Check for onboarding responses using new onboarding handler
+        # Check for onboarding responses using new onboarding handler - LEGACY CODE, now handled above
         if ONBOARDING_HANDLER_AVAILABLE and user_role != 'admin':
             onboarding_keywords = ['yes', 'no', 'confirm', 'update', 'help', 'emergency', 'dob', 'position', 'name', 'phone', 'complete', 'done', 'skip', 'ready']
             if any(keyword in message_lower for keyword in onboarding_keywords):
@@ -459,25 +551,16 @@ class SimpleAgenticHandler:
         # Player Registration System commands (Phase 1) - natural language
         if self.player_command_handler:
             logger.info(f"[ROUTING DEBUG] Checking player command patterns in: {message_lower}")
-            if any(word in message_lower for word in ['add player', 'remove player', 'list players', 'player status', 'player stats']):
+            # Check for multi-word patterns first
+            if any(pattern in message_lower for pattern in ['add player', 'remove player', 'list players', 'player status', 'player stats']):
                 logger.info(f"[ROUTING DEBUG] Routing to player_command_handler: {message_lower}")
+                return await self.player_command_handler.handle_command(message_lower, user_id)
+            # Check for individual words that might be part of player commands
+            elif any(word in message_lower for word in ['list', 'players']) and 'player' in message_lower:
+                logger.info(f"[ROUTING DEBUG] Routing to player_command_handler (word-based): {message_lower}")
                 return await self.player_command_handler.handle_command(message_lower, user_id)
             else:
                 logger.info(f"[ROUTING DEBUG] No player command pattern matched")
-        
-        # Legacy player management (fallback) - now with access control
-        logger.info(f"[ROUTING DEBUG] Checking legacy player patterns in: {message_lower}")
-        # Improved pattern matching for player addition
-        if any(word in message_lower for word in ['add player', 'new player', 'create player']) or ('add' in message_lower and 'player' in message_lower):
-            logger.info(f"[ROUTING DEBUG] Routing to _handle_add_player: {message_lower}")
-            return self._handle_add_player(message)
-        elif any(word in message_lower for word in ['list players', 'show players', 'all players']):
-            # Read-only command - allowed in all chats
-            player_tool = PlayerTools(self.team_id)
-            return player_tool._run('get_all_players')
-        elif any(word in message_lower for word in ['player', 'players']) and 'phone' in message_lower:
-            # Read-only command - allowed in all chats
-            return self._handle_get_player(message)
         
         # Fixture management - with access control
         logger.info(f"[ROUTING DEBUG] Checking fixture patterns in: {message_lower}")
@@ -514,7 +597,16 @@ class SimpleAgenticHandler:
         
         # Messaging
         elif any(word in message_lower for word in ['send message', 'notify team', 'announce']):
-            return self._handle_send_message(message)
+            # Use unified command system for messaging
+            from src.telegram.unified_command_system import process_command
+            result = await process_command(
+                command_name="/broadcast",
+                user_id=user_id,
+                chat_id=chat_id,
+                team_id=self.team_id,
+                message_text=message
+            )
+            return result.message if result.success else result.message
         
         # Help and status
         elif any(word in message_lower for word in ['help', 'what can you do']):
@@ -527,315 +619,6 @@ class SimpleAgenticHandler:
             logger.info(f"[ROUTING DEBUG] Command fell through to LLM handler: {message}")
             return self._use_llm_for_understanding(message)
     
-    def _handle_add_player(self, message: str) -> str:
-        """Handle adding a new player using LLM for intelligent parsing."""
-        if not self.player_command_handler:
-            return "Player command handler not available."
-        try:
-            # Use LLM to intelligently parse the natural language
-            parsing_prompt = f"""
-            Extract player information from this message: "{message}"
-            
-            Return ONLY a JSON object with these fields:
-            - name: The player's full name (clean, no extra words)
-            - phone: The phone number (UK format: 07XXXXXXXXX or +447XXXXXXXXX)
-            
-            Examples:
-            Input: "Add a new player called John Smith with phone 07123456789 as a midfielder"
-            Output: {{"name": "John Smith", "phone": "07123456789"}}
-            
-            Input: "Create player Jane Doe, contact 07123456789"
-            Output: {{"name": "Jane Doe", "phone": "07123456789"}}
-            
-            Input: "Add John Smith 07123456789"
-            Output: {{"name": "John Smith", "phone": "07123456789"}}
-            
-            Return ONLY the JSON, nothing else.
-            """
-            
-            # Get LLM response
-            llm_response = self._use_llm_for_understanding(parsing_prompt)
-            
-            # Parse JSON response
-            import json
-            import re
-            
-            # Try to extract JSON from response
-            json_match = re.search(r'\{.*\}', llm_response, re.DOTALL)
-            if json_match:
-                try:
-                    parsed_data = json.loads(json_match.group(0))
-                    name = parsed_data.get('name', '').strip()
-                    phone = parsed_data.get('phone', '').strip()
-                    
-                    if not name or not phone:
-                        return "❌ Could not extract player name or phone number. Please try: 'Add player John Smith with phone 07123456789'"
-                    
-                    # Validate phone number format
-                    phone_pattern = r'^(\+44|0)[1-9]\d{8,9}$'
-                    if not re.match(phone_pattern, phone):
-                        return "❌ Invalid phone number format. Please use UK format: 07123456789 or +447123456789"
-                    
-                    player_tool = PlayerTools(self.team_id)
-                    return player_tool._run('add_player', name=name, phone_number=phone)
-                    
-                except json.JSONDecodeError:
-                    pass
-            
-            # Fallback to regex if LLM parsing fails
-            return self._fallback_add_player_parsing(message)
-            
-        except Exception as e:
-            return f"❌ Error adding player: {str(e)}"
-    
-    def _fallback_add_player_parsing(self, message: str) -> str:
-        """Fallback regex-based parsing if LLM parsing fails."""
-        try:
-            # Simple regex-based extraction as fallback
-            import re
-            
-            # Extract phone number
-            phone_pattern = r'(\+44|0)[1-9]\d{8,9}'
-            phone_match = re.search(phone_pattern, message)
-            if not phone_match:
-                return "❌ Please provide a valid UK phone number (e.g., 07123456789, +447123456789)"
-            
-            phone = phone_match.group(0)
-            
-            # Extract name - remove phone and common words
-            name_part = message.replace(phone, '').strip()
-            name_part = re.sub(r'\b(add|new|player|called|with|phone|as|a|an)\b', '', name_part, flags=re.IGNORECASE)
-            name = re.sub(r'\s+', ' ', name_part).strip()
-            
-            if not name:
-                return "❌ Could not extract player name. Please try: 'Add player John Smith with phone 07123456789'"
-            
-            player_tool = PlayerTools(self.team_id)
-            return player_tool._run('add_player', name=name, phone_number=phone)
-            
-        except Exception as e:
-            return f"❌ Error in fallback parsing: {str(e)}"
-    
-    def _handle_get_player(self, message: str) -> str:
-        """Handle getting player information."""
-        if not self.player_command_handler:
-            return "Player command handler not available."
-        try:
-            # Extract phone number from message
-            if 'phone' in message.lower():
-                phone_part = message.split('phone')[1].strip()
-                phone = phone_part.strip()
-                
-                player_tool = PlayerTools(self.team_id)
-                return player_tool._run('get_player', phone_number=phone)
-            else:
-                return "Please provide a phone number to search for a player."
-        except Exception as e:
-            return f"Error getting player: {str(e)}"
-    
-    def _handle_add_fixture(self, message: str) -> str:
-        """Handle adding a new fixture using LLM for intelligent parsing."""
-        try:
-            # Use LLM to intelligently parse the natural language
-            parsing_prompt = f"""
-            Extract match information from this message: "{message}"
-            
-            Return ONLY a JSON object with these fields:
-            - opponent: The opponent team name (clean, no extra words)
-            - date: The match date in YYYY-MM-DD format
-            - time: The kickoff time in HH:MM format (24-hour)
-            - venue: "Home" or "Away" or specific venue name
-            - competition: "League", "Cup", "Friendly", or specific competition name
-            - notes: Any additional notes (optional)
-            
-            Examples:
-            Input: "Create a match against Arsenal on July 1st at 2pm"
-            Output: {{"opponent": "Arsenal", "date": "2024-07-01", "time": "14:00", "venue": "Home", "competition": "League", "notes": ""}}
-            
-            Input: "Schedule match vs Chelsea on 15th December at 3pm away"
-            Output: {{"opponent": "Chelsea", "date": "2024-12-15", "time": "15:00", "venue": "Away", "competition": "League", "notes": ""}}
-            
-            Input: "Add fixture against Manchester United on 20th Jan at 7:30pm for Cup"
-            Output: {{"opponent": "Manchester United", "date": "2024-01-20", "time": "19:30", "venue": "Home", "competition": "Cup", "notes": ""}}
-            
-            For dates, use current year if not specified. For times, convert to 24-hour format.
-            Return ONLY the JSON, nothing else.
-            """
-            
-            # Get LLM response
-            llm_response = self._use_llm_for_understanding(parsing_prompt)
-            
-            # Parse JSON response
-            import json
-            import re
-            from datetime import datetime
-            
-            # Try to extract JSON from response
-            json_match = re.search(r'\{.*\}', llm_response, re.DOTALL)
-            if json_match:
-                try:
-                    parsed_data = json.loads(json_match.group(0))
-                    opponent = parsed_data.get('opponent', '').strip()
-                    date = parsed_data.get('date', '').strip()
-                    time = parsed_data.get('time', '').strip()
-                    venue = parsed_data.get('venue', 'Home').strip()
-                    competition = parsed_data.get('competition', 'League').strip()
-                    notes = parsed_data.get('notes', '').strip()
-                    
-                    # Validate required fields
-                    if not opponent or not date or not time:
-                        return "❌ Could not extract match details. Please provide: opponent, date, and time.\n\nExample: 'Create a match against Arsenal on July 1st at 2pm'"
-                    
-                    # Validate date format
-                    try:
-                        datetime.strptime(date, '%Y-%m-%d')
-                    except ValueError:
-                        return "❌ Invalid date format. Please use format: YYYY-MM-DD"
-                    
-                    # Validate time format
-                    try:
-                        datetime.strptime(time, '%H:%M')
-                    except ValueError:
-                        return "❌ Invalid time format. Please use format: HH:MM (24-hour)"
-                    
-                    # Create the fixture
-                    fixture_tool = FixtureTools(self.team_id)
-                    result = fixture_tool._run('add_fixture', 
-                                             opponent=opponent, 
-                                             match_date=date, 
-                                             kickoff_time=time, 
-                                             venue=venue, 
-                                             competition=competition, 
-                                             notes=notes, 
-                                             created_by="system")
-                    
-                    # Format success response
-                    return f"""✅ **Match Created Successfully!**
-
-🏆 **Opponent:** {opponent}
-📅 **Date:** {date}
-🕐 **Time:** {time}
-📍 **Venue:** {venue}
-🏅 **Competition:** {competition}
-📝 **Notes:** {notes if notes else "None"}
-
-🎉 Match has been added to the fixture list!"""
-                    
-                except json.JSONDecodeError:
-                    return self._fallback_add_fixture_parsing(message)
-            else:
-                return self._fallback_add_fixture_parsing(message)
-                
-        except Exception as e:
-            logger.error(f"Error in _handle_add_fixture: {e}")
-            return f"❌ Error creating match: {str(e)}"
-    
-    def _fallback_add_fixture_parsing(self, message: str) -> str:
-        """Fallback parsing for fixture creation when LLM parsing fails."""
-        try:
-            message_lower = message.lower()
-            
-            # Extract opponent
-            opponent = ""
-            if 'against' in message_lower:
-                opponent_part = message_lower.split('against')[1]
-                if 'on' in opponent_part:
-                    opponent = opponent_part.split('on')[0].strip()
-                else:
-                    opponent = opponent_part.strip()
-            elif 'vs' in message_lower:
-                opponent_part = message_lower.split('vs')[1]
-                if 'on' in opponent_part:
-                    opponent = opponent_part.split('on')[0].strip()
-                else:
-                    opponent = opponent_part.strip()
-            
-            if not opponent:
-                return "❌ Could not identify opponent. Please specify: 'Create a match against [Team Name] on [Date] at [Time]'"
-            
-            # Extract date and time (simplified)
-            from datetime import datetime, timedelta
-            
-            # Default to next week if no date specified
-            default_date = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
-            default_time = "14:00"
-            
-            # Try to extract date/time from message
-            date = default_date
-            time = default_time
-            
-            # Simple date extraction
-            if 'july' in message_lower and '1st' in message_lower:
-                date = "2024-07-01"
-            elif 'december' in message_lower and '15th' in message_lower:
-                date = "2024-12-15"
-            elif 'january' in message_lower and '20th' in message_lower:
-                date = "2024-01-20"
-            
-            # Simple time extraction
-            if '2pm' in message_lower:
-                time = "14:00"
-            elif '3pm' in message_lower:
-                time = "15:00"
-            elif '7:30pm' in message_lower or '7:30 pm' in message_lower:
-                time = "19:30"
-            
-            # Determine venue
-            venue = "Home"
-            if 'away' in message_lower:
-                venue = "Away"
-            
-            # Determine competition
-            competition = "League"
-            if 'cup' in message_lower:
-                competition = "Cup"
-            elif 'friendly' in message_lower:
-                competition = "Friendly"
-            
-            # Create the fixture
-            fixture_tool = FixtureTools(self.team_id)
-            result = fixture_tool._run('add_fixture', 
-                                     opponent=opponent.title(), 
-                                     match_date=date, 
-                                     kickoff_time=time, 
-                                     venue=venue, 
-                                     competition=competition, 
-                                     notes="", 
-                                     created_by="system")
-            
-            return f"""✅ **Match Created Successfully!**
-
-🏆 **Opponent:** {opponent.title()}
-📅 **Date:** {date}
-🕐 **Time:** {time}
-📍 **Venue:** {venue}
-🏅 **Competition:** {competition}
-
-🎉 Match has been added to the fixture list!"""
-            
-        except Exception as e:
-            logger.error(f"Error in fallback fixture parsing: {e}")
-            return f"❌ Error creating match: {str(e)}"
-    
-    def _handle_send_message(self, message: str) -> str:
-        """Handle sending a message to the team."""
-        if not self.tools:
-            return "Messaging tools not available."
-        try:
-            # Extract the message content
-            if ':' in message:
-                content = message.split(':', 1)[1].strip()
-            else:
-                content = message.replace('send message', '').replace('to the team', '').strip()
-            
-            if content:
-                message_tool = SendTelegramMessageTool(self.team_id)
-                return message_tool._run(content)
-            else:
-                return "Please provide a message to send. Example: 'Send a message to the team: Training is at 7pm tonight!'"
-        except Exception as e:
-            return f"Error sending message: {str(e)}"
-    
     def _get_help_message(self, user_role: str = None, is_leadership_chat: bool = False) -> str:
         """Get help message based on user role and chat type."""
         if not self.player_command_handler:
@@ -846,16 +629,16 @@ class SimpleAgenticHandler:
 **Available Commands:**
 
 **Player Registration (Slash Commands):**
-- `/add &lt;name&gt; &lt;phone&gt; &lt;position&gt;` - Add a new player
-- `/remove &lt;phone&gt;` - Remove a player
+- `/add name phone position` - Add a new player
+- `/remove phone` - Remove a player
 - `/list` - List all players
-- `/status &lt;phone&gt;` - Get player status
+- `/status phone` - Get player status
 - `/stats` - Get team statistics
-- `/invite &lt;phone&gt;` - Generate invite link
-- `/invite <phone_or_player_id>` - Generate invitation message
+- `/invite phone` - Generate invite link
+- `/invite phone_or_player_id` - Generate invitation message
 - `/myinfo` - Get your player information
-- `/approve <player_id>` - Approve a player
-- `/reject <player_id> [reason]` - Reject a player
+- `/approve player_id` - Approve a player
+- `/reject player_id [reason]` - Reject a player
 - `/pending` - List players pending approval
 
 **Player Registration (Natural Language):**

@@ -2,9 +2,9 @@ name: Testing Deployment Pipeline
 
 on:
   push:
-    branches: [testing, develop]
+    branches: [testing, development]
   pull_request:
-    branches: [testing, develop, main]
+    branches: [testing, development, main]
   workflow_dispatch:
     inputs:
       environment:
@@ -14,7 +14,7 @@ on:
         type: choice
         options:
         - testing
-        - develop
+        - development
 
 env:
   PYTHON_VERSION: '3.11'
@@ -80,7 +80,7 @@ jobs:
     needs: [dependencies, test]
     if: |
       github.ref == 'refs/heads/testing' ||
-      github.ref == 'refs/heads/develop' ||
+      github.ref == 'refs/heads/development' ||
       github.event_name == 'workflow_dispatch'
     environment: testing
     steps:

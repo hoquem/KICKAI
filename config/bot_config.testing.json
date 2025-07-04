@@ -1,0 +1,14 @@
+{
+  "environment": "testing",
+  "default_team": "test-team-id",
+  "teams": {
+    "test-team-id": {
+      "name": "KICKAI Test Team",
+      "bot_token": "TEST_BOT_TOKEN",
+      "username": "kickai_test_bot",
+      "main_chat_id": "-1001234567890",
+      "leadership_chat_id": "-1001234567891",
+      "webhook_url": "https://test-kickai.railway.app/webhook"
+    }
+  }
+} 

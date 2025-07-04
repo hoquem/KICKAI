@@ -14,6 +14,7 @@ This replaces the multiple overlapping routing systems with a single, clean arch
 
 import logging
 import asyncio
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
@@ -301,21 +302,116 @@ class ListPlayersCommand(Command):
 
 
 class MyInfoCommand(Command):
-    """My info command implementation."""
+    """MyInfo command implementation."""
     
     def __init__(self):
         super().__init__("/myinfo", "Get your player information", PermissionLevel.PLAYER)
     
     async def execute(self, context: CommandContext) -> CommandResult:
         try:
-            from src.telegram.telegram_command_handler import get_player_command_handler
-            handler = get_player_command_handler()
+            logger.info(f"MyInfoCommand: Processing for user {context.user_id} in team {context.team_id}")
             
-            result = await handler._handle_myinfo(context.user_id)
-            return CommandResult(success=True, message=result)
+            # Import here to avoid circular imports
+            from src.telegram.player_registration_handler import PlayerRegistrationHandler
+            from src.services.player_service import get_player_service
+            from src.services.team_service import get_team_service
+            
+            player_service = get_player_service()
+            team_service = get_team_service()
+            player_handler = PlayerRegistrationHandler(context.team_id, player_service, team_service)
+            
+            logger.info(f"MyInfoCommand: Player handler created, calling get_player_info for user {context.user_id}")
+            
+            # Get player info by telegram user ID
+            success, message = await player_handler.get_player_info(context.user_id)
+            
+            logger.info(f"MyInfoCommand: get_player_info returned success={success}, message_length={len(message) if message else 0}")
+            
+            if success:
+                return CommandResult(success=True, message=message)
+            else:
+                logger.warning(f"MyInfoCommand: Failed to get player info for user {context.user_id}: {message}")
+                return CommandResult(success=False, message=message)
+                
         except Exception as e:
-            logger.error(f"Error in myinfo command: {e}")
-            return CommandResult(success=False, message="❌ Error getting player info", error=str(e))
+            logger.error(f"Error in MyInfoCommand for user {context.user_id}: {e}")
+            return CommandResult(success=False, message=f"❌ Error getting player info: {str(e)}")
+
+
+class StatusCommand(Command):
+    """Status command implementation."""
+    
+    def __init__(self):
+        super().__init__("/status", "Check player status (your own or by phone)", PermissionLevel.PLAYER)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            # Import here to avoid circular imports
+            from src.telegram.player_registration_handler import PlayerRegistrationHandler
+            from src.services.player_service import get_player_service
+            from src.services.team_service import get_team_service
+            
+            player_service = get_player_service()
+            team_service = get_team_service()
+            player_handler = PlayerRegistrationHandler(context.team_id, player_service, team_service)
+            
+            # Parse command to see if phone number is provided
+            parts = context.message_text.split()
+            
+            # If no phone provided, check the user's own status
+            if len(parts) < 2:
+                success, message = await player_handler.get_player_info(context.user_id)
+                if success:
+                    return CommandResult(success=True, message=f"📊 <b>Your Status</b>\n\n{message}")
+                else:
+                    return CommandResult(success=False, message="❌ Player not found. Please contact team admin.")
+            
+            # If phone provided, check that specific player's status (admin function)
+            phone = parts[1]
+            
+            # Check if user has permission to check other players (admin/leadership)
+            if context.chat_type != ChatType.LEADERSHIP:
+                return CommandResult(
+                    success=False, 
+                    message="❌ Checking other players' status is only available in the leadership chat."
+                )
+            
+            player = await player_handler.get_player_by_phone(phone)
+            
+            if not player:
+                return CommandResult(success=False, message=f"❌ Player with phone {phone} not found")
+            
+            # Format player status for admin view
+            from src.telegram.player_registration_handler import format_player_name
+            
+            status_message = f"""📊 <b>Player Status: {format_player_name(player.name)}</b>
+
+📋 <b>Basic Info:</b>
+• Name: {format_player_name(player.name)}
+• Player ID: {player.player_id.upper()}
+• Position: {player.position.value.title() if hasattr(player.position, 'value') else player.position}
+• Phone: {player.phone}
+
+📊 <b>Status:</b>
+• Onboarding: {player.onboarding_status.value.title()}
+• FA Registered: {'Yes' if player.fa_registered else 'No'}
+• FA Eligible: {'Yes' if player.fa_eligible else 'No'}
+• Match Eligible: {'Yes' if player.match_eligible else 'No'}
+
+📞 <b>Contact Info:</b>
+• Emergency Contact: {player.emergency_contact or 'Not provided'}
+• Date of Birth: {player.date_of_birth or 'Not provided'}
+• Telegram: @{player.telegram_username or 'Not linked'}
+
+📅 <b>Timestamps:</b>
+• Created: {player.created_at.strftime('%Y-%m-%d %H:%M') if player.created_at else 'Unknown'}
+• Last Updated: {player.updated_at.strftime('%Y-%m-%d %H:%M') if player.updated_at else 'Unknown'}"""
+            
+            return CommandResult(success=True, message=status_message)
+                
+        except Exception as e:
+            logger.error(f"Error in StatusCommand: {e}")
+            return CommandResult(success=False, message=f"❌ Error checking status: {str(e)}")
 
 
 class RegisterCommand(Command):
@@ -326,24 +422,14 @@ class RegisterCommand(Command):
     
     async def execute(self, context: CommandContext) -> CommandResult:
         try:
-            from src.services.team_member_service import TeamMemberService
-            from src.database.firebase_client import get_firebase_client
+            # Check if there's a player ID parameter
+            parts = context.message_text.split()
             
-            firebase_client = get_firebase_client()
-            team_service = TeamMemberService(firebase_client)
-            
-            # Check if user is already registered
-            existing_member = await team_service.get_team_member_by_telegram_id(context.user_id, context.team_id)
-            if existing_member:
+            # If no parameters, show registration info
+            if len(parts) == 1:
                 return CommandResult(
-                    success=False,
-                    message="❌ You are already registered as a team member."
-                )
-            
-            # Return information about how to register
-            return CommandResult(
-                success=True,
-                message="""📝 **Player Registration**
+                    success=True,
+                    message="""📝 **Player Registration**
 
 To register as a new player, you need an invitation from a team admin.
 
@@ -355,11 +441,43 @@ To register as a new player, you need an invitation from a team admin.
 
 **Alternative:**
 If you have a player ID, use:
-`/start [player_id]`
+`/register [player_id]`
 
 **Need help?**
 Contact a team admin in the leadership chat for assistance."""
-            )
+                )
+            
+            # If there's a player ID parameter, handle player onboarding
+            if len(parts) > 1:
+                player_id = parts[1]
+                
+                # Import here to avoid circular imports
+                from src.telegram.player_registration_handler import PlayerRegistrationHandler
+                from src.services.player_service import get_player_service
+                from src.services.team_service import get_team_service
+                
+                player_service = get_player_service()
+                team_service = get_team_service()
+                player_handler = PlayerRegistrationHandler(context.team_id, player_service, team_service)
+                
+                # Handle player join via invite
+                success, message = await player_handler.player_joined_via_invite(player_id, context.user_id)
+                
+                if success:
+                    # Get onboarding message for the player
+                    onboarding_success, onboarding_message = await player_handler.get_onboarding_message(player_id)
+                    if onboarding_success:
+                        full_message = f"{message}\n\n{onboarding_message}"
+                        return CommandResult(success=True, message=full_message)
+                    else:
+                        error_message = f"{message}\n\n❌ Error getting onboarding message: {onboarding_message}"
+                        return CommandResult(success=False, message=error_message)
+                else:
+                    error_message = f"❌ {message}\n\n💡 Please contact the team admin if you believe this is an error."
+                    return CommandResult(success=False, message=error_message)
+            
+            return CommandResult(success=False, message="❌ Invalid register command format. Use `/register` or `/register player_id`")
+            
         except Exception as e:
             logger.error(f"Error in register command: {e}")
             return CommandResult(
@@ -416,7 +534,7 @@ class ApprovePlayerCommand(Command):
             handler = get_player_command_handler()
             
             result = await handler._handle_approve_player(context.message_text, context.user_id)
-            return CommandResult(success=True, message=result)
+            return CommandResult(success=True, message=result or "Command executed successfully")
         except Exception as e:
             logger.error(f"Error in approve player command: {e}")
             return CommandResult(success=False, message="❌ Error approving player", error=str(e))
@@ -452,7 +570,7 @@ class PendingApprovalsCommand(Command):
             handler = get_player_command_handler()
             
             result = await handler._handle_pending_approvals()
-            return CommandResult(success=True, message=result)
+            return CommandResult(success=True, message=result or "No pending approvals")
         except Exception as e:
             logger.error(f"Error in pending approvals command: {e}")
             return CommandResult(success=False, message="❌ Error listing pending approvals", error=str(e))
@@ -470,7 +588,7 @@ class CheckFACommand(Command):
             handler = get_player_command_handler()
             
             result = await handler._handle_check_fa_registration()
-            return CommandResult(success=True, message=result)
+            return CommandResult(success=True, message=result or "FA check completed")
         except Exception as e:
             logger.error(f"Error in check FA command: {e}")
             return CommandResult(success=False, message="❌ Error checking FA registration", error=str(e))
@@ -488,10 +606,795 @@ class DailyStatusCommand(Command):
             handler = get_player_command_handler()
             
             result = await handler._handle_daily_status()
-            return CommandResult(success=True, message=result)
+            return CommandResult(success=True, message=result or "Daily status generated")
         except Exception as e:
             logger.error(f"Error in daily status command: {e}")
             return CommandResult(success=False, message="❌ Error generating daily status", error=str(e))
+
+
+class BackgroundTasksCommand(Command):
+    """Background tasks status command implementation."""
+    
+    def __init__(self):
+        super().__init__("/background", "Check background tasks status", PermissionLevel.ADMIN)
+    
+    def get_help_text(self) -> str:
+        return """📋 **Background Tasks Command Help**
+
+**Usage:** `/background`
+**Admin Only:** ✅
+
+**Description:**
+Shows the status of all background tasks including:
+• FA Registration Checker
+• Daily Status Service
+• Onboarding Reminder Service
+• Reminder Cleanup Service
+
+**What it shows:**
+• Which tasks are running
+• Task execution status
+• Error information
+• Last run times
+
+**Useful for:**
+• Monitoring system health
+• Debugging task issues
+• Verifying reminder service is working
+• Checking FA registration updates
+
+**Note:** Background tasks run automatically to keep the system updated."""
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            from src.services.background_tasks import get_background_task_status
+            
+            # Get background task status
+            status = await get_background_task_status()
+            
+            # Build status message
+            message = "📊 **Background Tasks Status**\n\n"
+            
+            if status["running"]:
+                message += "🟢 **System Status:** Running\n\n"
+            else:
+                message += "🔴 **System Status:** Stopped\n\n"
+            
+            message += f"📋 **Task Summary:**\n"
+            message += f"• Total Tasks: {status['total_tasks']}\n"
+            message += f"• Active Tasks: {status['active_tasks']}\n"
+            message += f"• Completed Tasks: {status['completed_tasks']}\n"
+            message += f"• Failed Tasks: {status['failed_tasks']}\n\n"
+            
+            if status["task_details"]:
+                message += "🔍 **Task Details:**\n"
+                for i, task in enumerate(status["task_details"]):
+                    if task["done"]:
+                        if task["exception"]:
+                            message += f"• Task {i}: ❌ Failed - {task['exception']}\n"
+                        else:
+                            message += f"• Task {i}: ✅ Completed\n"
+                    elif task["cancelled"]:
+                        message += f"• Task {i}: ⏹️ Cancelled\n"
+                    else:
+                        message += f"• Task {i}: 🔄 Running\n"
+            else:
+                message += "ℹ️ No tasks currently running\n\n"
+            
+            message += "\n💡 **Background Services:**\n"
+            message += "• FA Registration Checker (24h interval)\n"
+            message += "• Daily Status Service (daily)\n"
+            message += "• Onboarding Reminder Service (6h interval)\n"
+            message += "• Reminder Cleanup Service (24h interval)\n"
+            
+            return CommandResult(success=True, message=message)
+            
+        except Exception as e:
+            logger.error(f"Error in background tasks command: {e}")
+            return CommandResult(
+                success=False, 
+                message=f"❌ Error checking background tasks: {str(e)}", 
+                error=str(e)
+            )
+
+
+class RemindCommand(Command):
+    """Remind player command implementation."""
+    
+    def __init__(self):
+        super().__init__("/remind", "Send reminder to player", PermissionLevel.ADMIN)
+    
+    def get_help_text(self) -> str:
+        return """📋 **Remind Command Help**
+
+**Usage:** `/remind [player_id]`
+**Admin Only:** ✅
+
+**Description:**
+Sends a manual reminder to a player with incomplete onboarding.
+
+**Examples:**
+• `/remind AB1` - Send reminder to player AB1
+• `/remind JS1` - Send reminder to player JS1
+
+**What it does:**
+• Sends a personalized reminder message to the player
+• Updates reminder tracking in the system
+• Notifies admin of reminder delivery
+• Shows current onboarding progress
+
+**When to use:**
+• Player hasn't completed onboarding in 24+ hours
+• Player is stuck on a specific step
+• Follow-up to automated reminders
+
+**Note:** Maximum 3 reminders per player (automated + manual combined)."""
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        """Execute the remind command."""
+        try:
+            from src.services.reminder_service import get_reminder_service
+            
+            message = context.message_text
+            parts = message.split()
+            
+            if len(parts) < 2:
+                return CommandResult(
+                    success=False,
+                    message="❌ Please provide a player ID.\n\nUsage: `/remind [player_id]`\nExample: `/remind AB1`",
+                    error="Missing player ID"
+                )
+            
+            player_id = parts[1].upper()
+            
+            # Get reminder service
+            reminder_service = get_reminder_service(context.team_id)
+            
+            # Send manual reminder
+            success, response = await reminder_service.send_manual_reminder(player_id, context.user_id)
+            
+            if success:
+                return CommandResult(success=True, message=response)
+            else:
+                return CommandResult(success=False, message=response, error="Reminder failed")
+                
+        except Exception as e:
+            logger.error(f"Error in remind command: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error sending reminder: {str(e)}",
+                error=str(e)
+            )
+
+
+# ============================================================================
+# MATCH COMMANDS
+# ============================================================================
+
+class CreateMatchCommand(Command):
+    """Command to create a new match/fixture."""
+    
+    def __init__(self):
+        super().__init__("/newmatch", "Create a new match/fixture", PermissionLevel.LEADERSHIP)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        """Execute the create match command."""
+        try:
+            from src.tools.firebase_tools import FixtureTools
+            import re
+            
+            fixture_tool = FixtureTools(context.team_id)
+            
+            # Parse the message for match details
+            message = context.message_text.lower()
+            
+            # Extract match details using regex patterns
+            opponent = self._extract_opponent(message)
+            date = self._extract_date(message)
+            time = self._extract_time(message)
+            venue = self._extract_venue(message) or "Home"
+            competition = self._extract_competition(message) or "League"
+            
+            # Validate required fields
+            if not opponent:
+                return CommandResult(
+                    success=False,
+                    message="❌ Please specify an opponent.\n\nExample: `/newmatch Arsenal on July 1st at 2pm`",
+                    error="Missing opponent"
+                )
+            
+            if not date:
+                return CommandResult(
+                    success=False,
+                    message="❌ Please specify a date.\n\nExample: `/newmatch Arsenal on July 1st at 2pm`",
+                    error="Missing date"
+                )
+            
+            if not time:
+                return CommandResult(
+                    success=False,
+                    message="❌ Please specify a time.\n\nExample: `/newmatch Arsenal on July 1st at 2pm`",
+                    error="Missing time"
+                )
+            
+            # Create the fixture
+            result = fixture_tool._run('add_fixture', 
+                                      opponent=opponent,
+                                      match_date=date,
+                                      kickoff_time=time,
+                                      venue=venue,
+                                      competition=competition)
+            
+            if "successfully" in result.lower() or "added" in result.lower():
+                return CommandResult(
+                    success=True,
+                    message=f"✅ **Match Created Successfully!**\n\n🏆 **{opponent}**\n📅 {date} at {time}\n📍 {venue} - {competition}"
+                )
+            else:
+                return CommandResult(
+                    success=False,
+                    message=f"❌ Failed to create match: {result}",
+                    error=result
+                )
+                
+        except Exception as e:
+            logger.error(f"Error creating match: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error creating match: {str(e)}",
+                error=str(e)
+            )
+    
+    def _extract_opponent(self, message: str) -> str:
+        """Extract opponent from message."""
+        patterns = [
+            r'against\s+([a-zA-Z\s]+?)(?:\s+on|\s+at|\s+vs|\s+v|\s+versus|$)',
+            r'vs\s+([a-zA-Z\s]+?)(?:\s+on|\s+at|$)',
+            r'v\s+([a-zA-Z\s]+?)(?:\s+on|\s+at|$)',
+            r'versus\s+([a-zA-Z\s]+?)(?:\s+on|\s+at|$)',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, message)
+            if match:
+                return match.group(1).strip()
+        return None
+    
+    def _extract_date(self, message: str) -> str:
+        """Extract date from message."""
+        patterns = [
+            r'(\d{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4})',
+            r'(\d{4}-\d{2}-\d{2})',
+            r'(\d{1,2}/\d{1,2}/\d{4})',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, message, re.IGNORECASE)
+            if match:
+                return match.group(1)
+        return None
+    
+    def _extract_time(self, message: str) -> str:
+        """Extract time from message."""
+        patterns = [
+            r'(\d{1,2}:\d{2})',
+            r'(\d{1,2}(?:am|pm))',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, message, re.IGNORECASE)
+            if match:
+                return match.group(1)
+        return None
+    
+    def _extract_venue(self, message: str) -> str:
+        """Extract venue from message."""
+        if 'home' in message:
+            return "Home"
+        elif 'away' in message:
+            return "Away"
+        return None
+    
+    def _extract_competition(self, message: str) -> str:
+        """Extract competition from message."""
+        competitions = ['league', 'cup', 'friendly', 'tournament']
+        for comp in competitions:
+            if comp in message:
+                return comp.title()
+        return None
+
+
+class ListMatchesCommand(Command):
+    """Command to list all matches/fixtures."""
+    
+    def __init__(self):
+        super().__init__("/listmatches", "List all matches/fixtures", PermissionLevel.PLAYER)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        """Execute the list matches command."""
+        try:
+            from src.tools.firebase_tools import FixtureTools
+            
+            fixture_tool = FixtureTools(context.team_id)
+            result = fixture_tool._run('get_all_fixtures')
+            return CommandResult(success=True, message=result)
+        except Exception as e:
+            logger.error(f"Error listing matches: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error listing matches: {str(e)}",
+                error=str(e)
+            )
+
+
+class GetMatchCommand(Command):
+    """Command to get details of a specific match."""
+    
+    def __init__(self):
+        super().__init__("/getmatch", "Get details of a specific match", PermissionLevel.PLAYER)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        """Execute the get match command."""
+        try:
+            from src.tools.firebase_tools import FixtureTools
+            import re
+            
+            fixture_tool = FixtureTools(context.team_id)
+            message = context.message_text
+            match_id = self._extract_match_id(message)
+            
+            if not match_id:
+                return CommandResult(
+                    success=False,
+                    message="❌ Please provide a match ID.\n\nExample: `/getmatch MATCH123`",
+                    error="Missing match ID"
+                )
+            
+            result = fixture_tool._run('get_fixture', fixture_id=match_id)
+            return CommandResult(success=True, message=result)
+        except Exception as e:
+            logger.error(f"Error getting match: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error getting match: {str(e)}",
+                error=str(e)
+            )
+    
+    def _extract_match_id(self, message: str) -> str:
+        """Extract match ID from message."""
+        match = re.search(r'/getmatch\s+(\w+)', message)
+        return match.group(1) if match else None
+
+
+class UpdateMatchCommand(Command):
+    """Command to update a match/fixture."""
+    
+    def __init__(self):
+        super().__init__("/updatematch", "Update a match/fixture", PermissionLevel.LEADERSHIP)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        """Execute the update match command."""
+        try:
+            from src.tools.firebase_tools import FixtureTools
+            import re
+            
+            fixture_tool = FixtureTools(context.team_id)
+            message = context.message_text
+            match_id = self._extract_match_id(message)
+            
+            if not match_id:
+                return CommandResult(
+                    success=False,
+                    message="❌ Please provide a match ID.\n\nExample: `/updatematch MATCH123 opponent=Arsenal`",
+                    error="Missing match ID"
+                )
+            
+            updates = self._extract_updates(message)
+            if not updates:
+                return CommandResult(
+                    success=False,
+                    message="❌ Please provide at least one field to update.\n\nExample: `/updatematch MATCH123 opponent=Arsenal time=15:00`",
+                    error="No updates provided"
+                )
+            
+            result = fixture_tool._run('update_fixture', fixture_id=match_id, **updates)
+            return CommandResult(success=True, message=result)
+        except Exception as e:
+            logger.error(f"Error updating match: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error updating match: {str(e)}",
+                error=str(e)
+            )
+    
+    def _extract_match_id(self, message: str) -> str:
+        """Extract match ID from message."""
+        match = re.search(r'/updatematch\s+(\w+)', message)
+        return match.group(1) if match else None
+    
+    def _extract_updates(self, message: str) -> dict:
+        """Extract update fields from message."""
+        updates = {}
+        pattern = r'(\w+)=([^,\s]+)'
+        matches = re.findall(pattern, message)
+        
+        for key, value in matches:
+            updates[key] = value
+        
+        return updates
+
+
+class DeleteMatchCommand(Command):
+    """Command to delete a match/fixture."""
+    
+    def __init__(self):
+        super().__init__("/deletematch", "Delete a match/fixture", PermissionLevel.LEADERSHIP)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        """Execute the delete match command."""
+        try:
+            from src.tools.firebase_tools import FixtureTools
+            import re
+            
+            fixture_tool = FixtureTools(context.team_id)
+            message = context.message_text
+            match_id = self._extract_match_id(message)
+            
+            if not match_id:
+                return CommandResult(
+                    success=False,
+                    message="❌ Please provide a match ID.\n\nExample: `/deletematch MATCH123`",
+                    error="Missing match ID"
+                )
+            
+            result = fixture_tool._run('delete_fixture', fixture_id=match_id)
+            return CommandResult(success=True, message=result)
+        except Exception as e:
+            logger.error(f"Error deleting match: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error deleting match: {str(e)}",
+                error=str(e)
+            )
+    
+    def _extract_match_id(self, message: str) -> str:
+        """Extract match ID from message."""
+        match = re.search(r'/deletematch\s+(\w+)', message)
+        return match.group(1) if match else None
+
+
+# ============================================================================
+# ADDITIONAL ADMIN COMMANDS
+# ============================================================================
+
+class StatsCommand(Command):
+    """Command to show team statistics."""
+    
+    def __init__(self):
+        super().__init__("/stats", "Show team statistics", PermissionLevel.PLAYER)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        """Execute the stats command."""
+        try:
+            from src.services.player_service import PlayerService
+            
+            player_service = PlayerService(context.team_id)
+            players = await player_service.get_team_players()
+            
+            if not players:
+                return CommandResult(
+                    success=True,
+                    message="📊 **Team Statistics**\n\nNo players found in the team."
+                )
+            
+            # Calculate statistics
+            total_players = len(players)
+            active_players = len([p for p in players if p.get('status') == 'active'])
+            pending_players = len([p for p in players if p.get('status') == 'pending'])
+            fa_registered = len([p for p in players if p.get('fa_registration')])
+            
+            # Position breakdown
+            positions = {}
+            for player in players:
+                pos = player.get('position', 'Unknown')
+                positions[pos] = positions.get(pos, 0) + 1
+            
+            # Format statistics
+            stats = f"📊 **Team Statistics**\n\n"
+            stats += f"👥 **Total Players:** {total_players}\n"
+            stats += f"✅ **Active Players:** {active_players}\n"
+            stats += f"⏳ **Pending Approvals:** {pending_players}\n"
+            stats += f"🏆 **FA Registered:** {fa_registered}\n\n"
+            
+            stats += "**Position Breakdown:**\n"
+            for pos, count in positions.items():
+                stats += f"⚽ {pos}: {count}\n"
+            
+            return CommandResult(
+                success=True,
+                message=stats
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting stats: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error getting stats: {str(e)}",
+                error=str(e)
+            )
+
+
+class InviteCommand(Command):
+    """Command to invite a player to the team."""
+    
+    def __init__(self):
+        super().__init__("/invite", "Invite a player to the team", PermissionLevel.LEADERSHIP)
+    
+    def get_help_text(self) -> str:
+        return """📋 **Invite Command Help**
+
+**Usage:** `/invite [phone_or_player_id]`
+**Admin Only:** ✅
+
+**Description:**
+Generates a shareable invitation message for a player to join the team.
+
+**Examples:**
+• `/invite 07871521581` - Invite by phone number
+• `/invite AB1` - Invite by player ID
+
+**What it does:**
+• Generates a short, shareable message for WhatsApp/SMS/Email
+• Includes player details and instructions
+• Provides Telegram group link
+• Shows next steps for the player
+
+**Sharing Options:**
+• **WhatsApp:** Copy the message and send directly
+• **SMS:** Copy the message and send via text
+• **Email:** Copy the message and send via email
+
+**Note:** The player doesn't need Telegram initially - they can join via the link in the message."""
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        """Execute the invite command."""
+        try:
+            import random
+            import string
+            from src.services.player_service import get_player_service
+            
+            message = context.message_text
+            identifier = self._extract_identifier(message)
+            
+            if not identifier:
+                return CommandResult(
+                    success=False,
+                    message="❌ Please provide phone number or player ID.\n\nExamples:\n• `/invite 07123456789`\n• `/invite AB1`",
+                    error="Missing identifier"
+                )
+            
+            # Check if identifier is a phone number or player ID
+            phone = None
+            player_name = None
+            
+            if self._is_phone_number(identifier):
+                # It's a phone number
+                phone = identifier
+            else:
+                # It's a player ID, find the player
+                player_service = get_player_service()
+                players = await player_service.get_team_players(context.team_id)
+                
+                for player in players:
+                    if player.player_id and player.player_id.upper() == identifier.upper():
+                        phone = player.phone
+                        player_name = player.name
+                        break
+                
+                if not phone:
+                    return CommandResult(
+                        success=False,
+                        message=f"❌ Player with ID {identifier} not found.\n\nUse `/list` to see available players.",
+                        error="Player not found"
+                    )
+            
+            # Get team information and Telegram group link
+            from src.services.team_service import get_team_service
+            from src.telegram.player_registration_handler import PlayerRegistrationHandler
+            
+            team_service = get_team_service()
+            team = await team_service.get_team(context.team_id)
+            team_name = team.name if team else 'Our Team'
+            
+            # Get Telegram group link
+            try:
+                from src.core.bot_config_manager import get_bot_config_manager
+                import httpx
+                
+                # Get bot configuration for this team
+                manager = get_bot_config_manager()
+                bot_config = manager.get_bot_config(context.team_id)
+                if not bot_config or not bot_config.token or not bot_config.main_chat_id:
+                    telegram_link = "https://t.me/+[TEAM_GROUP_LINK]"
+                else:
+                    # Generate real invite link using Telegram Bot API
+                    url = f"https://api.telegram.org/bot{bot_config.token}/createChatInviteLink"
+                    payload = {
+                        "chat_id": bot_config.main_chat_id,
+                        "name": f"{team_name} Team Invite",
+                        "creates_join_request": False,
+                        "expire_date": None,
+                        "member_limit": None
+                    }
+                    
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(url, json=payload, timeout=10)
+                        data = response.json()
+                        
+                        if data.get("ok") and data.get("result"):
+                            telegram_link = data["result"]["invite_link"]
+                            logging.info(f"Generated Telegram invite link for {team_name}: {telegram_link}")
+                        else:
+                            error_msg = f"Failed to create invite link: {data.get('description', 'Unknown error')}"
+                            logging.warning(error_msg)
+                            telegram_link = "https://t.me/+[TEAM_GROUP_LINK]"
+                            
+            except Exception as e:
+                logging.error(f"Error generating Telegram invite link: {e}")
+                telegram_link = "https://t.me/+[TEAM_GROUP_LINK]"
+            
+            # Create a short, shareable version for WhatsApp/SMS/Email (plain text with minimal formatting)
+            if player_name:
+                short_message = f"""🎉 Welcome to {team_name}, {player_name.upper()}!
+
+You've been invited to join our team!
+
+📋 Your Details:
+• Name: {player_name.upper()}
+• Player ID: {identifier.upper()}
+
+🔗 Join our team chat:
+{telegram_link}
+
+📱 Next Steps:
+1. Click the link above to join our team group
+2. Once you join, type: /start {identifier.upper()}
+3. Complete your onboarding process
+
+Welcome aboard! ⚽🏆
+
+- {team_name} Management"""
+            else:
+                short_message = f"""🎉 Welcome to {team_name}!
+
+You've been invited to join our team!
+
+📱 Phone: {phone}
+
+🔗 Join our team chat:
+{telegram_link}
+
+📱 Next Steps:
+1. Click the link above to join our team group
+2. Complete your onboarding process
+
+Welcome aboard! ⚽🏆
+
+- {team_name} Management"""
+            
+            # Create response message (plain text with minimal formatting)
+            if player_name:
+                response_message = f"""✅ Invitation Generated!
+
+👤 Player: {player_name.upper()}
+🆔 Player ID: {identifier.upper()}
+📱 Phone: {phone}
+
+📋 Copy & Send This Message:
+
+{short_message}
+
+💡 Instructions:
+• Copy the message above
+• Send via WhatsApp, SMS, or Email
+• Player clicks the link to join Telegram group
+• Once joined, they type: /start {identifier.upper()}"""
+            else:
+                response_message = f"""✅ Invitation Generated!
+
+📱 Phone: {phone}
+
+📋 Copy & Send This Message:
+
+{short_message}
+
+💡 Instructions:
+• Copy the message above
+• Send via WhatsApp, SMS, or Email
+• Player clicks the link to join Telegram group
+• Once joined, they complete onboarding"""
+            
+            return CommandResult(
+                success=True,
+                message=response_message
+            )
+                
+        except Exception as e:
+            logger.error(f"Error sending invitation: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error sending invitation: {str(e)}",
+                error=str(e)
+            )
+    
+    def _extract_identifier(self, message: str) -> Optional[str]:
+        """Extract phone number or player ID from message."""
+        # Try to match phone number first (11 digits)
+        phone_match = re.search(r'/invite\s+(\d{11})', message)
+        if phone_match:
+            return phone_match.group(1)
+        
+        # Try to match player ID (letters and numbers, typically 2-4 characters)
+        player_id_match = re.search(r'/invite\s+([A-Za-z0-9]{2,4})', message)
+        if player_id_match:
+            return player_id_match.group(1)
+        
+        return None
+    
+    def _is_phone_number(self, identifier: str) -> bool:
+        """Check if identifier is a phone number."""
+        return bool(re.match(r'^\d{11}$', identifier))
+
+
+class BroadcastCommand(Command):
+    """Command to broadcast a message to all team members."""
+    
+    def __init__(self):
+        super().__init__("/broadcast", "Broadcast a message to all team members", PermissionLevel.LEADERSHIP)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        """Execute the broadcast command."""
+        try:
+            from src.services.team_member_service import TeamMemberService
+            
+            message = context.message_text
+            broadcast_message = self._extract_broadcast_message(message)
+            
+            if not broadcast_message:
+                return CommandResult(
+                    success=False,
+                    message="❌ Please provide a message to broadcast.\n\nExample: `/broadcast Training cancelled tomorrow`",
+                    error="Missing broadcast message"
+                )
+            
+            # Get all team members
+            team_service = TeamMemberService(context.team_id)
+            members = await team_service.get_all_members()
+            
+            if not members:
+                return CommandResult(
+                    success=False,
+                    message="❌ No team members found to broadcast to.",
+                    error="No team members"
+                )
+            
+            return CommandResult(
+                success=True,
+                message=f"✅ **Broadcast Sent!**\n\n📢 **Message:** {broadcast_message}\n👥 **Recipients:** {len(members)} team members"
+            )
+                
+        except Exception as e:
+            logger.error(f"Error sending broadcast: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error sending broadcast: {str(e)}",
+                error=str(e)
+            )
+    
+    def _extract_broadcast_message(self, message: str) -> str:
+        """Extract broadcast message from command."""
+        match = re.search(r'/broadcast\s+(.+)', message)
+        return match.group(1).strip() if match else None
 
 
 # ============================================================================
@@ -513,18 +1416,38 @@ class CommandRegistry:
         
         # Register all commands
         commands = [
+            # Utility Commands
             StartCommand(),
             self._help_command,
+            
+            # Player Commands
             ListPlayersCommand(),
             MyInfoCommand(),
+            StatusCommand(),
             RegisterCommand(),
             AddPlayerCommand(),
             RemovePlayerCommand(),
+            
+            # Admin Commands
             ApprovePlayerCommand(),
             RejectPlayerCommand(),
             PendingApprovalsCommand(),
             CheckFACommand(),
             DailyStatusCommand(),
+            BackgroundTasksCommand(),
+            RemindCommand(),
+            
+            # Match Commands
+            CreateMatchCommand(),
+            ListMatchesCommand(),
+            GetMatchCommand(),
+            UpdateMatchCommand(),
+            DeleteMatchCommand(),
+            
+            # Additional Admin Commands
+            StatsCommand(),
+            InviteCommand(),
+            BroadcastCommand(),
         ]
         
         for command in commands:

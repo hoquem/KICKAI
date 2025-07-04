@@ -15,11 +15,8 @@ from typing import List, Dict, Optional, Set
 from bs4 import BeautifulSoup
 import logging
 
-from src.core.logging import get_logger, performance_timer
 from src.services.player_service import PlayerService
 from src.database.models import Player, OnboardingStatus
-
-logger = get_logger("fa_registration_checker")
 
 class FARegistrationChecker:
     """Service to check FA registration status for players."""
@@ -44,7 +41,6 @@ class FARegistrationChecker:
         if self.session:
             await self.session.close()
     
-    @performance_timer("fa_scrape_team_page")
     async def scrape_team_page(self) -> Dict[str, bool]:
         """
         Scrape the FA team page to get registered players.
@@ -56,11 +52,11 @@ class FARegistrationChecker:
             raise RuntimeError("Session not initialized. Use async context manager.")
             
         try:
-            logger.info(f"🔍 Scraping FA team page: {self.fa_team_url}")
+            logging.info(f"🔍 Scraping FA team page: {self.fa_team_url}")
             
             async with self.session.get(self.fa_team_url) as response:
                 if response.status != 200:
-                    logger.error(f"❌ Failed to fetch FA team page: {response.status}")
+                    logging.error(f"❌ Failed to fetch FA team page: {response.status}")
                     return {}
                     
                 html = await response.text()
@@ -81,16 +77,15 @@ class FARegistrationChecker:
                 if len(text.split()) >= 2:  # At least first and last name
                     registered_players.add(text.lower())
             
-            logger.info(f"✅ Found {len(registered_players)} registered players on FA site")
-            logger.debug(f"Registered players: {list(registered_players)}")
+            logging.info(f"✅ Found {len(registered_players)} registered players on FA site")
+            logging.debug(f"Registered players: {list(registered_players)}")
             
             return {name: True for name in registered_players}
             
         except Exception as e:
-            logger.error(f"❌ Error scraping FA team page: {e}")
+            logging.error(f"❌ Error scraping FA team page: {e}")
             return {}
     
-    @performance_timer("fa_check_player_registration")
     async def check_player_registration(self, team_id: str) -> Dict[str, bool]:
         """
         Check FA registration status for all players in a team.
@@ -112,10 +107,10 @@ class FARegistrationChecker:
             ]
             
             if not players_to_check:
-                logger.info("✅ No players need FA registration check")
+                logging.info("✅ No players need FA registration check")
                 return {}
             
-            logger.info(f"🔍 Checking FA registration for {len(players_to_check)} players")
+            logging.info(f"🔍 Checking FA registration for {len(players_to_check)} players")
             
             # Scrape FA website
             fa_registered_players = await self.scrape_team_page()
@@ -129,7 +124,7 @@ class FARegistrationChecker:
                 is_registered = player_name in fa_registered_players
                 
                 if is_registered and not player.fa_registered:
-                    logger.info(f"✅ Player {player.name} is now FA registered!")
+                    logging.info(f"✅ Player {player.name} is now FA registered!")
                     updates[player.id] = True
                     
                     # Update player in database
@@ -140,17 +135,16 @@ class FARegistrationChecker:
                     )
                     
             if updates:
-                logger.info(f"✅ Updated {len(updates)} players as FA registered")
+                logging.info(f"✅ Updated {len(updates)} players as FA registered")
             else:
-                logger.info("ℹ️ No new FA registrations found")
+                logging.info("ℹ️ No new FA registrations found")
                 
             return updates
             
         except Exception as e:
-            logger.error(f"❌ Error checking FA registration: {e}")
+            logging.error(f"❌ Error checking FA registration: {e}")
             return {}
     
-    @performance_timer("fa_scrape_fixtures")
     async def scrape_fixtures(self) -> List[Dict]:
         """
         Scrape fixtures and match results from FA website.
@@ -162,11 +156,11 @@ class FARegistrationChecker:
             raise RuntimeError("Session not initialized. Use async context manager.")
             
         try:
-            logger.info(f"🔍 Scraping FA fixtures page: {self.fa_fixtures_url}")
+            logging.info(f"🔍 Scraping FA fixtures page: {self.fa_fixtures_url}")
             
             async with self.session.get(self.fa_fixtures_url) as response:
                 if response.status != 200:
-                    logger.error(f"❌ Failed to fetch FA fixtures page: {response.status}")
+                    logging.error(f"❌ Failed to fetch FA fixtures page: {response.status}")
                     return []
                     
                 html = await response.text()
@@ -188,11 +182,11 @@ class FARegistrationChecker:
                         'timestamp': datetime.now().isoformat()
                     })
             
-            logger.info(f"✅ Found {len(fixtures)} fixtures/results on FA site")
+            logging.info(f"✅ Found {len(fixtures)} fixtures/results on FA site")
             return fixtures
             
         except Exception as e:
-            logger.error(f"❌ Error scraping FA fixtures: {e}")
+            logging.error(f"❌ Error scraping FA fixtures: {e}")
             return []
 
 
