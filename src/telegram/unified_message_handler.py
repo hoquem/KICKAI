@@ -109,7 +109,9 @@ class UnifiedMessageHandler:
                 logger.info(f"✅ Command {command_name} executed successfully")
                 return result.message
             else:
-                logger.warning(f"❌ Command {command_name} failed: {result.error}")
+                # Log the actual error message, not the error field (which is None for normal failures)
+                error_info = result.error if result.error else result.message
+                logger.warning(f"❌ Command {command_name} failed: {error_info}")
                 return result.message
                 
         except Exception as e:
@@ -120,6 +122,11 @@ class UnifiedMessageHandler:
                                      username: str, update: Update) -> str:
         """Handle natural language messages using the agentic system."""
         try:
+            # First, check if this is an onboarding response
+            onboarding_result = await self._handle_onboarding_response(user_id, text)
+            if onboarding_result:
+                return onboarding_result
+            
             if not self.agentic_handler:
                 return "❌ Natural language processing is currently unavailable. Please use slash commands."
             
@@ -146,6 +153,30 @@ class UnifiedMessageHandler:
         except Exception as e:
             logger.error(f"Error handling natural language: {e}")
             return f"❌ Error processing your request: {str(e)}"
+    
+    async def _handle_onboarding_response(self, user_id: str, text: str) -> Optional[str]:
+        """Handle onboarding responses using improved workflow."""
+        try:
+            # Import improved onboarding workflow
+            from .onboarding_handler_improved import get_improved_onboarding_workflow
+            
+            # Check if user is in onboarding
+            improved_workflow = get_improved_onboarding_workflow(self.team_id)
+            
+            # Try to process as onboarding response
+            success, message = await improved_workflow.process_response(user_id, text)
+            
+            if success:
+                logger.info(f"✅ Onboarding response processed for user {user_id}")
+                return message
+            else:
+                # Not an onboarding response, continue with normal processing
+                logger.debug(f"Not an onboarding response for user {user_id}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error handling onboarding response: {e}")
+            return None
     
     async def _get_user_role(self, user_id: str) -> str:
         """Get user role for context."""

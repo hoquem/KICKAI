@@ -68,6 +68,7 @@ class Player:
     role: PlayerRole = PlayerRole.PLAYER
     fa_registered: bool = False
     fa_eligible: bool = True
+    match_eligible: bool = False  # Whether player is eligible for match squad selection
     player_id: str = ""  # e.g., JS1 for John Smith
     invite_link: Optional[str] = None
     onboarding_status: OnboardingStatus = OnboardingStatus.PENDING

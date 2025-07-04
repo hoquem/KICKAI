@@ -9,11 +9,9 @@ import asyncio
 import requests
 from datetime import datetime
 from typing import Optional
+import logging
 
-from src.core.logging import get_logger
 from src.core.bot_config_manager import get_bot_config_manager
-
-logger = get_logger("bot_status_service")
 
 class BotStatusService:
     """Service for sending bot status messages to Telegram chats."""
@@ -28,25 +26,24 @@ class BotStatusService:
     def _send_telegram_message(self, chat_id: str, message: str) -> bool:
         """Send a message to a Telegram chat."""
         try:
+            from src.tools.telegram_tools import format_message_for_telegram
+            # Format message for Telegram HTML
+            formatted_message = format_message_for_telegram(message)
             url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
             data = {
                 "chat_id": chat_id,
-                "text": message,
+                "text": formatted_message,
                 "parse_mode": "HTML"
             }
-            
             response = requests.post(url, json=data, timeout=10)
             success = response.status_code == 200
-            
             if success:
-                logger.info(f"✅ Status message sent to chat {chat_id}")
+                logging.info(f"✅ Status message sent to chat {chat_id}")
             else:
-                logger.error(f"❌ Failed to send status message to chat {chat_id}: {response.status_code}")
-            
+                logging.error(f"❌ Failed to send status message to chat {chat_id}: {response.status_code}")
             return success
-            
         except Exception as e:
-            logger.error(f"❌ Error sending status message to chat {chat_id}: {e}")
+            logging.error(f"❌ Error sending status message to chat {chat_id}: {e}")
             return False
     
     def get_version_info(self) -> str:
@@ -65,7 +62,7 @@ Here you can:
 
 📋 <b>Player Commands:</b>
 • <code>/list</code> – View all players
-• <code>/status &lt;phone&gt;</code> – Check your status
+• <code>/status phone</code> – Check your status
 • <code>/stats</code> – Team statistics
 • <code>/myinfo</code> – Your player info
 • <code>/help</code> – Show help
@@ -83,16 +80,16 @@ Let's play, grow, and win together! ⚽️"""
         return """📋 <b>Available Commands:</b>
 
 👥 <b>Player Management:</b>
-• <code>/add &lt;name&gt; &lt;phone&gt; &lt;position&gt;</code> - Add a new player
-• <code>/remove &lt;phone&gt;</code> - Remove a player
+• <code>/add name phone position</code> - Add a new player
+• <code>/remove phone</code> - Remove a player
 • <code>/list</code> - List all players
-• <code>/status &lt;phone&gt;</code> - Get player status
+• <code>/status phone</code> - Get player status
 • <code>/stats</code> - Get team statistics
-• <code>/invite &lt;phone_or_player_id&gt;</code> - Generate invitation message
+• <code>/invite phone_or_player_id</code> - Generate invitation message
 
 👨‍💼 <b>Admin Commands:</b>
-• <code>/approve &lt;player_id&gt;</code> - Approve a player
-• <code>/reject &lt;player_id&gt; [reason]</code> - Reject a player
+• <code>/approve player_id</code> - Approve a player
+• <code>/reject player_id [reason]</code> - Reject a player
 • <code>/pending</code> - List players pending approval
 • <code>/checkfa</code> - Check FA registration status
 • <code>/dailystatus</code> - Generate daily team status report
@@ -113,7 +110,7 @@ Let's play, grow, and win together! ⚽️"""
     def send_startup_message(self) -> bool:
         """Send startup message to both chats."""
         if not self.bot_config:
-            logger.error("❌ Bot configuration not found")
+            logging.error("❌ Bot configuration not found")
             return False
         
         version = self.get_version_info()
@@ -144,16 +141,16 @@ Let's play, grow, and win together! ⚽️"""
         leadership_success = self._send_telegram_message(self.bot_config.leadership_chat_id, leadership_message)
         
         if main_success and leadership_success:
-            logger.info("✅ Startup messages sent to both chats successfully")
+            logging.info("✅ Startup messages sent to both chats successfully")
             return True
         else:
-            logger.warning("⚠️ Some startup messages failed to send")
+            logging.warning("⚠️ Some startup messages failed to send")
             return False
     
     def send_shutdown_message(self) -> bool:
         """Send shutdown message to both chats."""
         if not self.bot_config:
-            logger.error("❌ Bot configuration not found")
+            logging.error("❌ Bot configuration not found")
             return False
         
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -186,10 +183,10 @@ Let's play, grow, and win together! ⚽️"""
         leadership_success = self._send_telegram_message(self.bot_config.leadership_chat_id, shutdown_message)
         
         if main_success and leadership_success:
-            logger.info("✅ Shutdown messages sent to both chats successfully")
+            logging.info("✅ Shutdown messages sent to both chats successfully")
             return True
         else:
-            logger.warning("⚠️ Some shutdown messages failed to send")
+            logging.warning("⚠️ Some shutdown messages failed to send")
             return False
 
 
@@ -199,7 +196,7 @@ def send_startup_messages(bot_token: str, team_id: str) -> bool:
         service = BotStatusService(bot_token, team_id)
         return service.send_startup_message()
     except Exception as e:
-        logger.error(f"❌ Error sending startup messages: {e}")
+        logging.error(f"❌ Error sending startup messages: {e}")
         return False
 
 
@@ -209,5 +206,5 @@ def send_shutdown_messages(bot_token: str, team_id: str) -> bool:
         service = BotStatusService(bot_token, team_id)
         return service.send_shutdown_message()
     except Exception as e:
-        logger.error(f"❌ Error sending shutdown messages: {e}")
+        logging.error(f"❌ Error sending shutdown messages: {e}")
         return False 

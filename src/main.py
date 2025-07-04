@@ -11,9 +11,9 @@ import signal
 import sys
 from typing import Optional, Any
 from contextlib import asynccontextmanager
+import logging
 
 from .core.config import initialize_config, get_config
-from .core.logging import initialize_logging, get_logger, log_error
 from .core.exceptions import ConfigurationError, KICKAIError
 from .database.firebase_client import initialize_firebase_client, get_firebase_client
 from .services.player_service import initialize_player_service
@@ -38,30 +38,28 @@ class KICKAIApplication:
             config = initialize_config()
             
             # Initialize logging first
-            initialize_logging(config.logging)
-            self._logger = get_logger("main")
-            self._logger.info("Logging system initialized")
+            logging.info("Logging system initialized")
             
             # Initialize Firebase client
             self._firebase_client = initialize_firebase_client(config.database)
-            self._logger.info("Firebase client initialized")
+            logging.info("Firebase client initialized")
             
             # Initialize services
             self._player_service = initialize_player_service()
             self._team_service = initialize_team_service()
-            self._logger.info("Services initialized")
+            logging.info("Services initialized")
             
             # Perform health checks
             await self._perform_health_checks()
             
-            self._logger.info("KICKAI application initialized successfully")
+            logging.info("KICKAI application initialized successfully")
             
         except ConfigurationError as e:
-            self._logger.error("Configuration error during initialization", error=e)
+            logging.error("Configuration error during initialization")
             raise
         except Exception as e:
             if self._logger:
-                self._logger.error("Failed to initialize application", error=e)
+                logging.error("Failed to initialize application")
             else:
                 print(f"Failed to initialize application: {e}")
             raise
@@ -74,17 +72,17 @@ class KICKAIApplication:
             if db_health['status'] != 'healthy':
                 raise KICKAIError(f"Database health check failed: {db_health}")
             
-            self._logger.info("Health checks passed")
+            logging.info("Health checks passed")
             
         except Exception as e:
-            self._logger.error("Health checks failed", error=e)
+            logging.error("Health checks failed")
             raise
     
     async def start(self) -> None:
         """Start the application."""
         try:
             self._running = True
-            self._logger.info("Starting KICKAI application")
+            logging.info("Starting KICKAI application")
             
             # Set up signal handlers
             self._setup_signal_handlers()
@@ -93,7 +91,7 @@ class KICKAIApplication:
             await self._main_loop()
             
         except Exception as e:
-            self._logger.error("Error during application startup", error=e)
+            logging.error("Error during application startup")
             raise
         finally:
             await self.shutdown()
@@ -101,7 +99,7 @@ class KICKAIApplication:
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""
         def signal_handler(signum, frame):
-            self._logger.info(f"Received signal {signum}, initiating shutdown")
+            logging.info(f"Received signal {signum}, initiating shutdown")
             self._shutdown_event.set()
         
         signal.signal(signal.SIGINT, signal_handler)
@@ -109,7 +107,7 @@ class KICKAIApplication:
     
     async def _main_loop(self) -> None:
         """Main application loop."""
-        self._logger.info("Entering main application loop")
+        logging.info("Entering main application loop")
         
         try:
             while self._running and not self._shutdown_event.is_set():
@@ -118,7 +116,7 @@ class KICKAIApplication:
                 await asyncio.sleep(1)
                 
         except Exception as e:
-            self._logger.error("Error in main loop", error=e)
+            logging.error("Error in main loop")
             raise
     
     async def shutdown(self) -> None:
@@ -126,17 +124,17 @@ class KICKAIApplication:
         if not self._running:
             return
         
-        self._logger.info("Shutting down KICKAI application")
+        logging.info("Shutting down KICKAI application")
         self._running = False
         
         try:
             # Perform cleanup tasks
             await self._cleanup()
             
-            self._logger.info("KICKAI application shutdown complete")
+            logging.info("KICKAI application shutdown complete")
             
         except Exception as e:
-            self._logger.error("Error during shutdown", error=e)
+            logging.error("Error during shutdown")
     
     async def _cleanup(self) -> None:
         """Perform cleanup tasks."""

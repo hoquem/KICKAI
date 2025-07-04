@@ -441,16 +441,18 @@ class PlayerTools(BaseTool):
                 else:
                     return "Player not found."
             else:
-                query = players_ref.where('team_id', '==', self.team_id).where('phone_number', '==', phone_number)
+                # Use single where clause to avoid composite index requirement
+                query = players_ref.where('team_id', '==', self.team_id)
                 docs = query.stream()
                 docs_list = list(docs)
                 
-                if docs_list:
-                    doc = docs_list[0]
+                # Filter by phone number in Python
+                for doc in docs_list:
                     data = doc.to_dict()
-                    return f"Player found: {data.get('name')} (ID: {doc.id}, Phone: {data.get('phone_number')}, Active: {data.get('is_active', True)})"
-                else:
-                    return "Player not found."
+                    if data.get('phone_number') == phone_number:
+                        return f"Player found: {data.get('name')} (ID: {doc.id}, Phone: {data.get('phone_number')}, Active: {data.get('is_active', True)})"
+                
+                return "Player not found."
         except Exception as e:
             return f"An exception occurred while fetching player: {e}"
 

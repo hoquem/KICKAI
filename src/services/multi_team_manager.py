@@ -5,13 +5,10 @@ Manages multiple teams and their associated bots/agents
 
 import asyncio
 from typing import Dict, List, Optional, Any
-from src.core.logging import get_logger
+import logging
 from src.core.exceptions import KICKAIError, TeamError
 from src.database.firebase_client import get_firebase_client
 from src.services.team_service import get_team_service
-
-# Use new structured logging
-logger = get_logger(__name__)
 
 class MultiTeamManager:
     """Manages multiple teams and their associated bots/agents."""
@@ -31,7 +28,7 @@ class MultiTeamManager:
             self._load_bots(firebase_client)
             self._initialize_crews()
         except Exception as e:
-            logger.error("Failed to get Firebase client", error=e)
+            logging.error("Failed to get Firebase client")
             raise TeamError(f"Failed to initialize multi-team manager: {str(e)}")
     
     def _load_teams(self, firebase_client):
@@ -45,9 +42,9 @@ class MultiTeamManager:
                 team_data = doc.to_dict()
                 self.teams[doc.id] = team_data
             
-            logger.info(f"Loaded {len(self.teams)} active teams")
+            logging.info(f"Loaded {len(self.teams)} active teams")
         except Exception as e:
-            logger.error("Failed to load teams", error=e)
+            logging.error("Failed to load teams")
             raise TeamError(f"Failed to load teams: {str(e)}")
     
     def _load_bots(self, firebase_client):
@@ -63,14 +60,14 @@ class MultiTeamManager:
                 if team_id:
                     self.bots[team_id] = bot_data
             
-            logger.info(f"Loaded {len(self.bots)} bots for team {team_id}")
+            logging.info(f"Loaded {len(self.bots)} bots for team {team_id}")
         except Exception as e:
-            logger.error(f"Failed to load bots for team {team_id}", error=e)
+            logging.error(f"Failed to load bots for team {team_id}")
             raise TeamError(f"Failed to load bots: {str(e)}")
     
     def _initialize_crews(self):
         """Initialize CrewAI crews for each team."""
-        logger.info("Initializing Multi-Team Manager...")
+        logging.info("Initializing Multi-Team Manager...")
         
         try:
             # Import CrewAI components
@@ -79,9 +76,9 @@ class MultiTeamManager:
             # Create LLM
             llm = create_llm()
             if llm:
-                logger.info("LLM created successfully")
+                logging.info("LLM created successfully")
             else:
-                logger.warning("LLM creation failed, using fallback")
+                logging.warning("LLM creation failed, using fallback")
             
             # Initialize crews for each team
             for team_id, team_data in self.teams.items():
@@ -89,7 +86,7 @@ class MultiTeamManager:
                 
                 # Check if bot mapping exists
                 if team_id not in self.bots:
-                    logger.warning(f"Skipping team {team_name} (ID: {team_id}) - no bot mapping found")
+                    logging.warning(f"Skipping team {team_name} (ID: {team_id}) - no bot mapping found")
                     continue
                 
                 try:
@@ -98,20 +95,20 @@ class MultiTeamManager:
                     crew = create_crew_for_team(agents)
                     self.crews[team_id] = crew
                     
-                    logger.info(f"Successfully initialized team: {team_name} (ID: {team_id})")
+                    logging.info(f"Successfully initialized team: {team_name} (ID: {team_id})")
                 except Exception as e:
-                    logger.error(f"Failed to initialize team {team_name} (ID: {team_id})", error=e)
+                    logging.error(f"Failed to initialize team {team_name} (ID: {team_id})")
                     continue
             
-            logger.info(f"Multi-Team Manager initialized with {len(self.crews)} teams")
+            logging.info(f"Multi-Team Manager initialized with {len(self.crews)} teams")
         except Exception as e:
-            logger.error("Failed to initialize crews", error=e)
+            logging.error("Failed to initialize crews")
             raise TeamError(f"Failed to initialize crews: {str(e)}")
     
     def get_crew(self, team_id: str) -> Optional[Any]:
         """Get the crew for a specific team."""
         if team_id not in self.crews:
-            logger.error(f"No crew found for team {team_id}")
+            logging.error(f"No crew found for team {team_id}")
             return None
         return self.crews[team_id]
     
@@ -122,7 +119,7 @@ class MultiTeamManager:
             return None
         
         team_name = self.teams.get(team_id, {}).get('name', 'Unknown Team')
-        logger.info(f"Running tasks for team: {team_name} (ID: {team_id})")
+        logging.info(f"Running tasks for team: {team_name} (ID: {team_id})")
         
         try:
             # Create tasks for the crew
@@ -138,10 +135,10 @@ class MultiTeamManager:
             # Execute tasks
             result = await crew.kickoff(tasks=crew_tasks)
             
-            logger.info(f"Completed tasks for team: {team_name} (ID: {team_id})")
+            logging.info(f"Completed tasks for team: {team_name} (ID: {team_id})")
             return str(result)
         except Exception as e:
-            logger.error(f"Error running tasks for team {team_id}", error=e)
+            logging.error(f"Error running tasks for team {team_id}")
             return None
     
     async def process_team_message(self, team_id: str, message: str, user_id: str) -> Optional[str]:
@@ -151,7 +148,7 @@ class MultiTeamManager:
             return None
         
         team_name = self.teams.get(team_id, {}).get('name', 'Unknown Team')
-        logger.info(f"Running tasks for team: {team_name} (ID: {team_id})")
+        logging.info(f"Running tasks for team: {team_name} (ID: {team_id})")
         
         try:
             # Create a task for message processing
@@ -166,17 +163,17 @@ class MultiTeamManager:
             
             return str(result)
         except Exception as e:
-            logger.error(f"Error processing team {team_id}", error=e)
+            logging.error(f"Error processing team {team_id}")
             return None
     
     def add_team(self, team_id: str, team_info: Dict[str, Any]) -> bool:
         """Add a new team to the manager."""
         try:
             self.teams[team_id] = team_info
-            logger.info(f"Successfully added team: {team_info['name']} (ID: {team_id})")
+            logging.info(f"Successfully added team: {team_info['name']} (ID: {team_id})")
             return True
         except Exception as e:
-            logger.error(f"Failed to add team {team_id}", error=e)
+            logging.error(f"Failed to add team {team_id}")
             return False
     
     def remove_team(self, team_id: str) -> bool:
@@ -186,17 +183,17 @@ class MultiTeamManager:
             del self.teams[team_id]
             if team_id in self.crews:
                 del self.crews[team_id]
-            logger.info(f"Removed team: {team_name} (ID: {team_id})")
+            logging.info(f"Removed team: {team_name} (ID: {team_id})")
             return True
         else:
-            logger.warning(f"Team {team_id} not found in manager")
+            logging.warning(f"Team {team_id} not found in manager")
             return False
 
 def main():
     """Main function for testing the multi-team manager."""
-    logger.info("##################################################")
-    logger.info("## KICKAI Multi-Team Manager ##")
-    logger.info("##################################################")
+    logging.info("##################################################")
+    logging.info("## KICKAI Multi-Team Manager ##")
+    logging.info("##################################################")
     
     try:
         # Initialize manager
@@ -206,12 +203,12 @@ def main():
         teams = list(manager.teams.values())
         
         if teams:
-            logger.info(f"📋 Managed Teams ({len(teams)}):")
+            logging.info(f"📋 Managed Teams ({len(teams)}):")
             for team in teams:
                 status = "✅ Active" if team.get('status') == 'active' else "❌ Inactive"
-                logger.info(f"  - {team['name']} (ID: {team['id'][:8]}...) - {status}")
+                logging.info(f"  - {team['name']} (ID: {team['id'][:8]}...) - {status}")
         else:
-            logger.warning("❌ No teams available. Please ensure teams are created and have bot mappings.")
+            logging.warning("❌ No teams available. Please ensure teams are created and have bot mappings.")
             return
         
         # Run tasks for first team
@@ -219,7 +216,7 @@ def main():
             first_team = teams[0]
             team_id = first_team['id']
             
-            logger.info(f"🚀 Running tasks for team: {first_team['name']}")
+            logging.info(f"🚀 Running tasks for team: {first_team['name']}")
             
             # Example tasks
             tasks = [
@@ -230,12 +227,12 @@ def main():
             result = asyncio.run(manager.run_team_tasks(team_id, tasks))
             
             if result:
-                logger.info(f"✅ Results for {first_team['name']}:")
-                logger.info(result)
+                logging.info(f"✅ Results for {first_team['name']}:")
+                logging.info(result)
             else:
-                logger.warning(f"❌ No results for {first_team['name']}")
+                logging.warning(f"❌ No results for {first_team['name']}")
     except Exception as e:
-        logger.error(f"Error in multi-team manager", error=e)
+        logging.error(f"Error in multi-team manager")
 
 if __name__ == "__main__":
     main() 

@@ -9,24 +9,28 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 import re
 from uuid import uuid4
+import logging
 
 from ..core.exceptions import (
     PlayerError, PlayerNotFoundError, PlayerValidationError, 
     PlayerDuplicateError, create_error_context
 )
-from ..core.logging import get_logger, performance_timer
-from ..database.firebase_client import get_firebase_client
+from ..database.interfaces import DataStoreInterface
 from ..database.models import Player, PlayerPosition, PlayerRole, OnboardingStatus
+from .interfaces.player_service_interface import IPlayerService
 
 
-class PlayerService:
+class PlayerService(IPlayerService):
     """Service for player management operations."""
     
-    def __init__(self):
-        self._firebase_client = get_firebase_client()
-        self._logger = get_logger("player_service")
+    def __init__(self, data_store=None, team_id: Optional[str] = None):
+        if data_store is None:
+            from ..database.firebase_client import get_firebase_client
+            self._data_store = get_firebase_client()
+        else:
+            self._data_store = data_store
+        self._team_id = team_id
     
-    @performance_timer("player_service_create_player")
     async def create_player(self, name: str, phone: str, team_id: str, 
                           email: Optional[str] = None, position: PlayerPosition = PlayerPosition.UTILITY,
                           role: PlayerRole = PlayerRole.PLAYER, fa_registered: bool = False) -> Player:
@@ -36,7 +40,7 @@ class PlayerService:
             self._validate_player_data(name, phone, email, team_id)
             
             # Check for duplicate phone number in the same team
-            existing_player = await self._firebase_client.get_player_by_phone(phone, team_id)
+            existing_player = await self._data_store.get_player_by_phone(phone)
             if existing_player:
                 raise PlayerDuplicateError(
                     f"Player with phone {phone} already exists in team {team_id}",
@@ -56,14 +60,11 @@ class PlayerService:
             )
             
             # Save to database
-            player_id = await self._firebase_client.create_player(player)
+            player_id = await self._data_store.create_player(player)
             player.id = player_id
             
-            self._logger.info(
-                f"Player created successfully: {player.name} ({player_id})",
-                operation="create_player",
-                entity_id=player_id,
-                team_id=team_id
+            logging.info(
+                f"Player created successfully: {player.name} ({player_id})"
             )
             
             return player
@@ -71,33 +72,29 @@ class PlayerService:
         except (PlayerError, PlayerDuplicateError):
             raise
         except Exception as e:
-            self._logger.error("Failed to create player", error=e, team_id=team_id)
+            logging.error("Failed to create player")
             raise PlayerError(
                 f"Failed to create player: {str(e)}",
                 create_error_context("create_player", team_id=team_id)
             )
     
-    @performance_timer("player_service_get_player")
     async def get_player(self, player_id: str) -> Optional[Player]:
         """Get a player by ID."""
         try:
-            player = await self._firebase_client.get_player(player_id)
+            player = await self._data_store.get_player(player_id)
             if player:
-                self._logger.info(
-                    f"Player retrieved: {player.name}",
-                    operation="get_player",
-                    entity_id=player_id
+                logging.info(
+                    f"Player retrieved: {player.name}"
                 )
             return player
             
         except Exception as e:
-            self._logger.error("Failed to get player", error=e, entity_id=player_id)
+            logging.error("Failed to get player")
             raise PlayerError(
                 f"Failed to get player: {str(e)}",
                 create_error_context("get_player", entity_id=player_id)
             )
     
-    @performance_timer("player_service_update_player")
     async def update_player(self, player_id: str, **updates) -> Player:
         """Update a player with validation."""
         try:
@@ -116,9 +113,7 @@ class PlayerService:
                 self._validate_phone(updates['phone'])
                 # Check for duplicate phone if changed
                 if updates['phone'] != player.phone:
-                    existing_player = await self._firebase_client.get_player_by_phone(
-                        updates['phone'], player.team_id
-                    )
+                    existing_player = await self._data_store.get_player_by_phone(updates['phone'])
                     if existing_player and existing_player.id != player_id:
                         raise PlayerDuplicateError(
                             f"Player with phone {updates['phone']} already exists in team {player.team_id}",
@@ -131,18 +126,15 @@ class PlayerService:
             player.update(**updates)
             
             # Save to database
-            success = await self._firebase_client.update_player(player)
+            success = await self._data_store.update_player(player)
             if not success:
                 raise PlayerError(
                     "Failed to update player in database",
                     create_error_context("update_player", entity_id=player_id)
                 )
             
-            self._logger.info(
-                f"Player updated: {player.name}",
-                operation="update_player",
-                entity_id=player_id,
-                team_id=player.team_id
+            logging.info(
+                f"Player updated: {player.name}"
             )
             
             return player
@@ -150,13 +142,12 @@ class PlayerService:
         except (PlayerError, PlayerNotFoundError, PlayerDuplicateError):
             raise
         except Exception as e:
-            self._logger.error("Failed to update player", error=e, entity_id=player_id)
+            logging.error("Failed to update player")
             raise PlayerError(
                 f"Failed to update player: {str(e)}",
                 create_error_context("update_player", entity_id=player_id)
             )
     
-    @performance_timer("player_service_delete_player")
     async def delete_player(self, player_id: str) -> bool:
         """Delete a player."""
         try:
@@ -169,18 +160,15 @@ class PlayerService:
                 )
             
             # Delete from database
-            success = await self._firebase_client.delete_player(player_id)
+            success = await self._data_store.delete_player(player_id)
             if not success:
                 raise PlayerError(
                     "Failed to delete player from database",
                     create_error_context("delete_player", entity_id=player_id)
                 )
             
-            self._logger.info(
-                f"Player deleted: {player.name}",
-                operation="delete_player",
-                entity_id=player_id,
-                team_id=player.team_id
+            logging.info(
+                f"Player deleted: {player.name}"
             )
             
             return True
@@ -188,53 +176,47 @@ class PlayerService:
         except (PlayerError, PlayerNotFoundError):
             raise
         except Exception as e:
-            self._logger.error("Failed to delete player", error=e, entity_id=player_id)
+            logging.error("Failed to delete player")
             raise PlayerError(
                 f"Failed to delete player: {str(e)}",
                 create_error_context("delete_player", entity_id=player_id)
             )
     
-    @performance_timer("player_service_get_team_players")
     async def get_team_players(self, team_id: str) -> List[Player]:
         """Get all players for a team."""
         try:
-            players = await self._firebase_client.get_players_by_team(team_id)
+            players = await self._data_store.get_players_by_team(team_id)
             
-            self._logger.info(
-                f"Retrieved {len(players)} players for team {team_id}",
-                operation="get_team_players",
-                team_id=team_id
+            logging.info(
+                f"Retrieved {len(players)} players for team {team_id}"
             )
             
             return players
             
         except Exception as e:
-            self._logger.error("Failed to get team players", error=e, team_id=team_id)
+            logging.error("Failed to get team players")
             raise PlayerError(
                 f"Failed to get team players: {str(e)}",
                 create_error_context("get_team_players", team_id=team_id)
             )
     
-    @performance_timer("player_service_get_player_by_phone")
     async def get_player_by_phone(self, phone: str, team_id: str) -> Optional[Player]:
         """Get a player by phone number and team."""
         try:
-            player = await self._firebase_client.get_player_by_phone(phone, team_id)
+            player = await self._data_store.get_player_by_phone(phone)
             return player
             
         except Exception as e:
-            self._logger.error("Failed to get player by phone", error=e, team_id=team_id)
+            logging.error("Failed to get player by phone")
             raise PlayerError(
                 f"Failed to get player by phone: {str(e)}",
                 create_error_context("get_player_by_phone", team_id=team_id, additional_info={'phone': phone})
             )
     
-    @performance_timer("player_service_update_onboarding_status")
     async def update_onboarding_status(self, player_id: str, status: OnboardingStatus) -> Player:
         """Update player onboarding status."""
         return await self.update_player(player_id, onboarding_status=status)
     
-    @performance_timer("player_service_generate_invite_link")
     async def generate_invite_link(self, player_id: str, invite_link: str) -> Player:
         """Generate and store invite link for a player."""
         return await self.update_player(player_id, invite_link=invite_link)
@@ -308,7 +290,7 @@ class PlayerService:
                 create_error_context("validate_team_id")
             )
     
-    def generate_player_id(self, name: str) -> str:
+    async def generate_player_id(self, name: str) -> str:
         """Generate a unique player ID from name."""
         if not name:
             return ""
@@ -329,10 +311,11 @@ class PlayerService:
         existing_ids = set()
         try:
             # Get all existing player IDs from the database
-            players = self._firebase_client.get_all_players(self.team_id)
-            existing_ids = {player.player_id for player in players if player.player_id}
+            if self._team_id:
+                players = await self._data_store.get_players_by_team(self._team_id)
+                existing_ids = {player.player_id for player in players if player.player_id}
         except Exception as e:
-            logger.warning(f"Could not load existing player IDs for collision detection: {e}")
+            logging.warning(f"Could not load existing player IDs for collision detection: {e}")
         
         return generate_human_readable_id(first_name, last_name, existing_ids)
 
@@ -341,16 +324,30 @@ class PlayerService:
 _player_service: Optional[PlayerService] = None
 
 
-def get_player_service() -> PlayerService:
-    """Get the global player service instance."""
+def get_player_service(data_store=None) -> PlayerService:
+    """Get the global player service instance with optional data store injection."""
     global _player_service
     if _player_service is None:
-        _player_service = PlayerService()
+        if data_store is None:
+            # Use Firebase client for production
+            from ..database.firebase_client import get_firebase_client
+            data_store = get_firebase_client()
+        _player_service = PlayerService(data_store=data_store)
     return _player_service
 
 
-def initialize_player_service() -> PlayerService:
-    """Initialize the global player service."""
+def initialize_player_service(data_store=None) -> PlayerService:
+    """Initialize the global player service with optional data store injection."""
     global _player_service
-    _player_service = PlayerService()
-    return _player_service 
+    if data_store is None:
+        # Use Firebase client for production
+        from ..database.firebase_client import get_firebase_client
+        data_store = get_firebase_client()
+    _player_service = PlayerService(data_store=data_store)
+    return _player_service
+
+
+def reset_player_service():
+    """Reset the global player service (useful for testing)."""
+    global _player_service
+    _player_service = None 

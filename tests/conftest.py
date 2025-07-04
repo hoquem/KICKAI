@@ -205,12 +205,8 @@ def setup_logging():
     import logging
     logging.getLogger().setLevel(logging.CRITICAL)
     
-    # Mock the logging manager to prevent initialization issues
-    with patch('src.core.logging._logging_manager', None):
-        with patch('src.core.logging.initialize_logging') as mock_init:
-            mock_manager = Mock()
-            mock_init.return_value = mock_manager
-            yield mock_manager
+    # No need to mock custom logging since we're using standard logging now
+    yield
 
 # Test utilities
 def create_test_message(text: str = "test message", user_id: str = "123456", chat_id: str = "-987654321") -> Dict[str, Any]:
