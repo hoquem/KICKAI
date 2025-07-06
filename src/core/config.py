@@ -97,6 +97,17 @@ class SecurityConfig:
     password_min_length: int = 8
 
 
+@dataclass
+class PaymentConfig:
+    """Payment configuration."""
+    collectiv_api_key: Optional[str] = None
+    collectiv_base_url: str = "https://api.collectiv.com"
+    default_currency: str = "GBP"
+    payment_timeout: int = 30
+    retry_attempts: int = 3
+    webhook_secret: Optional[str] = None
+
+
 class ConfigurationManager:
     """Centralized configuration management with validation."""
     
@@ -231,6 +242,7 @@ class ConfigurationManager:
             "logging": self._load_logging_config(),
             "performance": self._load_performance_config(),
             "security": self._load_security_config(),
+            "payment": self._load_payment_config(),
         }
     
     def _load_database_config(self) -> DatabaseConfig:
@@ -346,6 +358,17 @@ class ConfigurationManager:
             session_timeout=int(os.getenv("SESSION_TIMEOUT", "3600")),
             max_login_attempts=int(os.getenv("MAX_LOGIN_ATTEMPTS", "5")),
             password_min_length=int(os.getenv("PASSWORD_MIN_LENGTH", "8"))
+        )
+    
+    def _load_payment_config(self) -> PaymentConfig:
+        """Load payment configuration."""
+        return PaymentConfig(
+            collectiv_api_key=os.getenv("COLLECTIV_API_KEY"),
+            collectiv_base_url=os.getenv("COLLECTIV_BASE_URL", "https://api.collectiv.com"),
+            default_currency=os.getenv("DEFAULT_CURRENCY", "GBP"),
+            payment_timeout=int(os.getenv("PAYMENT_TIMEOUT", "30")),
+            retry_attempts=int(os.getenv("PAYMENT_RETRY_ATTEMPTS", "3")),
+            webhook_secret=os.getenv("COLLECTIV_WEBHOOK_SECRET")
         )
     
     def validate_configuration(self):
@@ -484,6 +507,11 @@ class ConfigurationManager:
     def security(self) -> SecurityConfig:
         """Get security configuration."""
         return self._config["security"]
+    
+    @property
+    def payment(self) -> PaymentConfig:
+        """Get payment configuration."""
+        return self._config["payment"]
     
     def get(self, key: str, default: Any = None) -> Any:
         """Get a configuration value by key."""

@@ -21,6 +21,8 @@ from enum import Enum
 from typing import Dict, List, Optional, Any, Callable, Awaitable
 from functools import wraps
 
+from .payment_commands import PaymentCommands
+
 logger = logging.getLogger(__name__)
 
 
@@ -189,22 +191,22 @@ class StartCommand(Command):
     
     async def execute(self, context: CommandContext) -> CommandResult:
         try:
-            message = f"""🤖 **Welcome to KICKAI Bot!**
+            message = f"""🤖 WELCOME TO KICKAI BOT!
 
 👋 Hello! I'm your AI-powered football team management assistant.
 
-💡 **What I can help you with:**
+💡 WHAT I CAN HELP YOU WITH:
 • Player registration and management
 • Match scheduling and coordination
 • Team statistics and analytics
 • Communication and notifications
 
-📋 **Quick Start:**
-• Type `/help` to see all available commands
+📋 QUICK START:
+• Type /help to see all available commands
 • Use natural language: "Create a match against Arsenal on July 1st"
 • Ask questions: "What's our next match?"
 
-🔗 **Team:** {context.team_id}
+🔗 TEAM: {context.team_id}
 
 Ready to get started! 🏆"""
             
@@ -241,40 +243,41 @@ class HelpCommand(Command):
             
             # Build help message
             if context.chat_type == ChatType.LEADERSHIP:
-                title = "🤖 **KICKAI Bot Help (Leadership)**"
+                title = "🤖 KICKAI BOT HELP (LEADERSHIP)"
             else:
-                title = "🤖 **KICKAI Bot Help**"
+                title = "🤖 KICKAI BOT HELP"
             
-            message = f"{title}\n\n📋 **Available Commands:**\n\n"
+            message = f"{title}\n\n📋 AVAILABLE COMMANDS:\n\n"
             
             if public_commands:
-                message += "🌐 **General Commands:**\n"
+                message += "🌐 GENERAL:\n"
                 for cmd in public_commands:
                     message += f"• {cmd.get_help_text()}\n"
                 message += "\n"
             
             if player_commands:
-                message += "👥 **Player Commands:**\n"
+                message += "👥 PLAYER:\n"
                 for cmd in player_commands:
                     message += f"• {cmd.get_help_text()}\n"
                 message += "\n"
             
             if leadership_commands:
-                message += "👑 **Leadership Commands:**\n"
+                message += "👑 LEADERSHIP:\n"
                 for cmd in leadership_commands:
                     message += f"• {cmd.get_help_text()}\n"
                 message += "\n"
             
             if admin_commands:
-                message += "🔧 **Admin Commands:**\n"
+                message += "🔧 ADMIN:\n"
                 for cmd in admin_commands:
                     message += f"• {cmd.get_help_text()}\n"
                 message += "\n"
             
-            message += "💡 **Tips:**\n"
-            message += "• You can use natural language or specific commands\n"
+            message += "💡 TIPS:\n"
+            message += "• Use natural language: \"Add John Smith as midfielder\"\n"
+            message += "• Type /help [command] for detailed help\n"
             if context.chat_type != ChatType.LEADERSHIP:
-                message += "• Admin commands are only available in the leadership chat\n"
+                message += "• Admin commands available in leadership chat\n"
             
             return CommandResult(success=True, message=message)
         except Exception as e:
@@ -294,7 +297,9 @@ class ListPlayersCommand(Command):
             from src.telegram.telegram_command_handler import get_player_command_handler
             handler = get_player_command_handler()
             
-            result = await handler._handle_list_players()
+            # Pass the chat type information to determine if this is leadership chat
+            is_leadership_chat = context.chat_type == ChatType.LEADERSHIP
+            result = await handler._handle_list_players(is_leadership_chat=is_leadership_chat)
             return CommandResult(success=True, message=result)
         except Exception as e:
             logger.error(f"Error in list players command: {e}")
@@ -394,9 +399,9 @@ class StatusCommand(Command):
 
 📊 <b>Status:</b>
 • Onboarding: {player.onboarding_status.value.title()}
-• FA Registered: {'Yes' if player.fa_registered else 'No'}
-• FA Eligible: {'Yes' if player.fa_eligible else 'No'}
-• Match Eligible: {'Yes' if player.match_eligible else 'No'}
+• FA Registered: {'Yes' if player.is_fa_registered() else 'No'}
+• FA Eligible: {'Yes' if player.is_fa_eligible() else 'No'}
+• Match Eligible: {'Yes' if player.is_match_eligible() else 'No'}
 
 📞 <b>Contact Info:</b>
 • Emergency Contact: {player.emergency_contact or 'Not provided'}
@@ -425,27 +430,56 @@ class RegisterCommand(Command):
             # Check if there's a player ID parameter
             parts = context.message_text.split()
             
-            # If no parameters, show registration info
+            # If no parameters, show registration info based on chat context
             if len(parts) == 1:
-                return CommandResult(
-                    success=True,
-                    message="""📝 **Player Registration**
+                if context.chat_type == ChatType.LEADERSHIP:
+                    # Leadership chat - show admin instructions
+                    message = """📝 PLAYER REGISTRATION (ADMIN)
+
+To add a new player to the team:
+
+1️⃣ ADD PLAYER:
+   /add [name] [phone] [position]
+   Example: /add John Smith 07123456789 midfielder
+
+2️⃣ GENERATE INVITATION:
+   /invite [phone_or_player_id]
+   Example: /invite 07123456789
+
+3️⃣ SEND INVITATION:
+   Copy the generated message and send to the player
+
+4️⃣ PLAYER COMPLETES ONBOARDING:
+   Player uses the invitation link and completes profile
+
+5️⃣ APPROVE PLAYER:
+   /approve [player_id]
+   Example: /approve JS1
+
+💡 TIPS:
+• Use /list to see all players
+• Use /pending to see players awaiting approval
+• Use /status [phone] to check player status"""
+                else:
+                    # Main chat or private - show player instructions
+                    message = """📝 PLAYER REGISTRATION
 
 To register as a new player, you need an invitation from a team admin.
 
-**How to register:**
+HOW TO REGISTER:
 1. Ask a team admin to add you to the team
 2. The admin will generate an invitation link for you
 3. Click the invitation link to join the team
 4. Complete your profile information
 
-**Alternative:**
+ALTERNATIVE:
 If you have a player ID, use:
-`/register [player_id]`
+/register [player_id]
 
-**Need help?**
+NEED HELP?
 Contact a team admin in the leadership chat for assistance."""
-                )
+                
+                return CommandResult(success=True, message=message)
             
             # If there's a player ID parameter, handle player onboarding
             if len(parts) > 1:
@@ -619,31 +653,7 @@ class BackgroundTasksCommand(Command):
         super().__init__("/background", "Check background tasks status", PermissionLevel.ADMIN)
     
     def get_help_text(self) -> str:
-        return """📋 **Background Tasks Command Help**
-
-**Usage:** `/background`
-**Admin Only:** ✅
-
-**Description:**
-Shows the status of all background tasks including:
-• FA Registration Checker
-• Daily Status Service
-• Onboarding Reminder Service
-• Reminder Cleanup Service
-
-**What it shows:**
-• Which tasks are running
-• Task execution status
-• Error information
-• Last run times
-
-**Useful for:**
-• Monitoring system health
-• Debugging task issues
-• Verifying reminder service is working
-• Checking FA registration updates
-
-**Note:** Background tasks run automatically to keep the system updated."""
+        return "`/background` - Check background tasks status"
     
     async def execute(self, context: CommandContext) -> CommandResult:
         try:
@@ -653,21 +663,21 @@ Shows the status of all background tasks including:
             status = await get_background_task_status()
             
             # Build status message
-            message = "📊 **Background Tasks Status**\n\n"
+            message = "📊 BACKGROUND TASKS STATUS\n\n"
             
             if status["running"]:
-                message += "🟢 **System Status:** Running\n\n"
+                message += "🟢 System Status: Running\n\n"
             else:
-                message += "🔴 **System Status:** Stopped\n\n"
+                message += "🔴 System Status: Stopped\n\n"
             
-            message += f"📋 **Task Summary:**\n"
+            message += f"📋 Task Summary:\n"
             message += f"• Total Tasks: {status['total_tasks']}\n"
             message += f"• Active Tasks: {status['active_tasks']}\n"
             message += f"• Completed Tasks: {status['completed_tasks']}\n"
             message += f"• Failed Tasks: {status['failed_tasks']}\n\n"
             
             if status["task_details"]:
-                message += "🔍 **Task Details:**\n"
+                message += "🔍 Task Details:\n"
                 for i, task in enumerate(status["task_details"]):
                     if task["done"]:
                         if task["exception"]:
@@ -681,7 +691,7 @@ Shows the status of all background tasks including:
             else:
                 message += "ℹ️ No tasks currently running\n\n"
             
-            message += "\n💡 **Background Services:**\n"
+            message += "\n💡 Background Services:\n"
             message += "• FA Registration Checker (24h interval)\n"
             message += "• Daily Status Service (daily)\n"
             message += "• Onboarding Reminder Service (6h interval)\n"
@@ -705,30 +715,7 @@ class RemindCommand(Command):
         super().__init__("/remind", "Send reminder to player", PermissionLevel.ADMIN)
     
     def get_help_text(self) -> str:
-        return """📋 **Remind Command Help**
-
-**Usage:** `/remind [player_id]`
-**Admin Only:** ✅
-
-**Description:**
-Sends a manual reminder to a player with incomplete onboarding.
-
-**Examples:**
-• `/remind AB1` - Send reminder to player AB1
-• `/remind JS1` - Send reminder to player JS1
-
-**What it does:**
-• Sends a personalized reminder message to the player
-• Updates reminder tracking in the system
-• Notifies admin of reminder delivery
-• Shows current onboarding progress
-
-**When to use:**
-• Player hasn't completed onboarding in 24+ hours
-• Player is stuck on a specific step
-• Follow-up to automated reminders
-
-**Note:** Maximum 3 reminders per player (automated + manual combined)."""
+        return "`/remind [player_id]` - Send reminder to player"
     
     async def execute(self, context: CommandContext) -> CommandResult:
         """Execute the remind command."""
@@ -828,7 +815,7 @@ class CreateMatchCommand(Command):
             if "successfully" in result.lower() or "added" in result.lower():
                 return CommandResult(
                     success=True,
-                    message=f"✅ **Match Created Successfully!**\n\n🏆 **{opponent}**\n📅 {date} at {time}\n📍 {venue} - {competition}"
+                    message=f"✅ Match Created Successfully!\n\n🏆 {opponent}\n📅 {date} at {time}\n📍 {venue} - {competition}"
                 )
             else:
                 return CommandResult(
@@ -1084,7 +1071,7 @@ class StatsCommand(Command):
             if not players:
                 return CommandResult(
                     success=True,
-                    message="📊 **Team Statistics**\n\nNo players found in the team."
+                    message="📊 TEAM STATISTICS\n\nNo players found in the team."
                 )
             
             # Calculate statistics
@@ -1100,13 +1087,13 @@ class StatsCommand(Command):
                 positions[pos] = positions.get(pos, 0) + 1
             
             # Format statistics
-            stats = f"📊 **Team Statistics**\n\n"
-            stats += f"👥 **Total Players:** {total_players}\n"
-            stats += f"✅ **Active Players:** {active_players}\n"
-            stats += f"⏳ **Pending Approvals:** {pending_players}\n"
-            stats += f"🏆 **FA Registered:** {fa_registered}\n\n"
+            stats = f"📊 TEAM STATISTICS\n\n"
+            stats += f"👥 Total Players: {total_players}\n"
+            stats += f"✅ Active Players: {active_players}\n"
+            stats += f"⏳ Pending Approvals: {pending_players}\n"
+            stats += f"🏆 FA Registered: {fa_registered}\n\n"
             
-            stats += "**Position Breakdown:**\n"
+            stats += "Position Breakdown:\n"
             for pos, count in positions.items():
                 stats += f"⚽ {pos}: {count}\n"
             
@@ -1131,30 +1118,7 @@ class InviteCommand(Command):
         super().__init__("/invite", "Invite a player to the team", PermissionLevel.LEADERSHIP)
     
     def get_help_text(self) -> str:
-        return """📋 **Invite Command Help**
-
-**Usage:** `/invite [phone_or_player_id]`
-**Admin Only:** ✅
-
-**Description:**
-Generates a shareable invitation message for a player to join the team.
-
-**Examples:**
-• `/invite 07871521581` - Invite by phone number
-• `/invite AB1` - Invite by player ID
-
-**What it does:**
-• Generates a short, shareable message for WhatsApp/SMS/Email
-• Includes player details and instructions
-• Provides Telegram group link
-• Shows next steps for the player
-
-**Sharing Options:**
-• **WhatsApp:** Copy the message and send directly
-• **SMS:** Copy the message and send via text
-• **Email:** Copy the message and send via email
-
-**Note:** The player doesn't need Telegram initially - they can join via the link in the message."""
+        return "`/invite [phone_or_player_id]` - Generate invitation message"
     
     async def execute(self, context: CommandContext) -> CommandResult:
         """Execute the invite command."""
@@ -1380,7 +1344,7 @@ class BroadcastCommand(Command):
             
             return CommandResult(
                 success=True,
-                message=f"✅ **Broadcast Sent!**\n\n📢 **Message:** {broadcast_message}\n👥 **Recipients:** {len(members)} team members"
+                message=f"✅ Broadcast Sent!\n\n📢 Message: {broadcast_message}\n👥 Recipients: {len(members)} team members"
             )
                 
         except Exception as e:
@@ -1395,6 +1359,236 @@ class BroadcastCommand(Command):
         """Extract broadcast message from command."""
         match = re.search(r'/broadcast\s+(.+)', message)
         return match.group(1).strip() if match else None
+
+
+# ============================================================================
+# PAYMENT COMMANDS
+# ============================================================================
+
+class CreateMatchFeeCommand(Command):
+    """Create match fee payment command."""
+    
+    def __init__(self):
+        super().__init__("/create_match_fee", "Create a match fee payment", PermissionLevel.LEADERSHIP)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            payment_commands = PaymentCommands(context.team_id)
+            
+            # Extract command arguments
+            args = context.message_text.split()[1:]  # Remove command name
+            
+            result = await payment_commands.handle_payment_command("create_match_fee", args, context.user_id)
+            
+            return CommandResult(
+                success=not result.startswith("❌"),
+                message=result
+            )
+            
+        except Exception as e:
+            logger.error(f"Create match fee command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Payment Error: {str(e)}",
+                error=str(e)
+            )
+
+
+class CreateMembershipFeeCommand(Command):
+    """Create membership fee payment command."""
+    
+    def __init__(self):
+        super().__init__("/create_membership_fee", "Create a membership fee payment", PermissionLevel.LEADERSHIP)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            payment_commands = PaymentCommands(context.team_id)
+            
+            # Extract command arguments
+            args = context.message_text.split()[1:]  # Remove command name
+            
+            result = await payment_commands.handle_payment_command("create_membership_fee", args, context.user_id)
+            
+            return CommandResult(
+                success=not result.startswith("❌"),
+                message=result
+            )
+            
+        except Exception as e:
+            logger.error(f"Create membership fee command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Payment Error: {str(e)}",
+                error=str(e)
+            )
+
+
+class CreateFineCommand(Command):
+    """Create fine payment command."""
+    
+    def __init__(self):
+        super().__init__("/create_fine", "Create a fine payment", PermissionLevel.LEADERSHIP)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            payment_commands = PaymentCommands(context.team_id)
+            
+            # Extract command arguments
+            args = context.message_text.split()[1:]  # Remove command name
+            
+            result = await payment_commands.handle_payment_command("create_fine", args, context.user_id)
+            
+            return CommandResult(
+                success=not result.startswith("❌"),
+                message=result
+            )
+            
+        except Exception as e:
+            logger.error(f"Create fine command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Payment Error: {str(e)}",
+                error=str(e)
+            )
+
+
+class PaymentStatusCommand(Command):
+    """Get payment status command."""
+    
+    def __init__(self):
+        super().__init__("/payment_status", "Get payment status", PermissionLevel.PLAYER)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            payment_commands = PaymentCommands(context.team_id)
+            
+            # Extract command arguments
+            args = context.message_text.split()[1:]  # Remove command name
+            
+            result = await payment_commands.handle_payment_command("payment_status", args, context.user_id)
+            
+            return CommandResult(
+                success=not result.startswith("❌"),
+                message=result
+            )
+            
+        except Exception as e:
+            logger.error(f"Payment status command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Payment Error: {str(e)}",
+                error=str(e)
+            )
+
+
+class PendingPaymentsCommand(Command):
+    """Get pending payments command."""
+    
+    def __init__(self):
+        super().__init__("/pending_payments", "Get pending payments", PermissionLevel.PLAYER)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            payment_commands = PaymentCommands(context.team_id)
+            
+            # Extract command arguments
+            args = context.message_text.split()[1:]  # Remove command name
+            
+            result = await payment_commands.handle_payment_command("pending_payments", args, context.user_id)
+            
+            return CommandResult(
+                success=not result.startswith("❌"),
+                message=result
+            )
+            
+        except Exception as e:
+            logger.error(f"Pending payments command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Payment Error: {str(e)}",
+                error=str(e)
+            )
+
+
+class PaymentHistoryCommand(Command):
+    """Get payment history command."""
+    
+    def __init__(self):
+        super().__init__("/payment_history", "Get payment history", PermissionLevel.PLAYER)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            payment_commands = PaymentCommands(context.team_id)
+            
+            # Extract command arguments
+            args = context.message_text.split()[1:]  # Remove command name
+            
+            result = await payment_commands.handle_payment_command("payment_history", args, context.user_id)
+            
+            return CommandResult(
+                success=not result.startswith("❌"),
+                message=result
+            )
+            
+        except Exception as e:
+            logger.error(f"Payment history command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Payment Error: {str(e)}",
+                error=str(e)
+            )
+
+
+class PaymentStatsCommand(Command):
+    """Get payment statistics command."""
+    
+    def __init__(self):
+        super().__init__("/payment_stats", "Get payment statistics", PermissionLevel.LEADERSHIP)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            payment_commands = PaymentCommands(context.team_id)
+            
+            result = await payment_commands.handle_payment_command("payment_stats", [], context.user_id)
+            
+            return CommandResult(
+                success=not result.startswith("❌"),
+                message=result
+            )
+            
+        except Exception as e:
+            logger.error(f"Payment stats command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Payment Error: {str(e)}",
+                error=str(e)
+            )
+
+
+class PaymentHelpCommand(Command):
+    """Payment help command."""
+    
+    def __init__(self):
+        super().__init__("/payment_help", "Get payment commands help", PermissionLevel.PLAYER)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            payment_commands = PaymentCommands(context.team_id)
+            
+            help_message = payment_commands.get_help_message()
+            
+            return CommandResult(
+                success=True,
+                message=help_message
+            )
+            
+        except Exception as e:
+            logger.error(f"Payment help command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error: {str(e)}",
+                error=str(e)
+            )
 
 
 # ============================================================================
@@ -1448,6 +1642,16 @@ class CommandRegistry:
             StatsCommand(),
             InviteCommand(),
             BroadcastCommand(),
+            
+            # Payment Commands
+            CreateMatchFeeCommand(),
+            CreateMembershipFeeCommand(),
+            CreateFineCommand(),
+            PaymentStatusCommand(),
+            PendingPaymentsCommand(),
+            PaymentHistoryCommand(),
+            PaymentStatsCommand(),
+            PaymentHelpCommand(),
         ]
         
         for command in commands:
