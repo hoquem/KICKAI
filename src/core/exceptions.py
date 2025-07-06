@@ -287,6 +287,42 @@ class RateLimitExceededError(PerformanceError):
     pass
 
 
+# Payment Errors
+class PaymentError(KICKAIError):
+    """Base exception for payment-related errors."""
+    pass
+
+
+class PaymentValidationError(PaymentError, GeneralValidationError):
+    """Payment validation errors."""
+    pass
+
+
+class PaymentProcessingError(PaymentError):
+    """Payment processing errors."""
+    pass
+
+
+class PaymentProviderError(PaymentError):
+    """Payment provider (Collectiv) errors."""
+    pass
+
+
+class PaymentTimeoutError(PaymentError, TimeoutError):
+    """Payment timeout errors."""
+    pass
+
+
+class PaymentAuthenticationError(PaymentError, AuthenticationError):
+    """Payment authentication errors."""
+    pass
+
+
+class PaymentNotFoundError(PaymentError, NotFoundError):
+    """Payment not found errors."""
+    pass
+
+
 # Utility Functions
 def create_error_context(operation: str, **kwargs) -> ErrorContext:
     """Create an error context with the given parameters."""

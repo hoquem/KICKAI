@@ -2,6 +2,33 @@
 
 This guide explains the correct environment variable names and their usage in the KICKAI system.
 
+## 🧠 **Advanced Memory System Configuration**
+
+The advanced memory system can be configured using the following environment variables:
+
+```bash
+# Enable/Disable Advanced Memory System
+ENABLE_ADVANCED_MEMORY=true  # Default: true
+
+# Memory Retention Settings
+MEMORY_RETENTION_DAYS=30     # Default: 30 days
+MAX_CONVERSATION_HISTORY=50  # Default: 50 conversations
+MAX_EPISODIC_MEMORY=1000     # Default: 1000 items
+
+# Agentic Memory Features
+AGENTIC_MEMORY_ENABLED=true  # Default: true
+AGENTIC_PERFORMANCE_MONITORING=true  # Default: true
+AGENTIC_ANALYTICS_ENABLED=true       # Default: true
+```
+
+### **Memory System Features**
+- **Short-term Memory**: Stores recent conversations and context
+- **Long-term Memory**: Stores user preferences and team patterns  
+- **Episodic Memory**: Stores task execution history
+- **Semantic Memory**: Stores learned patterns and rules
+- **Pattern Learning**: Automatically learns from user interactions
+- **User Preference Learning**: Adapts responses based on user preferences
+
 ## 🔑 **Critical Variable Name Mismatch**
 
 **IMPORTANT**: There was a mismatch between what the code expects and what our setup scripts were setting.
@@ -141,4 +168,45 @@ railway variables --set "TELEGRAM_LEADERSHIP_BOT_TOKEN=your_token" --service kic
 4. **Testing/Staging uses environment variables** for all configuration
 5. **Update all documentation** to reflect correct variable names
 
-This ensures the system can properly access the Google Gemini API and function correctly across all environments. 
+This ensures the system can properly access the Google Gemini API and function correctly across all environments.
+
+## 💳 **Payment Configuration**
+
+The payment system uses Collectiv for payment processing and can be configured using the following environment variables:
+
+### **Collectiv Integration**
+```bash
+# Collectiv API Configuration
+COLLECTIV_API_KEY=your_collectiv_api_key_here
+COLLECTIV_BASE_URL=https://api.collectiv.com
+COLLECTIV_WEBHOOK_SECRET=your_webhook_secret_here
+
+# Payment Settings
+DEFAULT_CURRENCY=GBP
+PAYMENT_TIMEOUT=30
+PAYMENT_RETRY_ATTEMPTS=3
+```
+
+### **Payment System Features**
+- **Match Fee Payments**: Automated payment requests for match fees
+- **Membership Fee Payments**: Recurring membership fee collection
+- **Fine Payments**: Fine collection with due dates
+- **Payment Status Tracking**: Real-time payment status updates
+- **Payment History**: Complete payment history and analytics
+- **Flexible Integration**: Easy to switch payment providers
+
+### **Payment Commands**
+The system provides the following payment commands:
+- `/create_match_fee` - Create match fee payment
+- `/create_membership_fee` - Create membership fee payment
+- `/create_fine` - Create fine payment
+- `/payment_status` - Check payment status
+- `/pending_payments` - List pending payments
+- `/payment_history` - View payment history
+- `/payment_stats` - View payment statistics
+- `/payment_help` - Get payment help
+
+### **Environment-Specific Configuration**
+- **Development**: Uses mock payment service for testing
+- **Testing**: Uses mock payment service with simulated payments
+- **Production**: Uses real Collectiv integration 
