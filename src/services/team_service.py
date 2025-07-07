@@ -5,7 +5,7 @@ This module provides business logic for team management including
 creation, validation, and member operations.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 import logging
 
@@ -14,11 +14,13 @@ from ..core.exceptions import (
     TeamPermissionError, create_error_context
 )
 from ..database.firebase_client import get_firebase_client
-from ..database.models import Team, TeamStatus, TeamMember, BotMapping
+from src.database.models_improved import Team, TeamStatus, TeamMember, BotMapping, ExpenseCategory
+from src.services.expense_service import get_expense_service
 from ..utils.id_generator import generate_team_id
+from .interfaces.team_service_interface import ITeamService
 
 
-class TeamService:
+class TeamService(ITeamService):
     """Service for team management operations."""
     
     def __init__(self, data_store=None):
@@ -28,8 +30,10 @@ class TeamService:
             self._data_store = data_store
     
     async def create_team(self, name: str, description: Optional[str] = None,
-                         settings: Optional[Dict[str, Any]] = None) -> Team:
-        """Create a new team with validation."""
+                         settings: Optional[Dict[str, Any]] = None,
+                         fa_team_url: Optional[str] = None,
+                         fa_fixtures_url: Optional[str] = None) -> Team:
+        """Create a new team with a human-readable team ID (e.g., KT1, ARS, LIV)."""
         try:
             # Validate input data
             self._validate_team_data(name)
@@ -51,7 +55,9 @@ class TeamService:
                 name=name.strip(),
                 description=description.strip() if description else None,
                 status=TeamStatus.ACTIVE,
-                settings=settings or {}
+                settings=settings or {},
+                fa_team_url=fa_team_url,
+                fa_fixtures_url=fa_fixtures_url
             )
             
             # Save to database
@@ -125,6 +131,14 @@ class TeamService:
                             f"Team with name '{updates['name']}' already exists",
                             create_error_context("update_team", entity_id=team_id)
                         )
+            if 'fa_team_url' in updates:
+                # Basic validation for URL format
+                if not updates['fa_team_url'].startswith("http"):
+                    raise TeamValidationError("FA team URL must be a valid URL", create_error_context("update_team"))
+            if 'fa_fixtures_url' in updates:
+                # Basic validation for URL format
+                if not updates['fa_fixtures_url'].startswith("http"):
+                    raise TeamValidationError("FA fixtures URL must be a valid URL", create_error_context("update_team"))
             
             # Update team
             team.update(**updates)
@@ -369,7 +383,53 @@ class TeamService:
                 f"Failed to get bot mapping: {str(e)}",
                 create_error_context("get_bot_mapping", additional_info={'team_name': team_name})
             )
-    
+
+    async def set_budget_limit(self, team_id: str, category: ExpenseCategory, limit: float) -> Team:
+        """Sets a budget limit for a specific expense category for a team."""
+        try:
+            team = await self.get_team(team_id)
+            if not team:
+                raise TeamNotFoundError(f"Team not found: {team_id}", create_error_context("set_budget_limit"))
+
+            team.budget_limits[category.value] = limit
+            await self.update_team(team_id, budget_limits=team.budget_limits)
+            logging.info(f"Budget limit for {category.value} set to {limit} for team {team_id}")
+            return team
+        except (TeamError, TeamNotFoundError):
+            raise
+        except Exception as e:
+            logging.error(f"Failed to set budget limit: {e}")
+            raise TeamError(f"Failed to set budget limit: {str(e)}", create_error_context("set_budget_limit"))
+
+    async def get_budget_limit(self, team_id: str, category: ExpenseCategory) -> Optional[float]:
+        """Gets the budget limit for a specific expense category for a team."""
+        try:
+            team = await self.get_team(team_id)
+            if not team:
+                return None
+            return team.budget_limits.get(category.value)
+        except Exception as e:
+            logging.error(f"Failed to get budget limit: {e}")
+            raise TeamError(f"Failed to get budget limit: {str(e)}", create_error_context("get_budget_limit"))
+
+    async def check_expense_against_budget(self, team_id: str, category: ExpenseCategory, amount: float) -> Tuple[bool, Optional[float]]:
+        """Checks if a new expense exceeds the budget limit for its category."""
+        try:
+            limit = await self.get_budget_limit(team_id, category)
+            if limit is None:
+                return True, None # No limit set
+
+            # Get total expenses for this category
+            expense_service = get_expense_service()
+            total_expenses = await expense_service.get_total_expenses_by_category(team_id, category)
+
+            if (total_expenses + amount) > limit:
+                return False, limit - total_expenses # Exceeds budget, return remaining budget
+            return True, limit - total_expenses
+        except Exception as e:
+            logging.error(f"Error checking expense against budget: {e}")
+            raise TeamError(f"Error checking expense against budget: {str(e)}", create_error_context("check_expense_against_budget"))
+
     def _validate_team_data(self, name: str):
         """Validate team data."""
         self._validate_team_name(name)
