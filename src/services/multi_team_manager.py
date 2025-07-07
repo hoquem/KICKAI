@@ -1,238 +1,120 @@
 """
-Multi-Team Manager for KICKAI
-Manages multiple teams and their associated bots/agents
+Multi-Team Manager Service for KICKAI
+
+This service handles operations across multiple teams and manages team mappings.
 """
 
-import asyncio
-from typing import Dict, List, Optional, Any
 import logging
-from src.core.exceptions import KICKAIError, TeamError
+from typing import List, Optional, Dict, Any
+from src.database.models_improved import Team, BotMapping
 from src.database.firebase_client import get_firebase_client
-from src.services.team_service import get_team_service
+from src.core.exceptions import TeamError
+
+logger = logging.getLogger(__name__)
+
 
 class MultiTeamManager:
-    """Manages multiple teams and their associated bots/agents."""
+    """Service for managing operations across multiple teams."""
     
     def __init__(self):
-        self.teams: Dict[str, Dict[str, Any]] = {}
-        self.bots: Dict[str, Dict[str, Any]] = {}
-        self.crews: Dict[str, Any] = {}
-        self._initialize()
+        self._data_store = get_firebase_client()
+        logger.info("✅ MultiTeamManager initialized")
     
-    def _initialize(self):
-        """Initialize the multi-team manager."""
+    async def get_all_teams(self) -> List[Team]:
+        """Get all teams in the system."""
         try:
-            # Get Firebase client
-            firebase_client = get_firebase_client()
-            self._load_teams(firebase_client)
-            self._load_bots(firebase_client)
-            self._initialize_crews()
+            return await self._data_store.get_all_teams()
         except Exception as e:
-            logging.error("Failed to get Firebase client")
-            raise TeamError(f"Failed to initialize multi-team manager: {str(e)}")
+            logger.error(f"❌ Failed to get all teams: {e}")
+            return []
     
-    def _load_teams(self, firebase_client):
-        """Load all active teams from Firebase."""
+    async def get_teams_by_status(self, status: str) -> List[Team]:
+        """Get teams filtered by status."""
         try:
-            teams_ref = firebase_client.collection('teams')
-            query = teams_ref.where('status', '==', 'active')
-            docs = list(query.stream())
-            
-            for doc in docs:
-                team_data = doc.to_dict()
-                self.teams[doc.id] = team_data
-            
-            logging.info(f"Loaded {len(self.teams)} active teams")
+            from src.database.models_improved import TeamStatus
+            team_status = TeamStatus(status)
+            return await self._data_store.get_all_teams(team_status)
         except Exception as e:
-            logging.error("Failed to load teams")
-            raise TeamError(f"Failed to load teams: {str(e)}")
+            logger.error(f"❌ Failed to get teams by status {status}: {e}")
+            return []
     
-    def _load_bots(self, firebase_client):
-        """Load all bot mappings from Firebase."""
+    async def get_bot_mappings(self) -> List[BotMapping]:
+        """Get all bot mappings."""
         try:
-            bots_ref = firebase_client.collection('team_bots')
-            query = bots_ref.where('is_active', '==', True)
-            docs = list(query.stream())
-            
-            for doc in docs:
-                bot_data = doc.to_dict()
-                team_id = bot_data.get('team_id')
-                if team_id:
-                    self.bots[team_id] = bot_data
-            
-            logging.info(f"Loaded {len(self.bots)} bots for team {team_id}")
+            # This would need to be implemented in the data store
+            # For now, return empty list
+            return []
         except Exception as e:
-            logging.error(f"Failed to load bots for team {team_id}")
-            raise TeamError(f"Failed to load bots: {str(e)}")
+            logger.error(f"❌ Failed to get bot mappings: {e}")
+            return []
     
-    def _initialize_crews(self):
-        """Initialize CrewAI crews for each team."""
-        logging.info("Initializing Multi-Team Manager...")
-        
+    async def get_team_by_bot_username(self, bot_username: str) -> Optional[Team]:
+        """Get team by bot username."""
         try:
-            # Import CrewAI components
-            from src.agents import create_llm, create_agents_for_team, create_crew_for_team
-            
-            # Create LLM
-            llm = create_llm()
-            if llm:
-                logging.info("LLM created successfully")
-            else:
-                logging.warning("LLM creation failed, using fallback")
-            
-            # Initialize crews for each team
-            for team_id, team_data in self.teams.items():
-                team_name = team_data.get('name', 'Unknown Team')
-                
-                # Check if bot mapping exists
-                if team_id not in self.bots:
-                    logging.warning(f"Skipping team {team_name} (ID: {team_id}) - no bot mapping found")
-                    continue
-                
-                try:
-                    # Create agents and crew for this team
-                    agents = create_agents_for_team(llm, team_id)
-                    crew = create_crew_for_team(agents)
-                    self.crews[team_id] = crew
-                    
-                    logging.info(f"Successfully initialized team: {team_name} (ID: {team_id})")
-                except Exception as e:
-                    logging.error(f"Failed to initialize team {team_name} (ID: {team_id})")
-                    continue
-            
-            logging.info(f"Multi-Team Manager initialized with {len(self.crews)} teams")
-        except Exception as e:
-            logging.error("Failed to initialize crews")
-            raise TeamError(f"Failed to initialize crews: {str(e)}")
-    
-    def get_crew(self, team_id: str) -> Optional[Any]:
-        """Get the crew for a specific team."""
-        if team_id not in self.crews:
-            logging.error(f"No crew found for team {team_id}")
+            mapping = await self._data_store.get_bot_mapping_by_username(bot_username)
+            if mapping:
+                return await self._data_store.get_team(mapping.team_id)
             return None
-        return self.crews[team_id]
-    
-    async def run_team_tasks(self, team_id: str, tasks: List[str]) -> Optional[str]:
-        """Run tasks for a specific team."""
-        crew = self.get_crew(team_id)
-        if not crew:
-            return None
-        
-        team_name = self.teams.get(team_id, {}).get('name', 'Unknown Team')
-        logging.info(f"Running tasks for team: {team_name} (ID: {team_id})")
-        
-        try:
-            # Create tasks for the crew
-            crew_tasks = []
-            for task_description in tasks:
-                from crewai import Task
-                task = Task(
-                    description=task_description,
-                    agent=crew.agents[0]  # Use first agent for now
-                )
-                crew_tasks.append(task)
-            
-            # Execute tasks
-            result = await crew.kickoff(tasks=crew_tasks)
-            
-            logging.info(f"Completed tasks for team: {team_name} (ID: {team_id})")
-            return str(result)
         except Exception as e:
-            logging.error(f"Error running tasks for team {team_id}")
+            logger.error(f"❌ Failed to get team by bot username {bot_username}: {e}")
             return None
     
-    async def process_team_message(self, team_id: str, message: str, user_id: str) -> Optional[str]:
-        """Process a message for a specific team."""
-        crew = self.get_crew(team_id)
-        if not crew:
-            return None
-        
-        team_name = self.teams.get(team_id, {}).get('name', 'Unknown Team')
-        logging.info(f"Running tasks for team: {team_name} (ID: {team_id})")
-        
+    async def get_teams_with_members_count(self) -> List[Dict[str, Any]]:
+        """Get teams with their member counts."""
         try:
-            # Create a task for message processing
-            from crewai import Task
-            task = Task(
-                description=f"Process this message: {message}",
-                agent=crew.agents[0]  # Use first agent for now
-            )
+            teams = await self.get_all_teams()
+            result = []
             
-            # Execute task
-            result = await crew.kickoff(tasks=[task])
-            
-            return str(result)
-        except Exception as e:
-            logging.error(f"Error processing team {team_id}")
-            return None
-    
-    def add_team(self, team_id: str, team_info: Dict[str, Any]) -> bool:
-        """Add a new team to the manager."""
-        try:
-            self.teams[team_id] = team_info
-            logging.info(f"Successfully added team: {team_info['name']} (ID: {team_id})")
-            return True
-        except Exception as e:
-            logging.error(f"Failed to add team {team_id}")
-            return False
-    
-    def remove_team(self, team_id: str) -> bool:
-        """Remove a team from the manager."""
-        if team_id in self.teams:
-            team_name = self.teams[team_id].get('name', 'Unknown Team')
-            del self.teams[team_id]
-            if team_id in self.crews:
-                del self.crews[team_id]
-            logging.info(f"Removed team: {team_name} (ID: {team_id})")
-            return True
-        else:
-            logging.warning(f"Team {team_id} not found in manager")
-            return False
-
-def main():
-    """Main function for testing the multi-team manager."""
-    logging.info("##################################################")
-    logging.info("## KICKAI Multi-Team Manager ##")
-    logging.info("##################################################")
-    
-    try:
-        # Initialize manager
-        manager = MultiTeamManager()
-        
-        # Get teams
-        teams = list(manager.teams.values())
-        
-        if teams:
-            logging.info(f"📋 Managed Teams ({len(teams)}):")
             for team in teams:
-                status = "✅ Active" if team.get('status') == 'active' else "❌ Inactive"
-                logging.info(f"  - {team['name']} (ID: {team['id'][:8]}...) - {status}")
-        else:
-            logging.warning("❌ No teams available. Please ensure teams are created and have bot mappings.")
-            return
-        
-        # Run tasks for first team
-        if teams:
-            first_team = teams[0]
-            team_id = first_team['id']
+                members = await self._data_store.get_team_members_by_team(team.id)
+                result.append({
+                    'team': team,
+                    'member_count': len(members)
+                })
             
-            logging.info(f"🚀 Running tasks for team: {first_team['name']}")
+            return result
+        except Exception as e:
+            logger.error(f"❌ Failed to get teams with member counts: {e}")
+            return []
+    
+    async def get_system_statistics(self) -> Dict[str, Any]:
+        """Get system-wide statistics."""
+        try:
+            teams = await self.get_all_teams()
+            total_members = 0
+            active_teams = 0
             
-            # Example tasks
-            tasks = [
-                "List all players",
-                "Show upcoming matches"
-            ]
+            for team in teams:
+                if team.status.value == 'active':
+                    active_teams += 1
+                members = await self._data_store.get_team_members_by_team(team.id)
+                total_members += len(members)
             
-            result = asyncio.run(manager.run_team_tasks(team_id, tasks))
+            return {
+                'total_teams': len(teams),
+                'active_teams': active_teams,
+                'total_members': total_members,
+                'average_members_per_team': total_members / len(teams) if teams else 0
+            }
+        except Exception as e:
+            logger.error(f"❌ Failed to get system statistics: {e}")
+            return {}
+    
+    async def validate_team_operations(self, team_id: str, operation: str) -> bool:
+        """Validate if a team operation is allowed."""
+        try:
+            team = await self._data_store.get_team(team_id)
+            if not team:
+                return False
             
-            if result:
-                logging.info(f"✅ Results for {first_team['name']}:")
-                logging.info(result)
-            else:
-                logging.warning(f"❌ No results for {first_team['name']}")
-    except Exception as e:
-        logging.error(f"Error in multi-team manager")
-
-if __name__ == "__main__":
-    main() 
+            # Add validation logic here
+            if operation == "delete" and team.status.value == "active":
+                # Check if team has members
+                members = await self._data_store.get_team_members_by_team(team_id)
+                if members:
+                    return False
+            
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to validate team operation: {e}")
+            return False 

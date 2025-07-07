@@ -7,9 +7,7 @@ and automated onboarding reminders.
 """
 
 import asyncio
-import os
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime
 import logging
 
 from src.core.bot_config_manager import get_bot_config_manager
@@ -19,6 +17,7 @@ from src.services.team_member_service import TeamMemberService
 from src.services.fa_registration_checker import run_fa_registration_check
 from src.services.daily_status_service import start_daily_status_service
 from src.services.reminder_service import get_reminder_service
+from src.services.financial_report_service import start_financial_report_service
 
 class BackgroundTaskManager:
     """Manages background tasks for the KICKAI system."""
@@ -27,7 +26,7 @@ class BackgroundTaskManager:
         self.tasks = []
         self.running = False
         
-    async def start_fa_registration_checker(self, team_id: str, player_service: PlayerService) -> None:
+    async def start_fa_registration_checker(self, team_id: str, player_service: PlayerService, team_service: TeamService) -> None:
         """
         Start the FA registration checker task.
         
@@ -40,7 +39,7 @@ class BackgroundTaskManager:
                 logging.info(f"🔍 Starting FA registration check for team {team_id}")
                 
                 # Run FA registration check
-                updates = await run_fa_registration_check(team_id, player_service)
+                updates = await run_fa_registration_check(team_id, player_service, team_service)
                 
                 if updates:
                     logging.info(f"✅ FA registration check found {len(updates)} updates")
@@ -152,7 +151,7 @@ class BackgroundTaskManager:
                 cleanup_count = 0
                 for player in players:
                     # If player has completed onboarding, reset reminder counters
-                    if player.onboarding_status == "COMPLETED":
+                    if player.is_onboarding_complete():
                         await reminder_service.player_service.update_player(
                             player.id,
                             reminders_sent=0,
@@ -203,14 +202,14 @@ class BackgroundTaskManager:
             
             # Start FA registration checker
             fa_task = asyncio.create_task(
-                self.start_fa_registration_checker(team_id, player_service)
+                self.start_fa_registration_checker(team_id, player_service, team_service)
             )
             self.tasks.append(fa_task)
             
             # Start daily status service
             status_task = asyncio.create_task(
                 self.start_daily_status_service(
-                    team_id, player_service, team_service, team_member_service, bot_config.token
+                    team_id, player_service, team_service, team_member_service, bot_config.token, manager
                 )
             )
             self.tasks.append(status_task)
@@ -227,12 +226,26 @@ class BackgroundTaskManager:
             )
             self.tasks.append(cleanup_task)
             
+            # Start financial report service
+            financial_report_task = asyncio.create_task(
+                start_financial_report_service(team_id, bot_config.token)
+            )
+            self.tasks.append(financial_report_task)
+            
+            # Start financial report service
+            financial_report_task = asyncio.create_task(
+                start_financial_report_service(team_id, bot_config.token)
+            )
+            self.tasks.append(financial_report_task)
+
             logging.info(f"✅ Background tasks started for team {team_id}")
             logging.info("   📋 Active tasks:")
             logging.info("   • FA Registration Checker (24h interval)")
             logging.info("   • Daily Status Service (daily)")
             logging.info("   • Onboarding Reminder Service (6h interval)")
             logging.info("   • Reminder Cleanup Service (24h interval)")
+            logging.info("   • Financial Report Service (configured interval)")
+            logging.info("   • Financial Report Service (configured interval)")
             
             # Wait for all tasks to complete (they should run indefinitely)
             await asyncio.gather(*self.tasks)

@@ -18,8 +18,8 @@ import re
 import logging
 import hashlib
 from datetime import datetime
-from typing import Dict, Set, Optional, Tuple
-from dataclasses import dataclass, field
+from typing import Dict, Set, Optional
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -93,17 +93,11 @@ class TeamIDGenerator(IDGenerator):
         if normalized in self.name_mappings:
             return self.name_mappings[normalized]
         
-        # Generate base ID (2-4 characters)
-        base_id = self._generate_base_id(team_name, max_length=4)
-        if len(base_id) < 2:
-            base_id = (base_id + 'X')[:2]
+        # Generate base ID (3 characters)
+        base_id = self._generate_base_id(team_name, max_length=3)
         
-        # Always append a number if the base ID is already taken
-        final_id = base_id
-        suffix = 1
-        while final_id in self.used_ids:
-            final_id = f"{base_id}{suffix}"
-            suffix += 1
+        # Resolve any collisions
+        final_id = self._resolve_collision(base_id, self.used_ids)
         
         # Store the mapping and mark as used
         self.name_mappings[normalized] = final_id

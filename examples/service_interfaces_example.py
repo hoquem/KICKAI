@@ -21,7 +21,7 @@ from src.services.mocks import (
 )
 
 # Import models
-from src.database.models import PlayerPosition, OnboardingStatus
+from src.database.models_improved import PlayerPosition, OnboardingStatus
 
 
 class PlayerOnboardingService:

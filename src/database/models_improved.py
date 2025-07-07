@@ -9,7 +9,7 @@ This module defines improved data models using great OOP principles:
 - Factory methods and builders
 """
 
-from typing import Dict, Any, Optional, List, Set, Union
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta
 from enum import Enum
@@ -95,6 +95,32 @@ class MatchStatus(Enum):
     def is_finished(cls, status: 'MatchStatus') -> bool:
         """Check if match is finished."""
         return status in [cls.COMPLETED, cls.CANCELLED]
+
+
+class PaymentStatus(Enum):
+    """Payment status."""
+    PENDING = "pending"
+    PAID = "paid"
+    OVERDUE = "overdue"
+    CANCELLED = "cancelled"
+
+
+class PaymentType(Enum):
+    """Payment type."""
+    MATCH_FEE = "match_fee"
+    SUBSCRIPTION = "subscription"
+    FINE = "fine"
+    OTHER = "other"
+
+
+class ExpenseCategory(Enum):
+    """Expense category."""
+    PITCH_FEES = "pitch_fees"
+    REFEREE_FEES = "referee_fees"
+    EQUIPMENT = "equipment"
+    TEAM_MEAL = "team_meal"
+    FA_FEES = "fa_fees"
+    OTHER = "other"
 
 
 # ============================================================================
@@ -226,6 +252,7 @@ class Player(BaseModel, ValidatorMixin):
     date_of_birth: Optional[str] = None
     telegram_id: Optional[str] = None
     telegram_username: Optional[str] = None
+    external_id: Optional[str] = None # New field for external database integration
     team_id: str = ""
     admin_approved: bool = False
     admin_approved_at: Optional[datetime] = None
@@ -234,11 +261,16 @@ class Player(BaseModel, ValidatorMixin):
     last_reminder_sent: Optional[datetime] = None
     next_reminder_due: Optional[datetime] = None
     last_activity: Optional[datetime] = None
+    is_injured: bool = False
+    injury_details: Optional[str] = None
+    is_suspended: bool = False
+    suspension_details: Optional[str] = None
+    return_date: Optional[datetime] = None
     onboarding_progress: Dict[str, Any] = field(default_factory=lambda: {
-        "basic_registration": {"completed": False, "completed_at": None},
         "emergency_contact": {"completed": False, "completed_at": None, "data": None},
         "date_of_birth": {"completed": False, "completed_at": None, "data": None},
-        "fa_registration": {"completed": False, "completed_at": None, "data": None}
+        "fa_registration": {"completed": False, "completed_at": None, "data": None},
+        "completion": {"completed": False, "completed_at": None, "data": None}
     })
     
     def __post_init__(self):
@@ -386,7 +418,59 @@ class Player(BaseModel, ValidatorMixin):
         self.reminders_sent += 1
         self.last_reminder_sent = datetime.now()
         self.next_reminder_due = self.get_next_reminder_time()
-    
+
+    def is_match_eligible(self) -> bool:
+        """Check if player is eligible for match selection."""
+        if not self.admin_approved:
+            return False
+        if self.is_injured:
+            return False
+        if self.is_suspended:
+            return False
+        if self.return_date and self.return_date > datetime.now():
+            return False
+        return True
+
+    def is_fa_registered(self) -> bool:
+        """Check if player is FA registered."""
+        return self.fa_registered
+
+    def is_fa_eligible(self) -> bool:
+        """Check if player is eligible for FA registration."""
+        return self.fa_eligible
+
+    def get_display_status(self) -> str:
+        """Get a human-readable display status for the player."""
+        if self.onboarding_status == OnboardingStatus.COMPLETED and self.admin_approved:
+            if self.is_injured:
+                return "Injured"
+            elif self.is_suspended:
+                return "Suspended"
+            elif self.return_date and self.return_date > datetime.now():
+                return f"Returning {self.return_date.strftime('%Y-%m-%d')}"
+            else:
+                return "Active"
+        elif self.onboarding_status == OnboardingStatus.IN_PROGRESS:
+            return "Onboarding"
+        elif self.onboarding_status == OnboardingStatus.PENDING_APPROVAL:
+            return "Pending Approval"
+        elif self.onboarding_status == OnboardingStatus.PENDING:
+            return "Pending"
+        else:
+            return "Unknown"
+
+    def is_active(self) -> bool:
+        """Check if player is active (completed onboarding and approved)."""
+        return (self.onboarding_status == OnboardingStatus.COMPLETED and 
+                self.admin_approved and 
+                not self.is_injured and 
+                not self.is_suspended)
+
+    def is_pending_approval(self) -> bool:
+        """Check if player is pending approval."""
+        return (self.onboarding_status in [OnboardingStatus.PENDING, OnboardingStatus.PENDING_APPROVAL] or
+                (self.onboarding_status == OnboardingStatus.COMPLETED and not self.admin_approved))
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert player to dictionary."""
         data = super().to_dict()
@@ -417,7 +501,8 @@ class Player(BaseModel, ValidatorMixin):
         # Convert datetime strings back to datetime objects
         datetime_fields = [
             'onboarding_started_at', 'onboarding_completed_at', 'admin_approved_at',
-            'last_reminder_sent', 'next_reminder_due', 'last_activity'
+            'last_reminder_sent', 'next_reminder_due', 'last_activity',
+            'created_at', 'updated_at'
         ]
         for field in datetime_fields:
             if field in data and isinstance(data[field], str):
@@ -439,6 +524,10 @@ class Player(BaseModel, ValidatorMixin):
             onboarding_step="basic_registration"
         )
 
+    def _validate_model_specific(self):
+        # Minimal implementation for test and basic usage
+        pass
+
 
 # ============================================================================
 # TEAM MODEL
@@ -452,6 +541,12 @@ class Team(BaseModel, ValidatorMixin):
     status: TeamStatus = TeamStatus.ACTIVE
     description: Optional[str] = None
     settings: Dict[str, Any] = field(default_factory=dict)
+    fa_website_url: Optional[str] = None
+    fa_team_url: Optional[str] = None
+    fa_fixtures_url: Optional[str] = None
+    payment_rules: Dict[str, Any] = field(default_factory=dict)
+    budget_limits: Dict[str, Any] = field(default_factory=dict)
+    current_balance: float = 0.0
     
     def _validate_model_specific(self):
         """Validate team-specific fields."""
@@ -470,6 +565,9 @@ class Team(BaseModel, ValidatorMixin):
         """Convert team to dictionary."""
         data = super().to_dict()
         data['status'] = self.status.value
+        data['fa_website_url'] = self.fa_website_url
+        data['payment_rules'] = self.payment_rules
+        data['budget_limits'] = self.budget_limits
         return data
     
     @classmethod
@@ -483,6 +581,11 @@ class Team(BaseModel, ValidatorMixin):
         
         if 'updated_at' in data and isinstance(data['updated_at'], str):
             data['updated_at'] = datetime.fromisoformat(data['updated_at'])
+        
+        # Handle new fields, providing defaults if not present in data
+        data['fa_website_url'] = data.get('fa_website_url')
+        data['payment_rules'] = data.get('payment_rules', {})
+        data['budget_limits'] = data.get('budget_limits', {})
         
         return cls(**data)
     
@@ -598,6 +701,11 @@ class Match(BaseModel):
     status: MatchStatus = MatchStatus.SCHEDULED
     home_away: str = "home"  # home, away, neutral
     competition: Optional[str] = None
+    confirmed_players: List[str] = field(default_factory=list) # List of player_ids
+    score: Optional[str] = None
+    goal_scorers: List[str] = field(default_factory=list)
+    assists: List[str] = field(default_factory=list)
+    attendees: List[str] = field(default_factory=list) # List of player_ids who confirmed attendance
     
     def _validate_model_specific(self):
         """Validate match-specific fields."""
@@ -655,6 +763,157 @@ class Match(BaseModel):
             date=date,
             **kwargs
         )
+
+
+# ============================================================================
+# PAYMENT MODEL
+# ============================================================================
+
+@dataclass
+class Payment(BaseModel, ValidatorMixin):
+    """Payment data model."""
+    
+    team_id: str = ""
+    player_id: str = ""
+    amount: float = 0.0
+    type: PaymentType = PaymentType.OTHER
+    status: PaymentStatus = PaymentStatus.PENDING
+    due_date: Optional[datetime] = None
+    paid_date: Optional[datetime] = None
+    related_entity_id: Optional[str] = None  # e.g., match_id, subscription_id
+    description: Optional[str] = None
+    
+    def _validate_model_specific(self):
+        """Validate payment-specific fields."""
+        if not self.team_id:
+            raise ValueError("Team ID cannot be empty")
+        if not self.player_id:
+            raise ValueError("Player ID cannot be empty")
+        if self.amount <= 0:
+            raise ValueError("Payment amount must be positive")
+        if not isinstance(self.type, PaymentType):
+            raise ValueError("Invalid payment type")
+        if not isinstance(self.status, PaymentStatus):
+            raise ValueError("Invalid payment status")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert payment to dictionary."""
+        data = super().to_dict()
+        data['type'] = self.type.value
+        data['status'] = self.status.value
+        data['due_date'] = self.due_date.isoformat() if self.due_date else None
+        data['paid_date'] = self.paid_date.isoformat() if self.paid_date else None
+        return data
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'Payment':
+        """Create payment from dictionary."""
+        if 'type' in data and isinstance(data['type'], str):
+            data['type'] = PaymentType(data['type'])
+        if 'status' in data and isinstance(data['status'], str):
+            data['status'] = PaymentStatus(data['status'])
+        
+        if 'due_date' in data and isinstance(data['due_date'], str):
+            data['due_date'] = datetime.fromisoformat(data['due_date'])
+        if 'paid_date' in data and isinstance(data['paid_date'], str):
+            data['paid_date'] = datetime.fromisoformat(data['paid_date'])
+        
+        if 'created_at' in data and isinstance(data['created_at'], str):
+            data['created_at'] = datetime.fromisoformat(data['created_at'])
+        if 'updated_at' in data and isinstance(data['updated_at'], str):
+            data['updated_at'] = datetime.fromisoformat(data['updated_at'])
+        
+        return cls(**data)
+
+    @classmethod
+    def create(cls, team_id: str, player_id: str, amount: float, type: PaymentType, **kwargs) -> 'Payment':
+        """Factory method to create a payment."""
+        return cls(team_id=team_id, player_id=player_id, amount=amount, type=type, **kwargs)
+
+
+# ============================================================================
+# EXPENSE MODEL
+# ============================================================================
+
+@dataclass
+class Expense(BaseModel, ValidatorMixin):
+    """Expense data model."""
+
+@dataclass
+class FixtureData(BaseModel):
+    """Model for scraped fixture data."""
+    team_id: str = ""
+    fixture_text: str = ""
+    fixture_date: Optional[datetime] = None
+    opponent: Optional[str] = None
+    home_away: Optional[str] = None
+    competition: Optional[str] = None
+    score: Optional[str] = None
+    status: Optional[str] = None
+
+    def _validate_model_specific(self):
+        if not self.team_id:
+            raise ValueError("Team ID cannot be empty")
+        if not self.fixture_text:
+            raise ValueError("Fixture text cannot be empty")
+
+    def to_dict(self) -> Dict[str, Any]:
+        data = super().to_dict()
+        data['fixture_date'] = self.fixture_date.isoformat() if self.fixture_date else None
+        return data
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'FixtureData':
+        if 'fixture_date' in data and isinstance(data['fixture_date'], str):
+            data['fixture_date'] = datetime.fromisoformat(data['fixture_date'])
+        return cls(**data)
+
+
+class Expense(BaseModel, ValidatorMixin):
+    """Expense data model."""
+    team_id: str = ""
+    amount: float = 0.0
+    category: ExpenseCategory = ExpenseCategory.OTHER
+    description: Optional[str] = None
+    date: datetime = field(default_factory=datetime.now)
+    receipt_url: Optional[str] = None
+    
+    def _validate_model_specific(self):
+        """Validate expense-specific fields."""
+        if not self.team_id:
+            raise ValueError("Team ID cannot be empty")
+        if self.amount <= 0:
+            raise ValueError("Expense amount must be positive")
+        if not isinstance(self.category, ExpenseCategory):
+            raise ValueError("Invalid expense category")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert expense to dictionary."""
+        data = super().to_dict()
+        data['category'] = self.category.value
+        data['date'] = self.date.isoformat()
+        return data
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'Expense':
+        """Create expense from dictionary."""
+        if 'category' in data and isinstance(data['category'], str):
+            data['category'] = ExpenseCategory(data['category'])
+        
+        if 'date' in data and isinstance(data['date'], str):
+            data['date'] = datetime.fromisoformat(data['date'])
+        
+        if 'created_at' in data and isinstance(data['created_at'], str):
+            data['created_at'] = datetime.fromisoformat(data['created_at'])
+        if 'updated_at' in data and isinstance(data['updated_at'], str):
+            data['updated_at'] = datetime.fromisoformat(data['updated_at'])
+        
+        return cls(**data)
+
+    @classmethod
+    def create(cls, team_id: str, amount: float, category: ExpenseCategory, **kwargs) -> 'Expense':
+        """Factory method to create an expense."""
+        return cls(team_id=team_id, amount=amount, category=category, **kwargs)
 
 
 # ============================================================================
@@ -738,6 +997,16 @@ class ModelFactory:
         """Create a match with validation."""
         return Match.create(team_id, opponent, date, **kwargs)
     
+    @staticmethod
+    def create_payment(team_id: str, player_id: str, amount: float, type: PaymentType, **kwargs) -> Payment:
+        """Create a payment with validation."""
+        return Payment.create(team_id, player_id, amount, type, **kwargs)
+
+    @staticmethod
+    def create_expense(team_id: str, amount: float, category: ExpenseCategory, **kwargs) -> Expense:
+        """Create an expense with validation."""
+        return Expense.create(team_id, amount, category, **kwargs)
+
     @staticmethod
     def create_bot_mapping(team_name: str, bot_username: str, chat_id: str, bot_token: str, **kwargs) -> BotMapping:
         """Create a bot mapping with validation."""

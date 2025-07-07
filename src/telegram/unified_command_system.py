@@ -13,15 +13,15 @@ This replaces the multiple overlapping routing systems with a single, clean arch
 """
 
 import logging
-import asyncio
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Any, Callable, Awaitable
-from functools import wraps
+from typing import Dict, List, Optional, Any
 
 from .payment_commands import PaymentCommands
+from .match_commands import MatchCommands
+from .player_commands import PlayerCommands
 
 logger = logging.getLogger(__name__)
 
@@ -760,6 +760,95 @@ class RemindCommand(Command):
 
 class CreateMatchCommand(Command):
     """Command to create a new match/fixture."""
+
+    def __init__(self):
+        super().__init__("/newmatch", "Create a new match/fixture", PermissionLevel.LEADERSHIP)
+
+class CreateTeamCommand(Command):
+    """Command to create a new team."""
+
+    def __init__(self):
+        super().__init__("/create_team", "Create a new team", PermissionLevel.ADMIN)
+
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            from src.services.team_service import get_team_service
+            team_service = get_team_service()
+
+            parts = context.message_text.split(maxsplit=2)
+            if len(parts) < 2:
+                return CommandResult(
+                    success=False,
+                    message="❌ Usage: /create_team <team_name> [description]",
+                    error="Missing team name"
+                )
+
+            team_name = parts[1]
+            description = parts[2] if len(parts) > 2 else None
+
+            team = await team_service.create_team(name=team_name, description=description)
+            return CommandResult(success=True, message=f"✅ Team '{team.name}' (ID: {team.id}) created successfully!")
+        except Exception as e:
+            logger.error(f"Error creating team: {e}")
+            return CommandResult(success=False, message=f"❌ Error creating team: {str(e)}", error=str(e))
+
+
+class DeleteTeamCommand(Command):
+    """Command to delete a team."""
+
+    def __init__(self):
+        super().__init__("/delete_team", "Delete a team", PermissionLevel.ADMIN)
+
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            from src.services.team_service import get_team_service
+            team_service = get_team_service()
+
+            parts = context.message_text.split()
+            if len(parts) < 2:
+                return CommandResult(
+                    success=False,
+                    message="❌ Usage: /delete_team <team_id>",
+                    error="Missing team ID"
+                )
+
+            team_id = parts[1]
+            success = await team_service.delete_team(team_id)
+            if success:
+                return CommandResult(success=True, message=f"✅ Team {team_id} deleted successfully!")
+            else:
+                return CommandResult(success=False, message=f"❌ Failed to delete team {team_id}. Team not found or an error occurred.")
+        except Exception as e:
+            logger.error(f"Error deleting team: {e}")
+            return CommandResult(success=False, message=f"❌ Error deleting team: {str(e)}", error=str(e))
+
+
+class ListTeamsCommand(Command):
+    """Command to list all teams."""
+
+    def __init__(self):
+        super().__init__("/list_teams", "List all teams", PermissionLevel.ADMIN)
+
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            from src.services.team_service import get_team_service
+            team_service = get_team_service()
+
+            teams = await team_service.get_all_teams()
+            if not teams:
+                return CommandResult(success=True, message="ℹ️ No teams found.")
+
+            message = "📋 **All Teams:**\n\n"
+            for team in teams:
+                message += f"• Name: {team.name} (ID: {team.id}) - Status: {team.status.value.title()}\n"
+            return CommandResult(success=True, message=message)
+        except Exception as e:
+            logger.error(f"Error listing teams: {e}")
+            return CommandResult(success=False, message=f"❌ Error listing teams: {str(e)}", error=str(e))
+
+
+class CreateMatchCommand(Command):
+    """Command to create a new match/fixture."""
     
     def __init__(self):
         super().__init__("/newmatch", "Create a new match/fixture", PermissionLevel.LEADERSHIP)
@@ -1048,6 +1137,31 @@ class DeleteMatchCommand(Command):
         """Extract match ID from message."""
         match = re.search(r'/deletematch\s+(\w+)', message)
         return match.group(1) if match else None
+
+
+class RecordResultCommand(Command):
+    """Record match result command."""
+
+    def __init__(self):
+        super().__init__("/record_result", "Record a match result", PermissionLevel.LEADERSHIP)
+
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            match_commands = MatchCommands(context.team_id)
+            args = context.message_text.split()[1:]
+            result = await match_commands.handle_record_result(args)
+            return CommandResult(success=not result.startswith("❌"), message=result)
+        except Exception as e:
+            logger.error(f"Record result command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error recording result: {str(e)}",
+                error=str(e)
+            )
+
+
+# ============================================================================
+# ADDITIONAL ADMIN COMMANDS
 
 
 # ============================================================================
@@ -1591,13 +1705,188 @@ class PaymentHelpCommand(Command):
             )
 
 
-# ============================================================================
-# COMMAND REGISTRY (Factory Pattern)
-# ============================================================================
+class FinancialDashboardCommand(Command):
+    """Financial dashboard command."""
+
+    def __init__(self):
+        super().__init__("/financial_dashboard", "View your financial dashboard", PermissionLevel.PLAYER)
+
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            payment_commands = PaymentCommands(context.team_id)
+            dashboard_message = await payment_commands.get_financial_dashboard(context.user_id)
+            return CommandResult(success=True, message=dashboard_message)
+        except Exception as e:
+            logger.error(f"Financial dashboard command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error retrieving financial dashboard: {str(e)}",
+                error=str(e)
+            )
+
+
+class AnnounceCommand(Command):
+    """Announce command implementation."""
+
+    def __init__(self):
+        super().__init__("/announce", "Send a team-wide announcement", PermissionLevel.LEADERSHIP)
+
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            from src.services.team_member_service import get_team_member_service
+            from src.core.bot_config_manager import get_bot_config_manager
+            import httpx
+
+            message_text = context.message_text.replace("/announce ", "", 1).strip()
+            if not message_text:
+                return CommandResult(success=False, message="❌ Please provide a message to announce.")
+
+            team_member_service = get_team_member_service()
+            all_members = await team_member_service.get_all_members_in_team(context.team_id)
+
+            bot_config = get_bot_config_manager().get_bot_config(context.team_id)
+            if not bot_config or not bot_config.token:
+                return CommandResult(success=False, message="❌ Bot not configured for this team.")
+
+            success_count = 0
+            failed_count = 0
+            for member in all_members:
+                if member.telegram_id:
+                    try:
+                        url = f"https://api.telegram.org/bot{bot_config.token}/sendMessage"
+                        payload = {
+                            "chat_id": member.telegram_id,
+                            "text": f"📢 **Team Announcement:**\n\n{message_text}",
+                            "parse_mode": "Markdown"
+                        }
+                        async with httpx.AsyncClient() as client:
+                            response = await client.post(url, json=payload, timeout=10)
+                            if response.status_code == 200:
+                                success_count += 1
+                            else:
+                                logger.warning(f"Failed to send announcement to {member.telegram_id}: {response.text}")
+                                failed_count += 1
+                    except Exception as e:
+                        logger.error(f"Error sending announcement to {member.telegram_id}: {e}")
+                        failed_count += 1
+
+            return CommandResult(success=True, message=f"✅ Announcement sent to {success_count} members. Failed for {failed_count} members.")
+        except Exception as e:
+            logger.error(f"Error in announce command: {e}")
+            return CommandResult(success=False, message=f"❌ Error sending announcement: {str(e)}", error=str(e))
+
+
+class AttendCommand(Command):
+    """Attend match command."""
+
+    def __init__(self):
+        super().__init__("/attend", "Confirm attendance for a match", PermissionLevel.PLAYER)
+
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            match_commands = MatchCommands(context.team_id)
+            args = context.message_text.split()[1:]
+            player_id = context.user_id # Assuming telegram_id is used as player_id for attendance
+            result = await match_commands.handle_attend_match(args[0], player_id)
+            return CommandResult(success=not result.startswith("❌"), message=result)
+        except Exception as e:
+            logger.error(f"Attend command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error confirming attendance: {str(e)}",
+                error=str(e)
+            )
+
+
+class UnattendCommand(Command):
+    """Unattend match command."""
+
+    def __init__(self):
+        super().__init__("/unattend", "Cancel attendance for a match", PermissionLevel.PLAYER)
+
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            match_commands = MatchCommands(context.team_id)
+            args = context.message_text.split()[1:]
+            player_id = context.user_id # Assuming telegram_id is used as player_id for attendance
+            result = await match_commands.handle_unattend_match(args[0], player_id)
+            return CommandResult(success=not result.startswith("❌"), message=result)
+        except Exception as e:
+            logger.error(f"Unattend command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error canceling attendance: {str(e)}",
+                error=str(e)
+            )
+
+
+
+
+class InjurePlayerCommand(Command):
+    """Injure player command implementation."""
+
+    def __init__(self):
+        super().__init__("/injure", "Mark a player as injured", PermissionLevel.LEADERSHIP)
+
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            player_commands = PlayerCommands(context.team_id)
+            args = context.message_text.split()[1:]
+            result = await player_commands.handle_injure_player(args)
+            return CommandResult(success=not result.startswith("❌"), message=result)
+        except Exception as e:
+            logger.error(f"Injure player command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error marking player as injured: {str(e)}",
+                error=str(e)
+            )
+
+
+class SuspendPlayerCommand(Command):
+    """Suspend player command implementation."""
+
+    def __init__(self):
+        super().__init__("/suspend", "Mark a player as suspended", PermissionLevel.LEADERSHIP)
+
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            player_commands = PlayerCommands(context.team_id)
+            args = context.message_text.split()[1:]
+            result = await player_commands.handle_suspend_player(args)
+            return CommandResult(success=not result.startswith("❌"), message=result)
+        except Exception as e:
+            logger.error(f"Suspend player command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error marking player as suspended: {str(e)}",
+                error=str(e)
+            )
+
+
+class RecoverPlayerCommand(Command):
+    """Recover player command implementation."""
+
+    def __init__(self):
+        super().__init__("/recover", "Mark a player as recovered", PermissionLevel.LEADERSHIP)
+
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            player_commands = PlayerCommands(context.team_id)
+            args = context.message_text.split()[1:]
+            result = await player_commands.handle_recover_player(args)
+            return CommandResult(success=not result.startswith("❌"), message=result)
+        except Exception as e:
+            logger.error(f"Recover player command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Error recovering player: {str(e)}",
+                error=str(e)
+            )
 
 class CommandRegistry:
     """Registry for all available commands."""
-    
+
     def __init__(self):
         self._commands: Dict[str, Command] = {}
         self._help_command: Optional[HelpCommand] = None
@@ -1630,6 +1919,9 @@ class CommandRegistry:
             DailyStatusCommand(),
             BackgroundTasksCommand(),
             RemindCommand(),
+            CreateTeamCommand(),
+            DeleteTeamCommand(),
+            ListTeamsCommand(),
             
             # Match Commands
             CreateMatchCommand(),
@@ -1637,11 +1929,18 @@ class CommandRegistry:
             GetMatchCommand(),
             UpdateMatchCommand(),
             DeleteMatchCommand(),
+            RecordResultCommand(),
+            AttendCommand(),
+            UnattendCommand(),
             
             # Additional Admin Commands
             StatsCommand(),
             InviteCommand(),
             BroadcastCommand(),
+            InjurePlayerCommand(),
+            SuspendPlayerCommand(),
+            RecoverPlayerCommand(),
+            AnnounceCommand(),
             
             # Payment Commands
             CreateMatchFeeCommand(),
@@ -1652,6 +1951,9 @@ class CommandRegistry:
             PaymentHistoryCommand(),
             PaymentStatsCommand(),
             PaymentHelpCommand(),
+            FinancialDashboardCommand(),
+            RefundPaymentCommand(),
+            RecordExpenseCommand(),
         ]
         
         for command in commands:
@@ -1673,7 +1975,6 @@ class CommandRegistry:
     def get_available_commands(self, context: CommandContext) -> List[Command]:
         """Get all commands available for the given context."""
         return [cmd for cmd in self._commands.values() if cmd.can_execute(context)]
-
 
 # ============================================================================
 # COMMAND PROCESSOR (Chain of Responsibility Pattern)
@@ -1700,11 +2001,8 @@ class CommandProcessor:
             elif self.access_control.is_main_chat(chat_id, team_id):
                 return ChatType.MAIN
             else:
-                # Try to detect by chat name as fallback
-                if self.access_control._is_leadership_chat_by_name(chat_id):
-                    return ChatType.LEADERSHIP
-                else:
-                    return ChatType.MAIN  # Default to main chat
+                # Default to main chat
+                return ChatType.MAIN
         except Exception as e:
             logger.error(f"Error determining chat type: {e}")
             return ChatType.MAIN  # Default to main chat
@@ -1837,3 +2135,63 @@ def extract_command_name(message: str) -> Optional[str]:
         return None
     
     return parts[0].lower() 
+
+
+class RefundPaymentCommand(Command):
+    """Refund payment command."""
+    
+    def __init__(self):
+        super().__init__("/refund_payment", "Refund a payment", PermissionLevel.LEADERSHIP)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            payment_commands = PaymentCommands(context.team_id)
+            
+            # Extract command arguments
+            args = context.message_text.split()[1:]  # Remove command name
+            
+            result = await payment_commands.handle_refund_payment(args)
+            
+            return CommandResult(
+                success=not result.startswith("❌"),
+                message=result
+            )
+            
+        except Exception as e:
+            logger.error(f"Refund payment command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Payment Error: {str(e)}",
+                error=str(e)
+            )
+
+
+class RecordExpenseCommand(Command):
+    """Record expense command."""
+    
+    def __init__(self):
+        super().__init__("/record_expense", "Record a team expense", PermissionLevel.LEADERSHIP)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            payment_commands = PaymentCommands(context.team_id)
+            
+            # Extract command arguments
+            args = context.message_text.split()[1:]  # Remove command name
+            
+            result = await payment_commands.handle_record_expense(args)
+            
+            return CommandResult(
+                success=not result.startswith("❌"),
+                message=result
+            )
+            
+        except Exception as e:
+            logger.error(f"Record expense command error: {e}")
+            return CommandResult(
+                success=False,
+                message=f"❌ Payment Error: {str(e)}",
+                error=str(e)
+            )
+
+

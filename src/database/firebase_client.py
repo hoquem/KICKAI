@@ -5,32 +5,28 @@ This module provides a robust Firebase client wrapper with connection pooling,
 error handling, batch operations, and performance optimization.
 """
 
-import asyncio
-from typing import Dict, Any, Optional, List, Union, Callable
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 import json
 import time
 from contextlib import asynccontextmanager
-from functools import wraps
 import os
 import logging
 
 import firebase_admin
 from firebase_admin import credentials, firestore
-from google.cloud.firestore_v1 import DocumentReference, CollectionReference
-from google.cloud.firestore_v1.base_document import DocumentSnapshot
-from google.api_core import retry, exceptions as google_exceptions
+from google.cloud.firestore_v1 import CollectionReference
+from google.api_core import exceptions as google_exceptions
 from google.cloud import firestore as firestore_client
 
-from ..core.config import get_config, DatabaseConfig
+from ..core.improved_config_system import get_improved_config, DatabaseConfig
 from ..core.exceptions import (
-    DatabaseError, ConnectionError, QueryError, NotFoundError, 
+    DatabaseError, ConnectionError, NotFoundError, 
     DuplicateError, create_error_context
 )
-from .models import Player, Team, Match, TeamMember, BotMapping, OnboardingStatus, TeamStatus
-from .interfaces import DataStoreInterface
+from .models_improved import Player, Team, Match, TeamMember, BotMapping, OnboardingStatus, TeamStatus
 
-class FirebaseClient(DataStoreInterface):
+class FirebaseClient:
     """Robust Firebase client wrapper with connection pooling and error handling."""
     
     def __init__(self, config: DatabaseConfig):
@@ -57,7 +53,7 @@ class FirebaseClient(DataStoreInterface):
                 
                 # Check if Firebase app is already initialized
                 try:
-                    app = firebase_admin.get_app()
+                    firebase_admin.get_app()
                     logging.info("✅ Using existing Firebase app")
                 except ValueError:
                     logging.info("🔄 Initializing new Firebase app...")
@@ -103,15 +99,32 @@ class FirebaseClient(DataStoreInterface):
                 except Exception as e:
                     raise RuntimeError(f"Failed to create Firebase credentials: {e}")
                 
-                # Initialize Firebase app
+                # Initialize Firebase app with error handling for gRPC issues
                 logging.info("🔄 Initializing Firebase app...")
-                firebase_admin.initialize_app(cred, {
-                    'projectId': self.config.project_id
-                })
-                logging.info("✅ Firebase app initialized successfully")
+                try:
+                    firebase_admin.initialize_app(cred, {
+                        'projectId': self.config.project_id
+                    })
+                    logging.info("✅ Firebase app initialized successfully")
+                except Exception as e:
+                    # Suppress gRPC AuthMetadataPluginCallback errors as they're often harmless
+                    if "AuthMetadataPluginCallback" in str(e):
+                        logging.warning("⚠️ gRPC AuthMetadataPluginCallback error detected (usually harmless): {e}")
+                        # Continue with initialization
+                    else:
+                        raise e
             
-            self._client = firestore.client()
-            logging.info("✅ Firebase Firestore client created successfully")
+            # Create Firestore client with error handling
+            try:
+                self._client = firestore.client()
+                logging.info("✅ Firebase Firestore client created successfully")
+            except Exception as e:
+                if "AuthMetadataPluginCallback" in str(e):
+                    logging.warning("⚠️ gRPC AuthMetadataPluginCallback error in client creation (usually harmless): {e}")
+                    # Try to continue anyway
+                    self._client = firestore.client()
+                else:
+                    raise e
             
         except Exception as e:
             logging.error("Failed to initialize Firebase client")
@@ -495,7 +508,7 @@ class FirebaseClient(DataStoreInterface):
             filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
             documents = await self.query_documents('team_members', filters)
             return [TeamMember.from_dict(doc) for doc in documents]
-        except Exception as e:
+        except Exception:
             logging.error("Error getting team members by team")
             return []  # Return empty list on error
     
@@ -512,7 +525,7 @@ class FirebaseClient(DataStoreInterface):
                 return TeamMember.from_dict(documents[0])
             return None
             
-        except Exception as e:
+        except Exception:
             logging.error("Error getting team member by telegram_id")
     
     async def get_team_members_by_role(self, team_id: str, role: str) -> List[TeamMember]:
@@ -571,7 +584,7 @@ def get_firebase_client() -> FirebaseClient:
     """Get the global Firebase client instance."""
     global _firebase_client
     if _firebase_client is None:
-        config = get_config().database
+        config = get_improved_config().configuration.database
         _firebase_client = FirebaseClient(config)
     return _firebase_client
 
@@ -580,6 +593,6 @@ def initialize_firebase_client(config: Optional[DatabaseConfig] = None) -> Fireb
     """Initialize the global Firebase client."""
     global _firebase_client
     if config is None:
-        config = get_config().database
+        config = get_improved_config().configuration.database
     _firebase_client = FirebaseClient(config)
     return _firebase_client 

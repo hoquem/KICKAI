@@ -1,565 +1,963 @@
+"""
+Robust CrewAI Football Team Management System
+
+This module provides a comprehensive, maintainable, and debuggable implementation
+of a multi-agent system for managing Sunday League football teams.
+
+Key improvements:
+- Centralized configuration management
+- Robust error handling and logging
+- Clear separation of concerns
+- Comprehensive validation
+- Better agent specialization
+- Improved debugging capabilities
+"""
+
 import logging
-from typing import Optional
+import traceback
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Dict, List, Optional, Any, Callable
+from contextlib import contextmanager
+from functools import wraps
+from src.core.config import get_config
+from src.core.improved_config_system import get_improved_config
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Define missing classes if they don't exist
+class MemoryEnhancedAgent:
+    """Base class for agents with memory capabilities."""
+    def __init__(self, memory_enabled: bool = True):
+        self.memory_enabled = memory_enabled
 
-import os
-from dotenv import load_dotenv
-from crewai import Agent, Task, Crew
-from langchain_community.llms import Ollama
-from langchain.tools import BaseTool
+class MemoryType(Enum):
+    """Types of memory for agents."""
+    SHORT_TERM = "short_term"
+    LONG_TERM = "long_term"
+    EPISODIC = "episodic"
+    SEMANTIC = "semantic"
 
-# Try to import Google AI with fallback
-GOOGLE_AI_AVAILABLE = False
-ChatGoogleGenerativeAI = None
+class MemoryPriority(Enum):
+    """Priority levels for memory storage."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+# Third-party imports with proper error handling
 try:
-    import google.generativeai as genai
-    GOOGLE_AI_AVAILABLE = True
-    logger.info("✅ google-generativeai imported successfully")
-except ImportError:
-    logger.warning("⚠️ google-generativeai not available")
-    GOOGLE_AI_AVAILABLE = False
-
-# Try to import Ollama with fallback
-OLLAMA_AVAILABLE = False
-try:
+    from dotenv import load_dotenv
+    from crewai import Agent, Task, Crew
+    from langchain.tools import BaseTool
     from langchain_community.llms import Ollama
-    OLLAMA_AVAILABLE = True
-    logger.info("✅ Ollama imported successfully")
-except ImportError:
-    logger.warning("⚠️ Ollama not available")
-    OLLAMA_AVAILABLE = False
+except ImportError as e:
+    raise ImportError(f"Required CrewAI dependencies missing: {e}")
 
-from src.tools.firebase_tools import PlayerTools, FixtureTools, TeamTools, CommandLoggingTools, BotTools
-from src.tools.telegram_tools import (
-    SendTelegramMessageTool,
-    SendTelegramPollTool,
-    SendAvailabilityPollTool,
-    SendSquadAnnouncementTool,
-    SendPaymentReminderTool,
-    SendLeadershipMessageTool,
-    get_telegram_tools_dual
+# Configure comprehensive logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('team_management.log')
+    ]
 )
-from src.tools.learning_tools import LearningTools
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
 
-# NOTE: All configuration must be loaded via src/core/config.py. Do not load secrets or config directly here.
 
-def get_messaging_tools(team_id: str):
-    """Get Telegram messaging tools for a specific team."""
-    try:
-        logger.info(f"Creating Telegram messaging tools for team {team_id}")
-        return {
-            'message_tool': SendTelegramMessageTool(team_id),
-            'leadership_message_tool': SendLeadershipMessageTool(team_id),
-            'poll_tool': SendTelegramPollTool(team_id),
-            'availability_poll_tool': SendAvailabilityPollTool(team_id),
-            'squad_announcement_tool': SendSquadAnnouncementTool(team_id),
-            'payment_reminder_tool': SendPaymentReminderTool(team_id),
-            'platform': 'Telegram'
-        }
-    except Exception as e:
-        logger.error(f"Error creating Telegram tools for team {team_id}: {e}")
-        raise ValueError(f"Failed to create Telegram tools for team {team_id}: {e}")
-
-# Robust system prompt for CrewAI output format
-CREWAI_SYSTEM_PROMPT = '''
-You are a helpful, precise, and format-strict AI agent for a football team management system.
-
-**IMPORTANT:** You must ALWAYS respond in the following format, and never deviate from it:
-
-```
-Thought: <your reasoning here>
-Final Answer: <your complete, direct answer here>
-```
-
-If you are asked to use tools, always return the format:
-```
-Thought: <your reasoning>
-Action: <tool name>
-Action Input: <JSON input for the tool>
-Observation: <result from the tool>
-```
-
-Once all actions are complete, always return the final answer in the first format above. Never return anything outside these formats. Your job depends on it!
-
----
-
-**Available Tools and Commands (Cheat Sheet):**
-
-- **Player Management Tool**
-  - `add_player` (name, phone_number)
-  - `get_all_players`
-  - `get_player` (player_id or phone_number)
-  - `update_player` (player_id, name/phone_number/is_active)
-  - `deactivate_player` (player_id)
-
-- **Fixture Management Tool**
-  - `add_fixture` (opponent, match_date, kickoff_time, venue, competition, notes, created_by)
-  - `get_all_fixtures`
-  - `get_fixture` (fixture_id)
-  - `update_fixture` (fixture_id, opponent/match_date/kickoff_time/venue/competition/notes/status)
-  - `delete_fixture` (fixture_id)
-
-- **Team Management Tool**
-  - `get_team_info`
-  - `update_team_info` (name)
-
-- **Bot Management Tool**
-  - `get_bot_config`
-  - `update_bot_config` (bot_token, bot_username, chat_id, leadership_chat_id, is_active)
-
-- **Command Logging Tool**
-  - `log_command` (chat_id, user_id, command, username, arguments, success, error_message)
-
-- **Telegram Messaging Tools**
-  - `send_telegram_message` (message)
-  - `send_telegram_poll` (question, options)
-  - `send_availability_poll` (fixture_details, match_date, match_time, location)
-  - `send_squad_announcement` (fixture_details, match_date, match_time, starters, substitutes)
-  - `send_payment_reminder` (unpaid_players, amount, fixture_details)
-
-**Never use a command that is not listed above. If you are unsure, ask for clarification or use only the valid commands.**
-
----
-
-**Tool Usage Examples:**
-
-Example 1: List all players
-```
-Thought: I want to list all players in the team.
-Action: Player Management Tool
-Action Input: {"command": "get_all_players"}
-Observation: All Players: - ID: 1, Name: John Doe, Phone: 123456789, Status: Active
-Thought: I now know the final answer
-Final Answer: The team currently has the following players: John Doe (Active).
-```
-
-Example 2: Get a specific player
-```
-Thought: I need to get information for player with ID 1.
-Action: Player Management Tool
-Action Input: {"command": "get_player", "player_id": "1"}
-Observation: Player found: John Doe (ID: 1, Phone: 123456789, Active: True)
-Thought: I now know the final answer
-Final Answer: Player John Doe (ID: 1) is active and can be contacted at 123456789.
-```
-
-Example 3: Add a new fixture
-```
-Thought: I need to add a new fixture for the team.
-Action: Fixture Management Tool
-Action Input: {"command": "add_fixture", "opponent": "Thunder FC", "match_date": "2024-07-15", "kickoff_time": "14:00:00", "venue": "Home - Central Park", "competition": "League", "notes": "Red kit required", "created_by": "1581500055"}
-Observation: Successfully added fixture: Thunder FC on 2024-07-15 at 14:00:00 (ID: abc123).
-Thought: I now know the final answer
-Final Answer: Fixture against Thunder FC has been scheduled for July 15th at 2pm at Central Park.
-```
-
-Example 4: List all fixtures
-```
-Thought: I want to see all fixtures.
-Action: Fixture Management Tool
-Action Input: {"command": "get_all_fixtures"}
-Observation: All Fixtures: - ID: abc123, Thunder FC on 2024-07-15 at 14:00:00 (scheduled)
-Thought: I now know the final answer
-Final Answer: The team has 1 upcoming fixture: Thunder FC on July 15th at 2pm.
-```
-
-Example 5: Send a Telegram message
-```
-Thought: I need to notify the team about the next match.
-Action: send_telegram_message
-Action Input: {"message": "Reminder: Our next match is this Sunday at 2pm. Please confirm your availability."}
-Observation: Telegram message sent successfully! Message ID: 12345
-Thought: I now know the final answer
-Final Answer: The team has been notified about the next match via Telegram.
-```
-'''
-
-def create_llm():
-    """Create and configure the LLM instance based on environment."""
-    try:
-        from src.core.config import ConfigurationManager, AIProvider
-        config_manager = ConfigurationManager()
-        ai_config = config_manager.ai
-        logger.info(f"[LLM DEBUG] Creating LLM with provider: {ai_config.provider}")
-        logger.info(f"[LLM DEBUG] GOOGLE_AI_AVAILABLE={GOOGLE_AI_AVAILABLE}")
-        logger.info(f"[LLM DEBUG] api_key={'SET' if ai_config.api_key else 'MISSING'}")
-        logger.info(f"[LLM DEBUG] model_name={ai_config.model_name}")
-        if ai_config.provider == AIProvider.GOOGLE_GEMINI:
-            if GOOGLE_AI_AVAILABLE:
-                api_key = ai_config.api_key
-                model_name = ai_config.model_name
-                if not api_key or not model_name:
-                    logger.error("[LLM DEBUG] Google AI API key or model name missing.")
-                    return None
-                try:
-                    genai.configure(api_key=api_key)
-                    llm = genai.GenerativeModel(model_name)
-                    logger.info("[LLM DEBUG] ✅ Google AI LLM created successfully")
-                except Exception as e:
-                    logger.error(f"[LLM DEBUG] Exception during GenerativeModel creation: {e}")
-                    return None
-            else:
-                logger.warning("[LLM DEBUG] Google AI packages not available, using fallback")
-                llm = None
-        elif ai_config.provider == AIProvider.OLLAMA:
-            try:
-                if OLLAMA_AVAILABLE and Ollama is not None:
-                    llm = Ollama(
-                        model=ai_config.model_name,
-                        base_url=os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434'),
-                        temperature=ai_config.temperature,
-                        timeout=ai_config.timeout_seconds
-                    )
-                    logger.info("[LLM DEBUG] ✅ Ollama LLM created successfully")
-                else:
-                    logger.warning("[LLM DEBUG] Ollama packages not available, using fallback")
-                    llm = None
-            except Exception as e:
-                logger.error(f"[LLM DEBUG] Exception during Ollama LLM creation: {e}")
-                llm = None
-        else:
-            logger.warning(f"[LLM DEBUG] Unknown provider {ai_config.provider}, using fallback")
-            llm = None
-        return llm
-    except Exception as e:
-        logger.error(f"[LLM DEBUG] Failed to create LLM: {e}")
-        raise
+class AIProvider(Enum):
+    """Supported AI providers."""
+    GOOGLE_GEMINI = "google_gemini"
+    OLLAMA = "ollama"
+    OPENAI = "openai"
 
 
-def create_agents_for_team(llm, team_id: str):
-    """Create CrewAI agents for a specific team with refined architecture."""
-    logger.info(f"Creating CrewAI agents for team {team_id} with refined architecture...")
-    
-    # Initialize tools with team context
-    player_tools = PlayerTools(team_id)
-    fixture_tools = FixtureTools(team_id)
-    team_tools = TeamTools(team_id)
-    bot_tools = BotTools(team_id)
-    command_logging_tools = CommandLoggingTools(team_id)
-    learning_tools = LearningTools(team_id)
-    
-    # Get Telegram messaging tools for this team
-    messaging_tools = get_messaging_tools(team_id)
-    logger.info(f"Using {messaging_tools['platform']} for messaging team {team_id}")
-
-    # 1. Message Processing Specialist Agent (Primary Interface)
-    message_processor = Agent(
-        role='Message Processing Specialist',
-        goal='Interpret incoming Telegram messages, understand user intent, and route requests to appropriate team agents',
-        backstory="""You are an expert at understanding human communication in the context of football team management. 
-        You excel at interpreting natural language, understanding context, and determining the best way to handle 
-        user requests. You can distinguish between simple queries, complex operations, and requests that require 
-        multiple agents to collaborate. You maintain context of ongoing conversations and can handle follow-up 
-        questions intelligently.""",
-        verbose=True,
-        allow_delegation=True,  # This agent can delegate to other agents
-        tools=[
-            command_logging_tools,  # For logging all incoming messages
-            messaging_tools['message_tool'],  # For asking clarifying questions
-            learning_tools  # For learning from interactions
-        ],
-        llm=llm
-    )
-    logger.info(f"Message Processing Specialist agent created for team {team_id}")
-
-    # 2. Team Manager Agent (Strategic Coordination)
-    team_manager = Agent(
-        role='Team Manager',
-        goal='Manage the Sunday League football team operations, coordinate players, and ensure smooth team functioning',
-        backstory="""You are an experienced football team manager with years of experience managing Sunday League teams. 
-        You understand player dynamics, team morale, and the importance of clear communication. You excel at making 
-        strategic decisions and coordinating between different team roles. You have a holistic view of the team and 
-        can coordinate complex operations involving multiple agents.""",
-        verbose=True,
-        allow_delegation=True,  # Can coordinate other agents
-        tools=[
-            player_tools, 
-            fixture_tools, 
-            team_tools, 
-            bot_tools,
-            messaging_tools['message_tool'], 
-            messaging_tools['leadership_message_tool']
-        ],
-        llm=llm
-    )
-    logger.info(f"Team Manager agent created for team {team_id}")
-
-    # 3. Player Coordinator Agent (Operational Management)
-    player_coordinator = Agent(
-        role='Player Coordinator',
-        goal='Coordinate player availability, manage player information, and handle player communications',
-        backstory="""You are a dedicated player coordinator who knows every player personally. You track their availability, 
-        preferences, and performance. You're excellent at communicating with players and ensuring everyone is informed 
-        about team activities and requirements. You handle the day-to-day operational aspects of player management.""",
-        verbose=True,
-        allow_delegation=True,  # Can delegate to specialized agents
-        tools=[
-            player_tools, 
-            team_tools, 
-            messaging_tools['message_tool'], 
-            messaging_tools['availability_poll_tool'],
-            messaging_tools['payment_reminder_tool'],  # Added for payment tracking
-            command_logging_tools
-        ],
-        llm=llm
-    )
-    logger.info(f"Player Coordinator agent created for team {team_id}")
-
-    # 4. Match Analyst Agent (Tactical Analysis)
-    match_analyst = Agent(
-        role='Match Analyst',
-        goal='Analyze team performance, provide insights on tactics, and suggest improvements',
-        backstory="""You are a tactical football analyst with deep knowledge of the game. You analyze match performances, 
-        identify areas for improvement, and provide strategic insights. You help the team understand their strengths 
-        and weaknesses to improve their game. You work closely with the squad selection specialist for optimal team composition.""",
-        verbose=True,
-        allow_delegation=True,  # Can delegate to squad selection specialist
-        tools=[
-            fixture_tools, 
-            player_tools, 
-            team_tools, 
-            messaging_tools['squad_announcement_tool'], 
-            command_logging_tools
-        ],
-        llm=llm
-    )
-    logger.info(f"Match Analyst agent created for team {team_id}")
-
-    # 5. Communication Specialist Agent (Broadcast Management)
-    communication_specialist = Agent(
-        role='Communication Specialist',
-        goal='Handle all team communications, announcements, and ensure clear information flow',
-        backstory="""You are a communication expert who ensures all team members are well-informed and connected. 
-        You handle announcements, coordinate messaging, and maintain clear communication channels. You're skilled 
-        at crafting clear, engaging messages that keep the team motivated and informed. You coordinate with other 
-        agents to ensure accurate and timely communications.""",
-        verbose=True,
-        allow_delegation=False,  # Focused on communication, not delegation
-        tools=[
-            messaging_tools['message_tool'], 
-            messaging_tools['leadership_message_tool'],
-            messaging_tools['poll_tool'], 
-            messaging_tools['squad_announcement_tool'], 
-            messaging_tools['payment_reminder_tool'],
-            command_logging_tools
-        ],
-        llm=llm
-    )
-    logger.info(f"Communication Specialist agent created for team {team_id}")
-
-    # 6. Finance Manager Agent (NEW - Specialized)
-    finance_manager = Agent(
-        role='Finance Manager',
-        goal='Manage team finances, track payments, and handle financial reporting',
-        backstory="""You are a dedicated finance manager responsible for tracking all team financial matters. 
-        You monitor match fees, track payment status, and ensure financial transparency. You work closely with 
-        the player coordinator to manage payment reminders and financial reporting. You maintain accurate records 
-        and provide financial insights to the team management.""",
-        verbose=True,
-        allow_delegation=False,  # Specialized role, focused on finance
-        tools=[
-            messaging_tools['payment_reminder_tool'],
-            team_tools,  # For financial reporting
-            command_logging_tools
-        ],
-        llm=llm
-    )
-    logger.info(f"Finance Manager agent created for team {team_id}")
-
-    # 7. Squad Selection Specialist Agent (NEW - Specialized)
-    squad_selection_specialist = Agent(
-        role='Squad Selection Specialist',
-        goal='Select optimal squads based on availability, form, and tactics',
-        backstory="""You are a squad selection expert with deep understanding of player positions, form, and 
-        tactical requirements. You analyze player availability, consider tactical needs, and select the optimal 
-        squad for each match. You work closely with the match analyst to understand tactical requirements and 
-        with the player coordinator to understand availability. You ensure balanced squad selection with proper 
-        cover for all positions.""",
-        verbose=True,
-        allow_delegation=False,  # Specialized role, focused on squad selection
-        tools=[
-            player_tools,  # For player information
-            messaging_tools['squad_announcement_tool'],  # For announcing squads
-            command_logging_tools
-        ],
-        llm=llm
-    )
-    logger.info(f"Squad Selection Specialist agent created for team {team_id}")
-
-    # 8. Analytics Specialist Agent (NEW - Specialized)
-    analytics_specialist = Agent(
-        role='Performance Analytics Specialist',
-        goal='Analyze team and player performance, provide insights and recommendations',
-        backstory="""You are a performance analytics expert who provides deep insights into team and individual 
-        player performance. You analyze match data, track performance trends, and provide actionable recommendations 
-        for improvement. You work with historical data to identify patterns and suggest strategic improvements. 
-        You provide detailed reports and insights to help the team improve their performance.""",
-        verbose=True,
-        allow_delegation=False,  # Specialized role, focused on analytics
-        tools=[
-            fixture_tools,  # For match data
-            player_tools,  # For player performance data
-            command_logging_tools
-        ],
-        llm=llm
-    )
-    logger.info(f"Analytics Specialist agent created for team {team_id}")
-
-    # 9. Learning Agent (NEW - Learning and Optimization)
-    learning_agent = Agent(
-        role='Learning and Optimization Specialist',
-        goal='Learn from interactions, improve natural language understanding, and optimize agent performance',
-        backstory="""You are an advanced learning specialist who continuously improves the system's natural 
-        language processing capabilities. You analyze user interactions, learn from patterns, and optimize 
-        how the system understands and responds to requests. You work with the memory system to identify 
-        improvement opportunities and suggest optimizations for better user experience. You specialize in 
-        understanding user intent, improving response quality, and adapting to team-specific communication 
-        patterns. You collaborate with all other agents to ensure the system learns and improves over time.""",
-        verbose=True,
-        allow_delegation=True,  # Can delegate learning tasks to other agents
-        tools=[
-            command_logging_tools,  # For analyzing interaction patterns
-            messaging_tools['message_tool'],  # For asking clarifying questions
-            team_tools,  # For team-specific learning
-            player_tools,  # For player interaction patterns
-        ],
-        llm=llm
-    )
-    logger.info(f"Learning Agent created for team {team_id}")
-
-    logger.info(f"All 9 agents created successfully for team {team_id}")
-    return (
-        message_processor,      # Primary interface
-        team_manager,           # Strategic coordination
-        player_coordinator,     # Operational management
-        match_analyst,          # Tactical analysis
-        communication_specialist, # Broadcast management
-        finance_manager,        # Financial management
-        squad_selection_specialist, # Squad selection
-        analytics_specialist,   # Performance analytics
-        learning_agent          # Learning and optimization
-    )
+class AgentRole(Enum):
+    """Defined agent roles in the system."""
+    MESSAGE_PROCESSOR = "message_processor"
+    TEAM_MANAGER = "team_manager"
+    PLAYER_COORDINATOR = "player_coordinator"
+    MATCH_ANALYST = "match_analyst"
+    COMMUNICATION_SPECIALIST = "communication_specialist"
+    FINANCE_MANAGER = "finance_manager"
+    SQUAD_SELECTION_SPECIALIST = "squad_selection_specialist"
+    ANALYTICS_SPECIALIST = "analytics_specialist"
+    LEARNING_AGENT = "learning_agent"
+    ONBOARDING_AGENT = "onboarding_agent"
 
 
-def create_crew_for_team(agents):
-    """Create a CrewAI crew with the specified agents for a team."""
-    logger.info("Creating CrewAI crew with refined architecture...")
-    
-    message_processor, team_manager, player_coordinator, match_analyst, communication_specialist, finance_manager, squad_selection_specialist, analytics_specialist, learning_agent = agents
-    
-    crew = Crew(
-        agents=[
-            message_processor,      # Primary interface
-            team_manager,           # Strategic coordination
-            player_coordinator,     # Operational management
-            match_analyst,          # Tactical analysis
-            communication_specialist, # Broadcast management
-            finance_manager,        # Financial management
-            squad_selection_specialist, # Squad selection
-            analytics_specialist,   # Performance analytics
-            learning_agent          # Learning and optimization
-        ],
-        verbose=True,
-        memory=True
-    )
-    
-    logger.info("Crew created successfully with 9 agents")
-    return crew
+@dataclass
+class AIConfig:
+    """Configuration for AI providers."""
+    provider: AIProvider
+    model_name: str
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
+    temperature: float = 0.7
+    timeout_seconds: int = 30
+    max_retries: int = 3
 
-"""
-DEPRECATED: Legacy agent logic is being migrated to the new service layer and handler architecture.
-Use src/services/player_service.py, src/services/team_service.py, and src/telegram/player_registration_handler.py instead of direct database access or legacy managers.
-"""
 
-from src.services.player_service import get_player_service
-from src.services.team_service import get_team_service
-from src.telegram.player_registration_handler import PlayerRegistrationHandler, PlayerCommandHandler
+@dataclass
+class TeamConfig:
+    """Configuration for a football team."""
+    team_id: str
+    team_name: str
+    chat_id: Optional[str] = None
+    leadership_chat_id: Optional[str] = None
+    bot_token: Optional[str] = None
+    bot_username: Optional[str] = None
+    is_active: bool = True
 
-class OnboardingAgent(Agent):
-    def __init__(self, team_id: str, team_name: Optional[str] = None, llm=None):
-        # Defensive check: LLM must not be None
-        if llm is None:
-            logger.error("OnboardingAgent initialization failed: llm (language model) is None. Cannot proceed.")
-            raise ValueError("OnboardingAgent requires a valid LLM (language model) instance. Got None.")
-        # Initialize the parent Agent class first
-        super().__init__(
-            role="Onboarding Agent",
-            goal="Handle player onboarding and registration processes",
-            backstory="You are an onboarding specialist who helps new players join the team and existing players update their information.",
-            verbose=True,
-            allow_delegation=False,
-            tools=[],  # Will be populated as needed
-            llm=llm
-        )
-        # Store team info in a way that doesn't conflict with Pydantic
-        self._team_id = team_id
-        self._team_name = team_name
-        # Store services in a separate object to avoid Pydantic conflicts
-        self._services = {}
-        # Initialize services after parent initialization
+
+@dataclass
+class AgentConfig:
+    """Configuration for individual agents."""
+    role: AgentRole
+    enabled: bool = True
+    max_iterations: int = 10
+    allow_delegation: bool = True
+    verbose: bool = True
+    custom_tools: List[str] = field(default_factory=list)
+
+
+class ConfigurationError(Exception):
+    """Raised when configuration is invalid."""
+    pass
+
+
+class AgentInitializationError(Exception):
+    """Raised when agent initialization fails."""
+    pass
+
+
+class LLMProviderError(Exception):
+    """Raised when LLM provider encounters an error."""
+    pass
+
+
+def log_errors(func: Callable) -> Callable:
+    """Decorator to log errors with full traceback."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
         try:
-            self._services['player_service'] = get_player_service()
-            self._services['team_service'] = get_team_service()
-            self._services['player_registration_handler'] = PlayerRegistrationHandler(team_id)
-            self._services['player_command_handler'] = PlayerCommandHandler(self._services['player_registration_handler'])
+            return func(*args, **kwargs)
         except Exception as e:
-            logger.error(f"Failed to initialize OnboardingAgent services: {e}")
-            # Set to None if services fail to initialize
-            self._services['player_service'] = None
-            self._services['team_service'] = None
-            self._services['player_registration_handler'] = None
-            self._services['player_command_handler'] = None
-        # Defensive check: If any critical service is None, raise exception
-        critical_services = ['player_service', 'team_service', 'player_registration_handler', 'player_command_handler']
-        for key in critical_services:
-            if self._services.get(key) is None:
-                logger.error(f"OnboardingAgent critical service '{key}' is None after initialization. Cannot proceed.")
-                raise RuntimeError(f"OnboardingAgent failed to initialize critical service: {key}")
-        # Warn if any non-critical service is None (future-proofing)
-        for key, value in self._services.items():
-            if value is None and key not in critical_services:
-                logger.warning(f"OnboardingAgent service '{key}' is None after initialization. Some features may not work.")
+            logger.error(f"Error in {func.__name__}: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            raise
+    return wrapper
+
+
+def validate_config(config: Any, required_fields: List[str]) -> None:
+    """Validate that configuration has required fields."""
+    missing_fields = []
+    for field in required_fields:
+        if not hasattr(config, field) or getattr(config, field) is None:
+            missing_fields.append(field)
     
-    @property
-    def team_id(self) -> str:
-        """Get the team ID."""
-        return self._team_id
+    if missing_fields:
+        raise ConfigurationError(f"Missing required configuration fields: {missing_fields}")
+
+
+class ConfigurationManager:
+    """Centralized configuration management."""
     
-    @property
-    def team_name(self) -> Optional[str]:
-        """Get the team name."""
-        return self._team_name
+    def __init__(self):
+        self.ai_config = self._load_ai_config()
+        self.agent_configs = self._load_agent_configs()
+        self._validate_configurations()
     
-    @property
-    def player_service(self):
-        service = self._services.get('player_service')
-        if service is None:
-            logger.error("OnboardingAgent: player_service is not initialized!")
-        return service
+    def _load_ai_config(self) -> AIConfig:
+        """Load AI configuration from environment variables."""
+        provider_str = get_config().ai.provider.value
+        
+        try:
+            provider = AIProvider(provider_str)
+        except ValueError:
+            logger.warning(f"Unknown AI provider: {provider_str}, defaulting to Ollama")
+            provider = AIProvider.OLLAMA
+        
+        return AIConfig(
+            provider=provider,
+            model_name=get_config().ai.model_name,
+            api_key=get_config().ai.api_key,
+            base_url=get_config().ai.base_url,
+            temperature=float(get_config().ai.temperature),
+            timeout_seconds=int(get_config().ai.timeout_seconds),
+            max_retries=int(get_config().ai.max_retries)
+        )
     
-    @property
-    def team_service(self):
-        service = self._services.get('team_service')
-        if service is None:
-            logger.error("OnboardingAgent: team_service is not initialized!")
-        return service
+    def _load_agent_configs(self) -> Dict[AgentRole, AgentConfig]:
+        """Load agent configurations."""
+        configs = {}
+        
+        for role in AgentRole:
+            enabled = get_config().agent[role.value].enabled == 'true'
+            max_iterations = int(get_config().agent[role.value].max_iterations)
+            allow_delegation = get_config().agent[role.value].allow_delegation == 'true'
+            verbose = get_config().agent[role.value].verbose == 'true'
+            
+            configs[role] = AgentConfig(
+                role=role,
+                enabled=enabled,
+                max_iterations=max_iterations,
+                allow_delegation=allow_delegation,
+                verbose=verbose
+            )
+        
+        return configs
     
-    @property
-    def player_registration_handler(self):
-        handler = self._services.get('player_registration_handler')
-        if handler is None:
-            logger.error("OnboardingAgent: player_registration_handler is not initialized!")
-        return handler
+    def _validate_configurations(self) -> None:
+        """Validate all configurations."""
+        # Validate AI config
+        if self.ai_config.provider in [AIProvider.GOOGLE_GEMINI, AIProvider.OPENAI]:
+            if not self.ai_config.api_key:
+                raise ConfigurationError(f"API key required for {self.ai_config.provider.value}")
+        
+        # Validate at least one agent is enabled
+        if not any(config.enabled for config in self.agent_configs.values()):
+            raise ConfigurationError("At least one agent must be enabled")
     
-    @property
-    def player_command_handler(self):
-        handler = self._services.get('player_command_handler')
-        if handler is None:
-            logger.error("OnboardingAgent: player_command_handler is not initialized!")
-        return handler
+    def get_team_config(self, team_id: str) -> TeamConfig:
+        """Get configuration for a specific team."""
+        return TeamConfig(
+            team_id=team_id,
+            team_name=get_config().team[team_id].name,
+            chat_id=get_config().team[team_id].chat_id,
+            leadership_chat_id=get_config().team[team_id].leadership_chat_id,
+            bot_token=get_config().team[team_id].bot_token,
+            bot_username=get_config().team[team_id].bot_username,
+            is_active=get_config().team[team_id].active == 'true'
+        )
+
+
+class LLMFactory:
+    """Factory for creating LLM instances."""
+    
+    @staticmethod
+    @log_errors
+    def create_llm(config: AIConfig):
+        """Create LLM instance based on configuration."""
+        logger.info(f"Creating LLM with provider: {config.provider.value}")
+        
+        if config.provider == AIProvider.GOOGLE_GEMINI:
+            return LLMFactory._create_google_llm(config)
+        elif config.provider == AIProvider.OLLAMA:
+            return LLMFactory._create_ollama_llm(config)
+        elif config.provider == AIProvider.OPENAI:
+            return LLMFactory._create_openai_llm(config)
+        else:
+            raise LLMProviderError(f"Unsupported AI provider: {config.provider}")
+    
+    @staticmethod
+    def _create_google_llm(config: AIConfig):
+        """Create Google Gemini LLM."""
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=config.api_key)
+            llm = genai.GenerativeModel(config.model_name)
+            logger.info("✅ Google Gemini LLM created successfully")
+            return llm
+        except ImportError:
+            raise LLMProviderError("Google Generative AI package not installed")
+        except Exception as e:
+            raise LLMProviderError(f"Failed to create Google Gemini LLM: {e}")
+    
+    @staticmethod
+    def _create_ollama_llm(config: AIConfig):
+        """Create Ollama LLM."""
+        try:
+            llm = Ollama(
+                model=config.model_name,
+                base_url=config.base_url,
+                temperature=config.temperature,
+                timeout=config.timeout_seconds
+            )
+            logger.info("✅ Ollama LLM created successfully")
+            return llm
+        except Exception as e:
+            raise LLMProviderError(f"Failed to create Ollama LLM: {e}")
+    
+    @staticmethod
+    def _create_openai_llm(config: AIConfig):
+        """Create OpenAI LLM."""
+        try:
+            from langchain_openai import ChatOpenAI
+            llm = ChatOpenAI(
+                model=config.model_name,
+                api_key=config.api_key,
+                temperature=config.temperature,
+                timeout=config.timeout_seconds
+            )
+            logger.info("✅ OpenAI LLM created successfully")
+            return llm
+        except ImportError:
+            raise LLMProviderError("OpenAI package not installed")
+        except Exception as e:
+            raise LLMProviderError(f"Failed to create OpenAI LLM: {e}")
+
+
+class BaseTeamAgent(MemoryEnhancedAgent):
+    """Base class for all team-specific agents."""
+    
+    def __init__(self, team_config: TeamConfig, llm=None, tools: List[BaseTool] = None):
+        """Initialize the base team agent."""
+        super().__init__(team_config)
+        
+        self.llm = llm
+        self.tools = tools or []
+        self.agent_config = self._get_agent_config()
+        
+        # Initialize memory with team context
+        if self.memory_enabled:
+            self._initialize_team_memory()
+    
+    def _initialize_team_memory(self) -> None:
+        """Initialize team-specific memory context."""
+        try:
+            # Store team information in semantic memory
+            team_info = f"Team: {self.team_config.team_name} (ID: {self.team_config.team_id})"
+            self.store_memory(
+                content=team_info,
+                memory_type=MemoryType.SEMANTIC,
+                priority=MemoryPriority.HIGH,
+                context={'team_id': self.team_config.team_id, 'type': 'team_info'}
+            )
+            
+            logger.info(f"Initialized team memory for {self.team_config.team_name}")
+        except Exception as e:
+            logger.error(f"Failed to initialize team memory: {e}")
+    
+    def _get_agent_config(self) -> AgentConfig:
+        """Get agent configuration from the config manager."""
+        config_manager = get_improved_config()
+        agent_configs = config_manager.configuration.metadata.get('agent_configs', {})
+        
+        # Get default config for this agent type
+        default_config = AgentConfig(
+            role=self._get_agent_role(),
+            enabled=True,
+            verbose=True,
+            max_iterations=3,
+            allow_delegation=True
+        )
+        
+        # Override with specific config if available
+        role_key = self._get_agent_role().value
+        if role_key in agent_configs:
+            specific_config = agent_configs[role_key]
+            default_config.enabled = specific_config.get('enabled', default_config.enabled)
+            default_config.verbose = specific_config.get('verbose', default_config.verbose)
+            default_config.max_iterations = specific_config.get('max_iterations', default_config.max_iterations)
+            default_config.allow_delegation = specific_config.get('allow_delegation', default_config.allow_delegation)
+        
+        return default_config
+    
+    @abstractmethod
+    def _get_agent_role(self) -> AgentRole:
+        """Get the role of this agent."""
+        pass
+    
+    @abstractmethod
+    def _get_agent_definition(self) -> Dict[str, Any]:
+        """Get the agent definition for CrewAI."""
+        pass
+    
+    def get_agent(self) -> Agent:
+        """Get the CrewAI Agent instance."""
+        if not self.agent_config.enabled:
+            raise AgentInitializationError(f"Agent {self._get_agent_role().value} is disabled")
+        
+        definition = self._get_agent_definition()
+        
+        # Enhance backstory with memory context if available
+        if self.memory_enabled:
+            definition = self._enhance_definition_with_memory(definition)
+        
+        return Agent(
+            role=definition['role'],
+            goal=definition['goal'],
+            backstory=definition['backstory'],
+            verbose=self.agent_config.verbose,
+            allow_delegation=self.agent_config.allow_delegation,
+            max_iter=self.agent_config.max_iterations,
+            max_rpm=self.agent_config.max_rpm,
+            tools=self.tools,
+            llm=self.llm
+        )
+    
+    def _enhance_definition_with_memory(self, definition: Dict[str, Any]) -> Dict[str, Any]:
+        """Enhance agent definition with memory context."""
+        try:
+            # Get team-specific memories
+            team_memories = self.retrieve_memory(
+                query=self.team_config.team_name,
+                memory_type=MemoryType.SEMANTIC,
+                limit=3
+            )
+            
+            # Get recent patterns
+            patterns = self.get_relevant_patterns(
+                context={'team_id': self.team_config.team_id},
+                pattern_type='team_interaction'
+            )
+            
+            # Enhance backstory with memory context
+            memory_context = ""
+            if team_memories:
+                memory_context += f"\n\nTeam Context: {' '.join(team_memories)}"
+            
+            if patterns:
+                memory_context += f"\n\nRecent Patterns: {patterns}"
+            
+            if memory_context:
+                definition['backstory'] += memory_context
+                logger.debug(f"Enhanced agent definition with memory context for {self.team_config.team_name}")
+        
+        except Exception as e:
+            logger.error(f"Failed to enhance definition with memory: {e}")
+        
+        return definition
+    
+    def process_with_memory(self, task_description: str, user_id: Optional[str] = None, 
+                          chat_id: Optional[str] = None, context: Optional[Dict[str, Any]] = None) -> str:
+        """Process a task with memory context."""
+        try:
+            # Store task in short-term memory
+            if user_id and self.memory_enabled:
+                self.store_memory(
+                    content=f"Task: {task_description}",
+                    memory_type=MemoryType.SHORT_TERM,
+                    user_id=user_id,
+                    priority=MemoryPriority.MEDIUM,
+                    context=context or {}
+                )
+            
+            # Get relevant memories for context
+            relevant_memories = []
+            if user_id and self.memory_enabled:
+                relevant_memories = self.retrieve_memory(
+                    query=task_description,
+                    user_id=user_id,
+                    limit=3
+                )
+            
+            # Enhance task with memory context
+            enhanced_task = task_description
+            if relevant_memories:
+                memory_context = f"\n\nRelevant context: {' '.join(relevant_memories)}"
+                enhanced_task += memory_context
+            
+            # Get agent and execute task
+            agent = self.get_agent()
+            # Task creation (would be handled by crew in full implementation)
+            # For now, return the enhanced task description
+            return enhanced_task
+            
+        except Exception as e:
+            logger.error(f"Failed to process task with memory: {e}")
+            return task_description
+
+
+class MessageProcessorAgent(BaseTeamAgent):
+    """Agent responsible for processing and routing messages."""
+    
+    def _get_agent_role(self) -> AgentRole:
+        return AgentRole.MESSAGE_PROCESSOR
+    
+    def _get_agent_definition(self) -> Dict[str, Any]:
+        return {
+            'role': 'AI Triage and Routing Specialist',
+            'goal': 'Efficiently understand user intent from Telegram messages, ask for clarification on missing information, and route tasks to the correct specialized agent. Prioritize a smooth, concise, and helpful user experience.',
+            'backstory': f"""You are the AI Triage and Routing Specialist for {self.team_config.team_name}, an expert in conversational AI for a Telegram-based chat system. Your primary responsibility is to be the first point of contact for all natural language requests.
+
+            **Core Logic and Workflow:**
+
+            1.  **Analyze Intent**: Scrutinize the user's message to determine their primary goal. Use the user's role and the chat type (Main vs. Leadership) as critical context.
+
+            2.  **Handle Incomplete Information**: If a request is missing essential details (e.g., 'schedule a match' without a date), your immediate priority is to ask a clear, simple, and direct follow-up question to get the necessary information. Do not attempt to delegate a task that is incomplete.
+
+            3.  **Ensure Clarity and Brevity**: All your responses and questions must be optimized for Telegram. Be concise, use bullet points for lists, and avoid long paragraphs. The user experience is paramount.
+
+            4.  **Route to Specialists**: Once you have a clear, actionable request, delegate it to the appropriate agent (e.g., `PlayerCoordinatorAgent` for player-related tasks, `FinanceManagerAgent` for payments).
+
+            5.  **Monitor and Improve (Feedback Loop)**: If you are uncertain about the user's intent or if a request is too ambiguous, you MUST delegate the task to the `LearningAgent`. This is your protocol for handling uncertainty and ensuring the system improves over time. You will log the confusing interaction for future analysis."""
+        }
+
+
+class TeamManagerAgent(BaseTeamAgent):
+    """Agent responsible for overall team management."""
+    
+    def _get_agent_role(self) -> AgentRole:
+        return AgentRole.TEAM_MANAGER
+    
+    def _get_agent_definition(self) -> Dict[str, Any]:
+        return {
+            'role': 'Head of Football Operations',
+            'goal': 'Act as the central command for all team-related administrative tasks, ensuring seamless coordination between player management, match scheduling, and financial operations. Your primary focus is on high-level team configuration and operational oversight.',
+            'backstory': f"""You are the strategic Head of Football Operations for {self.team_config.team_name}. 
+            You are not just a manager; you are the operational backbone of the team. Your responsibilities include:
+            - Modifying core team settings (e.g., team name, FA website URLs).
+            - Managing the team's budget and financial rules at a high level.
+            - Delegating specific tasks to other specialized agents (like Player Coordinator or Finance Manager).
+            You must use your tools to fetch and update team-wide configurations and ensure all operational aspects are aligned with the team's strategic goals. You are the final point of authority on team settings."""
+        }
+
+
+class PlayerCoordinatorAgent(BaseTeamAgent):
+    """Agent responsible for player management and coordination."""
+    
+    def _get_agent_role(self) -> AgentRole:
+        return AgentRole.PLAYER_COORDINATOR
+    
+    def _get_agent_definition(self) -> Dict[str, Any]:
+        return {
+            'role': 'Club Secretary & Logistics Manager',
+            'goal': 'To maintain a perfectly accurate register of all club personnel and assets, including player eligibility, equipment location, and volunteer duties.',
+            'backstory': f"""You are the organizational backbone of {self.team_config.team_name}. You are a meticulous and highly organized administrator responsible for all non-financial records.
+
+            **Your Core Responsibilities Are:**
+
+            1.  **Player Administration**: 
+                - Maintain the official player roster.
+                - Track player status (e.g., injuries, suspensions).
+                - Verify FA registration details to confirm eligibility for sanctioned matches.
+
+            2.  **Equipment Logistics**:
+                - Keep an up-to-date inventory of all club equipment (e.g., match kits, footballs, training cones, nets, recording equipment).
+                - Track the custodian of each item (i.e., who is currently responsible for it).
+
+            3.  **Volunteer & Duty Tracking**:
+                - Record all non-playing, match-day duties assigned to players or members (e.g., acting as linesman, managing the kits, providing transport).
+
+            You provide clear, factual answers based on the records. You collaborate closely with the `TreasurerAgent` to ensure a player's financial status is considered for eligibility, but you do not handle financial data yourself. You are the single source of truth for all administrative and logistical matters."""
+        }
+
+
+class FinanceManagerAgent(BaseTeamAgent):
+    """Agent responsible for financial management and payments."""
+    
+    def _get_agent_role(self) -> AgentRole:
+        return AgentRole.FINANCE_MANAGER
+    
+    def _get_agent_definition(self) -> Dict[str, Any]:
+        return {
+            'role': 'Team Treasurer',
+            'goal': 'To ensure the team\'s finances are transparent, balanced, and every player\'s financial standing is accurately tracked.',
+            'backstory': f"""You are the guardian of the team\'s finances for {self.team_config.team_name}. You meticulously track all incoming payments (subs, fines) and outgoing expenses (pitch fees, referees). You provide definitive answers on which players are paid-up and which are in arrears. You collaborate directly with the `ClubSecretaryAgent` to flag players who are financially ineligible."""
+        }
+
+
+class PerformanceAnalystAgent(BaseTeamAgent):
+    """Agent responsible for strategic analysis of team performance and engagement."""
+    
+    def _get_agent_role(self) -> AgentRole:
+        return AgentRole.ANALYTICS_SPECIALIST # This will be mapped to the new role
+    
+    def _get_agent_definition(self) -> Dict[str, Any]:
+        return {
+            'role': 'Performance & Engagement Analyst',
+            'goal': 'To provide the team manager with actionable, data-driven insights into team performance, player engagement, and overall club health.',
+            'backstory': f"""You are the strategic mind of {self.team_config.team_name}. You don't just report stats; you interpret them to tell a story about the team's performance and culture. Your analysis is holistic, covering both on-pitch and off-pitch contributions.
+
+            **Your Analytical Workflow:**
+
+            1.  **Delegate for Data**: Your first step is always to delegate. You will:
+                - Task the `ClubSecretaryAgent` to get data on player eligibility, availability, and volunteer duties.
+                - Task the `TreasurerAgent` to get data on players' financial standing.
+
+            2.  **Synthesize and Analyze**: You will then synthesize this data to perform analyses such as:
+                - **Performance Analysis**: Who are the top goal scorers? What is our win/loss record against certain teams? How does our performance change with different player lineups?
+                - **Engagement Analysis**: Who are the most reliable players in terms of attendance? Who consistently volunteers for duties like linesman or managing equipment? Your reports should recognize and celebrate these club-focused contributions.
+
+            3.  **Provide Strategic Recommendations**: Based on your analysis, you will provide clear, actionable recommendations. This could include suggesting a starting lineup for the next match, identifying players who deserve recognition, or highlighting a need for more players in a specific position.
+
+            You are the gaffer's most trusted advisor, turning raw data into winning strategies."""
+        }
+
+
+class LearningAgent(BaseTeamAgent):
+
+    """Agent responsible for learning and optimization."""
+    
+    def _get_agent_role(self) -> AgentRole:
+        return AgentRole.LEARNING_AGENT
+    
+    def _get_agent_definition(self) -> Dict[str, Any]:
+        return {
+            'role': 'Learning and Optimization Specialist',
+            'goal': 'Learn from interactions, improve natural language understanding, and optimize system performance',
+            'backstory': f"""You are the advanced learning specialist for {self.team_config.team_name}. 
+            You continuously improve the system's natural language processing capabilities. You analyze user 
+            interactions, learn from patterns, and optimize how the system understands and responds to requests. 
+            You work with the memory system to identify improvement opportunities and adapt to team-specific 
+            communication patterns."""
+        }
+
+
+class OnboardingAgent(BaseTeamAgent):
+    """Agent responsible for player onboarding."""
+    
+    def _get_agent_role(self) -> AgentRole:
+        return AgentRole.ONBOARDING_AGENT
+    
+    def _get_agent_definition(self) -> Dict[str, Any]:
+        return {
+            'role': 'Club Welcome & Onboarding Guide',
+            'goal': 'To provide a warm, welcoming, and fun onboarding experience for new players, while meticulously ensuring all required information is collected accurately and efficiently.',
+            'backstory': f"""You are the official Welcome & Onboarding Guide for {self.team_config.team_name}. Your personality is that of the most enthusiastic and organized player on the team—the one who knows everyone and makes new people feel right at home.
+
+            **Your Personality & Tone:**
+            - **Fun & Informal**: Use a positive, encouraging, and slightly informal tone. Emojis are welcome! 👍⚽
+            - **Patient & Clear**: Never overwhelm the user. Ask for one piece of information at a time and be very clear about what you need.
+            - **Persistent but Polite**: While you're fun, you are also responsible for getting the job done. You must ensure the onboarding process is completed.
+
+            **Your Onboarding Workflow:**
+
+            1.  **The Welcome**: Always start with an enthusiastic welcome message, making the player feel excited to join.
+            2.  **Step-by-Step Guidance**: Guide new players through each step of the onboarding process one by one (e.g., confirming name, providing emergency contact, etc.).
+            3.  **Positive Reinforcement**: After a player provides a piece of information, confirm you've received it with a positive message (e.g., 'Awesome, got it!', 'Perfect, just a couple more things!').
+            4.  **Timely Follow-ups**: If a player stalls during the process, you are responsible for sending a gentle and friendly reminder after a reasonable amount of time to encourage them to complete their registration.
+            5.  **The Handover**: Once all information is collected, you will send a final congratulatory message and then formally notify the `ClubSecretaryAgent` that the new player is ready for final approval."""
+        }
+
+
+class AgentFactory:
+    """Factory for creating team management agents."""
+    
+    AGENT_CLASSES = {
+        AgentRole.MESSAGE_PROCESSOR: MessageProcessorAgent,
+        AgentRole.TEAM_MANAGER: TeamManagerAgent,
+        AgentRole.PLAYER_COORDINATOR: PlayerCoordinatorAgent,
+        AgentRole.MATCH_ANALYST: MatchAnalystAgent,
+        AgentRole.COMMUNICATION_SPECIALIST: CommunicationSpecialistAgent,
+        AgentRole.FINANCE_MANAGER: FinanceManagerAgent,
+        AgentRole.SQUAD_SELECTION_SPECIALIST: SquadSelectionSpecialistAgent,
+        AgentRole.ANALYTICS_SPECIALIST: AnalyticsSpecialistAgent,
+        AgentRole.LEARNING_AGENT: LearningAgent,
+        AgentRole.ONBOARDING_AGENT: OnboardingAgent
+    }
+    
+    @staticmethod
+    @log_errors
+    def create_agent(role: AgentRole,
+                    team_config: TeamConfig,
+                    agent_config: AgentConfig,
+                    llm,
+                    tools: List[BaseTool] = None) -> BaseTeamAgent:
+        """Create a specific agent."""
+        if role not in AgentFactory.AGENT_CLASSES:
+            raise AgentInitializationError(f"Unknown agent role: {role}")
+        
+        agent_class = AgentFactory.AGENT_CLASSES[role]
+        return agent_class(role, team_config, llm, tools)
+
+
+class ToolsManager:
+    """Manager for handling agent tools."""
+    
+    def __init__(self, team_config: TeamConfig):
+        self.team_config = team_config
+        self._tools_cache = {}
+    
+    @log_errors
+    def get_tools_for_agent(self, role: AgentRole) -> List[BaseTool]:
+        """Get tools for a specific agent role."""
+        if role in self._tools_cache:
+            return self._tools_cache[role]
+        
+        tools = []
+        
+        try:
+            # Import tools dynamically to avoid circular dependencies
+            from src.tools.firebase_tools import PlayerTools, FixtureTools, TeamTools, CommandLoggingTools, BotTools
+            from src.tools.telegram_tools import (
+                SendTelegramMessageTool, SendTelegramPollTool, SendAvailabilityPollTool,
+                SendSquadAnnouncementTool, SendPaymentReminderTool, SendLeadershipMessageTool
+            )
+            from src.tools.learning_tools import LearningTools
+            
+            # Configure tools based on agent role
+            if role == AgentRole.MESSAGE_PROCESSOR:
+                tools.extend([
+                    CommandLoggingTools(self.team_config.team_id),
+                    SendTelegramMessageTool(self.team_config.team_id),
+                    LearningTools(self.team_config.team_id)
+                ])
+            
+            elif role == AgentRole.TEAM_MANAGER:
+                tools.extend([
+                    PlayerTools(self.team_config.team_id),
+                    FixtureTools(self.team_config.team_id),
+                    TeamTools(self.team_config.team_id),
+                    BotTools(self.team_config.team_id),
+                    SendTelegramMessageTool(self.team_config.team_id),
+                    SendLeadershipMessageTool(self.team_config.team_id)
+                ])
+            
+            elif role == AgentRole.PLAYER_COORDINATOR:
+                tools.extend([
+                    PlayerTools(self.team_config.team_id),
+                    TeamTools(self.team_config.team_id),
+                    SendTelegramMessageTool(self.team_config.team_id),
+                    SendAvailabilityPollTool(self.team_config.team_id),
+                    SendPaymentReminderTool(self.team_config.team_id),
+                    CommandLoggingTools(self.team_config.team_id)
+                ])
+            
+            elif role == AgentRole.MATCH_ANALYST:
+                tools.extend([
+                    FixtureTools(self.team_config.team_id),
+                    PlayerTools(self.team_config.team_id),
+                    TeamTools(self.team_config.team_id),
+                    SendSquadAnnouncementTool(self.team_config.team_id),
+                    CommandLoggingTools(self.team_config.team_id)
+                ])
+            
+            elif role == AgentRole.COMMUNICATION_SPECIALIST:
+                tools.extend([
+                    SendTelegramMessageTool(self.team_config.team_id),
+                    SendLeadershipMessageTool(self.team_config.team_id),
+                    SendTelegramPollTool(self.team_config.team_id),
+                    SendSquadAnnouncementTool(self.team_config.team_id),
+                    SendPaymentReminderTool(self.team_config.team_id),
+                    CommandLoggingTools(self.team_config.team_id)
+                ])
+            
+            elif role == AgentRole.FINANCE_MANAGER:
+                tools.extend([
+                    SendPaymentReminderTool(self.team_config.team_id),
+                    TeamTools(self.team_config.team_id),
+                    CommandLoggingTools(self.team_config.team_id)
+                ])
+            
+            elif role == AgentRole.SQUAD_SELECTION_SPECIALIST:
+                tools.extend([
+                    PlayerTools(self.team_config.team_id),
+                    SendSquadAnnouncementTool(self.team_config.team_id),
+                    CommandLoggingTools(self.team_config.team_id)
+                ])
+            
+            elif role == AgentRole.ANALYTICS_SPECIALIST:
+                tools.extend([
+                    FixtureTools(self.team_config.team_id),
+                    PlayerTools(self.team_config.team_id),
+                    CommandLoggingTools(self.team_config.team_id)
+                ])
+            
+            elif role == AgentRole.LEARNING_AGENT:
+                tools.extend([
+                    CommandLoggingTools(self.team_config.team_id),
+                    SendTelegramMessageTool(self.team_config.team_id),
+                    TeamTools(self.team_config.team_id),
+                    PlayerTools(self.team_config.team_id)
+                ])
+            
+            elif role == AgentRole.ONBOARDING_AGENT:
+                tools.extend([
+                    PlayerTools(self.team_config.team_id),
+                    SendTelegramMessageTool(self.team_config.team_id),
+                    CommandLoggingTools(self.team_config.team_id)
+                ])
+        
+        except ImportError as e:
+            logger.warning(f"Could not import tools for {role.value}: {e}")
+        
+        self._tools_cache[role] = tools
+        return tools
+
+
+class TeamManagementSystem:
+    """Main system for managing football team operations."""
+    
+    def __init__(self, team_id: str):
+        self.team_id = team_id
+        self.config_manager = ConfigurationManager()
+        self.team_config = self.config_manager.get_team_config(team_id)
+        self.tools_manager = ToolsManager(self.team_config)
+        self.llm = None
+        self.agents = {}
+        self.crew = None
+        
+        self._initialize_system()
+    
+    @log_errors
+    def _initialize_system(self) -> None:
+        """Initialize the team management system."""
+        logger.info(f"Initializing team management system for {self.team_config.team_name}")
+        
+        # Initialize LLM
+        self.llm = LLMFactory.create_llm(self.config_manager.ai_config)
+        if not self.llm:
+            raise LLMProviderError("Failed to create LLM instance")
+        
+        # Initialize agents
+        self._initialize_agents()
+        
+        # Create crew
+        self._create_crew()
+        
+        logger.info(f"✅ Team management system initialized successfully for {self.team_config.team_name}")
+    
+    def _initialize_agents(self) -> None:
+        """Initialize all agents."""
+        logger.info("Initializing agents...")
+        
+        for role, agent_config in self.config_manager.agent_configs.items():
+            if not agent_config.enabled:
+                logger.info(f"Skipping disabled agent: {role.value}")
+                continue
+            
+            try:
+                tools = self.tools_manager.get_tools_for_agent(role)
+                agent = AgentFactory.create_agent(role, self.team_config, agent_config, self.llm, tools)
+                
+                if agent.is_enabled():
+                    self.agents[role] = agent
+                    logger.info(f"✅ Agent {role.value} initialized successfully")
+                else:
+                    logger.warning(f"Agent {role.value} is disabled")
+                    
+            except Exception as e:
+                logger.error(f"Failed to initialize agent {role.value}: {e}")
+                # Continue with other agents
+    
+    def _create_crew(self) -> None:
+        """Create the CrewAI crew."""
+        if not self.agents:
+            raise AgentInitializationError("No agents available to create crew")
+        
+        crew_agents = [agent.get_agent() for agent in self.agents.values() if agent.get_agent()]
+        
+        self.crew = Crew(
+            agents=crew_agents,
+            verbose=True,
+            memory=True
+        )
+        
+        logger.info(f"✅ Crew created successfully with {len(crew_agents)} agents")
+    
+    def get_agent(self, role: AgentRole) -> Optional[BaseTeamAgent]:
+        """Get a specific agent by role."""
+        return self.agents.get(role)
+    
+    def get_enabled_agents(self) -> List[BaseTeamAgent]:
+        """Get all enabled agents."""
+        return [agent for agent in self.agents.values() if agent.is_enabled()]
+    
+    def execute_task(self, task_description: str, context: Dict[str, Any] = None) -> str:
+        """Execute a task using the crew."""
+        if not self.crew:
+            raise AgentInitializationError("Crew not initialized")
+        
+        logger.info(f"Executing task: {task_description}")
+        
+        try:
+            # Create task
+            task = Task(
+                description=task_description,
+                agent=self.agents[AgentRole.MESSAGE_PROCESSOR].get_agent(),
+                context=context or {}
+            )
+            
+            # Execute task
+            result = self.crew.kickoff(inputs={'task': task})
+            
+            logger.info("Task executed successfully")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Task execution failed: {e}")
+            raise
+    
+    @contextmanager
+    def debug_mode(self):
+        """Context manager for debug mode."""
+        original_level = logger.level
+        logger.setLevel(logging.DEBUG)
+        
+        try:
+            logger.debug("Entering debug mode")
+            yield
+        finally:
+            logger.setLevel(original_level)
+            logger.debug("Exiting debug mode")
+    
+    def health_check(self) -> Dict[str, Any]:
+        """Perform a health check of the system."""
+        health_status = {
+            'team_id': self.team_id,
+            'team_name': self.team_config.team_name,
+            'llm_initialized': self.llm is not None,
+            'agents_count': len(self.agents),
+            'crew_initialized': self.crew is not None,
+            'enabled_agents': [],
+            'disabled_agents': [],
+            'errors': []
+        }
+        
+        for role, agent_config in self.config_manager.agent_configs.items():
+            if agent_config.enabled and role in self.agents:
+                health_status['enabled_agents'].append(role.value)
+            else:
+                health_status['disabled_agents'].append(role.value)
+        
+        return health_status
+
+
+# System prompt for CrewAI agents
+SYSTEM_PROMPT = """
+You are a world-class AI agent, operating as a specialized member of a sophisticated football team management system. Your persona is that of a highly efficient, detail-oriented, and proactive team operations expert.
+
+**CORE DIRECTIVES - ADHERE AT ALL TIMES:**
+
+1.  **Persona**: Act as a professional, knowledgeable, and helpful team assistant. Your tone should be clear, concise, and supportive.
+2.  **Tool-First Approach**: You MUST use your tools to answer questions and perform actions. Do not rely on prior knowledge. Always assume the database is the single source of truth.
+3.  **Formatting (Strict Adherence Required)**:
+
+    *   **For Tool Use**:
+        ```
+        Thought: <Your logical reasoning for choosing the tool and parameters. Be explicit.>
+        Action: <The exact name of the tool to be used.>
+        Action Input: <A valid JSON object with the required parameters.>
+        Observation: <The result from the tool.>
+        ... (You can repeat this Thought/Action/Action Input/Observation cycle multiple times)
+        Thought: <Your final thought process after analyzing all observations.>
+        Final Answer: <The complete, final answer to the user's request.>
+        ```
+
+    *   **For General Responses (when no tool is needed)**:
+        ```
+        Thought: <A brief explanation of why no tool is necessary and how you arrived at the answer.>
+        Final Answer: <The complete, final answer.>
+        ```
+
+4.  **Error Handling**:
+    *   If a tool returns an error or unexpected output, do not stop.
+    *   Your next `Thought` should be: "The previous tool call failed. I need to analyze the error and try a different approach."
+    *   Attempt to recover by using a different tool or modifying the input. If you cannot recover after 2 attempts, your `Final Answer` should be: "I am sorry, but I was unable to complete your request due to an unexpected error. Please try again later."
+
+5.  **Contextual Awareness**:
+    *   Pay close attention to the `team_id` and other contextual information provided in the task.
+    *   Use information from previous turns in the conversation to inform your actions, but always verify with your tools.
+
+**EXAMPLE SCENARIO:**
+
+User asks: "Who are the currently registered players on the team?"
+
+**CORRECT RESPONSE:**
+```
+Thought: The user is asking for a list of registered players. The `PlayerTools` tool has a `get_all_players` function that should provide this information. I will call this tool to get the most up-to-date player list.
+Action: PlayerTools
+Action Input: { "action": "get_all_players" }
+Observation: [{"player_id": "AB1", "name": "John Doe", "status": "active"}, {"player_id": "CD2", "name": "Jane Smith", "status": "pending"}]
+Thought: The tool returned a list of two players. I will format this information into a clear, readable list for the user.
+Final Answer: The currently registered players are:
+- John Doe (ID: AB1, Status: Active)
+- Jane Smith (ID: CD2, Status: Pending)
+```
+"""

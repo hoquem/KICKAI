@@ -10,25 +10,42 @@ to check player registration status.
 import asyncio
 import aiohttp
 import re
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Set
+from datetime import datetime
+from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
 import logging
 
 from src.services.player_service import PlayerService
-from src.database.models import Player, OnboardingStatus
+from src.services.team_service import TeamService
+from src.database.models_improved import Player
+from src.database.firebase_client import get_firebase_client
+from .interfaces.fa_registration_checker_interface import IFARegistrationChecker
 
-class FARegistrationChecker:
+class FARegistrationChecker(IFARegistrationChecker):
     """Service to check FA registration status for players."""
     
-    def __init__(self, player_service: PlayerService):
+    def __init__(self, player_service: PlayerService, team_service: TeamService, team_id: str):
         self.player_service = player_service
-        self.fa_team_url = "https://fulltime.thefa.com/displayTeam.html?id=925698828#tab-4"
-        self.fa_fixtures_url = "https://fulltime.thefa.com/displayTeam.html?id=925698828#tab-1"
+        self.team_service = team_service
+        self.team_id = team_id
+        self.fa_team_url: Optional[str] = None
+        self.fa_fixtures_url: Optional[str] = None
         self.session: Optional[aiohttp.ClientSession] = None
-        
+        self._db = get_firebase_client()
+
+    async def _load_fa_urls(self):
+        team = await self.team_service.get_team(self.team_id)
+        if team:
+            self.fa_team_url = team.fa_team_url
+            self.fa_fixtures_url = team.fa_fixtures_url
+        else:
+            logging.warning(f"Team {self.team_id} not found. Cannot load FA URLs.")
+
     async def __aenter__(self):
         """Async context manager entry."""
+        await self._load_fa_urls()
+        if not self.fa_team_url or not self.fa_fixtures_url:
+            raise RuntimeError(f"FA URLs not configured for team {self.team_id}")
         self.session = aiohttp.ClientSession(
             headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -103,7 +120,7 @@ class FARegistrationChecker:
             # Filter players that are not yet FA registered
             players_to_check = [
                 p for p in players 
-                if not p.fa_registered and p.onboarding_status == OnboardingStatus.COMPLETED
+                if not p.is_fa_registered() and p.is_onboarding_complete()
             ]
             
             if not players_to_check:
@@ -123,7 +140,7 @@ class FARegistrationChecker:
                 # Check if player is found in FA registered list
                 is_registered = player_name in fa_registered_players
                 
-                if is_registered and not player.fa_registered:
+                if is_registered and not player.is_fa_registered():
                     logging.info(f"✅ Player {player.name} is now FA registered!")
                     updates[player.id] = True
                     
@@ -183,37 +200,40 @@ class FARegistrationChecker:
                     })
             
             logging.info(f"✅ Found {len(fixtures)} fixtures/results on FA site")
+            
+            # Save fixtures to Firestore
+            await self._save_fixture_data(fixtures)
+
             return fixtures
             
         except Exception as e:
             logging.error(f"❌ Error scraping FA fixtures: {e}")
             return []
 
+    async def _save_fixture_data(self, fixtures: List[Dict]) -> None:
+        """Saves scraped fixture data to Firestore."""
+        try:
+            for fixture_dict in fixtures:
+                # Create FixtureData object
+                fixture = FixtureData(
+                    team_id=self.team_id,
+                    fixture_text=fixture_dict['text'],
+                    fixture_date=datetime.fromisoformat(fixture_dict['timestamp'])
+                )
+                # Save to Firestore
+                await self._db.create_document('fixtures', fixture.to_dict(), fixture.id)
+            logging.info(f"✅ Saved {len(fixtures)} fixtures to Firestore.")
+        except Exception as e:
+            logging.error(f"❌ Error saving fixture data to Firestore: {e}")
 
-async def run_fa_registration_check(team_id: str, player_service: PlayerService) -> Dict[str, bool]:
-    """
-    Run a single FA registration check for a team.
-    
-    Args:
-        team_id: The team ID to check
-        player_service: Player service instance
-        
-    Returns:
-        Dict of player ID to registration status updates
-    """
-    async with FARegistrationChecker(player_service) as checker:
+
+async def run_fa_registration_check(team_id: str, player_service: PlayerService, team_service: TeamService) -> Dict[str, bool]:
+    """Run a single FA registration check for a team."""
+    async with FARegistrationChecker(player_service, team_service, team_id) as checker:
         return await checker.check_player_registration(team_id)
 
 
-async def run_fa_fixtures_check(player_service: PlayerService) -> List[Dict]:
-    """
-    Run a single FA fixtures check.
-    
-    Args:
-        player_service: Player service instance
-        
-    Returns:
-        List of fixture data
-    """
-    async with FARegistrationChecker(player_service) as checker:
+async def run_fa_fixtures_check(team_id: str, player_service: PlayerService, team_service: TeamService) -> List[Dict]:
+    """Run a single FA fixtures check."""
+    async with FARegistrationChecker(player_service, team_service, team_id) as checker:
         return await checker.scrape_fixtures() 

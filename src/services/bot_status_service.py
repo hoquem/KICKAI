@@ -1,210 +1,103 @@
-#!/usr/bin/env python3
 """
-Bot Status Service
+Bot Status Service for KICKAI
 
-This service handles sending startup and shutdown messages to Telegram chats.
+This service handles bot status monitoring and health checks.
 """
 
-import asyncio
-import requests
-from datetime import datetime
-from typing import Optional
 import logging
+from typing import Dict, Any, Optional
+from datetime import datetime
 
-from src.core.bot_config_manager import get_bot_config_manager
+logger = logging.getLogger(__name__)
+
 
 class BotStatusService:
-    """Service for sending bot status messages to Telegram chats."""
+    """Service for monitoring bot status and health."""
     
-    def __init__(self, bot_token: str, team_id: str):
-        self.bot_token = bot_token
-        self.team_id = team_id
-        self.manager = get_bot_config_manager()
-        self.bot_config = self.manager.get_bot_config(team_id)
-        self.team_config = self.manager.get_team_config(team_id)
-        
-    def _send_telegram_message(self, chat_id: str, message: str) -> bool:
-        """Send a message to a Telegram chat."""
+    def __init__(self):
+        self.start_time = datetime.now()
+        self.last_health_check = None
+        self.status = "running"
+        logger.info("✅ BotStatusService initialized")
+    
+    def get_bot_status(self) -> Dict[str, Any]:
+        """Get current bot status information."""
         try:
-            from src.tools.telegram_tools import format_message_for_telegram
-            # Format message for Telegram HTML
-            formatted_message = format_message_for_telegram(message)
-            url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
-            data = {
-                "chat_id": chat_id,
-                "text": formatted_message,
-                "parse_mode": "HTML"
+            uptime = datetime.now() - self.start_time
+            
+            return {
+                "status": self.status,
+                "uptime_seconds": int(uptime.total_seconds()),
+                "uptime_formatted": str(uptime).split('.')[0],  # Remove microseconds
+                "start_time": self.start_time.isoformat(),
+                "last_health_check": self.last_health_check.isoformat() if self.last_health_check else None,
+                "timestamp": datetime.now().isoformat()
             }
-            response = requests.post(url, json=data, timeout=10)
-            success = response.status_code == 200
-            if success:
-                logging.info(f"✅ Status message sent to chat {chat_id}")
-            else:
-                logging.error(f"❌ Failed to send status message to chat {chat_id}: {response.status_code}")
-            return success
         except Exception as e:
-            logging.error(f"❌ Error sending status message to chat {chat_id}: {e}")
-            return False
+            logger.error(f"❌ Error getting bot status: {e}")
+            return {
+                "status": "error",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
     
-    def get_version_info(self) -> str:
-        """Get the current version information."""
-        return "v1.5.0"
+    async def perform_health_check(self) -> Dict[str, Any]:
+        """Perform a comprehensive health check."""
+        try:
+            self.last_health_check = datetime.now()
+            
+            # Basic health check
+            health_status = {
+                "status": "healthy",
+                "timestamp": self.last_health_check.isoformat(),
+                "checks": {}
+            }
+            
+            # Check uptime
+            uptime = datetime.now() - self.start_time
+            if uptime.total_seconds() > 86400:  # 24 hours
+                health_status["checks"]["uptime"] = "warning"
+            else:
+                health_status["checks"]["uptime"] = "healthy"
+            
+            # Add more health checks here as needed
+            # Database connectivity, API endpoints, etc.
+            
+            # Overall status
+            all_checks = health_status["checks"].values()
+            if "error" in all_checks:
+                health_status["status"] = "unhealthy"
+            elif "warning" in all_checks:
+                health_status["status"] = "warning"
+            else:
+                health_status["status"] = "healthy"
+            
+            logger.info(f"✅ Health check completed: {health_status['status']}")
+            return health_status
+            
+        except Exception as e:
+            logger.error(f"❌ Health check failed: {e}")
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
     
-    def get_main_chat_features(self) -> str:
-        """Get features available in main chat (market-facing, no admin or tech info)."""
-        return """<b>Welcome to your team's official chat, powered by KICKAI!</b>
-
-Here you can:
-• View your team roster and stats
-• Get updates and important announcements
-• Connect with your teammates
-• Check your player information
-
-📋 <b>Player Commands:</b>
-• <code>/list</code> – View all players
-• <code>/status phone</code> – Check your status
-• <code>/stats</code> – Team statistics
-• <code>/myinfo</code> – Your player info
-• <code>/help</code> – Show help
-
-💬 <b>Natural Language:</b>
-• Ask questions about the team
-• Request player information
-• Get match details
-• Plan team activities
-
-Let's play, grow, and win together! ⚽️"""
+    def update_status(self, status: str) -> None:
+        """Update bot status."""
+        self.status = status
+        logger.info(f"🔄 Bot status updated to: {status}")
     
-    def get_leadership_chat_features(self) -> str:
-        """Get features available in leadership chat."""
-        return """📋 <b>Available Commands:</b>
-
-👥 <b>Player Management:</b>
-• <code>/add name phone position</code> - Add a new player
-• <code>/remove phone</code> - Remove a player
-• <code>/list</code> - List all players
-• <code>/status phone</code> - Get player status
-• <code>/stats</code> - Get team statistics
-• <code>/invite phone_or_player_id</code> - Generate invitation message
-
-👨‍💼 <b>Admin Commands:</b>
-• <code>/approve player_id</code> - Approve a player
-• <code>/reject player_id [reason]</code> - Reject a player
-• <code>/pending</code> - List players pending approval
-• <code>/checkfa</code> - Check FA registration status
-• <code>/dailystatus</code> - Generate daily team status report
-
-👤 <b>Player Commands:</b>
-• <code>/myinfo</code> - Get your player information
-
-❓ <b>Help:</b>
-• <code>/help</code> - Show this help message
-
-💬 <b>Natural Language:</b>
-• Team management and strategy
-• Player analysis and selection
-• Match planning and coordination
-• Financial management
-• Performance analytics"""
+    def is_healthy(self) -> bool:
+        """Check if bot is healthy."""
+        if not self.last_health_check:
+            return True  # Assume healthy if no health check performed yet
+        
+        # Consider unhealthy if last health check was more than 5 minutes ago
+        time_since_check = datetime.now() - self.last_health_check
+        return time_since_check.total_seconds() < 300  # 5 minutes
     
-    def send_startup_message(self) -> bool:
-        """Send startup message to both chats."""
-        if not self.bot_config:
-            logging.error("❌ Bot configuration not found")
-            return False
-        
-        version = self.get_version_info()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        bot_name = self.bot_config.username or "KICKAI Bot"
-        team_name = self.team_config.name if self.team_config else "Team"
-        
-        # Main chat startup message (market-facing)
-        main_message = f'''🟢 <b>Welcome to {team_name} Team Chat!</b>
-
-{self.get_main_chat_features()}'''
-        
-        # Leadership chat startup message
-        leadership_message = f'''🟢 <b>Welcome to {team_name} Leadership Chat!</b>
-
-📅 <b>Started:</b> {timestamp}
-🏆 <b>Version:</b> {version}
-🔥 <b>Database:</b> Firebase Firestore Connected
-🤖 <b>AI:</b> 8-Agent CrewAI System Active
-🔧 <b>Background Tasks:</b> FA Registration Checker & Daily Status Active
-
-{self.get_leadership_chat_features()}
-
-💡 <b>Try:</b> "Generate daily status report" or "Check FA registrations"'''
-        
-        # Send messages
-        main_success = self._send_telegram_message(self.bot_config.main_chat_id, main_message)
-        leadership_success = self._send_telegram_message(self.bot_config.leadership_chat_id, leadership_message)
-        
-        if main_success and leadership_success:
-            logging.info("✅ Startup messages sent to both chats successfully")
-            return True
-        else:
-            logging.warning("⚠️ Some startup messages failed to send")
-            return False
-    
-    def send_shutdown_message(self) -> bool:
-        """Send shutdown message to both chats."""
-        if not self.bot_config:
-            logging.error("❌ Bot configuration not found")
-            return False
-        
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        bot_name = self.bot_config.username or "KICKAI Bot"
-        team_name = self.team_config.name if self.team_config else "Team"
-        
-        # Shutdown message for both chats
-        shutdown_message = f'''🔴 <b>{team_name} Bot is Shutting Down</b>
-
-📅 <b>Shutdown Time:</b> {timestamp}
-🔧 <b>Reason:</b> Maintenance/Update
-⏱️ <b>Expected Duration:</b> 2-5 minutes
-
-🔄 <b>Services Affected:</b>
-• Player management commands
-• FA registration checking
-• Daily status reports
-• Natural language processing
-
-✅ <b>Services Will Resume:</b>
-• Automatic FA registration monitoring
-• Daily status reports at 9:00 AM
-• All player management features
-• AI-powered team assistance
-
-💡 <b>Note:</b> This is a scheduled maintenance. The bot will be back online shortly.'''
-        
-        # Send messages
-        main_success = self._send_telegram_message(self.bot_config.main_chat_id, shutdown_message)
-        leadership_success = self._send_telegram_message(self.bot_config.leadership_chat_id, shutdown_message)
-        
-        if main_success and leadership_success:
-            logging.info("✅ Shutdown messages sent to both chats successfully")
-            return True
-        else:
-            logging.warning("⚠️ Some shutdown messages failed to send")
-            return False
-
-
-def send_startup_messages(bot_token: str, team_id: str) -> bool:
-    """Send startup messages to both chats."""
-    try:
-        service = BotStatusService(bot_token, team_id)
-        return service.send_startup_message()
-    except Exception as e:
-        logging.error(f"❌ Error sending startup messages: {e}")
-        return False
-
-
-def send_shutdown_messages(bot_token: str, team_id: str) -> bool:
-    """Send shutdown messages to both chats."""
-    try:
-        service = BotStatusService(bot_token, team_id)
-        return service.send_shutdown_message()
-    except Exception as e:
-        logging.error(f"❌ Error sending shutdown messages: {e}")
-        return False 
+    def get_uptime(self) -> str:
+        """Get formatted uptime string."""
+        uptime = datetime.now() - self.start_time
+        return str(uptime).split('.')[0]  # Remove microseconds 

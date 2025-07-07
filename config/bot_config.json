@@ -1,7 +1,7 @@
 {
   "environment": "testing",
   "teams": {
-    "0854829d-445c-4138-9fd3-4db562ea46ee": {
+    "KT": {
       "name": "KICKAI Team",
       "description": "Main KICKAI football team",
       "bot": {
@@ -15,8 +15,30 @@
         "ai_provider": "google_gemini",
         "ai_model": "gemini-pro",
         "max_members": 50,
-        "allow_public_join": false
-      }
+        "allow_public_join": false,
+        "onboarding_steps": [
+          "emergency_contact",
+          "date_of_birth",
+          "fa_registration"
+        ],
+        "daily_report": {
+          "enabled": true,
+          "time": "08:00",
+          "content": [
+            "player_summary",
+            "fa_registration_summary",
+            "upcoming_matches"
+          ]
+        },
+        "financial_report": {
+          "enabled": true,
+          "frequency": "monthly",
+          "day_of_week": "monday",
+          "day_of_month": 1,
+          "time": "09:00"
+        }
+      },
+      "legacy_id": "0854829d-445c-4138-9fd3-4db562ea46ee"
     },
     "test-team": {
       "name": "kickai-testing",
@@ -32,11 +54,32 @@
         "ai_provider": "google_gemini",
         "ai_model": "gemini-pro",
         "max_members": 50,
-        "allow_public_join": false
+        "allow_public_join": false,
+        "onboarding_steps": [
+          "emergency_contact",
+          "date_of_birth",
+          "fa_registration"
+        ],
+        "daily_report": {
+          "enabled": true,
+          "time": "08:00",
+          "content": [
+            "player_summary",
+            "fa_registration_summary",
+            "upcoming_matches"
+          ]
+        },
+        "financial_report": {
+          "enabled": true,
+          "frequency": "monthly",
+          "day_of_week": "monday",
+          "day_of_month": 1,
+          "time": "09:00"
+        }
       }
     }
   },
-  "default_team": "0854829d-445c-4138-9fd3-4db562ea46ee",
+  "default_team": "KT",
   "firebase_config": {
     "project_id": "kickai-954c2",
     "credentials_path": null
