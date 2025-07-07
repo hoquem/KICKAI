@@ -16,20 +16,23 @@ from ..core.exceptions import (
     PlayerDuplicateError, create_error_context
 )
 from ..database.interfaces import DataStoreInterface
-from ..database.models import Player, PlayerPosition, PlayerRole, OnboardingStatus
+from ..database.models_improved import Player, PlayerPosition, PlayerRole, OnboardingStatus
 from .interfaces.player_service_interface import IPlayerService
+from .interfaces.external_player_service_interface import ExternalPlayerServiceInterface
+from .mocks.mock_external_player_service import MockExternalPlayerService
 
 
 class PlayerService(IPlayerService):
     """Service for player management operations."""
     
-    def __init__(self, data_store=None, team_id: Optional[str] = None):
+    def __init__(self, data_store=None, team_id: Optional[str] = None, external_player_service: Optional[ExternalPlayerServiceInterface] = None):
         if data_store is None:
             from ..database.firebase_client import get_firebase_client
             self._data_store = get_firebase_client()
         else:
             self._data_store = data_store
         self._team_id = team_id
+        self._external_player_service = external_player_service or MockExternalPlayerService() # Use mock for now
     
     async def create_player(self, name: str, phone: str, team_id: str, 
                           email: Optional[str] = None, position: PlayerPosition = PlayerPosition.UTILITY,
@@ -39,13 +42,35 @@ class PlayerService(IPlayerService):
             # Validate input data
             self._validate_player_data(name, phone, email, team_id)
             
-            # Check for duplicate phone number in the same team
-            existing_player = await self._data_store.get_player_by_phone(phone)
-            if existing_player:
-                raise PlayerDuplicateError(
-                    f"Player with phone {phone} already exists in team {team_id}",
-                    create_error_context("create_player", team_id=team_id, additional_info={'phone': phone})
-                )
+            # Check for duplicate phone number in any team
+            all_players_with_phone = await self._data_store.query_documents('players', [
+                {'field': 'phone', 'operator': '==', 'value': phone}
+            ])
+            
+            # Block if any player in the same team
+            for p in all_players_with_phone:
+                if p.get('team_id') == team_id:
+                    raise PlayerDuplicateError(
+                        f"Player with phone {phone} already exists in team {team_id}",
+                        create_error_context("create_player", team_id=team_id, additional_info={'phone': phone})
+                    )
+            
+            # If player exists in other teams, collect team names for warning
+            other_teams = [p.get('team_id') for p in all_players_with_phone if p.get('team_id') != team_id]
+            other_team_names = []
+            if other_teams:
+                # Try to get team names for these IDs
+                from src.services.team_service import get_team_service
+                team_service = get_team_service()
+                for otid in set(other_teams):
+                    try:
+                        team = await team_service.get_team(otid)
+                        if team:
+                            other_team_names.append(team.name)
+                        else:
+                            other_team_names.append(otid)
+                    except Exception:
+                        other_team_names.append(otid)
             
             # Create player object
             player = Player(
@@ -62,10 +87,22 @@ class PlayerService(IPlayerService):
             # Save to database
             player_id = await self._data_store.create_player(player)
             player.id = player_id
+
+            # If external_id is provided, create/update in external system
+            if player.external_id:
+                try:
+                    await self._external_player_service.create_external_player(player.to_dict())
+                    logging.info(f"Player {player.name} ({player.id}) also created in external system.")
+                except Exception as ex_e:
+                    logging.warning(f"Failed to create player {player.name} in external system: {ex_e}")
             
             logging.info(
                 f"Player created successfully: {player.name} ({player_id})"
             )
+            
+            # If there are cross-team warnings, attach to player object for handler to use
+            if other_team_names:
+                player._cross_team_warning = f"⚠️ Note: Player with this phone exists in other team(s): {', '.join(other_team_names)}"
             
             return player
             
@@ -200,8 +237,34 @@ class PlayerService(IPlayerService):
                 create_error_context("get_team_players", team_id=team_id)
             )
     
-    async def get_player_by_phone(self, phone: str, team_id: str) -> Optional[Player]:
-        """Get a player by phone number and team."""
+    async def get_players_by_team(self, team_id: str) -> List[Player]:
+        """Get all players for a team (interface compatibility)."""
+        return await self.get_team_players(team_id)
+    
+    async def get_players_by_status(self, team_id: str, status: OnboardingStatus) -> List[Player]:
+        """Get players by onboarding status."""
+        try:
+            players = await self._data_store.get_players_by_status(team_id, status)
+            
+            logging.info(
+                f"Retrieved {len(players)} players with status {status.value} for team {team_id}"
+            )
+            
+            return players
+            
+        except Exception as e:
+            logging.error("Failed to get players by status")
+            raise PlayerError(
+                f"Failed to get players by status: {str(e)}",
+                create_error_context("get_players_by_status", team_id=team_id, status=status.value)
+            )
+    
+    async def get_all_players(self, team_id: str) -> List[Player]:
+        """Get all players for a team (interface compatibility)."""
+        return await self.get_team_players(team_id)
+    
+    async def get_player_by_phone(self, phone: str) -> Optional[Player]:
+        """Get a player by phone number (interface compatibility)."""
         try:
             player = await self._data_store.get_player_by_phone(phone)
             return player
@@ -210,7 +273,7 @@ class PlayerService(IPlayerService):
             logging.error("Failed to get player by phone")
             raise PlayerError(
                 f"Failed to get player by phone: {str(e)}",
-                create_error_context("get_player_by_phone", team_id=team_id, additional_info={'phone': phone})
+                create_error_context("get_player_by_phone", additional_info={'phone': phone})
             )
     
     async def update_onboarding_status(self, player_id: str, status: OnboardingStatus) -> Player:
