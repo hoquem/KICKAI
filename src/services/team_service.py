@@ -11,7 +11,7 @@ import logging
 
 from ..core.exceptions import (
     TeamError, TeamNotFoundError, TeamValidationError, 
-    TeamPermissionError, create_error_context
+    create_error_context
 )
 from ..database.firebase_client import get_firebase_client
 from src.database.models_improved import Team, TeamStatus, TeamMember, BotMapping, ExpenseCategory
@@ -33,7 +33,7 @@ class TeamService(ITeamService):
                          settings: Optional[Dict[str, Any]] = None,
                          fa_team_url: Optional[str] = None,
                          fa_fixtures_url: Optional[str] = None) -> Team:
-        """Create a new team with a human-readable team ID (e.g., KT1, ARS, LIV)."""
+        """Create a new team with validation."""
         try:
             # Validate input data
             self._validate_team_data(name)

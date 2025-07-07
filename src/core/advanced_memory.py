@@ -1,113 +1,283 @@
 #!/usr/bin/env python3
 """
 Advanced Memory System for KICKAI
-Implements intelligent memory management with multiple memory types,
-user preference learning, and pattern recognition.
+
+This module implements a sophisticated memory management system that supports:
+- Multiple memory types (short-term, long-term, episodic, semantic)
+- User preference learning and storage
+- Pattern recognition and learning
+- Conversation context management
+- Memory persistence and export/import
+- Performance optimization and cleanup
+
+The system is designed to enhance agent effectiveness by providing rich context
+and learning capabilities.
 """
 
 import json
 import logging
 import time
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Set
-from dataclasses import dataclass, asdict
+import uuid
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field, asdict
+from datetime import datetime
 from enum import Enum
+from typing import Dict, List, Optional, Any, Set
+from collections import defaultdict
 import hashlib
-from collections import defaultdict, deque
 
 logger = logging.getLogger(__name__)
 
+
+# ============================================================================
+# ENUMS AND DATA CLASSES
+# ============================================================================
+
 class MemoryType(Enum):
-    """Types of memory in the system."""
+    """Types of memory supported by the system."""
     SHORT_TERM = "short_term"
     LONG_TERM = "long_term"
     EPISODIC = "episodic"
     SEMANTIC = "semantic"
-    USER_PREFERENCES = "user_preferences"
-    PATTERNS = "patterns"
+
+
+class MemoryPriority(Enum):
+    """Priority levels for memory storage."""
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
+    CRITICAL = 4
+
 
 @dataclass
 class MemoryItem:
     """Represents a single memory item."""
     id: str
-    type: MemoryType
-    content: Dict[str, Any]
+    content: Any  # Changed from str to Any to support dict content
+    memory_type: MemoryType
+    priority: MemoryPriority
     timestamp: float
     user_id: Optional[str] = None
+    team_id: Optional[str] = None
     chat_id: Optional[str] = None
-    importance: float = 1.0
+    context: Dict[str, Any] = field(default_factory=dict)
+    tags: Set[str] = field(default_factory=set)
     access_count: int = 0
-    last_accessed: Optional[float] = None
-    tags: Optional[List[str]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    last_accessed: float = field(default_factory=time.time)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    importance: float = 0.5  # Added importance field for test compatibility
+    type: Optional[MemoryType] = None  # Added type field for test compatibility
     
     def __post_init__(self):
-        if self.last_accessed is None:
-            self.last_accessed = self.timestamp
-        if self.tags is None:
-            self.tags = []
-        if self.metadata is None:
-            self.metadata = {}
+        """Set type field for backward compatibility."""
+        if self.type is None:
+            self.type = self.memory_type
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for storage."""
+        """Convert to dictionary for serialization."""
         data = asdict(self)
-        data['type'] = self.type.value
+        data['tags'] = list(self.tags)
+        data['memory_type'] = self.memory_type.value
+        data['priority'] = self.priority.value
         return data
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'MemoryItem':
         """Create from dictionary."""
-        data['type'] = MemoryType(data['type'])
+        data['tags'] = set(data.get('tags', []))
+        data['memory_type'] = MemoryType(data['memory_type'])
+        data['priority'] = MemoryPriority(data['priority'])
         return cls(**data)
+
 
 @dataclass
 class UserPreference:
-    """Represents user preferences learned from interactions."""
+    """Represents a user preference."""
     user_id: str
     preference_type: str
-    value: Any
-    confidence: float
-    last_updated: float
+    preference_value: Any
+    confidence: float = 1.0
+    timestamp: float = field(default_factory=time.time)
     usage_count: int = 0
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for storage."""
-        return asdict(self)
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'UserPreference':
-        """Create from dictionary."""
-        return cls(**data)
+    last_used: float = field(default_factory=time.time)
+
 
 @dataclass
 class Pattern:
-    """Represents a recognized pattern in user interactions."""
-    pattern_id: str
+    """Represents a learned pattern."""
+    id: str
     pattern_type: str
-    trigger_conditions: List[str]
-    response_pattern: str
-    success_rate: float
-    usage_count: int
-    last_used: float
-    created_at: float
+    pattern_data: Dict[str, Any]
+    confidence: float = 1.0
+    occurrence_count: int = 1
+    first_seen: float = field(default_factory=time.time)
+    last_seen: float = field(default_factory=time.time)
+    context: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ConversationContext:
+    """Represents conversation context."""
+    user_id: str
+    chat_id: str
+    team_id: Optional[str] = None
+    messages: List[Dict[str, Any]] = field(default_factory=list)
+    context_data: Dict[str, Any] = field(default_factory=dict)
+    created_at: float = field(default_factory=time.time)
+    last_updated: float = field(default_factory=time.time)
+    max_messages: int = 50
+
+
+# ============================================================================
+# MEMORY STORAGE INTERFACES
+# ============================================================================
+
+class MemoryStorage(ABC):
+    """Abstract base class for memory storage implementations."""
     
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for storage."""
-        return asdict(self)
+    @abstractmethod
+    def store(self, memory_item: MemoryItem) -> None:
+        """Store a memory item."""
+        pass
     
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Pattern':
-        """Create from dictionary."""
-        return cls(**data)
+    @abstractmethod
+    def retrieve(self, query: str, memory_type: Optional[MemoryType] = None, 
+                limit: int = 10) -> List[MemoryItem]:
+        """Retrieve memory items based on query."""
+        pass
+    
+    @abstractmethod
+    def delete(self, memory_id: str) -> bool:
+        """Delete a memory item."""
+        pass
+    
+    @abstractmethod
+    def cleanup(self, max_age_hours: int = 24) -> int:
+        """Clean up old memory items."""
+        pass
+
+
+class InMemoryStorage(MemoryStorage):
+    """In-memory storage implementation."""
+    
+    def __init__(self):
+        self.memories: Dict[str, MemoryItem] = {}
+        self.index: Dict[str, Set[str]] = defaultdict(set)
+    
+    def store(self, memory_item: MemoryItem) -> None:
+        """Store a memory item."""
+        self.memories[memory_item.id] = memory_item
+        
+        # Index by content words - handle both string and dict content
+        if isinstance(memory_item.content, str):
+            content_text = memory_item.content
+        elif isinstance(memory_item.content, dict):
+            # Convert dict to string for indexing
+            content_text = json.dumps(memory_item.content, sort_keys=True)
+        else:
+            content_text = str(memory_item.content)
+        
+        words = content_text.lower().split()
+        for word in words:
+            if len(word) > 2:  # Skip very short words
+                self.index[word].add(memory_item.id)
+    
+    def retrieve(self, query: str, memory_type: Optional[MemoryType] = None, 
+                limit: int = 10) -> List[MemoryItem]:
+        """Retrieve memory items based on query."""
+        query_words = query.lower().split()
+        candidate_ids = set()
+        
+        # Find memories containing query words
+        for word in query_words:
+            if word in self.index:
+                candidate_ids.update(self.index[word])
+        
+        # Filter and score results
+        results = []
+        for memory_id in candidate_ids:
+            if memory_id in self.memories:
+                memory = self.memories[memory_id]
+                
+                # Filter by memory type if specified
+                if memory_type and memory.memory_type != memory_type:
+                    continue
+                
+                # Calculate relevance score
+                score = self._calculate_relevance_score(memory, query_words)
+                results.append((memory, score))
+        
+        # Sort by score and return top results
+        results.sort(key=lambda x: x[1], reverse=True)
+        return [memory for memory, _ in results[:limit]]
+    
+    def delete(self, memory_id: str) -> bool:
+        """Delete a memory item."""
+        if memory_id in self.memories:
+            memory = self.memories[memory_id]
+            
+            # Remove from index
+            words = memory.content.lower().split()
+            for word in words:
+                if len(word) > 2 and memory_id in self.index[word]:
+                    self.index[word].remove(memory_id)
+            
+            del self.memories[memory_id]
+            return True
+        return False
+    
+    def cleanup(self, max_age_hours: int = 24) -> int:
+        """Clean up old memory items."""
+        cutoff_time = time.time() - (max_age_hours * 3600)
+        deleted_count = 0
+        
+        memory_ids = list(self.memories.keys())
+        for memory_id in memory_ids:
+            memory = self.memories[memory_id]
+            if memory.timestamp < cutoff_time and memory.priority != MemoryPriority.CRITICAL:
+                if self.delete(memory_id):
+                    deleted_count += 1
+        
+        return deleted_count
+    
+    def _calculate_relevance_score(self, memory: MemoryItem, query_words: List[str]) -> float:
+        """Calculate relevance score for a memory item."""
+        # Handle different content types
+        if isinstance(memory.content, str):
+            content_words = memory.content.lower().split()
+        elif isinstance(memory.content, dict):
+            content_words = json.dumps(memory.content, sort_keys=True).lower().split()
+        else:
+            content_words = str(memory.content).lower().split()
+        
+        # Count matching words
+        matches = sum(1 for word in query_words if word in content_words)
+        
+        # Base score from word matches
+        score = matches / len(query_words) if query_words else 0
+        
+        # Boost by priority
+        score *= memory.priority.value
+        
+        # Boost by recency (within last 24 hours)
+        if time.time() - memory.timestamp < 86400:
+            score *= 1.5
+        
+        # Boost by access frequency
+        score *= (1 + memory.access_count * 0.1)
+        
+        return score
+
+
+# ============================================================================
+# MAIN MEMORY SYSTEM
+# ============================================================================
 
 class AdvancedMemorySystem:
-    """
-    Advanced memory system with multiple memory types and intelligent management.
-    """
+    """Advanced memory system for KICKAI agents."""
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        """Initialize the advanced memory system."""
+        """Initialize the memory system."""
         self.config = config or {}
         
         # Memory storage
@@ -116,9 +286,14 @@ class AdvancedMemorySystem:
         self.episodic_memory: Dict[str, MemoryItem] = {}
         self.semantic_memory: Dict[str, MemoryItem] = {}
         
-        # User preferences and patterns
-        self.user_preferences: Dict[str, List[UserPreference]] = defaultdict(list)
+        # User preferences
+        self.user_preferences: Dict[str, Dict[str, UserPreference]] = defaultdict(dict)
+        
+        # Pattern learning
         self.patterns: Dict[str, Pattern] = {}
+        
+        # Conversation contexts
+        self.conversation_contexts: Dict[str, ConversationContext] = {}
         
         # Configuration
         self.max_short_term_items = self.config.get('max_short_term_items', 100)
@@ -126,521 +301,252 @@ class AdvancedMemorySystem:
         self.max_episodic_items = self.config.get('max_episodic_items', 500)
         self.max_semantic_items = self.config.get('max_semantic_items', 200)
         
-        # Memory retention settings
-        self.short_term_retention_hours = self.config.get('short_term_retention_hours', 24)
-        self.long_term_retention_days = self.config.get('long_term_retention_days', 30)
-        
-        # Pattern recognition settings
-        self.min_pattern_confidence = self.config.get('min_pattern_confidence', 0.7)
         self.pattern_learning_enabled = self.config.get('pattern_learning_enabled', True)
+        self.preference_learning_enabled = self.config.get('preference_learning_enabled', True)
         
-        logger.info("✅ Advanced Memory System initialized")
-        logger.info(f"   Short-term capacity: {self.max_short_term_items}")
-        logger.info(f"   Long-term capacity: {self.max_long_term_items}")
-        logger.info(f"   Pattern learning: {'enabled' if self.pattern_learning_enabled else 'disabled'}")
-    
-    def _generate_memory_id(self, content: Dict[str, Any], memory_type: MemoryType) -> str:
-        """Generate a unique ID for a memory item."""
-        content_str = json.dumps(content, sort_keys=True)
-        hash_input = f"{memory_type.value}:{content_str}"
-        return hashlib.md5(hash_input.encode()).hexdigest()
-    
-    def store_memory(self, 
-                    content: Dict[str, Any], 
-                    memory_type: MemoryType,
-                    user_id: Optional[str] = None,
-                    chat_id: Optional[str] = None,
-                    importance: float = 1.0,
-                    tags: Optional[List[str]] = None,
-                    metadata: Optional[Dict[str, Any]] = None) -> str:
-        """
-        Store a memory item in the appropriate memory type.
+        # Storage implementation
+        self.storage = InMemoryStorage()
         
-        Args:
-            content: The content to store
-            memory_type: Type of memory to store in
-            user_id: Optional user ID
-            chat_id: Optional chat ID
-            importance: Importance score (0.0 to 1.0)
-            tags: Optional tags for categorization
-            metadata: Optional metadata
-            
-        Returns:
-            Memory item ID
-        """
-        memory_id = self._generate_memory_id(content, memory_type)
-        timestamp = time.time()
+        logger.info("✅ AdvancedMemorySystem initialized")
+    
+    def store_memory(self, content: Any, memory_type: MemoryType, 
+                    user_id: Optional[str] = None, team_id: Optional[str] = None,
+                    chat_id: Optional[str] = None, priority: MemoryPriority = MemoryPriority.MEDIUM,
+                    context: Optional[Dict[str, Any]] = None, tags: Optional[Set[str]] = None,
+                    importance: Optional[float] = None, metadata: Optional[Dict[str, Any]] = None) -> str:
+        """Store a new memory item."""
+        memory_id = str(uuid.uuid4())
+        
+        # Convert priority to importance if not provided
+        if importance is None:
+            importance = priority.value / 4.0  # Normalize priority to 0-1 range
         
         memory_item = MemoryItem(
             id=memory_id,
-            type=memory_type,
             content=content,
-            timestamp=timestamp,
+            memory_type=memory_type,
+            priority=priority,
+            timestamp=time.time(),
             user_id=user_id,
+            team_id=team_id,
             chat_id=chat_id,
+            context=context or {},
+            tags=tags or set(),
             importance=importance,
-            tags=tags or [],
             metadata=metadata or {}
         )
         
         # Store in appropriate memory type
         if memory_type == MemoryType.SHORT_TERM:
-            self._store_short_term(memory_item)
+            self._store_in_short_term(memory_item)
         elif memory_type == MemoryType.LONG_TERM:
-            self._store_long_term(memory_item)
+            self._store_in_long_term(memory_item)
         elif memory_type == MemoryType.EPISODIC:
-            self._store_episodic(memory_item)
+            self._store_in_episodic(memory_item)
         elif memory_type == MemoryType.SEMANTIC:
-            self._store_semantic(memory_item)
+            self._store_in_semantic(memory_item)
         
-        logger.debug(f"Stored {memory_type.value} memory: {memory_id}")
+        # Also store in general storage
+        self.storage.store(memory_item)
+        
+        logger.debug(f"Stored memory: {memory_id} ({memory_type.value})")
         return memory_id
     
-    def _store_short_term(self, memory_item: MemoryItem):
-        """Store in short-term memory with capacity management."""
-        self.short_term_memory[memory_item.id] = memory_item
+    def retrieve_memory(self, query: Any, memory_type: Optional[MemoryType] = None,
+                       user_id: Optional[str] = None, team_id: Optional[str] = None,
+                       limit: int = 10, memory_types: Optional[List[MemoryType]] = None,
+                       min_importance: Optional[float] = None) -> List[MemoryItem]:
+        """Retrieve memory items based on query."""
+        # Handle different query types
+        if isinstance(query, dict):
+            # Convert dict query to string for search
+            query_str = json.dumps(query, sort_keys=True)
+        else:
+            query_str = str(query)
         
-        # Cleanup if over capacity
-        if len(self.short_term_memory) > self.max_short_term_items:
-            self._cleanup_short_term_memory()
-    
-    def _store_long_term(self, memory_item: MemoryItem):
-        """Store in long-term memory with capacity management."""
-        self.long_term_memory[memory_item.id] = memory_item
+        # Use memory_types if provided, otherwise use memory_type
+        if memory_types:
+            # Get results from each memory type
+            all_results = []
+            for mt in memory_types:
+                results = self.storage.retrieve(query_str, mt, limit * 2)
+                all_results.extend(results)
+            results = all_results
+        else:
+            # Get results from storage
+            results = self.storage.retrieve(query_str, memory_type, limit * 2)
         
-        # Cleanup if over capacity
-        if len(self.long_term_memory) > self.max_long_term_items:
-            self._cleanup_long_term_memory()
-    
-    def _store_episodic(self, memory_item: MemoryItem):
-        """Store in episodic memory with capacity management."""
-        if len(self.episodic_memory) >= self.max_episodic_items:
-            self._cleanup_episodic_memory()
+        # Filter by user/team if specified
+        if user_id or team_id:
+            filtered_results = []
+            for memory in results:
+                if user_id and memory.user_id != user_id:
+                    continue
+                if team_id and memory.team_id != team_id:
+                    continue
+                filtered_results.append(memory)
+            results = filtered_results
         
-        self.episodic_memory[memory_item.id] = memory_item
-    
-    def _store_semantic(self, memory_item: MemoryItem):
-        """Store in semantic memory with capacity management."""
-        if len(self.semantic_memory) >= self.max_semantic_items:
-            self._cleanup_semantic_memory()
-        
-        self.semantic_memory[memory_item.id] = memory_item
-    
-    def retrieve_memory(self, 
-                       query: Dict[str, Any],
-                       memory_types: Optional[List[MemoryType]] = None,
-                       user_id: Optional[str] = None,
-                       limit: int = 10,
-                       min_importance: float = 0.0) -> List[MemoryItem]:
-        """
-        Retrieve relevant memories based on query.
-        
-        Args:
-            query: Query to search for
-            memory_types: Types of memory to search in
-            user_id: Optional user ID filter
-            limit: Maximum number of results
-            min_importance: Minimum importance threshold
-            
-        Returns:
-            List of relevant memory items
-        """
-        if memory_types is None:
-            memory_types = [MemoryType.SHORT_TERM, MemoryType.LONG_TERM, 
-                           MemoryType.EPISODIC, MemoryType.SEMANTIC]
-        
-        results = []
-        
-        for memory_type in memory_types:
-            if memory_type == MemoryType.SHORT_TERM:
-                results.extend(self._search_memory(self.short_term_memory, query, user_id, min_importance))
-            elif memory_type == MemoryType.LONG_TERM:
-                results.extend(self._search_memory(self.long_term_memory, query, user_id, min_importance))
-            elif memory_type == MemoryType.EPISODIC:
-                results.extend(self._search_memory(self.episodic_memory, query, user_id, min_importance))
-            elif memory_type == MemoryType.SEMANTIC:
-                results.extend(self._search_memory(self.semantic_memory, query, user_id, min_importance))
-        
-        # Sort by relevance and importance
-        results.sort(key=lambda x: (x.importance, x.access_count), reverse=True)
+        # Filter by minimum importance if specified
+        if min_importance is not None:
+            filtered_results = []
+            for memory in results:
+                if memory.importance >= min_importance:
+                    filtered_results.append(memory)
+            results = filtered_results
         
         # Update access statistics
-        for item in results[:limit]:
-            item.access_count += 1
-            item.last_accessed = time.time()
+        for memory in results[:limit]:
+            memory.access_count += 1
+            memory.last_accessed = time.time()
         
         return results[:limit]
     
-    def _search_memory(self, 
-                      memory_dict: Dict[str, MemoryItem],
-                      query: Dict[str, Any],
-                      user_id: Optional[str],
-                      min_importance: float) -> List[MemoryItem]:
-        """Search within a specific memory type."""
-        results = []
-        
-        for memory_item in memory_dict.values():
-            # Filter by importance - this was the bug
-            if min_importance > 0 and memory_item.importance < min_importance:
-                logger.debug(f"Filtering out memory {memory_item.id} with importance {memory_item.importance} < {min_importance}")
-                continue
-            
-            # Filter by user if specified
-            if user_id and memory_item.user_id != user_id:
-                continue
-            
-            # Simple relevance scoring (can be enhanced with semantic search)
-            relevance_score = self._calculate_relevance(memory_item, query)
-            logger.debug(f"Memory {memory_item.id} relevance score: {relevance_score}")
-            if relevance_score > 0.3:  # Threshold for relevance
-                results.append(memory_item)
-        
-        return results
-    
-    def _calculate_relevance(self, memory_item: MemoryItem, query: Dict[str, Any]) -> float:
-        """Calculate relevance score between memory item and query."""
-        score = 0.0
-        
-        # Check for exact matches in content
-        for key, value in query.items():
-            if key == 'tags':
-                # Handle tag matching separately
-                continue
-            elif key in memory_item.content:
-                if memory_item.content[key] == value:
-                    score += 0.5
-                elif isinstance(value, str) and isinstance(memory_item.content[key], str):
-                    # Simple string similarity
-                    if value.lower() in memory_item.content[key].lower():
-                        score += 0.3
-        
-        # Check tag matches - this was the main bug
-        if 'tags' in query and memory_item.tags:
-            query_tags = query['tags']
-            if isinstance(query_tags, list):
-                for tag in query_tags:
-                    if tag in memory_item.tags:
-                        score += 0.4  # Higher score for tag matches
-                        break  # One tag match is enough
-        
-        # Check for string matches in content values
-        for key, value in query.items():
-            if key != 'tags' and isinstance(value, str):
-                for content_key, content_value in memory_item.content.items():
-                    if isinstance(content_value, str) and value.lower() in content_value.lower():
-                        score += 0.2
-                        break
-        
-        # If no specific matches but query is empty or very general, give low score
-        if not query or (len(query) == 1 and 'user_id' in query):
-            score = 0.5  # Higher score for empty queries to include all memories
-        
-        return min(score, 1.0)
-    
-    def learn_user_preference(self, 
-                            user_id: str,
-                            preference_type: str,
-                            value: Any,
-                            confidence: float = 1.0):
-        """
-        Learn a user preference from interactions.
-        
-        Args:
-            user_id: User ID
-            preference_type: Type of preference (e.g., 'communication_style', 'response_length')
-            value: Preference value
-            confidence: Confidence in this preference (0.0 to 1.0)
-        """
-        if not self.pattern_learning_enabled:
+    def learn_user_preference(self, user_id: str, preference_type: str, 
+                            preference_value: Any, confidence: float = 1.0) -> None:
+        """Learn a user preference."""
+        if not self.preference_learning_enabled:
             return
         
-        # Check if preference already exists
-        existing_pref = None
-        for pref in self.user_preferences[user_id]:
-            if pref.preference_type == preference_type:
-                existing_pref = pref
-                break
+        preference_key = f"{preference_type}:{preference_value}"
         
-        if existing_pref:
+        if preference_key in self.user_preferences[user_id]:
             # Update existing preference
-            existing_pref.value = value
-            existing_pref.confidence = min(existing_pref.confidence + confidence, 1.0)
-            existing_pref.last_updated = time.time()
-            existing_pref.usage_count += 1
+            preference = self.user_preferences[user_id][preference_key]
+            preference.usage_count += 1
+            preference.last_used = time.time()
+            preference.confidence = min(1.0, preference.confidence + 0.1)
         else:
             # Create new preference
-            new_pref = UserPreference(
+            preference = UserPreference(
                 user_id=user_id,
                 preference_type=preference_type,
-                value=value,
-                confidence=confidence,
-                last_updated=time.time(),
-                usage_count=1
+                preference_value=preference_value,
+                confidence=confidence
             )
-            self.user_preferences[user_id].append(new_pref)
+            self.user_preferences[user_id][preference_key] = preference
         
-        logger.debug(f"Learned preference for user {user_id}: {preference_type} = {value}")
+        logger.debug(f"Learned preference for user {user_id}: {preference_type} = {preference_value}")
     
-    def get_user_preferences(self, user_id: str) -> List[UserPreference]:
-        """Get all preferences for a user."""
-        return self.user_preferences.get(user_id, [])
-    
-    def learn_pattern(self, 
-                     pattern_type: str,
-                     trigger_conditions: List[str],
-                     response_pattern: str,
-                     success: bool):
-        """
-        Learn a pattern from user interactions.
+    def get_user_preferences(self, user_id: str) -> Dict[str, Any]:
+        """Get user preferences."""
+        if user_id not in self.user_preferences:
+            return {}
         
-        Args:
-            pattern_type: Type of pattern
-            trigger_conditions: Conditions that trigger this pattern
-            response_pattern: The response pattern
-            success: Whether the pattern was successful
-        """
+        preferences = {}
+        for preference in self.user_preferences[user_id].values():
+            if preference.preference_type not in preferences:
+                preferences[preference.preference_type] = []
+            preferences[preference.preference_type].append({
+                'value': preference.preference_value,
+                'confidence': preference.confidence,
+                'usage_count': preference.usage_count
+            })
+        
+        return preferences
+    
+    def learn_pattern(self, pattern_type: str, pattern_data: Dict[str, Any],
+                     context: Optional[Dict[str, Any]] = None) -> str:
+        """Learn a new pattern."""
         if not self.pattern_learning_enabled:
-            return
+            return ""
         
-        pattern_id = hashlib.md5(f"{pattern_type}:{json.dumps(trigger_conditions)}".encode()).hexdigest()
+        # Create pattern hash for identification
+        pattern_hash = hashlib.md5(
+            json.dumps(pattern_data, sort_keys=True).encode()
+        ).hexdigest()
+        
+        pattern_id = f"{pattern_type}:{pattern_hash}"
         
         if pattern_id in self.patterns:
             # Update existing pattern
             pattern = self.patterns[pattern_id]
-            pattern.usage_count += 1
-            pattern.last_used = time.time()
-            
-            # Update success rate
-            if success:
-                pattern.success_rate = (pattern.success_rate * (pattern.usage_count - 1) + 1) / pattern.usage_count
-            else:
-                pattern.success_rate = (pattern.success_rate * (pattern.usage_count - 1)) / pattern.usage_count
+            pattern.occurrence_count += 1
+            pattern.last_seen = time.time()
+            pattern.confidence = min(1.0, pattern.confidence + 0.05)
         else:
             # Create new pattern
             pattern = Pattern(
-                pattern_id=pattern_id,
+                id=pattern_id,
                 pattern_type=pattern_type,
-                trigger_conditions=trigger_conditions,
-                response_pattern=response_pattern,
-                success_rate=1.0 if success else 0.0,
-                usage_count=1,
-                last_used=time.time(),
-                created_at=time.time()
+                pattern_data=pattern_data,
+                context=context or {}
             )
             self.patterns[pattern_id] = pattern
         
-        logger.debug(f"Learned pattern: {pattern_type} (success rate: {pattern.success_rate:.2f})")
+        logger.debug(f"Learned pattern: {pattern_type} (occurrences: {pattern.occurrence_count})")
+        return pattern_id
     
-    def get_relevant_patterns(self, context: Dict[str, Any]) -> List[Pattern]:
-        """Get patterns relevant to the current context."""
+    def get_relevant_patterns(self, context: Dict[str, Any], 
+                            pattern_type: Optional[str] = None) -> List[Pattern]:
+        """Get patterns relevant to the given context."""
         relevant_patterns = []
         
         for pattern in self.patterns.values():
-            if pattern.success_rate < self.min_pattern_confidence:
+            if pattern_type and pattern.pattern_type != pattern_type:
                 continue
             
-            # Check if pattern conditions match context
-            if self._pattern_matches_context(pattern, context):
-                relevant_patterns.append(pattern)
+            # Calculate relevance score
+            relevance_score = self._calculate_pattern_relevance(pattern, context)
+            if relevance_score > 0.3:  # Threshold for relevance
+                relevant_patterns.append((pattern, relevance_score))
         
-        # Sort by success rate and usage count
-        relevant_patterns.sort(key=lambda x: (x.success_rate, x.usage_count), reverse=True)
-        
-        return relevant_patterns
+        # Sort by relevance and return
+        relevant_patterns.sort(key=lambda x: x[1], reverse=True)
+        return [pattern for pattern, _ in relevant_patterns[:10]]
     
-    def _pattern_matches_context(self, pattern: Pattern, context: Dict[str, Any]) -> bool:
-        """Check if pattern conditions match the current context."""
-        if not pattern.trigger_conditions:
-            return True  # No conditions means it matches everything
+    def get_conversation_context(self, user_id: str, chat_id: str) -> ConversationContext:
+        """Get or create conversation context."""
+        context_key = f"{user_id}:{chat_id}"
         
-        context_str = json.dumps(context, default=str).lower()
+        if context_key not in self.conversation_contexts:
+            self.conversation_contexts[context_key] = ConversationContext(
+                user_id=user_id,
+                chat_id=chat_id
+            )
         
-        for condition in pattern.trigger_conditions:
-            condition_lower = condition.lower()
-            
-            # Split condition into words for more flexible matching
-            condition_words = condition_lower.split()
-            context_words = context_str.split()
-            
-            # Check if all words in the condition are present in the context
-            if len(condition_words) == 1:
-                # Single word condition - check if it's contained in any context word
-                if any(condition_words[0] in word for word in context_words):
-                    return True
-            else:
-                # Multi-word condition - check if all words are present in context
-                if all(any(word in context_word for context_word in context_words) for word in condition_words):
-                    return True
-            
-            # Also try the original exact substring matching as fallback
-            if condition_lower in context_str:
-                return True
-                
-        return False
+        return self.conversation_contexts[context_key]
     
-    def get_conversation_context(self, 
-                                user_id: str,
-                                chat_id: Optional[str] = None,
-                                limit: int = 10) -> List[MemoryItem]:
-        """Get conversation context for a user/chat."""
-        # For conversation context, we want to get all memories for the user/chat
-        # regardless of content, so we use an empty query
-        query = {}
+    def add_message_to_context(self, user_id: str, chat_id: str, 
+                             message: Dict[str, Any]) -> None:
+        """Add a message to conversation context."""
+        context = self.get_conversation_context(user_id, chat_id)
+        context.messages.append(message)
+        context.last_updated = time.time()
         
-        return self.retrieve_memory(
-            query=query,
-            memory_types=[MemoryType.SHORT_TERM, MemoryType.EPISODIC],
-            user_id=user_id,
-            limit=limit
-        )
+        # Limit message history
+        if len(context.messages) > context.max_messages:
+            context.messages = context.messages[-context.max_messages:]
     
-    def cleanup_memory(self):
-        """Clean up old and low-importance memories."""
-        self._cleanup_short_term_memory()
-        self._cleanup_long_term_memory()
-        self._cleanup_episodic_memory()
-        self._cleanup_semantic_memory()
-        self._cleanup_user_preferences()
-        self._cleanup_patterns()
+    def cleanup_memory(self) -> Dict[str, int]:
+        """Clean up old memory items."""
+        cleanup_stats = {}
         
-        logger.info("Memory cleanup completed")
-    
-    def cleanup_old_memories(self):
-        """Alias for cleanup_memory for backward compatibility."""
-        self.cleanup_memory()
-    
-    def _cleanup_short_term_memory(self):
-        """Clean up short-term memory based on age and importance."""
-        current_time = time.time()
-        cutoff_time = current_time - (self.short_term_retention_hours * 3600)
+        # Clean up short-term memory (older than 1 hour)
+        cutoff_time = time.time() - 3600
+        deleted_count = 0
+        for memory_id in list(self.short_term_memory.keys()):
+            memory = self.short_term_memory[memory_id]
+            if memory.timestamp < cutoff_time and memory.priority != MemoryPriority.CRITICAL:
+                del self.short_term_memory[memory_id]
+                deleted_count += 1
+        cleanup_stats['short_term'] = deleted_count
         
-        to_remove = []
-        for memory_id, item in self.short_term_memory.items():
-            # Only remove if old AND low importance, or if never accessed and very old
-            if (item.timestamp < cutoff_time and item.importance < 0.5) or \
-               (item.access_count == 0 and item.timestamp < cutoff_time - 3600):
-                to_remove.append(memory_id)
+        # Clean up conversation contexts (older than 24 hours)
+        cutoff_time = time.time() - 86400
+        deleted_count = 0
+        for context_key in list(self.conversation_contexts.keys()):
+            context = self.conversation_contexts[context_key]
+            if context.last_updated < cutoff_time:
+                del self.conversation_contexts[context_key]
+                deleted_count += 1
+        cleanup_stats['conversation_contexts'] = deleted_count
         
-        for memory_id in to_remove:
-            del self.short_term_memory[memory_id]
+        # Clean up storage
+        cleanup_stats['storage'] = self.storage.cleanup(24)
         
-        if to_remove:
-            logger.debug(f"Cleaned up {len(to_remove)} short-term memories")
-        
-        # If still over capacity, remove lowest importance items
-        if len(self.short_term_memory) > self.max_short_term_items:
-            items = list(self.short_term_memory.items())
-            # Sort by importance (descending) and access count (descending)
-            items.sort(key=lambda x: (x[1].importance, x[1].access_count), reverse=True)
-            
-            # Keep the most important items
-            to_keep = items[:self.max_short_term_items]
-            to_remove = items[self.max_short_term_items:]
-            
-            # Clear and repopulate with important items
-            self.short_term_memory.clear()
-            for memory_id, item in to_keep:
-                self.short_term_memory[memory_id] = item
-            
-            logger.debug(f"Cleaned up {len(to_remove)} short-term memories due to capacity")
-        
-        # Always sort short_term_memory by importance and access_count
-        items = list(self.short_term_memory.items())
-        items.sort(key=lambda x: (x[1].importance, x[1].access_count), reverse=True)
-        self.short_term_memory.clear()
-        for memory_id, item in items:
-            self.short_term_memory[memory_id] = item
-    
-    def _cleanup_long_term_memory(self):
-        """Clean up long-term memory based on importance and access patterns."""
-        # Remove low-importance items if over capacity
-        if len(self.long_term_memory) > self.max_long_term_items:
-            items = list(self.long_term_memory.items())
-            # Sort by importance (descending) and access count (descending)
-            items.sort(key=lambda x: (x[1].importance, x[1].access_count), reverse=True)
-            
-            # Keep the most important items
-            to_keep = items[:self.max_long_term_items]
-            to_remove = items[self.max_long_term_items:]
-            
-            # Clear and repopulate with important items
-            self.long_term_memory.clear()
-            for memory_id, item in to_keep:
-                self.long_term_memory[memory_id] = item
-            
-            logger.debug(f"Cleaned up {len(to_remove)} long-term memories")
-        
-        # Also clean up old items
-        current_time = time.time()
-        cutoff_time = current_time - (self.long_term_retention_days * 24 * 3600)
-        
-        to_remove = []
-        for memory_id, item in self.long_term_memory.items():
-            if item.timestamp < cutoff_time and item.importance < 0.3:
-                to_remove.append(memory_id)
-        
-        for memory_id in to_remove:
-            del self.long_term_memory[memory_id]
-        
-        if to_remove:
-            logger.debug(f"Cleaned up {len(to_remove)} old long-term memories")
-    
-    def _cleanup_episodic_memory(self):
-        """Clean up episodic memory based on age and importance."""
-        current_time = time.time()
-        cutoff_time = current_time - (self.long_term_retention_days * 24 * 3600)
-        
-        to_remove = []
-        for memory_id, item in self.episodic_memory.items():
-            if item.timestamp < cutoff_time and item.importance < 0.3:
-                to_remove.append(memory_id)
-        
-        for memory_id in to_remove:
-            del self.episodic_memory[memory_id]
-        
-        if to_remove:
-            logger.debug(f"Cleaned up {len(to_remove)} episodic memories")
-    
-    def _cleanup_semantic_memory(self):
-        """Clean up semantic memory based on usage patterns."""
-        # Remove rarely accessed semantic memories
-        to_remove = []
-        for memory_id, item in self.semantic_memory.items():
-            if item.access_count < 2 and item.importance < 0.4:
-                to_remove.append(memory_id)
-        
-        for memory_id in to_remove:
-            del self.semantic_memory[memory_id]
-        
-        if to_remove:
-            logger.debug(f"Cleaned up {len(to_remove)} semantic memories")
-    
-    def _cleanup_user_preferences(self):
-        """Clean up old user preferences."""
-        current_time = time.time()
-        cutoff_time = current_time - (30 * 24 * 3600)  # 30 days
-        
-        for user_id in list(self.user_preferences.keys()):
-            self.user_preferences[user_id] = [
-                pref for pref in self.user_preferences[user_id]
-                if pref.last_updated > cutoff_time or pref.usage_count > 5
-            ]
-            
-            if not self.user_preferences[user_id]:
-                del self.user_preferences[user_id]
-    
-    def _cleanup_patterns(self):
-        """Clean up low-performing patterns."""
-        to_remove = []
-        for pattern_id, pattern in self.patterns.items():
-            if pattern.success_rate < 0.3 and pattern.usage_count < 3:
-                to_remove.append(pattern_id)
-        
-        for pattern_id in to_remove:
-            del self.patterns[pattern_id]
-        
-        if to_remove:
-            logger.debug(f"Cleaned up {len(to_remove)} low-performing patterns")
+        logger.info(f"Memory cleanup completed: {cleanup_stats}")
+        return cleanup_stats
     
     def get_memory_stats(self) -> Dict[str, Any]:
         """Get memory system statistics."""
@@ -651,40 +557,156 @@ class AdvancedMemorySystem:
             'semantic_count': len(self.semantic_memory),
             'user_preferences_count': sum(len(prefs) for prefs in self.user_preferences.values()),
             'patterns_count': len(self.patterns),
-            'total_memories': (len(self.short_term_memory) + len(self.long_term_memory) + 
-                              len(self.episodic_memory) + len(self.semantic_memory))
+            'conversation_contexts_count': len(self.conversation_contexts),
+            'total_memories': len(self.short_term_memory) + len(self.long_term_memory) + 
+                            len(self.episodic_memory) + len(self.semantic_memory)
         }
     
     def export_memory(self) -> Dict[str, Any]:
         """Export all memory data for persistence."""
-        return {
-            'short_term_memory': {k: v.to_dict() for k, v in self.short_term_memory.items()},
-            'long_term_memory': {k: v.to_dict() for k, v in self.long_term_memory.items()},
-            'episodic_memory': {k: v.to_dict() for k, v in self.episodic_memory.items()},
-            'semantic_memory': {k: v.to_dict() for k, v in self.semantic_memory.items()},
-            'user_preferences': {k: [p.to_dict() for p in v] for k, v in self.user_preferences.items()},
-            'patterns': {k: v.to_dict() for k, v in self.patterns.items()},
-            'config': self.config
+        export_data = {
+            'version': '1.0',
+            'timestamp': time.time(),
+            'config': self.config,
+            'memories': {
+                'short_term': [memory.to_dict() for memory in self.short_term_memory.values()],
+                'long_term': [memory.to_dict() for memory in self.long_term_memory.values()],
+                'episodic': [memory.to_dict() for memory in self.episodic_memory.values()],
+                'semantic': [memory.to_dict() for memory in self.semantic_memory.values()]
+            },
+            'user_preferences': {
+                user_id: {key: asdict(pref) for key, pref in user_prefs.items()}
+                for user_id, user_prefs in self.user_preferences.items()
+            },
+            'patterns': {pattern_id: asdict(pattern) for pattern_id, pattern in self.patterns.items()},
+            'conversation_contexts': {
+                context_key: asdict(context) for context_key, context in self.conversation_contexts.items()
+            }
         }
+        
+        return export_data
     
-    def import_memory(self, data: Dict[str, Any]):
-        """Import memory data from persistence."""
+    def import_memory(self, data: Dict[str, Any]) -> None:
+        """Import memory data from export."""
+        if data.get('version') != '1.0':
+            logger.warning("Importing memory data with unknown version")
+        
         # Import memories
-        self.short_term_memory = {k: MemoryItem.from_dict(v) for k, v in data.get('short_term_memory', {}).items()}
-        self.long_term_memory = {k: MemoryItem.from_dict(v) for k, v in data.get('long_term_memory', {}).items()}
-        self.episodic_memory = {k: MemoryItem.from_dict(v) for k, v in data.get('episodic_memory', {}).items()}
-        self.semantic_memory = {k: MemoryItem.from_dict(v) for k, v in data.get('semantic_memory', {}).items()}
+        for memory_type, memories in data.get('memories', {}).items():
+            for memory_dict in memories:
+                memory_item = MemoryItem.from_dict(memory_dict)
+                if memory_type == 'short_term':
+                    self.short_term_memory[memory_item.id] = memory_item
+                elif memory_type == 'long_term':
+                    self.long_term_memory[memory_item.id] = memory_item
+                elif memory_type == 'episodic':
+                    self.episodic_memory[memory_item.id] = memory_item
+                elif memory_type == 'semantic':
+                    self.semantic_memory[memory_item.id] = memory_item
         
         # Import user preferences
-        self.user_preferences = defaultdict(list)
-        for k, v in data.get('user_preferences', {}).items():
-            self.user_preferences[k] = [UserPreference.from_dict(p) for p in v]
+        for user_id, user_prefs in data.get('user_preferences', {}).items():
+            for key, pref_dict in user_prefs.items():
+                preference = UserPreference(**pref_dict)
+                self.user_preferences[user_id][key] = preference
         
         # Import patterns
-        self.patterns = {k: Pattern.from_dict(v) for k, v in data.get('patterns', {}).items()}
+        for pattern_id, pattern_dict in data.get('patterns', {}).items():
+            pattern = Pattern(**pattern_dict)
+            self.patterns[pattern_id] = pattern
         
-        # Import config
-        if 'config' in data:
-            self.config.update(data['config'])
+        # Import conversation contexts
+        for context_key, context_dict in data.get('conversation_contexts', {}).items():
+            context = ConversationContext(**context_dict)
+            self.conversation_contexts[context_key] = context
         
-        logger.info("Memory system data imported successfully") 
+        logger.info("Memory import completed successfully")
+    
+    def _store_in_short_term(self, memory_item: MemoryItem) -> None:
+        """Store in short-term memory with size limit."""
+        self.short_term_memory[memory_item.id] = memory_item
+        
+        # Enforce size limit
+        if len(self.short_term_memory) > self.max_short_term_items:
+            # Remove oldest, lowest priority items
+            items = list(self.short_term_memory.items())
+            items.sort(key=lambda x: (x[1].priority.value, x[1].timestamp))
+            
+            # Keep the best items
+            self.short_term_memory = dict(items[-self.max_short_term_items:])
+    
+    def _store_in_long_term(self, memory_item: MemoryItem) -> None:
+        """Store in long-term memory with size limit."""
+        self.long_term_memory[memory_item.id] = memory_item
+        
+        if len(self.long_term_memory) > self.max_long_term_items:
+            items = list(self.long_term_memory.items())
+            items.sort(key=lambda x: (x[1].priority.value, x[1].timestamp))
+            self.long_term_memory = dict(items[-self.max_long_term_items:])
+    
+    def _store_in_episodic(self, memory_item: MemoryItem) -> None:
+        """Store in episodic memory with size limit."""
+        self.episodic_memory[memory_item.id] = memory_item
+        
+        if len(self.episodic_memory) > self.max_episodic_items:
+            items = list(self.episodic_memory.items())
+            items.sort(key=lambda x: (x[1].priority.value, x[1].timestamp))
+            self.episodic_memory = dict(items[-self.max_episodic_items:])
+    
+    def _store_in_semantic(self, memory_item: MemoryItem) -> None:
+        """Store in semantic memory with size limit."""
+        self.semantic_memory[memory_item.id] = memory_item
+        
+        if len(self.semantic_memory) > self.max_semantic_items:
+            items = list(self.semantic_memory.items())
+            items.sort(key=lambda x: (x[1].priority.value, x[1].timestamp))
+            self.semantic_memory = dict(items[-self.max_semantic_items:])
+    
+    def _calculate_pattern_relevance(self, pattern: Pattern, context: Dict[str, Any]) -> float:
+        """Calculate relevance score for a pattern."""
+        score = 0.0
+        
+        # Check for context overlap
+        for key, value in context.items():
+            if key in pattern.context and pattern.context[key] == value:
+                score += 0.2
+        
+        # Boost by confidence and occurrence count
+        score *= pattern.confidence
+        score *= min(1.0, pattern.occurrence_count / 10.0)
+        
+        # Boost by recency
+        if time.time() - pattern.last_seen < 86400:  # Last 24 hours
+            score *= 1.5
+        
+        return score
+
+
+# ============================================================================
+# GLOBAL INSTANCE AND CONVENIENCE FUNCTIONS
+# ============================================================================
+
+_global_memory_system: Optional[AdvancedMemorySystem] = None
+
+
+def get_memory_system(config: Optional[Dict[str, Any]] = None) -> AdvancedMemorySystem:
+    """Get the global memory system instance."""
+    global _global_memory_system
+    if _global_memory_system is None:
+        _global_memory_system = AdvancedMemorySystem(config)
+    return _global_memory_system
+
+
+def initialize_memory_system(config: Optional[Dict[str, Any]] = None) -> AdvancedMemorySystem:
+    """Initialize the global memory system."""
+    global _global_memory_system
+    _global_memory_system = AdvancedMemorySystem(config)
+    return _global_memory_system
+
+
+def cleanup_memory_system() -> None:
+    """Clean up the global memory system."""
+    global _global_memory_system
+    if _global_memory_system:
+        _global_memory_system.cleanup_memory()
+        _global_memory_system = None 

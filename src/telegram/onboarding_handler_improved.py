@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, Tuple, List
 from dataclasses import dataclass
 
-from ..database.models import Player, OnboardingStatus, PlayerRole, PlayerPosition
+from ..database.models_improved import Player, OnboardingStatus, PlayerRole, PlayerPosition
 from ..services.player_service import get_player_service
 from ..services.team_service import get_team_service
 from ..services.reminder_service import get_reminder_service
@@ -38,6 +38,11 @@ class ImprovedOnboardingWorkflow:
         self.team_service = get_team_service()
         self.reminder_service = get_reminder_service(team_id)
         self.bot_config_manager = get_bot_config_manager()
+        self.onboarding_steps = self.bot_config_manager.get_onboarding_steps(self.team_id) or [
+            "emergency_contact",
+            "date_of_birth",
+            "fa_registration"
+        ]
         
         # Validation rules as specified in PRD
         self.validation_rules = {
@@ -71,13 +76,21 @@ class ImprovedOnboardingWorkflow:
             if username:
                 updates['telegram_username'] = username
             
-            # Mark basic registration as completed
-            updates['onboarding_progress'] = {
-                "basic_registration": {"completed": True, "completed_at": datetime.now()},
-                "emergency_contact": {"completed": False, "completed_at": None, "data": None},
-                "date_of_birth": {"completed": False, "completed_at": None, "data": None},
-                "fa_registration": {"completed": False, "completed_at": None, "data": None}
+            # Mark basic registration as completed and initialize other steps dynamically
+            onboarding_progress = {
+                "basic_registration": {"completed": True, "completed_at": datetime.now()}
             }
+            for step in self.onboarding_steps:
+                onboarding_progress[step] = {"completed": False, "completed_at": None, "data": None}
+            updates['onboarding_progress'] = onboarding_progress
+            
+            # Initialize progress tracking
+            progress = {
+                "current_step": self.onboarding_steps[0] if self.onboarding_steps else "completion",
+                "completed_steps": ["basic_registration"],
+                "total_steps": len(self.onboarding_steps) + 1  # +1 for basic registration
+            }
+            updates['progress'] = progress
             
             updated_player = await self.player_service.update_player(player.id, **updates)
             
@@ -100,6 +113,17 @@ class ImprovedOnboardingWorkflow:
             team = await self.team_service.get_team(self.team_id)
             team_name = team.name if team else "KICKAI Team"
             
+            progress_display = ""
+            for i, step in enumerate(self.onboarding_steps):
+                status = "⏳ Pending"
+                if player.onboarding_progress.get(step, {}).get("completed"):
+                    status = "✅ Completed"
+                elif i == 0: # Assuming the first step in the list is the next one if not completed
+                    status = "⏳ Next"
+                progress_display += f"🔄 Step {i+2}: {self._format_step_name(step)} {status}\n"
+
+            next_step_name = self._format_step_name(self.onboarding_steps[0]) if self.onboarding_steps else "N/A"
+
             return f"""✅ Welcome to {team_name}, {player.name.upper()}!
 
 📋 Your Details:
@@ -112,11 +136,8 @@ class ImprovedOnboardingWorkflow:
 
 📊 Onboarding Progress:
 🔄 Step 1: Basic Registration ✅ Completed
-🔄 Step 2: Emergency Contact ⏳ Next
-🔄 Step 3: Date of Birth ⏳ Pending
-🔄 Step 4: FA Registration ⏳ Pending
-
-📝 Next Step: Emergency Contact
+{progress_display}
+📝 Next Step: {next_step_name}
 Please provide your emergency contact information:
 • Name of emergency contact
 • Their phone number
@@ -129,7 +150,11 @@ Ready to continue? Just reply with your emergency contact details!"""
         except Exception as e:
             logging.error(f"Error generating welcome message: {e}")
             return "Welcome! Let's get you set up. Please provide your emergency contact details."
-    
+
+    def _format_step_name(self, step_id: str) -> str:
+        """Formats a step ID into a human-readable name."""
+        return step_id.replace("_", " ").title()
+
     async def process_response(self, user_id: str, response: str) -> Tuple[bool, str]:
         """Process user response during onboarding."""
         try:
@@ -153,18 +178,26 @@ Ready to continue? Just reply with your emergency contact details!"""
                 return await self._handle_restart_request(player)
             
             # Get current step and handle response
-            current_step = player._get_current_step()
-            
+            current_step = player.get_current_onboarding_step()
+
+            # Find the index of the current step in the defined onboarding_steps
+            try:
+                current_step_index = self.onboarding_steps.index(current_step)
+            except ValueError:
+                # If current_step is not in the defined steps, it might be 'completion' or an invalid state
+                if current_step == "completion":
+                    return await self._handle_completion(player)
+                return False, "❌ Invalid onboarding step or configuration mismatch."
+
+            # Handle the current step based on its ID
             if current_step == "emergency_contact":
                 return await self._handle_emergency_contact(player, response)
             elif current_step == "date_of_birth":
                 return await self._handle_date_of_birth(player, response)
             elif current_step == "fa_registration":
                 return await self._handle_fa_registration(player, response)
-            elif current_step == "completion":
-                return await self._handle_completion(player)
             else:
-                return False, "❌ Invalid onboarding step"
+                return False, "❌ Unhandled onboarding step."
                 
         except Exception as e:
             logging.error(f"Error processing onboarding response: {e}")
@@ -215,8 +248,32 @@ Try again with the correct format."""
             }
             
             updated_player = await self.player_service.update_player(player.id, **updates)
-            
-            return True, f"""✅ Emergency Contact Saved!
+
+            # Determine the next step dynamically
+            current_step_index = self.onboarding_steps.index("emergency_contact")
+            next_step_index = current_step_index + 1
+            next_step_message = ""
+            if next_step_index < len(self.onboarding_steps):
+                next_step_id = self.onboarding_steps[next_step_index]
+                next_step_name = self._format_step_name(next_step_id)
+                next_step_message = f"\n\n📝 Next Step: {next_step_name}"
+                if next_step_id == "date_of_birth":
+                    next_step_message += "\nPlease provide your date of birth (DD/MM/YYYY format):\n\n💡 Example: \"My date of birth is 15/05/1995\"\n\nReady to continue? Just reply with your date of birth!"
+                elif next_step_id == "fa_registration":
+                    next_step_message += "\nAre you currently registered with the Football Association (FA)?\n\n💡 Options:\n• \"Yes, I am FA registered\"\n• \"No, I'm not FA registered\"\n• \"I'm not sure, please help\"\n\nReady to continue? Just reply with your FA registration status!"
+            else:
+                next_step_message = "\n\n🎉 You've completed all initial onboarding steps! Please wait for admin approval."
+
+            progress_display = ""
+            for i, step_id in enumerate(self.onboarding_steps):
+                status = "⏳ Pending"
+                if player.onboarding_progress.get(step_id, {}).get("completed"):
+                    status = "✅ Completed"
+                elif i == next_step_index -1:
+                    status = "⏳ Next"
+                progress_display += f"🔄 Step {i+2}: {self._format_step_name(step_id)} {status}\n"
+
+            return f"""✅ Emergency Contact Saved!
 
 📋 Emergency Contact:
 • Name: {parsed_contact['name']}
@@ -225,16 +282,8 @@ Try again with the correct format."""
 
 📊 Onboarding Progress:
 🔄 Step 1: Basic Registration ✅ Completed
-🔄 Step 2: Emergency Contact ✅ Completed
-🔄 Step 3: Date of Birth ⏳ Next
-🔄 Step 4: FA Registration ⏳ Pending
-
-📝 Next Step: Date of Birth
-Please provide your date of birth (DD/MM/YYYY format):
-
-💡 Example: "My date of birth is 15/05/1995"
-
-Ready to continue? Just reply with your date of birth!"""
+{progress_display}
+{next_step_message}"""
             
         except Exception as e:
             logging.error(f"Error handling emergency contact: {e}")
@@ -280,8 +329,30 @@ Please provide a valid date of birth."""
             }
             
             updated_player = await self.player_service.update_player(player.id, **updates)
-            
-            return True, f"""✅ Date of Birth Saved!
+
+            # Determine the next step dynamically
+            current_step_index = self.onboarding_steps.index("date_of_birth")
+            next_step_index = current_step_index + 1
+            next_step_message = ""
+            if next_step_index < len(self.onboarding_steps):
+                next_step_id = self.onboarding_steps[next_step_index]
+                next_step_name = self._format_step_name(next_step_id)
+                next_step_message = f"\n\n📝 Next Step: {next_step_name}"
+                if next_step_id == "fa_registration":
+                    next_step_message += "\nAre you currently registered with the Football Association (FA)?\n\n💡 Options:\n• \"Yes, I am FA registered\"\n• \"No, I\'m not FA registered\"\n• \"I\'m not sure, please help\"\n\nReady to continue? Just reply with your FA registration status!"
+            else:
+                next_step_message = "\n\n🎉 You\'ve completed all initial onboarding steps! Please wait for admin approval."
+
+            progress_display = ""
+            for i, step_id in enumerate(self.onboarding_steps):
+                status = "⏳ Pending"
+                if player.onboarding_progress.get(step_id, {}).get("completed"):
+                    status = "✅ Completed"
+                elif i == next_step_index -1:
+                    status = "⏳ Next"
+                progress_display += f"🔄 Step {i+2}: {self._format_step_name(step_id)} {status}\n"
+
+            return f"""✅ Date of Birth Saved!
 
 📋 Personal Information:
 • Date of Birth: {dob.strftime('%d/%m/%Y')}
@@ -289,19 +360,8 @@ Please provide a valid date of birth."""
 
 📊 Onboarding Progress:
 🔄 Step 1: Basic Registration ✅ Completed
-🔄 Step 2: Emergency Contact ✅ Completed
-🔄 Step 3: Date of Birth ✅ Completed
-🔄 Step 4: FA Registration ⏳ Next
-
-📝 Next Step: FA Registration
-Are you currently registered with the Football Association (FA)?
-
-💡 Options:
-• "Yes, I am FA registered"
-• "No, I'm not FA registered"
-• "I'm not sure, please help"
-
-Ready to continue? Just reply with your FA registration status!"""
+{progress_display}
+{next_step_message}"""
             
         except Exception as e:
             logging.error(f"Error handling date of birth: {e}")
@@ -357,23 +417,43 @@ Please reply with one of these exact phrases."""
             # Mark onboarding as completed
             updates['onboarding_status'] = OnboardingStatus.COMPLETED
             updates['onboarding_completed_at'] = datetime.now()
-            
+
             updated_player = await self.player_service.update_player(player.id, **updates)
-            
+
             # Notify admin that onboarding is completed
             await self._notify_admin_onboarding_completed(updated_player)
+
+            # Send post-onboarding welcome and tutorial
+            welcome_message = await self._send_post_onboarding_welcome_and_tutorial(updated_player)
+
+            return True, welcome_message
             
-            return True, f"""✅ FA Registration Status Saved!
+        except Exception as e:
+            logging.error(f"Error handling FA registration: {e}")
+            return False, f"Error processing FA registration: {str(e)}"
+    
+    async def _send_post_onboarding_welcome_and_tutorial(self, player: Player) -> str:
+        """Sends a welcome message and initiates tutorial post-onboarding."""
+        try:
+            # Notify admin that onboarding is completed
+            await self._notify_admin_onboarding_completed(player)
+
+            progress_display = ""
+            for i, step_id in enumerate(self.onboarding_steps):
+                status = "⏳ Pending"
+                if player.onboarding_progress.get(step_id, {}).get("completed"):
+                    status = "✅ Completed"
+                progress_display += f"🔄 Step {i+2}: {self._format_step_name(step_id)} {status}\n"
+
+            message = f"""✅ FA Registration Status Saved!
 
 📋 FA Registration:
-• Status: {'Registered' if fa_registered else 'Not Registered'}
-• Eligibility: {'Yes' if fa_eligible else 'No'} (based on admin settings)
+• Status: {'Registered' if player.fa_registered else 'Not Registered'}
+• Eligibility: {'Yes' if player.fa_eligible else 'No'} (based on admin settings)
 
 📊 Onboarding Progress:
 🔄 Step 1: Basic Registration ✅ Completed
-🔄 Step 2: Emergency Contact ✅ Completed
-🔄 Step 3: Date of Birth ✅ Completed
-🔄 Step 4: FA Registration ✅ Completed
+{progress_display}
 
 🎉 Congratulations! Your onboarding is complete!
 
@@ -384,7 +464,7 @@ Please reply with one of these exact phrases."""
 • Phone: {player.phone}
 • Emergency Contact: {player.emergency_contact}
 • Date of Birth: {player.date_of_birth}
-• FA Registered: {'Yes' if fa_registered else 'No'}
+• FA Registered: {'Yes' if player.fa_registered else 'No'}
 
 📊 Status:
 • Onboarding: ✅ Completed
@@ -403,25 +483,32 @@ Please reply with one of these exact phrases."""
 • /status - Check your status
 • /list - See all team players
 • /help - Get assistance"""
-            
+            return message
         except Exception as e:
-            logging.error(f"Error handling FA registration: {e}")
-            return False, f"Error processing FA registration: {str(e)}"
-    
+            logging.error(f"Error sending post-onboarding welcome and tutorial: {e}")
+            return "Error sending welcome message. Please contact admin for assistance."
+
     async def _handle_help_request(self, player: Player) -> Tuple[bool, str]:
         """Handle help request from player."""
         try:
             progress = player.get_onboarding_progress()
             current_step = progress['current_step']
             
+            progress_display = ""
+            for i, step_id in enumerate(self.onboarding_steps):
+                status = "⏳ Pending"
+                if progress['steps'].get(step_id, {}).get("completed"):
+                    status = "✅ Completed"
+                elif step_id == current_step:
+                    status = "⏳ Next"
+                progress_display += f"🔄 Step {i+2}: {self._format_step_name(step_id)} {status}\n"
+
             if current_step == "emergency_contact":
-                help_text = """💡 Onboarding Help
+                help_text = f"""💡 Onboarding Help
 
 📊 Your Current Progress:
 🔄 Step 1: Basic Registration ✅ Completed
-🔄 Step 2: Emergency Contact ⏳ Next
-🔄 Step 3: Date of Birth ⏳ Pending
-🔄 Step 4: FA Registration ⏳ Pending
+{progress_display}
 
 📝 Current Step: Emergency Contact
 
@@ -443,13 +530,11 @@ What you need to provide:
 Ready to continue? Just reply with your emergency contact details!"""
             
             elif current_step == "date_of_birth":
-                help_text = """💡 Onboarding Help
+                help_text = f"""💡 Onboarding Help
 
 📊 Your Current Progress:
 🔄 Step 1: Basic Registration ✅ Completed
-🔄 Step 2: Emergency Contact ✅ Completed
-🔄 Step 3: Date of Birth ⏳ Next
-🔄 Step 4: FA Registration ⏳ Pending
+{progress_display}
 
 📝 Current Step: Date of Birth
 
@@ -469,13 +554,11 @@ What you need to provide:
 Ready to continue? Just reply with your date of birth!"""
             
             elif current_step == "fa_registration":
-                help_text = """💡 Onboarding Help
+                help_text = f"""💡 Onboarding Help
 
 📊 Your Current Progress:
 🔄 Step 1: Basic Registration ✅ Completed
-🔄 Step 2: Emergency Contact ✅ Completed
-🔄 Step 3: Date of Birth ✅ Completed
-🔄 Step 4: FA Registration ⏳ Next
+{progress_display}
 
 📝 Current Step: FA Registration
 
@@ -495,13 +578,11 @@ What you need to provide:
 Ready to continue? Just reply with your FA registration status!"""
             
             else:
-                help_text = """💡 Onboarding Help
+                help_text = f"""💡 Onboarding Help
 
 📊 Your Current Progress:
 🔄 Step 1: Basic Registration ✅ Completed
-🔄 Step 2: Emergency Contact ✅ Completed
-🔄 Step 3: Date of Birth ✅ Completed
-🔄 Step 4: FA Registration ✅ Completed
+{progress_display}
 
 🎉 Your onboarding is complete! 
 
@@ -525,17 +606,20 @@ Ready to continue? Just reply with your FA registration status!"""
     async def _handle_restart_request(self, player: Player) -> Tuple[bool, str]:
         """Handle restart onboarding request."""
         try:
-            progress = player.get_onboarding_progress()
-            
+            progress_display = ""
+            for i, step_id in enumerate(self.onboarding_steps):
+                status = "⏳ Pending"
+                if progress['steps'].get(step_id, {}).get("completed"):
+                    status = "✅ Completed"
+                progress_display += f"🔄 Step {i+2}: {self._format_step_name(step_id)} {status}\n"
+
             return True, f"""🔄 Restarting Onboarding
 
 Are you sure you want to restart your onboarding? This will clear all your progress.
 
 📊 Current Progress:
 🔄 Step 1: Basic Registration ✅ Completed
-🔄 Step 2: Emergency Contact {'✅ Completed' if progress['steps']['emergency_contact']['completed'] else '⏳ Pending'}
-🔄 Step 3: Date of Birth {'✅ Completed' if progress['steps']['date_of_birth']['completed'] else '⏳ Pending'}
-🔄 Step 4: FA Registration {'✅ Completed' if progress['steps']['fa_registration']['completed'] else '⏳ Pending'}
+{progress_display}
 
 💡 Options:
 • "Yes, restart" - Clear progress and start over
@@ -559,7 +643,7 @@ What would you like to do?"""
 • Onboarding: ✅ Completed
 • Admin Approval: ✅ Approved
 • Match Eligibility: ✅ Eligible
-• FA Registration: {'✅ Registered' if player.fa_registered else '⚠️ Not Registered (Contact admin if needed)'}
+• FA Registration: {'✅ Registered' if player.is_fa_registered() else '⚠️ Not Registered (Contact admin if needed)'}
 
 🏆 You're now a full member of KICKAI Team!
 

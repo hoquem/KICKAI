@@ -5,7 +5,7 @@ This module defines a comprehensive exception hierarchy for the KICKAI system,
 providing proper error categorization and context for different types of failures.
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from dataclasses import dataclass
 
 
@@ -320,6 +320,43 @@ class PaymentAuthenticationError(PaymentError, AuthenticationError):
 
 class PaymentNotFoundError(PaymentError, NotFoundError):
     """Payment not found errors."""
+    pass
+
+
+# Match Errors
+class MatchError(KICKAIError):
+    """Base exception for match-related errors."""
+    pass
+
+
+class MatchNotFoundError(MatchError, NotFoundError):
+    """Match not found errors."""
+    pass
+
+
+class MatchValidationError(MatchError, GeneralValidationError):
+    """Match validation errors."""
+    pass
+
+
+class MatchPermissionError(MatchError):
+    """Match permission errors."""
+    pass
+
+
+# Expense Errors
+class ExpenseError(KICKAIError):
+    """Base exception for expense-related errors."""
+    pass
+
+
+class ExpenseNotFoundError(ExpenseError, NotFoundError):
+    """Expense not found errors."""
+    pass
+
+
+class ExpenseValidationError(ExpenseError, GeneralValidationError):
+    """Expense validation errors."""
     pass
 
 

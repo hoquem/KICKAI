@@ -14,11 +14,11 @@ import logging
 
 from ..core.exceptions import (
     PlayerError, PlayerNotFoundError, PlayerValidationError, 
-    PlayerDuplicateError, create_error_context
+    PlayerDuplicateError
 )
 from ..services.player_service import get_player_service
 from ..services.team_service import get_team_service
-from ..database.models import Player, PlayerPosition, PlayerRole, OnboardingStatus
+from src.database.models_improved import Player, PlayerPosition, PlayerRole, OnboardingStatus
 
 # Import improved onboarding workflow
 from .onboarding_handler_improved import get_improved_onboarding_workflow
@@ -377,7 +377,7 @@ Welcome aboard! 🏆
             team_name = team.name if team else "the team"
             
             # Generate onboarding message based on current status
-            if player.onboarding_status == OnboardingStatus.PENDING:
+            if player.is_pending_onboarding():
                 message = (
                     f"Welcome to {team_name}, {format_player_name(player.name)}!\n\n"
                     f"I'm here to help you complete your registration. Let's start by confirming your details:\n\n"
@@ -393,7 +393,7 @@ Welcome aboard! 🏆
                     f"If you need help, type help."
                 )
             
-            elif player.onboarding_status == OnboardingStatus.IN_PROGRESS:
+            elif player.is_pending_onboarding():
                 # Check if onboarding should be auto-completed
                 if (player.emergency_contact and player.date_of_birth and player.fa_eligible is not None):
                     # Auto-complete onboarding if all required fields are present
@@ -493,7 +493,7 @@ What to do next:"""
         """Legacy onboarding response processing for backward compatibility."""
         try:
             # Handle different onboarding steps
-            if player.onboarding_status == OnboardingStatus.PENDING:
+            if player.is_pending_onboarding():
                 # First step: Confirm participation
                 if response.lower() in ['yes', 'confirm', 'y']:
                     updated_player = await self.player_service.update_player(
@@ -505,7 +505,7 @@ What to do next:"""
                 else:
                     return False, "❌ Please confirm your participation to continue with onboarding."
             
-            elif player.onboarding_status == OnboardingStatus.IN_PROGRESS:
+            elif player.is_pending_onboarding():
                 if player.onboarding_step == "emergency_contact":
                     # Validate emergency contact format
                     if not self._validate_emergency_contact(response):
@@ -573,11 +573,11 @@ What to do next:"""
                 return False, f"❌ Player {player_id} not found"
             
             # Check if player is already a team member (should be after being added and invited)
-            if player.onboarding_status not in [OnboardingStatus.COMPLETED, OnboardingStatus.PENDING]:
-                return False, f"❌ Player {format_player_name(player.name)} is not yet a team member (status: {player.onboarding_status.value}). They need to complete onboarding first."
+            if not player.is_pending_approval() and not player.is_active():
+                return False, f"❌ Player {format_player_name(player.name)} is not yet a team member (status: {player.get_display_status()}). They need to complete onboarding first."
             
             # Check if player is already approved for match squad selection
-            if player.match_eligible:
+            if player.is_match_eligible():
                 return False, f"❌ Player {format_player_name(player.name)} is already approved for match squad selection."
             
             # Approve player for match squad selection
@@ -667,9 +667,7 @@ What to do next:"""
         try:
             # Get all players who are team members but not yet approved for match squad selection
             players = await self.player_service.get_team_players(self.team_id)
-            pending_players = [p for p in players if 
-                             p.onboarding_status in [OnboardingStatus.COMPLETED, OnboardingStatus.PENDING] and 
-                             not p.match_eligible]
+            pending_players = [p for p in players if p.is_pending_approval()]
             
             if not pending_players:
                 return True, "✅ No players pending match squad approval."
@@ -679,9 +677,9 @@ What to do next:"""
                 message += f"• <b>{format_player_name(player.name)}</b> ({player.player_id.upper()})\n"
                 message += f"  📱 Phone: {player.phone or 'Not provided'}\n"
                 message += f"  ⚽ Position: {player.position.value.title() if hasattr(player.position, 'value') else player.position}\n"
-                message += f"  📊 Status: {player.onboarding_status.value.title()}\n"
-                message += f"  🏆 FA Registered: {'Yes' if player.fa_registered else 'No'}\n"
-                message += f"  ✅ FA Eligible: {'Yes' if player.fa_eligible else 'No'}\n"
+                message += f"  📊 Status: {player.get_display_status()}\n"
+                message += f"  🏆 FA Registered: {'Yes' if player.is_fa_registered() else 'No'}\n"
+                message += f"  ✅ FA Eligible: {'Yes' if player.is_fa_eligible() else 'No'}\n"
                 if player.telegram_username:
                     message += f"  📱 Telegram: @{player.telegram_username}\n"
                 message += "\n"
@@ -791,9 +789,9 @@ What to do next:"""
 📱 <b>Phone:</b> {player.phone}
 ⚽ <b>Position:</b> {player.position.value if hasattr(player.position, 'value') else player.position}
 📧 <b>Email:</b> {player.email or 'Not provided'}
-🏆 <b>FA Registered:</b> {'Yes' if player.fa_registered else 'No'}
-✅ <b>FA Eligible:</b> {'Yes' if player.fa_eligible else 'No'}
-📊 <b>Status:</b> {player.onboarding_status.value if hasattr(player.onboarding_status, 'value') else player.onboarding_status}
+🏆 <b>FA Registered:</b> {'Yes' if player.is_fa_registered() else 'No'}
+✅ <b>FA Eligible:</b> {'Yes' if player.is_fa_eligible() else 'No'}
+📊 <b>Status:</b> {player.get_display_status()}
 📅 <b>Date Added:</b> {player.created_at.strftime('%Y-%m-%d') if player.created_at else 'Unknown'}"""
             
             return True, info
@@ -809,11 +807,11 @@ What to do next:"""
             
             stats = {
                 'total_players': len(players),
-                'active_players': len([p for p in players if p.onboarding_status == OnboardingStatus.COMPLETED]),
-                'pending_players': len([p for p in players if p.onboarding_status == OnboardingStatus.PENDING]),
-                'pending_approval': len([p for p in players if p.onboarding_status == OnboardingStatus.PENDING_APPROVAL]),
-                'fa_registered': len([p for p in players if p.fa_registered]),
-                'fa_eligible': len([p for p in players if p.fa_eligible]),
+                'active_players': len([p for p in players if p.is_active()]),
+                'pending_players': len([p for p in players if p.is_pending_approval()]),
+                'pending_approval': len([p for p in players if p.is_pending_approval()]),
+                'fa_registered': len([p for p in players if p.is_fa_registered()]),
+                'fa_eligible': len([p for p in players if p.is_fa_eligible()]),
                 'positions': {},
                 'recent_additions': []
             }
@@ -847,458 +845,12 @@ What to do next:"""
                 'recent_additions': []
             }
 
-
-class PlayerCommandHandler:
-    """Telegram command handler for player operations using new architecture."""
-    
-    def __init__(self, player_handler: PlayerRegistrationHandler):
-        self.player_handler = player_handler
-    
-    async def handle_command(self, command: str, user_id: str, is_leadership_chat: bool = False) -> str:
-        """Handle player registration commands."""
-        try:
-            command = command.strip().lower()
-            
-            if command.startswith('/add '):
-                return await self._handle_add_player(command, user_id)
-            elif command.startswith('/remove '):
-                return await self._handle_remove_player(command, user_id)
-            elif command == '/list':
-                return await self._handle_list_players(is_leadership_chat=is_leadership_chat)
-            elif command.startswith('/list '):
-                # Handle /list with query
-                query = command[6:].strip()  # Remove "/list "
-                return await self._handle_list_players(query, is_leadership_chat=is_leadership_chat)
-            elif command == '/status':
-                return await self._handle_player_status(command, user_id)
-            elif command.startswith('/status '):
-                return await self._handle_player_status(command, user_id)
-            elif command == '/stats':
-                return await self._handle_player_stats()
-            elif command.startswith('/stats '):
-                # Handle /stats with query
-                query = command[7:].strip()  # Remove "/stats "
-                return await self._handle_player_stats(query)
-            elif command.startswith('/invite '):
-                return await self._handle_generate_invitation_message(command)
-            elif command == '/myinfo':
-                return await self._handle_myinfo(user_id)
-            elif command.startswith('/myinfo '):
-                # Handle /myinfo with query
-                query = command[8:].strip()  # Remove "/myinfo "
-                return await self._handle_myinfo(user_id, query)
-            elif command.startswith('/approve '):
-                return await self._handle_approve_player(command, user_id)
-            elif command.startswith('/reject '):
-                return await self._handle_reject_player(command, user_id)
-            elif command == '/pending':
-                return await self._handle_pending_approvals()
-            elif command == '/checkfa':
-                return await self._handle_check_fa_registration()
-            elif command == '/dailystatus':
-                return await self._handle_daily_status()
-            elif command == '/help':
-                return self._get_help_message(is_leadership_chat)
-            elif command.startswith('/start'):
-                return await self._handle_start_command(command, user_id)
-            else:
-                # Try to handle as natural language query
-                return await self._handle_natural_language_query(command, user_id)
-                
-        except Exception as e:
-            return f"❌ Error processing command: {str(e)}"
-
-    async def _handle_natural_language_query(self, message: str, user_id: str) -> str:
-        """Handle natural language queries using LLM intent extraction."""
-        try:
-            from src.utils.llm_client import extract_intent
-            
-            # Use LLM to understand the intent (async version)
-            llm_result = await extract_intent(message, context="Player in team chat asking questions or requesting information")
-            
-            intent = llm_result.intent if hasattr(llm_result, 'intent') else llm_result.get('intent', 'unknown')
-            entities = llm_result.entities if hasattr(llm_result, 'entities') else llm_result.get('entities', {})
-            
-            if intent == 'get_player_info':
-                # Handle player info requests
-                return await self._handle_myinfo(user_id, message)
-            
-            elif intent == 'get_help':
-                # Handle help requests
-                return """💡 <b>How can I help you?</b>
-
-📋 <b>Available Commands:</b>
-• `/myinfo` - Get your player information
-• `/list` - See all team players
-• `/help` - Show this help message
-
-💬 <b>Natural Language:</b>
-You can also ask me things like:
-• "What's my phone number?"
-• "Show me my position"
-• "Am I FA registered?"
-• "What's my player ID?"
-• "How do I update my info?"
-
-🔧 <b>Need to update something?</b>
-Contact the team admin in the leadership chat."""
-            
-            elif intent == 'update_profile':
-                # Handle profile update requests
-                return """📝 <b>Profile Updates</b>
-
-To update your profile information, please contact the team admin in the leadership chat.
-
-You can update:
-• Name
-• Phone number
-• Position
-• Emergency contact
-• Date of birth
-
-💡 <b>Tip:</b> Make sure to provide all the information you want to change."""
-            
-            elif intent == 'get_team_info':
-                # Handle team info requests
-                return await self._handle_list_players()
-            
-            elif intent == 'filter_players':
-                # Handle player filtering requests
-                return await self._handle_list_players(message)
-            
-            elif intent == 'get_team_stats':
-                # Handle team statistics requests
-                return await self._handle_player_stats(message)
-            
-            elif intent == 'get_player_status':
-                # Handle player status requests
-                return await self._handle_player_status("/status", user_id)
-            
-            else:
-                # Unknown intent - provide helpful response
-                return """🤔 <b>I didn't understand that.</b>
-
-💡 <b>Try these:</b>
-• `/myinfo` - Get your player information
-• `/list` - See all team players
-• `/help` - Show help and available commands
-
-💬 <b>Or ask me naturally:</b>
-• "What's my phone number?"
-• "Show me my position"
-• "Am I FA registered?"
-• "How do I update my info?"
-
-If you need specific help, contact the team admin."""
-                
-        except Exception as e:
-            logging.error(f"Error handling natural language query: {e}")
-            return """❌ <b>Sorry, I'm having trouble understanding.</b>
-
-💡 <b>Try these commands:</b>
-• `/myinfo` - Get your player information
-• `/list` - See all team players
-• `/help` - Show help and available commands
-
-If you need help, contact the team admin."""
-
-    async def handle_natural_language_update(self, user_id: str, message: str) -> str:
-        """Handle natural language updates from completed players."""
-        try:
-            from src.utils.llm_intent import extract_intent
-            
-            # Use LLM to understand the update intent
-            llm_result = extract_intent(message, context="Completed player requesting to update their profile information")
-            
-            intent = llm_result.get('intent', 'unknown')
-            entities = llm_result.get('entities', {})
-            
-            # Get player info
-            success, player_info = await self.player_handler.get_player_info(user_id)
-            if not success:
-                return "❌ Unable to find your player information. Please contact an admin."
-            
-            if intent == 'update_phone':
-                new_phone = entities.get('phone_number')
-                if new_phone:
-                    return f"""📱 <b>Phone Number Update Request</b>
-
-I understand you want to update your phone number to: {new_phone}
-
-📋 <b>Current Information:</b>
-{player_info}
-
-⚠️ <b>Important:</b> Phone number updates require admin approval for security reasons.
-
-💡 <b>Next Steps:</b>
-1. Contact the team admin in the leadership chat
-2. Provide your new phone number: {new_phone}
-3. Admin will update your information
-
-🔒 <b>Security Note:</b> This helps prevent unauthorized changes to player information."""
-                else:
-                    return f"""📱 <b>Phone Number Update Request</b>
-
-I understand you want to update your phone number.
-
-📋 <b>Current Information:</b>
-{player_info}
-
-⚠️ <b>Important:</b> Phone number updates require admin approval for security reasons.
-
-💡 <b>Next Steps:</b>
-1. Contact the team admin in the leadership chat
-2. Provide your new phone number
-3. Admin will update your information
-
-🔒 <b>Security Note:</b> This helps prevent unauthorized changes to player information."""
-                
-            elif intent == 'update_emergency_contact':
-                emergency_contact = entities.get('emergency_contact')
-                if emergency_contact:
-                    return f"""🚨 <b>Emergency Contact Update Request</b>
-
-I understand you want to update your emergency contact to: {emergency_contact}
-
-📋 <b>Current Information:</b>
-{player_info}
-
-⚠️ <b>Important:</b> Emergency contact updates require admin approval.
-
-💡 <b>Next Steps:</b>
-1. Contact the team admin in the leadership chat
-2. Provide your new emergency contact: {emergency_contact}
-3. Admin will update your information
-
-🔒 <b>Security Note:</b> This helps ensure accurate emergency contact information."""
-                else:
-                    return f"""🚨 <b>Emergency Contact Update Request</b>
-
-I understand you want to update your emergency contact.
-
-📋 <b>Current Information:</b>
-{player_info}
-
-⚠️ <b>Important:</b> Emergency contact updates require admin approval.
-
-💡 <b>Next Steps:</b>
-1. Contact the team admin in the leadership chat
-2. Provide your new emergency contact
-3. Admin will update your information
-
-🔒 <b>Security Note:</b> This helps ensure accurate emergency contact information."""
-                
-            elif intent == 'update_date_of_birth':
-                dob = entities.get('date_of_birth')
-                if dob:
-                    return f"""📅 <b>Date of Birth Update Request</b>
-
-I understand you want to update your date of birth to: {dob}
-
-📋 <b>Current Information:</b>
-{player_info}
-
-⚠️ <b>Important:</b> Date of birth updates require admin approval.
-
-💡 <b>Next Steps:</b>
-1. Contact the team admin in the leadership chat
-2. Provide your new date of birth: {dob}
-3. Admin will update your information
-
-🔒 <b>Security Note:</b> This helps maintain accurate player records."""
-                else:
-                    return f"""📅 <b>Date of Birth Update Request</b>
-
-I understand you want to update your date of birth.
-
-📋 <b>Current Information:</b>
-{player_info}
-
-⚠️ <b>Important:</b> Date of birth updates require admin approval.
-
-💡 <b>Next Steps:</b>
-1. Contact the team admin in the leadership chat
-2. Provide your new date of birth
-3. Admin will update your information
-
-🔒 <b>Security Note:</b> This helps maintain accurate player records."""
-                
-            elif intent == 'update_position':
-                position = entities.get('position')
-                if position:
-                    return f"""⚽ <b>Position Update Request</b>
-
-I understand you want to update your position to: {position}
-
-📋 <b>Current Information:</b>
-{player_info}
-
-⚠️ <b>Important:</b> Position updates require admin approval.
-
-💡 <b>Next Steps:</b>
-1. Contact the team admin in the leadership chat
-2. Provide your new position: {position}
-3. Admin will update your information
-
-🔒 <b>Security Note:</b> This helps maintain accurate team records."""
-                else:
-                    return f"""⚽ <b>Position Update Request</b>
-
-I understand you want to update your position.
-
-📋 <b>Current Information:</b>
-{player_info}
-
-⚠️ <b>Important:</b> Position updates require admin approval.
-
-💡 <b>Next Steps:</b>
-1. Contact the team admin in the leadership chat
-2. Provide your new position
-3. Admin will update your information
-
-🔒 <b>Security Note:</b> This helps maintain accurate team records."""
-                
-            elif intent == 'update_name':
-                new_name = entities.get('name')
-                if new_name:
-                    return f"""📝 <b>Name Update Request</b>
-
-I understand you want to update your name to: {new_name}
-
-📋 <b>Current Information:</b>
-{player_info}
-
-⚠️ <b>Important:</b> Name updates require admin approval and may affect your player ID.
-
-💡 <b>Next Steps:</b>
-1. Contact the team admin in the leadership chat
-2. Provide your new name: {new_name}
-3. Admin will update your information
-
-🔒 <b>Security Note:</b> Name changes may require updating official team records."""
-                else:
-                    return f"""📝 <b>Name Update Request</b>
-
-I understand you want to update your name.
-
-📋 <b>Current Information:</b>
-{player_info}
-
-⚠️ <b>Important:</b> Name updates require admin approval and may affect your player ID.
-
-💡 <b>Next Steps:</b>
-1. Contact the team admin in the leadership chat
-2. Provide your new name
-3. Admin will update your information
-
-🔒 <b>Security Note:</b> Name changes may require updating official team records."""
-                
-            else:
-                # Generic update request
-                return f"""📝 <b>Profile Update Request</b>
-
-I understand you want to update your profile information.
-
-📋 <b>Current Information:</b>
-{player_info}
-
-⚠️ <b>Important:</b> Profile updates require admin approval for security reasons.
-
-💡 <b>What you can update:</b>
-• Phone number
-• Emergency contact
-• Date of birth
-• Position
-• Name (with admin approval)
-
-🔧 <b>Next Steps:</b>
-1. Contact the team admin in the leadership chat
-2. Clearly state what you want to update
-3. Provide the new information
-4. Admin will process your request
-
-🔒 <b>Security Note:</b> This process helps maintain accurate and secure player records."""
-                
-        except Exception as e:
-            logging.error(f"Error handling natural language update: {e}")
-            return """❌ <b>Sorry, I'm having trouble processing your update request.</b>
-
-💡 <b>Please try:</b>
-1. Contact the team admin directly in the leadership chat
-2. Clearly state what you want to update
-3. Provide the new information
-
-🔧 <b>Available Updates:</b>
-• Phone number
-• Emergency contact
-• Date of birth
-• Position
-• Name (with admin approval)"""
-
-    async def _handle_add_player(self, command: str, user_id: str) -> str:
-        """Handle /add command."""
-        try:
-            # Remove the /add part and split the rest
-            command_parts = command[5:].strip()  # Remove "/add "
-            
-            # Use a more sophisticated parsing approach
-            # Look for phone number pattern to separate name from phone
-            import re
-            phone_pattern = r'\b(?:07\d{9}|08\d{9}|\+44\d{10}|01\d{8,9}|02\d{8,9})\b'
-            phone_match = re.search(phone_pattern, command_parts)
-            
-            if not phone_match:
-                return "❌ Usage: /add name phone position [fa_eligible]\n\nPlease provide a valid UK phone number (e.g., 07123456789, +447123456789)"
-            
-            phone = phone_match.group()
-            phone_start = phone_match.start()
-            phone_end = phone_match.end()
-            
-            # Extract position (last word after phone)
-            after_phone = command_parts[phone_end:].strip()
-            if not after_phone:
-                return "❌ Usage: /add name phone position [fa_eligible]\n\nPlease provide a position (goalkeeper, defender, midfielder, forward, striker, utility)"
-            
-            # Split after phone to get position and optional fa_eligible
-            position_parts = after_phone.split()
-            position = position_parts[0]
-            fa_eligible = len(position_parts) > 1 and position_parts[1].lower() in ['true', 'yes', 'y']
-            
-            # Extract name (everything before phone)
-            name = command_parts[:phone_start].strip()
-            if not name:
-                return "❌ Usage: /add name phone position [fa_eligible]\n\nPlease provide a player name"
-            
-            success, message = await self.player_handler.add_player(
-                name, phone, position, user_id, fa_eligible
-            )
-            return message
-            
-        except Exception as e:
-            logging.error("Failed to handle add player command")
-            return f"❌ Error adding player: {str(e)}"
-    
-    async def _handle_remove_player(self, command: str, user_id: str) -> str:
-        """Handle /removeplayer command."""
-        try:
-            parts = command.split()
-            if len(parts) < 2:
-                return "❌ Usage: /removeplayer phone"
-            
-            phone = parts[1]
-            success, message = await self.player_handler.remove_player(phone, user_id)
-            return message
-            
-        except Exception as e:
-            logging.error("Failed to handle remove player command")
-            return f"❌ Error removing player: {str(e)}"
-    
     async def _handle_list_players(self, query: str = "", is_leadership_chat: bool = False) -> str:
         """Handle /list command with optional natural language filtering."""
         try:
             from src.utils.llm_intent import extract_intent
             
-            players = await self.player_handler.get_all_players()
+            players = await self.get_all_players()
             
             if not players:
                 return "📋 No players found for this team."
@@ -1318,28 +870,28 @@ I understand you want to update your profile information.
                         message = f"📋 <b>Players - {filter_value.title()} Position</b>\n\n"
                     elif filter_type == 'fa_status' and filter_value:
                         if 'registered' in filter_value:
-                            players = [p for p in players if p.fa_registered]
+                            players = [p for p in players if p.is_fa_registered()]
                             message = "📋 <b>Players - FA Registered</b>\n\n"
                         elif 'not' in filter_value or 'unregistered' in filter_value:
-                            players = [p for p in players if not p.fa_registered]
+                            players = [p for p in players if not p.is_fa_registered()]
                             message = "📋 <b>Players - FA Not Registered</b>\n\n"
                         else:
                             message = "📋 <b>Team Players</b>\n\n"
                     elif filter_type == 'match_eligibility' and filter_value:
                         if 'eligible' in filter_value:
-                            players = [p for p in players if p.match_eligible]
+                            players = [p for p in players if p.is_match_eligible()]
                             message = "📋 <b>Players - Match Eligible</b>\n\n"
                         elif 'pending' in filter_value:
-                            players = [p for p in players if not p.match_eligible]
+                            players = [p for p in players if not p.is_match_eligible()]
                             message = "📋 <b>Players - Pending Approval</b>\n\n"
                         else:
                             message = "📋 <b>Team Players</b>\n\n"
                     elif filter_type == 'status' and filter_value:
                         if 'active' in filter_value or 'completed' in filter_value:
-                            players = [p for p in players if p.onboarding_status == OnboardingStatus.COMPLETED]
+                            players = [p for p in players if p.is_active()]
                             message = "📋 <b>Players - Active</b>\n\n"
                         elif 'pending' in filter_value:
-                            players = [p for p in players if p.onboarding_status == OnboardingStatus.PENDING]
+                            players = [p for p in players if p.is_pending_approval()]
                             message = "📋 <b>Players - Pending</b>\n\n"
                         else:
                             message = "📋 <b>Team Players</b>\n\n"
@@ -1350,36 +902,40 @@ I understand you want to update your profile information.
             else:
                 message = "📋 <b>Team Players</b>\n\n"
             
-            # Group by status
-            active_players = [p for p in players if p.onboarding_status == OnboardingStatus.COMPLETED]
-            pending_players = [p for p in players if p.onboarding_status == OnboardingStatus.PENDING]
+            # Group by status using encapsulated methods
+            active_players = [p for p in players if p.is_active()]
+            pending_players = [p for p in players if p.is_pending_approval()]
+            other_players = [p for p in players if not p.is_active() and not p.is_pending_approval()]
             
             if is_leadership_chat:
                 # Leadership chat - show full information
                 if active_players:
                     message += "✅ <b>Active Players:</b>\n"
                     for player in active_players:
-                        fa_status = "🏆" if player.fa_registered else "⚠️"
-                        match_status = "✅" if player.match_eligible else "⏳"
+                        fa_status = "🏆" if player.is_fa_registered() else "⚠️"
+                        match_status = "✅" if player.is_match_eligible() else "⏳"
                         message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
-                        message += f"  📱 {player.phone} | {fa_status} FA: {'Registered' if player.fa_registered else 'Not Registered'} | {match_status} Match: {'Eligible' if player.match_eligible else 'Pending Approval'}\n"
-                        if player.emergency_contact:
-                            message += f"  🚨 Emergency: {player.emergency_contact}\n"
-                        if player.date_of_birth:
-                            message += f"  📅 DOB: {player.date_of_birth}\n"
+                        message += f"  📱 {player.phone} | {fa_status} | {match_status}\n"
                     message += "\n"
                 
                 if pending_players:
                     message += "⏳ <b>Pending Players:</b>\n"
                     for player in pending_players:
-                        fa_status = "🏆" if player.fa_registered else "⚠️"
-                        match_status = "✅" if player.match_eligible else "⏳"
+                        fa_status = "🏆" if player.is_fa_registered() else "⚠️"
+                        match_status = "✅" if player.is_match_eligible() else "⏳"
                         message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
-                        message += f"  📱 {player.phone} | {fa_status} FA: {'Registered' if player.fa_registered else 'Not Registered'} | {match_status} Match: {'Eligible' if player.match_eligible else 'Pending Approval'}\n"
-                        if player.emergency_contact:
-                            message += f"  🚨 Emergency: {player.emergency_contact}\n"
-                        if player.date_of_birth:
-                            message += f"  📅 DOB: {player.date_of_birth}\n"
+                        message += f"  📱 {player.phone} | {fa_status} | {match_status}\n"
+                    message += "\n"
+                
+                if other_players:
+                    message += "📋 <b>Other Players:</b>\n"
+                    for player in other_players:
+                        fa_status = "🏆" if player.is_fa_registered() else "⚠️"
+                        match_status = "✅" if player.is_match_eligible() else "⏳"
+                        status = player.get_display_status()
+                        message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                        message += f"  📱 {player.phone} | {fa_status} | {match_status} | {status}\n"
+                    message += "\n"
                 
                 # Add legend for leadership
                 message += "\n📊 <b>Legend:</b>\n"
@@ -1397,17 +953,209 @@ I understand you want to update your profile information.
                     message += "⏳ <b>Pending Players:</b>\n"
                     for player in pending_players:
                         message += f"• {format_player_name(player.name)} - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                    message += "\n"
+                
+                if other_players:
+                    message += "📋 <b>Other Players:</b>\n"
+                    for player in other_players:
+                        status = player.get_display_status()
+                        message += f"• {format_player_name(player.name)} - {player.position.value if hasattr(player.position, 'value') else player.position} ({status})\n"
+                    message += "\n"
                 
                 # Add note for main chat
                 message += "\n💡 <b>Note:</b> For detailed player information, check the leadership chat."
             
-            # Add filtering help if query was used
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle list players command")
+            return f"❌ Error listing players: {str(e)}"
+    
+    async def _handle_add_player(self, command: str, user_id: str) -> str:
+        """Handle /add command - add a new player to the team."""
+        try:
+            # Parse command: /add name phone position
+            parts = command.split()
+            if len(parts) < 4:
+                return """❌ <b>Invalid format</b>
+
+📝 <b>Usage:</b> /add [name] [phone] [position]
+
+📋 <b>Example:</b> /add John Smith 07123456789 midfielder
+
+⚽ <b>Valid positions:</b> goalkeeper, defender, midfielder, forward, striker, utility
+
+💡 <b>Note:</b> Only team admins can add players."""
+            
+            # Extract parameters
+            name = parts[1]
+            phone = parts[2]
+            position = parts[3]
+            
+            # Check if there are additional parts for multi-word names
+            if len(parts) > 4:
+                # Reconstruct name if it has multiple words
+                name = " ".join(parts[1:-2])  # All parts except last two (phone and position)
+                phone = parts[-2]
+                position = parts[-1]
+            
+            # Validate position
+            valid_positions = ['goalkeeper', 'defender', 'midfielder', 'forward', 'striker', 'utility']
+            if position.lower() not in valid_positions:
+                return f"""❌ <b>Invalid position</b>
+
+⚽ <b>Valid positions:</b> {', '.join(valid_positions)}
+
+📝 <b>Try again:</b> /add {name} {phone} [position]"""
+            
+            # Add player using existing method
+            success, message = await self.add_player(
+                name, phone, position, user_id, fa_eligible=True  # Default to FA eligible
+            )
+            
+            if success:
+                return message
+            else:
+                return f"❌ <b>Failed to add player</b>\n\n{message}"
+                
+        except Exception as e:
+            logging.error(f"Error in add player command: {e}")
+            return f"❌ Error adding player: {str(e)}"
+
+    async def _handle_remove_player(self, command: str, user_id: str) -> str:
+        """Handle /removeplayer command."""
+        try:
+            parts = command.split()
+            if len(parts) < 2:
+                return "❌ Usage: /removeplayer phone"
+            
+            phone = parts[1]
+            success, message = await self.remove_player(phone, user_id)
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle remove player command")
+            return f"❌ Error removing player: {str(e)}"
+    
+    async def _handle_list_players(self, query: str = "", is_leadership_chat: bool = False) -> str:
+        """Handle /list command with optional natural language filtering."""
+        try:
+            from src.utils.llm_intent import extract_intent
+            
+            players = await self.get_all_players()
+            
+            if not players:
+                return "📋 No players found for this team."
+            
+            # If query provided, use LLM to understand filtering intent
             if query:
-                message += "\n💡 <b>Try these filters:</b>\n"
-                message += "• \"Show me strikers\"\n"
-                message += "• \"Who's FA registered?\"\n"
-                message += "• \"Show match eligible players\"\n"
-                message += "• \"Active players only\"\n"
+                llm_result = extract_intent(query, context="Player asking about team players. Available filters: position, fa_status, match_eligibility, status")
+                
+                if llm_result.get('intent') == 'filter_players':
+                    entities = llm_result.get('entities', {})
+                    filter_type = entities.get('filter_type', 'all')
+                    filter_value = entities.get('filter_value', '').lower()
+                    
+                    # Apply filters based on LLM extraction
+                    if filter_type == 'position' and filter_value:
+                        players = [p for p in players if filter_value in p.position.value.lower()]
+                        message = f"📋 <b>Players - {filter_value.title()} Position</b>\n\n"
+                    elif filter_type == 'fa_status' and filter_value:
+                        if 'registered' in filter_value:
+                            players = [p for p in players if p.is_fa_registered()]
+                            message = "📋 <b>Players - FA Registered</b>\n\n"
+                        elif 'not' in filter_value or 'unregistered' in filter_value:
+                            players = [p for p in players if not p.is_fa_registered()]
+                            message = "📋 <b>Players - FA Not Registered</b>\n\n"
+                        else:
+                            message = "📋 <b>Team Players</b>\n\n"
+                    elif filter_type == 'match_eligibility' and filter_value:
+                        if 'eligible' in filter_value:
+                            players = [p for p in players if p.is_match_eligible()]
+                            message = "📋 <b>Players - Match Eligible</b>\n\n"
+                        elif 'pending' in filter_value:
+                            players = [p for p in players if not p.is_match_eligible()]
+                            message = "📋 <b>Players - Pending Approval</b>\n\n"
+                        else:
+                            message = "📋 <b>Team Players</b>\n\n"
+                    elif filter_type == 'status' and filter_value:
+                        if 'active' in filter_value or 'completed' in filter_value:
+                            players = [p for p in players if p.is_active()]
+                            message = "📋 <b>Players - Active</b>\n\n"
+                        elif 'pending' in filter_value:
+                            players = [p for p in players if p.is_pending_approval()]
+                            message = "📋 <b>Players - Pending</b>\n\n"
+                        else:
+                            message = "📋 <b>Team Players</b>\n\n"
+                    else:
+                        message = "📋 <b>Team Players</b>\n\n"
+                else:
+                    message = "📋 <b>Team Players</b>\n\n"
+            else:
+                message = "📋 <b>Team Players</b>\n\n"
+            
+            # Group by status using encapsulated methods
+            active_players = [p for p in players if p.is_active()]
+            pending_players = [p for p in players if p.is_pending_approval()]
+            other_players = [p for p in players if not p.is_active() and not p.is_pending_approval()]
+            
+            if is_leadership_chat:
+                # Leadership chat - show full information
+                if active_players:
+                    message += "✅ <b>Active Players:</b>\n"
+                    for player in active_players:
+                        fa_status = "🏆" if player.is_fa_registered() else "⚠️"
+                        match_status = "✅" if player.is_match_eligible() else "⏳"
+                        message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                        message += f"  📱 {player.phone} | {fa_status} | {match_status}\n"
+                    message += "\n"
+                
+                if pending_players:
+                    message += "⏳ <b>Pending Players:</b>\n"
+                    for player in pending_players:
+                        fa_status = "🏆" if player.is_fa_registered() else "⚠️"
+                        match_status = "✅" if player.is_match_eligible() else "⏳"
+                        message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                        message += f"  📱 {player.phone} | {fa_status} | {match_status}\n"
+                    message += "\n"
+                
+                if other_players:
+                    message += "📋 <b>Other Players:</b>\n"
+                    for player in other_players:
+                        fa_status = "🏆" if player.is_fa_registered() else "⚠️"
+                        match_status = "✅" if player.is_match_eligible() else "⏳"
+                        status = player.get_display_status()
+                        message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                        message += f"  📱 {player.phone} | {fa_status} | {match_status} | {status}\n"
+                    message += "\n"
+                
+                # Add legend for leadership
+                message += "\n📊 <b>Legend:</b>\n"
+                message += "🏆 FA Registered | ⚠️ FA Not Registered\n"
+                message += "✅ Match Eligible | ⏳ Pending Approval\n"
+            else:
+                # Main chat - show minimal information
+                if active_players:
+                    message += "✅ <b>Active Players:</b>\n"
+                    for player in active_players:
+                        message += f"• {format_player_name(player.name)} - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                    message += "\n"
+                
+                if pending_players:
+                    message += "⏳ <b>Pending Players:</b>\n"
+                    for player in pending_players:
+                        message += f"• {format_player_name(player.name)} - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                    message += "\n"
+                
+                if other_players:
+                    message += "📋 <b>Other Players:</b>\n"
+                    for player in other_players:
+                        status = player.get_display_status()
+                        message += f"• {format_player_name(player.name)} - {player.position.value if hasattr(player.position, 'value') else player.position} ({status})\n"
+                    message += "\n"
+                
+                # Add note for main chat
+                message += "\n💡 <b>Note:</b> For detailed player information, check the leadership chat."
             
             return message
             
@@ -1426,7 +1174,7 @@ I understand you want to update your profile information.
                     return "❌ Usage: /status phone (for admins) or /status (for your own status)"
                 
                 # Get player by telegram user ID
-                success, message = await self.player_handler.get_player_info(user_id)
+                success, message = await self.get_player_info(user_id)
                 if success:
                     return f"📊 <b>Your Status</b>\n\n{message}"
                 else:
@@ -1434,7 +1182,7 @@ I understand you want to update your profile information.
             
             # If phone provided, check that specific player's status (admin function)
             phone = parts[1]
-            player = await self.player_handler.get_player_by_phone(phone)
+            player = await self.get_player_by_phone(phone)
             
             if not player:
                 return f"❌ Player with phone {phone} not found"
@@ -1445,9 +1193,9 @@ I understand you want to update your profile information.
 🆔 <b>Player ID:</b> {player.player_id.upper()}
 📱 <b>Phone:</b> {player.phone}
 ⚽ <b>Position:</b> {player.position.value if hasattr(player.position, 'value') else player.position}
-📊 <b>Onboarding Status:</b> {player.onboarding_status.value if hasattr(player.onboarding_status, 'value') else player.onboarding_status}
-🏆 <b>FA Registered:</b> {'Yes' if player.fa_registered else 'No'}
-✅ <b>FA Eligible:</b> {'Yes' if player.fa_eligible else 'No'}
+📊 <b>Status:</b> {player.get_display_status()}
+🏆 <b>FA Registered:</b> {'Yes' if player.is_fa_registered() else 'No'}
+✅ <b>FA Eligible:</b> {'Yes' if player.is_fa_eligible() else 'No'}
 📅 <b>Date Added:</b> {player.created_at.strftime('%Y-%m-%d') if player.created_at else 'Unknown'}"""
             
             return status_message
@@ -1461,113 +1209,27 @@ I understand you want to update your profile information.
         try:
             from src.utils.llm_intent import extract_intent
             
-            stats = await self.player_handler.get_player_stats()
+            stats = await self.get_player_stats()
             
-            # If query provided, use LLM to understand what stats are requested
-            if query:
-                llm_result = extract_intent(query, context="Player asking about team statistics. Available stats: total_players, active_players, pending_players, fa_registered, fa_eligible, positions, recent_additions")
-                
-                if llm_result.get('intent') == 'get_team_stats':
-                    entities = llm_result.get('entities', {})
-                    stat_type = entities.get('stat_type', 'all')
-                    
-                    if stat_type == 'overview' or stat_type == 'summary':
-                        message = f"""📊 <b>Team Overview</b>
+            message = f"""📊 <b>Team Statistics</b>
 
 👥 <b>Total Players:</b> {stats['total_players']}
 ✅ <b>Active Players:</b> {stats['active_players']}
 ⏳ <b>Pending Players:</b> {stats['pending_players']}
 🏆 <b>FA Registered:</b> {stats['fa_registered']}
 ✅ <b>FA Eligible:</b> {stats['fa_eligible']}"""
-                    
-                    elif stat_type == 'positions':
-                        message = f"""⚽ <b>Position Breakdown</b>
-
-Total Players: {stats['total_players']}"""
-                        for position, count in stats['positions'].items():
-                            message += f"\n• {position}: {count}"
-                    
-                    elif stat_type == 'fa_status':
-                        message = f"""🏆 <b>FA Registration Status</b>
-
-Total Players: {stats['total_players']}
-✅ <b>FA Registered:</b> {stats['fa_registered']}
-✅ <b>FA Eligible:</b> {stats['fa_eligible']}
-⚠️ <b>Not FA Registered:</b> {stats['total_players'] - stats['fa_registered']}"""
-                    
-                    elif stat_type == 'recent':
-                        if stats['recent_additions']:
-                            message = "🆕 <b>Recent Additions</b>\n\n"
-                            for addition in stats['recent_additions'][:5]:
-                                message += f"• {format_player_name(addition['name'])} ({addition['date']})\n"
-                        else:
-                            message = "🆕 <b>Recent Additions</b>\n\nNo recent additions."
-                    
-                    else:
-                        # Default to full stats
-                        message = f"""📊 <b>Team Statistics</b>
-
-👥 <b>Total Players:</b> {stats['total_players']}
-✅ <b>Active Players:</b> {stats['active_players']}
-⏳ <b>Pending Players:</b> {stats['pending_players']}
-🏆 <b>FA Registered:</b> {stats['fa_registered']}
-✅ <b>FA Eligible:</b> {stats['fa_eligible']}
-
-⚽ <b>Position Breakdown:</b>"""
-                        
-                        for position, count in stats['positions'].items():
-                            message += f"\n• {position}: {count}"
-                        
-                        if stats['recent_additions']:
-                            message += "\n\n🆕 <b>Recent Additions:</b>"
-                            for addition in stats['recent_additions'][:5]:
-                                message += f"\n• {format_player_name(addition['name'])} ({addition['date']})"
-                else:
-                    # Default to full stats if LLM doesn't understand
-                    message = f"""📊 <b>Team Statistics</b>
-
-👥 <b>Total Players:</b> {stats['total_players']}
-✅ <b>Active Players:</b> {stats['active_players']}
-⏳ <b>Pending Players:</b> {stats['pending_players']}
-🏆 <b>FA Registered:</b> {stats['fa_registered']}
-✅ <b>FA Eligible:</b> {stats['fa_eligible']}
-
-⚽ <b>Position Breakdown:</b>"""
-                    
-                    for position, count in stats['positions'].items():
-                        message += f"\n• {position}: {count}"
-                    
-                    if stats['recent_additions']:
-                        message += "\n\n🆕 <b>Recent Additions:</b>"
-                        for addition in stats['recent_additions'][:5]:
-                            message += f"\n• {format_player_name(addition['name'])} ({addition['date']})"
-            else:
-                # Default to full stats
-                message = f"""📊 <b>Team Statistics</b>
-
-👥 <b>Total Players:</b> {stats['total_players']}
-✅ <b>Active Players:</b> {stats['active_players']}
-⏳ <b>Pending Players:</b> {stats['pending_players']}
-🏆 <b>FA Registered:</b> {stats['fa_registered']}
-✅ <b>FA Eligible:</b> {stats['fa_eligible']}
-
-⚽ <b>Position Breakdown:</b>"""
-                
+            
+            # Add position breakdown
+            if stats['positions']:
+                message += "\n\n⚽ <b>Position Breakdown:</b>"
                 for position, count in stats['positions'].items():
                     message += f"\n• {position}: {count}"
-                
-                if stats['recent_additions']:
-                    message += "\n\n🆕 <b>Recent Additions:</b>"
-                    for addition in stats['recent_additions'][:5]:
-                        message += f"\n• {format_player_name(addition['name'])} ({addition['date']})"
             
-            # Add help if query was used
-            if query:
-                message += "\n\n💡 <b>Try these queries:</b>\n"
-                message += "• \"Show me position breakdown\"\n"
-                message += "• \"How many FA registered?\"\n"
-                message += "• \"Recent additions\"\n"
-                message += "• \"Team overview\"\n"
+            # Add recent additions
+            if stats['recent_additions']:
+                message += "\n\n🆕 <b>Recent Additions:</b>"
+                for player in stats['recent_additions'][:5]:  # Show last 5
+                    message += f"\n• {player['name']} ({player['date']})"
             
             return message
             
@@ -1785,132 +1447,1522 @@ Total Players: {stats['total_players']}
             return f"❌ Error generating daily status: {str(e)}"
 
     async def _handle_start_command(self, command: str, user_id: str) -> str:
-        """Handle /start command with optional player ID parameter."""
+        """Handle /start command."""
         try:
-            parts = command.split()
-            
-            # If no parameters, show welcome message
-            if len(parts) == 1:
-                return """🎉 <b>Welcome to KICKAI Team Management Bot!</b>
+            return """🤖 <b>Welcome to KICKAI Team Bot!</b>
 
-I'm here to help you manage your football team. Here's what I can do:
+📋 <b>Available Commands:</b>
+• `/myinfo` - Get your player information
+• `/list` - See all team players
+• `/help` - Show detailed help
 
-📋 <b>Player Management:</b>
-• Add and remove players
-• Track player status and statistics
-• Generate invitation messages
-• Manage player registrations
-
-👑 <b>Leadership Features:</b>
-• Approve/reject player registrations
-• View pending approvals
-• Team management tools
-
-💡 <b>Getting Started:</b>
-• Type `/help` to see all available commands
-• Use `/add name phone position` to add a player
-• Use `/list` to see all team players
-
-⚽ <b>Need Help?</b>
-Type `/help` for a complete list of commands and examples.
-
-🏆 <b>Team Access:</b>
-• Main team chat: For all players and general communication
-• Leadership chat: For team management (access granted separately)
-
-Welcome to the team! 🏆"""
-            
-            # If there's a player ID parameter, handle player join
-            if len(parts) > 1:
-                player_id = parts[1]
-                success, message = await self.player_handler.player_joined_via_invite(player_id, user_id)
-                
-                if success:
-                    # Get onboarding message for the player
-                    onboarding_success, onboarding_message = await self.player_handler.get_onboarding_message(player_id)
-                    if onboarding_success:
-                        return f"{message}\n\n{onboarding_message}"
-                    else:
-                        return f"{message}\n\n❌ Error getting onboarding message: {onboarding_message}"
-                else:
-                    return f"❌ {message}\n\n💡 Please contact the team admin if you believe this is an error."
-            
-            return "❌ Invalid start command format. Use `/start` or `/start player_id`"
+💬 <b>Need Help?</b>
+Contact the team admin in the leadership chat for assistance."""
             
         except Exception as e:
             logging.error("Failed to handle start command")
             return f"❌ Error processing start command: {str(e)}"
 
     def _get_help_message(self, is_leadership_chat: bool = False) -> str:
-        """Get help message with context-aware commands."""
+        """Get help message."""
         if is_leadership_chat:
-            return """🤖 <b>KICKAI Player Registration Bot (Leadership)</b>
-
-📋 <b>Available Commands:</b>
+            return """📋 <b>Admin Commands</b>
 
 👥 <b>Player Management:</b>
-• `/add name phone position` - Add a new player
-• `/remove phone` - Remove a player
-• `/list` - List all players
-• `/status phone` - Get specific player status (admin only)
-• `/stats` - Get team statistics
-• `/invite phone_or_player_id` - Generate invitation message
+• `/add name phone position` - Add new player
+• `/remove phone_or_player_id` - Remove player
+• `/approve player_id` - Approve player
+• `/reject player_id [reason]` - Reject player
+• `/pending` - Show pending approvals
 
-👤 <b>Player Commands:</b>
+📊 <b>Information:</b>
+• `/list` - Show all players
+• `/status phone` - Check player status
+• `/stats` - Team statistics
+• `/myinfo` - Your information
+
+📝 <b>Other:</b>
+• `/invite phone_or_player_id` - Generate invitation
+• `/help` - Show this help message"""
+        else:
+            return """📋 <b>Player Commands</b>
+
+📊 <b>Information:</b>
 • `/myinfo` - Get your player information
-• `/myinfo query` - Get specific info (e.g., "What's my phone number?")
-• `/status` - Check your own status
 • `/list` - See all team players
-• `/list filter` - Filter players (e.g., "Show me strikers")
-• `/stats` - Get team statistics
-• `/stats type` - Get specific stats (e.g., "Position breakdown")
-
-👨‍💼 <b>Admin Commands:</b>
-• `/approve player_id` - Approve player for match squad selection
-• `/reject player_id [reason]` - Reject a player
-• `/pending` - List players pending match squad approval
-• `/checkfa` - Check FA registration status
-• `/dailystatus` - Generate daily team status report
-
-❓ <b>Help:</b>
 • `/help` - Show this help message
 
-📝 <b>Examples:</b>
-• `/add John Smith 07123456789 midfielder`
-• `/status 07123456789`
-• `/approve JS1` - Approve player for match squad selection
-• `/reject JS1 Not available for matches`
+💬 <b>Need to update something?</b>
+Contact the team admin in the leadership chat."""
+
+    async def handle_natural_language_player_update(self, user_id: str, message: str, is_admin: bool = False) -> str:
+        """
+        Handle natural language player updates.
+        
+        Args:
+            user_id: Telegram user ID
+            message: Natural language update message
+            is_admin: Whether the user is an admin (can update other players)
+            
+        Returns:
+            Response message
+        """
+        try:
+            from src.utils.llm_intent import extract_intent
+            
+            # Use LLM to understand the update intent
+            llm_result = extract_intent(message, context="Player requesting to update profile information")
+            
+            # Handle both dict and IntentResult objects
+            if hasattr(llm_result, 'intent'):
+                intent = llm_result.intent
+                entities = llm_result.entities
+            else:
+                intent = llm_result.get('intent', 'unknown')
+                entities = llm_result.get('entities', {})
+            
+            if intent == 'update_profile':
+                return await self._handle_self_update(user_id, entities, message)
+            elif intent == 'update_other_player' and is_admin:
+                return await self._handle_admin_update(user_id, entities, message)
+            else:
+                return await self._handle_generic_update_request(user_id, message, is_admin)
+                
+        except Exception as e:
+            logging.error(f"Error handling natural language player update: {e}")
+            return """❌ <b>Sorry, I'm having trouble processing your update request.</b>
+
+💡 <b>Please try:</b>
+1. Be more specific about what you want to update
+2. Use clear language like "Change my phone to 07123456789"
+3. Contact the team admin if you need help
+
+🔧 <b>Available Updates:</b>
+• Phone number
+• Emergency contact
+• Date of birth
+• Position
+• Name (with admin approval)"""
+
+    async def _handle_self_update(self, user_id: str, entities: dict, original_message: str) -> str:
+        """Handle a player updating their own information."""
+        try:
+            # Find the player using the player handler
+            players = await self.player_handler.get_all_players()
+            player = None
+            for p in players:
+                if p.telegram_id == user_id:
+                    player = p
+                    break
+            
+            if not player:
+                return "❌ Player not found. Please contact team leadership."
+            
+            # Players can update their details at any time (except player ID)
+            # Only restriction is that they can't change their player ID
+            if 'player_id' in entities:
+                return """❌ <b>Cannot Change Player ID</b>
+
+You cannot change your player ID. This is a unique identifier that cannot be modified.
+
+💡 <b>You can update:</b>
+• Phone number
+• Emergency contact
+• Date of birth
+• Position
+• Name (with admin approval)"""
+            
+            # Prepare updates
+            updates = {}
+            update_fields = []
+            
+            # Process each entity
+            if 'name' in entities:
+                updates['name'] = entities['name']
+                update_fields.append(f"Name: {entities['name']}")
+            
+            if 'phone' in entities:
+                # Validate phone number
+                import re
+                phone_pattern = r'^(07\d{9}|08\d{9}|\+44\d{10}|01\d{8,9}|02\d{8,9})$'
+                if re.match(phone_pattern, entities['phone']):
+                    updates['phone'] = entities['phone']
+                    update_fields.append(f"Phone: {entities['phone']}")
+                else:
+                    return f"❌ <b>Invalid Phone Number</b>\n\nPlease provide a valid UK phone number (e.g., 07123456789)"
+            
+            if 'position' in entities:
+                from src.database.models_improved import PlayerPosition
+                try:
+                    position = PlayerPosition(entities['position'])
+                    updates['position'] = position
+                    update_fields.append(f"Position: {position.value}")
+                except ValueError:
+                    return f"❌ <b>Invalid Position</b>\n\nValid positions: goalkeeper, defender, midfielder, forward, striker, utility"
+            
+            if 'emergency_contact' in entities:
+                updates['emergency_contact'] = entities['emergency_contact']
+                update_fields.append(f"Emergency Contact: {entities['emergency_contact']}")
+            
+            if 'date_of_birth' in entities:
+                # Validate date format
+                import re
+                date_pattern = r'^\d{1,2}[/-]\d{1,2}[/-]\d{4}$'
+                if re.match(date_pattern, entities['date_of_birth']):
+                    updates['date_of_birth'] = entities['date_of_birth']
+                    update_fields.append(f"Date of Birth: {entities['date_of_birth']}")
+                else:
+                    return f"❌ <b>Invalid Date Format</b>\n\nPlease use DD/MM/YYYY format (e.g., 15/05/1995)"
+            
+            if 'fa_eligible' in entities:
+                updates['fa_eligible'] = entities['fa_eligible']
+                update_fields.append(f"FA Eligible: {'Yes' if entities['fa_eligible'] else 'No'}")
+            
+            # Check if we have any updates
+            if not updates:
+                return """❌ <b>No Valid Updates Found</b>
+
+I couldn't identify what you want to update from your message.
+
+💡 <b>Try being more specific:</b>
+• "Change my phone to 07123456789"
+• "Update my position to midfielder"
+• "My emergency contact is John Doe, 07987654321"
+• "My date of birth is 15/05/1995"
+
+🔧 <b>Available Updates:</b>
+• Phone number
+• Emergency contact
+• Date of birth
+• Position
+• Name (with admin approval)"""
+            
+            # Apply updates using the player service
+            from src.services.player_service import get_player_service
+            player_service = get_player_service()
+            updated_player = await player_service.update_player(player.id, **updates)
+            
+            # Generate response
+            response = f"""✅ <b>Profile Updated Successfully!</b>
+
+📋 <b>Updated Fields:</b>
+"""
+            for field in update_fields:
+                response += f"• {field}\n"
+            
+            response += f"""
+👤 <b>Updated Information:</b>
+• Name: {updated_player.name}
+• Player ID: {updated_player.player_id}
+• Phone: {updated_player.phone}
+• Position: {updated_player.position.value if hasattr(updated_player.position, 'value') else updated_player.position}
+• Emergency Contact: {updated_player.emergency_contact or 'Not provided'}
+• Date of Birth: {updated_player.date_of_birth or 'Not provided'}
+• FA Eligible: {'Yes' if updated_player.fa_eligible else 'No'}
+
+💡 <b>Your information has been updated in the system.</b>"""
+            
+            return response
+            
+        except Exception as e:
+            logging.error(f"Error handling self update: {e}")
+            return f"❌ <b>Error updating profile:</b> {str(e)}"
+
+    async def _handle_admin_update(self, user_id: str, entities: dict, original_message: str) -> str:
+        """Handle an admin updating another player's information."""
+        try:
+            # Find the target player using the player handler
+            target_player = None
+            players = await self.player_handler.get_all_players()
+            
+            if 'target_player' in entities:
+                # Try to find by name or ID
+                target_name_or_id = entities['target_player'].upper()
+                for p in players:
+                    if (p.name.upper() == target_name_or_id or 
+                        p.player_id.upper() == target_name_or_id):
+                        target_player = p
+                        break
+            
+            if not target_player:
+                response = """❌ <b>Player Not Found</b>
+
+I couldn't identify which player you want to update.
+
+💡 <b>Try being more specific:</b>
+• "Update John Smith's phone to 07123456789"
+• "Change AB1's position to midfielder"
+• "Update player AB1 emergency contact to Jane Doe, 07987654321"
+
+🔧 <b>Available Players:</b>
+"""
+                for p in players:
+                    response += f"• {p.name} ({p.player_id})\n"
+                
+                return response
+            
+            # Prepare updates
+            updates = {}
+            update_fields = []
+            
+            # Process each entity (same logic as self update)
+            if 'name' in entities:
+                updates['name'] = entities['name']
+                update_fields.append(f"Name: {entities['name']}")
+            
+            if 'phone' in entities:
+                import re
+                phone_pattern = r'^(07\d{9}|08\d{9}|\+44\d{10}|01\d{8,9}|02\d{8,9})$'
+                if re.match(phone_pattern, entities['phone']):
+                    updates['phone'] = entities['phone']
+                    update_fields.append(f"Phone: {entities['phone']}")
+                else:
+                    return f"❌ <b>Invalid Phone Number</b>\n\nPlease provide a valid UK phone number (e.g., 07123456789)"
+            
+            if 'position' in entities:
+                from src.database.models_improved import PlayerPosition
+                try:
+                    position = PlayerPosition(entities['position'])
+                    updates['position'] = position
+                    update_fields.append(f"Position: {position.value}")
+                except ValueError:
+                    return f"❌ <b>Invalid Position</b>\n\nValid positions: goalkeeper, defender, midfielder, forward, striker, utility"
+            
+            if 'emergency_contact' in entities:
+                updates['emergency_contact'] = entities['emergency_contact']
+                update_fields.append(f"Emergency Contact: {entities['emergency_contact']}")
+            
+            if 'date_of_birth' in entities:
+                import re
+                date_pattern = r'^\d{1,2}[/-]\d{1,2}[/-]\d{4}$'
+                if re.match(date_pattern, entities['date_of_birth']):
+                    updates['date_of_birth'] = entities['date_of_birth']
+                    update_fields.append(f"Date of Birth: {entities['date_of_birth']}")
+                else:
+                    return f"❌ <b>Invalid Date Format</b>\n\nPlease use DD/MM/YYYY format (e.g., 15/05/1995)"
+            
+            if 'fa_eligible' in entities:
+                updates['fa_eligible'] = entities['fa_eligible']
+                update_fields.append(f"FA Eligible: {'Yes' if entities['fa_eligible'] else 'No'}")
+            
+            # Check if we have any updates
+            if not updates:
+                return f"""❌ <b>No Valid Updates Found</b>
+
+I couldn't identify what you want to update for {target_player.name}.
+
+💡 <b>Try being more specific:</b>
+• "Update {target_player.name}'s phone to 07123456789"
+• "Change {target_player.player_id}'s position to midfielder"
+• "Update {target_player.name} emergency contact to Jane Doe, 07987654321"
+
+🔧 <b>Available Updates:</b>
+• Phone number
+• Emergency contact
+• Date of birth
+• Position
+• Name"""
+            
+            # Apply updates using the player service
+            from src.services.player_service import get_player_service
+            player_service = get_player_service()
+            updated_player = await player_service.update_player(target_player.id, **updates)
+            
+            # Generate response
+            response = f"""✅ <b>Player Updated Successfully!</b>
+
+👤 <b>Updated Player:</b> {updated_player.name} ({updated_player.player_id})
+
+📋 <b>Updated Fields:</b>
+"""
+            for field in update_fields:
+                response += f"• {field}\n"
+            
+            response += f"""
+📊 <b>Updated Information:</b>
+• Name: {updated_player.name}
+• Player ID: {updated_player.player_id}
+• Phone: {updated_player.phone}
+• Position: {updated_player.position.value if hasattr(updated_player.position, 'value') else updated_player.position}
+• Emergency Contact: {updated_player.emergency_contact or 'Not provided'}
+• Date of Birth: {updated_player.date_of_birth or 'Not provided'}
+• FA Eligible: {'Yes' if updated_player.fa_eligible else 'No'}
+• Status: {updated_player.get_display_status()}
+
+💡 <b>Player information has been updated in the system.</b>"""
+            
+            return response
+            
+        except Exception as e:
+            logging.error(f"Error handling admin update: {e}")
+            return f"❌ <b>Error updating player:</b> {str(e)}"
+
+    async def _handle_generic_update_request(self, user_id: str, message: str, is_admin: bool) -> str:
+        """Handle generic update requests that couldn't be parsed."""
+        try:
+            # Get player info for context using the player handler
+            players = await self.player_handler.get_all_players()
+            player = None
+            for p in players:
+                if p.telegram_id == user_id:
+                    player = p
+                    break
+            
+            if not player:
+                return "❌ Player not found. Please contact team leadership."
+            
+            # Generate helpful response
+            if is_admin:
+                response = f"""❌ <b>Update Request Not Understood</b>
+
+I couldn't understand your update request: "{message}"
+
+💡 <b>Try these formats:</b>
+• "Update John Smith's phone to 07123456789"
+• "Change AB1's position to midfielder"
+• "Update player AB1 emergency contact to Jane Doe, 07987654321"
+
+🔧 <b>Available Updates:</b>
+• Phone number
+• Emergency contact
+• Date of birth
+• Position
+• Name
+
+📋 <b>Available Players:</b>
+"""
+                for p in players:
+                    response += f"• {p.name} ({p.player_id})\n"
+                
+                return response
+            else:
+                return f"""❌ <b>Update Request Not Understood</b>
+
+I couldn't understand your update request: "{message}"
+
+💡 <b>Try these formats:</b>
+• "Change my phone to 07123456789"
+• "Update my position to midfielder"
+• "My emergency contact is John Doe, 07987654321"
+• "My date of birth is 15/05/1995"
+
+🔧 <b>Available Updates:</b>
+• Phone number
+• Emergency contact
+• Date of birth
+• Position
+• Name (with admin approval)
+
+📋 <b>Your Current Information:</b>
+• Name: {player.name}
+• Player ID: {player.player_id}
+• Phone: {player.phone}
+• Position: {player.position.value if hasattr(player.position, 'value') else player.position}
+• Emergency Contact: {player.emergency_contact or 'Not provided'}
+• Date of Birth: {player.date_of_birth or 'Not provided'}"""
+            
+        except Exception as e:
+            logging.error(f"Error handling generic update request: {e}")
+            return "❌ Error processing update request. Please try again or contact admin."
+
+
+class PlayerCommandHandler:
+    """Telegram command handler for player operations using new architecture."""
+    
+    def __init__(self, player_handler: PlayerRegistrationHandler):
+        self.player_handler = player_handler
+    
+    async def handle_command(self, command: str, user_id: str, is_leadership_chat: bool = False) -> str:
+        """Handle player registration commands."""
+        try:
+            command = command.strip().lower()
+            
+            if command.startswith('/add '):
+                return await self._handle_add_player(command, user_id)
+            elif command.startswith('/remove '):
+                return await self._handle_remove_player(command, user_id)
+            elif command == '/list':
+                return await self._handle_list_players(is_leadership_chat=is_leadership_chat)
+            elif command.startswith('/list '):
+                # Handle /list with query
+                query = command[6:].strip()  # Remove "/list "
+                return await self._handle_list_players(query, is_leadership_chat=is_leadership_chat)
+            elif command == '/status':
+                return await self._handle_player_status(command, user_id)
+            elif command.startswith('/status '):
+                return await self._handle_player_status(command, user_id)
+            elif command == '/stats':
+                return await self._handle_player_stats()
+            elif command.startswith('/stats '):
+                # Handle /stats with query
+                query = command[7:].strip()  # Remove "/stats "
+                return await self._handle_player_stats(query)
+            elif command.startswith('/invite '):
+                return await self._handle_generate_invitation_message(command)
+            elif command == '/myinfo':
+                return await self._handle_myinfo(user_id)
+            elif command.startswith('/myinfo '):
+                # Handle /myinfo with query
+                query = command[8:].strip()  # Remove "/myinfo "
+                return await self._handle_myinfo(user_id, query)
+            elif command.startswith('/approve '):
+                return await self._handle_approve_player(command, user_id)
+            elif command.startswith('/reject '):
+                return await self._handle_reject_player(command, user_id)
+            elif command == '/pending':
+                return await self._handle_pending_approvals()
+            elif command == '/checkfa':
+                return await self._handle_check_fa_registration()
+            elif command == '/dailystatus':
+                return await self._handle_daily_status()
+            elif command == '/help':
+                return self._get_help_message(is_leadership_chat)
+            elif command.startswith('/start'):
+                return await self._handle_start_command(command, user_id)
+            else:
+                # Try to handle as natural language query
+                return await self._handle_natural_language_query(command, user_id)
+                
+        except Exception as e:
+            return f"❌ Error processing command: {str(e)}"
+
+    async def _handle_natural_language_query(self, message: str, user_id: str) -> str:
+        """Handle natural language queries using LLM intent extraction."""
+        try:
+            from src.utils.llm_client import extract_intent
+            
+            # Use LLM to understand the intent (async version)
+            llm_result = await extract_intent(message, context="Player in team chat asking questions or requesting information")
+            
+            intent = llm_result.intent if hasattr(llm_result, 'intent') else llm_result.get('intent', 'unknown')
+            entities = llm_result.entities if hasattr(llm_result, 'entities') else llm_result.get('entities', {})
+            
+            if intent == 'get_player_info':
+                # Handle player info requests
+                return await self._handle_myinfo(user_id, message)
+            
+            elif intent == 'get_help':
+                # Handle help requests
+                return """💡 <b>How can I help you?</b>
+
+📋 <b>Available Commands:</b>
+• `/myinfo` - Get your player information
+• `/list` - See all team players
+• `/help` - Show this help message
 
 💬 <b>Natural Language:</b>
-Players can also ask naturally:
+You can also ask me things like:
+• "What's my phone number?"
+• "Show me my position"
+• "Am I FA registered?"
+• "What's my player ID?"
+• "How do I update my info?"
+
+🔧 <b>Need to update something?</b>
+Contact the team admin in the leadership chat."""
+            
+            elif intent == 'update_profile':
+                # Handle profile update requests
+                return """📝 <b>Profile Updates</b>
+
+To update your profile information, please contact the team admin in the leadership chat.
+
+You can update:
+• Name
+• Phone number
+• Position
+• Emergency contact
+• Date of birth
+
+💡 <b>Tip:</b> Make sure to provide all the information you want to change."""
+            
+            elif intent == 'get_team_info':
+                # Handle team info requests
+                return await self._handle_list_players()
+            
+            elif intent == 'filter_players':
+                # Handle player filtering requests
+                return await self._handle_list_players(message)
+            
+            elif intent == 'get_team_stats':
+                # Handle team statistics requests
+                return await self._handle_player_stats(message)
+            
+            elif intent == 'get_player_status':
+                # Handle player status requests
+                return await self._handle_player_status("/status", user_id)
+            
+            else:
+                # Unknown intent - provide helpful response
+                return """🤔 <b>I didn't understand that.</b>
+
+💡 <b>Try these:</b>
+• `/myinfo` - Get your player information
+• `/list` - See all team players
+• `/help` - Show help and available commands
+
+💬 <b>Or ask me naturally:</b>
 • "What's my phone number?"
 • "Show me my position"
 • "Am I FA registered?"
 • "How do I update my info?"
-• "What's my status?"
-• "Show me strikers"
-• "Who's FA registered?"
-• "How many players do we have?"
-• "Show position breakdown"
-• "Recent additions"
 
-⚽ <b>Valid Positions:</b> goalkeeper, defender, midfielder, forward, utility"""
-        else:
-            return """🤖 <b>KICKAI Player Registration Bot</b>
+If you need specific help, contact the team admin."""
+                
+        except Exception as e:
+            logging.error(f"Error handling natural language query: {e}")
+            return """❌ <b>Sorry, I'm having trouble understanding.</b>
+
+💡 <b>Try these commands:</b>
+• `/myinfo` - Get your player information
+• `/list` - See all team players
+• `/help` - Show help and available commands
+
+If you need help, contact the team admin."""
+
+    async def _handle_add_player(self, command: str, user_id: str) -> str:
+        """Handle /add command."""
+        try:
+            # Remove the /add part and split the rest
+            command_parts = command[5:].strip()  # Remove "/add "
+            
+            # Use a more sophisticated parsing approach
+            # Look for phone number pattern to separate name from phone
+            import re
+            phone_pattern = r'\b(?:07\d{9}|08\d{9}|\+44\d{10}|01\d{8,9}|02\d{8,9})\b'
+            phone_match = re.search(phone_pattern, command_parts)
+            
+            if not phone_match:
+                return "❌ Usage: /add name phone position [fa_eligible]\n\nPlease provide a valid UK phone number (e.g., 07123456789, +447123456789)"
+            
+            phone = phone_match.group()
+            phone_start = phone_match.start()
+            phone_end = phone_match.end()
+            
+            # Extract position (last word after phone)
+            after_phone = command_parts[phone_end:].strip()
+            if not after_phone:
+                return "❌ Usage: /add name phone position [fa_eligible]\n\nPlease provide a position (goalkeeper, defender, midfielder, forward, striker, utility)"
+            
+            # Split after phone to get position and optional fa_eligible
+            position_parts = after_phone.split()
+            position = position_parts[0]
+            fa_eligible = len(position_parts) > 1 and position_parts[1].lower() in ['true', 'yes', 'y']
+            
+            # Extract name (everything before phone)
+            name = command_parts[:phone_start].strip()
+            if not name:
+                return "❌ Usage: /add name phone position [fa_eligible]\n\nPlease provide a player name"
+            
+            success, message = await self.player_handler.add_player(
+                name, phone, position, user_id, fa_eligible
+            )
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle add player command")
+            return f"❌ Error adding player: {str(e)}"
+
+    async def _handle_remove_player(self, command: str, user_id: str) -> str:
+        """Handle /removecommand."""
+        try:
+            parts = command.split()
+            if len(parts) < 2:
+                return "❌ Usage: /removephone"
+            
+            phone = parts[1]
+            success, message = await self.remove_player(phone, user_id)
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle remove player command")
+            return f"❌ Error removing player: {str(e)}"
+
+    async def _handle_list_players(self, query: str = "", is_leadership_chat: bool = False) -> str:
+        """Handle /list command with optional natural language filtering."""
+        try:
+            from src.utils.llm_intent import extract_intent
+            
+            players = await self.get_all_players()
+            
+            if not players:
+                return "📋 No players found for this team."
+            
+            # If query provided, use LLM to understand filtering intent
+            if query:
+                llm_result = extract_intent(query, context="Player asking about team players. Available filters: position, fa_status, match_eligibility, status")
+                
+                if llm_result.get('intent') == 'filter_players':
+                    entities = llm_result.get('entities', {})
+                    filter_type = entities.get('filter_type', 'all')
+                    filter_value = entities.get('filter_value', '').lower()
+                    
+                    # Apply filters based on LLM extraction
+                    if filter_type == 'position' and filter_value:
+                        players = [p for p in players if filter_value in p.position.value.lower()]
+                        message = f"📋 <b>Players - {filter_value.title()} Position</b>\n\n"
+                    elif filter_type == 'fa_status' and filter_value:
+                        if 'registered' in filter_value:
+                            players = [p for p in players if p.is_fa_registered()]
+                            message = "📋 <b>Players - FA Registered</b>\n\n"
+                        elif 'not' in filter_value or 'unregistered' in filter_value:
+                            players = [p for p in players if not p.is_fa_registered()]
+                            message = "📋 <b>Players - FA Not Registered</b>\n\n"
+                        else:
+                            message = "📋 <b>Team Players</b>\n\n"
+                    elif filter_type == 'match_eligibility' and filter_value:
+                        if 'eligible' in filter_value:
+                            players = [p for p in players if p.is_match_eligible()]
+                            message = "📋 <b>Players - Match Eligible</b>\n\n"
+                        elif 'pending' in filter_value:
+                            players = [p for p in players if not p.is_match_eligible()]
+                            message = "📋 <b>Players - Pending Approval</b>\n\n"
+                        else:
+                            message = "📋 <b>Team Players</b>\n\n"
+                    elif filter_type == 'status' and filter_value:
+                        if 'active' in filter_value or 'completed' in filter_value:
+                            players = [p for p in players if p.is_active()]
+                            message = "📋 <b>Players - Active</b>\n\n"
+                        elif 'pending' in filter_value:
+                            players = [p for p in players if p.is_pending_approval()]
+                            message = "📋 <b>Players - Pending</b>\n\n"
+                        else:
+                            message = "📋 <b>Team Players</b>\n\n"
+                    else:
+                        message = "📋 <b>Team Players</b>\n\n"
+                else:
+                    message = "📋 <b>Team Players</b>\n\n"
+            else:
+                message = "📋 <b>Team Players</b>\n\n"
+            
+            # Group by status using encapsulated methods
+            active_players = [p for p in players if p.is_active()]
+            pending_players = [p for p in players if p.is_pending_approval()]
+            other_players = [p for p in players if not p.is_active() and not p.is_pending_approval()]
+            
+            if is_leadership_chat:
+                # Leadership chat - show full information
+                if active_players:
+                    message += "✅ <b>Active Players:</b>\n"
+                    for player in active_players:
+                        fa_status = "🏆" if player.is_fa_registered() else "⚠️"
+                        match_status = "✅" if player.is_match_eligible() else "⏳"
+                        message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                        message += f"  📱 {player.phone} | {fa_status} | {match_status}\n"
+                    message += "\n"
+                
+                if pending_players:
+                    message += "⏳ <b>Pending Players:</b>\n"
+                    for player in pending_players:
+                        fa_status = "🏆" if player.is_fa_registered() else "⚠️"
+                        match_status = "✅" if player.is_match_eligible() else "⏳"
+                        message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                        message += f"  📱 {player.phone} | {fa_status} | {match_status}\n"
+                    message += "\n"
+                
+                if other_players:
+                    message += "📋 <b>Other Players:</b>\n"
+                    for player in other_players:
+                        fa_status = "🏆" if player.is_fa_registered() else "⚠️"
+                        match_status = "✅" if player.is_match_eligible() else "⏳"
+                        status = player.get_display_status()
+                        message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                        message += f"  📱 {player.phone} | {fa_status} | {match_status} | {status}\n"
+                    message += "\n"
+                
+                # Add legend for leadership
+                message += "\n📊 <b>Legend:</b>\n"
+                message += "🏆 FA Registered | ⚠️ FA Not Registered\n"
+                message += "✅ Match Eligible | ⏳ Pending Approval\n"
+            else:
+                # Main chat - show minimal information
+                if active_players:
+                    message += "✅ <b>Active Players:</b>\n"
+                    for player in active_players:
+                        message += f"• {format_player_name(player.name)} - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                    message += "\n"
+                
+                if pending_players:
+                    message += "⏳ <b>Pending Players:</b>\n"
+                    for player in pending_players:
+                        message += f"• {format_player_name(player.name)} - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                    message += "\n"
+                
+                if other_players:
+                    message += "📋 <b>Other Players:</b>\n"
+                    for player in other_players:
+                        status = player.get_display_status()
+                        message += f"• {format_player_name(player.name)} - {player.position.value if hasattr(player.position, 'value') else player.position} ({status})\n"
+                    message += "\n"
+                
+                # Add note for main chat
+                message += "\n💡 <b>Note:</b> For detailed player information, check the leadership chat."
+            
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle list players command")
+            return f"❌ Error listing players: {str(e)}"
+
+    async def _handle_player_status(self, command: str, user_id: Optional[str] = None) -> str:
+        """Handle /status command."""
+        try:
+            parts = command.split()
+            
+            # If no phone provided, check the user's own status
+            if len(parts) < 2:
+                if not user_id:
+                    return "❌ Usage: /status phone (for admins) or /status (for your own status)"
+                
+                # Get player by telegram user ID
+                success, message = await self.get_player_info(user_id)
+                if success:
+                    return f"📊 <b>Your Status</b>\n\n{message}"
+                else:
+                    return "❌ Player not found. Please contact team admin."
+            
+            # If phone provided, check that specific player's status (admin function)
+            phone = parts[1]
+            player = await self.get_player_by_phone(phone)
+            
+            if not player:
+                return f"❌ Player with phone {phone} not found"
+            
+            status_message = f"""📊 <b>Player Status</b>
+
+👤 <b>Name:</b> {format_player_name(player.name)}
+🆔 <b>Player ID:</b> {player.player_id.upper()}
+📱 <b>Phone:</b> {player.phone}
+⚽ <b>Position:</b> {player.position.value if hasattr(player.position, 'value') else player.position}
+📊 <b>Status:</b> {player.get_display_status()}
+🏆 <b>FA Registered:</b> {'Yes' if player.is_fa_registered() else 'No'}
+✅ <b>FA Eligible:</b> {'Yes' if player.is_fa_eligible() else 'No'}
+📅 <b>Date Added:</b> {player.created_at.strftime('%Y-%m-%d') if player.created_at else 'Unknown'}"""
+            
+            return status_message
+            
+        except Exception as e:
+            logging.error("Failed to handle player status command")
+            return f"❌ Error getting player status: {str(e)}"
+
+    async def _handle_player_stats(self, query: str = "") -> str:
+        """Handle /stats command."""
+        try:
+            from src.utils.llm_intent import extract_intent
+            
+            stats = await self.get_player_stats()
+            
+            message = f"""📊 <b>Team Statistics</b>
+
+👥 <b>Total Players:</b> {stats['total_players']}
+✅ <b>Active Players:</b> {stats['active_players']}
+⏳ <b>Pending Players:</b> {stats['pending_players']}
+🏆 <b>FA Registered:</b> {stats['fa_registered']}
+✅ <b>FA Eligible:</b> {stats['fa_eligible']}"""
+            
+            # Add position breakdown
+            if stats['positions']:
+                message += "\n\n⚽ <b>Position Breakdown:</b>"
+                for position, count in stats['positions'].items():
+                    message += f"\n• {position}: {count}"
+            
+            # Add recent additions
+            if stats['recent_additions']:
+                message += "\n\n🆕 <b>Recent Additions:</b>"
+                for player in stats['recent_additions'][:5]:  # Show last 5
+                    message += f"\n• {player['name']} ({player['date']})"
+            
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle player stats command")
+            return f"❌ Error getting player stats: {str(e)}"
+
+    async def _handle_generate_invitation_message(self, command: str) -> str:
+        """Handle /invite command."""
+        try:
+            parts = command.split()
+            if len(parts) < 2:
+                return "❌ Usage: /invite phone_or_player_id"
+            
+            identifier = parts[1]
+            success, message = await self.player_handler.generate_invitation_message(identifier)
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle generate invitation command")
+            return f"❌ Error generating invitation: {str(e)}"
+
+    async def _handle_myinfo(self, user_id: str, query: str = "") -> str:
+        """Handle /myinfo command."""
+        try:
+            success, message = await self.player_handler.get_player_info(user_id)
+            if success:
+                return message
+            else:
+                return "❌ Player not found. Please contact team admin."
+                
+        except Exception as e:
+            logging.error("Failed to handle myinfo command")
+            return f"❌ Error getting player info: {str(e)}"
+
+    async def _handle_approve_player(self, command: str, user_id: str) -> str:
+        """Handle /approve command."""
+        try:
+            parts = command.split()
+            if len(parts) < 2:
+                return "❌ Usage: /approve player_id"
+            
+            player_id = parts[1]
+            success, message = await self.player_handler.approve_player(player_id, user_id)
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle approve player command")
+            return f"❌ Error approving player: {str(e)}"
+
+    async def _handle_reject_player(self, command: str, user_id: str) -> str:
+        """Handle /reject command."""
+        try:
+            parts = command.split()
+            if len(parts) < 2:
+                return "❌ Usage: /reject player_id [reason]"
+            
+            player_id = parts[1]
+            reason = " ".join(parts[2:]) if len(parts) > 2 else None
+            success, message = await self.player_handler.reject_player(player_id, user_id, reason)
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle reject player command")
+            return f"❌ Error rejecting player: {str(e)}"
+
+    async def _handle_pending_approvals(self) -> str:
+        """Handle /pending command."""
+        try:
+            success, message = await self.player_handler.get_pending_approvals()
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle pending approvals command")
+            return f"❌ Error getting pending approvals: {str(e)}"
+
+    async def _handle_check_fa_registration(self) -> str:
+        """Handle /checkfa command."""
+        try:
+            # This would typically check FA registration status
+            return "🏆 <b>FA Registration Check</b>\n\nThis feature is not yet implemented."
+            
+        except Exception as e:
+            logging.error("Failed to handle check FA registration command")
+            return f"❌ Error checking FA registration: {str(e)}"
+
+    async def _handle_daily_status(self) -> str:
+        """Handle /dailystatus command."""
+        try:
+            # This would typically show daily status information
+            return "📊 <b>Daily Status</b>\n\nThis feature is not yet implemented."
+            
+        except Exception as e:
+            logging.error("Failed to handle daily status command")
+            return f"❌ Error getting daily status: {str(e)}"
+
+    async def _handle_start_command(self, command: str, user_id: str) -> str:
+        """Handle /start command."""
+        try:
+            return """🤖 <b>Welcome to KICKAI Team Bot!</b>
 
 📋 <b>Available Commands:</b>
-
-👥 <b>Player Information:</b>
-• `/list` - List all players
 • `/myinfo` - Get your player information
-• `/status phone` - Get player status
-• `/stats` - Get team statistics
+• `/list` - See all team players
+• `/help` - Show detailed help
 
-❓ <b>Help:</b>
+💬 <b>Need Help?</b>
+Contact the team admin in the leadership chat for assistance."""
+            
+        except Exception as e:
+            logging.error("Failed to handle start command")
+            return f"❌ Error processing start command: {str(e)}"
+
+    def _get_help_message(self, is_leadership_chat: bool = False) -> str:
+        """Get help message."""
+        if is_leadership_chat:
+            return """📋 <b>Admin Commands</b>
+
+👥 <b>Player Management:</b>
+• `/add name phone position` - Add new player
+• `/remove phone_or_player_id` - Remove player
+• `/approve player_id` - Approve player
+• `/reject player_id [reason]` - Reject player
+• `/pending` - Show pending approvals
+
+📊 <b>Information:</b>
+• `/list` - Show all players
+• `/status phone` - Check player status
+• `/stats` - Team statistics
+• `/myinfo` - Your information
+
+📝 <b>Other:</b>
+• `/invite phone_or_player_id` - Generate invitation
+• `/help` - Show this help message"""
+        else:
+            return """📋 <b>Player Commands</b>
+
+📊 <b>Information:</b>
+• `/myinfo` - Get your player information
+• `/list` - See all team players
 • `/help` - Show this help message
 
-📝 <b>Examples:</b>
-• `/status 07123456789`
-• `/myinfo`
+💬 <b>Need to update something?</b>
+Contact the team admin in the leadership chat."""
 
-💡 <b>Note:</b> Admin commands are only available in the leadership chat.""" 
+
+class PlayerCommandHandler:
+    """Telegram command handler for player operations using new architecture."""
+    
+    def __init__(self, player_handler: PlayerRegistrationHandler):
+        self.player_handler = player_handler
+    
+    async def handle_command(self, command: str, user_id: str, is_leadership_chat: bool = False) -> str:
+        """Handle player registration commands."""
+        try:
+            command = command.strip().lower()
+            
+            if command.startswith('/add '):
+                return await self._handle_add_player(command, user_id)
+            elif command.startswith('/remove '):
+                return await self._handle_remove_player(command, user_id)
+            elif command == '/list':
+                return await self._handle_list_players(is_leadership_chat=is_leadership_chat)
+            elif command.startswith('/list '):
+                # Handle /list with query
+                query = command[6:].strip()  # Remove "/list "
+                return await self._handle_list_players(query, is_leadership_chat=is_leadership_chat)
+            elif command == '/status':
+                return await self._handle_player_status(command, user_id)
+            elif command.startswith('/status '):
+                return await self._handle_player_status(command, user_id)
+            elif command == '/stats':
+                return await self._handle_player_stats()
+            elif command.startswith('/stats '):
+                # Handle /stats with query
+                query = command[7:].strip()  # Remove "/stats "
+                return await self._handle_player_stats(query)
+            elif command.startswith('/invite '):
+                return await self._handle_generate_invitation_message(command)
+            elif command == '/myinfo':
+                return await self._handle_myinfo(user_id)
+            elif command.startswith('/myinfo '):
+                # Handle /myinfo with query
+                query = command[8:].strip()  # Remove "/myinfo "
+                return await self._handle_myinfo(user_id, query)
+            elif command.startswith('/approve '):
+                return await self._handle_approve_player(command, user_id)
+            elif command.startswith('/reject '):
+                return await self._handle_reject_player(command, user_id)
+            elif command == '/pending':
+                return await self._handle_pending_approvals()
+            elif command == '/checkfa':
+                return await self._handle_check_fa_registration()
+            elif command == '/dailystatus':
+                return await self._handle_daily_status()
+            elif command == '/help':
+                return self._get_help_message(is_leadership_chat)
+            elif command.startswith('/start'):
+                return await self._handle_start_command(command, user_id)
+            else:
+                # Try to handle as natural language query
+                return await self._handle_natural_language_query(command, user_id)
+                
+        except Exception as e:
+            return f"❌ Error processing command: {str(e)}"
+
+    async def _handle_natural_language_query(self, message: str, user_id: str) -> str:
+        """Handle natural language queries using LLM intent extraction."""
+        try:
+            from src.utils.llm_client import extract_intent
+            
+            # Use LLM to understand the intent (async version)
+            llm_result = await extract_intent(message, context="Player in team chat asking questions or requesting information")
+            
+            intent = llm_result.intent if hasattr(llm_result, 'intent') else llm_result.get('intent', 'unknown')
+            entities = llm_result.entities if hasattr(llm_result, 'entities') else llm_result.get('entities', {})
+            
+            if intent == 'get_player_info':
+                # Handle player info requests
+                return await self._handle_myinfo(user_id, message)
+            
+            elif intent == 'get_help':
+                # Handle help requests
+                return """💡 <b>How can I help you?</b>
+
+📋 <b>Available Commands:</b>
+• `/myinfo` - Get your player information
+• `/list` - See all team players
+• `/help` - Show this help message
+
+💬 <b>Natural Language:</b>
+You can also ask me things like:
+• "What's my phone number?"
+• "Show me my position"
+• "Am I FA registered?"
+• "What's my player ID?"
+• "How do I update my info?"
+
+🔧 <b>Need to update something?</b>
+Contact the team admin in the leadership chat."""
+            
+            elif intent == 'update_profile':
+                # Handle profile update requests
+                return """📝 <b>Profile Updates</b>
+
+To update your profile information, please contact the team admin in the leadership chat.
+
+You can update:
+• Name
+• Phone number
+• Position
+• Emergency contact
+• Date of birth
+
+💡 <b>Tip:</b> Make sure to provide all the information you want to change."""
+            
+            elif intent == 'get_team_info':
+                # Handle team info requests
+                return await self._handle_list_players()
+            
+            elif intent == 'filter_players':
+                # Handle player filtering requests
+                return await self._handle_list_players(message)
+            
+            elif intent == 'get_team_stats':
+                # Handle team statistics requests
+                return await self._handle_player_stats(message)
+            
+            elif intent == 'get_player_status':
+                # Handle player status requests
+                return await self._handle_player_status("/status", user_id)
+            
+            else:
+                # Unknown intent - provide helpful response
+                return """🤔 <b>I didn't understand that.</b>
+
+💡 <b>Try these:</b>
+• `/myinfo` - Get your player information
+• `/list` - See all team players
+• `/help` - Show help and available commands
+
+💬 <b>Or ask me naturally:</b>
+• "What's my phone number?"
+• "Show me my position"
+• "Am I FA registered?"
+• "How do I update my info?"
+
+If you need specific help, contact the team admin."""
+                
+        except Exception as e:
+            logging.error(f"Error handling natural language query: {e}")
+            return """❌ <b>Sorry, I'm having trouble understanding.</b>
+
+💡 <b>Try these commands:</b>
+• `/myinfo` - Get your player information
+• `/list` - See all team players
+• `/help` - Show help and available commands
+
+If you need help, contact the team admin."""
+
+    async def _handle_add_player(self, command: str, user_id: str) -> str:
+        """Handle /add command."""
+        try:
+            # Remove the /add part and split the rest
+            command_parts = command[5:].strip()  # Remove "/add "
+            
+            # Use a more sophisticated parsing approach
+            # Look for phone number pattern to separate name from phone
+            import re
+            phone_pattern = r'\b(?:07\d{9}|08\d{9}|\+44\d{10}|01\d{8,9}|02\d{8,9})\b'
+            phone_match = re.search(phone_pattern, command_parts)
+            
+            if not phone_match:
+                return "❌ Usage: /add name phone position [fa_eligible]\n\nPlease provide a valid UK phone number (e.g., 07123456789, +447123456789)"
+            
+            phone = phone_match.group()
+            phone_start = phone_match.start()
+            phone_end = phone_match.end()
+            
+            # Extract position (last word after phone)
+            after_phone = command_parts[phone_end:].strip()
+            if not after_phone:
+                return "❌ Usage: /add name phone position [fa_eligible]\n\nPlease provide a position (goalkeeper, defender, midfielder, forward, striker, utility)"
+            
+            # Split after phone to get position and optional fa_eligible
+            position_parts = after_phone.split()
+            position = position_parts[0]
+            fa_eligible = len(position_parts) > 1 and position_parts[1].lower() in ['true', 'yes', 'y']
+            
+            # Extract name (everything before phone)
+            name = command_parts[:phone_start].strip()
+            if not name:
+                return "❌ Usage: /add name phone position [fa_eligible]\n\nPlease provide a player name"
+            
+            success, message = await self.player_handler.add_player(
+                name, phone, position, user_id, fa_eligible
+            )
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle add player command")
+            return f"❌ Error adding player: {str(e)}"
+
+    async def _handle_remove_player(self, command: str, user_id: str) -> str:
+        """Handle /removecommand."""
+        try:
+            parts = command.split()
+            if len(parts) < 2:
+                return "❌ Usage: /removephone"
+            
+            phone = parts[1]
+            success, message = await self.remove_player(phone, user_id)
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle remove player command")
+            return f"❌ Error removing player: {str(e)}"
+
+    async def _handle_list_players(self, query: str = "", is_leadership_chat: bool = False) -> str:
+        """Handle /list command with optional natural language filtering."""
+        try:
+            from src.utils.llm_intent import extract_intent
+            
+            players = await self.get_all_players()
+            
+            if not players:
+                return "📋 No players found for this team."
+            
+            # If query provided, use LLM to understand filtering intent
+            if query:
+                llm_result = extract_intent(query, context="Player asking about team players. Available filters: position, fa_status, match_eligibility, status")
+                
+                if llm_result.get('intent') == 'filter_players':
+                    entities = llm_result.get('entities', {})
+                    filter_type = entities.get('filter_type', 'all')
+                    filter_value = entities.get('filter_value', '').lower()
+                    
+                    # Apply filters based on LLM extraction
+                    if filter_type == 'position' and filter_value:
+                        players = [p for p in players if filter_value in p.position.value.lower()]
+                        message = f"📋 <b>Players - {filter_value.title()} Position</b>\n\n"
+                    elif filter_type == 'fa_status' and filter_value:
+                        if 'registered' in filter_value:
+                            players = [p for p in players if p.is_fa_registered()]
+                            message = "📋 <b>Players - FA Registered</b>\n\n"
+                        elif 'not' in filter_value or 'unregistered' in filter_value:
+                            players = [p for p in players if not p.is_fa_registered()]
+                            message = "📋 <b>Players - FA Not Registered</b>\n\n"
+                        else:
+                            message = "📋 <b>Team Players</b>\n\n"
+                    elif filter_type == 'match_eligibility' and filter_value:
+                        if 'eligible' in filter_value:
+                            players = [p for p in players if p.is_match_eligible()]
+                            message = "📋 <b>Players - Match Eligible</b>\n\n"
+                        elif 'pending' in filter_value:
+                            players = [p for p in players if not p.is_match_eligible()]
+                            message = "📋 <b>Players - Pending Approval</b>\n\n"
+                        else:
+                            message = "📋 <b>Team Players</b>\n\n"
+                    elif filter_type == 'status' and filter_value:
+                        if 'active' in filter_value or 'completed' in filter_value:
+                            players = [p for p in players if p.is_active()]
+                            message = "📋 <b>Players - Active</b>\n\n"
+                        elif 'pending' in filter_value:
+                            players = [p for p in players if p.is_pending_approval()]
+                            message = "📋 <b>Players - Pending</b>\n\n"
+                        else:
+                            message = "📋 <b>Team Players</b>\n\n"
+                    else:
+                        message = "📋 <b>Team Players</b>\n\n"
+                else:
+                    message = "📋 <b>Team Players</b>\n\n"
+            else:
+                message = "📋 <b>Team Players</b>\n\n"
+            
+            # Group by status using encapsulated methods
+            active_players = [p for p in players if p.is_active()]
+            pending_players = [p for p in players if p.is_pending_approval()]
+            other_players = [p for p in players if not p.is_active() and not p.is_pending_approval()]
+            
+            if is_leadership_chat:
+                # Leadership chat - show full information
+                if active_players:
+                    message += "✅ <b>Active Players:</b>\n"
+                    for player in active_players:
+                        fa_status = "🏆" if player.is_fa_registered() else "⚠️"
+                        match_status = "✅" if player.is_match_eligible() else "⏳"
+                        message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                        message += f"  📱 {player.phone} | {fa_status} | {match_status}\n"
+                    message += "\n"
+                
+                if pending_players:
+                    message += "⏳ <b>Pending Players:</b>\n"
+                    for player in pending_players:
+                        fa_status = "🏆" if player.is_fa_registered() else "⚠️"
+                        match_status = "✅" if player.is_match_eligible() else "⏳"
+                        message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                        message += f"  📱 {player.phone} | {fa_status} | {match_status}\n"
+                    message += "\n"
+                
+                if other_players:
+                    message += "📋 <b>Other Players:</b>\n"
+                    for player in other_players:
+                        fa_status = "🏆" if player.is_fa_registered() else "⚠️"
+                        match_status = "✅" if player.is_match_eligible() else "⏳"
+                        status = player.get_display_status()
+                        message += f"• {format_player_name(player.name)} ({player.player_id.upper()}) - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                        message += f"  📱 {player.phone} | {fa_status} | {match_status} | {status}\n"
+                    message += "\n"
+                
+                # Add legend for leadership
+                message += "\n📊 <b>Legend:</b>\n"
+                message += "🏆 FA Registered | ⚠️ FA Not Registered\n"
+                message += "✅ Match Eligible | ⏳ Pending Approval\n"
+            else:
+                # Main chat - show minimal information
+                if active_players:
+                    message += "✅ <b>Active Players:</b>\n"
+                    for player in active_players:
+                        message += f"• {format_player_name(player.name)} - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                    message += "\n"
+                
+                if pending_players:
+                    message += "⏳ <b>Pending Players:</b>\n"
+                    for player in pending_players:
+                        message += f"• {format_player_name(player.name)} - {player.position.value if hasattr(player.position, 'value') else player.position}\n"
+                    message += "\n"
+                
+                if other_players:
+                    message += "📋 <b>Other Players:</b>\n"
+                    for player in other_players:
+                        status = player.get_display_status()
+                        message += f"• {format_player_name(player.name)} - {player.position.value if hasattr(player.position, 'value') else player.position} ({status})\n"
+                    message += "\n"
+                
+                # Add note for main chat
+                message += "\n💡 <b>Note:</b> For detailed player information, check the leadership chat."
+            
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle list players command")
+            return f"❌ Error listing players: {str(e)}"
+
+    async def _handle_player_status(self, command: str, user_id: Optional[str] = None) -> str:
+        """Handle /status command."""
+        try:
+            parts = command.split()
+            
+            # If no phone provided, check the user's own status
+            if len(parts) < 2:
+                if not user_id:
+                    return "❌ Usage: /status phone (for admins) or /status (for your own status)"
+                
+                # Get player by telegram user ID
+                success, message = await self.get_player_info(user_id)
+                if success:
+                    return f"📊 <b>Your Status</b>\n\n{message}"
+                else:
+                    return "❌ Player not found. Please contact team admin."
+            
+            # If phone provided, check that specific player's status (admin function)
+            phone = parts[1]
+            player = await self.get_player_by_phone(phone)
+            
+            if not player:
+                return f"❌ Player with phone {phone} not found"
+            
+            status_message = f"""📊 <b>Player Status</b>
+
+👤 <b>Name:</b> {format_player_name(player.name)}
+🆔 <b>Player ID:</b> {player.player_id.upper()}
+📱 <b>Phone:</b> {player.phone}
+⚽ <b>Position:</b> {player.position.value if hasattr(player.position, 'value') else player.position}
+📊 <b>Status:</b> {player.get_display_status()}
+🏆 <b>FA Registered:</b> {'Yes' if player.is_fa_registered() else 'No'}
+✅ <b>FA Eligible:</b> {'Yes' if player.is_fa_eligible() else 'No'}
+📅 <b>Date Added:</b> {player.created_at.strftime('%Y-%m-%d') if player.created_at else 'Unknown'}"""
+            
+            return status_message
+            
+        except Exception as e:
+            logging.error("Failed to handle player status command")
+            return f"❌ Error getting player status: {str(e)}"
+
+    async def _handle_player_stats(self, query: str = "") -> str:
+        """Handle /stats command."""
+        try:
+            from src.utils.llm_intent import extract_intent
+            
+            stats = await self.get_player_stats()
+            
+            message = f"""📊 <b>Team Statistics</b>
+
+👥 <b>Total Players:</b> {stats['total_players']}
+✅ <b>Active Players:</b> {stats['active_players']}
+⏳ <b>Pending Players:</b> {stats['pending_players']}
+🏆 <b>FA Registered:</b> {stats['fa_registered']}
+✅ <b>FA Eligible:</b> {stats['fa_eligible']}"""
+            
+            # Add position breakdown
+            if stats['positions']:
+                message += "\n\n⚽ <b>Position Breakdown:</b>"
+                for position, count in stats['positions'].items():
+                    message += f"\n• {position}: {count}"
+            
+            # Add recent additions
+            if stats['recent_additions']:
+                message += "\n\n🆕 <b>Recent Additions:</b>"
+                for player in stats['recent_additions'][:5]:  # Show last 5
+                    message += f"\n• {player['name']} ({player['date']})"
+            
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle player stats command")
+            return f"❌ Error getting player stats: {str(e)}"
+
+    async def _handle_generate_invitation_message(self, command: str) -> str:
+        """Handle /invite command."""
+        try:
+            parts = command.split()
+            if len(parts) < 2:
+                return "❌ Usage: /invite phone_or_player_id"
+            
+            identifier = parts[1]
+            success, message = await self.player_handler.generate_invitation_message(identifier)
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle generate invitation command")
+            return f"❌ Error generating invitation: {str(e)}"
+
+    async def _handle_myinfo(self, user_id: str, query: str = "") -> str:
+        """Handle /myinfo command."""
+        try:
+            success, message = await self.player_handler.get_player_info(user_id)
+            if success:
+                return message
+            else:
+                return "❌ Player not found. Please contact team admin."
+                
+        except Exception as e:
+            logging.error("Failed to handle myinfo command")
+            return f"❌ Error getting player info: {str(e)}"
+
+    async def _handle_approve_player(self, command: str, user_id: str) -> str:
+        """Handle /approve command."""
+        try:
+            parts = command.split()
+            if len(parts) < 2:
+                return "❌ Usage: /approve player_id"
+            
+            player_id = parts[1]
+            success, message = await self.player_handler.approve_player(player_id, user_id)
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle approve player command")
+            return f"❌ Error approving player: {str(e)}"
+
+    async def _handle_reject_player(self, command: str, user_id: str) -> str:
+        """Handle /reject command."""
+        try:
+            parts = command.split()
+            if len(parts) < 2:
+                return "❌ Usage: /reject player_id [reason]"
+            
+            player_id = parts[1]
+            reason = " ".join(parts[2:]) if len(parts) > 2 else None
+            success, message = await self.player_handler.reject_player(player_id, user_id, reason)
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle reject player command")
+            return f"❌ Error rejecting player: {str(e)}"
+
+    async def _handle_pending_approvals(self) -> str:
+        """Handle /pending command."""
+        try:
+            success, message = await self.player_handler.get_pending_approvals()
+            return message
+            
+        except Exception as e:
+            logging.error("Failed to handle pending approvals command")
+            return f"❌ Error getting pending approvals: {str(e)}"
+
+    async def _handle_check_fa_registration(self) -> str:
+        """Handle /checkfa command."""
+        try:
+            # This would typically check FA registration status
+            return "🏆 <b>FA Registration Check</b>\n\nThis feature is not yet implemented."
+            
+        except Exception as e:
+            logging.error("Failed to handle check FA registration command")
+            return f"❌ Error checking FA registration: {str(e)}"
+
+    async def _handle_daily_status(self) -> str:
+        """Handle /dailystatus command."""
+        try:
+            # This would typically show daily status information
+            return "📊 <b>Daily Status</b>\n\nThis feature is not yet implemented."
+            
+        except Exception as e:
+            logging.error("Failed to handle daily status command")
+            return f"❌ Error getting daily status: {str(e)}"
+
+    async def _handle_start_command(self, command: str, user_id: str) -> str:
+        """Handle /start command."""
+        try:
+            return """🤖 <b>Welcome to KICKAI Team Bot!</b>
+
+📋 <b>Available Commands:</b>
+• `/myinfo` - Get your player information
+• `/list` - See all team players
+• `/help` - Show detailed help
+
+💬 <b>Need Help?</b>
+Contact the team admin in the leadership chat for assistance."""
+            
+        except Exception as e:
+            logging.error("Failed to handle start command")
+            return f"❌ Error processing start command: {str(e)}"
+
+    def _get_help_message(self, is_leadership_chat: bool = False) -> str:
+        """Get help message."""
+        if is_leadership_chat:
+            return """📋 <b>Admin Commands</b>
+
+👥 <b>Player Management:</b>
+• `/add name phone position` - Add new player
+• `/remove phone_or_player_id` - Remove player
+• `/approve player_id` - Approve player
+• `/reject player_id [reason]` - Reject player
+• `/pending` - Show pending approvals
+
+📊 <b>Information:</b>
+• `/list` - Show all players
+• `/status phone` - Check player status
+• `/stats` - Team statistics
+• `/myinfo` - Your information
+
+📝 <b>Other:</b>
+• `/invite phone_or_player_id` - Generate invitation
+• `/help` - Show this help message"""
+        else:
+            return """📋 <b>Player Commands</b>
+
+📊 <b>Information:</b>
+• `/myinfo` - Get your player information
+• `/list` - See all team players
+• `/help` - Show this help message
+
+💬 <b>Need to update something?</b>
+Contact the team admin in the leadership chat."""

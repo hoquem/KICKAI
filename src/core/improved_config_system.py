@@ -19,9 +19,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Any, Optional, List, Callable, Set
-from pathlib import Path
-from functools import wraps
+from typing import Dict, Any, Optional, List, Set
 
 # Try to load dotenv if available
 try:
@@ -47,8 +45,8 @@ class Environment(Enum):
 class AIProvider(Enum):
     """AI provider types."""
     GOOGLE_GEMINI = "google_gemini"
-    OPENAI = "openai"
     OLLAMA = "ollama"
+    OPENAI = "openai"
 
 
 class ConfigSource(Enum):
@@ -93,6 +91,44 @@ class TelegramConfig:
 
 
 @dataclass
+class TeamConfig:
+    """Team configuration."""
+    default_team_id: str = ""
+    source: ConfigSource = ConfigSource.DEFAULT
+
+
+@dataclass
+class PaymentConfig:
+    """Payment configuration."""
+    collectiv_api_key: str = ""
+    collectiv_base_url: str = "https://api.collectiv.com"
+    source: ConfigSource = ConfigSource.DEFAULT
+
+
+@dataclass
+class LLMConfig:
+    """LLM configuration."""
+    provider: AIProvider
+    model: str
+    api_key: str
+    source: ConfigSource = ConfigSource.DEFAULT
+
+
+@dataclass
+class AdvancedMemoryConfig:
+    """Advanced memory configuration."""
+    enabled: bool = True
+    max_short_term_items: int = 100
+    max_long_term_items: int = 1000
+    max_episodic_items: int = 500
+    max_semantic_items: int = 200
+    pattern_learning_enabled: bool = True
+    preference_learning_enabled: bool = True
+    cleanup_interval_hours: int = 24
+    source: ConfigSource = ConfigSource.DEFAULT
+
+
+@dataclass
 class LoggingConfig:
     """Logging configuration."""
     level: str = "INFO"
@@ -118,7 +154,7 @@ class PerformanceConfig:
 class SecurityConfig:
     """Security configuration."""
     jwt_secret: str
-    session_timeout: int = 3600  # 1 hour
+    session_timeout: int = 3600
     max_login_attempts: int = 5
     password_min_length: int = 8
     source: ConfigSource = ConfigSource.DEFAULT
@@ -131,6 +167,10 @@ class Configuration:
     database: DatabaseConfig
     ai: AIConfig
     telegram: TelegramConfig
+    team: TeamConfig
+    payment: PaymentConfig
+    llm: LLMConfig
+    advanced_memory: AdvancedMemoryConfig
     logging: LoggingConfig
     performance: PerformanceConfig
     security: SecurityConfig
@@ -165,6 +205,13 @@ class EnvironmentConfigurationSource(ConfigurationSource):
     
     def load_configuration(self, environment: Environment) -> Dict[str, Any]:
         """Load configuration from environment variables."""
+        print("🔍 DEBUG: EnvironmentConfigurationSource.load_configuration called")
+        logger.info("🔍 EnvironmentConfigurationSource.load_configuration called")
+        
+        # Ensure environment variables are loaded
+        if DOTENV_AVAILABLE:
+            load_dotenv()
+        
         config = {}
         
         # Database config
@@ -179,14 +226,21 @@ class EnvironmentConfigurationSource(ConfigurationSource):
         
         # AI config
         provider_str = os.getenv("AI_PROVIDER", "google_gemini").lower()
+        print(f"🔍 DEBUG: AI_PROVIDER from env: {repr(provider_str)}")
         try:
             provider = AIProvider(provider_str)
+            print(f"🔍 DEBUG: Provider enum: {provider}")
         except ValueError:
             provider = AIProvider.GOOGLE_GEMINI
+            print(f"🔍 DEBUG: Using default provider: {provider}")
         
         api_key = ""
         if provider == AIProvider.GOOGLE_GEMINI:
-            api_key = os.getenv("GOOGLE_API_KEY", "")
+            raw_key = os.getenv("GOOGLE_API_KEY", "")
+            print(f"🔍 DEBUG: Raw GOOGLE_API_KEY from os.getenv: {repr(raw_key)}")
+            api_key = raw_key
+            print(f"🔍 DEBUG: GOOGLE_API_KEY loaded: {api_key[:10] if api_key else 'NOT_FOUND'}...")
+            logger.info(f"🔍 Loading GOOGLE_API_KEY: {api_key[:10] if api_key else 'NOT_FOUND'}...")
         elif provider == AIProvider.OPENAI:
             api_key = os.getenv("OPENAI_API_KEY", "")
         elif provider == AIProvider.OLLAMA:
@@ -226,6 +280,40 @@ class EnvironmentConfigurationSource(ConfigurationSource):
             "file_path": os.getenv("LOG_FILE_PATH"),
             "max_file_size": int(os.getenv("LOG_MAX_FILE_SIZE", str(10 * 1024 * 1024))),
             "backup_count": int(os.getenv("LOG_BACKUP_COUNT", "5")),
+            "source": ConfigSource.ENVIRONMENT
+        }
+        
+        # Team config
+        config["team"] = {
+            "default_team_id": os.getenv("DEFAULT_TEAM_ID", ""),
+            "source": ConfigSource.ENVIRONMENT
+        }
+        
+        # Payment config
+        config["payment"] = {
+            "collectiv_api_key": os.getenv("COLLECTIV_API_KEY", ""),
+            "collectiv_base_url": os.getenv("COLLECTIV_BASE_URL", "https://api.collectiv.com"),
+            "source": ConfigSource.ENVIRONMENT
+        }
+        
+        # LLM config
+        config["llm"] = {
+            "provider": os.getenv("LLM_PROVIDER", "google_gemini"),
+            "model": os.getenv("LLM_MODEL", "gemini-2.0-flash-001"),
+            "api_key": os.getenv("LLM_API_KEY", ""),
+            "source": ConfigSource.ENVIRONMENT
+        }
+        
+        # Advanced memory config
+        config["advanced_memory"] = {
+            "enabled": os.getenv("ENABLE_ADVANCED_MEMORY", "true").lower() == "true",
+            "max_short_term_items": int(os.getenv("MEMORY_MAX_SHORT_TERM", "100")),
+            "max_long_term_items": int(os.getenv("MEMORY_MAX_LONG_TERM", "1000")),
+            "max_episodic_items": int(os.getenv("MEMORY_MAX_EPISODIC", "500")),
+            "max_semantic_items": int(os.getenv("MEMORY_MAX_SEMANTIC", "200")),
+            "pattern_learning_enabled": os.getenv("MEMORY_PATTERN_LEARNING", "true").lower() == "true",
+            "preference_learning_enabled": os.getenv("MEMORY_PREFERENCE_LEARNING", "true").lower() == "true",
+            "cleanup_interval_hours": int(os.getenv("MEMORY_CLEANUP_INTERVAL", "24")),
             "source": ConfigSource.ENVIRONMENT
         }
         
@@ -398,6 +486,10 @@ class ConfigurationBuilder:
         self._database: Optional[DatabaseConfig] = None
         self._ai: Optional[AIConfig] = None
         self._telegram: Optional[TelegramConfig] = None
+        self._team: Optional[TeamConfig] = None
+        self._payment: Optional[PaymentConfig] = None
+        self._llm: Optional[LLMConfig] = None
+        self._advanced_memory: Optional[AdvancedMemoryConfig] = None
         self._logging: Optional[LoggingConfig] = None
         self._performance: Optional[PerformanceConfig] = None
         self._security: Optional[SecurityConfig] = None
@@ -421,6 +513,26 @@ class ConfigurationBuilder:
     def telegram(self, config: TelegramConfig) -> 'ConfigurationBuilder':
         """Set Telegram configuration."""
         self._telegram = config
+        return self
+    
+    def team(self, config: TeamConfig) -> 'ConfigurationBuilder':
+        """Set team configuration."""
+        self._team = config
+        return self
+    
+    def payment(self, config: PaymentConfig) -> 'ConfigurationBuilder':
+        """Set payment configuration."""
+        self._payment = config
+        return self
+    
+    def llm(self, config: LLMConfig) -> 'ConfigurationBuilder':
+        """Set LLM configuration."""
+        self._llm = config
+        return self
+    
+    def advanced_memory(self, config: AdvancedMemoryConfig) -> 'ConfigurationBuilder':
+        """Set advanced memory configuration."""
+        self._advanced_memory = config
         return self
     
     def logging(self, config: LoggingConfig) -> 'ConfigurationBuilder':
@@ -453,6 +565,10 @@ class ConfigurationBuilder:
             database=self._database or DatabaseConfig(project_id=""),
             ai=self._ai or AIConfig(provider=AIProvider.GOOGLE_GEMINI, api_key="", model_name=""),
             telegram=self._telegram or TelegramConfig(bot_token=""),
+            team=self._team or TeamConfig(),
+            payment=self._payment or PaymentConfig(),
+            llm=self._llm or LLMConfig(provider=AIProvider.GOOGLE_GEMINI, model="", api_key=""),
+            advanced_memory=self._advanced_memory or AdvancedMemoryConfig(),
             logging=self._logging or LoggingConfig(),
             performance=self._performance or PerformanceConfig(),
             security=self._security or SecurityConfig(jwt_secret=""),
@@ -544,6 +660,55 @@ class ConfigurationFactory:
             password_min_length=data.get("password_min_length", 8),
             source=data.get("source", ConfigSource.DEFAULT)
         )
+    
+    @staticmethod
+    def create_team_config(data: Dict[str, Any]) -> TeamConfig:
+        """Create TeamConfig from dictionary."""
+        return TeamConfig(
+            default_team_id=data.get("default_team_id", ""),
+            source=data.get("source", ConfigSource.DEFAULT)
+        )
+    
+    @staticmethod
+    def create_payment_config(data: Dict[str, Any]) -> PaymentConfig:
+        """Create PaymentConfig from dictionary."""
+        return PaymentConfig(
+            collectiv_api_key=data.get("collectiv_api_key", ""),
+            collectiv_base_url=data.get("collectiv_base_url", "https://api.collectiv.com"),
+            source=data.get("source", ConfigSource.DEFAULT)
+        )
+    
+    @staticmethod
+    def create_llm_config(data: Dict[str, Any]) -> LLMConfig:
+        """Create LLMConfig from dictionary."""
+        provider = data.get("provider", AIProvider.GOOGLE_GEMINI)
+        if isinstance(provider, str):
+            try:
+                provider = AIProvider(provider)
+            except ValueError:
+                provider = AIProvider.GOOGLE_GEMINI
+        
+        return LLMConfig(
+            provider=provider,
+            model=data.get("model", "gemini-2.0-flash-001"),
+            api_key=data.get("api_key", ""),
+            source=data.get("source", ConfigSource.DEFAULT)
+        )
+    
+    @staticmethod
+    def create_advanced_memory_config(data: Dict[str, Any]) -> AdvancedMemoryConfig:
+        """Create AdvancedMemoryConfig from dictionary."""
+        return AdvancedMemoryConfig(
+            enabled=data.get("enabled", True),
+            max_short_term_items=data.get("max_short_term_items", 100),
+            max_long_term_items=data.get("max_long_term_items", 1000),
+            max_episodic_items=data.get("max_episodic_items", 500),
+            max_semantic_items=data.get("max_semantic_items", 200),
+            pattern_learning_enabled=data.get("pattern_learning_enabled", True),
+            preference_learning_enabled=data.get("preference_learning_enabled", True),
+            cleanup_interval_hours=data.get("cleanup_interval_hours", 24),
+            source=data.get("source", ConfigSource.DEFAULT)
+        )
 
 
 # ============================================================================
@@ -616,6 +781,9 @@ class AIValidator(ConfigurationValidator):
                 errors.append("GOOGLE_API_KEY is required in development environment for Gemini")
             elif config.ai.provider == AIProvider.OPENAI and not config.ai.api_key:
                 errors.append("OPENAI_API_KEY is required in development environment for OpenAI")
+            elif config.ai.provider == AIProvider.OLLAMA:
+                # OLLAMA doesn't require an API key
+                pass
         
         return self._validate_next(config, errors)
 
@@ -760,15 +928,26 @@ class ImprovedConfigurationManager:
         if self._configuration is not None:
             return self._configuration
         
-        # Load from all sources
+        # Load from all sources in priority order
         merged_config = {}
         for source in self._sources:
             try:
                 source_config = source.load_configuration(self._environment)
-                merged_config.update(source_config)
+                # Only add values that haven't been set by higher priority sources
+                for key, value in source_config.items():
+                    if key not in merged_config:
+                        merged_config[key] = value
+                    elif isinstance(merged_config[key], dict) and isinstance(value, dict):
+                        # For nested dictionaries, only add keys that haven't been set
+                        for subkey, subvalue in value.items():
+                            if subkey not in merged_config[key]:
+                                merged_config[key][subkey] = subvalue
                 logger.info(f"Loaded configuration from {source.__class__.__name__}")
             except Exception as e:
                 logger.warning(f"Failed to load from {source.__class__.__name__}: {e}")
+        
+        # Debug: Log the merged configuration
+        logger.info(f"🔍 Merged configuration AI section: {merged_config.get('ai', {})}")
         
         # Build configuration object
         builder = ConfigurationBuilder().environment(self._environment)
@@ -779,6 +958,14 @@ class ImprovedConfigurationManager:
             builder.ai(ConfigurationFactory.create_ai_config(merged_config["ai"]))
         if "telegram" in merged_config:
             builder.telegram(ConfigurationFactory.create_telegram_config(merged_config["telegram"]))
+        if "team" in merged_config:
+            builder.team(ConfigurationFactory.create_team_config(merged_config["team"]))
+        if "payment" in merged_config:
+            builder.payment(ConfigurationFactory.create_payment_config(merged_config["payment"]))
+        if "llm" in merged_config:
+            builder.llm(ConfigurationFactory.create_llm_config(merged_config["llm"]))
+        if "advanced_memory" in merged_config:
+            builder.advanced_memory(ConfigurationFactory.create_advanced_memory_config(merged_config["advanced_memory"]))
         if "logging" in merged_config:
             builder.logging(ConfigurationFactory.create_logging_config(merged_config["logging"]))
         if "performance" in merged_config:

@@ -6,13 +6,16 @@ This module handles automated and manual reminders for player onboarding.
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import List, Optional, Tuple, Any
 from dataclasses import dataclass
 
-from ..database.models import Player, OnboardingStatus
-from ..services.player_service import get_player_service
-from ..core.bot_config_manager import get_bot_config_manager
+from src.database.models_improved import Player, OnboardingStatus, PaymentStatus
+from src.services.player_service import get_player_service
+from src.core.bot_config_manager import get_bot_config_manager
+from src.utils.llm_client import LLMClient
+from src.utils.llm_intent import LLMIntent
+from .interfaces.reminder_service_interface import IReminderService
 
 
 @dataclass
@@ -25,13 +28,15 @@ class ReminderMessage:
     reminder_number: int
 
 
-class ReminderService:
+class ReminderService(IReminderService):
     """Service for handling onboarding reminders."""
     
     def __init__(self, team_id: str):
         self.team_id = team_id
         self.player_service = get_player_service()
         self.bot_config_manager = get_bot_config_manager()
+        from src.services.payment_service import get_payment_service
+        self.payment_service = get_payment_service(team_id=team_id)
         
         # Reminder schedule (in hours)
         self.reminder_schedule = {
@@ -146,10 +151,15 @@ class ReminderService:
             return False, f"❌ Error sending reminder: {str(e)}"
     
     def _generate_reminder_message(self, player: Player, reminder_number: int) -> str:
-        """Generate reminder message based on reminder number."""
+        """Generate reminder message based on reminder number and player status."""
         progress = player.get_onboarding_progress()
-        current_step = progress['current_step']
-        
+
+        # Check for outstanding payments
+        outstanding_payments = asyncio.run(self.payment_service.list_payments(player_id=player.id, status=PaymentStatus.PENDING))
+        if outstanding_payments:
+            return self._generate_payment_reminder_message(player, outstanding_payments)
+
+        # Existing onboarding reminders
         if reminder_number == 1:
             return f"""⏰ Gentle Reminder - Complete Your Onboarding
 
@@ -169,7 +179,7 @@ You started your KICKAI Team onboarding yesterday but haven't completed it yet.
 • Use /status to check your current progress
 
 Ready to continue? Just reply with your emergency contact details!"""
-        
+
         elif reminder_number == 2:
             return f"""⏰ Reminder - Onboarding Still Pending
 
@@ -189,7 +199,7 @@ Just reply with: "My emergency contact is [Name], [Phone], [Relationship]"
 Example: "My emergency contact is John Doe, 07123456789, my husband"
 
 Need help? Reply with "help" or contact admin."""
-        
+
         else:  # reminder_number == 3
             return f"""⏰ Final Reminder - Complete Onboarding
 
@@ -211,8 +221,45 @@ This is your final reminder to complete your KICKAI Team onboarding.
 • Use /status to see your current progress
 
 Let's get you set up today! 🏆"""
-    
-    def _generate_manual_reminder_message(self, player: Player) -> str:
+
+    def _generate_payment_reminder_message(self, player: Player, payments: List[Any]) -> str:
+        """Generates an AI-driven gentle nudge for outstanding payments."""
+        llm_client = LLMClient()
+
+        payment_details = "\n".join([f"- £{p.amount:.2f} for {p.description or p.type.value.replace('_', ' ')} (Due: {p.due_date.strftime('%d/%m/%Y') if p.due_date else 'N/A'})" for p in payments])
+
+        prompt = f"""Generate a gentle and friendly reminder message for a football player named {player.name} about their outstanding payments. The message should encourage them to pay without being overly pushy. Include the following details:
+
+Outstanding Payments:
+{payment_details}
+
+Keep it concise and encouraging. End with a positive note about playing with the team.
+"""
+        try:
+            # Use LLM to generate the message
+            generated_message = asyncio.run(llm_client.generate_text(prompt))
+            return f"""👋 Hi {player.name}!
+
+{generated_message}
+
+To view your full financial dashboard, type /financial_dashboard.
+
+Thanks for your cooperation! ⚽🏆"""
+        except Exception as e:
+            logging.error(f"Error generating AI payment reminder: {e}")
+            # Fallback to a default message if LLM fails
+            return f"""👋 Hi {player.name}!
+
+Just a friendly reminder about your outstanding payments:
+{payment_details}
+
+Please take a moment to settle these so we can keep everything running smoothly.
+
+To view your full financial dashboard, type /financial_dashboard.
+
+Thanks for your cooperation! ⚽🏆"""
+
+    def _generate_manual_reminder_message(self, player: Player):
         """Generate manual reminder message from admin."""
         progress = player.get_onboarding_progress()
         
@@ -267,18 +314,6 @@ Let me know if you need any help! 🏆"""
             bot_config = self.bot_config_manager.get_bot_config(self.team_id)
             if not bot_config or not bot_config.leadership_chat_id:
                 return
-            
-            message = f"""📢 Reminder Sent to Player
-
-📋 Player: {player.name} ({player.player_id})
-📱 Phone: {player.phone}
-⏰ Reminder Sent: {datetime.now().strftime('%Y-%m-%d %H:%M')}
-📊 Progress: {player.get_onboarding_progress()['completed_steps']}/4 steps completed
-⏰ Time Since Last Activity: {self._get_time_since_last_activity(player)}
-
-💡 Commands:
-• /status {player.player_id} - Check current status
-• /remind {player.player_id} - Send another reminder"""
             
             # Send to leadership chat (this would need to be implemented)
             logging.info(f"Admin notification sent for reminder to {player.name}")

@@ -1,291 +1,198 @@
 #!/usr/bin/env python3
 """
-Telegram Bot Runner for KICKAI
-Handles incoming Telegram messages and processes commands using LLM-based parsing
+KICKAI Telegram Bot Runner
+
+This script starts the KICKAI system with Telegram bot integration.
+It initializes all components and starts the bot to handle messages.
 """
 
-# --- MONKEY-PATCH MUST BE FIRST - before any other imports ---
-import httpx
-
-# --- Monkey-patch to remove 'proxy' and 'proxies' kwargs from httpx.Client/AsyncClient ---
-_original_client_init = httpx.Client.__init__
-def _patched_client_init(self, *args, **kwargs):
-    kwargs.pop("proxy", None)
-    kwargs.pop("proxies", None)
-    _original_client_init(self, *args, **kwargs)
-httpx.Client.__init__ = _patched_client_init
-
-_original_async_client_init = httpx.AsyncClient.__init__
-def _patched_async_client_init(self, *args, **kwargs):
-    kwargs.pop("proxy", None)
-    kwargs.pop("proxies", None)
-    _original_async_client_init(self, *args, **kwargs)
-httpx.AsyncClient.__init__ = _patched_async_client_init
-
-# --- Now safe to import other modules ---
-import os
+import asyncio
 import logging
+import os
 import sys
-from dotenv import load_dotenv
-from telegram.ext import Application
-from src.services.bot_status_service import send_startup_messages, send_shutdown_messages
-import signal
+from pathlib import Path
 
-# Add src directory to Python path for Railway deployment
-current_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = os.path.join(current_dir, 'src')
-if os.path.exists(src_dir):
-    sys.path.insert(0, src_dir)
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-# Load environment variables
-load_dotenv()
+# Enable nested event loops for environments that already have an event loop running
+import nest_asyncio
+nest_asyncio.apply()
 
-# Set up logging
+from telegram.ext import Application, CommandHandler
+from src.core.improved_config_system import initialize_improved_config, get_improved_config
+from src.database.firebase_client import initialize_firebase_client
+from src.telegram.unified_message_handler import register_unified_handler
+from src.services.player_service import initialize_player_service
+from src.services.team_service import initialize_team_service
+
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('kickai_bot.log')
+    ]
 )
 logger = logging.getLogger(__name__)
 
-def get_bot_token():
-    """Get bot token based on environment.
-    
-    - Local Development: Uses environment variables directly
-    - Production: Uses Firestore database
-    """
-    try:
-        logger.info("🔍 Starting bot token retrieval...")
-        
-        # Check if we're in local development mode
-        environment = os.getenv("ENVIRONMENT", "development")
-        
-        if environment == "development":
-            # For local development, use environment variables directly
-            bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-            if not bot_token:
-                logger.error("❌ TELEGRAM_BOT_TOKEN not found in environment variables")
-                logger.error("💡 For local development, create a test bot with @BotFather and set TELEGRAM_BOT_TOKEN in your .env file")
-                return None
-            
-            logger.info("✅ Using bot token from environment variables (local development)")
-            logger.info(f"   Bot Token: {bot_token[:10]}...")
-            return bot_token
-        
-        # For production, use the existing Firestore-based configuration
-        logger.info("🔧 Using Firestore-based bot configuration (production)")
-        
-        # Validate required environment variables for production
-        required_vars = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_BOT_USERNAME", "TELEGRAM_MAIN_CHAT_ID", "TELEGRAM_LEADERSHIP_CHAT_ID"]
-        missing_vars = []
-        
-        for var in required_vars:
-            if not os.getenv(var):
-                missing_vars.append(var)
-        
-        if missing_vars:
-            error_msg = f"❌ CRITICAL ERROR: Missing required environment variables: {', '.join(missing_vars)}"
-            logger.error(error_msg)
-            logger.error("The bot cannot function without these environment variables.")
-            logger.error("Please set them in your environment or .env file.")
-            raise ValueError(error_msg)
-        
-        # Import the bot configuration manager
-        logger.info("📦 Importing bot configuration manager...")
-        try:
-            from src.core.bot_config_manager import get_bot_config_manager
-            logger.info("✅ Imported bot configuration manager")
-        except ImportError as import_error:
-            logger.error(f"❌ Failed to import bot configuration manager: {import_error}")
-            raise
-        
-        # Get the bot configuration manager
-        logger.info("🔧 Getting bot configuration manager...")
-        try:
-            manager = get_bot_config_manager()
-            logger.info(f"✅ Bot configuration manager initialized for environment: {manager.environment}")
-        except Exception as manager_error:
-            logger.error(f"❌ Failed to get bot configuration manager: {manager_error}")
-            raise
-        
-        # Load configuration
-        logger.info("📋 Loading bot configuration...")
-        try:
-            config = manager.load_configuration()
-            logger.info(f"✅ Configuration loaded for environment: {config.environment}")
-            logger.info(f"📊 Available teams: {list(config.teams.keys())}")
-        except Exception as config_error:
-            logger.error(f"❌ Failed to load configuration: {config_error}")
-            raise
-        
-        # Get the default team or first available team
-        team_id = config.default_team
-        if not team_id and config.teams:
-            team_id = list(config.teams.keys())[0]
-            logger.info(f"📋 No default team set, using first available team: {team_id}")
-        
-        if not team_id:
-            logger.error("❌ No teams found in configuration")
-            return None
-        
-        # Get the bot configuration for the team
-        logger.info(f"🔍 Getting bot for team: {team_id}")
-        try:
-            bot_config = manager.get_bot_config(team_id)
-            if not bot_config:
-                logger.error(f"❌ No bot found for team: {team_id}")
-                return None
-            
-            bot_token = bot_config.token
-            if not bot_token:
-                logger.error(f"❌ Bot token is empty for team: {team_id}")
-                return None
-            
-            logger.info(f"✅ Bot token retrieved successfully: {bot_token[:10]}...")
-            logger.info(f"   Team: {team_id}")
-            logger.info(f"   Bot Username: {bot_config.username}")
-            logger.info(f"   Main Chat ID: {bot_config.main_chat_id}")
-            logger.info(f"   Leadership Chat ID: {bot_config.leadership_chat_id}")
-            return bot_token
-            
-        except Exception as bot_error:
-            logger.error(f"❌ Failed to get bot configuration for team {team_id}: {bot_error}")
-            raise
-            
-    except Exception as e:
-        logger.error(f"❌ Error getting bot token: {e}")
-        return None
 
-def test_bot_connection(bot_token):
-    """Test bot connection and get bot info."""
-    import requests
-    url = f"https://api.telegram.org/bot{bot_token}/getMe"
+def check_network_connectivity():
+    """Check basic network connectivity."""
     try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        bot_info = response.json()
-        
-        if bot_info.get('ok'):
-            bot = bot_info['result']
-            logger.info(f"✅ Bot connected successfully!")
-            logger.info(f"   Name: {bot.get('first_name')}")
-            logger.info(f"   Username: @{bot.get('username')}")
-            logger.info(f"   ID: {bot.get('id')}")
+        import requests
+        # Test connection to Telegram API
+        response = requests.get("https://api.telegram.org", timeout=10)
+        if response.status_code == 200:
+            logger.info("✅ Network connectivity: OK")
             return True
         else:
-            logger.error(f"❌ Bot connection failed: {bot_info}")
+            logger.warning(f"⚠️ Network connectivity: HTTP {response.status_code}")
             return False
-            
     except Exception as e:
-        logger.error(f"❌ Error testing bot connection: {e}")
+        logger.warning(f"⚠️ Network connectivity: {e}")
         return False
 
-def main():
-    """Main function to run the bot with LLM-based command parsing."""
-    print("🏆 KICKAI Telegram Bot Runner (Firebase + LLM Parsing)")
-    print("=" * 50)
-    
-    # Note: Health server is handled by railway_main.py, not needed here
-    logger.info("✅ Health server managed by railway_main.py")
-    
+def setup_environment():
+    """Set up the environment and load configuration."""
     try:
-        # Get bot token based on environment
-        bot_token = get_bot_token()
-        if not bot_token:
-            print("❌ Bot token not found. Exiting.")
-            return
+        # Load environment variables
+        from dotenv import load_dotenv
+        load_dotenv()
         
-        # Test connection
-        print("\n🔍 Testing bot connection...")
-        if not test_bot_connection(bot_token):
-            print("❌ Bot connection failed. Check your bot token.")
-            return
+        # Check network connectivity
+        check_network_connectivity()
         
-        # Get team_id for status messages
-        from src.core.bot_config_manager import get_bot_config_manager
-        manager = get_bot_config_manager()
-        config = manager.load_configuration()
-        team_id = config.default_team or (list(config.teams.keys())[0] if config.teams else None)
+        # Initialize configuration manager and get Configuration object
+        initialize_improved_config()
+        config = get_improved_config().configuration
+        logger.info("✅ Configuration loaded successfully")
         
-        # Send startup message
-        if bot_token and team_id:
-            send_startup_messages(bot_token, team_id)
+        # Initialize Firebase with database config
+        initialize_firebase_client(config.database)
+        logger.info("✅ Firebase client initialized")
         
-        # Set up python-telegram-bot Application
-        print("\n🚀 Setting up LLM-based bot...")
-        app = Application.builder().token(bot_token).build()
+        # Initialize services
+        initialize_player_service()
+        initialize_team_service()
+        logger.info("✅ Services initialized")
         
-        # Register unified message handler (replaces all complex routing)
-        try:
-            from src.telegram.unified_message_handler import register_unified_handler
-            if team_id:
-                register_unified_handler(app, team_id)
-            else:
-                register_unified_handler(app)  # Use default team ID
-            logger.info("✅ Unified message handler registered")
-        except Exception as e:
-            logger.error(f"❌ Failed to register unified message handler: {e}")
-            print("❌ Failed to register unified message handler. Registering fallback system error handler.")
-            from src.telegram.telegram_command_handler import fallback_system_error_handler
-            from telegram.ext import MessageHandler, filters
-            app.add_handler(MessageHandler(filters.ALL, fallback_system_error_handler))
-            logger.info("✅ Fallback system error handler registered for all messages")
+        return config
         
-        print("✅ Bot is running with Firebase + 8-agent CrewAI system! Send messages to your Telegram groups to test.")
-        print("🔥 Firebase Firestore database enabled")
-        print("🤖 Agent-based natural language processing enabled:")
-        print("   • Message Processing Specialist - Primary interface")
-        print("   • Team Manager - Strategic coordination")
-        print("   • Player Coordinator - Operational management")
-        print("   • Match Analyst - Tactical analysis")
-        print("   • Communication Specialist - Broadcast management")
-        print("   • Finance Manager - Financial management")
-        print("   • Squad Selection Specialist - Squad selection")
-        print("   • Analytics Specialist - Performance analytics")
-        print("🔄 Background tasks and reminders enabled:")
-        print("   • Automated onboarding reminders")
-        print("   • FA registration checks")
-        print("   • Daily status reports")
-        print("   • Reminder cleanup service")
-        print("📋 New commands available:")
-        print("   • /background_tasks - Check background task status")
-        print("   • /remind [player_id] - Send manual reminder")
-        print("   • /help - View all available commands")
-        print("💡 Try: \"Create a match against Arsenal on July 1st at 2pm\"")
-        print("💡 Try: \"Plan our next match including squad selection\"")
-        print("💡 Try: \"Analyze our team performance and suggest improvements\"")
-        print("💡 Try: \"/background_tasks\" to check system status")
-        print("💡 Press Ctrl+C to stop the bot.")
-
-        def handle_shutdown(signum, frame):
-            logger.info(f"Received signal {signum}, sending shutdown messages...")
-            if bot_token and team_id:
-                send_shutdown_messages(bot_token, team_id)
-            sys.exit(0)
-
-        signal.signal(signal.SIGINT, handle_shutdown)
-        signal.signal(signal.SIGTERM, handle_shutdown)
-        
-        # Run the bot with polling
-        app.run_polling()
-        
-    except ValueError as e:
-        print(f"❌ Configuration error: {e}")
-        print("💡 Make sure bot token is available in the environment or configuration")
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
-        logger.error(f"Bot error: {e}", exc_info=True)
-    finally:
-        # On normal exit, send shutdown message
-        try:
-            bot_token = get_bot_token()
-            from src.core.bot_config_manager import get_bot_config_manager
-            manager = get_bot_config_manager()
-            config = manager.load_configuration()
-            team_id = config.default_team or (list(config.teams.keys())[0] if config.teams else None)
-            if bot_token and team_id:
-                send_shutdown_messages(bot_token, team_id)
-        except Exception as e:
-            logger.error(f"❌ Error sending shutdown message on exit: {e}")
+        logger.error(f"❌ Failed to setup environment: {e}")
+        raise
+
+
+def start_bot(config):
+    """Start the Telegram bot."""
+    try:
+        # Get bot token from config
+        bot_token = config.telegram.bot_token
+        if not bot_token:
+            raise ValueError("TELEGRAM_BOT_TOKEN not found in environment variables")
+        
+        logger.info(f"🤖 Starting KICKAI Telegram Bot...")
+        logger.info(f"   Bot Token: {bot_token[:10]}...")
+        
+        # Create application
+        application = Application.builder().token(bot_token).build()
+        
+        # Register the unified message handler
+        team_id = "0854829d-445c-4138-9fd3-4db562ea46ee"  # Default team ID
+        register_unified_handler(application, team_id)
+        
+        # Add basic command handlers
+        from src.telegram.unified_command_system import get_command_registry
+        
+        command_registry = get_command_registry()
+        
+        # Register all commands
+        for command in command_registry.get_all_commands():
+            application.add_handler(
+                CommandHandler(command.name[1:], command.execute)  # Remove / from command name
+            )
+        
+        logger.info("✅ Bot handlers registered successfully")
+        
+        # Start the bot
+        logger.info("🚀 Starting bot polling...")
+        
+        # Use run_polling with network resilience settings
+        logger.info("📡 Starting resilient polling with network recovery...")
+        
+        # TODO: To enable startup messages, uncomment the following lines:
+        # async def send_startup_messages():
+        #     try:
+        #         main_chat_id = os.getenv("TELEGRAM_MAIN_CHAT_ID")
+        #         leadership_chat_id = os.getenv("TELEGRAM_LEADERSHIP_CHAT_ID")
+        #         
+        #         message = "🤖 **KICKAI Bot is now online!**\n\n✅ System initialized successfully\n✅ All services are running\n✅ Ready to handle commands"
+        #         
+        #         if main_chat_id:
+        #             await application.bot.send_message(chat_id=main_chat_id, text=message, parse_mode='Markdown')
+        #         if leadership_chat_id:
+        #             await application.bot.send_message(chat_id=leadership_chat_id, text=message, parse_mode='Markdown')
+        #     except Exception as e:
+        #         logger.warning(f"Failed to send startup messages: {e}")
+        # 
+        # # Send startup messages after a short delay
+        # import asyncio
+        # asyncio.create_task(send_startup_messages())
+        
+        application.run_polling(
+            allowed_updates=["message", "callback_query"],
+            drop_pending_updates=True,
+            close_loop=False
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to start bot: {e}")
+        raise
+
+
+def main():
+    """Main entry point."""
+    try:
+        logger.info("🎯 KICKAI Telegram Bot Starting...")
+        
+        # Setup environment
+        config = setup_environment()
+        
+        # Start the bot
+        start_bot(config)
+        
+    except KeyboardInterrupt:
+        logger.info("👋 Bot stopped by user")
+    except Exception as e:
+        logger.error(f"❌ Bot failed to start: {e}")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
+    # Check if required environment variables are set
+    required_vars = [
+        "TELEGRAM_BOT_TOKEN",
+        "GOOGLE_API_KEY"
+    ]
+    
+    missing_vars = []
+    for var in required_vars:
+        if not os.getenv(var):
+            missing_vars.append(var)
+    
+    # Accept either FIREBASE_CREDENTIALS_JSON or FIREBASE_CREDENTIALS_FILE
+    if not (os.getenv("FIREBASE_CREDENTIALS_JSON") or os.getenv("FIREBASE_CREDENTIALS_FILE")):
+        missing_vars.append("FIREBASE_CREDENTIALS_JSON or FIREBASE_CREDENTIALS_FILE")
+    
+    if missing_vars:
+        print("❌ Missing required environment variables:")
+        for var in missing_vars:
+            print(f"   - {var}")
+        print("\n📝 Please set these variables in your .env file or environment.")
+        print("📖 See README.md for setup instructions.")
+        sys.exit(1)
+    
+    # Run the bot
     main() 

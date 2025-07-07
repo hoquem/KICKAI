@@ -1,65 +1,19 @@
-"""
-Daily Status Service Interface
-
-This module defines the interface for daily status reporting operations.
-"""
-
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
-from datetime import datetime
-
+from typing import Dict
 
 class IDailyStatusService(ABC):
-    """Interface for daily status reporting operations."""
-    
     @abstractmethod
-    async def generate_daily_status(self, team_id: str) -> Dict[str, Any]:
-        """
-        Generate a comprehensive daily status report for a team.
-        
-        Args:
-            team_id: The team ID to generate status for
-            
-        Returns:
-            Dictionary containing daily status information
-        """
+    async def generate_team_stats(self, team_id: str) -> Dict:
         pass
-    
+
     @abstractmethod
-    async def get_player_status_summary(self, team_id: str) -> Dict[str, Any]:
-        """
-        Get a summary of player statuses for a team.
-        
-        Args:
-            team_id: The team ID to get status for
-            
-        Returns:
-            Dictionary containing player status summary
-        """
+    def format_daily_status_message(self, team_stats: Dict, team_name: str = "Team") -> str:
         pass
-    
+
     @abstractmethod
-    async def get_fa_registration_summary(self, team_id: str) -> Dict[str, Any]:
-        """
-        Get a summary of FA registration status for a team.
-        
-        Args:
-            team_id: The team ID to get FA status for
-            
-        Returns:
-            Dictionary containing FA registration summary
-        """
+    async def send_daily_status_report(self, team_id: str, leadership_chat_id: str) -> bool:
         pass
-    
+
     @abstractmethod
-    async def get_onboarding_summary(self, team_id: str) -> Dict[str, Any]:
-        """
-        Get a summary of player onboarding status for a team.
-        
-        Args:
-            team_id: The team ID to get onboarding status for
-            
-        Returns:
-            Dictionary containing onboarding summary
-        """
+    async def schedule_daily_status_task(self, team_id: str, leadership_chat_id: str) -> None:
         pass 

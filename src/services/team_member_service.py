@@ -6,13 +6,14 @@ and clean architecture principles.
 """
 
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from datetime import datetime
 from dataclasses import dataclass
 
-from src.database.models import TeamMember
+from src.database.models_improved import TeamMember
 from src.database.firebase_client import FirebaseClient
 from src.core.exceptions import DatabaseError, ValidationError
+from .interfaces.team_member_service_interface import ITeamMemberService
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class TeamMemberServiceConfig:
             self.leadership_roles = {'captain', 'vice_captain', 'manager', 'coach', 'admin', 'volunteer'}
 
 
-class TeamMemberService:
+class TeamMemberService(ITeamMemberService):
     """Service for managing team members with dependency injection."""
     
     def __init__(self, firebase_client: FirebaseClient, config: Optional[TeamMemberServiceConfig] = None):

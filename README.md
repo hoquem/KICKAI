@@ -3,7 +3,7 @@
 **Status:** ✅ **PRODUCTION READY** - v1.6.0  
 **Deployment:** 🚀 **Live on Railway**  
 **AI Provider:** 🤖 **Google Gemini (Production)**  
-**Architecture:** 🏗️ **8-Agent CrewAI System**
+**Architecture:** 🏗️ **10-Agent CrewAI System**
 
 A comprehensive AI-powered football team management system with Telegram bot interface, Firebase backend, and intelligent agent orchestration.
 
@@ -13,7 +13,7 @@ KICKAI is **fully operational** in production with **advanced AI capabilities**:
 - ✅ **Stable Railway deployment** with health monitoring
 - ✅ **Google AI (Gemini) integration** for natural language processing
 - ✅ **Firebase Firestore database** with real-time synchronization
-- ✅ **8-agent CrewAI system** for intelligent task processing
+- ✅ **10-agent CrewAI system** for intelligent task processing
 - ✅ **Advanced Memory System** with persistent conversation history
 - ✅ **Intelligent Routing System** with LLM-powered agent selection
 - ✅ **Dynamic Task Decomposition** for complex request handling
@@ -23,11 +23,15 @@ KICKAI is **fully operational** in production with **advanced AI capabilities**:
 - ✅ **FA Registration Checking** with automated status updates
 - ✅ **Daily Status Reports** with comprehensive team analytics
 - ✅ **Human-readable IDs** for teams, players, and matches
+- ✅ **Payment System Integration** with Collectiv for match fees and fines
+- ✅ **Advanced Onboarding System** with multi-step registration
+- ✅ **Unified Command System** with permission-based access control
+- ✅ **Comprehensive Testing Suite** with automated test coverage
 
 ## 🏗️ **Architecture Overview**
 
 ### **Agentic Architecture**
-KICKAI uses a sophisticated 8-agent CrewAI system:
+KICKAI uses a sophisticated 10-agent CrewAI system:
 
 1. **Message Processing Specialist** - Primary user interface and command parsing
 2. **Team Manager** - Strategic coordination and high-level planning
@@ -37,42 +41,42 @@ KICKAI uses a sophisticated 8-agent CrewAI system:
 6. **Finance Manager** - Financial tracking and payment management
 7. **Squad Selection Specialist** - Optimal squad selection based on availability
 8. **Analytics Specialist** - Performance analytics and insights
+9. **Learning Agent** - Continuous learning and system improvement
+10. **Onboarding Agent** - Specialized player onboarding and registration
 
 ### **Code Architecture**
 ```
 src/
 ├── agents/                 # AI Agent System
-│   ├── crew_agents.py     # 8-agent CrewAI definitions
-│   ├── handlers.py        # SimpleAgenticHandler for message processing
-│   ├── routing.py         # Intelligent request routing
-│   └── capabilities.py    # Agent capability definitions
+│   ├── crew_agents.py     # 10-agent CrewAI definitions
+│   ├── capabilities.py    # Agent capability definitions
+│   └── __init__.py        # Agent system initialization
 ├── core/                  # Core System Components
-│   ├── config.py         # Configuration management
-│   ├── advanced_memory.py # Persistent memory system
-│   ├── logging.py        # Structured logging
+│   ├── improved_config_system.py # Advanced configuration management
 │   └── exceptions.py     # Custom exceptions
 ├── services/             # Business Logic Layer
 │   ├── player_service.py # Player management service
 │   ├── team_service.py   # Team management service
 │   ├── fa_registration_checker.py # FA registration checking
 │   ├── daily_status_service.py # Daily status reports
-│   └── monitoring.py     # System monitoring
+│   ├── reminder_service.py # Automated reminder system
+│   ├── background_tasks.py # Scheduled operations
+│   ├── message_routing_service.py # Message handling
+│   └── team_member_service.py # Team membership management
 ├── tools/                # LangChain Tools
-│   ├── firebase_tools.py # Database operations
-│   ├── telegram_tools.py # Telegram integration
-│   └── team_management_tools.py # Team-specific operations
+│   └── __init__.py       # Tools package initialization
 ├── telegram/             # Telegram Integration
-│   ├── telegram_command_handler.py # Command processing
-│   └── player_registration_handler.py # Player onboarding
+│   ├── unified_command_system.py # Unified command architecture
+│   ├── player_registration_handler.py # Advanced player onboarding
+│   └── unified_message_handler.py # Message processing and routing
 ├── tasks/                # Task Definitions
 │   ├── tasks.py         # CrewAI task definitions
 │   └── task_templates.py # Task templates
 ├── database/             # Database Layer
 │   ├── firebase_client.py # Firebase client
-│   └── models.py         # Data models
+│   └── models_improved.py # Improved data models
 ├── utils/                # Utilities
-│   ├── id_generator.py   # Human-readable ID generation
-│   └── match_id_generator.py # Match ID generation
+│   └── id_generator.py   # Human-readable ID generation
 └── testing/              # Testing Infrastructure
     └── __init__.py       # Test package
 ```
@@ -81,9 +85,11 @@ src/
 - **AI Engine**: CrewAI with Google Gemini/OpenAI/Ollama
 - **Database**: Firebase Firestore with real-time sync
 - **Bot Platform**: Telegram Bot API
+- **Payment Processing**: Collectiv API integration
 - **Deployment**: Railway with Docker
 - **Testing**: pytest with comprehensive test suite
 - **Monitoring**: Custom health checks and structured logging
+- **Configuration**: Advanced config system with design patterns
 
 ## 🚀 **Quick Deploy to Railway**
 
@@ -108,6 +114,13 @@ AI_MODEL_NAME=gemini-pro
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 MAIN_CHAT_ID=your_main_chat_id
 LEADERSHIP_CHAT_ID=your_leadership_chat_id
+```
+
+**Payment System (Optional):**
+```
+COLLECTIV_API_KEY=your_collectiv_api_key
+COLLECTIV_BASE_URL=https://api.collectiv.com
+PAYMENT_ENABLED=true
 ```
 
 **Environment:**
@@ -164,6 +177,10 @@ cp env.local.example .env
 # Run tests
 pytest tests/
 
+# Run specific test categories
+pytest tests/test_agents/
+pytest tests/test_integration/
+
 # Start development server
 python run_telegram_bot.py
 ```
@@ -198,7 +215,72 @@ For local development, KICKAI uses **Ollama** with **Llama 3.1 8B Instruct** for
 
 #### **Ollama Setup**
 ```bash
-# Install Ollama
+
+## 🆕 **Latest Features (v1.6.0)**
+
+### **Payment System Integration**
+- **Collectiv API Integration**: Complete payment processing system
+- **Match Fees**: Automated match fee creation and tracking
+- **Membership Fees**: Subscription and membership fee management
+- **Fines System**: Automated fine creation and payment tracking
+- **Payment History**: Comprehensive payment records and analytics
+- **Payment Statistics**: Detailed financial reporting
+
+### **Advanced Onboarding System**
+- **Multi-step Registration**: Guided player onboarding process
+- **Natural Language Processing**: Conversational registration flow
+- **Progress Tracking**: Real-time onboarding progress monitoring
+- **Automated Reminders**: Smart reminder system for incomplete registrations
+- **FA Registration Integration**: Automated FA status checking
+
+### **Unified Command System**
+- **Permission-based Access**: Role-based command access control
+- **Design Pattern Implementation**: Clean, maintainable command architecture
+- **Comprehensive Command Set**: 20+ commands for all team management needs
+- **Error Handling**: Robust error handling and user feedback
+- **Command Logging**: Detailed command execution logging
+
+### **Enhanced Configuration System**
+- **Design Patterns**: Strategy, Factory, Builder, Observer patterns
+- **Multiple Sources**: Environment, file, database configuration
+- **Validation Chain**: Comprehensive configuration validation
+- **Hot Reloading**: Dynamic configuration updates
+- **Environment Detection**: Automatic environment configuration
+
+### **Improved Data Models**
+- **OOP Principles**: Clean, maintainable data models
+- **Validation**: Comprehensive input validation
+- **Factory Methods**: Easy object creation
+- **Type Safety**: Full type annotations
+- **Serialization**: Efficient data serialization
+
+## 📚 **Documentation**
+
+### **Core Documentation**
+- [CODEBASE_INDEX.md](CODEBASE_INDEX.md) - Comprehensive codebase overview
+- [PROJECT_STATUS.md](PROJECT_STATUS.md) - Current project status and roadmap
+- [ENVIRONMENT_VARIABLES_GUIDE.md](ENVIRONMENT_VARIABLES_GUIDE.md) - Environment setup guide
+
+### **Feature Documentation**
+- [PLAYER_ONBOARDING_PRD.md](PLAYER_ONBOARDING_PRD.md) - Player onboarding system
+- [COLLECTIV_PAYMENT_SYSTEM_PRD.md](COLLECTIV_PAYMENT_SYSTEM_PRD.md) - Payment system documentation
+- [COMMANDS_PRD.md](COMMANDS_PRD.md) - Command system documentation
+- [TEAM_MANAGEMENT_PRD.md](TEAM_MANAGEMENT_PRD.md) - Team management features
+
+### **Development Documentation**
+- [BRANCHING_STRATEGY.md](BRANCHING_STRATEGY.md) - Git workflow guidelines
+- [CI_CD_CONFIGURATION_GUIDE.md](CI_CD_CONFIGURATION_GUIDE.md) - CI/CD setup
+- [DEPLOYMENT_PIPELINE_GUIDE.md](DEPLOYMENT_PIPELINE_GUIDE.md) - Deployment process
+- [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md) - Security guidelines
+
+### **Setup Guides**
+- [FIREBASE_PROJECTS_SETUP.md](FIREBASE_PROJECTS_SETUP.md) - Firebase configuration
+- [TELEGRAM_BOT_SETUP.md](TELEGRAM_BOT_SETUP.md) - Telegram bot setup
+- [IMPROVED_CONFIGURATION_SYSTEM.md](IMPROVED_CONFIGURATION_SYSTEM.md) - Configuration system
+
+## 🛠️ **Development Setup**
+
+### **Install Ollama**
 # Download from https://ollama.ai
 
 # Start Ollama service

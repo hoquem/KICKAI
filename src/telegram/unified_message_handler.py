@@ -16,10 +16,10 @@ import logging
 from typing import Optional, Any, Dict
 from telegram import Update
 from telegram.ext import ContextTypes
+import asyncio
 
 from .unified_command_system import (
-    process_command, is_slash_command, extract_command_name,
-    CommandResult
+    process_command, is_slash_command, extract_command_name
 )
 
 logger = logging.getLogger(__name__)
@@ -40,11 +40,12 @@ class UnifiedMessageHandler:
         """Set up message handlers."""
         # Import here to avoid circular imports
         try:
-            from src.agents.handlers import SimpleAgenticHandler
-            self.agentic_handler = SimpleAgenticHandler(self.team_id)
-            logger.info("✅ Agentic handler initialized")
+            # Initialize the natural language handler
+            from .natural_language_handler import get_natural_language_handler
+            self.agentic_handler = get_natural_language_handler(self.team_id)
+            logger.info("✅ Natural language handler initialized successfully")
         except Exception as e:
-            logger.error(f"❌ Failed to initialize agentic handler: {e}")
+            logger.error(f"❌ Failed to initialize natural language handler: {e}")
             self.agentic_handler = None
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> Optional[str]:
@@ -120,7 +121,7 @@ class UnifiedMessageHandler:
     
     async def _handle_natural_language(self, text: str, user_id: str, chat_id: str, 
                                      username: str, update: Update) -> str:
-        """Handle natural language messages using the agentic system."""
+        """Handle natural language messages using the intelligent NLP system."""
         try:
             # First, check if this is an onboarding response
             onboarding_result = await self._handle_onboarding_response(user_id, text)
@@ -138,7 +139,7 @@ class UnifiedMessageHandler:
             # Determine if this is a leadership chat
             is_leadership = await self._is_leadership_chat(chat_id)
             
-            # Process with agentic handler
+            # Process with intelligent NLP handler
             result = await self.agentic_handler.process_message(
                 message=text,
                 user_id=user_id,
@@ -147,7 +148,7 @@ class UnifiedMessageHandler:
                 is_leadership_chat=is_leadership
             )
             
-            logger.info(f"✅ Natural language processed successfully")
+            logger.info(f"✅ Natural language processed successfully with personalized response")
             return result
             
         except Exception as e:
@@ -211,6 +212,41 @@ class UnifiedMessageHandler:
 _unified_handler: Optional[UnifiedMessageHandler] = None
 
 
+async def _get_team_id_from_context(context: ContextTypes.DEFAULT_TYPE, update: Update) -> str:
+    """
+    Get team ID from context or determine it from the bot configuration.
+    
+    This function should be enhanced to support multiple teams based on:
+    - Bot token (different bots for different teams)
+    - Chat ID (different chats for different teams)
+    - User context (user's team membership)
+    """
+    try:
+        # First, try to get from context
+        if hasattr(context, 'bot') and hasattr(context.bot, 'token'):
+            # Extract team info from bot token or bot username
+            bot_username = context.bot.username
+            if bot_username:
+                # This is where you'd implement team mapping logic
+                # For now, return a default team ID
+                # TODO: Implement proper team mapping based on bot username
+                return "0854829d-445c-4138-9fd3-4db562ea46ee"
+        
+        # Fallback: try to get from chat context
+        if update.effective_chat:
+            chat_id = str(update.effective_chat.id)
+            # TODO: Implement chat-to-team mapping
+            # For now, return default team ID
+            return "0854829d-445c-4138-9fd3-4db562ea46ee"
+        
+        # Final fallback
+        return "0854829d-445c-4138-9fd3-4db562ea46ee"
+        
+    except Exception as e:
+        logger.error(f"Error getting team ID from context: {e}")
+        return "0854829d-445c-4138-9fd3-4db562ea46ee"  # Default fallback
+
+
 def get_unified_handler(team_id: str) -> UnifiedMessageHandler:
     """Get the global unified message handler."""
     global _unified_handler
@@ -227,7 +263,7 @@ async def handle_message_unified(update: Update, context: ContextTypes.DEFAULT_T
     """
     try:
         # Get team ID from context or config
-        team_id = "0854829d-445c-4138-9fd3-4db562ea46ee"  # Default team ID
+        team_id = await _get_team_id_from_context(context, update)
         
         # Get the unified handler
         handler = get_unified_handler(team_id)
@@ -246,12 +282,22 @@ async def handle_message_unified(update: Update, context: ContextTypes.DEFAULT_T
         logger.error(f"Error in global message handler: {e}")
         try:
             if update.effective_message:
-                await update.effective_message.reply_text(
-                    "❌ Sorry, I encountered an error processing your request. Please try again.",
-                    parse_mode='HTML'
-                )
+                max_attempts = 3
+                for attempt in range(1, max_attempts + 1):
+                    try:
+                        await update.effective_message.reply_text(
+                            "❌ Sorry, I encountered an error processing your request. Please try again.",
+                            parse_mode='HTML'
+                        )
+                        break
+                    except Exception as send_error:
+                        logger.error(f"Failed to send error message (attempt {attempt}): {send_error}")
+                        if attempt < max_attempts:
+                            await asyncio.sleep(1)
+                        else:
+                            logger.error(f"Giving up after {max_attempts} attempts to send error message.")
         except Exception as send_error:
-            logger.error(f"Failed to send error message: {send_error}")
+            logger.error(f"Failed to send error message (outer): {send_error}")
 
 
 # ============================================================================

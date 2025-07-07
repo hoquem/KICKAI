@@ -16,20 +16,24 @@ from src.services.player_service import PlayerService
 from src.services.team_service import TeamService
 from src.services.team_member_service import TeamMemberService
 from src.services.fa_registration_checker import run_fa_registration_check, run_fa_fixtures_check
-from src.database.models import Player, PlayerRole, PlayerPosition, OnboardingStatus
+from src.database.models_improved import Player
+from src.core.bot_config_manager import get_bot_config_manager
+from .interfaces.daily_status_service_interface import IDailyStatusService
 
-class DailyStatusService:
+class DailyStatusService(IDailyStatusService):
     """Service to generate and send daily team status reports."""
     
     def __init__(self, 
                  player_service: PlayerService,
                  team_service: TeamService,
                  team_member_service: Optional[TeamMemberService],
-                 bot_token: str):
+                 bot_token: str,
+                 bot_config_manager):
         self.player_service = player_service
         self.team_service = team_service
         self.team_member_service = team_member_service
         self.bot_token = bot_token
+        self.bot_config_manager = bot_config_manager
         
     async def generate_team_stats(self, team_id: str) -> Dict:
         """
@@ -47,31 +51,43 @@ class DailyStatusService:
             
             # Calculate basic stats
             total_players = len(players)
-            active_players = len([p for p in players if p.onboarding_status == OnboardingStatus.COMPLETED])
-            pending_approval = len([p for p in players if p.onboarding_status == OnboardingStatus.PENDING_APPROVAL])
-            fa_registered = len([p for p in players if p.fa_registered])
-            fa_eligible = len([p for p in players if p.fa_eligible])
-            
-            # Position breakdown
+            active_players = len([p for p in players if p.is_active()])
+            pending_approval = len([p for p in players if p.is_pending_approval()])
+            fa_registered = len([p for p in players if p.is_fa_registered()])
+            fa_eligible = len([p for p in players if p.is_fa_eligible()])
+
+            # Player role breakdown
+            roles = {}
+            for player in players:
+                role = player.role.value if player.role else "Unknown"
+                roles[role] = roles.get(role, 0) + 1
+
+            # Player position breakdown
             positions = {}
             for player in players:
-                if player.onboarding_status == OnboardingStatus.COMPLETED:
-                    pos = player.position.value if player.position else "Unknown"
-                    positions[pos] = positions.get(pos, 0) + 1
-            
+                position = player.position.value if player.position else "Unknown"
+                positions[position] = positions.get(position, 0) + 1
+
+            # Onboarding status breakdown
+            onboarding_statuses = {}
+            for player in players:
+                status = player.onboarding_status.value if player.onboarding_status else "Unknown"
+                onboarding_statuses[status] = onboarding_statuses.get(status, 0) + 1
+
+            # Player activity (last 30 days)
+            thirty_days_ago = datetime.now() - timedelta(days=30)
+            active_last_30_days = len([p for p in players if p.last_activity and p.last_activity > thirty_days_ago])
+
             # Recent additions (last 7 days)
-            week_ago = datetime.now() - timedelta(days=7)
-            recent_additions = [
-                p for p in players 
-                if p.created_at and p.created_at > week_ago
-            ]
-            
+            seven_days_ago = datetime.now() - timedelta(days=7)
+            recent_additions = [p for p in players if p.created_at and p.created_at > seven_days_ago]
+
             # Check FA registration updates
-            fa_updates = await run_fa_registration_check(team_id, self.player_service)
-            
+            fa_updates = await run_fa_registration_check(team_id, self.player_service, self.team_service)
+
             # Get recent fixtures
-            fixtures = await run_fa_fixtures_check(self.player_service)
-            
+            fixtures = await run_fa_fixtures_check(team_id, self.player_service, self.team_service)
+
             return {
                 "total_players": total_players,
                 "active_players": active_players,
@@ -79,6 +95,9 @@ class DailyStatusService:
                 "fa_registered": fa_registered,
                 "fa_eligible": fa_eligible,
                 "positions": positions,
+                "roles": roles,
+                "onboarding_statuses": onboarding_statuses,
+                "active_last_30_days": active_last_30_days,
                 "recent_additions": recent_additions,
                 "fa_updates": fa_updates,
                 "fixtures": fixtures
@@ -98,66 +117,81 @@ class DailyStatusService:
                 "fixtures": []
             }
     
-    def format_daily_status_message(self, team_stats: Dict, team_name: str = "BP Hatters FC") -> str:
-        """
-        Format the daily status message with HTML formatting.
-        
-        Args:
-            team_stats: Team statistics
-            team_name: Name of the team
-            
-        Returns:
-            Formatted HTML message
-        """
-        today = datetime.now().strftime("%A, %B %d, %Y")
-        
-        message = f"""📊 <b>Daily Team Status Report</b>
-📅 <b>Date:</b> {today}
-🏆 <b>Team:</b> {team_name}
+    def format_daily_status_message(self, team_stats: Dict, team_name: str = "Team", report_content: Optional[List[str]] = None) -> str:
+        """Format the daily status message with HTML formatting."""
+        if report_content is None:
+            report_content = [
+                "player_summary",
+                "fa_registration_summary",
+                "upcoming_matches"
+            ]
 
-👥 <b>Player Statistics:</b>
+        today = datetime.now().strftime("%A, %B %d, %Y")
+
+        message = f"""📊 DAILY TEAM STATUS REPORT
+📅 Date: {today}
+🏆 Team: {team_name}
+
+"""
+
+        if "player_summary" in report_content:
+            message += f"""👥 Player Statistics:
 • Total Players: {team_stats["total_players"]}
 • Active Players: {team_stats["active_players"]}
 • Pending Approval: {team_stats["pending_approval"]}
 • FA Registered: {team_stats["fa_registered"]}
 • FA Eligible: {team_stats["fa_eligible"]}
+• Active Last 30 Days: {team_stats["active_last_30_days"]}
 
-⚽ <b>Position Breakdown:</b>"""
-        
-        for position, count in team_stats["positions"].items():
-            message += f"\n• {position.title()}: {count}"
-        
-        if team_stats["recent_additions"]:
-            message += f"\n\n🆕 <b>Recent Additions (Last 7 Days):</b>"
+⚽ Position Breakdown:"""
+            for position, count in team_stats["positions"].items():
+                message += f"\n• {position.title()}: {count}"
+            message += "\n"
+
+            message += f"\n👑 Role Breakdown:"
+            for role, count in team_stats["roles"].items():
+                message += f"\n• {role.title()}: {count}"
+            message += "\n"
+
+            message += f"\n📝 Onboarding Status Breakdown:"
+            for status, count in team_stats["onboarding_statuses"].items():
+                message += f"\n• {status.replace('_', ' ').title()}: {count}"
+            message += "\n"
+
+        if "recent_additions" in report_content and team_stats["recent_additions"]:
+            message += f"\n🆕 Recent Additions (Last 7 Days):"
             for player in team_stats["recent_additions"][:5]:  # Show max 5
                 message += f"\n• {player.name.upper()} ({player.player_id})"
-        
-        if team_stats["fa_updates"]:
-            message += f"\n\n✅ <b>New FA Registrations:</b>"
+            message += "\n"
+
+        if "fa_registration_summary" in report_content and team_stats["fa_updates"]:
+            message += f"\n✅ New FA Registrations:"
             for player_id, registered in team_stats["fa_updates"].items():
                 if registered:
                     # Get player name from ID (simplified)
                     message += f"\n• Player {player_id} is now FA registered!"
-        
-        if team_stats["fixtures"]:
-            message += f"\n\n📅 <b>Recent Fixtures/Results:</b>"
+            message += "\n"
+
+        if "upcoming_matches" in report_content and team_stats["fixtures"]:
+            message += f"\n📅 Recent Fixtures/Results:"
             for fixture in team_stats["fixtures"][:3]:  # Show max 3
                 message += f"\n• {fixture['text'][:100]}..."  # Truncate long text
-        
+            message += "\n"
+
         message += f"""
 
-🔧 <b>System Status:</b>
+🔧 System Status:
 • Database: ✅ Connected
 • FA Website: ✅ Monitored
 • Bot: ✅ Online
 
-💡 <b>Next Actions:</b>
+💡 Next Actions:
 • Review pending approvals: {team_stats["pending_approval"]} players
 • Monitor FA registration progress
 • Check upcoming fixtures
 
 ---
-<i>Generated automatically by KICKAI Team Management System</i>"""
+Generated automatically by KICKAI Team Management System"""
         
         return message
     
@@ -174,23 +208,29 @@ class DailyStatusService:
         """
         try:
             logging.info(f"📊 Generating daily status report for team {team_id}")
-            
+
+            # Get daily report configuration
+            daily_report_config = self.bot_config_manager.get_daily_report_config(team_id)
+            if not daily_report_config or not daily_report_config.get("enabled", False):
+                logging.info(f"Daily reports disabled for team {team_id}")
+                return False
+
             # Get team info
             team = await self.team_service.get_team(team_id)
-            team_name = team.name if team else "BP Hatters FC"
-            
+            team_name = team.name if team else "Team"
+
             # Generate stats
             team_stats = await self.generate_team_stats(team_id)
-            
+
             # Format message
-            message = self.format_daily_status_message(team_stats, team_name)
+            message = self.format_daily_status_message(team_stats, team_name, daily_report_config.get("content", []))
             
             # Send to leadership chat using requests
             import requests
-            from src.tools.telegram_tools import format_message_for_telegram
+            # from src.tools.telegram_tools import format_message_for_telegram  # File doesn't exist
             
             # Format message for Telegram HTML
-            formatted_message = format_message_for_telegram(message)
+            formatted_message = message  # Use message as-is since telegram_tools doesn't exist
             
             url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
             data = {
@@ -218,19 +258,16 @@ class DailyStatusService:
             return False
     
     async def schedule_daily_status_task(self, team_id: str, leadership_chat_id: str) -> None:
-        """
-        Schedule the daily status report task to run every day at 9:00 AM.
-        
-        Args:
-            team_id: The team ID to report on
-            leadership_chat_id: The leadership chat ID to send to
-        """
+        """Schedule the daily status report task to run every day at the configured time."""
         while True:
             try:
                 now = datetime.now()
-                
-                # Calculate next run time (9:00 AM today or tomorrow)
-                next_run = now.replace(hour=9, minute=0, second=0, microsecond=0)
+                daily_report_config = self.bot_config_manager.get_daily_report_config(team_id)
+                report_time_str = daily_report_config.get("time", "09:00") # Default to 09:00 AM
+                report_hour, report_minute = map(int, report_time_str.split(":"))
+
+                # Calculate next run time
+                next_run = now.replace(hour=report_hour, minute=report_minute, second=0, microsecond=0)
                 if next_run <= now:
                     next_run += timedelta(days=1)
                 
@@ -252,12 +289,13 @@ class DailyStatusService:
                 await asyncio.sleep(3600)
 
 
-async def start_daily_status_service(team_id: str, 
+async def start_daily_status_service(team_id: str,
                                    leadership_chat_id: str,
                                    player_service: PlayerService,
                                    team_service: TeamService,
                                    team_member_service: TeamMemberService,
-                                   bot_token: str) -> None:
+                                   bot_token: str,
+                                   bot_config_manager) -> None:
     """
     Start the daily status service.
     
@@ -273,7 +311,8 @@ async def start_daily_status_service(team_id: str,
         player_service=player_service,
         team_service=team_service,
         team_member_service=team_member_service,
-        bot_token=bot_token
+        bot_token=bot_token,
+        bot_config_manager=bot_config_manager
     )
     
     # Start the scheduled task
