@@ -1,29 +1,44 @@
 #!/usr/bin/env python3
 """
-Main Application Entry Point for KICKAI
+KICKAI Main Application Entry Point
 
-This module provides the main application entry point with proper initialization,
-error handling, graceful shutdown, and comprehensive health monitoring.
+This module provides the main entry point for the KICKAI football team management system.
+It handles application lifecycle, health checks, and graceful shutdown.
 """
 
 import asyncio
+import json
+import logging
+import os
 import signal
 import sys
 import time
-import json
-from typing import Optional, Any, Dict, List
-from contextlib import asynccontextmanager
-from dataclasses import dataclass, asdict
-from enum import Enum
-import logging
-from pathlib import Path
 import traceback
+from contextlib import asynccontextmanager
+from dataclasses import asdict, dataclass
+from enum import Enum
+from pathlib import Path
+from typing import Dict, Any, List, Optional
 
-from .core.config import initialize_config, get_config
-from .core.exceptions import ConfigurationError, KICKAIError
-from .database.firebase_client import initialize_firebase_client, get_firebase_client
-from .services.player_service import initialize_player_service
-from .services.team_service import initialize_team_service
+# Import centralized logging configuration
+from core.logging_config import (
+    configure_logging, get_logger, LogContext, LogMessages,
+    log_system_event, log_performance
+)
+
+# Import core components
+from core.exceptions import KICKAIError
+from services.monitoring import MonitoringService
+from services.multi_team_manager import MultiTeamManager
+from services.team_mapping_service import TeamMappingService
+from database.firebase_client import FirebaseClient
+from core.improved_config_system import get_improved_config
+
+from core.improved_config_system import initialize_improved_config, get_improved_config
+from core.exceptions import ConfigurationError
+from database.firebase_client import initialize_firebase_client, get_firebase_client
+from services.player_service import initialize_player_service
+from services.team_service import initialize_team_service
 
 
 class ApplicationState(Enum):
@@ -227,7 +242,8 @@ class KICKAIApplication:
         """Initialize all application components."""
         try:
             # Initialize configuration
-            config = initialize_config()
+            initialize_improved_config()
+            config = get_improved_config().configuration
             logging.info("Configuration initialized")
             
             # Initialize Firebase client
@@ -479,25 +495,38 @@ async def main():
 
 
 def run():
-    """Run the application with proper error handling."""
+    """Run the application with proper error handling and centralized logging."""
     try:
-        # Set up basic logging before anything else
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        # Configure centralized logging system
+        configure_logging(
+            log_level=os.getenv('KICKAI_LOG_LEVEL', 'INFO'),
+            log_format=os.getenv('KICKAI_LOG_FORMAT', 'text'),
+            log_file=os.getenv('KICKAI_LOG_FILE', 'logs/kickai.log'),
+            include_context=True
         )
         
+        # Get application logger
+        logger = get_logger(__name__)
+        
+        # Log system startup
+        log_system_event(LogMessages.SYSTEM_STARTUP, 
+                        context=LogContext(component="main"))
+        
+        # Run the application
         asyncio.run(main())
         
     except KeyboardInterrupt:
         print("\nShutdown requested by user")
+        logger = get_logger(__name__)
+        log_system_event("Application shutdown requested by user", 
+                        context=LogContext(component="main"))
         sys.exit(0)
     except Exception as e:
         print(f"Failed to start application: {e}")
-        logging.error(f"Failed to start application: {e}")
+        logger = get_logger(__name__)
+        logger.error(f"Failed to start application: {e}", exc_info=e)
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    import os
     run()

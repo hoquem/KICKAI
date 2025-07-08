@@ -62,7 +62,6 @@ class DatabaseConfig:
     """Database configuration."""
     project_id: str
     credentials_path: Optional[str] = None
-    collection_prefix: str = "kickai"
     batch_size: int = 500
     timeout_seconds: int = 30
     source: ConfigSource = ConfigSource.DEFAULT
@@ -218,7 +217,6 @@ class EnvironmentConfigurationSource(ConfigurationSource):
         config["database"] = {
             "project_id": os.getenv("FIREBASE_PROJECT_ID", ""),
             "credentials_path": os.getenv("FIREBASE_CREDENTIALS_PATH"),
-            "collection_prefix": os.getenv("FIREBASE_COLLECTION_PREFIX", "kickai"),
             "batch_size": int(os.getenv("FIREBASE_BATCH_SIZE", "500")),
             "timeout_seconds": int(os.getenv("FIREBASE_TIMEOUT", "30")),
             "source": ConfigSource.ENVIRONMENT
@@ -419,7 +417,6 @@ class DefaultConfigurationSource(ConfigurationSource):
             "database": {
                 "project_id": "",
                 "credentials_path": None,
-                "collection_prefix": "kickai",
                 "batch_size": 500,
                 "timeout_seconds": 30,
                 "source": ConfigSource.DEFAULT
@@ -589,7 +586,6 @@ class ConfigurationFactory:
         return DatabaseConfig(
             project_id=data.get("project_id", ""),
             credentials_path=data.get("credentials_path"),
-            collection_prefix=data.get("collection_prefix", "kickai"),
             batch_size=data.get("batch_size", 500),
             timeout_seconds=data.get("timeout_seconds", 30),
             source=data.get("source", ConfigSource.DEFAULT)
@@ -885,9 +881,18 @@ class ImprovedConfigurationManager:
             return
         
         env_files = []
-        if os.path.exists(".env"):
+        
+        # Check for E2E testing environment
+        if os.getenv('E2E_TESTING') or os.getenv('PYTEST_CURRENT_TEST'):
+            if os.path.exists(".env.test"):
+                env_files.append(".env.test")
+                logger.info("E2E testing detected, loading .env.test")
+        
+        # Load .env if not in E2E testing mode
+        if not env_files and os.path.exists(".env"):
             env_files.append(".env")
         
+        # Load environment-specific file
         env_specific = f".env.{self._environment.value}"
         if os.path.exists(env_specific):
             env_files.append(env_specific)
