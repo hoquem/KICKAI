@@ -41,7 +41,7 @@ async def main():
     config = get_config()
     
     # Default migration mapping
-    old_team_id = args.old_id or "0854829d-445c-4138-9fd3-4db562ea46ee"
+    old_team_id = args.old_id or 'KAI'
     new_team_id = args.new_id or "KT"
     
     print(f"🔄 Team ID Migration Tool")

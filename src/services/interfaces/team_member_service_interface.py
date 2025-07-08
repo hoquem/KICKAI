@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from src.database.models_improved import TeamMember
+from database.models_improved import TeamMember
 
 class ITeamMemberService(ABC):
     @abstractmethod

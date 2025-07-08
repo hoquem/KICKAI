@@ -1,9 +1,9 @@
 import logging
 from typing import List
 
-from src.services.match_service import get_match_service
-from src.services.player_service import get_player_service
-from src.database.models_improved import MatchStatus
+from services.match_service import get_match_service
+from services.player_service import get_player_service
+from domain.interfaces.match_status import MatchStatus
 
 logger = logging.getLogger(__name__)
 

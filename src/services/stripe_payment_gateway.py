@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional
 import logging
 import asyncio
 
-from .interfaces.payment_gateway_interface import PaymentGatewayInterface
+from services.interfaces.payment_gateway_interface import PaymentGatewayInterface
 
 logger = logging.getLogger(__name__)
 

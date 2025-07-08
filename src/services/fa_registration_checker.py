@@ -15,11 +15,11 @@ from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
 import logging
 
-from src.services.player_service import PlayerService
-from src.services.team_service import TeamService
-from src.database.models_improved import Player
-from src.database.firebase_client import get_firebase_client
-from .interfaces.fa_registration_checker_interface import IFARegistrationChecker
+from services.player_service import PlayerService
+from services.team_service import TeamService
+from database.models_improved import Player, FixtureData
+from database.firebase_client import get_firebase_client
+from services.interfaces.fa_registration_checker_interface import IFARegistrationChecker
 
 class FARegistrationChecker(IFARegistrationChecker):
     """Service to check FA registration status for players."""
@@ -234,6 +234,39 @@ async def run_fa_registration_check(team_id: str, player_service: PlayerService,
 
 
 async def run_fa_fixtures_check(team_id: str, player_service: PlayerService, team_service: TeamService) -> List[Dict]:
-    """Run a single FA fixtures check."""
+    """Run FA fixtures check for a team."""
     async with FARegistrationChecker(player_service, team_service, team_id) as checker:
-        return await checker.scrape_fixtures() 
+        return await checker.scrape_fixtures()
+
+
+# Global instances - now team-specific
+_fa_registration_checker_instances: dict[str, FARegistrationChecker] = {}
+
+def get_fa_registration_checker(team_id: Optional[str] = None):
+    """Get a FA registration checker instance for the specified team."""
+    global _fa_registration_checker_instances
+    
+    # Use default team ID if not provided
+    if not team_id:
+        import os
+        team_id = os.getenv('DEFAULT_TEAM_ID', 'KAI')
+    
+    # Return existing instance if available for this team
+    if team_id in _fa_registration_checker_instances:
+        return _fa_registration_checker_instances[team_id]
+    
+    # Create new instance for this team
+    from services.player_service import get_player_service
+    from services.team_service import get_team_service
+    from core.improved_config_system import get_improved_config
+    
+    config = get_improved_config()
+    
+    player_service = get_player_service(team_id=team_id)
+    team_service = get_team_service(team_id=team_id)
+    
+    fa_checker = FARegistrationChecker(player_service, team_service, team_id)
+    _fa_registration_checker_instances[team_id] = fa_checker
+    
+    logging.info(f"Created new FARegistrationChecker instance for team: {team_id}")
+    return fa_checker 

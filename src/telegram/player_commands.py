@@ -2,7 +2,7 @@ import logging
 from typing import List
 from datetime import datetime
 
-from src.services.player_service import get_player_service
+from services.player_service import get_player_service
 
 
 logger = logging.getLogger(__name__)
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class PlayerCommands:
     def __init__(self, team_id: str):
         self.team_id = team_id
-        self.player_service = get_player_service()
+        self.player_service = get_player_service(team_id=team_id)
 
     async def handle_injure_player(self, args: List[str]) -> str:
         """Handles injuring a player."""

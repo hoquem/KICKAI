@@ -9,14 +9,14 @@ from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 import logging
 
-from ..core.exceptions import (
-    TeamError, TeamNotFoundError, TeamValidationError, 
+from src.core.exceptions import (
+    TeamError, TeamNotFoundError, TeamValidationError,
     create_error_context
 )
-from ..database.firebase_client import get_firebase_client
+from src.database.firebase_client import get_firebase_client
 from src.database.models_improved import Team, TeamStatus, TeamMember, BotMapping, ExpenseCategory
 from src.services.expense_service import get_expense_service
-from ..utils.id_generator import generate_team_id
+from src.utils.id_generator import generate_team_id
 from .interfaces.team_service_interface import ITeamService
 
 
@@ -459,7 +459,7 @@ class TeamService(ITeamService):
 _team_service: Optional[TeamService] = None
 
 
-def get_team_service() -> TeamService:
+def get_team_service(team_id: Optional[str] = None) -> TeamService:
     """Get the global team service instance."""
     global _team_service
     if _team_service is None:
@@ -467,7 +467,7 @@ def get_team_service() -> TeamService:
     return _team_service
 
 
-def initialize_team_service() -> TeamService:
+def initialize_team_service(team_id: Optional[str] = None) -> TeamService:
     """Initialize the global team service."""
     global _team_service
     _team_service = TeamService()

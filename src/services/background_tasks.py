@@ -10,14 +10,14 @@ import asyncio
 from datetime import datetime
 import logging
 
-from src.core.bot_config_manager import get_bot_config_manager
-from src.services.player_service import PlayerService
-from src.services.team_service import TeamService
-from src.services.team_member_service import TeamMemberService
-from src.services.fa_registration_checker import run_fa_registration_check
-from src.services.daily_status_service import start_daily_status_service
-from src.services.reminder_service import get_reminder_service
-from src.services.financial_report_service import start_financial_report_service
+from core.bot_config_manager import get_bot_config_manager
+from services.player_service import PlayerService
+from services.team_service import TeamService
+from services.team_member_service import TeamMemberService
+from services.fa_registration_checker import run_fa_registration_check
+from services.daily_status_service import start_daily_status_service
+from services.reminder_service import get_reminder_service
+from services.financial_report_service import start_financial_report_service
 
 class BackgroundTaskManager:
     """Manages background tasks for the KICKAI system."""
@@ -186,7 +186,7 @@ class BackgroundTaskManager:
             # Initialize services
             player_service = PlayerService()
             team_service = TeamService()
-            from src.database.firebase_client import get_firebase_client
+            from database.firebase_client import get_firebase_client
             firebase_client = get_firebase_client()
             team_member_service = TeamMemberService(firebase_client)
             
@@ -307,6 +307,11 @@ class BackgroundTaskManager:
 
 # Global background task manager instance
 background_task_manager = BackgroundTaskManager()
+
+
+def get_background_tasks_service() -> BackgroundTaskManager:
+    """Get the global background tasks service instance."""
+    return background_task_manager
 
 
 async def start_background_tasks_for_team(team_id: str) -> None:

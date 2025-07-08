@@ -1,4 +1,4 @@
-from src.services.interfaces.payment_service_interface import PaymentServiceInterface, PaymentRecord, PaymentStatus, PaymentType
+from services.interfaces.payment_service_interface import PaymentServiceInterface, PaymentRecord, PaymentStatus, PaymentType
 from typing import List, Optional, Dict, Any
 
 class MockPaymentService(PaymentServiceInterface):

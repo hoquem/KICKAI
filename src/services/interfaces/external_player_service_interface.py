@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 
 
-class ExternalPlayerServiceInterface(ABC):
+class IExternalPlayerService(ABC):
     """Abstract base class for external player data services."""
 
     @abstractmethod
@@ -27,3 +27,6 @@ class ExternalPlayerServiceInterface(ABC):
         """Creates a new player record in the external system and returns their external ID.
         """
         pass
+
+# Backward compatibility alias
+ExternalPlayerServiceInterface = IExternalPlayerService

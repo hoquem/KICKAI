@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 
-class PaymentGatewayInterface(ABC):
+class IPaymentGateway(ABC):
     """Abstract base class for all payment gateway integrations."""
 
     @abstractmethod
@@ -18,3 +18,6 @@ class PaymentGatewayInterface(ABC):
     async def get_payment_status(self, charge_id: str) -> str:
         """Retrieves the status of a payment."""
         pass
+
+# Backward compatibility alias
+PaymentGatewayInterface = IPaymentGateway

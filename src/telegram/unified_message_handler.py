@@ -2,158 +2,105 @@
 """
 Unified Message Handler for KICKAI Bot
 
-This module provides a single, clean entry point for all message processing
-using the unified command system. It replaces all the complex routing logic
-with a simple, maintainable architecture.
-
-Design Patterns Used:
-- Facade Pattern: Single interface for all message handling
-- Strategy Pattern: Different handling strategies for different message types
-- Chain of Responsibility: Message processing pipeline
+This module provides a single entry point for all message processing,
+handling both slash commands and natural language with proper routing
+and error handling.
 """
 
-import logging
-from typing import Optional, Any, Dict
+import asyncio
+import traceback
+from typing import Dict, Any, Optional
+import os
+
+# Import Telegram types
 from telegram import Update
 from telegram.ext import ContextTypes
-import asyncio
 
-from .unified_command_system import (
-    process_command, is_slash_command, extract_command_name
+# Import centralized logging configuration
+from core.logging_config import (
+    get_logger, LogContext, LogMessages,
+    log_user_event, log_performance, log_errors
 )
 
-logger = logging.getLogger(__name__)
+# Import core components
+from src.services.team_mapping_service import TeamMappingService
+from src.services.command_operations_factory import get_command_operations
+from src.telegram.unified_command_system import is_slash_command, extract_command_name, process_command
+from src.agents.crew_agents import TeamManagementSystem
+from src.core.improved_config_system import get_improved_config
+from src.core.exceptions import KICKAIError
+
+logger = get_logger(__name__)
 
 
 class UnifiedMessageHandler:
     """
     Unified message handler that processes all incoming messages.
-    
-    This replaces the complex routing system with a single, clean interface.
+    Now fully CrewAI-powered: all intent, routing, and execution is handled by the intelligent system and CrewAI agents.
     """
-    
     def __init__(self, team_id: str):
         self.team_id = team_id
-        self._setup_handlers()
-    
-    def _setup_handlers(self):
-        """Set up message handlers."""
-        # Import here to avoid circular imports
-        try:
-            # Initialize the natural language handler
-            from .natural_language_handler import get_natural_language_handler
-            self.agentic_handler = get_natural_language_handler(self.team_id)
-            logger.info("✅ Natural language handler initialized successfully")
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize natural language handler: {e}")
-            self.agentic_handler = None
+        # Initialize the intelligent TeamManagementSystem
+        # All intelligent system components are now integrated into TeamManagementSystem.execute_task
+        self.team_system = TeamManagementSystem(team_id)
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> Optional[str]:
-        """
-        Main entry point for all message handling.
-        
-        This method determines the message type and routes it to the appropriate handler.
-        """
         try:
-            # Extract message information
             message = update.effective_message
             if not message or not message.text:
                 return None
-            
             text = message.text.strip()
             if not text:
                 return None
-            
-            # Check for required user and chat information
             if not update.effective_user or not update.effective_chat:
                 return "❌ Unable to process message: Missing user or chat information"
-            
             user_id = str(update.effective_user.id)
             chat_id = str(update.effective_chat.id)
             username = update.effective_user.username or "unknown"
-            
-            logger.info(f"Processing message: {text[:50]}... from {username} ({user_id}) in {chat_id}")
-            
-            # Determine message type and route accordingly
-            if is_slash_command(text):
-                return await self._handle_slash_command(text, user_id, chat_id, username, update)
-            else:
-                return await self._handle_natural_language(text, user_id, chat_id, username, update)
-                
-        except Exception as e:
-            logger.error(f"Error in unified message handler: {e}")
-            return f"❌ Sorry, I encountered an error processing your request: {str(e)}"
-    
-    async def _handle_slash_command(self, text: str, user_id: str, chat_id: str, 
-                                  username: str, update: Update) -> str:
-        """Handle slash commands using the unified command system."""
-        try:
-            # Extract command name
-            command_name = extract_command_name(text)
-            if not command_name:
-                return "❌ Invalid command format. Commands should start with '/'"
-            
-            logger.info(f"Processing slash command: {command_name}")
-            
-            # Process command using unified system
-            result = await process_command(
-                command_name=command_name,
-                user_id=user_id,
-                chat_id=chat_id,
+            log_context = LogContext(
                 team_id=self.team_id,
-                message_text=text,
-                username=username,
-                raw_update=update
-            )
-            
-            if result.success:
-                logger.info(f"✅ Command {command_name} executed successfully")
-                return result.message
-            else:
-                # Log the actual error message, not the error field (which is None for normal failures)
-                error_info = result.error if result.error else result.message
-                logger.warning(f"❌ Command {command_name} failed: {error_info}")
-                return result.message
-                
-        except Exception as e:
-            logger.error(f"Error handling slash command: {e}")
-            return f"❌ Error processing command: {str(e)}"
-    
-    async def _handle_natural_language(self, text: str, user_id: str, chat_id: str, 
-                                     username: str, update: Update) -> str:
-        """Handle natural language messages using the intelligent NLP system."""
-        try:
-            # First, check if this is an onboarding response
-            onboarding_result = await self._handle_onboarding_response(user_id, text)
-            if onboarding_result:
-                return onboarding_result
-            
-            if not self.agentic_handler:
-                return "❌ Natural language processing is currently unavailable. Please use slash commands."
-            
-            logger.info(f"Processing natural language: {text[:50]}...")
-            
-            # Get user role for context
-            user_role = await self._get_user_role(user_id)
-            
-            # Determine if this is a leadership chat
-            is_leadership = await self._is_leadership_chat(chat_id)
-            
-            # Process with intelligent NLP handler
-            result = await self.agentic_handler.process_message(
-                message=text,
                 user_id=user_id,
                 chat_id=chat_id,
-                user_role=user_role,
-                is_leadership_chat=is_leadership
+                operation="message_processing",
+                component="unified_handler"
             )
+            logger.info(f"Processing message: {text[:50]}... from {username} ({user_id}) in {chat_id}", context=log_context)
             
-            logger.info(f"✅ Natural language processed successfully with personalized response")
+            # Check for onboarding response first
+            onboarding_response = await self._handle_onboarding_response(user_id, text)
+            if onboarding_response:
+                return onboarding_response
+            
+            # Prepare context for intelligent system
+            execution_context = {
+                'user_id': user_id,
+                'chat_id': chat_id,
+                'username': username,
+                'team_id': self.team_id,
+                'user_role': await self._get_user_role(user_id),
+                'is_leadership_chat': await self._is_leadership_chat(chat_id),
+                'user_history': [],  # TODO: Implement user history tracking
+                'message_timestamp': message.date.isoformat() if message.date else None
+            }
+            
+            # Use the intelligent TeamManagementSystem.execute_task method
+            # This now includes the full intelligent system pipeline:
+            # 1. Intent classification
+            # 2. Complexity assessment  
+            # 3. Task decomposition
+            # 4. Capability-based routing
+            # 5. Orchestrated execution
+            # 6. Result aggregation
+            # 7. User preference learning
+            # 8. Response personalization
+            result = self.team_system.execute_task(text, execution_context)
+            
             return result
             
         except Exception as e:
-            logger.error(f"Error handling natural language: {e}")
-            return f"❌ Error processing your request: {str(e)}"
+            logger.error(f"Error in CrewAI-powered unified message handler: {e}",
+                        context=LogContext(team_id=self.team_id, component="unified_handler"), exc_info=e)
+            return f"❌ Sorry, I encountered an error processing your request: {str(e)}"
     
     async def _handle_onboarding_response(self, user_id: str, text: str) -> Optional[str]:
         """Handle onboarding responses using improved workflow."""
@@ -168,40 +115,40 @@ class UnifiedMessageHandler:
             success, message = await improved_workflow.process_response(user_id, text)
             
             if success:
-                logger.info(f"✅ Onboarding response processed for user {user_id}")
+                logger.info(f"Onboarding response processed for user {user_id}",
+                           context=LogContext(team_id=self.team_id, user_id=user_id, operation="onboarding"))
                 return message
             else:
                 # Not an onboarding response, continue with normal processing
-                logger.debug(f"Not an onboarding response for user {user_id}")
+                logger.debug(f"Not an onboarding response for user {user_id}",
+                           context=LogContext(team_id=self.team_id, user_id=user_id, operation="onboarding"))
                 return None
                 
         except Exception as e:
-            logger.error(f"Error handling onboarding response: {e}")
+            logger.error(f"Error handling onboarding response: {e}",
+                        context=LogContext(team_id=self.team_id, user_id=user_id, operation="onboarding"), exc_info=e)
             return None
     
     async def _get_user_role(self, user_id: str) -> str:
         """Get user role for context."""
         try:
-            from src.services.team_member_service import TeamMemberService
-            from src.database.firebase_client import get_firebase_client
-            firebase_client = get_firebase_client()
-            team_service = TeamMemberService(firebase_client)
-            member = await team_service.get_team_member_by_telegram_id(user_id, self.team_id)
-            if member and member.roles:
-                return member.roles[0]  # Return first role
-            return 'player'
+            from src.services.user_management_factory import get_user_management
+            user_management = get_user_management()
+            return await user_management.get_user_role(user_id, self.team_id)
         except Exception as e:
-            logger.error(f"Error getting user role: {e}")
+            logger.error(f"Error getting user role: {e}",
+                        context=LogContext(team_id=self.team_id, user_id=user_id, operation="get_user_role"), exc_info=e)
             return 'player'  # Default to player
     
     async def _is_leadership_chat(self, chat_id: str) -> bool:
         """Check if this is a leadership chat."""
         try:
-            from src.services.access_control_service import AccessControlService
-            access_control = AccessControlService()
-            return access_control.is_leadership_chat(chat_id, self.team_id)
+            from src.services.user_management_factory import get_user_management
+            user_management = get_user_management()
+            return await user_management.is_leadership_chat(chat_id, self.team_id)
         except Exception as e:
-            logger.error(f"Error checking leadership chat: {e}")
+            logger.error(f"Error checking leadership chat: {e}",
+                        context=LogContext(team_id=self.team_id, chat_id=chat_id, operation="check_leadership_chat"), exc_info=e)
             return False
 
 
@@ -214,37 +161,60 @@ _unified_handler: Optional[UnifiedMessageHandler] = None
 
 async def _get_team_id_from_context(context: ContextTypes.DEFAULT_TYPE, update: Update) -> str:
     """
-    Get team ID from context or determine it from the bot configuration.
+    Get team ID from context using the team mapping service.
     
-    This function should be enhanced to support multiple teams based on:
+    This function uses multiple strategies to determine the correct team ID:
     - Bot token (different bots for different teams)
+    - Bot username
     - Chat ID (different chats for different teams)
     - User context (user's team membership)
+    - Default team ID (fallback)
     """
     try:
-        # First, try to get from context
-        if hasattr(context, 'bot') and hasattr(context.bot, 'token'):
-            # Extract team info from bot token or bot username
-            bot_username = context.bot.username
-            if bot_username:
-                # This is where you'd implement team mapping logic
-                # For now, return a default team ID
-                # TODO: Implement proper team mapping based on bot username
-                return "0854829d-445c-4138-9fd3-4db562ea46ee"
+        from src.services.team_mapping_service import get_team_mapping_service
         
-        # Fallback: try to get from chat context
+        # Get the team mapping service
+        team_mapping_service = get_team_mapping_service(team_id=None)  # Use default for fallback
+        
+        # Extract context information
+        bot_token = None
+        bot_username = None
+        chat_id = None
+        user_id = None
+        
+        # Get bot information
+        if hasattr(context, 'bot') and hasattr(context.bot, 'token'):
+            bot_token = context.bot.token
+            bot_username = context.bot.username
+        
+        # Get chat information
         if update.effective_chat:
             chat_id = str(update.effective_chat.id)
-            # TODO: Implement chat-to-team mapping
-            # For now, return default team ID
-            return "0854829d-445c-4138-9fd3-4db562ea46ee"
         
-        # Final fallback
-        return "0854829d-445c-4138-9fd3-4db562ea46ee"
+        # Get user information
+        if update.effective_user:
+            user_id = str(update.effective_user.id)
+        
+        # Resolve team ID using the mapping service
+        team_id = team_mapping_service.resolve_team_id(
+            bot_token=bot_token,
+            bot_username=bot_username,
+            chat_id=chat_id,
+            user_id=user_id
+        )
+        
+        logger.debug(f"Resolved team ID: {team_id} (bot: {bot_username}, chat: {chat_id}, user: {user_id})")
+        return team_id
         
     except Exception as e:
         logger.error(f"Error getting team ID from context: {e}")
-        return "0854829d-445c-4138-9fd3-4db562ea46ee"  # Default fallback
+        # Fallback to default team ID
+        try:
+            from src.services.team_mapping_service import get_team_mapping_service
+            team_mapping_service = get_team_mapping_service(team_id=None)  # Use default for fallback
+            return team_mapping_service.get_default_team_id() or os.getenv('DEFAULT_TEAM_ID', 'KAI')
+        except:
+            return os.getenv('DEFAULT_TEAM_ID', 'KAI')  # Final fallback
 
 
 def get_unified_handler(team_id: str) -> UnifiedMessageHandler:
@@ -304,11 +274,12 @@ async def handle_message_unified(update: Update, context: ContextTypes.DEFAULT_T
 # REGISTRATION FUNCTIONS
 # ============================================================================
 
-def register_unified_handler(app, team_id: str = "0854829d-445c-4138-9fd3-4db562ea46ee"):
+def register_unified_handler(app):
     """
     Register the unified message handler with the telegram application.
     
     This replaces all the complex command registration with a single, clean handler.
+    Team ID is resolved dynamically for each message using the team mapping service.
     """
     try:
         from telegram.ext import MessageHandler, filters
@@ -317,7 +288,7 @@ def register_unified_handler(app, team_id: str = "0854829d-445c-4138-9fd3-4db562
         app.add_handler(MessageHandler(filters.TEXT, handle_message_unified))
         
         logger.info("✅ Unified message handler registered successfully")
-        logger.info(f"   Team ID: {team_id}")
+        logger.info("   Team ID: Resolved dynamically per message")
         logger.info("   Handles: Slash commands and natural language")
         logger.info("   Architecture: Clean, maintainable, single entry point")
         
@@ -381,7 +352,7 @@ The new unified command system replaces the complex routing with clean OOP princ
    - Complex routing in telegram_command_handler.py (simplified)
 
 3. Update imports to use the new system:
-   from src.telegram.unified_message_handler import register_unified_handler
+   from telegram.unified_message_handler import register_unified_handler
 
 🎯 BENEFITS:
 - Single entry point for all messages

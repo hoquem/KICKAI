@@ -10,10 +10,10 @@ from typing import List, Optional
 from datetime import datetime
 from dataclasses import dataclass
 
-from src.database.models_improved import TeamMember
-from src.database.firebase_client import FirebaseClient
-from src.core.exceptions import DatabaseError, ValidationError
-from .interfaces.team_member_service_interface import ITeamMemberService
+from database.models_improved import TeamMember
+from database.firebase_client import FirebaseClient
+from core.exceptions import DatabaseError, ValidationError
+from services.interfaces.team_member_service_interface import ITeamMemberService
 
 logger = logging.getLogger(__name__)
 
@@ -198,11 +198,80 @@ class TeamMemberService(ITeamMemberService):
         
         # Check if member has at least one role
         if not member.roles and self.config.require_roles:
-            issues.append("Team member must have at least one role")
+            issues.append("Member must have at least one role")
         
         # Check for invalid roles
-        invalid_roles = set(member.roles) - self.config.leadership_roles - {'player'}
-        if invalid_roles:
-            issues.append(f"Invalid roles: {invalid_roles}")
+        for role in member.roles:
+            if role not in self.config.leadership_roles and role != 'player':
+                issues.append(f"Invalid role: {role}")
         
-        return issues 
+        return issues
+    
+    async def get_user_role(self, user_id: str, team_id: str) -> str:
+        """Get the primary role of a user in a team."""
+        try:
+            # First try to get by telegram_id (user_id)
+            member = await self.get_team_member_by_telegram_id(user_id, team_id)
+            if member:
+                # Return the first role, or 'player' as default
+                return member.roles[0] if member.roles else 'player'
+            
+            # If not found by telegram_id, try to get by user_id
+            team_members = await self.get_team_members_by_team(team_id)
+            for member in team_members:
+                if member.user_id == user_id:
+                    return member.roles[0] if member.roles else 'player'
+            
+            # Default to 'player' if not found
+            return 'player'
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to get user role for {user_id} in team {team_id}: {e}")
+            return 'player'  # Default to player role on error
+
+# Global instance - now team-specific
+_team_member_service_instances: dict[str, TeamMemberService] = {}
+
+
+def get_team_member_service(team_id: Optional[str] = None) -> TeamMemberService:
+    """Get the team member service instance for the specified team."""
+    global _team_member_service_instances
+    
+    # Use default team ID if not provided
+    if not team_id:
+        import os
+        team_id = os.getenv('DEFAULT_TEAM_ID', 'KAI')
+    
+    # Return existing instance if available for this team
+    if team_id in _team_member_service_instances:
+        return _team_member_service_instances[team_id]
+    
+    # Create new instance for this team
+    from database.firebase_client import get_firebase_client
+    firebase_client = get_firebase_client()
+    
+    team_member_service = TeamMemberService(firebase_client)
+    _team_member_service_instances[team_id] = team_member_service
+    
+    logger.info(f"Created new TeamMemberService instance for team: {team_id}")
+    return team_member_service
+
+
+def initialize_team_member_service(team_id: Optional[str] = None) -> TeamMemberService:
+    """Initialize the team member service for the specified team."""
+    global _team_member_service_instances
+    
+    # Use default team ID if not provided
+    if not team_id:
+        import os
+        team_id = os.getenv('DEFAULT_TEAM_ID', 'KAI')
+    
+    # Create new instance (overwriting if exists)
+    from database.firebase_client import get_firebase_client
+    firebase_client = get_firebase_client()
+    
+    team_member_service = TeamMemberService(firebase_client)
+    _team_member_service_instances[team_id] = team_member_service
+    
+    logger.info(f"Initialized TeamMemberService for team: {team_id}")
+    return team_member_service 

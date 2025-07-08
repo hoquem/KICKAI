@@ -2,10 +2,10 @@ import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 
-from src.database.firebase_client import get_firebase_client
-from src.database.models_improved import Match, MatchStatus
-from src.core.exceptions import MatchError, MatchNotFoundError, create_error_context
-from .interfaces.match_service_interface import IMatchService
+from database.firebase_client import get_firebase_client
+from database.models_improved import Match, MatchStatus
+from core.exceptions import MatchError, MatchNotFoundError, create_error_context
+from services.interfaces.match_service_interface import IMatchService
 
 logger = logging.getLogger(__name__)
 

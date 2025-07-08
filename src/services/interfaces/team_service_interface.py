@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
-from src.database.models_improved import Team, TeamStatus, TeamMember, BotMapping
+from database.models_improved import Team, TeamStatus, TeamMember, BotMapping
 
 class ITeamService(ABC):
     @abstractmethod

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from src.database.models_improved import Expense, ExpenseCategory
+from database.models_improved import Expense, ExpenseCategory
 
 class IExpenseService(ABC):
     @abstractmethod

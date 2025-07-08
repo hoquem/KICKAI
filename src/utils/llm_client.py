@@ -8,7 +8,7 @@ in the KICKAI system.
 import logging
 import asyncio
 from typing import Dict, Any, Optional
-from src.utils.llm_intent import extract_intent
+from utils.llm_intent import extract_intent
 
 logger = logging.getLogger(__name__)
 

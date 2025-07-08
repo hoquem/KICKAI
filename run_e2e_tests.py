@@ -2,299 +2,227 @@
 """
 KICKAI End-to-End Test Runner
 
-This script provides a comprehensive testing framework for:
-- Telegram bot automation
-- Firestore data validation
-- Natural language processing
-- Command execution
-- User interaction flows
-
-Usage:
-    python run_e2e_tests.py --suite smoke
-    python run_e2e_tests.py --suite comprehensive --report html
-    python run_e2e_tests.py --suite natural_language --parallel
+This script runs comprehensive E2E tests for the KICKAI Telegram bot,
+validating both Telegram interactions and Firestore data consistency.
 """
 
 import asyncio
-import argparse
-import json
+import logging
 import os
 import sys
+import argparse
 from datetime import datetime
 from typing import List, Dict, Any
-import logging
-
-# Always load .env file
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from testing.e2e_framework import (
-    TelegramBotTester, FirestoreValidator, E2ETestRunner,
-    TestResult
-)
-from testing.test_suites import (
-    load_test_suite, get_available_suites, create_test_runner_with_suite
-)
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv('.env.test')
+except ImportError:
+    pass
+
+from src.testing.e2e_framework import E2ETestRunner, TelegramBotTester, FirestoreValidator
+from src.testing.test_suites import load_test_suite, get_available_suites
+from src.core.improved_config_system import get_improved_config
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('e2e_tests.log'),
-        logging.StreamHandler()
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(f'e2e_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.txt')
     ]
 )
 
 logger = logging.getLogger(__name__)
 
 
-class TestReporter:
-    """Generate test reports in various formats."""
+def validate_environment():
+    """Validate that all required environment variables are set."""
+    logger.info("🔍 Validating environment configuration...")
     
-    @staticmethod
-    def generate_text_report(results: List[TestResult]) -> str:
-        """Generate a text report."""
-        if not results:
-            return "No test results available"
-        
-        total_tests = len(results)
-        passed_tests = len([r for r in results if r.success])
-        failed_tests = total_tests - passed_tests
-        
-        # Calculate statistics
-        avg_duration = sum(r.duration for r in results) / total_tests
-        test_types = {}
-        for result in results:
-            test_type = result.test_type.value
-            test_types[test_type] = test_types.get(test_type, 0) + 1
-        
-        # Generate report
-        report = f"""
-🧪 KICKAI E2E Test Report
-{'=' * 50}
-Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-📊 Summary:
-• Total Tests: {total_tests}
-• Passed: {passed_tests} ({passed_tests/total_tests*100:.1f}%)
-• Failed: {failed_tests} ({failed_tests/total_tests*100:.1f}%)
-• Average Duration: {avg_duration:.2f}s
-
-📋 Test Types:
-"""
-        
-        for test_type, count in test_types.items():
-            report += f"• {test_type.title()}: {count}\n"
-        
-        report += f"""
-⏱️ Performance:
-• Total Duration: {sum(r.duration for r in results):.2f}s
-• Fastest Test: {min(r.duration for r in results):.2f}s
-• Slowest Test: {max(r.duration for r in results):.2f}s
-
-❌ Failed Tests:
-"""
-        
-        for result in results:
-            if not result.success:
-                report += f"• {result.test_name}\n"
-                for error in result.errors:
-                    report += f"  - {error}\n"
-        
-        return report
+    required_vars = [
+        'TELEGRAM_BOT_TOKEN',
+        'TELEGRAM_API_ID', 
+        'TELEGRAM_API_HASH',
+        'ADMIN_SESSION_STRING',
+        'TELEGRAM_MAIN_CHAT_ID',
+        'TELEGRAM_LEADERSHIP_CHAT_ID',
+        'DEFAULT_TEAM_ID',
+        'FIREBASE_PROJECT_ID'
+    ]
     
-    @staticmethod
-    def generate_json_report(results: List[TestResult]) -> str:
-        """Generate a JSON report."""
-        report_data = {
-            "timestamp": datetime.now().isoformat(),
-            "summary": {
-                "total_tests": len(results),
-                "passed_tests": len([r for r in results if r.success]),
-                "failed_tests": len([r for r in results if not r.success]),
-                "total_duration": sum(r.duration for r in results),
-                "average_duration": sum(r.duration for r in results) / len(results) if results else 0
-            },
-            "results": [
-                {
-                    "test_name": result.test_name,
-                    "test_type": result.test_type.value,
-                    "success": result.success,
-                    "duration": result.duration,
-                    "message": result.message,
-                    "errors": result.errors,
-                    "metadata": result.metadata
-                }
-                for result in results
-            ]
-        }
-        
-        return json.dumps(report_data, indent=2)
+    missing_vars = []
+    for var in required_vars:
+        value = os.getenv(var)
+        if not value:
+            missing_vars.append(var)
+        else:
+            # Mask sensitive values
+            if 'TOKEN' in var or 'HASH' in var or 'SESSION' in var:
+                masked_value = value[:8] + '...' + value[-4:] if len(value) > 12 else '***'
+                logger.info(f"✅ {var}: {masked_value}")
+            else:
+                logger.info(f"✅ {var}: {value}")
     
-    @staticmethod
-    def generate_html_report(results: List[TestResult]) -> str:
-        """Generate an HTML report."""
-        if not results:
-            return "<html><body><h1>No test results available</h1></body></html>"
-        
-        total_tests = len(results)
-        passed_tests = len([r for r in results if r.success])
-        failed_tests = total_tests - passed_tests
-        
-        html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <title>KICKAI E2E Test Report</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; margin: 20px; }}
-        .header {{ background-color: #f0f0f0; padding: 20px; border-radius: 5px; }}
-        .summary {{ display: flex; justify-content: space-around; margin: 20px 0; }}
-        .summary-item {{ text-align: center; padding: 10px; }}
-        .passed {{ color: green; }}
-        .failed {{ color: red; }}
-        .test-result {{ margin: 10px 0; padding: 10px; border-radius: 5px; }}
-        .test-passed {{ background-color: #d4edda; border: 1px solid #c3e6cb; }}
-        .test-failed {{ background-color: #f8d7da; border: 1px solid #f5c6cb; }}
-        .error {{ color: red; margin-left: 20px; }}
-        .metadata {{ font-size: 0.9em; color: #666; margin-top: 5px; }}
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>🧪 KICKAI E2E Test Report</h1>
-        <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-    </div>
+    if missing_vars:
+        logger.error(f"❌ Missing required environment variables: {missing_vars}")
+        return False
     
-    <div class="summary">
-        <div class="summary-item">
-            <h3>Total Tests</h3>
-            <p>{total_tests}</p>
-        </div>
-        <div class="summary-item">
-            <h3 class="passed">Passed</h3>
-            <p class="passed">{passed_tests} ({passed_tests/total_tests*100:.1f}%)</p>
-        </div>
-        <div class="summary-item">
-            <h3 class="failed">Failed</h3>
-            <p class="failed">{failed_tests} ({failed_tests/total_tests*100:.1f}%)</p>
-        </div>
-        <div class="summary-item">
-            <h3>Duration</h3>
-            <p>{sum(r.duration for r in results):.2f}s</p>
-        </div>
-    </div>
-    
-    <h2>Test Results</h2>
-"""
-        
-        for result in results:
-            css_class = "test-passed" if result.success else "test-failed"
-            status_icon = "✅" if result.success else "❌"
-            
-            html += f"""
-    <div class="test-result {css_class}">
-        <h3>{status_icon} {result.test_name}</h3>
-        <p><strong>Type:</strong> {result.test_type.value}</p>
-        <p><strong>Duration:</strong> {result.duration:.2f}s</p>
-        <p><strong>Message:</strong> {result.message}</p>
-"""
-            
-            if result.errors:
-                html += '<p><strong>Errors:</strong></p><ul>'
-                for error in result.errors:
-                    html += f'<li class="error">{error}</li>'
-                html += '</ul>'
-            
-            if result.metadata:
-                html += f'<div class="metadata"><strong>Metadata:</strong> {json.dumps(result.metadata, indent=2)}</div>'
-            
-            html += '</div>'
-        
-        html += """
-</body>
-</html>
-"""
-        
-        return html
+    logger.info("✅ Environment validation passed")
+    return True
 
 
-async def run_test_suite(suite_name: str, parallel: bool = False) -> List[TestResult]:
+def log_chat_configuration():
+    """Log chat ID configuration and naming convention."""
+    logger.info("📱 Chat Configuration:")
+    
+    main_chat_id = os.getenv('TELEGRAM_MAIN_CHAT_ID')
+    leadership_chat_id = os.getenv('TELEGRAM_LEADERSHIP_CHAT_ID')
+    
+    logger.info(f"   Main Chat ID: {main_chat_id} (KickAI Testing)")
+    logger.info(f"   Leadership Chat ID: {leadership_chat_id} (KickAI Testing - Leadership)")
+    logger.info("   Naming Convention: 'Team Name' for main, 'Team Name - Leadership' for leadership")
+
+
+async def run_test_suite(suite_name: str, verbose: bool = False) -> bool:
     """Run a specific test suite."""
     logger.info(f"🚀 Starting test suite: {suite_name}")
     
-    # Load environment variables
+    # Set E2E testing environment variable to ensure .env.test is loaded
+    os.environ['E2E_TESTING'] = 'true'
+    
+    # Validate environment first
+    if not validate_environment():
+        return False
+    
+    # Log chat configuration
+    log_chat_configuration()
+    
+    # Get configuration
+    config = get_improved_config()
+    team_id = config.configuration.team.default_team_id
+    logger.info(f"📋 Team ID: {team_id}")
+    
+    # Initialize test components
+    logger.info("🔧 Initializing test components...")
+    
     bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
     api_id = os.getenv('TELEGRAM_API_ID')
     api_hash = os.getenv('TELEGRAM_API_HASH')
-    session_string = os.getenv('TELEGRAM_SESSION_STRING')
-    project_id = os.getenv('FIRESTORE_PROJECT_ID')
+    session_string = os.getenv('ADMIN_SESSION_STRING')
+    project_id = os.getenv('FIREBASE_PROJECT_ID')
     
-    if not all([bot_token, api_id, api_hash, session_string, project_id]):
-        logger.error("❌ Missing required environment variables")
-        logger.error("Required: TELEGRAM_BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION_STRING, FIRESTORE_PROJECT_ID")
-        return []
+    # Create test components
+    telegram_tester = TelegramBotTester(bot_token, api_id, api_hash, session_string)
+    firestore_validator = FirestoreValidator(project_id)
     
     try:
-        # Initialize testers
-        telegram_tester = TelegramBotTester(bot_token, api_id, api_hash, session_string)
-        firestore_validator = FirestoreValidator(project_id)
-        
-        # Start Telegram client
+        # Start Telegram tester
+        logger.info("📱 Starting Telegram tester...")
         await telegram_tester.start()
+        logger.info("✅ Telegram tester started successfully")
         
         # Create test runner
-        runner = create_test_runner_with_suite(suite_name, telegram_tester, firestore_validator)
+        runner = E2ETestRunner(telegram_tester, firestore_validator)
+        
+        # Load and add tests
+        tests = load_test_suite(suite_name)
+        logger.info(f"📋 Loaded {len(tests)} tests for suite '{suite_name}'")
+        
+        for i, test in enumerate(tests, 1):
+            logger.info(f"   {i}. {test.get('name', f'Test {i}')}")
+            if 'steps' in test:
+                # Multi-step test
+                runner.add_user_flow_test(test["steps"], test.get("telegram_context"))
+            elif test.get("type") == "validation":
+                # Handle validation tests
+                runner.add_test(test)
+            elif test.get("type") == "command":
+                # Single command test
+                runner.add_command_test(
+                    test["command"],
+                    test["telegram_context"],
+                    test.get("firestore_validation")
+                )
+            elif test.get("type") == "natural_language":
+                # Single natural language test
+                runner.add_nl_test(
+                    test["message"],
+                    test["telegram_context"],
+                    test.get("firestore_validation")
+                )
+            else:
+                # Generic test
+                runner.add_test(test)
         
         # Run tests
+        logger.info("🧪 Running tests...")
         results = await runner.run_tests()
         
-        # Stop Telegram client
-        await telegram_tester.stop()
+        # Generate and display report
+        report = runner.generate_report()
+        logger.info("\n" + report)
         
-        return results
+        # Save detailed report
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_filename = f"e2e_report_{suite_name}_{timestamp}.html"
+        
+        with open(report_filename, 'w') as f:
+            f.write(f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>KICKAI E2E Test Report - {suite_name}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        .success {{ color: green; }}
+        .error {{ color: red; }}
+        .warning {{ color: orange; }}
+        pre {{ background-color: #f5f5f5; padding: 10px; border-radius: 5px; }}
+    </style>
+</head>
+<body>
+    <h1>KICKAI E2E Test Report</h1>
+    <h2>Suite: {suite_name}</h2>
+    <p>Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+    <pre>{report}</pre>
+</body>
+</html>
+            """)
+        
+        logger.info(f"📄 Detailed report saved to: {report_filename}")
+        
+        # Return success if all tests passed
+        all_passed = all(result.success for result in results)
+        if all_passed:
+            logger.info("🎉 All tests passed!")
+        else:
+            logger.error(f"❌ {len([r for r in results if not r.success])} tests failed")
+        
+        return all_passed
         
     except Exception as e:
-        logger.error(f"❌ Failed to run test suite: {e}")
-        return []
-
-
-def save_report(report: str, format_type: str, suite_name: str):
-    """Save report to file."""
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    
-    if format_type == 'json':
-        filename = f"e2e_report_{suite_name}_{timestamp}.json"
-    elif format_type == 'html':
-        filename = f"e2e_report_{suite_name}_{timestamp}.html"
-    else:
-        filename = f"e2e_report_{suite_name}_{timestamp}.txt"
-    
-    with open(filename, 'w') as f:
-        f.write(report)
-    
-    logger.info(f"📄 Report saved to: {filename}")
+        logger.error(f"❌ Test suite failed with exception: {e}")
+        return False
+        
+    finally:
+        # Cleanup
+        logger.info("🧹 Cleaning up...")
+        await telegram_tester.stop()
+        logger.info("✅ Cleanup completed")
 
 
 def main():
-    """Main function."""
-    parser = argparse.ArgumentParser(description='KICKAI E2E Test Runner')
-    parser.add_argument('--suite', choices=get_available_suites(), default='smoke',
-                       help='Test suite to run (default: smoke)')
-    parser.add_argument('--report', choices=['text', 'json', 'html'], default='text',
-                       help='Report format (default: text)')
-    parser.add_argument('--parallel', action='store_true',
-                       help='Run tests in parallel')
-    parser.add_argument('--save', action='store_true',
-                       help='Save report to file')
-    parser.add_argument('--verbose', action='store_true',
+    """Main entry point."""
+    parser = argparse.ArgumentParser(description='Run KICKAI E2E tests')
+    parser.add_argument('--suite', choices=get_available_suites(), 
+                       default='smoke', help='Test suite to run')
+    parser.add_argument('--verbose', '-v', action='store_true', 
                        help='Enable verbose logging')
     
     args = parser.parse_args()
@@ -302,41 +230,14 @@ def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
-    logger.info(f"🎯 Running test suite: {args.suite}")
-    logger.info(f"📊 Report format: {args.report}")
-    logger.info(f"⚡ Parallel execution: {args.parallel}")
+    logger.info(f"🧪 KICKAI E2E Test Runner")
+    logger.info(f"📋 Available suites: {', '.join(get_available_suites())}")
     
-    # Run tests
-    results = asyncio.run(run_test_suite(args.suite, args.parallel))
+    # Run the test suite
+    success = asyncio.run(run_test_suite(args.suite, args.verbose))
     
-    if not results:
-        logger.error("❌ No test results generated")
-        sys.exit(1)
-    
-    # Generate report
-    if args.report == 'json':
-        report = TestReporter.generate_json_report(results)
-    elif args.report == 'html':
-        report = TestReporter.generate_html_report(results)
-    else:
-        report = TestReporter.generate_text_report(results)
-    
-    # Display report
-    print(report)
-    
-    # Save report if requested
-    if args.save:
-        save_report(report, args.report, args.suite)
-    
-    # Exit with appropriate code
-    failed_tests = len([r for r in results if not r.success])
-    if failed_tests > 0:
-        logger.warning(f"⚠️ {failed_tests} tests failed")
-        sys.exit(1)
-    else:
-        logger.info("✅ All tests passed!")
-        sys.exit(0)
+    sys.exit(0 if success else 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main() 
