@@ -7,7 +7,7 @@ encapsulated methods as the single source of truth for all routing decisions.
 
 import logging
 from typing import Optional, Tuple
-from src.database.models_improved import Player, OnboardingStatus
+from database.models_improved import Player, OnboardingStatus
 
 logger = logging.getLogger(__name__)
 

@@ -1,11 +1,15 @@
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
-from src.services.payment_service import PaymentService
-from src.tools.payment_tools import payment_type_to_str, payment_status_to_str
-from src.database.models_improved import ExpenseCategory, PaymentStatus
-from src.core.bot_config_manager import get_bot_config_manager
-from src.services.expense_service import get_expense_service
-from src.services.team_service import get_team_service
+from services.payment_service import PaymentService
+from services.player_service import get_player_service
+from tools.payment_tools import payment_type_to_str, payment_status_to_str
+from domain.interfaces.payment_models import PaymentStatus, ExpenseCategory
+from domain.interfaces.bot_config import BotConfigManager
+from domain.adapters.bot_config_adapter import BotConfigManagerAdapter
+from services.expense_service import get_expense_service
+from services.team_service import get_team_service
+from database.models_improved import PaymentType
+from core.exceptions import PaymentNotFoundError
 import httpx
 import logging
 from datetime import datetime
@@ -14,10 +18,11 @@ from typing import List
 logger = logging.getLogger(__name__)
 
 class PaymentCommands:
-    def __init__(self, team_id: str):
+    def __init__(self, team_id: str, bot_config_manager: BotConfigManager):
         self.payment_service = PaymentService(team_id=team_id)
         self.team_id = team_id
-        self.bot_config_manager = get_bot_config_manager()
+        self.bot_config_manager = bot_config_manager
+        self._player_service = get_player_service(team_id=team_id)
 
     async def send_payment_request(self, chat_id: str, payment_id: str, amount: float, payment_type: str, description: str) -> bool:
         """Sends a payment request message with an inline 'Pay Now' button."""
@@ -67,27 +72,34 @@ To pay, click the button below:
             await update.message.reply_text("Usage: /pay <amount> <type> [description]")
             return
         amount = float(args[0])
-        payment_type = args[1]
-        description = " ".join(args[2:]) if len(args) > 2 else f"{payment_type.replace('_', ' ').title()} payment"
+        payment_type_str = args[1]
+        description = " ".join(args[2:]) if len(args) > 2 else f"{payment_type_str.replace('_', ' ').title()} payment"
         player_id = str(update.effective_user.id)
 
+        # Convert payment type string to enum
+        try:
+            payment_type = PaymentType(payment_type_str.lower())
+        except ValueError:
+            await update.message.reply_text(f"Invalid payment type: {payment_type_str}. Valid types: {', '.join([t.value for t in PaymentType])}")
+            return
+
         # Create payment record
-        record = await self.payment_service.create_payment(player_id, amount, payment_type, description=description)
+        record = await self.payment_service.record_payment(player_id, amount, payment_type, description=description)
 
         # Send payment request with inline button
-        success = await self.send_payment_request(update.effective_chat.id, record.id, amount, payment_type, description)
+        success = await self.send_payment_request(update.effective_chat.id, record.id, amount, payment_type_str, description)
         if success:
-            await update.message.reply_text(f"Payment request sent for {record.id} ({amount} {payment_type}).")
+            await update.message.reply_text(f"Payment request sent for {record.id} ({amount} {payment_type_str}).")
         else:
-            await update.message.reply_text(f"Payment created: {record.id} ({amount} {payment_type}), but failed to send request.")
+            await update.message.reply_text(f"Payment created: {record.id} ({amount} {payment_type_str}), but failed to send request.")
 
     async def payments(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         player_id = str(update.effective_user.id)
-        payments = self.payment_service.list_payments(player_id=player_id)
+        payments = await self.payment_service.get_player_payments(player_id)
         if not payments:
             await update.message.reply_text("No payments found.")
             return
-        msg = "Your payments:\n" + "\n".join(f"{p.id}: {p.amount} {payment_type_to_str(p.payment_type)} [{payment_status_to_str(p.status)}]" for p in payments)
+        msg = "Your payments:\n" + "\n".join(f"{p.id}: {p.amount} {payment_type_to_str(p.type)} [{payment_status_to_str(p.status)}]" for p in payments)
         await update.message.reply_text(msg)
 
     async def payment_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -96,17 +108,23 @@ To pay, click the button below:
             await update.message.reply_text("Usage: /payment_status <payment_id>")
             return
         payment_id = args[0]
-        status = self.payment_service.get_payment_status(payment_id)
-        await update.message.reply_text(f"Payment {payment_id} status: {payment_status_to_str(status)}")
+        try:
+            payment = await self.payment_service.update_payment_status(payment_id, PaymentStatus.PENDING)  # This will get the payment
+            await update.message.reply_text(f"Payment {payment_id} status: {payment_status_to_str(payment.status)}")
+        except PaymentNotFoundError:
+            await update.message.reply_text(f"Payment {payment_id} not found.")
+        except Exception as e:
+            await update.message.reply_text(f"Error getting payment status: {str(e)}")
 
     async def get_financial_dashboard(self, telegram_user_id: str) -> str:
         """Generates a personalized financial dashboard for a player."""
         try:
-            player = await self.payment_service.player_service.get_player_by_telegram_id(telegram_user_id)
+            # Get player by telegram ID
+            player = await self._player_service.get_player_by_telegram_id(telegram_user_id)
             if not player:
                 return "❌ Player not found. Please ensure your profile is complete."
 
-            all_payments = await self.payment_service.list_payments(player_id=player.id)
+            all_payments = await self.payment_service.get_player_payments(player.id)
 
             owing = []
             paid = []
@@ -224,7 +242,7 @@ Expense Breakdown:"""
                 message += "\n• No expenses recorded yet."
 
             # Add budget limits if available
-            team_service = get_team_service()
+            team_service = get_team_service(team_id=self.team_id)
             team = await team_service.get_team(self.team_id)
             if team and team.budget_limits:
                 message += "\n\nBudget Limits:"

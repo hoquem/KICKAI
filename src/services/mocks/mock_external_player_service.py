@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional, List
 import asyncio
 
-from src.services.interfaces.external_player_service_interface import ExternalPlayerServiceInterface
+from services.interfaces.external_player_service_interface import ExternalPlayerServiceInterface
 
 class MockExternalPlayerService(ExternalPlayerServiceInterface):
     """A mock implementation of ExternalPlayerServiceInterface for testing and demonstration."""

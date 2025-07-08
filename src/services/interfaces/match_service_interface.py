@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 from datetime import datetime
-from src.database.models_improved import Match, MatchStatus
+from database.models_improved import Match, MatchStatus
 
 class IMatchService(ABC):
     @abstractmethod

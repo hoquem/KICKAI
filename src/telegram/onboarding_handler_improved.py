@@ -69,7 +69,7 @@ class ImprovedOnboardingWorkflow:
             # Update player with Telegram info and start onboarding
             updates = {
                 'telegram_id': user_id,
-                'onboarding_status': OnboardingStatus.IN_PROGRESS,
+                'onboarding_status': OnboardingStatus.IN_PROGRESS.value,
                 'onboarding_started_at': datetime.now(),
                 'last_activity': datetime.now()
             }
@@ -415,7 +415,7 @@ Please reply with one of these exact phrases."""
             }
             
             # Mark onboarding as completed
-            updates['onboarding_status'] = OnboardingStatus.COMPLETED
+            updates['onboarding_status'] = OnboardingStatus.COMPLETED.value
             updates['onboarding_completed_at'] = datetime.now()
 
             updated_player = await self.player_service.update_player(player.id, **updates)

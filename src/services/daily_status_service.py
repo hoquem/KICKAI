@@ -11,14 +11,15 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 import logging
+import os
 
-from src.services.player_service import PlayerService
-from src.services.team_service import TeamService
-from src.services.team_member_service import TeamMemberService
-from src.services.fa_registration_checker import run_fa_registration_check, run_fa_fixtures_check
-from src.database.models_improved import Player
-from src.core.bot_config_manager import get_bot_config_manager
-from .interfaces.daily_status_service_interface import IDailyStatusService
+from services.player_service import PlayerService
+from services.team_service import TeamService
+from services.team_member_service import TeamMemberService
+from services.fa_registration_checker import run_fa_registration_check, run_fa_fixtures_check
+from database.models_improved import Player
+from core.bot_config_manager import get_bot_config_manager
+from services.interfaces.daily_status_service_interface import IDailyStatusService
 
 class DailyStatusService(IDailyStatusService):
     """Service to generate and send daily team status reports."""
@@ -227,7 +228,7 @@ Generated automatically by KICKAI Team Management System"""
             
             # Send to leadership chat using requests
             import requests
-            # from src.tools.telegram_tools import format_message_for_telegram  # File doesn't exist
+            # from tools.telegram_tools import format_message_for_telegram  # File doesn't exist
             
             # Format message for Telegram HTML
             formatted_message = message  # Use message as-is since telegram_tools doesn't exist
@@ -316,4 +317,60 @@ async def start_daily_status_service(team_id: str,
     )
     
     # Start the scheduled task
-    await service.schedule_daily_status_task(team_id, leadership_chat_id) 
+    await service.schedule_daily_status_task(team_id, leadership_chat_id)
+
+
+# Global instances - now team-specific
+_daily_status_service_instances: dict[str, DailyStatusService] = {}
+
+def get_daily_status_service(team_id: str = None) -> DailyStatusService:
+    """
+    Get a DailyStatusService instance with proper dependency injection for the specified team.
+    
+    Args:
+        team_id: The team ID (optional, will use default if not provided)
+        
+    Returns:
+        DailyStatusService instance
+    """
+    global _daily_status_service_instances
+    
+    # Use default team ID if not provided
+    if not team_id:
+        import os
+        team_id = os.getenv('DEFAULT_TEAM_ID', 'KAI')
+    
+    # Return existing instance if available for this team
+    if team_id in _daily_status_service_instances:
+        return _daily_status_service_instances[team_id]
+    
+    # Create new instance for this team
+    from services.player_service import get_player_service
+    from services.team_service import get_team_service
+    from services.team_member_service import get_team_member_service
+    from core.bot_config_manager import get_bot_config_manager
+    from core.improved_config_system import get_improved_config
+    
+    # Get configuration
+    config = get_improved_config()
+    
+    # Get dependencies with explicit team_id
+    player_service = get_player_service(team_id=team_id)
+    team_service = get_team_service(team_id=team_id)
+    team_member_service = get_team_member_service(team_id=team_id)
+    bot_config_manager = get_bot_config_manager()
+    
+    # Create service instance
+    service = DailyStatusService(
+        player_service=player_service,
+        team_service=team_service,
+        team_member_service=team_member_service,
+        bot_token=config.telegram.bot_token,
+        bot_config_manager=bot_config_manager
+    )
+    
+    # Store instance for this team
+    _daily_status_service_instances[team_id] = service
+    
+    logging.info(f"✅ DailyStatusService created for team {team_id}")
+    return service 

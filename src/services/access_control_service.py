@@ -6,8 +6,8 @@ This service handles access control and permissions for team members.
 
 import logging
 from typing import List
-from src.database.models_improved import TeamMember
-from src.core.exceptions import AccessDeniedError
+from database.models_improved import TeamMember
+from core.exceptions import AccessDeniedError
 
 logger = logging.getLogger(__name__)
 
@@ -93,10 +93,27 @@ class AccessControlService:
     def is_leadership_chat(self, chat_id: str, team_id: str) -> bool:
         """Check if a chat ID corresponds to the leadership chat for a team."""
         try:
-            # Get leadership chat ID from environment or config
+            # Use TeamMappingService to get team-specific configuration
+            from services.team_mapping_service import TeamMappingService
+            team_mapping_service = TeamMappingService()
+            
+            # Get team mapping for the specific team
+            team_mapping = team_mapping_service.get_team_mapping(team_id)
+            if team_mapping and team_mapping.chat_ids:
+                # Check if the chat_id is in the team's leadership chat IDs
+                # Based on the mapping, the first chat ID is leadership
+                if len(team_mapping.chat_ids) >= 1:
+                    leadership_chat_id = team_mapping.chat_ids[0]  # First chat ID is leadership
+                    return str(chat_id) == str(leadership_chat_id)
+            
+            # Fallback to environment variables for backward compatibility
             import os
             leadership_chat_id = os.getenv("TELEGRAM_LEADERSHIP_CHAT_ID")
-            return str(chat_id) == str(leadership_chat_id)
+            if leadership_chat_id:
+                return str(chat_id) == str(leadership_chat_id)
+            
+            return False
+            
         except Exception as e:
             logger.error(f"Error checking leadership chat: {e}")
             return False
@@ -104,10 +121,27 @@ class AccessControlService:
     def is_main_chat(self, chat_id: str, team_id: str) -> bool:
         """Check if a chat ID corresponds to the main chat for a team."""
         try:
-            # Get main chat ID from environment or config
+            # Use TeamMappingService to get team-specific configuration
+            from services.team_mapping_service import TeamMappingService
+            team_mapping_service = TeamMappingService()
+            
+            # Get team mapping for the specific team
+            team_mapping = team_mapping_service.get_team_mapping(team_id)
+            if team_mapping and team_mapping.chat_ids:
+                # Check if the chat_id is in the team's main chat IDs
+                # Based on the mapping, the second chat ID is main
+                if len(team_mapping.chat_ids) >= 2:
+                    main_chat_id = team_mapping.chat_ids[1]  # Second chat ID is main
+                    return str(chat_id) == str(main_chat_id)
+            
+            # Fallback to environment variables for backward compatibility
             import os
             main_chat_id = os.getenv("TELEGRAM_MAIN_CHAT_ID")
-            return str(chat_id) == str(main_chat_id)
+            if main_chat_id:
+                return str(chat_id) == str(main_chat_id)
+            
+            return False
+            
         except Exception as e:
             logger.error(f"Error checking main chat: {e}")
             return False

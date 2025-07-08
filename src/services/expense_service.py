@@ -2,9 +2,9 @@ import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from src.database.firebase_client import get_firebase_client
-from src.database.models_improved import Expense, ExpenseCategory
-from src.core.exceptions import ExpenseError, create_error_context
+from database.firebase_client import get_firebase_client
+from database.models_improved import Expense, ExpenseCategory
+from core.exceptions import ExpenseError, create_error_context
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class ExpenseService:
         else:
             self._data_store = data_store
         # Local import to break circular dependency
-        from src.services.team_service import get_team_service
+        from services.team_service import get_team_service
         self.team_service = get_team_service()
 
     async def record_expense(self, team_id: str, amount: float, category: ExpenseCategory, description: Optional[str] = None, receipt_url: Optional[str] = None) -> Expense:

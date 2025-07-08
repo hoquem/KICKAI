@@ -10,12 +10,12 @@ from datetime import datetime
 from typing import List, Optional, Tuple, Any
 from dataclasses import dataclass
 
-from src.database.models_improved import Player, OnboardingStatus, PaymentStatus
-from src.services.player_service import get_player_service
-from src.core.bot_config_manager import get_bot_config_manager
-from src.utils.llm_client import LLMClient
-from src.utils.llm_intent import LLMIntent
-from .interfaces.reminder_service_interface import IReminderService
+from database.models_improved import Player, OnboardingStatus, PaymentStatus
+from services.player_service import get_player_service
+from core.bot_config_manager import get_bot_config_manager
+from utils.llm_client import LLMClient
+from utils.llm_intent import LLMIntent
+from services.interfaces.reminder_service_interface import IReminderService
 
 
 @dataclass
@@ -33,9 +33,9 @@ class ReminderService(IReminderService):
     
     def __init__(self, team_id: str):
         self.team_id = team_id
-        self.player_service = get_player_service()
+        self.player_service = get_player_service(team_id=team_id)
         self.bot_config_manager = get_bot_config_manager()
-        from src.services.payment_service import get_payment_service
+        from services.payment_service import get_payment_service
         self.payment_service = get_payment_service(team_id=team_id)
         
         # Reminder schedule (in hours)

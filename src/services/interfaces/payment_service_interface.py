@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 from datetime import datetime
-from src.database.models_improved import Payment, PaymentType, PaymentStatus
+from database.models_improved import Payment, PaymentType, PaymentStatus
 
 class IPaymentService(ABC):
     @abstractmethod
@@ -23,3 +23,7 @@ class IPaymentService(ABC):
     @abstractmethod
     async def update_payment_status(self, payment_id: str, new_status: PaymentStatus, paid_date: Optional[datetime] = None) -> Payment:
         pass
+
+# Backward compatibility alias
+PaymentServiceInterface = IPaymentService
+PaymentRecord = Payment

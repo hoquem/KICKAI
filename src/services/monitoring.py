@@ -31,7 +31,7 @@ class MonitoringService:
             
             # Database health check
             try:
-                from src.database.firebase_client import get_firebase_client
+                from database.firebase_client import get_firebase_client
                 db_client = get_firebase_client()
                 db_health = await db_client.health_check()
                 health_status["checks"]["database"] = {
@@ -46,7 +46,7 @@ class MonitoringService:
             
             # Bot status check
             try:
-                from src.services.bot_status_service import BotStatusService
+                from services.bot_status_service import BotStatusService
                 bot_service = BotStatusService()
                 bot_status = bot_service.get_bot_status()
                 health_status["checks"]["bot"] = {
@@ -88,7 +88,7 @@ class MonitoringService:
             
             # Get metrics from various services
             try:
-                from src.services.player_service import get_player_service
+                from services.player_service import get_player_service
                 get_player_service()
                 # Add player service metrics here
                 metrics["services"]["player_service"] = "healthy"
@@ -96,7 +96,7 @@ class MonitoringService:
                 metrics["services"]["player_service"] = f"unhealthy: {str(e)}"
             
             try:
-                from src.services.team_service import get_team_service
+                from services.team_service import get_team_service
                 get_team_service()
                 # Add team service metrics here
                 metrics["services"]["team_service"] = "healthy"
@@ -128,21 +128,21 @@ class MonitoringService:
         dependencies = {}
         
         try:
-            from src.database.firebase_client import get_firebase_client
+            from database.firebase_client import get_firebase_client
             get_firebase_client()
             dependencies["database"] = True
         except Exception:
             dependencies["database"] = False
         
         try:
-            from src.services.player_service import get_player_service
+            from services.player_service import get_player_service
             get_player_service()
             dependencies["player_service"] = True
         except Exception:
             dependencies["player_service"] = False
         
         try:
-            from src.services.team_service import get_team_service
+            from services.team_service import get_team_service
             get_team_service()
             dependencies["team_service"] = True
         except Exception:

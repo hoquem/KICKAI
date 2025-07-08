@@ -30,10 +30,16 @@ def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
         # Define intent patterns
         intent_patterns = {
             'get_player_info': [
+                # Pattern for "What's my registration status?" and similar queries
                 r'\b(what|show|tell|get|my|me)\b.*\b(phone|number|position|role|id|player|info|information|status|fa|registration)\b',
                 r'\b(phone|number|position|role|id|player|info|information|status|fa|registration)\b.*\b(what|is|my|me)\b',
                 r'\b(am i|are you|is my)\b.*\b(fa|registered|eligible|active|pending)\b',
-                r'\b(my|me)\b.*\b(phone|number|position|role|id|info|information)\b'
+                r'\b(my|me)\b.*\b(phone|number|position|role|id|info|information)\b',
+                # Additional patterns for registration status queries
+                r'\b(what|how)\b.*\b(registration|status)\b',
+                r'\b(registration|status)\b.*\b(what|how)\b',
+                r'\b(my|me)\b.*\b(registration|status)\b',
+                r'\b(registration|status)\b.*\b(my|me)\b'
             ],
             'get_help': [
                 r'\b(help|how|what can you|commands|available)\b',

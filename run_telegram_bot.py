@@ -7,6 +7,7 @@ It initializes all components and starts the bot to handle messages.
 """
 
 import asyncio
+import signal
 import logging
 import os
 import sys
@@ -19,23 +20,23 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 import nest_asyncio
 nest_asyncio.apply()
 
-from telegram.ext import Application, CommandHandler
-from src.core.improved_config_system import initialize_improved_config, get_improved_config
+from core.constants import BOT_VERSION, FIRESTORE_COLLECTION_PREFIX
+from core.improved_config_system import get_improved_config, initialize_improved_config
 from src.database.firebase_client import initialize_firebase_client
-from src.telegram.unified_message_handler import register_unified_handler
-from src.services.player_service import initialize_player_service
-from src.services.team_service import initialize_team_service
+from src.services.team_mapping_service import TeamMappingService
+from src.services.player_service import get_player_service
+from src.services.team_service import get_team_service
+from src.telegram.unified_message_handler import UnifiedMessageHandler, register_unified_handler
+from telegram.ext import ApplicationBuilder, Application, CommandHandler
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('kickai_bot.log')
-    ]
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+VERSION = BOT_VERSION
 
 
 def check_network_connectivity():
@@ -76,6 +77,8 @@ def setup_environment():
         # Initialize services
         initialize_player_service()
         initialize_team_service()
+        initialize_team_mapping_service()
+        
         logger.info("✅ Services initialized")
         
         return config
@@ -84,6 +87,126 @@ def setup_environment():
         logger.error(f"❌ Failed to setup environment: {e}")
         raise
 
+def initialize_player_service():
+    """Initialize the player service."""
+    try:
+        # This will be initialized when first accessed
+        pass
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize player service: {e}")
+        raise
+
+def initialize_team_service():
+    """Initialize the team service."""
+    try:
+        # This will be initialized when first accessed
+        pass
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize team service: {e}")
+        raise
+
+def initialize_team_mapping_service():
+    """Initialize the team mapping service."""
+    try:
+        # This will be initialized when first accessed
+        pass
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize team mapping service: {e}")
+        raise
+
+# Add global application variable
+_application = None
+
+def get_chat_ids():
+    main_chat_id = os.getenv("TELEGRAM_MAIN_CHAT_ID")
+    leadership_chat_id = os.getenv("TELEGRAM_LEADERSHIP_CHAT_ID")
+    chat_ids = []
+    if main_chat_id:
+        chat_ids.append(main_chat_id)
+    if leadership_chat_id and leadership_chat_id != main_chat_id:
+        chat_ids.append(leadership_chat_id)
+    return chat_ids
+
+async def send_startup_message(application: Application) -> None:
+    """Send a startup message to configured chat IDs."""
+    import os
+    main_chat_id = os.getenv("TELEGRAM_MAIN_CHAT_ID")
+    leadership_chat_id = os.getenv("TELEGRAM_LEADERSHIP_CHAT_ID")
+    message = f"✅ **KICKAI Bot v{VERSION} started**\n\n🤖 Bot is now online."
+    for chat_id, label in [
+        (main_chat_id, "main chat"),
+        (leadership_chat_id, "leadership chat")
+    ]:
+        if chat_id:
+            try:
+                await application.bot.send_message(
+                    chat_id=chat_id,
+                    text=message,
+                    parse_mode='Markdown'
+                )
+                logger.info(f"✅ Startup message sent to {label}: {chat_id}")
+            except Exception as e:
+                logger.error(f"❌ Failed to send startup message to {label} ({chat_id}): {e}")
+
+async def send_shutdown_message(application: Application) -> None:
+    import os
+    logger = logging.getLogger(__name__)
+    logger.info("🔄 [Shutdown] post_stop callback triggered.")
+    main_chat_id = os.getenv("TELEGRAM_MAIN_CHAT_ID")
+    leadership_chat_id = os.getenv("TELEGRAM_LEADERSHIP_CHAT_ID")
+    message = f"🛑 **KICKAI Bot v{VERSION} is shutting down**\n\n👋 Bot will be offline until restarted"
+    for chat_id, label in [
+        (main_chat_id, "main chat"),
+        (leadership_chat_id, "leadership chat")
+    ]:
+        if chat_id:
+            try:
+                await application.bot.send_message(
+                    chat_id=chat_id,
+                    text=message,
+                    parse_mode='Markdown'
+                )
+                logger.info(f"✅ [Shutdown] Shutdown message sent to {label}: {chat_id}")
+            except Exception as e:
+                logger.error(f"❌ [Shutdown] Failed to send shutdown message to {label} ({chat_id}): {e}")
+    logger.info("🔄 [Shutdown] post_stop callback complete.")
+
+async def main():
+    # Load config and initialize application as before
+    config = setup_environment()
+    application = start_bot(config)  # This should be the function that returns the Application instance
+    VERSION = "1.0.0" # Replace with actual version retrieval logic
+    chat_ids = get_chat_ids()
+    
+    # Send startup message after application is fully initialized
+    await send_startup_message(application)
+    # --- End application creation logic ---
+
+    try:
+        logger.info("🤖 Bot is running. Press Ctrl+C to exit.")
+        # Create polling task
+        polling_task = asyncio.create_task(
+            application.run_polling(
+                allowed_updates=["message", "callback_query"],
+                drop_pending_updates=True,
+                close_loop=True
+            )
+        )
+        
+        # Wait for shutdown signal
+        await polling_task
+            
+    finally:
+        logger.info("🔄 Sending shutdown messages...")
+        try:
+            await send_shutdown_message(application)
+        except Exception as e:
+            logger.error(f"❌ Error sending shutdown messages: {e}")
+        
+        logger.info("🔄 Flushing logs and cleaning up...")
+        for handler in logging.getLogger().handlers:
+            handler.flush()
+        logger.info("✅ Shutdown complete. Exiting.")
 
 def start_bot(config):
     """Start the Telegram bot."""
@@ -97,11 +220,17 @@ def start_bot(config):
         logger.info(f"   Bot Token: {bot_token[:10]}...")
         
         # Create application
-        application = Application.builder().token(bot_token).build()
+        application = (
+            ApplicationBuilder()
+            .token(bot_token)
+            .post_init(send_startup_message)
+            .post_stop(send_shutdown_message)
+            .build()
+        )
         
         # Register the unified message handler
-        team_id = "0854829d-445c-4138-9fd3-4db562ea46ee"  # Default team ID
-        register_unified_handler(application, team_id)
+        # Team ID will be resolved dynamically for each message
+        register_unified_handler(application)
         
         # Add basic command handlers
         from src.telegram.unified_command_system import get_command_registry
@@ -122,55 +251,45 @@ def start_bot(config):
         # Use run_polling with network resilience settings
         logger.info("📡 Starting resilient polling with network recovery...")
         
-        # TODO: To enable startup messages, uncomment the following lines:
-        # async def send_startup_messages():
-        #     try:
-        #         main_chat_id = os.getenv("TELEGRAM_MAIN_CHAT_ID")
-        #         leadership_chat_id = os.getenv("TELEGRAM_LEADERSHIP_CHAT_ID")
-        #         
-        #         message = "🤖 **KICKAI Bot is now online!**\n\n✅ System initialized successfully\n✅ All services are running\n✅ Ready to handle commands"
-        #         
-        #         if main_chat_id:
-        #             await application.bot.send_message(chat_id=main_chat_id, text=message, parse_mode='Markdown')
-        #         if leadership_chat_id:
-        #             await application.bot.send_message(chat_id=leadership_chat_id, text=message, parse_mode='Markdown')
-        #     except Exception as e:
-        #         logger.warning(f"Failed to send startup messages: {e}")
-        # 
-        # # Send startup messages after a short delay
-        # import asyncio
-        # asyncio.create_task(send_startup_messages())
-        
-        application.run_polling(
-            allowed_updates=["message", "callback_query"],
-            drop_pending_updates=True,
-            close_loop=False
-        )
+        return application
         
     except Exception as e:
         logger.error(f"❌ Failed to start bot: {e}")
         raise
 
+# Add this block at the very top after imports
+try:
+    import psutil
+except ImportError:
+    print("psutil is required for process management. Please install it with 'pip install psutil'.")
+    sys.exit(1)
 
-def main():
-    """Main entry point."""
-    try:
-        logger.info("🎯 KICKAI Telegram Bot Starting...")
-        
-        # Setup environment
-        config = setup_environment()
-        
-        # Start the bot
-        start_bot(config)
-        
-    except KeyboardInterrupt:
-        logger.info("👋 Bot stopped by user")
-    except Exception as e:
-        logger.error(f"❌ Bot failed to start: {e}")
-        sys.exit(1)
+def kill_other_bot_instances():
+    """Kill other running instances of run_telegram_bot.py except this one."""
+    current_pid = os.getpid()
+    killed = 0
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            if proc.info['pid'] == current_pid:
+                continue
+            cmdline = proc.info.get('cmdline')
+            if not cmdline:
+                continue
+            # Check if this is another run_telegram_bot.py process
+            if any('run_telegram_bot.py' in part for part in cmdline):
+                proc.kill()
+                killed += 1
+                logger.info(f"Killed other bot instance with PID {proc.info['pid']}")
+        except Exception as e:
+            logger.warning(f"Could not check/kill process {proc}: {e}")
+    if killed:
+        logger.info(f"Killed {killed} other bot instance(s) before starting new one.")
+    else:
+        logger.info("No other bot instances found.")
 
-
+# Call this before anything else in main
 if __name__ == "__main__":
+    kill_other_bot_instances()
     # Check if required environment variables are set
     required_vars = [
         "TELEGRAM_BOT_TOKEN",
@@ -195,4 +314,10 @@ if __name__ == "__main__":
         sys.exit(1)
     
     # Run the bot
-    main() 
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt received. Exiting.")
+    except Exception as e:
+        logger.exception(f"Unhandled exception: {e}")
+        sys.exit(1) 
