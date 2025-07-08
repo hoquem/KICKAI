@@ -6,7 +6,7 @@ This module manages bot configuration and settings.
 
 import logging
 from typing import Dict, Any, Optional, List
-from src.core.improved_config_system import get_improved_config
+from core.improved_config_system import get_improved_config
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +29,7 @@ class BotConfigManager:
     def get_database_config(self) -> Dict[str, Any]:
         """Get database configuration."""
         return {
-            "project_id": self.config.database.project_id,
-            "collection_prefix": self.config.database.collection_prefix
+            "project_id": self.config.database.project_id
         }
     
     def get_payment_config(self) -> Dict[str, Any]:

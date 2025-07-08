@@ -23,36 +23,66 @@ class MockTool:
         self.mock.reset_mock()
 
 
-class MockLLM:
+class MockAgent:
+    """Mock agent for testing."""
+    
+    def __init__(self, name: str = "mock_agent", role: str = "general"):
+        self.name = name
+        self.role = role
+        self.mock = Mock()
+        self.tools = []
+        self.call_count = 0
+        self.last_input = None
+    
+    def add_tool(self, tool: MockTool):
+        """Add a tool to the agent."""
+        self.tools.append(tool)
+    
+    def execute(self, task: str, **kwargs):
+        """Mock execute method."""
+        self.call_count += 1
+        self.last_input = task
+        return self.mock(task, **kwargs)
+    
+    async def aexecute(self, task: str, **kwargs):
+        """Mock async execute method."""
+        return self.execute(task, **kwargs)
+    
+    def reset(self):
+        """Reset the mock agent."""
+        self.call_count = 0
+        self.last_input = None
+        self.mock.reset_mock()
+
+
+class MockLLM(Mock):
     """Mock LLM for testing."""
     
     def __init__(self, responses: Optional[List[str]] = None):
+        super().__init__()
         self.responses = responses or ["Mock LLM response"]
         self.response_index = 0
         self.call_count = 0
         self.last_input = None
-    
-    def invoke(self, input_text: str, **kwargs) -> str:
-        """Mock invoke method."""
-        self.call_count += 1
-        self.last_input = input_text
         
-        if self.response_index < len(self.responses):
-            response = self.responses[self.response_index]
-            self.response_index += 1
-            return response
+        # Create a mock for the invoke method
+        self.invoke = Mock()
+        self.ainvoke = Mock()
+        
+        # Set up default behavior
+        if responses:
+            self.invoke.return_value = responses[0]
+            self.ainvoke.return_value = responses[0]
         else:
-            return "Default mock response"
-    
-    async def ainvoke(self, input_text: str, **kwargs) -> str:
-        """Mock async invoke method."""
-        return self.invoke(input_text, **kwargs)
+            self.invoke.return_value = "Mock LLM response"
+            self.ainvoke.return_value = "Mock LLM response"
     
     def reset(self):
         """Reset the mock LLM."""
         self.response_index = 0
         self.call_count = 0
         self.last_input = None
+        super().reset_mock()
     
     def set_responses(self, responses: List[str]):
         """Set custom responses."""

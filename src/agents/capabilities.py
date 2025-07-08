@@ -9,6 +9,9 @@ from typing import Dict, List, Set, Optional
 from dataclasses import dataclass
 from enum import Enum
 
+# Import AgentRole from crew_agents for type safety
+from src.core.enums import AgentRole
+
 logger = logging.getLogger(__name__)
 
 class CapabilityType(Enum):
@@ -63,63 +66,56 @@ class AgentCapabilityMatrix:
         self._capabilities = self._initialize_capabilities()
         self._capability_descriptions = self._initialize_descriptions()
     
-    def _initialize_capabilities(self) -> Dict[str, List[AgentCapability]]:
+    def _initialize_capabilities(self) -> Dict[AgentRole, List[AgentCapability]]:
         """Initialize the capability matrix for all agents."""
         return {
-            'message_processor': [
+            AgentRole.MESSAGE_PROCESSOR: [
                 AgentCapability(CapabilityType.INTENT_ANALYSIS, 0.95, "Analyze user intent and context", True),
                 AgentCapability(CapabilityType.CONTEXT_MANAGEMENT, 0.90, "Manage conversation context", True),
                 AgentCapability(CapabilityType.ROUTING, 0.85, "Route requests to appropriate agents", True),
                 AgentCapability(CapabilityType.NATURAL_LANGUAGE_UNDERSTANDING, 0.90, "Understand natural language", True),
             ],
-            'team_manager': [
+            AgentRole.TEAM_MANAGER: [
                 AgentCapability(CapabilityType.STRATEGIC_PLANNING, 0.95, "High-level strategic planning", True),
                 AgentCapability(CapabilityType.COORDINATION, 0.90, "Coordinate multiple agents", True),
                 AgentCapability(CapabilityType.DECISION_MAKING, 0.85, "Make strategic decisions", True),
                 AgentCapability(CapabilityType.HIGH_LEVEL_OPERATIONS, 0.90, "Handle high-level operations", True),
             ],
-            'player_coordinator': [
+            AgentRole.PLAYER_COORDINATOR: [
                 AgentCapability(CapabilityType.PLAYER_MANAGEMENT, 0.95, "Manage player information", True),
                 AgentCapability(CapabilityType.AVAILABILITY_TRACKING, 0.90, "Track player availability", True),
                 AgentCapability(CapabilityType.OPERATIONAL_TASKS, 0.85, "Handle operational tasks", True),
                 AgentCapability(CapabilityType.COORDINATION, 0.80, "Coordinate player-related activities", False),
             ],
-            'match_analyst': [
+            AgentRole.PERFORMANCE_ANALYST: [
                 AgentCapability(CapabilityType.PERFORMANCE_ANALYSIS, 0.95, "Analyze team performance", True),
                 AgentCapability(CapabilityType.TACTICAL_INSIGHTS, 0.90, "Provide tactical insights", True),
                 AgentCapability(CapabilityType.OPPOSITION_ANALYSIS, 0.85, "Analyze opposition teams", True),
                 AgentCapability(CapabilityType.MATCH_PLANNING, 0.80, "Plan match strategies", True),
             ],
-            'communication_specialist': [
-                AgentCapability(CapabilityType.MESSAGING, 0.95, "Send messages to team", True),
-                AgentCapability(CapabilityType.ANNOUNCEMENTS, 0.90, "Make team announcements", True),
-                AgentCapability(CapabilityType.POLLS, 0.85, "Create and manage polls", True),
-                AgentCapability(CapabilityType.BROADCAST_MANAGEMENT, 0.80, "Manage team communications", True),
-            ],
-            'finance_manager': [
+            AgentRole.FINANCE_MANAGER: [
                 AgentCapability(CapabilityType.PAYMENT_TRACKING, 0.95, "Track payments", True),
                 AgentCapability(CapabilityType.FINANCIAL_REPORTING, 0.90, "Generate financial reports", True),
                 AgentCapability(CapabilityType.BUDGET_MANAGEMENT, 0.85, "Manage team budget", True),
                 AgentCapability(CapabilityType.COORDINATION, 0.75, "Coordinate financial activities", False),
             ],
-            'squad_selection_specialist': [
-                AgentCapability(CapabilityType.SQUAD_SELECTION, 0.95, "Select optimal squad", True),
-                AgentCapability(CapabilityType.FORM_ANALYSIS, 0.90, "Analyze player form", True),
-                AgentCapability(CapabilityType.TACTICAL_FIT, 0.85, "Assess tactical fit", True),
-                AgentCapability(CapabilityType.PLAYER_EVALUATION, 0.80, "Evaluate player performance", True),
-            ],
-            'analytics_specialist': [
-                AgentCapability(CapabilityType.TREND_ANALYSIS, 0.95, "Analyze trends", True),
-                AgentCapability(CapabilityType.PERFORMANCE_METRICS, 0.90, "Calculate performance metrics", True),
-                AgentCapability(CapabilityType.DATA_ANALYSIS, 0.85, "Analyze data", True),
-                AgentCapability(CapabilityType.PREDICTIONS, 0.80, "Make predictions", True),
-                AgentCapability(CapabilityType.PERFORMANCE_ANALYSIS, 0.85, "Analyze performance data", False),
-            ],
-            'learning_agent': [
+            AgentRole.LEARNING_AGENT: [
                 AgentCapability(CapabilityType.PATTERN_LEARNING, 0.95, "Learn from interaction patterns", True),
                 AgentCapability(CapabilityType.USER_PREFERENCE_ANALYSIS, 0.90, "Analyze and learn user preferences", True),
                 AgentCapability(CapabilityType.RESPONSE_OPTIMIZATION, 0.85, "Optimize responses based on learned patterns", True),
                 AgentCapability(CapabilityType.SYSTEM_IMPROVEMENT, 0.80, "Suggest system improvements", True),
+            ],
+            AgentRole.ONBOARDING_AGENT: [
+                AgentCapability(CapabilityType.PLAYER_MANAGEMENT, 0.95, "Manage player onboarding", True),
+                AgentCapability(CapabilityType.OPERATIONAL_TASKS, 0.90, "Handle onboarding tasks", True),
+                AgentCapability(CapabilityType.MESSAGING, 0.85, "Send onboarding messages", True),
+                AgentCapability(CapabilityType.COORDINATION, 0.80, "Coordinate onboarding process", False),
+            ],
+            AgentRole.COMMAND_FALLBACK_AGENT: [
+                AgentCapability(CapabilityType.NATURAL_LANGUAGE_UNDERSTANDING, 0.95, "Understand failed commands", True),
+                AgentCapability(CapabilityType.INTENT_ANALYSIS, 0.90, "Analyze intent from failed commands", True),
+                AgentCapability(CapabilityType.ROUTING, 0.85, "Route to appropriate handlers", True),
+                AgentCapability(CapabilityType.CONTEXT_MANAGEMENT, 0.80, "Manage fallback context", False),
             ]
         }
     
@@ -162,32 +158,32 @@ class AgentCapabilityMatrix:
             CapabilityType.SYSTEM_IMPROVEMENT: "Suggest system improvements based on learned insights"
         }
     
-    def get_agent_capabilities(self, agent_name: str) -> List[AgentCapability]:
+    def get_agent_capabilities(self, agent_role: AgentRole) -> List[AgentCapability]:
         """Get capabilities for a specific agent."""
-        return self._capabilities.get(agent_name, [])
+        return self._capabilities.get(agent_role, [])
     
-    def get_agents_with_capability(self, capability: CapabilityType, min_proficiency: float = 0.5) -> List[str]:
+    def get_agents_with_capability(self, capability: CapabilityType, min_proficiency: float = 0.5) -> List[AgentRole]:
         """Get agents that have a specific capability with minimum proficiency."""
         agents = []
-        for agent_name, capabilities in self._capabilities.items():
+        for agent_role, capabilities in self._capabilities.items():
             for cap in capabilities:
                 if cap.capability == capability and cap.proficiency_level >= min_proficiency:
-                    agents.append(agent_name)
+                    agents.append(agent_role)
                     break
         return agents
     
-    def get_primary_capabilities(self, agent_name: str) -> List[AgentCapability]:
+    def get_primary_capabilities(self, agent_role: AgentRole) -> List[AgentCapability]:
         """Get primary capabilities for a specific agent."""
-        capabilities = self.get_agent_capabilities(agent_name)
+        capabilities = self.get_agent_capabilities(agent_role)
         return [cap for cap in capabilities if cap.is_primary]
     
     def get_capability_description(self, capability: CapabilityType) -> str:
         """Get description for a specific capability."""
         return self._capability_descriptions.get(capability, "Unknown capability")
     
-    def get_agent_proficiency(self, agent_name: str, capability: CapabilityType) -> float:
+    def get_agent_proficiency(self, agent_role: AgentRole, capability: CapabilityType) -> float:
         """Get proficiency level for a specific agent and capability."""
-        capabilities = self.get_agent_capabilities(agent_name)
+        capabilities = self.get_agent_capabilities(agent_role)
         for cap in capabilities:
             if cap.capability == capability:
                 return cap.proficiency_level
@@ -198,48 +194,50 @@ class AgentCapabilityMatrix:
         return set(self._capability_descriptions.keys())
     
     def get_capability_matrix_summary(self) -> Dict[str, List[str]]:
-        """Get a summary of the capability matrix for easy reference."""
+        """Get a summary of the capability matrix."""
         summary = {}
-        for agent_name, capabilities in self._capabilities.items():
-            summary[agent_name] = [cap.capability.value for cap in capabilities if cap.is_primary]
+        for agent_role, capabilities in self._capabilities.items():
+            summary[agent_role.value] = [
+                f"{cap.capability.value} ({cap.proficiency_level:.2f})"
+                for cap in capabilities if cap.is_primary
+            ]
         return summary
     
-    def validate_capability(self, agent_name: str, capability: CapabilityType) -> bool:
+    def validate_capability(self, agent_role: AgentRole, capability: CapabilityType) -> bool:
         """Validate if an agent has a specific capability."""
-        return self.get_agent_proficiency(agent_name, capability) > 0.0
+        return self.get_agent_proficiency(agent_role, capability) > 0.0
     
-    def get_best_agent_for_capability(self, capability: CapabilityType) -> Optional[str]:
+    def get_best_agent_for_capability(self, capability: CapabilityType) -> Optional[AgentRole]:
         """Get the best agent for a specific capability based on proficiency."""
         best_agent = None
         best_proficiency = 0.0
         
-        for agent_name, capabilities in self._capabilities.items():
-            for cap in capabilities:
-                if cap.capability == capability and cap.proficiency_level > best_proficiency:
-                    best_proficiency = cap.proficiency_level
-                    best_agent = agent_name
+        for agent_role in AgentRole:
+            proficiency = self.get_agent_proficiency(agent_role, capability)
+            if proficiency > best_proficiency:
+                best_proficiency = proficiency
+                best_agent = agent_role
         
-        return best_agent
+        return best_agent if best_proficiency > 0.0 else None
 
 # Global instance for easy access
-capability_matrix = AgentCapabilityMatrix()
+_capability_matrix = AgentCapabilityMatrix()
 
-# Convenience functions
-def get_agent_capabilities(agent_name: str) -> List[AgentCapability]:
+def get_agent_capabilities(agent_role: AgentRole) -> List[AgentCapability]:
     """Get capabilities for a specific agent."""
-    return capability_matrix.get_agent_capabilities(agent_name)
+    return _capability_matrix.get_agent_capabilities(agent_role)
 
-def get_agents_with_capability(capability: CapabilityType, min_proficiency: float = 0.5) -> List[str]:
-    """Get agents that have a specific capability."""
-    return capability_matrix.get_agents_with_capability(capability, min_proficiency)
+def get_agents_with_capability(capability: CapabilityType, min_proficiency: float = 0.5) -> List[AgentRole]:
+    """Get agents that have a specific capability with minimum proficiency."""
+    return _capability_matrix.get_agents_with_capability(capability, min_proficiency)
 
 def get_capability_matrix_summary() -> Dict[str, List[str]]:
     """Get a summary of the capability matrix."""
-    return capability_matrix.get_capability_matrix_summary()
+    return _capability_matrix.get_capability_matrix_summary()
 
-def get_best_agent_for_capability(capability: CapabilityType) -> Optional[str]:
-    """Get the best agent for a specific capability."""
-    return capability_matrix.get_best_agent_for_capability(capability)
+def get_best_agent_for_capability(capability: CapabilityType) -> Optional[AgentRole]:
+    """Get the best agent for a specific capability based on proficiency."""
+    return _capability_matrix.get_best_agent_for_capability(capability)
 
 if __name__ == "__main__":
     # Test the capability matrix

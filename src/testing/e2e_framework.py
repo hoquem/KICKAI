@@ -12,6 +12,8 @@ This framework provides comprehensive testing capabilities for:
 
 import asyncio
 import logging
+import os
+import sys
 import time
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
@@ -19,13 +21,13 @@ from datetime import datetime, timedelta
 from enum import Enum
 import json
 import re
-import os
 
 # Telegram imports
 from telegram import Update, User, Chat, Message
 from telegram.ext import Application, ContextTypes
 from telethon import TelegramClient
 from telethon.sessions import StringSession
+from telethon.tl.types import Message
 
 # Firebase imports
 from firebase_admin import firestore
@@ -40,6 +42,13 @@ import pytest_asyncio
 logger = logging.getLogger(__name__)
 
 
+def get_chat_ids():
+    """Get chat IDs from environment variables with fallbacks."""
+    main_chat_id = os.getenv('TELEGRAM_MAIN_CHAT_ID', '-4889304885')
+    leadership_chat_id = os.getenv('TELEGRAM_LEADERSHIP_CHAT_ID', '-4814449926')
+    return main_chat_id, leadership_chat_id
+
+
 class TestType(Enum):
     """Types of tests supported."""
     COMMAND = "command"
@@ -47,6 +56,7 @@ class TestType(Enum):
     USER_FLOW = "user_flow"
     DATA_VALIDATION = "data_validation"
     INTEGRATION = "integration"
+    VALIDATION = "validation"
 
 
 @dataclass
@@ -117,7 +127,9 @@ class TelegramBotTester:
     async def send_message(self, chat_id: str, message: str) -> Message:
         """Send a message to a chat."""
         try:
-            result = await self.client.send_message(chat_id, message)
+            # Convert chat_id to int for proper Telethon compatibility
+            chat_id_int = int(chat_id)
+            result = await self.client.send_message(chat_id_int, message)
             logger.info(f"✅ Message sent: {message[:50]}...")
             return result
         except Exception as e:
@@ -127,7 +139,9 @@ class TelegramBotTester:
     async def get_messages(self, chat_id: str, limit: int = 10) -> List[Message]:
         """Get recent messages from a chat."""
         try:
-            messages = await self.client.get_messages(chat_id, limit=limit)
+            # Convert chat_id to int for proper Telethon compatibility
+            chat_id_int = int(chat_id)
+            messages = await self.client.get_messages(chat_id_int, limit=limit)
             return messages
         except Exception as e:
             logger.error(f"❌ Failed to get messages: {e}")
@@ -270,6 +284,10 @@ class FirestoreValidator:
         start_time = time.time()
         
         try:
+            # Check if this is a query-based validation
+            if context.document_id.startswith("query_"):
+                return await self._validate_document_by_query(context, start_time)
+            
             # Get document
             doc_ref = self.db.collection(context.collection).document(context.document_id)
             doc = doc_ref.get()
@@ -329,6 +347,98 @@ class FirestoreValidator:
                 success=False,
                 duration=time.time() - start_time,
                 message=f"Validation failed: {str(e)}",
+                errors=[str(e)]
+            )
+    
+    async def _validate_document_by_query(self, context: FirestoreTestContext, start_time: float) -> TestResult:
+        """Validate a document by querying with filters."""
+        try:
+            # Find the query rule
+            query_rule = None
+            for field, rule in context.validation_rules.items():
+                if rule.get('type') == 'query':
+                    query_rule = rule
+                    break
+            
+            if not query_rule or 'filters' not in query_rule:
+                return TestResult(
+                    test_name=f"Firestore: {context.collection}/query",
+                    test_type=TestType.DATA_VALIDATION,
+                    success=False,
+                    duration=time.time() - start_time,
+                    message="Invalid query rule",
+                    errors=["No valid query filters found"]
+                )
+            
+            # Build query
+            query = self.db.collection(context.collection)
+            for filter_item in query_rule['filters']:
+                field = filter_item['field']
+                operator = filter_item['operator']
+                value = filter_item['value']
+                query = query.where(field, operator, value)
+            
+            # Execute query
+            docs = query.stream()
+            documents = list(docs)
+            
+            if not documents:
+                return TestResult(
+                    test_name=f"Firestore: {context.collection}/query",
+                    test_type=TestType.DATA_VALIDATION,
+                    success=False,
+                    duration=time.time() - start_time,
+                    message="No documents found matching query",
+                    errors=["Query returned no results"]
+                )
+            
+            # Validate the first document found
+            data = documents[0].to_dict()
+            data['id'] = documents[0].id
+            
+            # Validate against expected data
+            validation_errors = []
+            validated_data = {}
+            
+            for field, expected_value in context.expected_data.items():
+                if field in data:
+                    actual_value = data[field]
+                    validated_data[field] = actual_value
+                    
+                    # Apply validation rules (excluding query rules)
+                    if field in context.validation_rules and context.validation_rules[field].get('type') != 'query':
+                        rule = context.validation_rules[field]
+                        if not self._validate_field(actual_value, rule):
+                            validation_errors.append(f"Field '{field}' failed validation rule: {rule}")
+                else:
+                    validation_errors.append(f"Required field '{field}' not found")
+            
+            success = len(validation_errors) == 0
+            duration = time.time() - start_time
+            
+            return TestResult(
+                test_name=f"Firestore: {context.collection}/query",
+                test_type=TestType.DATA_VALIDATION,
+                success=success,
+                duration=duration,
+                message=f"Query validation {'passed' if success else 'failed'}",
+                data_validated=validated_data,
+                errors=validation_errors,
+                metadata={
+                    "collection": context.collection,
+                    "document_id": documents[0].id,
+                    "fields_validated": len(validated_data),
+                    "query_filters": query_rule['filters']
+                }
+            )
+            
+        except Exception as e:
+            return TestResult(
+                test_name=f"Firestore: {context.collection}/query",
+                test_type=TestType.DATA_VALIDATION,
+                success=False,
+                duration=time.time() - start_time,
+                message=f"Query validation failed: {str(e)}",
                 errors=[str(e)]
             )
     
@@ -438,6 +548,8 @@ class E2ETestRunner:
                     result = await self._run_nl_test(test_config)
                 elif test_config['type'] == 'user_flow':
                     result = await self._run_user_flow_test(test_config)
+                elif test_config['type'] == 'validation':
+                    result = await self._run_validation_test(test_config)
                 else:
                     result = TestResult(
                         test_name=f"Unknown test type: {test_config['type']}",
@@ -581,6 +693,67 @@ class E2ETestRunner:
                 "step_results": step_results
             }
         )
+    
+    async def _run_validation_test(self, test_config: Dict[str, Any]) -> TestResult:
+        """Run a validation test for configuration and environment variables."""
+        validation_data = test_config['validation']
+        start_time = time.time()
+        errors = []
+        
+        try:
+            # Validate chat ID configuration
+            if 'main_chat_id' in validation_data:
+                main_chat_id = validation_data['main_chat_id']
+                leadership_chat_id = validation_data['leadership_chat_id']
+                expected_main = validation_data['expected_main']
+                expected_leadership = validation_data['expected_leadership']
+                
+                if main_chat_id != expected_main:
+                    errors.append(f"Main chat ID mismatch: expected {expected_main}, got {main_chat_id}")
+                
+                if leadership_chat_id != expected_leadership:
+                    errors.append(f"Leadership chat ID mismatch: expected {expected_leadership}, got {leadership_chat_id}")
+                
+                # Validate naming convention
+                naming = validation_data.get('naming_convention', {})
+                if naming:
+                    logger.info(f"Chat naming convention: Main='{naming.get('main')}', Leadership='{naming.get('leadership')}'")
+            
+            # Validate environment variables
+            if 'env_vars' in validation_data:
+                env_vars = validation_data['env_vars']
+                for var_name, var_value in env_vars.items():
+                    if not var_value:
+                        errors.append(f"Missing environment variable: {var_name}")
+                    else:
+                        logger.info(f"✅ {var_name}: {var_value}")
+            
+            duration = time.time() - start_time
+            success = len(errors) == 0
+            
+            return TestResult(
+                test_name=f"Validation: {test_config.get('name', 'Configuration')}",
+                test_type=TestType.VALIDATION,
+                success=success,
+                duration=duration,
+                message=f"Configuration validation {'passed' if success else 'failed'}",
+                errors=errors,
+                metadata={
+                    "validation_data": validation_data,
+                    "errors_count": len(errors)
+                }
+            )
+            
+        except Exception as e:
+            duration = time.time() - start_time
+            return TestResult(
+                test_name=f"Validation: {test_config.get('name', 'Configuration')}",
+                test_type=TestType.VALIDATION,
+                success=False,
+                duration=duration,
+                message=f"Validation test failed with exception: {str(e)}",
+                errors=[str(e)]
+            )
     
     def generate_report(self) -> str:
         """Generate a comprehensive test report."""

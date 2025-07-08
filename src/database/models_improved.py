@@ -16,6 +16,7 @@ from enum import Enum
 from abc import ABC, abstractmethod
 import re
 from uuid import uuid4
+from utils.validation_utils import validate_phone, validate_email, validate_name
 
 
 # ============================================================================
@@ -24,6 +25,7 @@ from uuid import uuid4
 
 class PlayerPosition(Enum):
     """Player positions in football."""
+    ANY = "any"
     GOALKEEPER = "goalkeeper"
     DEFENDER = "defender"
     MIDFIELDER = "midfielder"
@@ -192,26 +194,18 @@ class ValidatorMixin:
     
     @staticmethod
     def validate_phone(phone: str) -> bool:
-        """Validate UK phone number format."""
-        if not phone:
-            return False
-        phone_pattern = r'^(\+44|0)[1-9]\d{8,9}$'
-        return bool(re.match(phone_pattern, phone.replace(' ', '')))
+        """Validate UK phone number format using centralized validation."""
+        return validate_phone(phone, region="GB")
     
     @staticmethod
     def validate_email(email: str) -> bool:
-        """Validate email format."""
-        if not email:
-            return False
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        return bool(re.match(email_pattern, email))
+        """Validate email format using centralized validation."""
+        return validate_email(email)
     
     @staticmethod
     def validate_name(name: str, min_length: int = 2) -> bool:
-        """Validate name format."""
-        if not name or not name.strip():
-            return False
-        return len(name.strip()) >= min_length
+        """Validate name format using centralized validation."""
+        return validate_name(name, min_length=min_length)
     
     @staticmethod
     def validate_id_format(id_str: str, prefix: str = "") -> bool:
@@ -292,9 +286,6 @@ class Player(BaseModel, ValidatorMixin):
         if self.email and not self._validate_email(self.email):
             raise ValueError("Invalid email format")
         
-        if not self.player_id:
-            self.player_id = self._generate_player_id()
-        
         # Set onboarding started time if status is in progress
         if self.onboarding_status == OnboardingStatus.IN_PROGRESS and not self.onboarding_started_at:
             self.onboarding_started_at = datetime.now()
@@ -304,29 +295,12 @@ class Player(BaseModel, ValidatorMixin):
             self.last_activity = datetime.now()
     
     def _validate_phone(self, phone: str) -> bool:
-        """Validate phone number format."""
-        # Basic UK phone number validation
-        phone_pattern = r'^(\+44|0)[1-9]\d{8,9}$'
-        return bool(re.match(phone_pattern, phone.replace(' ', '')))
+        """Validate phone number format using centralized validation."""
+        return validate_phone(phone, region="GB")
     
     def _validate_email(self, email: str) -> bool:
-        """Validate email format."""
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        return bool(re.match(email_pattern, email))
-    
-    def _generate_player_id(self) -> str:
-        """Generate a unique player ID from name."""
-        if not self.name:
-            return ""
-        
-        # Extract initials from name
-        name_parts = self.name.strip().split()
-        if len(name_parts) >= 2:
-            initials = ''.join(part[0].upper() for part in name_parts[:2])
-        else:
-            initials = self.name[:2].upper()
-        
-        return f"{initials}1"  # Simple format, could be enhanced with numbering
+        """Validate email format using centralized validation."""
+        return validate_email(email)
     
     def get_onboarding_progress(self) -> Dict[str, Any]:
         """Get current onboarding progress."""
@@ -356,6 +330,10 @@ class Player(BaseModel, ValidatorMixin):
                 return "completion"
         else:
             return "completed"
+    
+    def get_current_onboarding_step(self) -> str:
+        """Get the current onboarding step (public method)."""
+        return self._get_current_step()
     
     def update_onboarding_step(self, step: str, data: Optional[Dict[str, Any]] = None) -> None:
         """Update onboarding step progress."""
@@ -421,7 +399,8 @@ class Player(BaseModel, ValidatorMixin):
 
     def is_match_eligible(self) -> bool:
         """Check if player is eligible for match selection."""
-        if not self.admin_approved:
+        # Check if onboarding is complete and admin approved
+        if not self.is_onboarding_complete() or not self.admin_approved:
             return False
         if self.is_injured:
             return False
@@ -433,7 +412,7 @@ class Player(BaseModel, ValidatorMixin):
 
     def is_fa_registered(self) -> bool:
         """Check if player is FA registered."""
-        return self.fa_registered
+        return self.fa_registered and self.fa_eligible
 
     def is_fa_eligible(self) -> bool:
         """Check if player is eligible for FA registration."""
@@ -511,18 +490,21 @@ class Player(BaseModel, ValidatorMixin):
         return cls(**data)
     
     @classmethod
-    def create_with_onboarding(cls, name: str, phone: str, position: PlayerPosition, 
-                              team_id: str, fa_eligible: bool = True) -> 'Player':
-        """Factory method to create a player with onboarding setup."""
-        return cls(
-            name=name,
-            phone=phone,
-            position=position,
-            team_id=team_id,
-            fa_eligible=fa_eligible,
-            onboarding_status=OnboardingStatus.PENDING,
-            onboarding_step="basic_registration"
-        )
+    def create(cls, name: str, phone: str, team_id: str, **kwargs) -> 'Player':
+        """Factory method to create a player with validation."""
+        return cls(name=name, phone=phone, team_id=team_id, **kwargs)
+
+    def get_display_name(self) -> str:
+        """Get a human-readable display name for the player."""
+        return f"{self.name} ({self.position.value.title()}) - {self.player_id}"
+
+    def get_position_display(self) -> str:
+        """Get a human-readable display name for the player's position."""
+        return self.position.value.title()
+
+    def is_onboarding_complete(self) -> bool:
+        """Check if onboarding is complete."""
+        return self.onboarding_status == OnboardingStatus.COMPLETED
 
     def _validate_model_specific(self):
         # Minimal implementation for test and basic usage
