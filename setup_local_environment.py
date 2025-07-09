@@ -2,74 +2,84 @@
 """
 KICKAI Local Environment Setup
 
-This script helps set up the local environment for running KICKAI.
-It will guide you through setting up the required environment variables.
+This script helps you set up your local environment for KICKAI.
+Instead of creating .env files, it will guide you to set system environment variables.
 """
 
 import os
-import json
 import sys
+import json
+import subprocess
 from pathlib import Path
+
 
 def print_banner():
     """Print setup banner."""
     print("""
-🎯 KICKAI Local Environment Setup
-================================
-
-This script will help you set up your local environment for running KICKAI.
-You'll need to provide several configuration values.
-
-Let's get started!
+╔══════════════════════════════════════════════════════════════╗
+║                    KICKAI SETUP WIZARD                       ║
+║                                                              ║
+║  This script will help you configure your environment       ║
+║  variables for KICKAI.                                       ║
+║                                                              ║
+║  ⚠️  IMPORTANT: We'll set system environment variables      ║
+║     instead of creating .env files for better security.     ║
+╚══════════════════════════════════════════════════════════════╝
 """)
+
 
 def get_input(prompt, default=None, required=True):
     """Get user input with validation."""
     while True:
         if default:
-            value = input(f"{prompt} (default: {default}): ").strip()
-            if not value:
-                value = default
+            user_input = input(f"{prompt} [{default}]: ").strip()
+            if not user_input:
+                user_input = default
         else:
-            value = input(f"{prompt}: ").strip()
+            user_input = input(f"{prompt}: ").strip()
         
-        if required and not value:
-            print("❌ This field is required. Please provide a value.")
+        if required and not user_input:
+            print("❌ This field is required. Please enter a value.")
             continue
         
-        return value
+        return user_input
+
 
 def setup_telegram():
-    """Set up Telegram bot configuration."""
-    print("\n🤖 TELEGRAM BOT SETUP")
-    print("=" * 30)
+    """Set up Telegram configuration."""
+    print("\n🤖 TELEGRAM SETUP")
+    print("=" * 20)
     
     print("""
-To get your Telegram bot token:
-1. Message @BotFather on Telegram
-2. Send /newbot
-3. Follow the instructions to create a bot
-4. Copy the token provided
+To get your bot token:
+1. Go to @BotFather on Telegram
+2. Send /newbot or use existing bot
+3. Copy the bot token (format: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz)
 """)
     
-    bot_token = get_input("Enter your Telegram bot token")
+    bot_token = get_input("Enter your bot token")
+    
+    if ':' not in bot_token:
+        print("❌ Invalid bot token format. Should contain ':'")
+        return setup_telegram()
     
     print("""
-To get your chat IDs:
-1. Add your bot to your group
-2. Send a message in the group
+To get chat IDs:
+1. Add your bot to the chat
+2. Send a message in the chat
 3. Visit: https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates
 4. Look for 'chat' -> 'id' in the response
 """)
     
-    main_chat_id = get_input("Enter your main chat ID")
+    main_chat_id = get_input("Enter your main chat ID (can be same as leadership)")
     leadership_chat_id = get_input("Enter your leadership chat ID (can be same as main)")
     
     return {
         "TELEGRAM_BOT_TOKEN": bot_token,
-        "MAIN_CHAT_ID": main_chat_id,
-        "LEADERSHIP_CHAT_ID": leadership_chat_id
+        "TELEGRAM_MAIN_CHAT_ID": main_chat_id,
+        "TELEGRAM_LEADERSHIP_CHAT_ID": leadership_chat_id
     }
+
 
 def setup_firebase():
     """Set up Firebase configuration."""
@@ -103,10 +113,21 @@ For the service account JSON:
         print("❌ Invalid JSON format. Please check your service account JSON.")
         return setup_firebase()
     
+    # Create credentials directory and file
+    credentials_dir = Path("credentials")
+    credentials_dir.mkdir(exist_ok=True)
+    
+    credentials_file = credentials_dir / "firebase_credentials.json"
+    with open(credentials_file, 'w') as f:
+        f.write(credentials_json)
+    
+    print(f"✅ Firebase credentials saved to {credentials_file}")
+    
     return {
-        "FIREBASE_CREDENTIALS_JSON": credentials_json,
-        "FIREBASE_PROJECT_ID": project_id
+        "FIRESTORE_PROJECT_ID": project_id,
+        "FIREBASE_CREDENTIALS_FILE": str(credentials_file)
     }
+
 
 def setup_ai():
     """Set up AI provider configuration."""
@@ -117,10 +138,9 @@ def setup_ai():
 Choose your AI provider:
 1. Google Gemini (recommended for production)
 2. OpenAI (requires API key)
-3. Ollama (for local development)
 """)
     
-    provider = get_input("Enter AI provider (google_gemini/openai/ollama)", "google_gemini")
+    provider = get_input("Enter AI provider (google_gemini/openai)", "google_gemini")
     
     if provider == "google_gemini":
         print("""
@@ -131,6 +151,11 @@ To get Google API key:
 """)
         api_key = get_input("Enter your Google API key")
         model = "gemini-pro"
+        config = {
+            "GOOGLE_API_KEY": api_key,
+            "AI_PROVIDER": provider,
+            "AI_MODEL_NAME": model
+        }
     elif provider == "openai":
         print("""
 To get OpenAI API key:
@@ -140,26 +165,24 @@ To get OpenAI API key:
 """)
         api_key = get_input("Enter your OpenAI API key")
         model = "gpt-3.5-turbo"
-    elif provider == "ollama":
-        print("""
-For Ollama (local development):
-1. Install Ollama from https://ollama.ai
-2. Run: ollama pull llama3.1:8b-instruct-q4_0
-3. Use 'ollama_local' as API key
-""")
-        api_key = "ollama_local"
-        model = "llama3.1:8b-instruct-q4_0"
+        config = {
+            "OPENAI_API_KEY": api_key,
+            "AI_PROVIDER": provider,
+            "AI_MODEL_NAME": model
+        }
     else:
         print("❌ Invalid provider. Using Google Gemini.")
         provider = "google_gemini"
         api_key = get_input("Enter your Google API key")
         model = "gemini-pro"
+        config = {
+            "GOOGLE_API_KEY": api_key,
+            "AI_PROVIDER": provider,
+            "AI_MODEL_NAME": model
+        }
     
-    return {
-        "GOOGLE_API_KEY": api_key,
-        "AI_PROVIDER": provider,
-        "AI_MODEL_NAME": model
-    }
+    return config
+
 
 def setup_optional():
     """Set up optional configuration."""
@@ -184,43 +207,72 @@ For now, we'll set it up as disabled.
     
     return config
 
-def create_env_file(config):
-    """Create .env file with configuration."""
-    env_content = """# KICKAI Environment Variables
+
+def generate_env_commands(config):
+    """Generate commands to set environment variables."""
+    print("\n🔧 ENVIRONMENT VARIABLE SETUP")
+    print("=" * 40)
+    
+    print("""
+To set up your environment variables, run the following commands:
+
+For macOS/Linux (add to ~/.bashrc, ~/.zshrc, or ~/.profile):
+""")
+    
+    for key, value in config.items():
+        if key in ["GOOGLE_API_KEY", "TELEGRAM_BOT_TOKEN", "OPENAI_API_KEY"]:
+            # Mask sensitive values
+            masked_value = value[:8] + "..." if len(value) > 8 else "***"
+            print(f"export {key}='{value}'  # {masked_value}")
+        else:
+            print(f"export {key}='{value}'")
+    
+    print("""
+
+For Windows (add to system environment variables or run in cmd):
+""")
+    
+    for key, value in config.items():
+        if key in ["GOOGLE_API_KEY", "TELEGRAM_BOT_TOKEN", "OPENAI_API_KEY"]:
+            # Mask sensitive values
+            masked_value = value[:8] + "..." if len(value) > 8 else "***"
+            print(f"set {key}={value}  # {masked_value}")
+        else:
+            print(f"set {key}={value}")
+    
+    print("""
+
+For immediate use in current session:
+""")
+    
+    for key, value in config.items():
+        if key in ["GOOGLE_API_KEY", "TELEGRAM_BOT_TOKEN", "OPENAI_API_KEY"]:
+            # Mask sensitive values
+            masked_value = value[:8] + "..." if len(value) > 8 else "***"
+            print(f"export {key}='{value}'  # {masked_value}")
+        else:
+            print(f"export {key}='{value}'")
+
+
+def create_env_template(config):
+    """Create a .env template file for reference."""
+    template_content = """# KICKAI Environment Variables
 # Generated by setup_local_environment.py
+# Copy this to .env and fill in your actual values
 
-# Telegram Bot Configuration
-TELEGRAM_BOT_TOKEN={bot_token}
-MAIN_CHAT_ID={main_chat_id}
-LEADERSHIP_CHAT_ID={leadership_chat_id}
-
-# Firebase Configuration
-FIREBASE_CREDENTIALS_JSON={firebase_credentials}
-FIREBASE_PROJECT_ID={firebase_project_id}
-
-# AI Provider Configuration
-GOOGLE_API_KEY={ai_api_key}
-AI_PROVIDER={ai_provider}
-AI_MODEL_NAME={ai_model}
-
-# Environment
-ENVIRONMENT={environment}
-
-# Optional Configuration
-PAYMENT_ENABLED={payment_enabled}
-
-# Default Team ID
-DEFAULT_TEAM_ID=0854829d-445c-4138-9fd3-4db562ea46ee
-
-# Development Settings
-DEBUG=true
-VERBOSE_LOGGING=true
-""".format(**config)
+"""
     
-    with open(".env", "w") as f:
-        f.write(env_content)
+    for key, value in config.items():
+        if key in ["GOOGLE_API_KEY", "TELEGRAM_BOT_TOKEN", "OPENAI_API_KEY"]:
+            template_content += f"{key}=your_{key.lower()}_here\n"
+        else:
+            template_content += f"{key}={value}\n"
     
-    print("✅ .env file created successfully!")
+    with open(".env.template", "w") as f:
+        f.write(template_content)
+    
+    print("✅ .env.template file created for reference")
+
 
 def main():
     """Main setup function."""
@@ -241,25 +293,31 @@ def main():
             **optional_config
         }
         
-        # Create .env file
-        create_env_file(config)
+        # Generate environment variable commands
+        generate_env_commands(config)
+        
+        # Create template file
+        create_env_template(config)
         
         print("""
 🎉 SETUP COMPLETE!
 
-Your KICKAI environment is now configured. Next steps:
+Your KICKAI environment configuration is ready. Next steps:
 
-1. Install dependencies:
-   pip install -r requirements.txt
-
-2. Run the bot:
-   python run_telegram_bot.py
-
-3. Test the bot:
-   Send /start to your bot on Telegram
+1. Set the environment variables using the commands above
+2. Restart your terminal or run: source ~/.bashrc (or ~/.zshrc)
+3. Install dependencies: pip install -r requirements.txt
+4. Run the bot: python run_telegram_bot.py
+5. Test the bot: Send /start to your bot on Telegram
 
 📁 Files created:
-   - .env (environment variables)
+   - .env.template (reference template)
+   - credentials/firebase_credentials.json
+
+⚠️  SECURITY NOTES:
+   - Never commit .env files to version control
+   - Keep your API keys secure
+   - Use different keys for development and production
 
 📖 For more information, see README.md
 """)
@@ -270,6 +328,7 @@ Your KICKAI environment is now configured. Next steps:
     except Exception as e:
         print(f"\n❌ Setup failed: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main() 
