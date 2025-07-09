@@ -167,8 +167,7 @@ async def main():
     VERSION = "1.0.0" # Replace with actual version retrieval logic
     chat_ids = get_chat_ids()
     
-    # Send startup message after application is fully initialized
-    await send_startup_message(application)
+    # Startup message will be sent automatically by post_init callback
     # --- End application creation logic ---
 
     try:
