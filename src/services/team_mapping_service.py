@@ -272,6 +272,10 @@ class TeamMappingService:
         """Get all team mappings."""
         return self._team_mappings.copy()
     
+    def get_all_mappings(self) -> Dict[str, TeamMapping]:
+        """Get all team mappings (alias for get_all_team_mappings for compatibility)."""
+        return self.get_all_team_mappings()
+    
     def add_team_mapping(self, mapping: TeamMapping):
         """Add a new team mapping."""
         self._team_mappings[mapping.team_id] = mapping

@@ -76,7 +76,7 @@ def mock_telegram_config():
 @pytest.fixture(scope="function")
 def mock_config_manager(test_environment, mock_firebase_credentials, mock_ai_config, mock_telegram_config):
     """Mock configuration manager for testing."""
-    with patch('src.core.config.ConfigurationManager') as mock_config:
+    with patch('src.core.config.ImprovedConfigurationManager') as mock_config:
         # Create a mock configuration manager
         config_instance = Mock()
         config_instance.environment.value = 'testing'

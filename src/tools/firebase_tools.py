@@ -5,11 +5,6 @@ Firebase tools for KICKAI.
 from typing import Dict, Any, Optional
 
 
-def get_config() -> Dict[str, Any]:
-    """Get configuration for Firebase tools."""
-    return {}
-
-
 class FirebaseTools:
     """Firebase tools for database operations."""
     

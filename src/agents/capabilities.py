@@ -65,6 +65,9 @@ class AgentCapabilityMatrix:
     def __init__(self):
         self._capabilities = self._initialize_capabilities()
         self._capability_descriptions = self._initialize_descriptions()
+        logger.info("[AgentCapabilityMatrix] Capability matrix initialized:")
+        for agent_role, capabilities in self._capabilities.items():
+            logger.info(f"  {agent_role}: {[cap.capability.value for cap in capabilities]}")
     
     def _initialize_capabilities(self) -> Dict[AgentRole, List[AgentCapability]]:
         """Initialize the capability matrix for all agents."""
@@ -159,17 +162,18 @@ class AgentCapabilityMatrix:
         }
     
     def get_agent_capabilities(self, agent_role: AgentRole) -> List[AgentCapability]:
-        """Get capabilities for a specific agent."""
+        logger.debug(f"[AgentCapabilityMatrix] get_agent_capabilities called for {agent_role}")
         return self._capabilities.get(agent_role, [])
     
     def get_agents_with_capability(self, capability: CapabilityType, min_proficiency: float = 0.5) -> List[AgentRole]:
-        """Get agents that have a specific capability with minimum proficiency."""
+        logger.debug(f"[AgentCapabilityMatrix] get_agents_with_capability called for {capability} (min_proficiency={min_proficiency})")
         agents = []
         for agent_role, capabilities in self._capabilities.items():
             for cap in capabilities:
                 if cap.capability == capability and cap.proficiency_level >= min_proficiency:
                     agents.append(agent_role)
                     break
+        logger.debug(f"[AgentCapabilityMatrix] Agents with {capability}: {agents}")
         return agents
     
     def get_primary_capabilities(self, agent_role: AgentRole) -> List[AgentCapability]:
@@ -208,7 +212,7 @@ class AgentCapabilityMatrix:
         return self.get_agent_proficiency(agent_role, capability) > 0.0
     
     def get_best_agent_for_capability(self, capability: CapabilityType) -> Optional[AgentRole]:
-        """Get the best agent for a specific capability based on proficiency."""
+        logger.debug(f"[AgentCapabilityMatrix] get_best_agent_for_capability called for {capability}")
         best_agent = None
         best_proficiency = 0.0
         
@@ -218,6 +222,7 @@ class AgentCapabilityMatrix:
                 best_proficiency = proficiency
                 best_agent = agent_role
         
+        logger.debug(f"[AgentCapabilityMatrix] Best agent for {capability}: {best_agent} (proficiency={best_proficiency})")
         return best_agent if best_proficiency > 0.0 else None
 
 # Global instance for easy access

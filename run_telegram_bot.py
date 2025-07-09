@@ -163,6 +163,46 @@ async def send_shutdown_message(application: Application) -> None:
 async def main():
     # Load config and initialize application as before
     config = setup_environment()
+    
+    # Run comprehensive startup validation
+    logger.info("🔍 Running comprehensive startup validation...")
+    try:
+        from src.core.startup_validator import StartupValidator
+        
+        # Create and run startup validator
+        validator = StartupValidator()
+        validation_report = await validator.validate()
+        
+        # Check if any critical checks failed
+        if not validation_report.is_healthy():
+            logger.error("❌ Critical startup validation failures detected:")
+            for failure in validation_report.critical_failures:
+                logger.error(f"   - {failure}")
+            logger.error("🚫 Bot startup aborted due to critical validation failures")
+            return
+        
+        # Log validation summary
+        total_checks = len(validation_report.checks)
+        passed = len([r for r in validation_report.checks if r.status.value == "PASSED"])
+        failed = len([r for r in validation_report.checks if r.status.value == "FAILED"])
+        warnings = len([r for r in validation_report.checks if r.status.value == "WARNING"])
+        
+        logger.info(f"✅ Startup validation complete: {passed}/{total_checks} passed, {failed} failed, {warnings} warnings")
+        
+        if failed > 0 or warnings > 0:
+            logger.warning("⚠️ Some validation checks failed or have warnings:")
+            for result in validation_report.checks:
+                if result.status.value in ["FAILED", "WARNING"]:
+                    logger.warning(f"   - {result.category.value}:{result.name}: {result.message}")
+        
+        # Print detailed report
+        validator.print_report(validation_report)
+        
+    except Exception as e:
+        logger.error(f"❌ Startup validation failed: {e}")
+        logger.error("🚫 Bot startup aborted due to validation error")
+        return
+    
     application = start_bot(config)  # This should be the function that returns the Application instance
     VERSION = "1.0.0" # Replace with actual version retrieval logic
     chat_ids = get_chat_ids()

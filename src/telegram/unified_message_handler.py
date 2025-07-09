@@ -39,10 +39,11 @@ class UnifiedMessageHandler:
     """
     def __init__(self, team_id: str):
         self.team_id = team_id
-        # Initialize the intelligent TeamManagementSystem
-        # All intelligent system components are now integrated into TeamManagementSystem.execute_task
+        logger.info(f"[UMH INIT] Entering UnifiedMessageHandler.__init__ for team {team_id}")
+        logger.info(f"[UMH INIT] About to instantiate TeamManagementSystem for team {team_id}")
         self.team_system = TeamManagementSystem(team_id)
-        logger.info(f"🔧 UnifiedMessageHandler initialized for team {team_id}")
+        logger.info(f"[UMH INIT] TeamManagementSystem instance id: {id(self.team_system)} for team {team_id}")
+        logger.info(f"[UMH INIT] UnifiedMessageHandler initialized for team {team_id}")
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> Optional[str]:
         try:
@@ -115,6 +116,10 @@ class UnifiedMessageHandler:
             # 6. Result aggregation
             # 7. User preference learning
             # 8. Response personalization
+            if self.team_system is None:
+                logger.error(f"❌ TeamManagementSystem not initialized, cannot process message", context=log_context)
+                return "❌ Sorry, the bot system is not properly initialized. Please contact support."
+            
             result = self.team_system.execute_task(text, execution_context)
             
             if is_help_command:
@@ -251,6 +256,7 @@ async def handle_message_unified(update: Update, context: ContextTypes.DEFAULT_T
     Global message handler function for registration with telegram.ext.
     
     This is the single entry point that replaces all the complex routing.
+    Team ID is resolved dynamically for each message using the team mapping service.
     """
     try:
         # Get team ID from context or config

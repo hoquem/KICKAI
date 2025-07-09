@@ -105,11 +105,12 @@ class SophisticatedNaturalLanguageHandler:
         """Initialize the CrewAI system for natural language processing."""
         try:
             from agents.crew_agents import TeamManagementSystem
-            
+            logger.info(f"[NLH INIT] Entering _initialize_crewai_system for team {self.team_id}")
+            logger.info(f"[NLH INIT] About to instantiate TeamManagementSystem for team {self.team_id}")
             # Create the team management system
             self.crewai_system = TeamManagementSystem(self.team_id)
-            logger.info(f"✅ CrewAI system initialized for team {self.team_id}")
-            
+            logger.info(f"[NLH INIT] TeamManagementSystem instance id: {id(self.crewai_system)} for team {self.team_id}")
+            logger.info(f"[NLH INIT] CrewAI system initialized for team {self.team_id}")
         except Exception as e:
             logger.error(f"Failed to initialize CrewAI system: {e}")
             self.crewai_system = None

@@ -5,11 +5,6 @@ Team management tools for KICKAI.
 from typing import Dict, Any, Optional, List
 
 
-def get_config() -> Dict[str, Any]:
-    """Get configuration for team management tools."""
-    return {}
-
-
 class TeamManagementTools:
     """Team management tools for operations."""
     

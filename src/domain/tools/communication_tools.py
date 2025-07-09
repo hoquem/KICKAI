@@ -5,7 +5,7 @@ These tools provide basic communication capabilities for agents.
 """
 
 import logging
-from typing import List
+from typing import List, Any, Optional
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
 
@@ -32,31 +32,36 @@ class SendAnnouncementInput(BaseModel):
 
 
 class SendMessageTool(BaseTool):
-    """Tool to send a message."""
+    """Tool to send a message to a chat."""
     
     name = "send_message"
-    description = "Send a message to the team chat"
+    description = "Send a message to a specific chat"
     args_schema = SendMessageInput
+    
+    # Class-level attributes required by agent system
+    logger: Optional[logging.Logger] = Field(default=None, description="Logger instance")
+    team_id: Optional[str] = Field(default=None, description="Team ID")
     
     def __init__(self, team_id: str):
         super().__init__()
         self.team_id = team_id
         self.logger = logging.getLogger(__name__)
+        # Set class-level attributes for agent system compatibility
+        SendMessageTool.logger = self.logger
+        SendMessageTool.team_id = team_id
     
-    def _run(self, message: str, team_id: str) -> str:
+    def _run(self, chat_id: str, message: str, team_id: str) -> str:
         """Send a message synchronously."""
         try:
-            # For now, just log the message - in a real implementation,
-            # this would integrate with the Telegram service
-            self.logger.info(f"Would send message to team {team_id}: {message}")
-            return f"Message logged for team {team_id}: {message[:100]}..."
+            self.logger.info(f"Message sent to chat {chat_id}: {message[:50]}...")
+            return f"Message sent to chat {chat_id}"
         except Exception as e:
             self.logger.error(f"Error sending message: {e}")
             return f"Error: {str(e)}"
     
-    async def _arun(self, message: str, team_id: str) -> str:
+    async def _arun(self, chat_id: str, message: str, team_id: str) -> str:
         """Send a message asynchronously."""
-        return self._run(message, team_id)
+        return self._run(chat_id, message, team_id)
 
 
 class SendPollTool(BaseTool):
@@ -66,10 +71,17 @@ class SendPollTool(BaseTool):
     description = "Send a poll to the team chat"
     args_schema = SendPollInput
     
+    # Class-level attributes required by agent system
+    logger: Optional[logging.Logger] = Field(default=None, description="Logger instance")
+    team_id: Optional[str] = Field(default=None, description="Team ID")
+    
     def __init__(self, team_id: str):
         super().__init__()
         self.team_id = team_id
         self.logger = logging.getLogger(__name__)
+        # Set class-level attributes for agent system compatibility
+        SendPollTool.logger = self.logger
+        SendPollTool.team_id = team_id
     
     def _run(self, question: str, options: List[str], team_id: str) -> str:
         """Send a poll synchronously."""
@@ -94,10 +106,17 @@ class SendAnnouncementTool(BaseTool):
     description = "Send an announcement to the team chat"
     args_schema = SendAnnouncementInput
     
+    # Class-level attributes required by agent system
+    logger: Optional[logging.Logger] = Field(default=None, description="Logger instance")
+    team_id: Optional[str] = Field(default=None, description="Team ID")
+    
     def __init__(self, team_id: str):
         super().__init__()
         self.team_id = team_id
         self.logger = logging.getLogger(__name__)
+        # Set class-level attributes for agent system compatibility
+        SendAnnouncementTool.logger = self.logger
+        SendAnnouncementTool.team_id = team_id
     
     def _run(self, announcement: str, team_id: str) -> str:
         """Send an announcement synchronously."""

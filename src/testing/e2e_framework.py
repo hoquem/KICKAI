@@ -262,19 +262,19 @@ class TelegramBotTester:
 
 
 class FirestoreValidator:
-    """Firestore data validation framework."""
-    
+    """Firestore data validation for E2E tests."""
     def __init__(self, project_id: str, credentials_path: str = None):
-        self.project_id = project_id
-        
-        # Initialize Firebase
-        if not firebase_admin._apps:
-            cred_path = credentials_path or os.getenv('FIRESTORE_CREDENTIALS_PATH')
-            if cred_path and os.path.exists(cred_path):
-                cred = credentials.Certificate(cred_path)
-                firebase_admin.initialize_app(cred, {'projectId': project_id})
-            else:
-                firebase_admin.initialize_app({'projectId': project_id})
+        import firebase_admin
+        from firebase_admin import credentials
+        import os
+        # Use credentials from env if not provided
+        if credentials_path is None:
+            credentials_path = os.getenv('FIREBASE_CREDENTIALS_FILE')
+        if credentials_path and os.path.exists(credentials_path):
+            cred = credentials.Certificate(credentials_path)
+            firebase_admin.initialize_app(cred, {'projectId': project_id})
+        else:
+            firebase_admin.initialize_app({'projectId': project_id})
         
         self.db = firestore.client()
         logger.info(f"✅ FirestoreValidator initialized for project {project_id}")
@@ -550,6 +550,8 @@ class E2ETestRunner:
                     result = await self._run_user_flow_test(test_config)
                 elif test_config['type'] == 'validation':
                     result = await self._run_validation_test(test_config)
+                elif test_config['type'] == 'setup':
+                    result = await self._run_setup_test(test_config)
                 else:
                     result = TestResult(
                         test_name=f"Unknown test type: {test_config['type']}",
@@ -591,18 +593,33 @@ class E2ETestRunner:
         command = test_config['command']
         context = test_config['telegram_context']
         firestore_validation = test_config.get('firestore_validation')
+        response_validation = test_config.get('response_validation')
         
         # Run Telegram test
         telegram_result = await self.telegram_tester.test_command(command, context)
         
+        # Validate response content if specified
+        errors = list(telegram_result.errors)
+        success = telegram_result.success
+        if response_validation and telegram_result.message:
+            msg = telegram_result.message or ""
+            # Check 'contains'
+            for substr in response_validation.get('contains', []):
+                if substr not in msg:
+                    errors.append(f"Response missing expected substring: '{substr}'")
+                    success = False
+            # Check 'not_contains'
+            for substr in response_validation.get('not_contains', []):
+                if substr in msg:
+                    errors.append(f"Response should not contain: '{substr}'")
+                    success = False
+        
         # Run Firestore validation if specified
-        if firestore_validation and telegram_result.success:
+        if firestore_validation and success:
             firestore_result = await self.firestore_validator.validate_document(firestore_validation)
-            
             # Combine results
-            combined_success = telegram_result.success and firestore_result.success
-            combined_errors = telegram_result.errors + firestore_result.errors
-            
+            combined_success = success and firestore_result.success
+            combined_errors = errors + firestore_result.errors
             return TestResult(
                 test_name=f"Command + Validation: {command}",
                 test_type=TestType.INTEGRATION,
@@ -617,25 +634,48 @@ class E2ETestRunner:
                 }
             )
         
-        return telegram_result
+        return TestResult(
+            test_name=telegram_result.test_name,
+            test_type=telegram_result.test_type,
+            success=success,
+            duration=telegram_result.duration,
+            message=telegram_result.message,
+            errors=errors,
+            metadata=telegram_result.metadata
+        )
     
     async def _run_nl_test(self, test_config: Dict[str, Any]) -> TestResult:
         """Run a natural language test."""
         message = test_config['message']
         context = test_config['telegram_context']
         firestore_validation = test_config.get('firestore_validation')
+        response_validation = test_config.get('response_validation')
         
         # Run Telegram test
         telegram_result = await self.telegram_tester.test_natural_language(message, context)
         
+        # Validate response content if specified
+        errors = list(telegram_result.errors)
+        success = telegram_result.success
+        if response_validation and telegram_result.message:
+            msg = telegram_result.message or ""
+            # Check 'contains'
+            for substr in response_validation.get('contains', []):
+                if substr not in msg:
+                    errors.append(f"Response missing expected substring: '{substr}'")
+                    success = False
+            # Check 'not_contains'
+            for substr in response_validation.get('not_contains', []):
+                if substr in msg:
+                    errors.append(f"Response should not contain: '{substr}'")
+                    success = False
+        
         # Run Firestore validation if specified
-        if firestore_validation and telegram_result.success:
+        if firestore_validation and success:
             firestore_result = await self.firestore_validator.validate_document(firestore_validation)
-            
             # Combine results
-            combined_success = telegram_result.success and firestore_result.success
-            combined_errors = telegram_result.errors + firestore_result.errors
-            
+            combined_success = success and firestore_result.success
+            combined_errors = errors + firestore_result.errors
             return TestResult(
                 test_name=f"NL + Validation: {message}",
                 test_type=TestType.INTEGRATION,
@@ -650,7 +690,15 @@ class E2ETestRunner:
                 }
             )
         
-        return telegram_result
+        return TestResult(
+            test_name=telegram_result.test_name,
+            test_type=telegram_result.test_type,
+            success=success,
+            duration=telegram_result.duration,
+            message=telegram_result.message,
+            errors=errors,
+            metadata=telegram_result.metadata
+        )
     
     async def _run_user_flow_test(self, test_config: Dict[str, Any]) -> TestResult:
         """Run a user flow test with multiple steps."""
@@ -752,6 +800,49 @@ class E2ETestRunner:
                 success=False,
                 duration=duration,
                 message=f"Validation test failed with exception: {str(e)}",
+                errors=[str(e)]
+            )
+    
+    async def _run_setup_test(self, test_config: Dict[str, Any]) -> TestResult:
+        """Run a setup test to create initial test data."""
+        setup_data = test_config['setup_data']
+        start_time = time.time()
+        errors = []
+        
+        try:
+            # Create test document
+            collection = setup_data['collection']
+            document_id = setup_data['document_id']
+            data = setup_data['data']
+            
+            if not await self.firestore_validator.create_test_document(collection, document_id, data):
+                errors.append(f"Failed to create test document: {collection}/{document_id}")
+            
+            duration = time.time() - start_time
+            success = len(errors) == 0
+            
+            return TestResult(
+                test_name=f"Setup: {test_config.get('name', 'Data Creation')}",
+                test_type=TestType.VALIDATION,
+                success=success,
+                duration=duration,
+                message=f"Setup test {'passed' if success else 'failed'}",
+                errors=errors,
+                metadata={
+                    "collection": collection,
+                    "document_id": document_id,
+                    "errors_count": len(errors)
+                }
+            )
+            
+        except Exception as e:
+            duration = time.time() - start_time
+            return TestResult(
+                test_name=f"Setup: {test_config.get('name', 'Data Creation')}",
+                test_type=TestType.VALIDATION,
+                success=False,
+                duration=duration,
+                message=f"Setup test failed with exception: {str(e)}",
                 errors=[str(e)]
             )
     

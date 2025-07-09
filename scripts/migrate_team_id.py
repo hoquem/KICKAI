@@ -19,7 +19,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.utils.team_id_migration import team_migration, migrate_team_id
-from src.core.config import get_config
+from src.core.config import ImprovedConfigurationManager
 
 
 async def main():
@@ -38,7 +38,8 @@ async def main():
         return
     
     # Get configuration
-    config = get_config()
+    config_manager = ImprovedConfigurationManager()
+    config = config_manager.configuration
     
     # Default migration mapping
     old_team_id = args.old_id or 'KAI'

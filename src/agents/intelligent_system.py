@@ -2,7 +2,7 @@
 Intelligent system components for KICKAI agents.
 """
 
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, DefaultDict
 from dataclasses import dataclass
 import json
 import logging
@@ -12,6 +12,7 @@ from enum import Enum
 import threading
 import os
 from pathlib import Path
+from collections import defaultdict
 
 # Import our existing components
 from .capabilities import AgentCapabilityMatrix, CapabilityType, AgentRole
@@ -65,6 +66,55 @@ class Subtask:
             metadata=task_context.metadata
         )
     
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'Subtask':
+        """Create a Subtask from a dictionary."""
+        # Handle different possible key names for capabilities
+        capabilities_key = None
+        for key in ['capabilities_required', 'required_capabilities', 'capabilities']:
+            if key in data:
+                capabilities_key = key
+                break
+        
+        if capabilities_key is None:
+            # Default to empty list if no capabilities found
+            capabilities_required = []
+        else:
+            capabilities_required = []
+            for cap in data[capabilities_key]:
+                if isinstance(cap, str):
+                    try:
+                        capabilities_required.append(CapabilityType(cap.lower()))
+                    except ValueError:
+                        # Skip invalid capability types
+                        continue
+                elif isinstance(cap, CapabilityType):
+                    capabilities_required.append(cap)
+        
+        # Handle agent role
+        agent_role_str = data.get('agent_role', 'MESSAGE_PROCESSOR')
+        if isinstance(agent_role_str, str):
+            try:
+                agent_role = AgentRole(agent_role_str.lower())
+            except ValueError:
+                agent_role = AgentRole.MESSAGE_PROCESSOR
+        else:
+            agent_role = agent_role_str
+        
+        return cls(
+            task_id=data.get('task_id', f"task_{int(datetime.now().timestamp())}"),
+            description=data.get('description', ''),
+            agent_role=agent_role,
+            capabilities_required=capabilities_required,
+            parameters=data.get('parameters', {}),
+            dependencies=data.get('dependencies', []),
+            estimated_duration=data.get('estimated_duration', 30),
+            priority=data.get('priority', 1),
+            user_id=data.get('user_id'),
+            team_id=data.get('team_id'),
+            metadata=data.get('metadata', {})
+        )
+    
     def to_task_context(self) -> TaskContext:
         """Convert Subtask back to TaskContext."""
         return TaskContext(
@@ -92,6 +142,7 @@ class DynamicTaskDecomposer:
         self.capability_matrix = capability_matrix or AgentCapabilityMatrix()
         self.task_templates = self._load_task_templates()
         self.decomposition_history = []
+        logger.info("[DynamicTaskDecomposer] Initialized with capability matrix.")
     
     def _load_task_templates(self) -> Dict[str, Dict[str, Any]]:
         """Load task templates for common operations."""
@@ -162,34 +213,60 @@ class DynamicTaskDecomposer:
         return TaskComplexity.MODERATE
     
     def _identify_required_capabilities(self, task: str) -> List[CapabilityType]:
-        """Identify required capabilities based on task content."""
+        """Identify required capabilities based on task content with intelligent prioritization."""
         required_capabilities = []
         task_lower = task.lower()
         
-        # Map keywords to capabilities
-        capability_keywords = {
-            CapabilityType.PLAYER_MANAGEMENT: ['player', 'registration', 'approve', 'status'],
-            CapabilityType.PAYMENT_TRACKING: ['payment', 'pay', 'money', 'fee'],
-            CapabilityType.PERFORMANCE_ANALYSIS: ['performance', 'analyze', 'stats', 'data'],
-            CapabilityType.COORDINATION: ['coordinate', 'organize', 'manage'],
-            CapabilityType.STRATEGIC_PLANNING: ['plan', 'strategy', 'match', 'fixture'],
-            CapabilityType.INTENT_ANALYSIS: ['what', 'how', 'why', 'status', 'check'],
-            CapabilityType.MESSAGING: ['send', 'message', 'notify', 'announce'],
-            CapabilityType.DECISION_MAKING: ['decide', 'approve', 'reject', 'choose']
+        # Primary capabilities (must-have, high priority)
+        primary_mappings = {
+            CapabilityType.PLAYER_MANAGEMENT: ['player', 'registration', 'approve', 'status', 'info', 'myinfo'],
+            CapabilityType.PAYMENT_TRACKING: ['payment', 'pay', 'money', 'fee', 'financial'],
+            CapabilityType.PERFORMANCE_ANALYSIS: ['performance', 'analyze', 'stats', 'data', 'metrics'],
+            CapabilityType.STRATEGIC_PLANNING: ['plan', 'strategy', 'match', 'fixture', 'tactical'],
+            CapabilityType.MESSAGING: ['send', 'message', 'notify', 'announce', 'broadcast'],
+            CapabilityType.DECISION_MAKING: ['decide', 'approve', 'reject', 'choose', 'select']
         }
         
-        for capability, keywords in capability_keywords.items():
+        # Secondary capabilities (nice-to-have, lower priority)
+        secondary_mappings = {
+            CapabilityType.INTENT_ANALYSIS: ['what', 'how', 'why', 'check', 'query'],
+            CapabilityType.COORDINATION: ['coordinate', 'organize', 'manage', 'arrange'],
+            CapabilityType.CONTEXT_MANAGEMENT: ['context', 'history', 'previous', 'last'],
+            CapabilityType.NATURAL_LANGUAGE_UNDERSTANDING: ['understand', 'interpret', 'parse']
+        }
+        
+        # Check primary capabilities first
+        for capability, keywords in primary_mappings.items():
             if any(keyword in task_lower for keyword in keywords):
                 required_capabilities.append(capability)
+                break  # Only take the first primary capability match
         
+        # Check secondary capabilities (limit to 1-2)
+        secondary_caps = []
+        for capability, keywords in secondary_mappings.items():
+            if any(keyword in task_lower for keyword in keywords):
+                secondary_caps.append(capability)
+        
+        # Add up to 2 secondary capabilities
+        required_capabilities.extend(secondary_caps[:2])
+        
+        # Ensure we don't have too many capabilities (max 3 total)
+        required_capabilities = required_capabilities[:3]
+        
+        # If no capabilities identified, add a default
+        if not required_capabilities:
+            if 'status' in task_lower or 'info' in task_lower:
+                required_capabilities.append(CapabilityType.PLAYER_MANAGEMENT)
+            else:
+                required_capabilities.append(CapabilityType.INTENT_ANALYSIS)
+        
+        logger.debug(f"[DynamicTaskDecomposer] Identified capabilities for '{task}': {[cap.value for cap in required_capabilities]}")
         return required_capabilities
     
     def _find_best_agent_for_capabilities(self, capabilities: List[CapabilityType]) -> AgentRole:
-        """Find the best agent for a set of capabilities."""
         if not capabilities:
+            logger.warning("[DynamicTaskDecomposer] No capabilities provided, defaulting to MESSAGE_PROCESSOR.")
             return AgentRole.MESSAGE_PROCESSOR  # Default fallback
-        
-        # Score each agent based on capability match
         agent_scores = {}
         for agent_role in AgentRole:
             score = 0
@@ -197,9 +274,9 @@ class DynamicTaskDecomposer:
                 proficiency = self.capability_matrix.get_agent_proficiency(agent_role, capability)
                 score += proficiency
             agent_scores[agent_role] = score
-        
-        # Return agent with highest score
-        return max(agent_scores.items(), key=lambda x: x[1])[0]
+        best_agent = max(agent_scores.items(), key=lambda x: x[1])[0]
+        logger.info(f"[DynamicTaskDecomposer] Routing: capabilities={capabilities}, agent_scores={agent_scores}, selected={best_agent}")
+        return best_agent
     
     def _create_llm_decomposition_prompt(self, task: str, context: TaskContext) -> str:
         """Create a structured prompt for LLM-based task decomposition."""
@@ -422,129 +499,169 @@ class ImprovedAgenticSystem:
 
 
 class CapabilityBasedRouter:
-    """Routes tasks to the best available agents based on capabilities and load."""
+    """Improved capability-based router with hierarchical routing strategy."""
     
     def __init__(self, capability_matrix: AgentCapabilityMatrix = None):
         self.capability_matrix = capability_matrix or AgentCapabilityMatrix()
-        self.agent_loads = {}  # Track agent load
+        self.agent_loads = defaultdict(int)
+        self.agent_availability = defaultdict(lambda: True)
         self.routing_history = []
-        self.agent_availability = {}  # Track agent availability
-        
+        logger.info("[CapabilityBasedRouter] Initialized with hierarchical routing strategy")
+    
     def _calculate_agent_score(self, agent_role: AgentRole, subtask: Subtask) -> float:
-        """Calculate how well an agent matches a subtask."""
-        if not subtask.capabilities_required:
-            return 0.0
+        """Calculate agent score with weighted capability matching."""
+        score = 0.0
         
-        # Calculate capability match score
-        capability_score = 0.0
-        for capability in subtask.capabilities_required:
-            proficiency = self.capability_matrix.get_agent_proficiency(agent_role, capability)
-            capability_score += proficiency
+        # Primary capability match (weight: 0.6)
+        primary_capabilities = self.capability_matrix.get_primary_capabilities(agent_role)
+        for cap in subtask.capabilities_required:
+            if cap in [pc.capability for pc in primary_capabilities]:
+                score += 0.6 * self.capability_matrix.get_agent_proficiency(agent_role, cap)
         
-        # Normalize by number of capabilities
-        capability_score = capability_score / len(subtask.capabilities_required)
+        # Secondary capability match (weight: 0.3)
+        all_capabilities = self.capability_matrix.get_agent_capabilities(agent_role)
+        for cap in subtask.capabilities_required:
+            if cap in [ac.capability for ac in all_capabilities]:
+                score += 0.3 * self.capability_matrix.get_agent_proficiency(agent_role, cap)
         
-        # Apply load penalty (agents with higher load get lower scores)
-        load_penalty = self.agent_loads.get(agent_role, 0) * 0.1
-        availability_bonus = 1.0 if self.agent_availability.get(agent_role, True) else 0.0
+        # Load balancing (weight: 0.1)
+        load_factor = 1.0 / (1.0 + self.get_agent_load(agent_role))
+        score += 0.1 * load_factor
         
-        final_score = capability_score - load_penalty + availability_bonus
-        return max(0.0, final_score)  # Ensure non-negative
+        logger.debug(f"[CapabilityBasedRouter] Agent {agent_role.value} score: {score:.3f} for capabilities {[cap.value for cap in subtask.capabilities_required]}")
+        return score
     
     def _find_available_agents(self, agents: List) -> List:
         """Find available agents from the list."""
         available_agents = []
         for agent in agents:
-            agent_role = getattr(agent, 'role', None)
+            # Use the same logic as _get_agent_role to find the agent's role
+            agent_role = self._get_agent_role(agent)
             if agent_role and self.agent_availability.get(agent_role, True):
                 available_agents.append(agent)
         return available_agents
     
+    def _find_exact_capability_match(self, subtask: Subtask, agents: List) -> Optional[Any]:
+        """Tier 1: Find agent with ALL required capabilities."""
+        available_agents = self._find_available_agents(agents)
+        
+        for agent in available_agents:
+            agent_role = self._get_agent_role(agent)
+            agent_capabilities = [cap.capability for cap in self.capability_matrix.get_agent_capabilities(agent_role)]
+            
+            # Check if agent has ALL required capabilities
+            if all(cap in agent_capabilities for cap in subtask.capabilities_required):
+                logger.info(f"[CapabilityBasedRouter] Found exact capability match: {agent_role.value}")
+                return agent
+        
+        return None
+    
+    def _find_partial_capability_match(self, subtask: Subtask, agents: List) -> Optional[Any]:
+        """Tier 2: Find agent with best partial capability match."""
+        available_agents = self._find_available_agents(agents)
+        
+        best_agent = None
+        best_score = 0.0
+        
+        for agent in available_agents:
+            agent_role = self._get_agent_role(agent)
+            score = self._calculate_agent_score(agent_role, subtask)
+            
+            if score > best_score:
+                best_score = score
+                best_agent = agent
+        
+        if best_agent and best_score > 0.3:  # Minimum threshold for partial match
+            logger.info(f"[CapabilityBasedRouter] Found partial capability match: {self._get_agent_role(best_agent).value} (score: {best_score:.3f})")
+            return best_agent
+        
+        return None
+    
+    def _find_fallback_agent(self, subtask: Subtask, agents: List) -> Optional[Any]:
+        """Tier 3: Find fallback agent when exact/partial matches fail."""
+        available_agents = self._find_available_agents(agents)
+        
+        # Try COMMAND_FALLBACK_AGENT first
+        for agent in available_agents:
+            agent_role = self._get_agent_role(agent)
+            if agent_role == AgentRole.COMMAND_FALLBACK_AGENT:
+                logger.info(f"[CapabilityBasedRouter] Using fallback agent: {agent_role.value}")
+                return agent
+        
+        # Try MESSAGE_PROCESSOR as general fallback
+        for agent in available_agents:
+            agent_role = self._get_agent_role(agent)
+            if agent_role == AgentRole.MESSAGE_PROCESSOR:
+                logger.info(f"[CapabilityBasedRouter] Using message processor fallback: {agent_role.value}")
+                return agent
+        
+        # Last resort: any available agent
+        if available_agents:
+            agent_role = self._get_agent_role(available_agents[0])
+            logger.info(f"[CapabilityBasedRouter] Using last resort agent: {agent_role.value}")
+            return available_agents[0]
+        
+        return None
+    
     def _update_agent_load(self, agent_role: AgentRole, increment: int = 1):
         """Update agent load tracking."""
-        current_load = self.agent_loads.get(agent_role, 0)
-        self.agent_loads[agent_role] = current_load + increment
+        self.agent_loads[agent_role] += increment
     
     def _get_agent_role(self, agent) -> AgentRole:
-        """
-        Extract agent role from agent object.
-        
-        This method directly accesses the agent_config.role attribute from BaseTeamAgent
-        instances, which is the most reliable way to get the AgentRole.
-        """
-        # Direct access to agent_config.role for BaseTeamAgent instances
+        """Get agent role from agent object."""
+        # Try to get role from agent_config
         if hasattr(agent, 'agent_config') and hasattr(agent.agent_config, 'role'):
             return agent.agent_config.role
         
-        # Fallback for other agent types that might have a role attribute
+        # Try to get role directly
         if hasattr(agent, 'role'):
-            role_value = agent.role
-            if isinstance(role_value, AgentRole):
-                return role_value
+            return agent.role
+        
+        # Try to get role from name
+        if hasattr(agent, 'name'):
             try:
-                return AgentRole(role_value.lower())
-            except (ValueError, AttributeError):
+                return AgentRole(agent.name.lower())
+            except ValueError:
                 pass
         
-        # Fallback for agents with agent_role attribute
-        if hasattr(agent, 'agent_role'):
-            role_value = agent.agent_role
-            if isinstance(role_value, AgentRole):
-                return role_value
-            try:
-                return AgentRole(role_value.lower())
-            except (ValueError, AttributeError):
-                pass
-        
-        # Last resort: try to infer from agent class name (less reliable)
-        class_name = agent.__class__.__name__.lower()
-        if 'message' in class_name:
-            return AgentRole.MESSAGE_PROCESSOR
-        elif 'team' in class_name:
-            return AgentRole.TEAM_MANAGER
-        elif 'player' in class_name:
-            return AgentRole.PLAYER_COORDINATOR
-        elif 'finance' in class_name:
-            return AgentRole.FINANCE_MANAGER
-        elif 'performance' in class_name:
-            return AgentRole.PERFORMANCE_ANALYST
-        elif 'learning' in class_name:
-            return AgentRole.LEARNING_AGENT
-        elif 'onboarding' in class_name:
-            return AgentRole.ONBOARDING_AGENT
-        elif 'fallback' in class_name:
-            return AgentRole.COMMAND_FALLBACK_AGENT
-        else:
-            # Default fallback
-            logger.warning(f"Could not determine agent role for {type(agent).__name__}, defaulting to MESSAGE_PROCESSOR")
-            return AgentRole.MESSAGE_PROCESSOR
+        # Default fallback
+        return AgentRole.MESSAGE_PROCESSOR
     
     def route(self, subtask: Subtask, agents: List) -> Optional[Any]:
-        """Route a subtask to the best available agent."""
+        """Route a subtask using hierarchical routing strategy."""
         if not agents:
-            logger.warning("No agents available for routing")
+            logger.warning("[CapabilityBasedRouter] No agents available for routing")
             return None
         
         # Find available agents
         available_agents = self._find_available_agents(agents)
         if not available_agents:
-            logger.warning("No available agents for routing")
+            logger.warning("[CapabilityBasedRouter] No available agents for routing")
             return None
         
-        # Calculate scores for each agent
-        agent_scores = []
-        for agent in available_agents:
-            agent_role = self._get_agent_role(agent)
-            score = self._calculate_agent_score(agent_role, subtask)
-            agent_scores.append((agent, agent_role, score))
-        
-        # Sort by score (highest first)
-        agent_scores.sort(key=lambda x: x[2], reverse=True)
-        
-        # Select the best agent
-        best_agent, best_role, best_score = agent_scores[0]
+        # Tier 1: Exact capability match
+        exact_match = self._find_exact_capability_match(subtask, available_agents)
+        if exact_match:
+            best_agent = exact_match
+            routing_tier = "exact_match"
+        else:
+            # Tier 2: Partial capability match
+            partial_match = self._find_partial_capability_match(subtask, available_agents)
+            if partial_match:
+                best_agent = partial_match
+                routing_tier = "partial_match"
+            else:
+                # Tier 3: Fallback routing
+                fallback_agent = self._find_fallback_agent(subtask, available_agents)
+                if fallback_agent:
+                    best_agent = fallback_agent
+                    routing_tier = "fallback"
+                else:
+                    logger.error(f"[CapabilityBasedRouter] Failed to route subtask: {subtask.description}")
+                    return None
         
         # Update load tracking
+        best_role = self._get_agent_role(best_agent)
         self._update_agent_load(best_role)
         
         # Log routing decision
@@ -553,13 +670,13 @@ class CapabilityBasedRouter:
             'subtask_id': subtask.task_id,
             'subtask_description': subtask.description,
             'selected_agent': best_role.value,
-            'agent_score': best_score,
-            'total_agents_considered': len(agent_scores),
-            'capabilities_required': [cap.value for cap in subtask.capabilities_required]
+            'routing_tier': routing_tier,
+            'capabilities_required': [cap.value for cap in subtask.capabilities_required],
+            'total_agents_considered': len(available_agents)
         }
         self.routing_history.append(routing_decision)
         
-        logger.info(f"Routed subtask '{subtask.description}' to {best_role.value} (score: {best_score:.2f})")
+        logger.info(f"[CapabilityBasedRouter] Routed subtask '{subtask.description}' to {best_role.value} (tier: {routing_tier})")
         
         return best_agent
     

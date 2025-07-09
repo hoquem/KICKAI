@@ -1,8 +1,7 @@
 """
-Domain tools package.
+Team management tools module.
 
-This package contains LangChain tool implementations that use domain interfaces
-and provide clean, maintainable tools for agents.
+This module re-exports team management related tools for easy import.
 """
 
 from .player_tools import (

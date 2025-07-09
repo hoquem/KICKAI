@@ -5,7 +5,7 @@ These tools provide logging capabilities for agents.
 """
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
 
@@ -34,10 +34,17 @@ class LogCommandTool(BaseTool):
     description = "Log a command execution"
     args_schema = LogCommandInput
     
+    # Class-level attributes required by agent system
+    logger: Optional[logging.Logger] = Field(default=None, description="Logger instance")
+    team_id: Optional[str] = Field(default=None, description="Team ID")
+    
     def __init__(self, team_id: str):
         super().__init__()
         self.team_id = team_id
         self.logger = logging.getLogger(__name__)
+        # Set class-level attributes for agent system compatibility
+        LogCommandTool.logger = self.logger
+        LogCommandTool.team_id = team_id
     
     def _run(self, user_id: str, command: str, team_id: str, success: bool) -> str:
         """Log a command synchronously."""
@@ -61,10 +68,17 @@ class LogEventTool(BaseTool):
     description = "Log an event"
     args_schema = LogEventInput
     
+    # Class-level attributes required by agent system
+    logger: Optional[logging.Logger] = Field(default=None, description="Logger instance")
+    team_id: Optional[str] = Field(default=None, description="Team ID")
+    
     def __init__(self, team_id: str):
         super().__init__()
         self.team_id = team_id
         self.logger = logging.getLogger(__name__)
+        # Set class-level attributes for agent system compatibility
+        LogEventTool.logger = self.logger
+        LogEventTool.team_id = team_id
     
     def _run(self, event_type: str, details: Dict[str, Any], team_id: str) -> str:
         """Log an event synchronously."""

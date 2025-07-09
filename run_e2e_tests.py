@@ -105,7 +105,24 @@ async def run_test_suite(suite_name: str, verbose: bool = False) -> bool:
     
     # Get configuration
     config = get_improved_config()
-    team_id = config.configuration.team.default_team_id
+    # Fix: Use correct attribute for team ID
+    team_id = None
+    if hasattr(config.configuration, 'team') and hasattr(config.configuration.team, 'default_team_id'):
+        team_id = config.configuration.team.default_team_id
+    elif hasattr(config.configuration, 'teams'):
+        teams = config.configuration.teams
+        if isinstance(teams, dict):
+            # Try 'default' key or first key
+            if 'default' in teams and hasattr(teams['default'], 'team_id'):
+                team_id = teams['default'].team_id
+            else:
+                # Fallback: get first team_id
+                for t in teams.values():
+                    if hasattr(t, 'team_id'):
+                        team_id = t.team_id
+                        break
+        elif isinstance(teams, list) and len(teams) > 0 and hasattr(teams[0], 'team_id'):
+            team_id = teams[0].team_id
     logger.info(f"📋 Team ID: {team_id}")
     
     # Initialize test components

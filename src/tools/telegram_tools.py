@@ -5,11 +5,6 @@ Telegram tools for KICKAI.
 from typing import Dict, Any, Optional
 
 
-def get_config() -> Dict[str, Any]:
-    """Get configuration for Telegram tools."""
-    return {}
-
-
 class TelegramTools:
     """Telegram tools for bot operations."""
     

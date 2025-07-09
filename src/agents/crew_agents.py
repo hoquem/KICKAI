@@ -38,7 +38,7 @@ from src.core.enums import AgentRole, AIProvider
 from src.utils.llm_factory import LLMFactory, LLMConfig, LLMProviderError
 
 # Import capabilities
-from .capabilities import AgentCapabilityMatrix
+from src.agents.intelligent_system import AgentCapabilityMatrix
 
 # Import intelligent system components
 try:
@@ -120,22 +120,33 @@ except ImportError:
         COMPLEX = "complex"
     
     class Subtask:
-        def __init__(self, description, agent_role, capabilities_required):
+        def __init__(self, task_id, description, agent_role, capabilities_required, parameters=None, dependencies=None, estimated_duration=30, priority=1, user_id=None, team_id=None, metadata=None):
+            self.task_id = task_id
             self.description = description
             self.agent_role = agent_role
             self.capabilities_required = capabilities_required
-        @classmethod
-        def from_dict(cls, data):
-            return cls(
-                description=data['description'],
-                agent_role=data['agent_role'],
-                capabilities_required=[CapabilityType(cap) for cap in data['required_capabilities']]
-            )
+            self.parameters = parameters or {}
+            self.dependencies = dependencies or []
+            self.estimated_duration = estimated_duration
+            self.priority = priority
+            self.user_id = user_id
+            self.team_id = team_id
+            self.metadata = metadata or {}
     
     class CapabilityType(Enum):
         INTENT_ANALYSIS = "intent_analysis"
         DATA_RETRIEVAL = "data_retrieval"
         USER_MANAGEMENT = "user_management"
+        PLAYER_MANAGEMENT = "player_management"
+        FINANCIAL_MANAGEMENT = "financial_management"
+        STRATEGIC_PLANNING = "strategic_planning"
+        COORDINATION = "coordination"
+        DECISION_MAKING = "decision_making"
+        HIGH_LEVEL_OPERATIONS = "high_level_operations"
+        OPERATIONAL_TASKS = "operational_tasks"
+        CONTEXT_MANAGEMENT = "context_management"
+        ROUTING = "routing"
+        NATURAL_LANGUAGE_UNDERSTANDING = "natural_language_understanding"
 
 # Define missing classes if they don't exist
 class MemoryEnhancedAgent:
@@ -656,93 +667,20 @@ class MessageProcessorAgent(BaseTeamAgent):
     
     def _get_agent_definition(self) -> Dict[str, Any]:
         return {
-            'role': 'AI Triage and Routing Specialist',
-            'goal': 'Efficiently understand user intent from Telegram messages, ask for clarification on missing information, and route tasks to the correct specialized agent. Prioritize a smooth, concise, and helpful user experience.',
-            'backstory': f"""You are the AI Triage and Routing Specialist for {self.team_config.team_name}, an expert in conversational AI for a Telegram-based chat system. Your primary responsibility is to be the first point of contact for all natural language requests.
-
-            **Core Logic and Workflow:**
-
-            1.  **Analyze Intent**: Scrutinize the user's message to determine their primary goal. Use the user's role and the chat type (Main vs. Leadership) as critical context.
-
-            2.  **Handle Incomplete Information**: If a request is missing essential details (e.g., 'schedule a match' without a date), your immediate priority is to ask a clear, simple, and direct follow-up question to get the necessary information. Do not attempt to delegate a task that is incomplete.
-
-            3.  **Ensure Clarity and Brevity**: All your responses and questions must be optimized for Telegram. Be concise, use bullet points for lists, and avoid long paragraphs. The user experience is paramount.
-
-            4.  **Route to Specialists**: Once you have a clear, actionable request, delegate it to the appropriate agent (e.g., `PlayerCoordinatorAgent` for player-related tasks, `FinanceManagerAgent` for payments).
-
-            5.  **Monitor and Improve (Feedback Loop)**: If you are uncertain about the user's intent or if a request is too ambiguous, you MUST delegate the task to the `LearningAgent`. This is your protocol for handling uncertainty and ensuring the system improves over time. You will log the confusing interaction for future analysis.
-
-            **COMMON USER QUERIES AND EXPECTED RESPONSES:**
-
-            **Player Information Queries:**
-            - "What's my registration status?" → Check player database, show registration status, FA status, onboarding progress
-            - "What's my player ID?" → Look up and display player ID
-            - "Show me my phone number" → Display player's phone number
-            - "What position do I play?" → Show player's position
-            - "Am I FA registered?" → Check and display FA registration status
-            - "What's my status?" → Show overall player status (active, pending, etc.)
-            - "How do I update my info?" → Provide guidance on updating player information
-
-            **Team Information Queries:**
-            - "How many players do we have?" → Count and display total players
-            - "Show me all players" → List all team players with basic info
-            - "Who are the goalkeepers?" → Filter and show players by position
-            - "List pending players" → Show players awaiting approval
-            - "Show me active players" → Display currently active players
-            - "What's the team status?" → Provide team overview and statistics
-
-            **Match and Fixture Queries:**
-            - "When's the next match?" → Check match schedule and show next fixture
-            - "Show me upcoming matches" → Display future match schedule
-            - "What was the last result?" → Show most recent match result
-            - "Who's playing this weekend?" → Check match attendance and squad
-            - "What time is kickoff?" → Show match details including time
-
-            **Financial Queries:**
-            - "What do I owe?" → Check player's outstanding payments
-            - "Show me my payment history" → Display player's payment records
-            - "How much are subs?" → Show current subscription fees
-            - "When are payments due?" → Display payment deadlines
-            - "Am I paid up?" → Check if player is financially current
-
-            **Registration and Onboarding:**
-            - "How do I register?" → Provide registration instructions
-            - "I want to join the team" → Guide through registration process
-            - "What do I need to register?" → List registration requirements
-            - "Is my registration complete?" → Check onboarding status
-
-            **Admin/Leadership Queries (Leadership Chat Only):**
-            - "Add a new player" → Guide through player addition process
-            - "Approve John Smith" → Process player approval
-            - "Show pending approvals" → List players awaiting approval
-            - "Remove inactive players" → Help with player removal
-            - "Update team settings" → Assist with team configuration
-
-            **General Help Queries:**
-            - "What can you help me with?" → Provide overview of available features
-            - "How do I use this bot?" → Show available commands and features
-            - "Help" → Display help information
-            - "What commands are available?" → List available slash commands
-
-            **RESPONSE FORMAT GUIDELINES:**
-            - Use emojis for visual appeal and quick recognition
-            - Keep responses concise and scannable
-            - Use bullet points for lists
-            - Include relevant data when available
-            - Provide clear next steps when needed
-            - Be helpful and encouraging in tone
-
-            **CONTEXT AWARENESS:**
-            - Leadership chat users have admin privileges
-            - Main chat users have limited access
-            - Check user permissions before providing sensitive information
-            - Adapt response detail based on user role
-
-            **ERROR HANDLING:**
-            - If information is missing, ask specific questions
-            - If user is not registered, guide them to registration
-            - If permission denied, explain why and suggest alternatives
-            - Always be helpful, even when declining requests"""
+            'role': 'User Interface Specialist',
+            'goal': 'Focus on parsing user input, extracting initial context, and providing immediate responses for simple queries. For complex commands, consistently pass parsed information to TeamManagementSystem.execute_task for full orchestration.',
+            'backstory': f"""You are the User Interface Specialist for {self.team_config.team_name}. 
+            Your primary responsibilities are:
+            - Parse and understand user input and commands
+            - Extract initial context and user intent
+            - Provide immediate responses for simple queries (like /help)
+            - For complex commands, pass parsed information to the central orchestrator
+            
+            IMPORTANT: You are NOT the primary router for all commands.
+            The TeamManagementSystem.execute_task method serves as the central orchestrator.
+            Your role is to parse input and either handle simple queries directly or pass complex commands to the orchestrator.
+            
+            You excel at natural language understanding and can provide helpful guidance to users while ensuring all complex operations are properly routed through the system's orchestration layer."""
         }
 
 
@@ -755,13 +693,18 @@ class TeamManagerAgent(BaseTeamAgent):
     def _get_agent_definition(self) -> Dict[str, Any]:
         return {
             'role': 'Head of Football Operations',
-            'goal': 'Act as the central command for all team-related administrative tasks, ensuring seamless coordination between player management, match scheduling, and financial operations. Your primary focus is on high-level team configuration and operational oversight.',
+            'goal': 'Act as the strategic coordinator for high-level team administrative tasks, ensuring seamless coordination between player management, match scheduling, and financial operations. Your primary focus is on team configuration, operational oversight, and delegating sub-tasks that arise from your own administrative duties.',
             'backstory': f"""You are the strategic Head of Football Operations for {self.team_config.team_name}. 
-            You are not just a manager; you are the operational backbone of the team. Your responsibilities include:
+            You are responsible for high-level administrative and configuration tasks within your domain:
             - Modifying core team settings (e.g., team name, FA website URLs).
             - Managing the team's budget and financial rules at a high level.
-            - Delegating specific tasks to other specialized agents (like Player Coordinator or Finance Manager).
-            You must use your tools to fetch and update team-wide configurations and ensure all operational aspects are aligned with the team's strategic goals. You are the final point of authority on team settings."""
+            - Delegating specific sub-tasks to other specialized agents when they arise from your own administrative duties.
+            
+            IMPORTANT: You are NOT the central dispatcher for all incoming user commands. 
+            The TeamManagementSystem.execute_task method serves as the primary orchestrator for all commands.
+            Your delegation scope is limited to sub-tasks that arise from your own administrative responsibilities.
+            
+            You must use your tools to fetch and update team-wide configurations and ensure all operational aspects are aligned with the team's strategic goals. You are the final point of authority on team settings within your domain."""
         }
 
 
@@ -1100,7 +1043,7 @@ class AgentToolsManager:
         
         try:
             # Import domain tools that are actually implemented
-            from domain.tools import (
+            from src.domain.tools import (
                 GetAllPlayersTool,
                 GetPlayerByIdTool,
                 GetPendingApprovalsTool,
@@ -1112,7 +1055,7 @@ class AgentToolsManager:
             )
             
             # Get command operations for tool dependencies
-            from services.command_operations_factory import get_command_operations
+            from src.services.command_operations_factory import get_command_operations
             command_operations = get_command_operations()
             
             # Configure tools based on agent role
@@ -1207,16 +1150,30 @@ class TeamManagementSystem:
     """
     
     def __init__(self, team_id: str):
+        logger.info(f"[TEAM INIT] Starting TeamManagementSystem initialization for team {team_id}")
         self.team_id = team_id
+        logger.info(f"[TEAM INIT] Getting improved config")
         self.config_manager = get_improved_config()
+        logger.info(f"[TEAM INIT] Getting team config for {team_id}")
         self.team_config = self.config_manager.get_team_config(team_id)
+        logger.info(f"[TEAM INIT] Loaded team_config: {self.team_config}")
+        logger.info(f"[TEAM INIT] Loaded metadata: {self.config_manager.configuration.metadata}")
         if not self.team_config:
+            logger.error(f"[TEAM INIT] No configuration found for team_id: {team_id}")
             raise ValueError(f"No configuration found for team_id: {team_id}")
+        logger.info(f"[TEAM INIT] Team config obtained successfully")
+        logger.info(f"[TEAM INIT] Initializing LLM")
         self.llm = self._initialize_llm()
+        logger.info(f"[TEAM INIT] LLM initialized successfully")
+        logger.info(f"[TEAM INIT] Initializing agents dictionary")
         self.agents = {}
+        logger.info(f"[TEAM INIT] Initializing capability matrix")
         self.capability_matrix = AgentCapabilityMatrix()
+        logger.info(f"[TEAM INIT] Initializing user preference learner")
         self.user_preference_learner = UserPreferenceLearner()  # Add preference learner
+        logger.info(f"[TEAM INIT] Calling _initialize_agents")
         self._initialize_agents()
+        logger.info(f"[TEAM INIT] _initialize_agents completed")
         logger.info(f"✅ TeamManagementSystem initialized for team {team_id}")
     
     def _initialize_llm(self):
@@ -1237,44 +1194,51 @@ class TeamManagementSystem:
     
     def _initialize_agents(self) -> None:
         """Initialize all agents."""
-        logger.info("Initializing agents...")
-        
-        # Get agent configurations from metadata
-        agent_configs = self.config_manager.configuration.metadata.get('agent_configs', {})
-        
-        # Initialize all agent roles
-        for role in AgentRole:
-            # Get agent config from metadata or use default
-            agent_config_data = agent_configs.get(role.value, {})
-            agent_config = AgentConfig(
-                role=role,
-                enabled=agent_config_data.get('enabled', True),
-                max_iterations=agent_config_data.get('max_iterations', 10),
-                allow_delegation=agent_config_data.get('allow_delegation', True),
-                verbose=agent_config_data.get('verbose', True)
-            )
-            
-            if not agent_config.enabled:
-                logger.info(f"Skipping disabled agent: {role.value}")
-                continue
-            
-            try:
-                # Initialize tools manager if not already done
-                if not hasattr(self, 'tools_manager'):
-                    self.tools_manager = AgentToolsManager(self.team_config)
-                
-                tools = self.tools_manager.get_tools_for_agent(role)
-                agent = AgentFactory.create_agent(role, self.team_config, agent_config, self.llm, tools)
-                
-                if agent.is_enabled():
-                    self.agents[role] = agent
-                    logger.info(f"✅ Agent {role.value} initialized successfully")
-                else:
-                    logger.warning(f"Agent {role.value} is disabled")
-                    
-            except Exception as e:
-                logger.error(f"Failed to initialize agent {role.value}: {e}")
-                # Continue with other agents
+        logger.info("[AGENT INIT] Initializing agents...")
+        try:
+            agent_configs = self.config_manager.configuration.metadata.get('agent_configs', {})
+            logger.info(f"[AGENT INIT] Agent configs: {agent_configs}")
+            errors = []
+            for role in AgentRole:
+                logger.info(f"[AGENT INIT] Processing role: {role.value}")
+                agent_config_data = agent_configs.get(role.value, {})
+                agent_config = AgentConfig(
+                    role=role,
+                    enabled=agent_config_data.get('enabled', True),
+                    max_iterations=agent_config_data.get('max_iterations', 10),
+                    allow_delegation=agent_config_data.get('allow_delegation', True),
+                    verbose=agent_config_data.get('verbose', True)
+                )
+                logger.info(f"[AGENT INIT] Agent config for {role.value}: enabled={agent_config.enabled}")
+                if not agent_config.enabled:
+                    logger.info(f"[AGENT INIT] Skipping disabled agent: {role.value}")
+                    continue
+                try:
+                    if not hasattr(self, 'tools_manager'):
+                        logger.info(f"[AGENT INIT] Creating tools manager for {role.value}")
+                        self.tools_manager = AgentToolsManager(self.team_config)
+                    logger.info(f"[AGENT INIT] Configuring tools for {role.value}")
+                    tools = self.tools_manager.get_tools_for_agent(role)
+                    logger.info(f"[AGENT INIT] Got {len(tools)} tools for {role.value}")
+                    logger.info(f"[AGENT INIT] Creating agent for {role.value}")
+                    agent = AgentFactory.create_agent(role, self.team_config, agent_config, self.llm, tools)
+                    logger.info(f"[AGENT INIT] Agent created for {role.value}, checking if enabled")
+                    if agent.is_enabled():
+                        self.agents[role] = agent
+                        logger.info(f"[AGENT INIT] ✅ Agent {role.value} initialized successfully")
+                    else:
+                        logger.warning(f"[AGENT INIT] Agent {role.value} is disabled after creation")
+                except Exception as e:
+                    logger.error(f"[AGENT INIT] Failed to initialize agent {role.value}: {e}", exc_info=True)
+                    errors.append((role.value, str(e)))
+            logger.info(f"[AGENT INIT] Agent initialization complete. Agents created: {list(self.agents.keys())}")
+            if not self.agents:
+                logger.critical(f"[AGENT INIT] No agents were initialized! Errors: {errors}")
+                raise AgentInitializationError(f"No agents initialized. Errors: {errors}")
+            logger.info(f"[AGENT INIT] All enabled agents initialized: {list(self.agents.keys())}")
+        except Exception as e:
+            logger.error(f"[AGENT INIT] Critical error in agent initialization: {e}", exc_info=True)
+            raise
     
     def _create_crew(self) -> None:
         """Create the CrewAI crew."""
@@ -1301,45 +1265,55 @@ class TeamManagementSystem:
     
     def execute_task(self, task_description: str, execution_context: Dict[str, Any]) -> str:
         """
-        Execute a task using the intelligent 8-agent system.
+        CENTRAL ORCHESTRATOR: Execute a task using the intelligent 8-agent system.
         
-        This method orchestrates the complete task execution pipeline:
+        This method serves as the PRIMARY DISPATCHER for all user commands and requests.
+        It orchestrates the complete task execution pipeline:
+        
         1. Intent classification and complexity assessment
-        2. Task decomposition and capability matching
+        2. Task decomposition and capability matching  
         3. Agent selection and tool assignment
         4. Orchestrated execution with result aggregation
         5. User preference learning and response personalization
+        
+        ARCHITECTURAL ROLES:
+        - TeamManagementSystem.execute_task: Central orchestrator for ALL commands
+        - MessageProcessorAgent: Focuses on parsing and initial context extraction
+        - TeamManagerAgent: Delegates sub-tasks from its own administrative duties
+        - Other agents: Handle specific domain responsibilities
+        
+        All agents consistently pass parsed commands to this method for full orchestration.
         """
         try:
             # Enhanced logging for help command tracing
             is_help_command = task_description.lower().strip() == "/help"
             if is_help_command:
-                logger.info(f"🤖 AGENT FLOW STEP 1: TeamManagementSystem.execute_task called for help command")
-                logger.info(f"🤖 AGENT FLOW STEP 1a: task_description='{task_description}'")
-                logger.info(f"🤖 AGENT FLOW STEP 1b: execution_context keys={list(execution_context.keys())}")
+                logger.info(f"🤖 CENTRAL ORCHESTRATOR STEP 1: TeamManagementSystem.execute_task called for help command")
+                logger.info(f"🤖 CENTRAL ORCHESTRATOR STEP 1a: task_description='{task_description}'")
+                logger.info(f"🤖 CENTRAL ORCHESTRATOR STEP 1b: execution_context keys={list(execution_context.keys())}")
             
             # Special handling for help command - use direct agent execution
             if is_help_command:
-                logger.info(f"🤖 AGENT FLOW STEP 2: Help command detected, using direct agent execution")
+                logger.info(f"🤖 CENTRAL ORCHESTRATOR STEP 2: Help command detected, using direct agent execution")
                 
                 # Get the Message Processor agent for help commands
                 message_processor = self.get_agent(AgentRole.MESSAGE_PROCESSOR)
                 if message_processor:
-                    logger.info(f"🤖 AGENT FLOW STEP 3: Using MessageProcessorAgent for help command")
+                    logger.info(f"🤖 CENTRAL ORCHESTRATOR STEP 3: Using MessageProcessorAgent for help command")
                     
                     # Execute help command directly
                     result = message_processor.execute(task_description, execution_context)
                     
-                    logger.info(f"🤖 AGENT FLOW STEP 4: Help command executed successfully")
-                    logger.info(f"🤖 AGENT FLOW STEP 4a: Result length={len(result) if result else 0}")
+                    logger.info(f"🤖 CENTRAL ORCHESTRATOR STEP 4: Help command executed successfully")
+                    logger.info(f"🤖 CENTRAL ORCHESTRATOR STEP 4a: Result length={len(result) if result else 0}")
                     
                     return result
                 else:
-                    logger.error(f"🤖 AGENT FLOW ERROR: MessageProcessorAgent not available")
+                    logger.error(f"🤖 CENTRAL ORCHESTRATOR ERROR: MessageProcessorAgent not available")
                     return "❌ Sorry, the help system is currently unavailable."
             
             # For non-help commands, use the full intelligent system pipeline
-            logger.info(f"🤖 AGENT FLOW: Using full intelligent system for non-help command")
+            logger.info(f"🤖 CENTRAL ORCHESTRATOR: Using full intelligent system for non-help command")
             
             # Step 1: Intent Classification and Complexity Assessment
             intent_result = self._classify_intent(task_description, execution_context)
@@ -1367,19 +1341,36 @@ class TeamManagementSystem:
     
     def _classify_intent(self, task_description: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Classify the intent of a user request using the LLM.
+        Classify the intent of a task using the intelligent system.
         """
         try:
-            intent_classifier = IntentClassifier(llm=self.llm)
-            intent_result = intent_classifier.classify(task_description)
-            return {
-                'intent': intent_result.primary_intent,
-                'confidence': intent_result.confidence,
-                'entities': intent_result.entities or {}
+            classifier = IntentClassifier(llm=self.llm)
+            intent_result = classifier.classify(task_description)
+            
+            # Convert to dictionary format and add missing fields
+            intent_dict = {
+                'intent': getattr(intent_result, 'primary_intent', 'unknown'),
+                'confidence': getattr(intent_result, 'confidence', 0.5),
+                'entities': getattr(intent_result, 'entities', {}),
+                'secondary_intents': getattr(intent_result, 'secondary_intents', []),
+                'context': getattr(intent_result, 'context', {}),
+                'agent_used': 'intent_classifier'  # Add the missing agent_used field
             }
+            
+            logger.info(f"Intent classification result: {intent_dict}")
+            return intent_dict
+            
         except Exception as e:
             logger.error(f"Error in _classify_intent: {e}", exc_info=True)
-            return {'intent': 'unknown', 'confidence': 0.0, 'entities': {}}
+            # Return a fallback intent result
+            return {
+                'intent': 'unknown',
+                'confidence': 0.1,
+                'entities': {},
+                'secondary_intents': [],
+                'context': {},
+                'agent_used': 'fallback'
+            }
     
     def _decompose_task(self, task_description: str, intent_result: Dict[str, Any], context: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
@@ -1426,26 +1417,88 @@ class TeamManagementSystem:
             # Create a list of all available agents
             available_agents = list(self.agents.values())
             
-            # Create a list of all required capabilities from all subtasks
-            required_capabilities = set()
-            for subtask in decomposed_tasks:
-                required_capabilities.update(subtask['required_capabilities'])
+            if not available_agents:
+                logger.warning("No available agents for selection")
+                return {}
+            
+            logger.info(f"Available agents for routing: {[agent._get_agent_role().value for agent in available_agents]}")
             
             # Route subtasks to agents
-            routing_results = router.route_multiple(
-                [Subtask.from_dict(subtask) for subtask in decomposed_tasks],
-                available_agents
-            )
-            
-            # Convert routing results to a dictionary
-            selected_agents = {}
-            for task_id, routing_info in routing_results.items():
-                agent_role = routing_info['agent_role']
-                selected_agents[agent_role] = self.agents[agent_role]
-            return selected_agents
+            try:
+                # Convert dictionary subtasks to Subtask objects
+                subtask_objects = []
+                for subtask_data in decomposed_tasks:
+                    try:
+                        # Create a proper Subtask object
+                        subtask = Subtask(
+                            task_id=subtask_data.get('task_id', f"task_{int(datetime.now().timestamp())}"),
+                            description=subtask_data.get('description', ''),
+                            agent_role=subtask_data.get('agent_role', AgentRole.MESSAGE_PROCESSOR),
+                            capabilities_required=[
+                                CapabilityType(cap) if isinstance(cap, str) else cap 
+                                for cap in subtask_data.get('required_capabilities', [])
+                            ],
+                            parameters=subtask_data.get('parameters', {}),
+                            dependencies=subtask_data.get('dependencies', []),
+                            estimated_duration=subtask_data.get('estimated_duration', 30),
+                            priority=subtask_data.get('priority', 1)
+                        )
+                        subtask_objects.append(subtask)
+                        logger.info(f"Created subtask: {subtask.description} -> {subtask.agent_role.value}")
+                    except Exception as subtask_error:
+                        logger.error(f"Error creating Subtask object: {subtask_error}")
+                        # Create a fallback subtask
+                        fallback_subtask = Subtask(
+                            task_id=f"fallback_{int(datetime.now().timestamp())}",
+                            description=subtask_data.get('description', 'Unknown task'),
+                            agent_role=AgentRole.MESSAGE_PROCESSOR,
+                            capabilities_required=[CapabilityType.INTENT_ANALYSIS],
+                            parameters=subtask_data.get('parameters', {})
+                        )
+                        subtask_objects.append(fallback_subtask)
+                
+                # Route each subtask individually
+                selected_agents = {}
+                for subtask in subtask_objects:
+                    logger.info(f"Routing subtask: {subtask.description}")
+                    agent = router.route(subtask, available_agents)
+                    if agent:
+                        agent_role = agent._get_agent_role()
+                        selected_agents[agent_role] = agent
+                        logger.info(f"✅ Routed subtask '{subtask.description}' to {agent_role.value}")
+                    else:
+                        logger.warning(f"❌ Failed to route subtask: {subtask.description}")
+                
+                if not selected_agents:
+                    logger.warning("No agents were selected, using fallback")
+                    # Fallback: use MessageProcessorAgent for all tasks
+                    if AgentRole.MESSAGE_PROCESSOR in self.agents:
+                        selected_agents = {AgentRole.MESSAGE_PROCESSOR: self.agents[AgentRole.MESSAGE_PROCESSOR]}
+                    else:
+                        # Last resort: return first available agent
+                        first_agent_role = list(self.agents.keys())[0]
+                        selected_agents = {first_agent_role: self.agents[first_agent_role]}
+                
+                logger.info(f"Selected agents: {[role.value for role in selected_agents.keys()]}")
+                return selected_agents
+                
+            except Exception as routing_error:
+                logger.warning(f"Routing failed, using fallback agent selection: {routing_error}")
+                # Fallback: use MessageProcessorAgent for all tasks
+                if AgentRole.MESSAGE_PROCESSOR in self.agents:
+                    return {AgentRole.MESSAGE_PROCESSOR: self.agents[AgentRole.MESSAGE_PROCESSOR]}
+                else:
+                    # Last resort: return first available agent
+                    first_agent_role = list(self.agents.keys())[0]
+                    return {first_agent_role: self.agents[first_agent_role]}
+                    
         except Exception as e:
             logger.error(f"Error in _select_agents: {e}", exc_info=True)
-            return {}
+            # Return fallback agents
+            if AgentRole.MESSAGE_PROCESSOR in self.agents:
+                return {AgentRole.MESSAGE_PROCESSOR: self.agents[AgentRole.MESSAGE_PROCESSOR]}
+            else:
+                return {}
     
     def _execute_orchestrated(self, selected_agents: Dict[AgentRole, BaseTeamAgent], decomposed_tasks: List[Dict[str, Any]], context: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
@@ -1457,92 +1510,153 @@ class TeamManagementSystem:
             # Create a list of all agents to pass to the orchestrator
             agents_to_execute = list(selected_agents.values())
             
-            # Execute tasks
-            execution_results = orchestrator.execute_tasks(
-                [Subtask.from_dict(subtask) for subtask in decomposed_tasks],
-                agents_to_execute,
-                selected_agents # Pass the selected agents for context
-            )
+            if not agents_to_execute:
+                logger.warning("No agents available for execution")
+                return []
             
-            # Convert execution results to a list of dictionaries
-            results_list = []
-            for task_id, result in execution_results.items():
-                results_list.append({
-                    'task_id': task_id,
-                    'agent_role': result.agent_role,
-                    'status': 'success' if result.success else 'failed',
-                    'result': result.result,
-                    'error': result.error,
-                    'execution_time': result.execution_time
-                })
-            return results_list
+            logger.info(f"Executing tasks with {len(agents_to_execute)} agents")
+            
+            # Execute tasks
+            try:
+                # Convert dictionary subtasks to Subtask objects
+                subtask_objects = []
+                for subtask_data in decomposed_tasks:
+                    try:
+                        # Create a proper Subtask object
+                        subtask = Subtask(
+                            task_id=subtask_data.get('task_id', f"task_{int(datetime.now().timestamp())}"),
+                            description=subtask_data.get('description', ''),
+                            agent_role=subtask_data.get('agent_role', AgentRole.MESSAGE_PROCESSOR),
+                            capabilities_required=[
+                                CapabilityType(cap) if isinstance(cap, str) else cap 
+                                for cap in subtask_data.get('required_capabilities', [])
+                            ],
+                            parameters=subtask_data.get('parameters', {}),
+                            dependencies=subtask_data.get('dependencies', []),
+                            estimated_duration=subtask_data.get('estimated_duration', 30),
+                            priority=subtask_data.get('priority', 1)
+                        )
+                        subtask_objects.append(subtask)
+                    except Exception as subtask_error:
+                        logger.error(f"Error creating Subtask object for execution: {subtask_error}")
+                        # Create a fallback subtask
+                        fallback_subtask = Subtask(
+                            task_id=f"fallback_{int(datetime.now().timestamp())}",
+                            description=subtask_data.get('description', 'Unknown task'),
+                            agent_role=AgentRole.MESSAGE_PROCESSOR,
+                            capabilities_required=[CapabilityType.INTENT_ANALYSIS],
+                            parameters=subtask_data.get('parameters', {})
+                        )
+                        subtask_objects.append(fallback_subtask)
+                
+                # Execute each subtask with its assigned agent
+                execution_results = []
+                for subtask in subtask_objects:
+                    logger.info(f"Executing subtask: {subtask.description}")
+                    
+                    # Find the agent for this subtask
+                    agent = None
+                    for agent_role, agent_instance in selected_agents.items():
+                        if agent_role == subtask.agent_role:
+                            agent = agent_instance
+                            break
+                    
+                    if not agent:
+                        logger.warning(f"No agent found for subtask {subtask.description}, using first available")
+                        agent = list(selected_agents.values())[0]
+                    
+                    # Execute the subtask
+                    try:
+                        result = agent.execute(subtask.description, subtask.parameters)
+                        execution_results.append({
+                            'task_id': subtask.task_id,
+                            'description': subtask.description,
+                            'agent_role': agent._get_agent_role().value,
+                            'result': result,
+                            'success': True,
+                            'timestamp': datetime.now().isoformat()
+                        })
+                        logger.info(f"✅ Executed subtask '{subtask.description}' successfully")
+                    except Exception as exec_error:
+                        logger.error(f"Error executing subtask {subtask.description}: {exec_error}")
+                        execution_results.append({
+                            'task_id': subtask.task_id,
+                            'description': subtask.description,
+                            'agent_role': agent._get_agent_role().value,
+                            'result': f"Error: {str(exec_error)}",
+                            'success': False,
+                            'timestamp': datetime.now().isoformat()
+                        })
+                
+                logger.info(f"Execution completed: {len(execution_results)} results")
+                return execution_results
+                
+            except Exception as execution_error:
+                logger.error(f"Error in task execution: {execution_error}", exc_info=True)
+                return []
+                
         except Exception as e:
             logger.error(f"Error in _execute_orchestrated: {e}", exc_info=True)
             return []
     
     def _aggregate_results(self, execution_results: List[Dict[str, Any]], context: Dict[str, Any]) -> str:
         """
-        Aggregate the results of executed subtasks and generate a final response.
+        Aggregate execution results into a final response.
         """
         try:
-            successful_results = []
-            failed_results = []
+            if not execution_results:
+                return "❌ No results to aggregate"
             
-            for result in execution_results:
-                if result['status'] == 'success':
-                    successful_results.append(result['result'])
-                else:
-                    failed_results.append(f"Subtask {result['task_id']}: {result['error']}")
+            # Check if all results were successful
+            successful_results = [r for r in execution_results if r.get('success', False)]
+            failed_results = [r for r in execution_results if not r.get('success', False)]
             
-            if successful_results and not failed_results:
-                if len(successful_results) == 1:
-                    base_response = successful_results[0]
-                else:
-                    base_response = "\n\n".join(successful_results)
-                
-                # Personalize the response based on user preferences
-                personalized_response = self.user_preference_learner.personalize_response(
-                    context.get('user_id', 'unknown'), base_response, context
-                )
-                return personalized_response
-            elif successful_results and failed_results:
-                base_response = f"✅ Completed some tasks successfully:\n\n" + "\n\n".join(successful_results)
-                if failed_results:
-                    base_response += f"\n\n❌ Some tasks failed:\n" + "\n".join(failed_results)
-                
-                personalized_response = self.user_preference_learner.personalize_response(
-                    context.get('user_id', 'unknown'), base_response, context
-                )
-                return personalized_response
-            else:
-                error_response = f"❌ All tasks failed:\n" + "\n".join(failed_results)
-                personalized_response = self.user_preference_learner.personalize_response(
-                    context.get('user_id', 'unknown'), error_response, context
-                )
-                return personalized_response
+            if not successful_results:
+                return "❌ All tasks failed to execute"
+            
+            # Combine successful results
+            combined_result = ""
+            for i, result in enumerate(successful_results):
+                if i > 0:
+                    combined_result += "\n\n"
+                combined_result += f"**{result.get('description', 'Task')}**\n{result.get('result', 'No result')}"
+            
+            # Add failure information if any
+            if failed_results:
+                combined_result += "\n\n**Failed Tasks:**\n"
+                for result in failed_results:
+                    combined_result += f"- {result.get('description', 'Unknown task')}: {result.get('result', 'Unknown error')}\n"
+            
+            logger.info(f"Aggregated {len(successful_results)} successful and {len(failed_results)} failed results")
+            return combined_result
+            
         except Exception as e:
             logger.error(f"Error in _aggregate_results: {e}", exc_info=True)
-            return "❌ Sorry, I encountered an error aggregating results."
+            return "❌ Error aggregating results"
     
-    def _update_user_preferences(self, context: Dict[str, Any], intent_result: Dict[str, Any], final_response: str) -> None:
+    def _update_user_preferences(self, context: Dict[str, Any], intent_result: Dict[str, Any], final_response: str):
         """
         Update user preferences based on the interaction.
         """
         try:
-            interaction_data = {
-                'user_message': context.get('user_message', 'unknown'),
-                'intent': intent_result['intent'],
-                'entities': intent_result['entities'],
-                'complexity': 'COMPLEX', # For now, all tasks are complex for learning
-                'success': len(context.get('failed_results', [])) == 0, # Check if all subtasks succeeded
-                'agent_used': intent_result['agent_used'],
-                'execution_time': context.get('execution_time', 0),
-                'subtasks_count': context.get('subtasks_count', 0),
-                'context': context
-            }
-            self.user_preference_learner.learn_from_interaction(context.get('user_id', 'unknown'), interaction_data)
+            # Extract user preferences from the interaction
+            user_id = context.get('user_id', 'unknown')
+            intent = intent_result.get('intent', 'unknown')
+            confidence = intent_result.get('confidence', 0.0)
+            
+            # Update user preferences
+            self.user_preference_learner.update_preferences(
+                user_id=user_id,
+                intent=intent,
+                confidence=confidence,
+                response_length=len(final_response),
+                success=not final_response.startswith('❌')
+            )
+            
+            logger.debug(f"Updated user preferences for {user_id}")
+            
         except Exception as e:
-            logger.error(f"Error in _update_user_preferences: {e}", exc_info=True)
+            logger.error(f"Error updating user preferences: {e}", exc_info=True)
     
     @contextmanager
     def debug_mode(self):
