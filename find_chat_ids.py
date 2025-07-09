@@ -3,7 +3,7 @@
 Find Telegram Chat IDs Script
 
 This script helps you find the chat IDs for your Telegram groups
-so you can configure them in your .env.test file for E2E testing.
+so you can configure them in your .env file for the bot.
 """
 
 import os
@@ -12,20 +12,21 @@ from telethon import TelegramClient
 from telethon.sessions import StringSession
 from dotenv import load_dotenv
 
-# Load environment variables from .env.test
-load_dotenv('.env.test')
+# Load environment variables from .env
+load_dotenv('.env')
 
 async def find_chat_ids():
     """Find and display all available chat IDs."""
     
-    # Get credentials from .env.test
+    # Get credentials from .env
     api_id = os.getenv('TELEGRAM_API_ID')
     api_hash = os.getenv('TELEGRAM_API_HASH')
-    session_string = os.getenv('TELEGRAM_SESSION_STRING')
+    session_string = os.getenv('ADMIN_SESSION_STRING')
     
     if not all([api_id, api_hash, session_string]):
-        print("❌ Missing required environment variables in .env.test")
-        print("Required: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION_STRING")
+        print("❌ Missing required environment variables in .env")
+        print("Required: TELEGRAM_API_ID, TELEGRAM_API_HASH, ADMIN_SESSION_STRING")
+        print("\n💡 To generate a session string, run: python generate_session_string.py")
         return
     
     print("🔍 Connecting to Telegram...")
@@ -68,7 +69,7 @@ async def find_chat_ids():
         print(f"\n📊 Summary: Found {len(chats_found)} chats")
         
         # Show recommended configuration
-        print("\n🎯 Recommended .env.test Configuration:")
+        print("\n🎯 Recommended .env Configuration:")
         print("=" * 50)
         
         # Find groups (negative IDs)
@@ -94,8 +95,8 @@ async def find_chat_ids():
         print(f"❌ Error: {e}")
         print("\n🔧 Troubleshooting:")
         print("   1. Check your TELEGRAM_API_ID and TELEGRAM_API_HASH")
-        print("   2. Verify your TELEGRAM_SESSION_STRING is valid")
-        print("   3. Make sure your .env.test file is properly configured")
+        print("   2. Verify your ADMIN_SESSION_STRING is valid")
+        print("   3. Make sure your .env file is properly configured")
 
 if __name__ == "__main__":
     print("🧪 KICKAI Chat ID Finder")
