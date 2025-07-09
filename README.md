@@ -1,45 +1,11 @@
-# KICKAI - Intelligent Football Team Management Bot
+# KICKAI - AI-Powered Football Team Management
 
-**Architecture:** 🏗️ **8-Agent CrewAI System with Unified Interface**
+**Status:** ✅ **PRODUCTION READY** - v1.7.0  
+**Deployment:** 🚀 **Live on Railway**  
+**AI Provider:** 🤖 **Google Gemini (Production) / Ollama (Local)**  
+**Architecture:** 🏗️ **7-Agent CrewAI System with Unified Interface**
 
-A sophisticated Telegram bot for Sunday League football team management, featuring intelligent natural language processing, comprehensive player management, and automated financial tracking.
-
-## 🚀 Key Features
-
-- ✅ **8-agent CrewAI system** with unified execution interface
-- ✅ **Natural language processing** for intuitive user interaction
-- ✅ **Comprehensive player management** with FA registration tracking
-- ✅ **Automated financial tracking** and payment processing
-- ✅ **Multi-team support** with isolated configurations
-- ✅ **Real-time notifications** and status reporting
-- ✅ **Advanced error handling** and system monitoring
-
-## 🏗️ Architecture Overview
-
-KICKAI uses a sophisticated 8-agent CrewAI system with **unified execution interface**:
-
-### 🤖 Agent System
-- **Message Processor**: Handles user interface and command parsing
-- **Team Manager**: Strategic coordination and high-level planning  
-- **Player Coordinator**: Operational player management and registration
-- **Finance Manager**: Financial tracking and payment management
-- **Performance Analyst**: Performance analysis and tactical insights
-- **Learning Agent**: Continuous learning and system improvement
-- **Onboarding Agent**: Specialized player onboarding and registration
-- **Command Fallback Agent**: Handles unrecognized commands and fallback scenarios
-
-### 🏛️ Clean Architecture
-```
-src/
-├── agents/           # CrewAI agent definitions
-│   ├── crew_agents.py     # 8-agent CrewAI definitions with unified interface
-│   └── capabilities.py    # Agent capability definitions
-├── core/             # Core system components
-├── domain/           # Business logic and interfaces
-├── services/         # Service layer implementations
-├── telegram/         # Telegram bot handlers
-└── utils/            # Utility functions and helpers
-```
+A comprehensive AI-powered football team management system with Telegram bot interface, Firebase backend, and intelligent agent orchestration featuring a refined task execution system.
 
 ## 🎉 **Production Status**
 
@@ -47,7 +13,7 @@ KICKAI is **fully operational** in production with **advanced AI capabilities**:
 - ✅ **Stable Railway deployment** with health monitoring
 - ✅ **Google AI (Gemini) integration** for natural language processing
 - ✅ **Firebase Firestore database** with real-time synchronization
-- ✅ **8-agent CrewAI system** with unified execution interface
+- ✅ **7-agent CrewAI system** with unified execution interface
 - ✅ **Refined TaskExecutionOrchestrator** with robust agent coordination
 - ✅ **Advanced Memory System** with persistent conversation history
 - ✅ **Intelligent Routing System** with LLM-powered agent selection
@@ -144,7 +110,7 @@ src/
 📖 **For detailed architectural rules and dependency guidelines, see [ARCHITECTURE.md](ARCHITECTURE.md)**
 
 ### **Technology Stack**
-- **AI Engine**: CrewAI with Google Gemini/OpenAI
+- **AI Engine**: CrewAI with Google Gemini/OpenAI/Ollama
 - **Database**: Firebase Firestore with real-time sync
 - **Bot Platform**: Telegram Bot API
 - **Payment Processing**: Collectiv API integration
@@ -205,7 +171,7 @@ Send "help" to your Telegram bot to verify it's working.
 ### Prerequisites
 - Python 3.11+
 - Firebase project with service account
-- Google AI API key or OpenAI API key
+- Google AI API key (or Ollama for local development)
 
 ### Setup
 ```bash
@@ -220,9 +186,21 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Set up environment variables (SECURE - uses system environment variables)
-python setup_local_environment.py
-# Follow the prompts and set the generated environment variables
+# Set up Firebase credentials
+python setup_credentials.py
+# Follow the prompts to set up your Firebase credentials
+
+# Install and start Ollama (for local development)
+# Download from https://ollama.ai
+ollama serve  # Start Ollama service
+ollama pull llama3.1:8b-instruct-q4_0  # Download the model
+
+# Test Ollama setup
+python test_ollama_setup.py
+
+# Set up environment variables
+cp env.local.example .env
+# Edit .env with your configuration
 
 # Run tests
 pytest tests/
@@ -234,8 +212,6 @@ pytest tests/test_integration/
 # Start development server
 PYTHONPATH=src python run_telegram_bot.py
 ```
-
-**🔒 Security Note**: This setup uses system environment variables instead of `.env` files to keep secrets out of source control. See [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md) for detailed instructions.
 
 ### Development Workflow
 ```bash
@@ -253,6 +229,48 @@ mypy src/
 # Deploy to Railway
 railway up
 ```
+
+### Local Development with Ollama
+
+For local development, KICKAI uses **Ollama** with **Llama 3.1 8B Instruct** for fast, efficient AI processing:
+
+#### **Why Ollama for Local Development?**
+- **Fast**: Local inference with no API latency
+- **Efficient**: 4.7GB model size, perfect for development
+- **Private**: No data sent to external APIs
+- **Cost-effective**: No API costs during development
+- **Reliable**: No internet dependency for AI features
+
+#### **Ollama Setup**
+```bash
+# Download from https://ollama.ai
+
+# Start Ollama service
+ollama serve
+
+# Download the required model
+ollama pull llama3.1:8b-instruct-q4_0
+
+# Test the setup
+python test_ollama_setup.py
+```
+
+#### **Environment Configuration**
+```bash
+# Copy local development config
+cp env.local.example .env
+
+# Key settings for local development:
+AI_PROVIDER=ollama
+AI_MODEL_NAME=llama3.1:8b-instruct-q4_0
+ENVIRONMENT=development
+```
+
+#### **Model Performance**
+- **Response Time**: ~2-5 seconds for typical queries
+- **Memory Usage**: ~8GB RAM during inference
+- **Quality**: Excellent for development and testing
+- **Context Length**: 8K tokens (sufficient for most tasks)
 
 ## 🆕 **Latest Features (v1.7.0)**
 
@@ -326,20 +344,32 @@ railway up
 
 ## 🛠️ **Development Setup**
 
-### **Environment Configuration**
+### **Install Ollama**
 ```bash
-# Set up environment variables securely
-python setup_local_environment.py
+# Download from https://ollama.ai
 
-# Key settings for local development:
-export AI_PROVIDER=google_gemini
-export AI_MODEL_NAME=gemini-pro
-export ENVIRONMENT=development
+# Start Ollama service
+ollama serve
+
+# Download the required model
+ollama pull llama3.1:8b-instruct-q4_0
+
+# Test the setup
+python test_ollama_setup.py
 ```
 
-**📚 See [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md) for comprehensive setup instructions.**
+#### **Environment Configuration**
+```bash
+# Copy local development config
+cp env.local.example .env
 
-### **Model Performance**
+# Key settings for local development:
+AI_PROVIDER=ollama
+AI_MODEL_NAME=llama3.1:8b-instruct-q4_0
+ENVIRONMENT=development
+```
+
+#### **Model Performance**
 - **Response Time**: ~2-5 seconds for typical queries
 - **Memory Usage**: ~8GB RAM during inference
 - **Quality**: Excellent for development and testing

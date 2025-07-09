@@ -20,7 +20,6 @@ from services.fa_registration_checker import run_fa_registration_check, run_fa_f
 from database.models_improved import Player
 from core.bot_config_manager import get_bot_config_manager
 from services.interfaces.daily_status_service_interface import IDailyStatusService
-from src.core.improved_config_system import get_improved_config
 
 class DailyStatusService(IDailyStatusService):
     """Service to generate and send daily team status reports."""
@@ -338,8 +337,8 @@ def get_daily_status_service(team_id: str = None) -> DailyStatusService:
     
     # Use default team ID if not provided
     if not team_id:
-        config = get_improved_config()
-        team_id = config.configuration.teams.default_team_id
+        import os
+        team_id = os.getenv('DEFAULT_TEAM_ID', 'KAI')
     
     # Return existing instance if available for this team
     if team_id in _daily_status_service_instances:

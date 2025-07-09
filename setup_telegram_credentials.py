@@ -3,7 +3,6 @@
 Telegram Credentials Setup Helper
 
 This script helps you get the required Telegram credentials for the E2E testing framework.
-Instead of creating .env files, it will generate commands to set system environment variables.
 """
 
 import os
@@ -84,77 +83,12 @@ def get_telegram_credentials():
         return None
 
 
-def generate_env_commands(credentials):
-    """Generate environment variable commands."""
-    print("\n🔧 ENVIRONMENT VARIABLE SETUP")
-    print("=" * 40)
+def create_env_file(credentials):
+    """Create .env.test file with credentials."""
+    print("\n📝 Step 4: Create .env.test file")
     
-    print("""
-To set up your environment variables for testing, run the following commands:
-
-For macOS/Linux (add to ~/.bashrc, ~/.zshrc, or ~/.profile):
-""")
-    
-    env_vars = {
-        'TELEGRAM_BOT_TOKEN': credentials['bot_token'],
-        'TELEGRAM_BOT_USERNAME': 'KickAITesting_bot',
-        'TELEGRAM_MAIN_CHAT_ID': '-4889304885',
-        'TELEGRAM_LEADERSHIP_CHAT_ID': '-4814449926',
-        'FIREBASE_CREDENTIALS_FILE': './credentials/firebase_credentials_testing.json',
-        'GOOGLE_API_KEY': 'your_google_api_key_here',
-        'TEST_MODE': 'true',
-        'LOG_LEVEL': 'DEBUG',
-        'ADMIN_SESSION_STRING': credentials['session_string'],
-        'PLAYER_SESSION_STRING': credentials['session_string'],
-        'TEST_TIMEOUT': '30',
-        'TEST_MAX_RETRIES': '3',
-        'TEST_PARALLEL': 'false',
-        'TEST_LOG_LEVEL': 'INFO',
-        'TEST_TEAM_ID': 'test-team-123',
-        'TEST_USER_ID': 'test_user_123',
-        'TEST_CHAT_ID': 'test_chat_456'
-    }
-    
-    for key, value in env_vars.items():
-        if key in ['TELEGRAM_BOT_TOKEN', 'GOOGLE_API_KEY']:
-            # Mask sensitive values
-            masked_value = value[:8] + "..." if len(value) > 8 else "***"
-            print(f"export {key}='{value}'  # {masked_value}")
-        else:
-            print(f"export {key}='{value}'")
-    
-    print("""
-
-For Windows (add to system environment variables or run in cmd):
-""")
-    
-    for key, value in env_vars.items():
-        if key in ['TELEGRAM_BOT_TOKEN', 'GOOGLE_API_KEY']:
-            # Mask sensitive values
-            masked_value = value[:8] + "..." if len(value) > 8 else "***"
-            print(f"set {key}={value}  # {masked_value}")
-        else:
-            print(f"set {key}={value}")
-    
-    print("""
-
-For immediate use in current session:
-""")
-    
-    for key, value in env_vars.items():
-        if key in ['TELEGRAM_BOT_TOKEN', 'GOOGLE_API_KEY']:
-            # Mask sensitive values
-            masked_value = value[:8] + "..." if len(value) > 8 else "***"
-            print(f"export {key}='{value}'  # {masked_value}")
-        else:
-            print(f"export {key}='{value}'")
-
-
-def create_env_template(credentials):
-    """Create a .env.test template file for reference."""
-    template_content = f"""# Test Environment Variables Template
-# Copy this file to .env.test and fill in your actual values
-# NEVER commit .env.test files to version control
+    env_content = f"""# Test Environment Variables
+# This file contains environment variables for testing only
 
 # Telegram Configuration
 TELEGRAM_BOT_TOKEN={credentials['bot_token']}
@@ -166,13 +100,14 @@ TELEGRAM_LEADERSHIP_CHAT_ID=-4814449926
 FIREBASE_CREDENTIALS_FILE=./credentials/firebase_credentials_testing.json
 
 # Google API
-GOOGLE_API_KEY=your_google_api_key_here
+GOOGLE_API_KEY=AIzaSyDymYVYObT-j8Fu8_0xAXUflXzzkC1Ey5s
 
 # Test-specific settings
 TEST_MODE=true
 LOG_LEVEL=DEBUG
 
 # Session strings for testing
+# This session string can be used for both admin and player testing
 ADMIN_SESSION_STRING="{credentials['session_string']}"
 PLAYER_SESSION_STRING="{credentials['session_string']}"
 
@@ -186,11 +121,16 @@ TEST_USER_ID=test_user_123
 TEST_CHAT_ID=test_chat_456
 """
     
-    # Write to .env.test.template file
-    with open('.env.test.template', 'w') as f:
-        f.write(template_content)
+    # Write to .env.test file
+    with open('.env.test', 'w') as f:
+        f.write(env_content)
     
-    print("✅ .env.test.template file created for reference")
+    print("✅ .env.test file created successfully!")
+    print("📄 File: .env.test")
+    print()
+    print("⚠️  IMPORTANT: This .env.test file is for testing only")
+    print("⚠️  IMPORTANT: Keep this file secure and never commit it to version control")
+    print("⚠️  IMPORTANT: The session string allows access to your Telegram account")
 
 
 def main():
@@ -199,9 +139,9 @@ def main():
     print("=" * 60)
     print()
     
-    # Check if .env.test.template already exists
-    if os.path.exists('.env.test.template'):
-        response = input("⚠️  .env.test.template file already exists. Overwrite? (y/N): ").strip().lower()
+    # Check if .env.test already exists
+    if os.path.exists('.env.test'):
+        response = input("⚠️  .env.test file already exists. Overwrite? (y/N): ").strip().lower()
         if response != 'y':
             print("Setup cancelled.")
             return
@@ -210,23 +150,14 @@ def main():
     credentials = get_telegram_credentials()
     
     if credentials:
-        # Generate environment variable commands
-        generate_env_commands(credentials)
-        
-        # Create template file
-        create_env_template(credentials)
+        # Create .env file
+        create_env_file(credentials)
         
         print("\n🎉 Setup completed successfully!")
         print("\nNext steps:")
-        print("1. Set the environment variables using the commands above")
-        print("2. Update GOOGLE_API_KEY with your actual API key")
-        print("3. Restart your terminal or run: source ~/.bashrc (or ~/.zshrc)")
-        print("4. Run: python test_telegram_commands.py")
-        print("5. Check E2E_TESTING_GUIDE.md for more information")
-        print("\n⚠️  SECURITY NOTES:")
-        print("   - Never commit .env files to version control")
-        print("   - Keep your session strings secure")
-        print("   - Use different credentials for development and production")
+        print("1. Update FIRESTORE_PROJECT_ID in .env.test file")
+        print("2. Run: python test_telegram_commands.py")
+        print("3. Check E2E_TESTING_GUIDE.md for more information")
     else:
         print("\n❌ Setup failed. Please try again.")
 

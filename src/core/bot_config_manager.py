@@ -24,7 +24,7 @@ class BotConfigManager:
     
     def get_team_id(self) -> str:
         """Get the default team ID from configuration."""
-        return self.config.teams.default_team_id
+        return self.config.team.default_team_id
     
     def get_database_config(self) -> Dict[str, Any]:
         """Get database configuration."""

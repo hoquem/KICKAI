@@ -105,7 +105,7 @@ async def run_test_suite(suite_name: str, verbose: bool = False) -> bool:
     
     # Get configuration
     config = get_improved_config()
-    team_id = config.configuration.teams.default_team_id
+    team_id = config.configuration.team.default_team_id
     logger.info(f"📋 Team ID: {team_id}")
     
     # Initialize test components

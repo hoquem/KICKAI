@@ -14,7 +14,6 @@ from database.models_improved import TeamMember
 from database.firebase_client import FirebaseClient
 from core.exceptions import DatabaseError, ValidationError
 from services.interfaces.team_member_service_interface import ITeamMemberService
-from src.core.improved_config_system import get_improved_config
 
 logger = logging.getLogger(__name__)
 
@@ -240,8 +239,8 @@ def get_team_member_service(team_id: Optional[str] = None) -> TeamMemberService:
     
     # Use default team ID if not provided
     if not team_id:
-        config = get_improved_config()
-        team_id = config.configuration.teams.default_team_id
+        import os
+        team_id = os.getenv('DEFAULT_TEAM_ID', 'KAI')
     
     # Return existing instance if available for this team
     if team_id in _team_member_service_instances:
@@ -264,8 +263,8 @@ def initialize_team_member_service(team_id: Optional[str] = None) -> TeamMemberS
     
     # Use default team ID if not provided
     if not team_id:
-        config = get_improved_config()
-        team_id = config.configuration.teams.default_team_id
+        import os
+        team_id = os.getenv('DEFAULT_TEAM_ID', 'KAI')
     
     # Create new instance (overwriting if exists)
     from database.firebase_client import get_firebase_client
