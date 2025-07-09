@@ -23,7 +23,6 @@ nest_asyncio.apply()
 from core.constants import BOT_VERSION, FIRESTORE_COLLECTION_PREFIX
 from core.improved_config_system import get_improved_config, initialize_improved_config
 from src.database.firebase_client import initialize_firebase_client
-from src.services.team_mapping_service import TeamMappingService
 from src.services.player_service import get_player_service
 from src.services.team_service import get_team_service
 from src.telegram.unified_message_handler import UnifiedMessageHandler, register_unified_handler
@@ -77,7 +76,6 @@ def setup_environment():
         # Initialize services
         initialize_player_service()
         initialize_team_service()
-        initialize_team_mapping_service()
         
         logger.info("✅ Services initialized")
         
@@ -103,15 +101,6 @@ def initialize_team_service():
         pass
     except Exception as e:
         logger.error(f"❌ Failed to initialize team service: {e}")
-        raise
-
-def initialize_team_mapping_service():
-    """Initialize the team mapping service."""
-    try:
-        # This will be initialized when first accessed
-        pass
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize team mapping service: {e}")
         raise
 
 # Add global application variable

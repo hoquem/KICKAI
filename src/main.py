@@ -30,7 +30,6 @@ from core.logging_config import (
 from core.exceptions import KICKAIError
 from services.monitoring import MonitoringService
 from services.multi_team_manager import MultiTeamManager
-from services.team_mapping_service import TeamMappingService
 from database.firebase_client import FirebaseClient
 from core.improved_config_system import get_improved_config
 

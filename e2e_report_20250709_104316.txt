@@ -1,0 +1,51 @@
+2025-07-09 10:43:16,080 - __main__ - INFO - 🧪 KICKAI E2E Test Runner
+2025-07-09 10:43:16,080 - __main__ - INFO - 📋 Available suites: chat_id_validation, player_registration, match_management, payment_processing, natural_language, admin_operations, status, error_handling, comprehensive, smoke
+2025-07-09 10:43:16,080 - __main__ - INFO - 🚀 Starting test suite: error_handling
+2025-07-09 10:43:16,080 - __main__ - INFO - 🔍 Validating environment configuration...
+2025-07-09 10:43:16,080 - __main__ - INFO - ✅ TELEGRAM_BOT_TOKEN: 76933590...NYsM
+2025-07-09 10:43:16,080 - __main__ - INFO - ✅ TELEGRAM_API_ID: 23493061
+2025-07-09 10:43:16,080 - __main__ - INFO - ✅ TELEGRAM_API_HASH: bd2e45dd...e6a5
+2025-07-09 10:43:16,080 - __main__ - INFO - ✅ ADMIN_SESSION_STRING: 1BJWap1s...vvY=
+2025-07-09 10:43:16,080 - __main__ - INFO - ✅ TELEGRAM_MAIN_CHAT_ID: -4889304885
+2025-07-09 10:43:16,080 - __main__ - INFO - ✅ TELEGRAM_LEADERSHIP_CHAT_ID: -4814449926
+2025-07-09 10:43:16,080 - __main__ - INFO - ✅ DEFAULT_TEAM_ID: KAI
+2025-07-09 10:43:16,080 - __main__ - INFO - ✅ FIREBASE_PROJECT_ID: kickai-954c2
+2025-07-09 10:43:16,080 - __main__ - INFO - ✅ Environment validation passed
+2025-07-09 10:43:16,080 - __main__ - INFO - 📱 Chat Configuration:
+2025-07-09 10:43:16,080 - __main__ - INFO -    Main Chat ID: -4889304885 (KickAI Testing)
+2025-07-09 10:43:16,080 - __main__ - INFO -    Leadership Chat ID: -4814449926 (KickAI Testing - Leadership)
+2025-07-09 10:43:16,080 - __main__ - INFO -    Naming Convention: 'Team Name' for main, 'Team Name - Leadership' for leadership
+2025-07-09 10:43:16,080 - src.core.improved_config_system - INFO - E2E testing detected, loading .env.test
+2025-07-09 10:43:16,081 - src.core.improved_config_system - INFO - Loaded environment variables from .env.test
+2025-07-09 10:43:16,081 - src.core.improved_config_system - INFO - 🔍 EnvironmentConfigurationSource.load_configuration called
+2025-07-09 10:43:16,082 - src.core.improved_config_system - INFO - Loaded configuration from EnvironmentConfigurationSource
+2025-07-09 10:43:16,082 - src.core.improved_config_system - INFO - Loaded configuration from DefaultConfigurationSource
+2025-07-09 10:43:16,082 - src.core.improved_config_system - INFO - 🔍 Merged configuration AI section: {'provider': <AIProvider.OLLAMA: 'ollama'>, 'api_key': 'ollama_local', 'model_name': 'llama3.1:8b-instruct-q4_0', 'temperature': 0.7, 'max_tokens': 1000, 'timeout_seconds': 60, 'source': <ConfigSource.ENVIRONMENT: 'environment'>}
+2025-07-09 10:43:16,082 - src.core.improved_config_system - INFO - Configuration validation passed
+2025-07-09 10:43:16,082 - __main__ - INFO - 📋 Team ID: KAI
+2025-07-09 10:43:16,082 - __main__ - INFO - 🔧 Initializing test components...
+2025-07-09 10:43:16,083 - src.testing.e2e_framework - INFO - ✅ TelegramBotTester initialized
+2025-07-09 10:43:16,147 - src.testing.e2e_framework - INFO - ✅ FirestoreValidator initialized for project kickai-954c2
+2025-07-09 10:43:16,147 - __main__ - INFO - 📱 Starting Telegram tester...
+2025-07-09 10:43:16,147 - telethon.network.mtprotosender - INFO - Connecting to 149.154.167.91:443/TcpFull...
+2025-07-09 10:43:16,176 - telethon.network.mtprotosender - INFO - Connection to 149.154.167.91:443/TcpFull complete!
+2025-07-09 10:43:16,407 - src.testing.e2e_framework - INFO - ✅ Telegram client started
+2025-07-09 10:43:16,407 - __main__ - INFO - ✅ Telegram tester started successfully
+2025-07-09 10:43:16,408 - src.testing.e2e_framework - INFO - ✅ E2ETestRunner initialized
+2025-07-09 10:43:16,408 - src.utils.id_generator - INFO - Generated player ID 'JS' for 'John Smith'
+2025-07-09 10:43:16,408 - src.utils.id_generator - INFO - Generated player ID 'JS1' for 'John Smith'
+2025-07-09 10:43:16,408 - src.utils.id_generator - INFO - Generated player ID 'JS2' for 'John Smith'
+2025-07-09 10:43:16,408 - src.utils.id_generator - INFO - Generated player ID 'JS3' for 'John Smith'
+2025-07-09 10:43:16,409 - __main__ - INFO - 📋 Loaded 8 tests for suite 'error_handling'
+2025-07-09 10:43:16,409 - __main__ - INFO -    1. Invalid Command Format
+2025-07-09 10:43:16,409 - __main__ - INFO -    2. Non-Existent Player Status
+2025-07-09 10:43:16,409 - __main__ - INFO -    3. Duplicate Player Addition
+2025-07-09 10:43:16,409 - __main__ - INFO -    4. Invalid Phone Number
+2025-07-09 10:43:16,409 - __main__ - INFO -    5. Unauthorized Command
+2025-07-09 10:43:16,410 - __main__ - INFO -    6. Natural Language Error
+2025-07-09 10:43:16,410 - __main__ - ERROR - ❌ Test suite failed with exception: 'message'
+2025-07-09 10:43:16,410 - __main__ - INFO - 🧹 Cleaning up...
+2025-07-09 10:43:16,410 - telethon.network.mtprotosender - INFO - Disconnecting from 149.154.167.91:443/TcpFull...
+2025-07-09 10:43:16,411 - telethon.network.mtprotosender - INFO - Disconnection from 149.154.167.91:443/TcpFull complete!
+2025-07-09 10:43:16,412 - src.testing.e2e_framework - INFO - ✅ Telegram client stopped
+2025-07-09 10:43:16,412 - __main__ - INFO - ✅ Cleanup completed

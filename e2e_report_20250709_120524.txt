@@ -1,0 +1,121 @@
+2025-07-09 12:05:24,894 - __main__ - INFO - 🧪 KICKAI E2E Test Runner
+2025-07-09 12:05:24,894 - __main__ - INFO - 📋 Available suites: chat_id_validation, player_registration, match_management, payment_processing, natural_language, admin_operations, status, error_handling, comprehensive, smoke
+2025-07-09 12:05:24,895 - __main__ - INFO - 🚀 Starting test suite: status
+2025-07-09 12:05:24,895 - __main__ - INFO - 🔍 Validating environment configuration...
+2025-07-09 12:05:24,895 - __main__ - INFO - ✅ TELEGRAM_BOT_TOKEN: 76933590...NYsM
+2025-07-09 12:05:24,895 - __main__ - INFO - ✅ TELEGRAM_API_ID: 23493061
+2025-07-09 12:05:24,895 - __main__ - INFO - ✅ TELEGRAM_API_HASH: bd2e45dd...e6a5
+2025-07-09 12:05:24,895 - __main__ - INFO - ✅ ADMIN_SESSION_STRING: 1BJWap1s...vvY=
+2025-07-09 12:05:24,895 - __main__ - INFO - ✅ TELEGRAM_MAIN_CHAT_ID: -4889304885
+2025-07-09 12:05:24,895 - __main__ - INFO - ✅ TELEGRAM_LEADERSHIP_CHAT_ID: -4814449926
+2025-07-09 12:05:24,895 - __main__ - INFO - ✅ DEFAULT_TEAM_ID: KAI
+2025-07-09 12:05:24,895 - __main__ - INFO - ✅ FIREBASE_PROJECT_ID: kickai-954c2
+2025-07-09 12:05:24,895 - __main__ - INFO - ✅ Environment validation passed
+2025-07-09 12:05:24,895 - __main__ - INFO - 📱 Chat Configuration:
+2025-07-09 12:05:24,895 - __main__ - INFO -    Main Chat ID: -4889304885 (KickAI Testing)
+2025-07-09 12:05:24,895 - __main__ - INFO -    Leadership Chat ID: -4814449926 (KickAI Testing - Leadership)
+2025-07-09 12:05:24,895 - __main__ - INFO -    Naming Convention: 'Team Name' for main, 'Team Name - Leadership' for leadership
+2025-07-09 12:05:24,895 - src.core.improved_config_system - INFO - E2E testing detected, loading .env.test
+2025-07-09 12:05:24,896 - src.core.improved_config_system - INFO - Loaded environment variables from .env.test
+2025-07-09 12:05:24,896 - src.core.improved_config_system - INFO - 🔍 EnvironmentConfigurationSource.load_configuration called
+2025-07-09 12:05:24,897 - src.core.improved_config_system - INFO - Loaded configuration from EnvironmentConfigurationSource
+2025-07-09 12:05:24,897 - src.core.improved_config_system - INFO - Loaded configuration from DefaultConfigurationSource
+2025-07-09 12:05:24,897 - src.core.improved_config_system - INFO - 🔍 Merged configuration AI section: {'provider': <AIProvider.OLLAMA: 'ollama'>, 'api_key': 'ollama_local', 'model_name': 'llama3.1:8b-instruct-q4_0', 'temperature': 0.7, 'max_tokens': 1000, 'timeout_seconds': 60, 'base_url': None, 'source': <ConfigSource.ENVIRONMENT: 'environment'>}
+2025-07-09 12:05:24,897 - src.core.improved_config_system - INFO - Configuration validation passed
+2025-07-09 12:05:24,897 - __main__ - INFO - 📋 Team ID: KAI
+2025-07-09 12:05:24,897 - __main__ - INFO - 🔧 Initializing test components...
+2025-07-09 12:05:24,897 - src.testing.e2e_framework - INFO - ✅ TelegramBotTester initialized
+2025-07-09 12:05:24,959 - src.testing.e2e_framework - INFO - ✅ FirestoreValidator initialized for project kickai-954c2
+2025-07-09 12:05:24,959 - __main__ - INFO - 📱 Starting Telegram tester...
+2025-07-09 12:05:24,959 - telethon.network.mtprotosender - INFO - Connecting to 149.154.167.91:443/TcpFull...
+2025-07-09 12:05:24,987 - telethon.network.mtprotosender - INFO - Connection to 149.154.167.91:443/TcpFull complete!
+2025-07-09 12:05:25,468 - src.testing.e2e_framework - INFO - ✅ Telegram client started
+2025-07-09 12:05:25,468 - __main__ - INFO - ✅ Telegram tester started successfully
+2025-07-09 12:05:25,468 - src.testing.e2e_framework - INFO - ✅ E2ETestRunner initialized
+2025-07-09 12:05:25,468 - src.utils.id_generator - INFO - Generated player ID 'JS' for 'John Smith'
+2025-07-09 12:05:25,469 - src.utils.id_generator - INFO - Generated player ID 'JS1' for 'John Smith'
+2025-07-09 12:05:25,469 - src.utils.id_generator - INFO - Generated player ID 'JS2' for 'John Smith'
+2025-07-09 12:05:25,469 - src.utils.id_generator - INFO - Generated player ID 'JS3' for 'John Smith'
+2025-07-09 12:05:25,469 - __main__ - INFO - 📋 Loaded 4 tests for suite 'status'
+2025-07-09 12:05:25,469 - __main__ - INFO -    1. Player Status Check
+2025-07-09 12:05:25,469 - __main__ - INFO -    2. Admin Status Check by Phone
+2025-07-09 12:05:25,469 - __main__ - INFO -    3. Admin Status Check by Player ID
+2025-07-09 12:05:25,469 - __main__ - INFO -    4. Status Check for Non-Existent Player
+2025-07-09 12:05:25,469 - __main__ - INFO - 🧪 Running tests...
+2025-07-09 12:05:25,469 - src.testing.e2e_framework - INFO - 🚀 Starting E2E test suite with 4 tests
+2025-07-09 12:05:25,469 - src.testing.e2e_framework - INFO - 📋 Running test 1/4: command
+2025-07-09 12:05:25,469 - src.testing.e2e_framework - INFO - 🚀 [E2E] Starting command test: /status
+2025-07-09 12:05:25,469 - src.testing.e2e_framework - INFO - 🚀 [E2E] Context: user_id=test_player_001, chat_id=-4889304885
+2025-07-09 12:05:25,561 - src.testing.e2e_framework - INFO - ✅ Message sent: /status...
+2025-07-09 12:05:25,609 - src.testing.e2e_framework - INFO - 📨 [E2E] Command: /status
+2025-07-09 12:05:25,609 - src.testing.e2e_framework - INFO - 📨 [E2E] Response received: /status
+2025-07-09 12:05:25,609 - src.testing.e2e_framework - INFO - 📨 [E2E] Response length: 7 characters
+2025-07-09 12:05:25,609 - src.testing.e2e_framework - INFO - 📨 [E2E] Response timestamp: 2025-07-09 11:05:25+00:00
+2025-07-09 12:05:25,609 - src.testing.e2e_framework - INFO - 📨 [E2E] Test result: ✅ PASS
+2025-07-09 12:05:25,609 - src.testing.e2e_framework - INFO - 📨 [E2E] Duration: 0.14s
+2025-07-09 12:05:25,609 - src.testing.e2e_framework - INFO - 🗄️ [E2E] Running Firestore validation for command: /status
+2025-07-09 12:05:25,786 - src.testing.e2e_framework - INFO - ✅ PASS Test 1: Command: /status (0.32s)
+2025-07-09 12:05:25,786 - src.testing.e2e_framework - INFO - 📋 Running test 2/4: command
+2025-07-09 12:05:25,786 - src.testing.e2e_framework - INFO - 🚀 [E2E] Starting command test: /status +447871521581
+2025-07-09 12:05:25,786 - src.testing.e2e_framework - INFO - 🚀 [E2E] Context: user_id=admin_user_456, chat_id=-4814449926
+2025-07-09 12:05:25,842 - src.testing.e2e_framework - INFO - ✅ Message sent: /status +447871521581...
+2025-07-09 12:05:25,884 - src.testing.e2e_framework - INFO - 📨 [E2E] Command: /status +447871521581
+2025-07-09 12:05:25,885 - src.testing.e2e_framework - INFO - 📨 [E2E] Response received: /status +447871521581
+2025-07-09 12:05:25,885 - src.testing.e2e_framework - INFO - 📨 [E2E] Response length: 21 characters
+2025-07-09 12:05:25,885 - src.testing.e2e_framework - INFO - 📨 [E2E] Response timestamp: 2025-07-09 11:05:25+00:00
+2025-07-09 12:05:25,885 - src.testing.e2e_framework - INFO - 📨 [E2E] Test result: ✅ PASS
+2025-07-09 12:05:25,885 - src.testing.e2e_framework - INFO - 📨 [E2E] Duration: 0.10s
+2025-07-09 12:05:25,885 - src.testing.e2e_framework - INFO - 🗄️ [E2E] Running Firestore validation for command: /status +447871521581
+2025-07-09 12:05:25,925 - src.testing.e2e_framework - INFO - ✅ PASS Test 2: Command: /status +447871521581 (0.14s)
+2025-07-09 12:05:25,925 - src.testing.e2e_framework - INFO - 📋 Running test 3/4: command
+2025-07-09 12:05:25,925 - src.testing.e2e_framework - INFO - 🚀 [E2E] Starting command test: /status JS
+2025-07-09 12:05:25,925 - src.testing.e2e_framework - INFO - 🚀 [E2E] Context: user_id=admin_user_456, chat_id=-4814449926
+2025-07-09 12:05:25,970 - src.testing.e2e_framework - INFO - ✅ Message sent: /status JS...
+2025-07-09 12:05:26,041 - src.testing.e2e_framework - INFO - 📨 [E2E] Command: /status JS
+2025-07-09 12:05:26,041 - src.testing.e2e_framework - INFO - 📨 [E2E] Response received: /status JS
+2025-07-09 12:05:26,041 - src.testing.e2e_framework - INFO - 📨 [E2E] Response length: 10 characters
+2025-07-09 12:05:26,041 - src.testing.e2e_framework - INFO - 📨 [E2E] Response timestamp: 2025-07-09 11:05:25+00:00
+2025-07-09 12:05:26,041 - src.testing.e2e_framework - INFO - 📨 [E2E] Test result: ✅ PASS
+2025-07-09 12:05:26,041 - src.testing.e2e_framework - INFO - 📨 [E2E] Duration: 0.12s
+2025-07-09 12:05:26,041 - src.testing.e2e_framework - INFO - 🗄️ [E2E] Running Firestore validation for command: /status JS
+2025-07-09 12:05:26,080 - src.testing.e2e_framework - INFO - ✅ PASS Test 3: Command: /status JS (0.16s)
+2025-07-09 12:05:26,080 - src.testing.e2e_framework - INFO - 📋 Running test 4/4: command
+2025-07-09 12:05:26,080 - src.testing.e2e_framework - INFO - 🚀 [E2E] Starting command test: /status +44123456789
+2025-07-09 12:05:26,080 - src.testing.e2e_framework - INFO - 🚀 [E2E] Context: user_id=admin_user_456, chat_id=-4814449926
+2025-07-09 12:05:26,144 - src.testing.e2e_framework - INFO - ✅ Message sent: /status +44123456789...
+2025-07-09 12:05:26,192 - src.testing.e2e_framework - INFO - 📨 [E2E] Command: /status +44123456789
+2025-07-09 12:05:26,192 - src.testing.e2e_framework - INFO - 📨 [E2E] Response received: /status +44123456789
+2025-07-09 12:05:26,192 - src.testing.e2e_framework - INFO - 📨 [E2E] Response length: 20 characters
+2025-07-09 12:05:26,192 - src.testing.e2e_framework - INFO - 📨 [E2E] Response timestamp: 2025-07-09 11:05:26+00:00
+2025-07-09 12:05:26,192 - src.testing.e2e_framework - INFO - 📨 [E2E] Test result: ✅ PASS
+2025-07-09 12:05:26,192 - src.testing.e2e_framework - INFO - 📨 [E2E] Duration: 0.11s
+2025-07-09 12:05:26,192 - src.testing.e2e_framework - INFO - ✅ PASS Test 4: Command: /status +44123456789 (0.11s)
+2025-07-09 12:05:26,192 - src.testing.e2e_framework - INFO - 🏁 Test suite completed. 4/4 tests passed
+2025-07-09 12:05:26,193 - __main__ - INFO - 
+
+🧪 KICKAI E2E Test Report
+==================================================
+
+📊 Summary:
+• Total Tests: 4
+• Passed: 4 (100.0%)
+• Failed: 0 (0.0%)
+• Average Duration: 0.18s
+
+📋 Test Types:
+• Command: 4
+
+⏱️ Performance:
+• Total Duration: 0.72s
+• Fastest Test: 0.11s
+• Slowest Test: 0.32s
+
+❌ Failed Tests:
+
+2025-07-09 12:05:26,193 - __main__ - INFO - 📄 Detailed report saved to: e2e_report_status_20250709_120526.html
+2025-07-09 12:05:26,193 - __main__ - INFO - 🎉 All tests passed!
+2025-07-09 12:05:26,193 - __main__ - INFO - 🧹 Cleaning up...
+2025-07-09 12:05:26,193 - telethon.network.mtprotosender - INFO - Disconnecting from 149.154.167.91:443/TcpFull...
+2025-07-09 12:05:26,193 - telethon.network.mtprotosender - INFO - Disconnection from 149.154.167.91:443/TcpFull complete!
+2025-07-09 12:05:26,194 - src.testing.e2e_framework - INFO - ✅ Telegram client stopped
+2025-07-09 12:05:26,194 - __main__ - INFO - ✅ Cleanup completed

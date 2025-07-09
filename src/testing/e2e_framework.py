@@ -38,14 +38,18 @@ import firebase_admin
 from unittest.mock import Mock, AsyncMock, patch
 import pytest
 import pytest_asyncio
+from src.core.improved_config_system import get_improved_config
 
 logger = logging.getLogger(__name__)
 
 
 def get_chat_ids():
-    """Get chat IDs from environment variables with fallbacks."""
-    main_chat_id = os.getenv('TELEGRAM_MAIN_CHAT_ID', '-4889304885')
-    leadership_chat_id = os.getenv('TELEGRAM_LEADERSHIP_CHAT_ID', '-4814449926')
+    """Get chat IDs from configuration manager."""
+    config = get_improved_config()
+    default_team_id = config.configuration.teams.default_team_id
+    team_config = config.get_team_config(default_team_id)
+    main_chat_id = team_config.main_chat_id if team_config else None
+    leadership_chat_id = team_config.leadership_chat_id if team_config else None
     return main_chat_id, leadership_chat_id
 
 
@@ -152,13 +156,20 @@ class TelegramBotTester:
         start_time = time.time()
         last_message_count = 0
         
+        # Get current user info once
+        current_user = await self.client.get_me()
+        
         while time.time() - start_time < timeout:
-            messages = await self.get_messages(chat_id, limit=5)
-            if len(messages) > last_message_count:
-                # New message received
-                return messages[0]  # Most recent message
+            messages = await self.get_messages(chat_id, limit=10)
             
-            last_message_count = len(messages)
+            # Filter out messages from the current user (bot responses only)
+            bot_messages = [msg for msg in messages if msg.from_id != current_user.id]
+            
+            if len(bot_messages) > last_message_count:
+                # New bot message received
+                return bot_messages[0]  # Most recent bot message
+            
+            last_message_count = len(bot_messages)
             await asyncio.sleep(1)
         
         logger.warning(f"⏰ Timeout waiting for response in chat {chat_id}")

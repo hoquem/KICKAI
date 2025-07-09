@@ -20,7 +20,7 @@ This document outlines areas identified during a codebase review that require at
         *   Define `RefundPaymentCommand` and `RecordExpenseCommand` or remove their registration from `CommandRegistry`.
 
 4.  **`src/agents/crew_agents.py` - `AgentRole` Enum and `ToolsManager` Mappings Outdated**
-    *   **Issue**: The `AgentRole` enum still lists old roles (`MATCH_ANALYST`, `COMMUNICATION_SPECIALIST`, `SQUAD_SELECTION_SPECIALIST`, `ANALYTICS_SPECIALIST`) that no longer align with our new 7-agent structure. Similarly, the `ToolsManager` and `AgentFactory` still map tools and classes to these outdated roles.
+    *   **Issue**: The `AgentRole` enum still lists old roles (`MATCH_ANALYST`, `COMMUNICATION_SPECIALIST`, `SQUAD_SELECTION_SPECIALIST`, `ANALYTICS_SPECIALIST`) that no longer align with our new 8-agent structure. Similarly, the `AgentToolsManager` and `AgentFactory` still map tools and classes to these outdated roles.
     *   **Hygiene**:
         *   Update the `AgentRole` enum to reflect the current agent names (e.g., `CLUB_SECRETARY`, `TREASURER`, `PERFORMANCE_ANALYST`).
         *   Refactor `ToolsManager.get_tools_for_agent` to map tools to the *new* agent roles.

@@ -20,7 +20,6 @@ from telegram.ext import ContextTypes
 from src.telegram.improved_command_parser import parse_command_improved, ParsedCommand, CommandType
 from src.telegram.handlers.base_handler import HandlerContext, HandlerResult
 from src.telegram.handlers.player_registration_handler import handle_player_registration_command
-from src.services.team_mapping_service import get_team_mapping_service
 from src.services.access_control_service import AccessControlService
 from src.core.enhanced_logging import (
     log_command_error, log_error, ErrorCategory, ErrorSeverity,
@@ -31,6 +30,7 @@ from src.telegram.handlers.payment_handler import PaymentHandler
 from src.telegram.handlers.onboarding_handler import OnboardingHandler
 from src.telegram.handlers.team_management_handler import TeamManagementHandler
 from src.telegram.handlers.admin_handler import AdminHandler
+from src.core.improved_configuration_manager import ImprovedConfigurationManager
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class ModularMessageHandler:
     """Main message handler using modular architecture."""
     
     def __init__(self):
-        self.team_mapping_service = get_team_mapping_service()
+        self.config_manager = ImprovedConfigurationManager()
         self.access_control_service = AccessControlService()
         self.logger = logging.getLogger(self.__class__.__name__)
         self.match_handler = MatchHandler()
@@ -102,8 +102,8 @@ class ModularMessageHandler:
         if not user or not chat or not message:
             raise ValueError("Invalid update: missing user, chat, or message")
         
-        # Get team ID from chat
-        team_id = await self.team_mapping_service.get_team_id_by_chat_id(str(chat.id))
+        # Resolve team ID from chat
+        team_id = self.config_manager.resolve_team_id(str(chat.id))
         
         # Determine chat type
         chat_type = self._determine_chat_type(chat.id, team_id)

@@ -20,6 +20,7 @@ from services.team_service import TeamService
 from database.models_improved import Player, FixtureData
 from database.firebase_client import get_firebase_client
 from services.interfaces.fa_registration_checker_interface import IFARegistrationChecker
+from src.core.improved_config_system import get_improved_config
 
 class FARegistrationChecker(IFARegistrationChecker):
     """Service to check FA registration status for players."""
@@ -248,8 +249,8 @@ def get_fa_registration_checker(team_id: Optional[str] = None):
     
     # Use default team ID if not provided
     if not team_id:
-        import os
-        team_id = os.getenv('DEFAULT_TEAM_ID', 'KAI')
+        config = get_improved_config()
+        team_id = config.configuration.teams.default_team_id
     
     # Return existing instance if available for this team
     if team_id in _fa_registration_checker_instances:
@@ -258,9 +259,6 @@ def get_fa_registration_checker(team_id: Optional[str] = None):
     # Create new instance for this team
     from services.player_service import get_player_service
     from services.team_service import get_team_service
-    from core.improved_config_system import get_improved_config
-    
-    config = get_improved_config()
     
     player_service = get_player_service(team_id=team_id)
     team_service = get_team_service(team_id=team_id)

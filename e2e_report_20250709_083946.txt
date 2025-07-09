@@ -1,0 +1,119 @@
+2025-07-09 08:39:46,641 - __main__ - INFO - 🧪 KICKAI E2E Test Runner
+2025-07-09 08:39:46,642 - __main__ - INFO - 📋 Available suites: chat_id_validation, player_registration, match_management, payment_processing, natural_language, admin_operations, comprehensive, smoke
+2025-07-09 08:39:46,642 - __main__ - INFO - 🚀 Starting test suite: comprehensive
+2025-07-09 08:39:46,642 - __main__ - INFO - 🔍 Validating environment configuration...
+2025-07-09 08:39:46,642 - __main__ - INFO - ✅ TELEGRAM_BOT_TOKEN: 76933590...NYsM
+2025-07-09 08:39:46,642 - __main__ - INFO - ✅ TELEGRAM_API_ID: 23493061
+2025-07-09 08:39:46,642 - __main__ - INFO - ✅ TELEGRAM_API_HASH: bd2e45dd...e6a5
+2025-07-09 08:39:46,642 - __main__ - INFO - ✅ ADMIN_SESSION_STRING: 1BJWap1s...vvY=
+2025-07-09 08:39:46,642 - __main__ - INFO - ✅ TELEGRAM_MAIN_CHAT_ID: -4889304885
+2025-07-09 08:39:46,642 - __main__ - INFO - ✅ TELEGRAM_LEADERSHIP_CHAT_ID: -4814449926
+2025-07-09 08:39:46,642 - __main__ - INFO - ✅ DEFAULT_TEAM_ID: KAI
+2025-07-09 08:39:46,642 - __main__ - INFO - ✅ FIREBASE_PROJECT_ID: kickai-954c2
+2025-07-09 08:39:46,642 - __main__ - INFO - ✅ Environment validation passed
+2025-07-09 08:39:46,642 - __main__ - INFO - 📱 Chat Configuration:
+2025-07-09 08:39:46,642 - __main__ - INFO -    Main Chat ID: -4889304885 (KickAI Testing)
+2025-07-09 08:39:46,642 - __main__ - INFO -    Leadership Chat ID: -4814449926 (KickAI Testing - Leadership)
+2025-07-09 08:39:46,642 - __main__ - INFO -    Naming Convention: 'Team Name' for main, 'Team Name - Leadership' for leadership
+2025-07-09 08:39:46,642 - src.core.improved_config_system - INFO - E2E testing detected, loading .env.test
+2025-07-09 08:39:46,643 - src.core.improved_config_system - INFO - Loaded environment variables from .env.test
+2025-07-09 08:39:46,643 - src.core.improved_config_system - INFO - 🔍 EnvironmentConfigurationSource.load_configuration called
+2025-07-09 08:39:46,644 - src.core.improved_config_system - INFO - Loaded configuration from EnvironmentConfigurationSource
+2025-07-09 08:39:46,644 - src.core.improved_config_system - INFO - Loaded configuration from DefaultConfigurationSource
+2025-07-09 08:39:46,644 - src.core.improved_config_system - INFO - 🔍 Merged configuration AI section: {'provider': <AIProvider.OLLAMA: 'ollama'>, 'api_key': 'ollama_local', 'model_name': 'llama3.1:8b-instruct-q4_0', 'temperature': 0.7, 'max_tokens': 1000, 'timeout_seconds': 60, 'source': <ConfigSource.ENVIRONMENT: 'environment'>}
+2025-07-09 08:39:46,644 - src.core.improved_config_system - INFO - Configuration validation passed
+2025-07-09 08:39:46,644 - __main__ - INFO - 📋 Team ID: KAI
+2025-07-09 08:39:46,644 - __main__ - INFO - 🔧 Initializing test components...
+2025-07-09 08:39:46,644 - src.testing.e2e_framework - INFO - ✅ TelegramBotTester initialized
+2025-07-09 08:39:46,706 - src.testing.e2e_framework - INFO - ✅ FirestoreValidator initialized for project kickai-954c2
+2025-07-09 08:39:46,706 - __main__ - INFO - 📱 Starting Telegram tester...
+2025-07-09 08:39:46,706 - telethon.network.mtprotosender - INFO - Connecting to 149.154.167.91:443/TcpFull...
+2025-07-09 08:39:46,738 - telethon.network.mtprotosender - INFO - Connection to 149.154.167.91:443/TcpFull complete!
+2025-07-09 08:39:46,961 - src.testing.e2e_framework - INFO - ✅ Telegram client started
+2025-07-09 08:39:46,961 - __main__ - INFO - ✅ Telegram tester started successfully
+2025-07-09 08:39:46,961 - src.testing.e2e_framework - INFO - ✅ E2ETestRunner initialized
+2025-07-09 08:39:46,961 - src.utils.id_generator - INFO - Generated player ID 'JS' for 'John Smith'
+2025-07-09 08:39:46,962 - src.utils.id_generator - INFO - Generated player ID 'JS1' for 'John Smith'
+2025-07-09 08:39:46,962 - __main__ - INFO - 📋 Loaded 12 tests for suite 'comprehensive'
+2025-07-09 08:39:46,962 - __main__ - INFO -    1. Admin Adds Player
+2025-07-09 08:39:46,962 - __main__ - INFO -    2. Player Completes Registration
+2025-07-09 08:39:46,962 - __main__ - INFO -    3. Query Registration Status
+2025-07-09 08:39:46,962 - __main__ - INFO -    4. Admin Approves Player
+2025-07-09 08:39:46,962 - __main__ - INFO -    5. Match Creation and Management
+2025-07-09 08:39:46,962 - __main__ - INFO -    6. Payment Creation and Management
+2025-07-09 08:39:46,962 - __main__ - INFO -    7. Player Information Queries
+2025-07-09 08:39:46,962 - __main__ - INFO -    8. Team Management Queries
+2025-07-09 08:39:46,962 - __main__ - INFO -    9. Match Information Queries
+2025-07-09 08:39:46,962 - __main__ - INFO -    10. Payment Information Queries
+2025-07-09 08:39:46,962 - __main__ - INFO -    11. Player Management
+2025-07-09 08:39:46,962 - __main__ - INFO -    12. Team Configuration
+2025-07-09 08:39:46,962 - __main__ - INFO - 🧪 Running tests...
+2025-07-09 08:39:46,962 - src.testing.e2e_framework - INFO - 🚀 Starting E2E test suite with 12 tests
+2025-07-09 08:39:46,962 - src.testing.e2e_framework - INFO - 📋 Running test 1/12: command
+2025-07-09 08:39:47,024 - src.testing.e2e_framework - INFO - ✅ Message sent: /add John Smith 07123456789...
+2025-07-09 08:39:47,335 - src.testing.e2e_framework - INFO - ❌ FAIL Test 1: Command + Validation: /add John Smith 07123456789 (0.37s)
+2025-07-09 08:39:47,335 - src.testing.e2e_framework - ERROR -   Error: Document not found
+2025-07-09 08:39:47,335 - src.testing.e2e_framework - INFO - 📋 Running test 2/12: command
+2025-07-09 08:39:47,396 - src.testing.e2e_framework - INFO - ✅ Message sent: /register JS1...
+2025-07-09 08:39:47,511 - src.testing.e2e_framework - INFO - ❌ FAIL Test 2: Command + Validation: /register JS1 (0.18s)
+2025-07-09 08:39:47,512 - src.testing.e2e_framework - ERROR -   Error: Document not found
+2025-07-09 08:39:47,512 - src.testing.e2e_framework - INFO - 📋 Running test 3/12: natural_language
+2025-07-09 08:39:47,562 - src.testing.e2e_framework - INFO - ✅ Message sent: What's my registration status?...
+2025-07-09 08:39:47,608 - src.testing.e2e_framework - INFO - ✅ PASS Test 3: NL: What's my registration status? (0.10s)
+2025-07-09 08:39:47,608 - src.testing.e2e_framework - INFO - 📋 Running test 4/12: command
+2025-07-09 08:39:47,652 - src.testing.e2e_framework - INFO - ✅ Message sent: /approve JS1...
+2025-07-09 08:39:47,761 - src.testing.e2e_framework - INFO - ❌ FAIL Test 4: Command + Validation: /approve JS1 (0.15s)
+2025-07-09 08:39:47,761 - src.testing.e2e_framework - ERROR -   Error: Document not found
+2025-07-09 08:39:47,761 - src.testing.e2e_framework - INFO - 📋 Running test 5/12: user_flow
+2025-07-09 08:39:47,761 - src.testing.e2e_framework - INFO - ✅ PASS Test 5: User Flow: 3 steps (0.00s)
+2025-07-09 08:39:47,761 - src.testing.e2e_framework - INFO - 📋 Running test 6/12: user_flow
+2025-07-09 08:39:47,761 - src.testing.e2e_framework - INFO - ✅ PASS Test 6: User Flow: 2 steps (0.00s)
+2025-07-09 08:39:47,761 - src.testing.e2e_framework - INFO - 📋 Running test 7/12: user_flow
+2025-07-09 08:39:47,761 - src.testing.e2e_framework - INFO - ✅ PASS Test 7: User Flow: 3 steps (0.00s)
+2025-07-09 08:39:47,761 - src.testing.e2e_framework - INFO - 📋 Running test 8/12: user_flow
+2025-07-09 08:39:47,762 - src.testing.e2e_framework - INFO - ✅ PASS Test 8: User Flow: 3 steps (0.00s)
+2025-07-09 08:39:47,762 - src.testing.e2e_framework - INFO - 📋 Running test 9/12: user_flow
+2025-07-09 08:39:47,762 - src.testing.e2e_framework - INFO - ✅ PASS Test 9: User Flow: 3 steps (0.00s)
+2025-07-09 08:39:47,762 - src.testing.e2e_framework - INFO - 📋 Running test 10/12: user_flow
+2025-07-09 08:39:47,762 - src.testing.e2e_framework - INFO - ✅ PASS Test 10: User Flow: 3 steps (0.00s)
+2025-07-09 08:39:47,762 - src.testing.e2e_framework - INFO - 📋 Running test 11/12: user_flow
+2025-07-09 08:39:47,762 - src.testing.e2e_framework - INFO - ✅ PASS Test 11: User Flow: 3 steps (0.00s)
+2025-07-09 08:39:47,762 - src.testing.e2e_framework - INFO - 📋 Running test 12/12: user_flow
+2025-07-09 08:39:47,762 - src.testing.e2e_framework - INFO - ✅ PASS Test 12: User Flow: 2 steps (0.00s)
+2025-07-09 08:39:47,762 - src.testing.e2e_framework - INFO - 🏁 Test suite completed. 9/12 tests passed
+2025-07-09 08:39:47,762 - __main__ - INFO - 
+
+🧪 KICKAI E2E Test Report
+==================================================
+
+📊 Summary:
+• Total Tests: 12
+• Passed: 9 (75.0%)
+• Failed: 3 (25.0%)
+• Average Duration: 0.07s
+
+📋 Test Types:
+• Integration: 3
+• Natural_Language: 1
+• User_Flow: 8
+
+⏱️ Performance:
+• Total Duration: 0.80s
+• Fastest Test: 0.00s
+• Slowest Test: 0.37s
+
+❌ Failed Tests:
+• Command + Validation: /add John Smith 07123456789
+  - Document not found
+• Command + Validation: /register JS1
+  - Document not found
+• Command + Validation: /approve JS1
+  - Document not found
+
+2025-07-09 08:39:47,762 - __main__ - INFO - 📄 Detailed report saved to: e2e_report_comprehensive_20250709_083947.html
+2025-07-09 08:39:47,762 - __main__ - ERROR - ❌ 3 tests failed
+2025-07-09 08:39:47,762 - __main__ - INFO - 🧹 Cleaning up...
+2025-07-09 08:39:47,763 - telethon.network.mtprotosender - INFO - Disconnecting from 149.154.167.91:443/TcpFull...
+2025-07-09 08:39:47,763 - telethon.network.mtprotosender - INFO - Disconnection from 149.154.167.91:443/TcpFull complete!
+2025-07-09 08:39:47,764 - src.testing.e2e_framework - INFO - ✅ Telegram client stopped
+2025-07-09 08:39:47,764 - __main__ - INFO - ✅ Cleanup completed

@@ -1,0 +1,25 @@
+2025-07-09 17:49:30,704 - __main__ - INFO - 🧪 KICKAI E2E Test Runner
+2025-07-09 17:49:30,704 - __main__ - INFO - 📋 Available suites: chat_id_validation, player_registration, match_management, payment_processing, natural_language, admin_operations, status, error_handling, help_command, comprehensive, smoke
+2025-07-09 17:49:30,704 - __main__ - INFO - 🚀 Starting test suite: help_command
+2025-07-09 17:49:30,704 - __main__ - INFO - 🔍 Validating environment configuration...
+2025-07-09 17:49:30,704 - __main__ - INFO - ✅ TELEGRAM_BOT_TOKEN: 76933590...NYsM
+2025-07-09 17:49:30,704 - __main__ - INFO - ✅ TELEGRAM_API_ID: 23493061
+2025-07-09 17:49:30,704 - __main__ - INFO - ✅ TELEGRAM_API_HASH: bd2e45dd...e6a5
+2025-07-09 17:49:30,704 - __main__ - INFO - ✅ ADMIN_SESSION_STRING: 1BJWap1s...vvY=
+2025-07-09 17:49:30,704 - __main__ - INFO - ✅ TELEGRAM_MAIN_CHAT_ID: -4889304885
+2025-07-09 17:49:30,704 - __main__ - INFO - ✅ TELEGRAM_LEADERSHIP_CHAT_ID: -4814449926
+2025-07-09 17:49:30,704 - __main__ - INFO - ✅ DEFAULT_TEAM_ID: KAI
+2025-07-09 17:49:30,704 - __main__ - INFO - ✅ FIREBASE_PROJECT_ID: kickai-954c2
+2025-07-09 17:49:30,704 - __main__ - INFO - ✅ Environment validation passed
+2025-07-09 17:49:30,704 - __main__ - INFO - 📱 Chat Configuration:
+2025-07-09 17:49:30,704 - __main__ - INFO -    Main Chat ID: -4889304885 (KickAI Testing)
+2025-07-09 17:49:30,704 - __main__ - INFO -    Leadership Chat ID: -4814449926 (KickAI Testing - Leadership)
+2025-07-09 17:49:30,704 - __main__ - INFO -    Naming Convention: 'Team Name' for main, 'Team Name - Leadership' for leadership
+2025-07-09 17:49:30,704 - src.core.improved_config_system - INFO - E2E testing detected, loading .env.test
+2025-07-09 17:49:30,705 - src.core.improved_config_system - INFO - Loaded environment variables from .env.test
+2025-07-09 17:49:30,705 - src.core.improved_config_system - INFO - 🔍 EnvironmentConfigurationSource.load_configuration called
+2025-07-09 17:49:30,706 - src.core.improved_config_system - INFO - 🔍 Loading GOOGLE_API_KEY: AIzaSyDymY...
+2025-07-09 17:49:30,706 - src.core.improved_config_system - INFO - Loaded configuration from EnvironmentConfigurationSource
+2025-07-09 17:49:30,706 - src.core.improved_config_system - INFO - Loaded configuration from DefaultConfigurationSource
+2025-07-09 17:49:30,706 - src.core.improved_config_system - INFO - 🔍 Merged configuration AI section: {'provider': <AIProvider.GOOGLE_GEMINI: 'google_gemini'>, 'api_key': 'AIzaSyDymYVYObT-j8Fu8_0xAXUflXzzkC1Ey5s', 'model_name': 'gemini-1.5-flash', 'temperature': 0.7, 'max_tokens': 1000, 'timeout_seconds': 60, 'source': <ConfigSource.ENVIRONMENT: 'environment'>}
+2025-07-09 17:49:30,706 - src.core.improved_config_system - INFO - Configuration validation passed

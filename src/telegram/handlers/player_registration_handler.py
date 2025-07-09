@@ -12,8 +12,9 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
 from src.telegram.improved_command_parser import (
-    parse_command_improved, ParsedCommand, CommandType, get_help_text_improved
+    parse_command_improved, ParsedCommand, CommandType
 )
+from src.telegram.unified_command_system import CommandRegistry, CommandContext, ChatType
 from src.telegram.handlers.base_handler import (
     BaseHandler, HandlerContext, HandlerResult
 )
@@ -43,6 +44,7 @@ class PlayerRegistrationHandler(BaseHandler):
         super().__init__()
         self.player_service = get_player_service()
         self.team_service = get_team_service()
+        self.command_registry = CommandRegistry()
     
     async def handle(self, context: HandlerContext, **kwargs) -> HandlerResult:
         """Handle player registration commands."""
@@ -428,20 +430,30 @@ class PlayerRegistrationHandler(BaseHandler):
     async def _handle_help(self, context: HandlerContext, 
                           parsed_command: ParsedCommand) -> HandlerResult:
         """Handle /help command."""
-        command_name = parsed_command.parameters.get('command')
-        
-        if command_name:
-            # Get help for specific command
-            try:
-                command_type = CommandType(command_name.lower().replace(' ', '_'))
-                help_text = get_help_text_improved(command_type)
-                return HandlerResult.success_result(help_text)
-            except ValueError:
-                return HandlerResult.error_result(f"Unknown command: {command_name}")
+        # Create a CommandContext from HandlerContext
+        command_context = CommandContext(
+            user_id=context.user_id,
+            chat_id=context.chat_id,
+            chat_type=ChatType.MAIN,  # Assuming main chat for player registration handler
+            user_role="player",  # Assuming player role for this handler
+            team_id=context.team_id,
+            message_text=parsed_command.raw_text,
+            username=context.username
+        )
+
+        # Get the HelpCommand instance from the registry
+        help_command_instance = self.command_registry.get_command("/help")
+
+        if not help_command_instance:
+            return HandlerResult.error_result("Help command not found in registry.")
+
+        # Execute the HelpCommand
+        result = await help_command_instance.execute(command_context)
+
+        if result.success:
+            return HandlerResult.success_result(result.message)
         else:
-            # Get general help
-            help_text = get_help_text_improved()
-            return HandlerResult.success_result(help_text)
+            return HandlerResult.error_result(result.message)
     
     async def _handle_start(self, context: HandlerContext, 
                            parsed_command: ParsedCommand) -> HandlerResult:

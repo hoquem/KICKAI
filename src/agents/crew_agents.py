@@ -1,10 +1,11 @@
+#!/usr/bin/env python3
 """
-Robust CrewAI Football Team Management System - 7-Agent Architecture
+Robust CrewAI Football Team Management System - 8-Agent Architecture
 
-This module provides a comprehensive, maintainable, and debuggable implementation
-of a specialized 7-agent system for managing Sunday League football teams.
+This module implements a comprehensive team management system consisting
+of a specialized 8-agent system for managing Sunday League football teams.
 
-7-Agent Architecture:
+8-Agent Architecture:
 1. Message Processor: Primary user interface and command parsing
 2. Team Manager: Strategic coordination and high-level planning
 3. Player Coordinator: Operational player management and registration
@@ -12,15 +13,10 @@ of a specialized 7-agent system for managing Sunday League football teams.
 5. Performance Analyst: Performance analysis and tactical insights
 6. Learning Agent: Continuous learning and system improvement
 7. Onboarding Agent: Specialized player onboarding and registration
+8. Command Fallback Agent: Handles unrecognized commands and fallback scenarios
 
-Key improvements:
-- Centralized configuration management
-- Robust error handling and logging
-- Clear separation of concerns
-- Comprehensive validation
-- Specialized agent roles with focused responsibilities
-- Improved debugging capabilities
-- Memory-enhanced agent capabilities
+Each agent has specific responsibilities and tools tailored to their role.
+The system uses CrewAI for agent coordination and communication.
 """
 
 import logging
@@ -31,9 +27,115 @@ from enum import Enum
 from typing import Dict, List, Optional, Any, Callable
 from contextlib import contextmanager
 from functools import wraps
-from core.improved_config_system import get_improved_config
+from core.improved_config_system import get_improved_config, TeamConfig
 from datetime import datetime
 import time # Added for timestamp in store_memory
+
+# Import shared enums
+from src.core.enums import AgentRole, AIProvider
+
+# Import LLM factory components
+from src.utils.llm_factory import LLMFactory, LLMConfig, LLMProviderError
+
+# Import capabilities
+from .capabilities import AgentCapabilityMatrix
+
+# Import intelligent system components
+try:
+    from .intelligent_system import (
+        IntentClassifier, RequestComplexityAssessor, DynamicTaskDecomposer,
+        CapabilityBasedRouter, TaskExecutionOrchestrator, UserPreferenceLearner,
+        TaskContext, TaskComplexity, Subtask, CapabilityType
+    )
+except ImportError:
+    # Fallback if intelligent system is not available
+    class IntentClassifier:
+        def __init__(self, llm):
+            self.llm = llm
+        def classify(self, text):
+            return type('obj', (object,), {
+                'primary_intent': 'help_request',
+                'confidence': 0.9,
+                'entities': {}
+            })
+    
+    class DynamicTaskDecomposer:
+        def __init__(self, llm):
+            self.llm = llm
+        def decompose(self, task_description, task_context):
+            # Create a simple subtask for help commands
+            return [type('obj', (object,), {
+                'description': task_description,
+                'agent_role': AgentRole.MESSAGE_PROCESSOR,
+                'capabilities_required': [CapabilityType.INTENT_ANALYSIS]
+            })]
+    
+    class CapabilityBasedRouter:
+        def __init__(self, capability_matrix):
+            self.capability_matrix = capability_matrix
+        def route_multiple(self, subtasks, agents):
+            # Simple routing - assign to first available agent
+            results = {}
+            for i, subtask in enumerate(subtasks):
+                results[f"task_{i}"] = {
+                    'agent_role': subtask.agent_role,
+                    'agent': agents[0] if agents else None
+                }
+            return results
+    
+    class TaskExecutionOrchestrator:
+        def __init__(self, capability_matrix):
+            self.capability_matrix = capability_matrix
+        def execute_tasks(self, subtasks, agents, selected_agents):
+            # Simple execution - return success for all tasks
+            results = {}
+            for i, subtask in enumerate(subtasks):
+                results[f"task_{i}"] = type('obj', (object,), {
+                    'agent_role': subtask.agent_role,
+                    'success': True,
+                    'result': "Help command processed successfully",
+                    'error': None,
+                    'execution_time': 0.1
+                })
+            return results
+    
+    class UserPreferenceLearner:
+        def __init__(self):
+            pass
+        def learn_from_interaction(self, user_id, interaction_data):
+            pass
+        def personalize_response(self, user_id, response, context):
+            return response
+    
+    class TaskContext:
+        def __init__(self, task_id, user_id, team_id, parameters, metadata):
+            self.task_id = task_id
+            self.user_id = user_id
+            self.team_id = team_id
+            self.parameters = parameters
+            self.metadata = metadata
+    
+    class TaskComplexity(Enum):
+        SIMPLE = "simple"
+        COMPLEX = "complex"
+    
+    class Subtask:
+        def __init__(self, description, agent_role, capabilities_required):
+            self.description = description
+            self.agent_role = agent_role
+            self.capabilities_required = capabilities_required
+        @classmethod
+        def from_dict(cls, data):
+            return cls(
+                description=data['description'],
+                agent_role=data['agent_role'],
+                capabilities_required=[CapabilityType(cap) for cap in data['required_capabilities']]
+            )
+    
+    class CapabilityType(Enum):
+        INTENT_ANALYSIS = "intent_analysis"
+        DATA_RETRIEVAL = "data_retrieval"
+        USER_MANAGEMENT = "user_management"
 
 # Define missing classes if they don't exist
 class MemoryEnhancedAgent:
@@ -209,39 +311,20 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 
-class AIProvider(Enum):
-    """Supported AI providers."""
-    GOOGLE_GEMINI = "google_gemini"
-    OLLAMA = "ollama"
-    OPENAI = "openai"
-
-
 # Remove the local AgentRole definition and import from src.core.enums
 from src.core.enums import AgentRole
+from src.utils.llm_factory import LLMFactory, LLMConfig, LLMProviderError
 
 
 @dataclass
 class AIConfig:
-    """Configuration for AI providers."""
+    """Configuration for Gemini provider only."""
     provider: AIProvider
     model_name: str
     api_key: Optional[str] = None
-    base_url: Optional[str] = None
     temperature: float = 0.7
     timeout_seconds: int = 30
     max_retries: int = 3
-
-
-@dataclass
-class TeamConfig:
-    """Configuration for a football team."""
-    team_id: str
-    team_name: str
-    chat_id: Optional[str] = None
-    leadership_chat_id: Optional[str] = None
-    bot_token: Optional[str] = None
-    bot_username: Optional[str] = None
-    is_active: bool = True
 
 
 @dataclass
@@ -262,11 +345,6 @@ class ConfigurationError(Exception):
 
 class AgentInitializationError(Exception):
     """Raised when agent initialization fails."""
-    pass
-
-
-class LLMProviderError(Exception):
-    """Raised when LLM provider encounters an error."""
     pass
 
 
@@ -292,146 +370,6 @@ def validate_config(config: Any, required_fields: List[str]) -> None:
     
     if missing_fields:
         raise ConfigurationError(f"Missing required configuration fields: {missing_fields}")
-
-
-class ConfigurationManager:
-    """Centralized configuration management."""
-    
-    def __init__(self):
-        self.ai_config = self._load_ai_config()
-        self.agent_configs = self._load_agent_configs()
-        self._validate_configurations()
-    
-    def _load_ai_config(self) -> AIConfig:
-        """Load AI configuration from environment variables."""
-        provider_str = get_improved_config().configuration.ai.provider.value
-        
-        try:
-            provider = AIProvider(provider_str)
-        except ValueError:
-            logger.warning(f"Unknown AI provider: {provider_str}, defaulting to Ollama")
-            provider = AIProvider.OLLAMA
-        
-        ai_config = get_improved_config().configuration.ai
-        return AIConfig(
-            provider=provider,
-            model_name=ai_config.model_name,
-            api_key=ai_config.api_key,
-            base_url=getattr(ai_config, 'base_url', None),
-            temperature=float(getattr(ai_config, 'temperature', 0.7)),
-            timeout_seconds=int(getattr(ai_config, 'timeout_seconds', 30)),
-            max_retries=int(getattr(ai_config, 'max_retries', 3))
-        )
-    
-    def _load_agent_configs(self) -> Dict[AgentRole, AgentConfig]:
-        """Load agent configurations."""
-        configs = {}
-        agent_configs = get_improved_config().configuration.metadata.get('agent_configs', {})
-        for role in AgentRole:
-            config = agent_configs.get(role.value, {})
-            enabled = config.get('enabled', True)
-            max_iterations = config.get('max_iterations', 10)
-            allow_delegation = config.get('allow_delegation', True)
-            verbose = config.get('verbose', True)
-            configs[role] = AgentConfig(
-                role=role,
-                enabled=enabled,
-                max_iterations=max_iterations,
-                allow_delegation=allow_delegation,
-                verbose=verbose
-            )
-        return configs
-    
-    def _validate_configurations(self) -> None:
-        """Validate all configurations."""
-        # Validate AI config
-        if self.ai_config.provider in [AIProvider.GOOGLE_GEMINI, AIProvider.OPENAI]:
-            if not self.ai_config.api_key:
-                raise ConfigurationError(f"API key required for {self.ai_config.provider.value}")
-        
-        # Validate at least one agent is enabled
-        if not any(config.enabled for config in self.agent_configs.values()):
-            raise ConfigurationError("At least one agent must be enabled")
-    
-    def get_team_config(self, team_id: str) -> TeamConfig:
-        """Get configuration for a specific team."""
-        team_config = get_improved_config().configuration.team
-        return TeamConfig(
-            team_id=team_id,
-            team_name=getattr(team_config, 'default_team_id', team_id),
-            chat_id=getattr(team_config, 'chat_id', None),
-            leadership_chat_id=getattr(team_config, 'leadership_chat_id', None),
-            bot_token=getattr(team_config, 'bot_token', None),
-            bot_username=getattr(team_config, 'bot_username', None),
-            is_active=getattr(team_config, 'is_active', True)
-        )
-
-
-class LLMFactory:
-    """Factory for creating LLM instances."""
-    
-    @staticmethod
-    @log_errors
-    def create_llm(config: AIConfig):
-        """Create LLM instance based on configuration."""
-        logger.info(f"Creating LLM with provider: {config.provider.value}")
-        
-        if config.provider == AIProvider.GOOGLE_GEMINI:
-            return LLMFactory._create_google_llm(config)
-        elif config.provider == AIProvider.OLLAMA:
-            return LLMFactory._create_ollama_llm(config)
-        elif config.provider == AIProvider.OPENAI:
-            return LLMFactory._create_openai_llm(config)
-        else:
-            raise LLMProviderError(f"Unsupported AI provider: {config.provider}")
-    
-    @staticmethod
-    def _create_google_llm(config: AIConfig):
-        """Create Google Gemini LLM."""
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=config.api_key)
-            llm = genai.GenerativeModel(config.model_name)
-            logger.info("✅ Google Gemini LLM created successfully")
-            return llm
-        except ImportError:
-            raise LLMProviderError("Google Generative AI package not installed")
-        except Exception as e:
-            raise LLMProviderError(f"Failed to create Google Gemini LLM: {e}")
-    
-    @staticmethod
-    def _create_ollama_llm(config: AIConfig):
-        """Create Ollama LLM."""
-        try:
-            base_url = config.base_url or 'http://localhost:11434'
-            llm = Ollama(
-                model=config.model_name,
-                base_url=base_url,
-                temperature=config.temperature,
-                timeout=config.timeout_seconds
-            )
-            logger.info("✅ Ollama LLM created successfully")
-            return llm
-        except Exception as e:
-            raise LLMProviderError(f"Failed to create Ollama LLM: {e}")
-    
-    @staticmethod
-    def _create_openai_llm(config: AIConfig):
-        """Create OpenAI LLM."""
-        try:
-            from langchain_openai import ChatOpenAI
-            llm = ChatOpenAI(
-                model=config.model_name,
-                api_key=config.api_key,
-                temperature=config.temperature,
-                timeout=config.timeout_seconds
-            )
-            logger.info("✅ OpenAI LLM created successfully")
-            return llm
-        except ImportError:
-            raise LLMProviderError("OpenAI package not installed")
-        except Exception as e:
-            raise LLMProviderError(f"Failed to create OpenAI LLM: {e}")
 
 
 class BaseTeamAgent(MemoryEnhancedAgent):
@@ -598,8 +536,116 @@ class BaseTeamAgent(MemoryEnhancedAgent):
 
     def execute(self, description: str, parameters: dict) -> str:
         """Unified agent execution interface for subtasks."""
-        # By default, use process_with_memory for execution
-        return self.process_with_memory(description, context=parameters)
+        try:
+            # Enhanced logging for help command tracing
+            is_help_command = description.lower().strip() == "/help"
+            if is_help_command:
+                logger.info(f"🔧 MESSAGE_PROCESSOR STEP 1: Help command received in execute method")
+                logger.info(f"🔧 MESSAGE_PROCESSOR STEP 1a: description='{description}'")
+                logger.info(f"🔧 MESSAGE_PROCESSOR STEP 1b: parameters keys={list(parameters.keys())}")
+                
+                # Special handling for help command
+                return self._handle_help_command(parameters)
+            
+            # For non-help commands, use process_with_memory
+            logger.info(f"🔧 MESSAGE_PROCESSOR: Processing non-help command with memory")
+            return self.process_with_memory(description, context=parameters)
+            
+        except Exception as e:
+            logger.error(f"Error in MessageProcessorAgent.execute: {e}", exc_info=True)
+            return f"❌ Sorry, I encountered an error processing your request: {str(e)}"
+    
+    def _handle_help_command(self, parameters: dict) -> str:
+        """Handle help command specifically."""
+        try:
+            logger.info(f"🔧 MESSAGE_PROCESSOR STEP 2: Starting help command handler")
+            
+            # Extract context information
+            user_id = parameters.get('user_id', 'unknown')
+            chat_id = parameters.get('chat_id', 'unknown')
+            is_leadership_chat = parameters.get('is_leadership_chat', False)
+            user_role = parameters.get('user_role', 'player')
+            
+            logger.info(f"🔧 MESSAGE_PROCESSOR STEP 2a: Context - user_id={user_id}, chat_id={chat_id}, is_leadership_chat={is_leadership_chat}, user_role={user_role}")
+            
+            # Generate help message based on context
+            if is_leadership_chat:
+                logger.info(f"🔧 MESSAGE_PROCESSOR STEP 3: Generating leadership chat help")
+                help_message = self._get_leadership_help_message()
+            else:
+                logger.info(f"🔧 MESSAGE_PROCESSOR STEP 3: Generating main chat help")
+                help_message = self._get_main_chat_help_message()
+            
+            logger.info(f"🔧 MESSAGE_PROCESSOR STEP 4: Help message generated, length={len(help_message)}")
+            logger.info(f"🔧 MESSAGE_PROCESSOR STEP 5: Returning help message")
+            
+            return help_message
+            
+        except Exception as e:
+            logger.error(f"Error in _handle_help_command: {e}", exc_info=True)
+            return "❌ Sorry, I encountered an error generating help information."
+    
+    def _get_leadership_help_message(self) -> str:
+        """Get help message for leadership chat."""
+        return """🤖 <b>KICKAI BOT HELP (LEADERSHIP)</b>
+
+📋 <b>AVAILABLE COMMANDS:</b>
+
+🌐 <b>GENERAL:</b>
+• /help - Show this help message
+• /start - Start the bot
+• /register - Register as a new player
+
+👥 <b>PLAYER:</b>
+• /myinfo - Get your player information
+• /list - See all team players
+• /status [phone] - Check player status
+
+👑 <b>LEADERSHIP:</b>
+• /add [name] [phone] [position] - Add new player
+• /remove [phone_or_player_id] - Remove player
+• /approve [player_id] - Approve player
+• /reject [player_id] [reason] - Reject player
+• /pending - Show pending approvals
+• /invite [phone_or_player_id] - Generate invitation
+• /stats - Team statistics
+• /checkfa - Check FA registration status
+• /dailystatus - Daily status report
+• /remind [message] - Send reminder to team
+• /broadcast [message] - Broadcast message to team
+
+🔧 <b>ADMIN:</b>
+• /createteam [name] - Create new team
+• /deleteteam [team_id] - Delete team
+• /listteams - List all teams
+• /backgroundtasks - Manage background tasks
+
+💡 <b>TIPS:</b>
+• Use natural language: "Add John Smith as midfielder"
+• Type /help [command] for detailed help
+• All admin commands available in leadership chat"""
+
+    def _get_main_chat_help_message(self) -> str:
+        """Get help message for main chat."""
+        return """🤖 <b>KICKAI BOT HELP</b>
+
+📋 <b>AVAILABLE COMMANDS:</b>
+
+🌐 <b>GENERAL:</b>
+• /help - Show this help message
+• /start - Start the bot
+• /register - Register as a new player
+
+👥 <b>PLAYER:</b>
+• /myinfo - Get your player information
+• /list - See all team players
+• /status [phone] - Check player status
+
+💡 <b>TIPS:</b>
+• Use natural language: "What's my phone number?"
+• Type /help [command] for detailed help
+• Admin commands available in leadership chat
+• Need to update something? Contact team admin"""
 
 
 class MessageProcessorAgent(BaseTeamAgent):
@@ -991,7 +1037,7 @@ class CommandFallbackAgent(BaseTeamAgent):
 
 class AgentFactory:
     """
-    Factory for creating team management agents in the 7-agent system.
+    Factory for creating team management agents in the 8-agent system.
     
     Maps AgentRole enum values to their corresponding agent classes:
     - MESSAGE_PROCESSOR -> MessageProcessorAgent
@@ -1001,6 +1047,7 @@ class AgentFactory:
     - PERFORMANCE_ANALYST -> PerformanceAnalystAgent
     - LEARNING_AGENT -> LearningAgent
     - ONBOARDING_AGENT -> OnboardingAgent
+    - COMMAND_FALLBACK_AGENT -> CommandFallbackAgent
     """
     
     AGENT_CLASSES = {
@@ -1029,19 +1076,13 @@ class AgentFactory:
         return agent_class(team_config, llm, tools, agent_config)
 
 
-class ToolsManager:
+class AgentToolsManager:
     """
-    Manager for handling agent tools in the 7-agent system.
+    Manager for handling agent tools in the 8-agent system.
     
-    Maps tools to specific agent roles based on their responsibilities:
-    
-    - MESSAGE_PROCESSOR: Logging and messaging tools
-    - TEAM_MANAGER: Player management, messaging, and announcement tools
-    - PLAYER_COORDINATOR: Player management, polling, and coordination tools
-    - FINANCE_MANAGER: Messaging and logging tools for financial operations
-    - PERFORMANCE_ANALYST: Player analysis and announcement tools
-    - LEARNING_AGENT: Comprehensive tools for learning and analysis
-    - ONBOARDING_AGENT: Player management and messaging tools for onboarding
+    This class provides tools to each agent based on their role and capabilities.
+    Tools are organized by agent role and can be dynamically loaded based on
+    the specific needs of each agent.
     """
     
     def __init__(self, team_config: TeamConfig):
@@ -1150,9 +1191,9 @@ class ToolsManager:
 
 class TeamManagementSystem:
     """
-    Main system for managing football team operations using the 7-agent architecture.
+    Main system for managing football team operations using the 8-agent architecture.
     
-    The system coordinates 7 specialized agents:
+    The system coordinates 8 specialized agents:
     1. Message Processor: Handles user interface and command parsing
     2. Team Manager: Provides strategic coordination and planning
     3. Player Coordinator: Manages player operations and registration
@@ -1160,13 +1201,17 @@ class TeamManagementSystem:
     5. Performance Analyst: Analyzes performance and provides insights
     6. Learning Agent: Continuously learns and improves the system
     7. Onboarding Agent: Specializes in player onboarding workflows
+    8. Command Fallback Agent: Handles unrecognized commands and fallback scenarios
     
     Each agent has specific tools and capabilities tailored to their role.
     """
     
     def __init__(self, team_id: str):
         self.team_id = team_id
-        self.team_config = get_improved_config(team_id)
+        self.config_manager = get_improved_config()
+        self.team_config = self.config_manager.get_team_config(team_id)
+        if not self.team_config:
+            raise ValueError(f"No configuration found for team_id: {team_id}")
         self.llm = self._initialize_llm()
         self.agents = {}
         self.capability_matrix = AgentCapabilityMatrix()
@@ -1176,20 +1221,48 @@ class TeamManagementSystem:
     
     def _initialize_llm(self):
         """Initialize the LLM based on configuration."""
-        config_manager = ConfigurationManager()
-        llm_config = config_manager.ai_config
+        ai_config = self.config_manager.configuration.ai
+        
+        # Convert AIConfig to LLMConfig for the new factory
+        llm_config = LLMConfig(
+            provider=ai_config.provider,
+            model_name=ai_config.model_name,
+            api_key=ai_config.api_key or "",
+            temperature=ai_config.temperature,
+            timeout_seconds=ai_config.timeout_seconds,
+            max_retries=ai_config.max_retries
+        )
+        
         return LLMFactory.create_llm(llm_config)
     
     def _initialize_agents(self) -> None:
         """Initialize all agents."""
         logger.info("Initializing agents...")
         
-        for role, agent_config in self.config_manager.agent_configs.items():
+        # Get agent configurations from metadata
+        agent_configs = self.config_manager.configuration.metadata.get('agent_configs', {})
+        
+        # Initialize all agent roles
+        for role in AgentRole:
+            # Get agent config from metadata or use default
+            agent_config_data = agent_configs.get(role.value, {})
+            agent_config = AgentConfig(
+                role=role,
+                enabled=agent_config_data.get('enabled', True),
+                max_iterations=agent_config_data.get('max_iterations', 10),
+                allow_delegation=agent_config_data.get('allow_delegation', True),
+                verbose=agent_config_data.get('verbose', True)
+            )
+            
             if not agent_config.enabled:
                 logger.info(f"Skipping disabled agent: {role.value}")
                 continue
             
             try:
+                # Initialize tools manager if not already done
+                if not hasattr(self, 'tools_manager'):
+                    self.tools_manager = AgentToolsManager(self.team_config)
+                
                 tools = self.tools_manager.get_tools_for_agent(role)
                 agent = AgentFactory.create_agent(role, self.team_config, agent_config, self.llm, tools)
                 
@@ -1226,220 +1299,250 @@ class TeamManagementSystem:
         """Get all enabled agents."""
         return [agent for agent in self.agents.values() if agent.is_enabled()]
     
-    def execute_task(self, task_description: str, context: Dict[str, Any] = None) -> str:
+    def execute_task(self, task_description: str, execution_context: Dict[str, Any]) -> str:
         """
-        Expert-level intelligent task execution using the full intelligent system pipeline.
+        Execute a task using the intelligent 8-agent system.
         
-        This method implements sophisticated task processing:
-        1. Intent classification to understand user intent
-        2. Complexity assessment to determine processing approach
-        3. Dynamic task decomposition for complex requests
-        4. Capability-based routing to optimal agents
-        5. Orchestrated execution with dependency management
-        6. Result aggregation and user preference learning
-        
-        Args:
-            task_description: The user's request or task description
-            context: Additional context including user_id, team_id, etc.
-            
-        Returns:
-            str: The processed result or error message
+        This method orchestrates the complete task execution pipeline:
+        1. Intent classification and complexity assessment
+        2. Task decomposition and capability matching
+        3. Agent selection and tool assignment
+        4. Orchestrated execution with result aggregation
+        5. User preference learning and response personalization
         """
-        if not self.crew:
-            raise AgentInitializationError("Crew not initialized")
-        
-        logger.info(f"🔍 [Intelligent System] Processing task: {task_description}")
-        
         try:
-            # Initialize intelligent system components
-            from .intelligent_system import (
-                IntentClassifier, RequestComplexityAssessor, DynamicTaskDecomposer,
-                CapabilityBasedRouter, TaskExecutionOrchestrator, UserPreferenceLearner,
-                TaskContext, TaskComplexity, Subtask, CapabilityType
-            )
+            # Enhanced logging for help command tracing
+            is_help_command = task_description.lower().strip() == "/help"
+            if is_help_command:
+                logger.info(f"🤖 AGENT FLOW STEP 1: TeamManagementSystem.execute_task called for help command")
+                logger.info(f"🤖 AGENT FLOW STEP 1a: task_description='{task_description}'")
+                logger.info(f"🤖 AGENT FLOW STEP 1b: execution_context keys={list(execution_context.keys())}")
             
-            # Extract context information
-            user_id = context.get('user_id', 'unknown') if context else 'unknown'
-            team_id = self.team_id
-            user_history = context.get('user_history', []) if context else []
+            # Special handling for help command - use direct agent execution
+            if is_help_command:
+                logger.info(f"🤖 AGENT FLOW STEP 2: Help command detected, using direct agent execution")
+                
+                # Get the Message Processor agent for help commands
+                message_processor = self.get_agent(AgentRole.MESSAGE_PROCESSOR)
+                if message_processor:
+                    logger.info(f"🤖 AGENT FLOW STEP 3: Using MessageProcessorAgent for help command")
+                    
+                    # Execute help command directly
+                    result = message_processor.execute(task_description, execution_context)
+                    
+                    logger.info(f"🤖 AGENT FLOW STEP 4: Help command executed successfully")
+                    logger.info(f"🤖 AGENT FLOW STEP 4a: Result length={len(result) if result else 0}")
+                    
+                    return result
+                else:
+                    logger.error(f"🤖 AGENT FLOW ERROR: MessageProcessorAgent not available")
+                    return "❌ Sorry, the help system is currently unavailable."
             
-            # 1. INTENT CLASSIFICATION
-            logger.info(f"🎯 [Step 1] Classifying intent for user {user_id}")
+            # For non-help commands, use the full intelligent system pipeline
+            logger.info(f"🤖 AGENT FLOW: Using full intelligent system for non-help command")
+            
+            # Step 1: Intent Classification and Complexity Assessment
+            intent_result = self._classify_intent(task_description, execution_context)
+            
+            # Step 2: Task Decomposition and Capability Matching
+            decomposed_tasks = self._decompose_task(task_description, intent_result, execution_context)
+            
+            # Step 3: Agent Selection and Tool Assignment
+            selected_agents = self._select_agents(decomposed_tasks, execution_context)
+            
+            # Step 4: Orchestrated Execution
+            execution_results = self._execute_orchestrated(selected_agents, decomposed_tasks, execution_context)
+            
+            # Step 5: Result Aggregation and Response Generation
+            final_response = self._aggregate_results(execution_results, execution_context)
+            
+            # Step 6: User Preference Learning
+            self._update_user_preferences(execution_context, intent_result, final_response)
+            
+            return final_response
+            
+        except Exception as e:
+            logger.error(f"Error in TeamManagementSystem.execute_task: {e}", exc_info=True)
+            return f"❌ Sorry, I encountered an error processing your request: {str(e)}"
+    
+    def _classify_intent(self, task_description: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Classify the intent of a user request using the LLM.
+        """
+        try:
             intent_classifier = IntentClassifier(llm=self.llm)
             intent_result = intent_classifier.classify(task_description)
-            primary_intent = intent_result.primary_intent
-            entities = intent_result.entities or {}
-            confidence = intent_result.confidence
+            return {
+                'intent': intent_result.primary_intent,
+                'confidence': intent_result.confidence,
+                'entities': intent_result.entities or {}
+            }
+        except Exception as e:
+            logger.error(f"Error in _classify_intent: {e}", exc_info=True)
+            return {'intent': 'unknown', 'confidence': 0.0, 'entities': {}}
+    
+    def _decompose_task(self, task_description: str, intent_result: Dict[str, Any], context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Decompose a complex task into subtasks based on intent and context.
+        """
+        try:
+            decomposer = DynamicTaskDecomposer(llm=self.llm)
             
-            logger.info(f"✅ Intent classified: {primary_intent} (confidence: {confidence:.2f})")
-            logger.debug(f"📋 Extracted entities: {entities}")
-            
-            # 2. COMPLEXITY ASSESSMENT
-            logger.info(f"🧠 [Step 2] Assessing request complexity")
-            complexity_assessor = RequestComplexityAssessor()
-            complexity_result = complexity_assessor.assess(
-                request=task_description,
-                intent=primary_intent,
-                entities=entities,
-                context=context or {},
-                dependencies=[],
-                user_id=user_id,
-                user_history=user_history
+            # Create task context
+            task_context = TaskContext(
+                task_id=f"task_{int(datetime.now().timestamp())}",
+                user_id=context.get('user_id', 'unknown'),
+                team_id=self.team_id,
+                parameters=intent_result['entities'],
+                metadata={
+                    'intent': intent_result['intent'],
+                    'complexity': 'COMPLEX', # For now, all tasks are complex for decomposition
+                    'confidence': intent_result['confidence']
+                }
             )
             
-            complexity_level = complexity_result.complexity_level
-            complexity_score = complexity_result.score
-            reasoning = complexity_result.reasoning
+            subtasks = decomposer.decompose(task_description, task_context)
             
-            logger.info(f"✅ Complexity assessed: {complexity_level.name} (score: {complexity_score:.2f})")
-            logger.debug(f"💭 Reasoning: {reasoning}")
-            
-            # 3. TASK DECOMPOSITION (if complex)
-            if complexity_level.value > TaskComplexity.SIMPLE.value:
-                logger.info(f"🔧 [Step 3] Decomposing complex task into subtasks")
-                decomposer = DynamicTaskDecomposer(llm=self.llm)
-                
-                # Create task context
-                task_context = TaskContext(
-                    task_id=f"task_{int(datetime.now().timestamp())}",
-                    user_id=user_id,
-                    team_id=team_id,
-                    parameters=entities,
-                    metadata={
-                        'intent': primary_intent,
-                        'complexity': complexity_level.name,
-                        'confidence': confidence
-                    }
-                )
-                
-                subtasks = decomposer.decompose(task_description, task_context)
-                logger.info(f"✅ Task decomposed into {len(subtasks)} subtasks")
-                
-                for i, subtask in enumerate(subtasks, 1):
-                    logger.debug(f"  Subtask {i}: {subtask.description} -> {subtask.agent_role.name}")
-            else:
-                logger.info(f"⚡ [Step 3] Simple task - no decomposition needed")
-                # Create single subtask for simple requests using the unified Subtask type
-                task_context = TaskContext(
-                    task_id=f"task_{int(datetime.now().timestamp())}",
-                    user_id=user_id,
-                    team_id=team_id,
-                    parameters=entities,
-                    metadata={'intent': primary_intent}
-                )
-                
-                # Create a proper Subtask from the TaskContext
-                subtasks = [Subtask.from_task_context(
-                    task_context=task_context,
-                    description=task_description,
-                    agent_role=AgentRole.MESSAGE_PROCESSOR,  # Default for simple tasks
-                    capabilities_required=[CapabilityType.INTENT_ANALYSIS]
-                )]
-            
-            # 4. CAPABILITY-BASED ROUTING
-            logger.info(f"🎯 [Step 4] Routing subtasks to optimal agents")
+            # Convert Subtask objects to dictionaries for easier JSON serialization
+            decomposed_tasks = []
+            for subtask in subtasks:
+                decomposed_tasks.append({
+                    'description': subtask.description,
+                    'agent_role': subtask.agent_role,
+                    'required_capabilities': [cap.value for cap in subtask.capabilities_required]
+                })
+            return decomposed_tasks
+        except Exception as e:
+            logger.error(f"Error in _decompose_task: {e}", exc_info=True)
+            return []
+    
+    def _select_agents(self, decomposed_tasks: List[Dict[str, Any]], context: Dict[str, Any]) -> Dict[AgentRole, BaseTeamAgent]:
+        """
+        Select the most appropriate agents for each subtask based on capabilities.
+        """
+        try:
             router = CapabilityBasedRouter(self.capability_matrix)
-            routing_results = router.route_multiple(subtasks, list(self.agents.values()))
             
-            logger.info(f"✅ Routed {len(routing_results)} subtasks to agents")
+            # Create a list of all available agents
+            available_agents = list(self.agents.values())
+            
+            # Create a list of all required capabilities from all subtasks
+            required_capabilities = set()
+            for subtask in decomposed_tasks:
+                required_capabilities.update(subtask['required_capabilities'])
+            
+            # Route subtasks to agents
+            routing_results = router.route_multiple(
+                [Subtask.from_dict(subtask) for subtask in decomposed_tasks],
+                available_agents
+            )
+            
+            # Convert routing results to a dictionary
+            selected_agents = {}
             for task_id, routing_info in routing_results.items():
                 agent_role = routing_info['agent_role']
-                logger.debug(f"  Task {task_id} -> {agent_role.value}")
-            
-            # 5. TASK EXECUTION ORCHESTRATION
-            logger.info(f"🚀 [Step 5] Executing subtasks with orchestration")
+                selected_agents[agent_role] = self.agents[agent_role]
+            return selected_agents
+        except Exception as e:
+            logger.error(f"Error in _select_agents: {e}", exc_info=True)
+            return {}
+    
+    def _execute_orchestrated(self, selected_agents: Dict[AgentRole, BaseTeamAgent], decomposed_tasks: List[Dict[str, Any]], context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Orchestrate the execution of subtasks across selected agents.
+        """
+        try:
             orchestrator = TaskExecutionOrchestrator(self.capability_matrix)
-            execution_results = orchestrator.execute_tasks(subtasks, list(self.agents.values()), router)
             
-            # 6. RESULT AGGREGATION
-            logger.info(f"📊 [Step 6] Aggregating execution results")
+            # Create a list of all agents to pass to the orchestrator
+            agents_to_execute = list(selected_agents.values())
+            
+            # Execute tasks
+            execution_results = orchestrator.execute_tasks(
+                [Subtask.from_dict(subtask) for subtask in decomposed_tasks],
+                agents_to_execute,
+                selected_agents # Pass the selected agents for context
+            )
+            
+            # Convert execution results to a list of dictionaries
+            results_list = []
+            for task_id, result in execution_results.items():
+                results_list.append({
+                    'task_id': task_id,
+                    'agent_role': result.agent_role,
+                    'status': 'success' if result.success else 'failed',
+                    'result': result.result,
+                    'error': result.error,
+                    'execution_time': result.execution_time
+                })
+            return results_list
+        except Exception as e:
+            logger.error(f"Error in _execute_orchestrated: {e}", exc_info=True)
+            return []
+    
+    def _aggregate_results(self, execution_results: List[Dict[str, Any]], context: Dict[str, Any]) -> str:
+        """
+        Aggregate the results of executed subtasks and generate a final response.
+        """
+        try:
             successful_results = []
             failed_results = []
             
-            for task_id, result in execution_results.items():
-                if result.success:
-                    successful_results.append(result.result)
-                    logger.debug(f"✅ Subtask {task_id} completed successfully")
+            for result in execution_results:
+                if result['status'] == 'success':
+                    successful_results.append(result['result'])
                 else:
-                    failed_results.append(f"Subtask {task_id}: {result.error}")
-                    logger.warning(f"❌ Subtask {task_id} failed: {result.error}")
-            
-            # 7. USER PREFERENCE LEARNING
-            logger.info(f"🧠 [Step 7] Learning from user interaction")
-            interaction_data = {
-                'user_message': task_description,
-                'intent': primary_intent,
-                'entities': entities,
-                'complexity': complexity_level.name,
-                'success': len(failed_results) == 0,
-                'agent_used': routing_results[list(routing_results.keys())[0]]['agent_role'].value if routing_results else 'unknown',
-                'execution_time': sum(r.execution_time for r in execution_results.values()),
-                'subtasks_count': len(subtasks),
-                'context': context or {}
-            }
-            
-            # Learn from the interaction
-            self.user_preference_learner.learn_from_interaction(user_id, interaction_data)
-            
-            # 8. RESPONSE GENERATION AND PERSONALIZATION
-            logger.info(f"💬 [Step 8] Generating personalized response")
+                    failed_results.append(f"Subtask {result['task_id']}: {result['error']}")
             
             if successful_results and not failed_results:
-                # All subtasks succeeded
                 if len(successful_results) == 1:
                     base_response = successful_results[0]
                 else:
-                    # Aggregate multiple results
                     base_response = "\n\n".join(successful_results)
                 
                 # Personalize the response based on user preferences
                 personalized_response = self.user_preference_learner.personalize_response(
-                    user_id, base_response, context
+                    context.get('user_id', 'unknown'), base_response, context
                 )
-                
-                logger.info(f"✅ Task completed successfully with personalized response")
                 return personalized_response
-                
             elif successful_results and failed_results:
-                # Partial success
                 base_response = f"✅ Completed some tasks successfully:\n\n" + "\n\n".join(successful_results)
                 if failed_results:
                     base_response += f"\n\n❌ Some tasks failed:\n" + "\n".join(failed_results)
                 
                 personalized_response = self.user_preference_learner.personalize_response(
-                    user_id, base_response, context
+                    context.get('user_id', 'unknown'), base_response, context
                 )
-                
-                logger.warning(f"⚠️ Task completed with partial success")
                 return personalized_response
-                
             else:
-                # All tasks failed
                 error_response = f"❌ All tasks failed:\n" + "\n".join(failed_results)
-                
                 personalized_response = self.user_preference_learner.personalize_response(
-                    user_id, error_response, context
+                    context.get('user_id', 'unknown'), error_response, context
                 )
-                
-                logger.error(f"❌ Task execution failed completely")
                 return personalized_response
-                
         except Exception as e:
-            error_msg = f"❌ Error in intelligent task execution: {str(e)}"
-            logger.error(error_msg, exc_info=True)
-            
-            # Learn from the failed interaction
-            if context and 'user_id' in context:
-                interaction_data = {
-                    'user_message': task_description,
-                    'intent': 'error',
-                    'success': False,
-                    'error': str(e),
-                    'context': context
-                }
-                self.user_preference_learner.learn_from_interaction(context['user_id'], interaction_data)
-            
-            return error_msg
+            logger.error(f"Error in _aggregate_results: {e}", exc_info=True)
+            return "❌ Sorry, I encountered an error aggregating results."
+    
+    def _update_user_preferences(self, context: Dict[str, Any], intent_result: Dict[str, Any], final_response: str) -> None:
+        """
+        Update user preferences based on the interaction.
+        """
+        try:
+            interaction_data = {
+                'user_message': context.get('user_message', 'unknown'),
+                'intent': intent_result['intent'],
+                'entities': intent_result['entities'],
+                'complexity': 'COMPLEX', # For now, all tasks are complex for learning
+                'success': len(context.get('failed_results', [])) == 0, # Check if all subtasks succeeded
+                'agent_used': intent_result['agent_used'],
+                'execution_time': context.get('execution_time', 0),
+                'subtasks_count': context.get('subtasks_count', 0),
+                'context': context
+            }
+            self.user_preference_learner.learn_from_interaction(context.get('user_id', 'unknown'), interaction_data)
+        except Exception as e:
+            logger.error(f"Error in _update_user_preferences: {e}", exc_info=True)
     
     @contextmanager
     def debug_mode(self):

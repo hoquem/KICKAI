@@ -1,11 +1,45 @@
-# KICKAI - AI-Powered Football Team Management
+# KICKAI - Intelligent Football Team Management Bot
 
-**Status:** ✅ **PRODUCTION READY** - v1.7.0  
-**Deployment:** 🚀 **Live on Railway**  
-**AI Provider:** 🤖 **Google Gemini (Production) / OpenAI**  
-**Architecture:** 🏗️ **7-Agent CrewAI System with Unified Interface**
+**Architecture:** 🏗️ **8-Agent CrewAI System with Unified Interface**
 
-A comprehensive AI-powered football team management system with Telegram bot interface, Firebase backend, and intelligent agent orchestration featuring a refined task execution system.
+A sophisticated Telegram bot for Sunday League football team management, featuring intelligent natural language processing, comprehensive player management, and automated financial tracking.
+
+## 🚀 Key Features
+
+- ✅ **8-agent CrewAI system** with unified execution interface
+- ✅ **Natural language processing** for intuitive user interaction
+- ✅ **Comprehensive player management** with FA registration tracking
+- ✅ **Automated financial tracking** and payment processing
+- ✅ **Multi-team support** with isolated configurations
+- ✅ **Real-time notifications** and status reporting
+- ✅ **Advanced error handling** and system monitoring
+
+## 🏗️ Architecture Overview
+
+KICKAI uses a sophisticated 8-agent CrewAI system with **unified execution interface**:
+
+### 🤖 Agent System
+- **Message Processor**: Handles user interface and command parsing
+- **Team Manager**: Strategic coordination and high-level planning  
+- **Player Coordinator**: Operational player management and registration
+- **Finance Manager**: Financial tracking and payment management
+- **Performance Analyst**: Performance analysis and tactical insights
+- **Learning Agent**: Continuous learning and system improvement
+- **Onboarding Agent**: Specialized player onboarding and registration
+- **Command Fallback Agent**: Handles unrecognized commands and fallback scenarios
+
+### 🏛️ Clean Architecture
+```
+src/
+├── agents/           # CrewAI agent definitions
+│   ├── crew_agents.py     # 8-agent CrewAI definitions with unified interface
+│   └── capabilities.py    # Agent capability definitions
+├── core/             # Core system components
+├── domain/           # Business logic and interfaces
+├── services/         # Service layer implementations
+├── telegram/         # Telegram bot handlers
+└── utils/            # Utility functions and helpers
+```
 
 ## 🎉 **Production Status**
 
@@ -13,7 +47,7 @@ KICKAI is **fully operational** in production with **advanced AI capabilities**:
 - ✅ **Stable Railway deployment** with health monitoring
 - ✅ **Google AI (Gemini) integration** for natural language processing
 - ✅ **Firebase Firestore database** with real-time synchronization
-- ✅ **7-agent CrewAI system** with unified execution interface
+- ✅ **8-agent CrewAI system** with unified execution interface
 - ✅ **Refined TaskExecutionOrchestrator** with robust agent coordination
 - ✅ **Advanced Memory System** with persistent conversation history
 - ✅ **Intelligent Routing System** with LLM-powered agent selection

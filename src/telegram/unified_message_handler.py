@@ -23,7 +23,6 @@ from core.logging_config import (
 )
 
 # Import core components
-from src.services.team_mapping_service import TeamMappingService
 from src.services.command_operations_factory import get_command_operations
 from src.telegram.unified_command_system import is_slash_command, extract_command_name, process_command
 from src.agents.crew_agents import TeamManagementSystem
@@ -43,6 +42,7 @@ class UnifiedMessageHandler:
         # Initialize the intelligent TeamManagementSystem
         # All intelligent system components are now integrated into TeamManagementSystem.execute_task
         self.team_system = TeamManagementSystem(team_id)
+        logger.info(f"🔧 UnifiedMessageHandler initialized for team {team_id}")
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> Optional[str]:
         try:
@@ -54,9 +54,11 @@ class UnifiedMessageHandler:
                 return None
             if not update.effective_user or not update.effective_chat:
                 return "❌ Unable to process message: Missing user or chat information"
+            
             user_id = str(update.effective_user.id)
             chat_id = str(update.effective_chat.id)
             username = update.effective_user.username or "unknown"
+            
             log_context = LogContext(
                 team_id=self.team_id,
                 user_id=user_id,
@@ -64,12 +66,27 @@ class UnifiedMessageHandler:
                 operation="message_processing",
                 component="unified_handler"
             )
+            
+            # Enhanced logging for help command tracing
+            is_help_command = text.lower().strip() == "/help"
+            if is_help_command:
+                logger.info(f"🔍 HELP COMMAND DETECTED - Starting end-to-end trace", context=log_context)
+                logger.info(f"🔍 HELP FLOW STEP 1: Message received from {username} ({user_id}) in {chat_id}", context=log_context)
+            
             logger.info(f"Processing message: {text[:50]}... from {username} ({user_id}) in {chat_id}", context=log_context)
             
             # Check for onboarding response first
+            if is_help_command:
+                logger.info(f"🔍 HELP FLOW STEP 2: Checking for onboarding response", context=log_context)
+            
             onboarding_response = await self._handle_onboarding_response(user_id, text)
             if onboarding_response:
+                if is_help_command:
+                    logger.info(f"🔍 HELP FLOW STEP 2a: Onboarding response found, returning early", context=log_context)
                 return onboarding_response
+            
+            if is_help_command:
+                logger.info(f"🔍 HELP FLOW STEP 3: No onboarding response, preparing execution context", context=log_context)
             
             # Prepare context for intelligent system
             execution_context = {
@@ -83,6 +100,11 @@ class UnifiedMessageHandler:
                 'message_timestamp': message.date.isoformat() if message.date else None
             }
             
+            if is_help_command:
+                logger.info(f"🔍 HELP FLOW STEP 4: Execution context prepared", context=log_context)
+                logger.info(f"🔍 HELP FLOW STEP 4a: user_role={execution_context['user_role']}, is_leadership_chat={execution_context['is_leadership_chat']}", context=log_context)
+                logger.info(f"🔍 HELP FLOW STEP 5: Calling TeamManagementSystem.execute_task", context=log_context)
+            
             # Use the intelligent TeamManagementSystem.execute_task method
             # This now includes the full intelligent system pipeline:
             # 1. Intent classification
@@ -94,6 +116,11 @@ class UnifiedMessageHandler:
             # 7. User preference learning
             # 8. Response personalization
             result = self.team_system.execute_task(text, execution_context)
+            
+            if is_help_command:
+                logger.info(f"🔍 HELP FLOW STEP 6: TeamManagementSystem.execute_task completed", context=log_context)
+                logger.info(f"🔍 HELP FLOW STEP 6a: Result length={len(result) if result else 0}", context=log_context)
+                logger.info(f"🔍 HELP FLOW STEP 7: Returning result to Telegram", context=log_context)
             
             return result
             
@@ -130,25 +157,26 @@ class UnifiedMessageHandler:
             return None
     
     async def _get_user_role(self, user_id: str) -> str:
-        """Get user role for context."""
+        """Get user role for the team."""
         try:
-            from src.services.user_management_factory import get_user_management
-            user_management = get_user_management()
-            return await user_management.get_user_role(user_id, self.team_id)
+            from src.services.team_member_service import get_team_member_service
+            team_member_service = get_team_member_service(self.team_id)
+            member = await team_member_service.get_team_member_by_telegram_id(user_id, self.team_id)
+            if member and member.roles:
+                return member.roles[0]  # Return first role
+            return "player"  # Default role
         except Exception as e:
-            logger.error(f"Error getting user role: {e}",
-                        context=LogContext(team_id=self.team_id, user_id=user_id, operation="get_user_role"), exc_info=e)
-            return 'player'  # Default to player
+            logger.warning(f"Error getting user role for {user_id}: {e}")
+            return "player"  # Default role
     
     async def _is_leadership_chat(self, chat_id: str) -> bool:
         """Check if this is a leadership chat."""
         try:
-            from src.services.user_management_factory import get_user_management
-            user_management = get_user_management()
-            return await user_management.is_leadership_chat(chat_id, self.team_id)
+            from src.services.access_control_service import AccessControlService
+            access_control = AccessControlService()
+            return access_control.is_leadership_chat(chat_id, self.team_id)
         except Exception as e:
-            logger.error(f"Error checking leadership chat: {e}",
-                        context=LogContext(team_id=self.team_id, chat_id=chat_id, operation="check_leadership_chat"), exc_info=e)
+            logger.warning(f"Error checking leadership chat for {chat_id}: {e}")
             return False
 
 
@@ -161,26 +189,22 @@ _unified_handler: Optional[UnifiedMessageHandler] = None
 
 async def _get_team_id_from_context(context: ContextTypes.DEFAULT_TYPE, update: Update) -> str:
     """
-    Get team ID from context using the team mapping service.
+    Get team ID from context using the improved configuration system.
     
     This function uses multiple strategies to determine the correct team ID:
     - Bot token (different bots for different teams)
     - Bot username
     - Chat ID (different chats for different teams)
-    - User context (user's team membership)
     - Default team ID (fallback)
     """
     try:
-        from src.services.team_mapping_service import get_team_mapping_service
-        
-        # Get the team mapping service
-        team_mapping_service = get_team_mapping_service(team_id=None)  # Use default for fallback
+        # Get the improved configuration manager
+        config_manager = get_improved_config()
         
         # Extract context information
         bot_token = None
         bot_username = None
         chat_id = None
-        user_id = None
         
         # Get bot information
         if hasattr(context, 'bot') and hasattr(context.bot, 'token'):
@@ -191,28 +215,25 @@ async def _get_team_id_from_context(context: ContextTypes.DEFAULT_TYPE, update: 
         if update.effective_chat:
             chat_id = str(update.effective_chat.id)
         
-        # Get user information
-        if update.effective_user:
-            user_id = str(update.effective_user.id)
-        
-        # Resolve team ID using the mapping service
-        team_id = team_mapping_service.resolve_team_id(
+        # Resolve team ID using the improved config system
+        team_id = config_manager.resolve_team_id(
             bot_token=bot_token,
             bot_username=bot_username,
-            chat_id=chat_id,
-            user_id=user_id
+            chat_id=chat_id
         )
         
-        logger.debug(f"Resolved team ID: {team_id} (bot: {bot_username}, chat: {chat_id}, user: {user_id})")
+        logger.debug(f"Resolved team ID: {team_id} (bot: {bot_username}, chat: {chat_id})")
         return team_id
         
     except Exception as e:
         logger.error(f"Error getting team ID from context: {e}")
         # Fallback to default team ID
         try:
-            from src.services.team_mapping_service import get_team_mapping_service
-            team_mapping_service = get_team_mapping_service(team_id=None)  # Use default for fallback
-            return team_mapping_service.get_default_team_id() or os.getenv('DEFAULT_TEAM_ID', 'KAI')
+            config_manager = get_improved_config()
+            default_team_config = config_manager.get_default_team_config()
+            if default_team_config:
+                return default_team_config.team_id
+            return os.getenv('DEFAULT_TEAM_ID', 'KAI')
         except:
             return os.getenv('DEFAULT_TEAM_ID', 'KAI')  # Final fallback
 

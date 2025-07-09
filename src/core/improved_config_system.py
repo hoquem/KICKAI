@@ -28,6 +28,9 @@ try:
 except ImportError:
     DOTENV_AVAILABLE = False
 
+import src.core.enums
+from src.core.enums import AIProvider
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,13 +43,6 @@ class Environment(Enum):
     DEVELOPMENT = "development"
     PRODUCTION = "production"
     TESTING = "testing"
-
-
-class AIProvider(Enum):
-    """AI provider types."""
-    GOOGLE_GEMINI = "google_gemini"
-    OLLAMA = "ollama"
-    OPENAI = "openai"
 
 
 class ConfigSource(Enum):
@@ -69,13 +65,14 @@ class DatabaseConfig:
 
 @dataclass
 class AIConfig:
-    """AI configuration."""
+    """AI configuration (Gemini only)."""
     provider: AIProvider
     api_key: str
     model_name: str
     temperature: float = 0.7
     max_tokens: int = 1000
     timeout_seconds: int = 60
+    max_retries: int = 3
     source: ConfigSource = ConfigSource.DEFAULT
 
 
@@ -92,7 +89,27 @@ class TelegramConfig:
 @dataclass
 class TeamConfig:
     """Team configuration."""
+    team_id: str
+    team_name: str
+    bot_token: Optional[str] = None
+    bot_username: Optional[str] = None
+    main_chat_id: Optional[str] = None
+    leadership_chat_id: Optional[str] = None
+    is_active: bool = True
+    description: Optional[str] = None
+    fa_website_url: Optional[str] = None
+    fa_team_url: Optional[str] = None
+    fa_fixtures_url: Optional[str] = None
+    payment_rules: Dict[str, Any] = field(default_factory=dict)
+    budget_limits: Dict[str, Any] = field(default_factory=dict)
+    source: ConfigSource = ConfigSource.DEFAULT
+
+
+@dataclass
+class TeamsConfig:
+    """Multi-team configuration."""
     default_team_id: str = ""
+    teams: Dict[str, TeamConfig] = field(default_factory=dict)
     source: ConfigSource = ConfigSource.DEFAULT
 
 
@@ -166,7 +183,7 @@ class Configuration:
     database: DatabaseConfig
     ai: AIConfig
     telegram: TelegramConfig
-    team: TeamConfig
+    teams: TeamsConfig
     payment: PaymentConfig
     llm: LLMConfig
     advanced_memory: AdvancedMemoryConfig
@@ -200,10 +217,10 @@ class ConfigurationSource(ABC):
 
 
 class EnvironmentConfigurationSource(ConfigurationSource):
-    """Load configuration from environment variables."""
+    """Load configuration from environment variables (Gemini only)."""
     
     def load_configuration(self, environment: Environment) -> Dict[str, Any]:
-        """Load configuration from environment variables."""
+        """Load configuration from environment variables (Gemini only)."""
         print("🔍 DEBUG: EnvironmentConfigurationSource.load_configuration called")
         logger.info("🔍 EnvironmentConfigurationSource.load_configuration called")
         
@@ -222,43 +239,20 @@ class EnvironmentConfigurationSource(ConfigurationSource):
             "source": ConfigSource.ENVIRONMENT
         }
         
-        # AI config
-        provider_str = os.getenv("AI_PROVIDER", "google_gemini").lower()
-        print(f"🔍 DEBUG: AI_PROVIDER from env: {repr(provider_str)}")
-        try:
-            provider = AIProvider(provider_str)
-            print(f"🔍 DEBUG: Provider enum: {provider}")
-        except ValueError:
-            provider = AIProvider.GOOGLE_GEMINI
-            print(f"🔍 DEBUG: Using default provider: {provider}")
-        
-        api_key = ""
-        if provider == AIProvider.GOOGLE_GEMINI:
-            raw_key = os.getenv("GOOGLE_API_KEY", "")
-            print(f"🔍 DEBUG: Raw GOOGLE_API_KEY from os.getenv: {repr(raw_key)}")
-            api_key = raw_key
-            print(f"🔍 DEBUG: GOOGLE_API_KEY loaded: {api_key[:10] if api_key else 'NOT_FOUND'}...")
-            logger.info(f"🔍 Loading GOOGLE_API_KEY: {api_key[:10] if api_key else 'NOT_FOUND'}...")
-        elif provider == AIProvider.OPENAI:
-            api_key = os.getenv("OPENAI_API_KEY", "")
-        elif provider == AIProvider.OLLAMA:
-            api_key = "ollama_local"
-        else:
-            api_key = os.getenv("AI_API_KEY", "")
-        
+        # AI config (Gemini only)
+        api_key = os.getenv("GOOGLE_API_KEY", "")
+        print(f"🔍 DEBUG: Raw GOOGLE_API_KEY from os.getenv: {repr(api_key)}")
+        print(f"🔍 DEBUG: GOOGLE_API_KEY loaded: {api_key[:10] if api_key else 'NOT_FOUND'}...")
+        logger.info(f"🔍 Loading GOOGLE_API_KEY: {api_key[:10] if api_key else 'NOT_FOUND'}...")
         default_model = "gemini-2.0-flash-001"
-        if provider == AIProvider.OLLAMA:
-            default_model = "llama3.1:8b-instruct-q4_0"
-        elif provider == AIProvider.OPENAI:
-            default_model = "gpt-4"
-        
         config["ai"] = {
-            "provider": provider,
+            "provider": AIProvider.GOOGLE_GEMINI,
             "api_key": api_key,
             "model_name": os.getenv("AI_MODEL_NAME", default_model),
             "temperature": float(os.getenv("AI_TEMPERATURE", "0.7")),
             "max_tokens": int(os.getenv("AI_MAX_TOKENS", "1000")),
             "timeout_seconds": int(os.getenv("AI_TIMEOUT", "60")),
+            "max_retries": int(os.getenv("AI_MAX_RETRIES", "3")),
             "source": ConfigSource.ENVIRONMENT
         }
         
@@ -281,9 +275,29 @@ class EnvironmentConfigurationSource(ConfigurationSource):
             "source": ConfigSource.ENVIRONMENT
         }
         
-        # Team config
-        config["team"] = {
-            "default_team_id": os.getenv("DEFAULT_TEAM_ID", ""),
+        # Teams config
+        default_team_id = os.getenv("DEFAULT_TEAM_ID", "")
+        bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+        bot_username = os.getenv("TELEGRAM_BOT_USERNAME", "")
+        main_chat_id = os.getenv("TELEGRAM_MAIN_CHAT_ID", "")
+        leadership_chat_id = os.getenv("TELEGRAM_LEADERSHIP_CHAT_ID", "")
+        
+        teams = {}
+        if default_team_id:
+            teams[default_team_id] = {
+                "team_id": default_team_id,
+                "team_name": default_team_id,
+                "bot_token": bot_token,
+                "bot_username": bot_username,
+                "main_chat_id": main_chat_id,
+                "leadership_chat_id": leadership_chat_id,
+                "is_active": True,
+                "source": ConfigSource.ENVIRONMENT
+            }
+        
+        config["teams"] = {
+            "default_team_id": default_team_id,
+            "teams": teams,
             "source": ConfigSource.ENVIRONMENT
         }
         
@@ -296,7 +310,7 @@ class EnvironmentConfigurationSource(ConfigurationSource):
         
         # LLM config
         config["llm"] = {
-            "provider": os.getenv("LLM_PROVIDER", "google_gemini"),
+            "provider": AIProvider.GOOGLE_GEMINI,
             "model": os.getenv("LLM_MODEL", "gemini-2.0-flash-001"),
             "api_key": os.getenv("LLM_API_KEY", ""),
             "source": ConfigSource.ENVIRONMENT
@@ -409,10 +423,10 @@ class DatabaseConfigurationSource(ConfigurationSource):
 
 
 class DefaultConfigurationSource(ConfigurationSource):
-    """Load default configuration values."""
+    """Load default configuration values (Gemini only)."""
     
     def load_configuration(self, environment: Environment) -> Dict[str, Any]:
-        """Load default configuration."""
+        """Load default configuration (Gemini only)."""
         return {
             "database": {
                 "project_id": "",
@@ -428,6 +442,7 @@ class DefaultConfigurationSource(ConfigurationSource):
                 "temperature": 0.7,
                 "max_tokens": 1000,
                 "timeout_seconds": 60,
+                "max_retries": 3,
                 "source": ConfigSource.DEFAULT
             },
             "telegram": {
@@ -459,6 +474,33 @@ class DefaultConfigurationSource(ConfigurationSource):
                 "max_login_attempts": 5,
                 "password_min_length": 8,
                 "source": ConfigSource.DEFAULT
+            },
+            "teams": {
+                "default_team_id": "",
+                "teams": {},
+                "source": ConfigSource.DEFAULT
+            },
+            "payment": {
+                "collectiv_api_key": "",
+                "collectiv_base_url": "https://api.collectiv.com",
+                "source": ConfigSource.DEFAULT
+            },
+            "llm": {
+                "provider": AIProvider.GOOGLE_GEMINI,
+                "model": "gemini-2.0-flash-001",
+                "api_key": "",
+                "source": ConfigSource.DEFAULT
+            },
+            "advanced_memory": {
+                "enabled": True,
+                "max_short_term_items": 100,
+                "max_long_term_items": 1000,
+                "max_episodic_items": 500,
+                "max_semantic_items": 200,
+                "pattern_learning_enabled": True,
+                "preference_learning_enabled": True,
+                "cleanup_interval_hours": 24,
+                "source": ConfigSource.DEFAULT
             }
         }
     
@@ -483,7 +525,8 @@ class ConfigurationBuilder:
         self._database: Optional[DatabaseConfig] = None
         self._ai: Optional[AIConfig] = None
         self._telegram: Optional[TelegramConfig] = None
-        self._team: Optional[TeamConfig] = None
+        self._teams: Optional[TeamsConfig] = None
+        self._team: Optional[TeamConfig] = None  # Legacy support
         self._payment: Optional[PaymentConfig] = None
         self._llm: Optional[LLMConfig] = None
         self._advanced_memory: Optional[AdvancedMemoryConfig] = None
@@ -512,9 +555,9 @@ class ConfigurationBuilder:
         self._telegram = config
         return self
     
-    def team(self, config: TeamConfig) -> 'ConfigurationBuilder':
-        """Set team configuration."""
-        self._team = config
+    def teams(self, config: TeamsConfig) -> 'ConfigurationBuilder':
+        """Set teams configuration."""
+        self._teams = config
         return self
     
     def payment(self, config: PaymentConfig) -> 'ConfigurationBuilder':
@@ -557,12 +600,24 @@ class ConfigurationBuilder:
         if not self._environment:
             raise ValueError("Environment must be set")
         
+        # Handle teams configuration
+        if self._teams:
+            teams_config = self._teams
+        elif self._team:  # Legacy support
+            # Convert single team to teams config
+            teams_config = TeamsConfig(
+                default_team_id=self._team.team_id,
+                teams={self._team.team_id: self._team}
+            )
+        else:
+            teams_config = TeamsConfig()
+        
         return Configuration(
             environment=self._environment,
             database=self._database or DatabaseConfig(project_id=""),
-            ai=self._ai or AIConfig(provider=AIProvider.GOOGLE_GEMINI, api_key="", model_name=""),
+            ai=self._ai or AIConfig(provider=AIProvider.GOOGLE_GEMINI, api_key="", model_name="", max_retries=3),
             telegram=self._telegram or TelegramConfig(bot_token=""),
-            team=self._team or TeamConfig(),
+            teams=teams_config,
             payment=self._payment or PaymentConfig(),
             llm=self._llm or LLMConfig(provider=AIProvider.GOOGLE_GEMINI, model="", api_key=""),
             advanced_memory=self._advanced_memory or AdvancedMemoryConfig(),
@@ -578,7 +633,7 @@ class ConfigurationBuilder:
 # ============================================================================
 
 class ConfigurationFactory:
-    """Factory for creating configuration objects."""
+    """Factory for creating configuration objects (Gemini only)."""
     
     @staticmethod
     def create_database_config(data: Dict[str, Any]) -> DatabaseConfig:
@@ -593,14 +648,9 @@ class ConfigurationFactory:
     
     @staticmethod
     def create_ai_config(data: Dict[str, Any]) -> AIConfig:
-        """Create AIConfig from dictionary."""
-        provider = data.get("provider", AIProvider.GOOGLE_GEMINI)
-        if isinstance(provider, str):
-            try:
-                provider = AIProvider(provider)
-            except ValueError:
-                provider = AIProvider.GOOGLE_GEMINI
-        
+        """Create AIConfig from dictionary (Gemini only)."""
+        # Always use the enum
+        provider = AIProvider.GOOGLE_GEMINI
         return AIConfig(
             provider=provider,
             api_key=data.get("api_key", ""),
@@ -608,6 +658,7 @@ class ConfigurationFactory:
             temperature=data.get("temperature", 0.7),
             max_tokens=data.get("max_tokens", 1000),
             timeout_seconds=data.get("timeout_seconds", 60),
+            max_retries=data.get("max_retries", 3),
             source=data.get("source", ConfigSource.DEFAULT)
         )
     
@@ -661,7 +712,36 @@ class ConfigurationFactory:
     def create_team_config(data: Dict[str, Any]) -> TeamConfig:
         """Create TeamConfig from dictionary."""
         return TeamConfig(
+            team_id=data.get("team_id", ""),
+            team_name=data.get("team_name", ""),
+            bot_token=data.get("bot_token"),
+            bot_username=data.get("bot_username"),
+            main_chat_id=data.get("main_chat_id"),
+            leadership_chat_id=data.get("leadership_chat_id"),
+            is_active=data.get("is_active", True),
+            description=data.get("description"),
+            fa_website_url=data.get("fa_website_url"),
+            fa_team_url=data.get("fa_team_url"),
+            fa_fixtures_url=data.get("fa_fixtures_url"),
+            payment_rules=data.get("payment_rules", {}),
+            budget_limits=data.get("budget_limits", {}),
+            source=data.get("source", ConfigSource.DEFAULT)
+        )
+    
+    @staticmethod
+    def create_teams_config(data: Dict[str, Any]) -> TeamsConfig:
+        """Create TeamsConfig from dictionary."""
+        teams = {}
+        teams_data = data.get("teams", {})
+        
+        for team_id, team_data in teams_data.items():
+            if isinstance(team_data, dict):
+                team_data["team_id"] = team_id
+                teams[team_id] = ConfigurationFactory.create_team_config(team_data)
+        
+        return TeamsConfig(
             default_team_id=data.get("default_team_id", ""),
+            teams=teams,
             source=data.get("source", ConfigSource.DEFAULT)
         )
     
@@ -677,13 +757,7 @@ class ConfigurationFactory:
     @staticmethod
     def create_llm_config(data: Dict[str, Any]) -> LLMConfig:
         """Create LLMConfig from dictionary."""
-        provider = data.get("provider", AIProvider.GOOGLE_GEMINI)
-        if isinstance(provider, str):
-            try:
-                provider = AIProvider(provider)
-            except ValueError:
-                provider = AIProvider.GOOGLE_GEMINI
-        
+        provider = AIProvider.GOOGLE_GEMINI
         return LLMConfig(
             provider=provider,
             model=data.get("model", "gemini-2.0-flash-001"),
@@ -775,11 +849,6 @@ class AIValidator(ConfigurationValidator):
         if config.environment == Environment.DEVELOPMENT:
             if config.ai.provider == AIProvider.GOOGLE_GEMINI and not config.ai.api_key:
                 errors.append("GOOGLE_API_KEY is required in development environment for Gemini")
-            elif config.ai.provider == AIProvider.OPENAI and not config.ai.api_key:
-                errors.append("OPENAI_API_KEY is required in development environment for OpenAI")
-            elif config.ai.provider == AIProvider.OLLAMA:
-                # OLLAMA doesn't require an API key
-                pass
         
         return self._validate_next(config, errors)
 
@@ -951,7 +1020,7 @@ class ImprovedConfigurationManager:
             except Exception as e:
                 logger.warning(f"Failed to load from {source.__class__.__name__}: {e}")
         
-        # Debug: Log the merged configuration
+        # Debug: Log the merged configuration AI section
         logger.info(f"🔍 Merged configuration AI section: {merged_config.get('ai', {})}")
         
         # Build configuration object
@@ -963,8 +1032,8 @@ class ImprovedConfigurationManager:
             builder.ai(ConfigurationFactory.create_ai_config(merged_config["ai"]))
         if "telegram" in merged_config:
             builder.telegram(ConfigurationFactory.create_telegram_config(merged_config["telegram"]))
-        if "team" in merged_config:
-            builder.team(ConfigurationFactory.create_team_config(merged_config["team"]))
+        if "teams" in merged_config:
+            builder.teams(ConfigurationFactory.create_teams_config(merged_config["teams"]))
         if "payment" in merged_config:
             builder.payment(ConfigurationFactory.create_payment_config(merged_config["payment"]))
         if "llm" in merged_config:
@@ -1037,6 +1106,73 @@ class ImprovedConfigurationManager:
     def is_testing(self) -> bool:
         """Check if in testing environment."""
         return self._environment == Environment.TESTING
+    
+    def get_team_config(self, team_id: str) -> Optional[TeamConfig]:
+        """Get configuration for a specific team."""
+        return self.configuration.teams.teams.get(team_id)
+    
+    def get_default_team_config(self) -> Optional[TeamConfig]:
+        """Get the default team configuration."""
+        default_team_id = self.configuration.teams.default_team_id
+        if default_team_id:
+            return self.get_team_config(default_team_id)
+        return None
+    
+    def get_all_team_configs(self) -> Dict[str, TeamConfig]:
+        """Get all team configurations."""
+        return self.configuration.teams.teams.copy()
+    
+    def add_team_config(self, team_config: TeamConfig) -> None:
+        """Add a new team configuration."""
+        self.configuration.teams.teams[team_config.team_id] = team_config
+        logger.info(f"Added team configuration for team {team_config.team_id}")
+    
+    def remove_team_config(self, team_id: str) -> None:
+        """Remove a team configuration."""
+        if team_id in self.configuration.teams.teams:
+            del self.configuration.teams.teams[team_id]
+            logger.info(f"Removed team configuration for team {team_id}")
+    
+    def resolve_team_id(self, 
+                       bot_token: Optional[str] = None,
+                       bot_username: Optional[str] = None,
+                       chat_id: Optional[str] = None) -> str:
+        """
+        Resolve team ID using multiple strategies.
+        
+        Priority order:
+        1. Bot token (most specific)
+        2. Bot username
+        3. Chat ID
+        4. Default team ID (fallback)
+        """
+        # Try bot token first
+        if bot_token:
+            for team_config in self.configuration.teams.teams.values():
+                if team_config.bot_token == bot_token:
+                    return team_config.team_id
+        
+        # Try bot username
+        if bot_username:
+            for team_config in self.configuration.teams.teams.values():
+                if team_config.bot_username == bot_username:
+                    return team_config.team_id
+        
+        # Try chat ID
+        if chat_id:
+            for team_config in self.configuration.teams.teams.values():
+                if (team_config.main_chat_id == chat_id or 
+                    team_config.leadership_chat_id == chat_id):
+                    return team_config.team_id
+        
+        # Fallback to default
+        if self.configuration.teams.default_team_id:
+            logger.warning(f"No team ID could be resolved, using default: {self.configuration.teams.default_team_id}")
+            return self.configuration.teams.default_team_id
+        
+        # Last resort
+        logger.error("No team ID could be resolved and no default available")
+        raise ValueError("Unable to resolve team ID from any available context")
 
 
 # ============================================================================
