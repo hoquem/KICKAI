@@ -1,5 +1,32 @@
 # KICKAI - AI-Powered Football Team Management
 
+## 📚 Documentation Index
+
+All project documentation is now located in the [docs/](docs/) directory. Here are the most important resources:
+
+- [Project Status](docs/PROJECT_STATUS.md)
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [Refined Capabilities System](docs/REFINED_CAPABILITIES.md)
+- [Behavioral Mixins](docs/BEHAVIORAL_MIXINS.md)
+- [CrewAI Agent System](docs/CREW_ARCHITECTURE.md)
+- [Codebase Index](docs/CODEBASE_INDEX.md)
+- [Testing Guide](docs/E2E_TESTING_GUIDE.md)
+- [Setup Guide](docs/SETUP_GUIDE.md)
+- [Environment Setup](docs/ENVIRONMENT_SETUP.md)
+- [Logging Standards](docs/LOGGING_STANDARDS.md)
+- [Future Enhancements](docs/FUTURE_ENHANCEMENTS.md)
+- [Migration Guide](docs/MIGRATION_GUIDE.md)
+- [Code Hygiene](docs/CODE_HYGIENE.md)
+- [Library Comparison](docs/LIBRARY_COMPARISON.md)
+- [Major Flows](docs/MAJOR_FLOWS.md)
+- [Bot Testing Results](docs/BOT_TESTING_RESULTS.md)
+- [Test Reorganization Summary](docs/TEST_REORGANIZATION_SUMMARY.md)
+- [Command Testing Status](docs/COMMAND_TESTING_STATUS.md)
+
+For a full list of documentation, see the [docs/ directory](docs/).
+
+---
+
 **Status:** ✅ **PRODUCTION READY** - v1.7.0  
 **Deployment:** 🚀 **Live on Railway**  
 **AI Provider:** 🤖 **Google Gemini (Production) / Ollama (Local)**  
@@ -619,3 +646,16 @@ PYTHONPATH=src python run_telegram_bot.py
 ```
 
 This is required for all scripts at the project root to ensure imports work correctly. 
+
+## 🚀 Recent Fixes (June 2024)
+
+- All commands are now async for improved performance and reliability.
+- Enum validation for player positions and onboarding statuses is robust; database cleanup script included.
+- Registration logic improved: `/register` confirms if player ID matches, only shows conflict if not.
+- Player info and registration confirmation now show FA registration and match eligibility status.
+- All bot responses are plain text, no markdown, and consistently formatted.
+- Access control is now chat-based, not role-based.
+- Codebase cleaned up: removed unused code, improved error handling, and ensured code hygiene.
+
+## 📅 Last Updated: June 2024
+**Version:** 1.0.1 

@@ -2,8 +2,8 @@
 Player ID Service (thin wrapper around id_manager in id_generator.py)
 """
 
-from src.utils.id_generator import id_manager
-from src.database.interfaces import DataStoreInterface
+from utils.id_generator import id_manager
+from database.interfaces import DataStoreInterface
 from typing import Optional, Set, Tuple
 
 # Thin wrapper for backward compatibility

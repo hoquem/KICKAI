@@ -365,7 +365,7 @@ def get_daily_status_service(team_id: str = None) -> DailyStatusService:
         player_service=player_service,
         team_service=team_service,
         team_member_service=team_member_service,
-        bot_token=config.telegram.bot_token,
+        bot_token=config.configuration.telegram.bot_token,
         bot_config_manager=bot_config_manager
     )
     

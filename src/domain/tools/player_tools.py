@@ -80,7 +80,7 @@ class PlayerTools(BaseTool):
 
 
 class GetAllPlayersTool(BaseTool):
-    """Tool to get all players for a team."""
+    """Tool to get all players for a team (async-only)."""
     
     name = "get_all_players"
     description = "Get all players for a team"
@@ -101,21 +101,8 @@ class GetAllPlayersTool(BaseTool):
         GetAllPlayersTool.team_id = team_id
         GetAllPlayersTool.command_operations = command_operations
     
-    def _run(self, team_id: str) -> str:
-        """Get all players synchronously."""
-        try:
-            # Use the command operations to get player list
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If we're in an async context, we need to handle this differently
-                return "Async operation not supported in sync context"
-            else:
-                result = loop.run_until_complete(self.command_operations.list_players(team_id))
-                return result
-        except Exception as e:
-            self.logger.error(f"Error getting all players: {e}")
-            return f"Error: {str(e)}"
+    def _run(self, *args, **kwargs):
+        raise NotImplementedError("GetAllPlayersTool is async-only. Use 'await _arun(...)' instead.")
     
     async def _arun(self, team_id: str) -> str:
         """Get all players asynchronously."""
@@ -129,7 +116,7 @@ class GetAllPlayersTool(BaseTool):
 
 
 class GetPlayerByIdTool(BaseTool):
-    """Tool to get a player by ID."""
+    """Tool to get a player by ID (async-only)."""
     
     name = "get_player_by_id"
     description = "Get a player by their ID"
@@ -150,30 +137,12 @@ class GetPlayerByIdTool(BaseTool):
         GetPlayerByIdTool.team_id = team_id
         GetPlayerByIdTool.command_operations = command_operations
     
-    def _run(self, player_id: str, team_id: str) -> str:
-        """Get a player by ID synchronously."""
-        try:
-            # Use the command operations to get player info
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If we're in an async context, we need to handle this differently
-                self.logger.info(f"Getting player by ID: {player_id} for team {team_id}")
-                return f"Player info for {player_id} would be retrieved here"
-            else:
-                # Run in the event loop
-                result = loop.run_until_complete(
-                    self.command_operations.get_player_info(player_id, team_id)
-                )
-                return result
-        except Exception as e:
-            self.logger.error(f"Error getting player by ID: {e}")
-            return f"Error getting player info: {str(e)}"
+    def _run(self, *args, **kwargs):
+        raise NotImplementedError("GetPlayerByIdTool is async-only. Use 'await _arun(...)' instead.")
     
     async def _arun(self, player_id: str, team_id: str) -> str:
         """Get player by ID asynchronously."""
         try:
-            # Use the command operations to get player info
             success, result = await self.command_operations.get_player_info(player_id, team_id)
             if success:
                 return result
@@ -185,7 +154,7 @@ class GetPlayerByIdTool(BaseTool):
 
 
 class GetPendingApprovalsTool(BaseTool):
-    """Tool to get pending player approvals."""
+    """Tool to get pending player approvals (async-only)."""
     
     name = "get_pending_approvals"
     description = "Get list of players pending approval"
@@ -206,25 +175,8 @@ class GetPendingApprovalsTool(BaseTool):
         GetPendingApprovalsTool.team_id = team_id
         GetPendingApprovalsTool.command_operations = command_operations
     
-    def _run(self, team_id: str) -> str:
-        """Get pending approvals synchronously."""
-        try:
-            # Use the command operations to get pending approvals
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If we're in an async context, we need to handle this differently
-                self.logger.info(f"Getting pending approvals for team {team_id}")
-                return f"Pending approvals for team {team_id} would be retrieved here"
-            else:
-                # Run in the event loop
-                result = loop.run_until_complete(
-                    self.command_operations.get_pending_approvals(team_id)
-                )
-                return result
-        except Exception as e:
-            self.logger.error(f"Error getting pending approvals: {e}")
-            return f"Error getting pending approvals: {str(e)}"
+    def _run(self, *args, **kwargs):
+        raise NotImplementedError("GetPendingApprovalsTool is async-only. Use 'await _arun(...)' instead.")
     
     async def _arun(self, team_id: str) -> str:
         """Get pending approvals asynchronously."""
@@ -238,7 +190,7 @@ class GetPendingApprovalsTool(BaseTool):
 
 
 class GetPlayerStatusTool(BaseTool):
-    """Tool to get player status."""
+    """Tool to get player status (async-only)."""
     
     name = "get_player_status"
     description = "Get the status of a player"
@@ -259,30 +211,12 @@ class GetPlayerStatusTool(BaseTool):
         GetPlayerStatusTool.team_id = team_id
         GetPlayerStatusTool.command_operations = command_operations
     
-    def _run(self, player_id: str, team_id: str) -> str:
-        """Get player status synchronously."""
-        try:
-            # Use the command operations to get player status
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If we're in an async context, we need to handle this differently
-                self.logger.info(f"Getting player status for {player_id} in team {team_id}")
-                return f"Player status for {player_id} would be retrieved here"
-            else:
-                # Run in the event loop
-                result = loop.run_until_complete(
-                    self.command_operations.get_player_info(player_id, team_id)
-                )
-                return result
-        except Exception as e:
-            self.logger.error(f"Error getting player status: {e}")
-            return f"Error getting player status: {str(e)}"
+    def _run(self, *args, **kwargs):
+        raise NotImplementedError("GetPlayerStatusTool is async-only. Use 'await _arun(...)' instead.")
     
     async def _arun(self, player_id: str, team_id: str) -> str:
         """Get player status asynchronously."""
         try:
-            # Use the command operations to get player info
             success, result = await self.command_operations.get_player_info(player_id, team_id)
             if success:
                 return result
@@ -290,4 +224,47 @@ class GetPlayerStatusTool(BaseTool):
                 return f"Failed to get player status: {result}"
         except Exception as e:
             self.logger.error(f"Error getting player status: {e}")
+            return f"Error: {str(e)}"
+
+
+class ApprovePlayerInput(PlayerToolsInput):
+    """Input for approving a player."""
+    player_id: str = Field(description="The player ID to approve")
+
+
+class ApprovePlayerTool(BaseTool):
+    """Tool to approve a player (async-only)."""
+    
+    name = "approve_player"
+    description = "Approve a player for the team"
+    args_schema = ApprovePlayerInput
+    
+    # Class-level attributes required by agent system
+    logger: Optional[logging.Logger] = Field(default=None, description="Logger instance")
+    team_id: Optional[str] = Field(default=None, description="Team ID")
+    command_operations: Optional[Any] = Field(default=None, description="Command operations interface")
+    
+    def __init__(self, team_id: str, command_operations: ICommandOperations):
+        super().__init__()
+        self.team_id = team_id
+        self.command_operations = command_operations
+        self.logger = logging.getLogger(__name__)
+        # Set class-level attributes for agent system compatibility
+        ApprovePlayerTool.logger = self.logger
+        ApprovePlayerTool.team_id = team_id
+        ApprovePlayerTool.command_operations = command_operations
+    
+    def _run(self, *args, **kwargs):
+        raise NotImplementedError("ApprovePlayerTool is async-only. Use 'await _arun(...)' instead.")
+    
+    async def _arun(self, player_id: str, team_id: str) -> str:
+        """Approve a player asynchronously."""
+        try:
+            success, result = await self.command_operations.approve_player(player_id, team_id)
+            if success:
+                return result
+            else:
+                return f"Failed to approve player: {result}"
+        except Exception as e:
+            self.logger.error(f"Error approving player: {e}")
             return f"Error: {str(e)}" 

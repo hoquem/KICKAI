@@ -12,13 +12,14 @@ from dataclasses import dataclass
 from datetime import datetime
 import os
 
-from src.core.logging_config import get_logger, LogContext
-from src.core.exceptions import (
+from core.logging_config import get_logger, LogContext
+from core.exceptions import (
     KICKAIError, UserFacingError, SystemError, create_error_context,
     get_error_category, format_error_message, get_user_friendly_message,
     should_notify_admin, is_retryable_error, is_critical_error
 )
-from src.core.improved_config_system import get_improved_config
+from core.improved_config_system import get_improved_config
+from services.telegram_service import get_telegram_service
 
 logger = get_logger(__name__)
 
@@ -179,7 +180,7 @@ class ErrorHandlingService:
         
         try:
             # Import here to avoid circular imports
-            from src.services.telegram_service import get_telegram_service
+            from services.telegram_service import get_telegram_service
             
             telegram_service = get_telegram_service()
             

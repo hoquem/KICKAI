@@ -38,6 +38,43 @@ class PlayerPosition(Enum):
         """Get a human-readable display name for a position."""
         return position.value.title()
 
+    @classmethod
+    def from_string(cls, position_str: str) -> 'PlayerPosition':
+        """Create PlayerPosition from string with case-insensitive matching."""
+        if not position_str:
+            return cls.UTILITY
+        
+        # Normalize the string
+        normalized = position_str.lower().strip()
+        
+        # Try exact match first
+        try:
+            return cls(normalized)
+        except ValueError:
+            pass
+        
+        # Try case-insensitive matching
+        for position in cls:
+            if position.value.lower() == normalized:
+                return position
+        
+        # Try partial matching for common variations
+        if normalized in ['fwd', 'for', 'striker']:
+            return cls.FORWARD
+        elif normalized in ['gk', 'keeper', 'goalie']:
+            return cls.GOALKEEPER
+        elif normalized in ['def', 'defence', 'defense']:
+            return cls.DEFENDER
+        elif normalized in ['mid', 'center']:
+            return cls.MIDFIELDER
+        elif normalized in ['st', 'attack']:
+            return cls.STRIKER
+        elif normalized in ['any', 'all', 'flexible']:
+            return cls.ANY
+        
+        # Default to utility if no match found
+        return cls.UTILITY
+
 
 class PlayerRole(Enum):
     """Player roles in the team."""
@@ -71,6 +108,40 @@ class OnboardingStatus(Enum):
     def is_in_progress(cls, status: 'OnboardingStatus') -> bool:
         """Check if onboarding is in progress."""
         return status in [cls.IN_PROGRESS, cls.PENDING_APPROVAL]
+    
+    @classmethod
+    def from_string(cls, status_str: str) -> 'OnboardingStatus':
+        """Create OnboardingStatus from string with flexible parsing."""
+        if not status_str:
+            return cls.PENDING
+        
+        normalized = status_str.strip().lower()
+        
+        # Try exact match first
+        try:
+            return cls(normalized)
+        except ValueError:
+            pass
+        
+        # Try case-insensitive matching
+        for status in cls:
+            if status.value.lower() == normalized:
+                return status
+        
+        # Try common variations
+        if normalized in ['approved', 'complete', 'done', 'finished']:
+            return cls.COMPLETED
+        elif normalized in ['pending', 'waiting', 'new']:
+            return cls.PENDING
+        elif normalized in ['in_progress', 'progress', 'ongoing', 'active']:
+            return cls.IN_PROGRESS
+        elif normalized in ['pending_approval', 'approval', 'review']:
+            return cls.PENDING_APPROVAL
+        elif normalized in ['failed', 'error', 'rejected']:
+            return cls.FAILED
+        
+        # Default to pending if no match found
+        return cls.PENDING
 
 
 class TeamStatus(Enum):
@@ -437,6 +508,26 @@ class Player(BaseModel, ValidatorMixin):
             return "Pending"
         else:
             return "Unknown"
+    
+    def get_detailed_status(self) -> str:
+        """Get a detailed status string including FA and match eligibility."""
+        base_status = self.get_display_status()
+        
+        # Add FA status
+        if self.fa_registered:
+            fa_status = "🏆 FA Registered"
+        elif self.fa_eligible:
+            fa_status = "⚠️ FA Eligible (Not Registered)"
+        else:
+            fa_status = "❌ FA Not Eligible"
+        
+        # Add match eligibility
+        if self.is_match_eligible():
+            match_status = "✅ Match Eligible"
+        else:
+            match_status = "❌ Not Match Eligible"
+        
+        return f"{base_status} | {fa_status} | {match_status}"
 
     def is_active(self) -> bool:
         """Check if player is active (completed onboarding and approved)."""
@@ -467,15 +558,15 @@ class Player(BaseModel, ValidatorMixin):
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Player':
         """Create player from dictionary."""
-        # Convert enum values back to enum objects
+        # Convert enum values back to enum objects with flexible position parsing
         if 'position' in data and isinstance(data['position'], str):
-            data['position'] = PlayerPosition(data['position'])
+            data['position'] = PlayerPosition.from_string(data['position'])
         
         if 'role' in data and isinstance(data['role'], str):
             data['role'] = PlayerRole(data['role'])
         
         if 'onboarding_status' in data and isinstance(data['onboarding_status'], str):
-            data['onboarding_status'] = OnboardingStatus(data['onboarding_status'])
+            data['onboarding_status'] = OnboardingStatus.from_string(data['onboarding_status'])
         
         # Convert datetime strings back to datetime objects
         datetime_fields = [
@@ -492,6 +583,10 @@ class Player(BaseModel, ValidatorMixin):
     @classmethod
     def create(cls, name: str, phone: str, team_id: str, **kwargs) -> 'Player':
         """Factory method to create a player with validation."""
+        # Handle position with flexible parsing
+        if 'position' in kwargs and isinstance(kwargs['position'], str):
+            kwargs['position'] = PlayerPosition.from_string(kwargs['position'])
+        
         return cls(name=name, phone=phone, team_id=team_id, **kwargs)
 
     def get_display_name(self) -> str:

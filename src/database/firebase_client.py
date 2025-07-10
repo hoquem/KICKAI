@@ -28,6 +28,7 @@ from core.exceptions import (
 )
 from database.models_improved import Player, Team, Match, TeamMember, BotMapping, OnboardingStatus, TeamStatus
 from utils.enum_utils import serialize_enums_for_firestore
+from utils.async_utils import async_retry, async_timeout, async_operation_context, safe_async_call
 
 class FirebaseClient:
     """Robust Firebase client wrapper with connection pooling and error handling."""
@@ -206,54 +207,63 @@ class FirebaseClient:
                                       additional_info={'operation_count': len(operations)})
             return []  # Return empty list on error
     
+    @async_retry(max_attempts=3, delay=1.0)
+    @async_timeout(30.0)
     async def create_document(self, collection: str, data: Dict[str, Any], 
                             document_id: Optional[str] = None) -> str:
         """Create a new document with optional custom document ID."""
-        try:
-            data_serialized = serialize_enums_for_firestore(data)
-            logging.info(f"[Firestore] Creating document in '{collection}' with data: {data_serialized}")
-            doc_ref = self._get_collection(collection).document(document_id) if document_id else self._get_collection(collection).document()
-            doc_ref.set(data_serialized)
-            logging.info(f"[Firestore] Document created: {doc_ref.id}")
-            return doc_ref.id
-        except Exception as e:
-            logging.error(f"[Firestore] Failed to create document in '{collection}': {e}\n{traceback.format_exc()}")
-            self._handle_firebase_error(e, "create_document", additional_info={'collection': collection})
-            return ""
+        async with async_operation_context("create_document", collection=collection, document_id=document_id):
+            try:
+                data_serialized = serialize_enums_for_firestore(data)
+                logging.info(f"[Firestore] Creating document in '{collection}' with data: {data_serialized}")
+                doc_ref = self._get_collection(collection).document(document_id) if document_id else self._get_collection(collection).document()
+                doc_ref.set(data_serialized)
+                logging.info(f"[Firestore] Document created: {doc_ref.id}")
+                return doc_ref.id
+            except Exception as e:
+                logging.error(f"[Firestore] Failed to create document in '{collection}': {e}\n{traceback.format_exc()}")
+                self._handle_firebase_error(e, "create_document", additional_info={'collection': collection})
+                return ""
     
+    @async_retry(max_attempts=3, delay=1.0)
+    @async_timeout(30.0)
     async def get_document(self, collection: str, document_id: str) -> Optional[Dict[str, Any]]:
         """Get a document by ID."""
-        try:
-            doc_ref = self._get_collection(collection).document(document_id)
-            doc = doc_ref.get()
-            
-            if doc is not None and doc.exists:
-                data = doc.to_dict()
-                data['id'] = doc.id
-                return data
-            else:
-                return None
+        async with async_operation_context("get_document", collection=collection, document_id=document_id):
+            try:
+                doc_ref = self._get_collection(collection).document(document_id)
+                doc = doc_ref.get()
                 
-        except Exception as e:
-            self._handle_firebase_error(e, "get_document", 
-                                      entity_id=document_id, additional_info={'collection': collection})
-            return None  # Return None on error
+                if doc is not None and doc.exists:
+                    data = doc.to_dict()
+                    data['id'] = doc.id
+                    return data
+                else:
+                    return None
+                    
+            except Exception as e:
+                self._handle_firebase_error(e, "get_document", 
+                                          entity_id=document_id, additional_info={'collection': collection})
+                return None  # Return None on error
     
+    @async_retry(max_attempts=3, delay=1.0)
+    @async_timeout(30.0)
     async def update_document(self, collection: str, document_id: str, 
                             data: Dict[str, Any]) -> bool:
         """Update an existing document."""
-        try:
-            data_serialized = serialize_enums_for_firestore(data)
-            logging.info(f"[Firestore] Updating document in '{collection}' with ID: {document_id}, data: {data_serialized}")
-            doc_ref = self._get_collection(collection).document(document_id)
-            doc_ref.update(data_serialized)
-            logging.info(f"[Firestore] Document updated: {document_id}")
-            return True
-        except Exception as e:
-            logging.error(f"[Firestore] Failed to update document in '{collection}' (document_id={document_id}): {e}\n{traceback.format_exc()}")
-            self._handle_firebase_error(e, "update_document", 
-                                      entity_id=document_id, additional_info={'collection': collection})
-            return False  # Return False on error
+        async with async_operation_context("update_document", collection=collection, document_id=document_id):
+            try:
+                data_serialized = serialize_enums_for_firestore(data)
+                logging.info(f"[Firestore] Updating document in '{collection}' with ID: {document_id}, data: {data_serialized}")
+                doc_ref = self._get_collection(collection).document(document_id)
+                doc_ref.update(data_serialized)
+                logging.info(f"[Firestore] Document updated: {document_id}")
+                return True
+            except Exception as e:
+                logging.error(f"[Firestore] Failed to update document in '{collection}' (document_id={document_id}): {e}\n{traceback.format_exc()}")
+                self._handle_firebase_error(e, "update_document", 
+                                          entity_id=document_id, additional_info={'collection': collection})
+                return False  # Return False on error
     
     async def delete_document(self, collection: str, document_id: str) -> bool:
         """Delete a document."""
@@ -269,43 +279,46 @@ class FirebaseClient:
                                       entity_id=document_id, additional_info={'collection': collection})
             return False  # Return False on error
     
+    @async_retry(max_attempts=3, delay=1.0)
+    @async_timeout(30.0)
     async def query_documents(self, collection: str, filters: Optional[List[Dict[str, Any]]] = None,
                             order_by: Optional[str] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Query documents with filters and ordering."""
-        try:
-            query = self._get_collection(collection)
-            
-            # Apply filters
-            if filters:
-                for filter_item in filters:
-                    field = filter_item['field']
-                    operator = filter_item['operator']
-                    value = filter_item['value']
-                    query = query.where(field, operator, value)
-            
-            # Apply ordering
-            if order_by:
-                query = query.order_by(order_by)
-            
-            # Apply limit
-            if limit:
-                query = query.limit(limit)
-            
-            # Execute query
-            docs = query.stream()
-            results = []
-            
-            for doc in docs:
-                data = doc.to_dict()
-                data['id'] = doc.id
-                results.append(data)
-            
-            return results
-            
-        except Exception as e:
-            self._handle_firebase_error(e, "query_documents", 
-                                      additional_info={'collection': collection, 'filters': filters})
-            return []  # Return empty list on error
+        async with async_operation_context("query_documents", collection=collection, filters_count=len(filters) if filters else 0):
+            try:
+                query = self._get_collection(collection)
+                
+                # Apply filters
+                if filters:
+                    for filter_item in filters:
+                        field = filter_item['field']
+                        operator = filter_item['operator']
+                        value = filter_item['value']
+                        query = query.where(field, operator, value)
+                
+                # Apply ordering
+                if order_by:
+                    query = query.order_by(order_by)
+                
+                # Apply limit
+                if limit:
+                    query = query.limit(limit)
+                
+                # Execute query
+                docs = query.stream()
+                results = []
+                
+                for doc in docs:
+                    data = doc.to_dict()
+                    data['id'] = doc.id
+                    results.append(data)
+                
+                return results
+                
+            except Exception as e:
+                self._handle_firebase_error(e, "query_documents", 
+                                          additional_info={'collection': collection, 'filters': filters})
+                return []  # Return empty list on error
     
     async def list_collections(self) -> List[str]:
         """List all collections in the database."""
@@ -363,7 +376,13 @@ class FirebaseClient:
         """Get all players for a team."""
         filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
         data_list = await self.query_documents('players', filters)
-        return [Player.from_dict(data) for data in data_list]
+        players = []
+        for data in data_list:
+            try:
+                players.append(Player.from_dict(data))
+            except Exception as e:
+                logging.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}): {e}")
+        return players
     
     async def get_player_by_phone(self, phone: str, team_id: Optional[str] = None) -> Optional[Player]:
         """Get a player by phone number, optionally filtered by team."""
@@ -378,9 +397,11 @@ class FirebaseClient:
             if team_id:
                 filters.append({'field': 'team_id', 'operator': '==', 'value': team_id})
             data_list = await self.query_documents('players', filters, limit=1)
-            if data_list:
-                return Player.from_dict(data_list[0])
-        
+            for data in data_list:
+                try:
+                    return Player.from_dict(data)
+                except Exception as e:
+                    logging.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}): {e}")
         return None
     
     async def get_team_players(self, team_id: str) -> List[Player]:
@@ -394,7 +415,13 @@ class FirebaseClient:
             {'field': 'onboarding_status', 'operator': '==', 'value': status.value}
         ]
         data_list = await self.query_documents('players', filters)
-        return [Player.from_dict(data) for data in data_list]
+        players = []
+        for data in data_list:
+            try:
+                players.append(Player.from_dict(data))
+            except Exception as e:
+                logging.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}): {e}")
+        return players
     
     async def get_all_players(self, team_id: str) -> List[Player]:
         """Get all players for a team (alias for get_players_by_team)."""

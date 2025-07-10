@@ -9,14 +9,14 @@ from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 import logging
 
-from src.core.exceptions import (
+from core.exceptions import (
     TeamError, TeamNotFoundError, TeamValidationError,
     create_error_context
 )
-from src.database.firebase_client import get_firebase_client
-from src.database.models_improved import Team, TeamStatus, TeamMember, BotMapping, ExpenseCategory
-from src.services.expense_service import get_expense_service
-from src.utils.id_generator import generate_team_id
+from database.firebase_client import get_firebase_client
+from database.models_improved import Team, TeamStatus, TeamMember, BotMapping, ExpenseCategory
+from services.expense_service import get_expense_service
+from utils.id_generator import generate_team_id
 from .interfaces.team_service_interface import ITeamService
 
 

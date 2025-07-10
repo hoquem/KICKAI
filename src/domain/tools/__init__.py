@@ -10,7 +10,8 @@ from .player_tools import (
     GetAllPlayersTool,
     GetPlayerByIdTool,
     GetPendingApprovalsTool,
-    GetPlayerStatusTool
+    GetPlayerStatusTool,
+    ApprovePlayerTool
 )
 from .communication_tools import (
     SendMessageTool,
@@ -29,6 +30,7 @@ __all__ = [
     'GetPlayerByIdTool',
     'GetPendingApprovalsTool',
     'GetPlayerStatusTool',
+    'ApprovePlayerTool',
     
     # Communication tools
     'SendMessageTool',

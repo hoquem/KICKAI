@@ -15,8 +15,20 @@ from pathlib import Path
 from collections import defaultdict
 
 # Import our existing components
-from .capabilities import AgentCapabilityMatrix, CapabilityType, AgentRole
-from .crew_agents import AgentRole as CrewAgentRole
+from agents.crew_agents import AgentRole
+
+# Import refined hierarchical capabilities
+from .refined_capabilities import (
+    HierarchicalCapabilityManager, 
+    RefinedCapabilityType, 
+    CapabilityLevel, 
+    CapabilityCategory,
+    get_hierarchical_capability_manager
+)
+
+# Use RefinedCapabilityType as the main capability type
+CapabilityType = RefinedCapabilityType
+AgentCapabilityMatrix = HierarchicalCapabilityManager
 
 logger = logging.getLogger(__name__)
 
@@ -149,37 +161,37 @@ class DynamicTaskDecomposer:
         return {
             'player_registration': {
                 'description': 'Register new player {player_name} with phone {phone}',
-                'capabilities': [CapabilityType.PLAYER_MANAGEMENT, CapabilityType.OPERATIONAL_TASKS],
+                'capabilities': [CapabilityType.PLAYER_ONBOARDING, CapabilityType.USER_REGISTRATION],
                 'agent_role': AgentRole.PLAYER_COORDINATOR,
                 'estimated_duration': 60
             },
             'player_approval': {
                 'description': 'Approve player {player_id} for team participation',
-                'capabilities': [CapabilityType.PLAYER_MANAGEMENT, CapabilityType.DECISION_MAKING],
+                'capabilities': [CapabilityType.PLAYER_APPROVAL_MANAGEMENT, CapabilityType.STRATEGIC_DECISION_MAKING],
                 'agent_role': AgentRole.TEAM_MANAGER,
                 'estimated_duration': 30
             },
             'status_inquiry': {
                 'description': 'Check registration status for user {user_id}',
-                'capabilities': [CapabilityType.PLAYER_MANAGEMENT, CapabilityType.INTENT_ANALYSIS],
+                'capabilities': [CapabilityType.PLAYER_STATUS_TRACKING, CapabilityType.NATURAL_LANGUAGE_UNDERSTANDING],
                 'agent_role': AgentRole.MESSAGE_PROCESSOR,
                 'estimated_duration': 15
             },
             'match_creation': {
                 'description': 'Create new match with details {match_details}',
-                'capabilities': [CapabilityType.STRATEGIC_PLANNING, CapabilityType.COORDINATION],
+                'capabilities': [CapabilityType.STRATEGIC_PLANNING, CapabilityType.MULTI_AGENT_COORDINATION],
                 'agent_role': AgentRole.TEAM_MANAGER,
                 'estimated_duration': 120
             },
             'payment_processing': {
                 'description': 'Process payment for {amount} from {payer}',
-                'capabilities': [CapabilityType.PAYMENT_TRACKING, CapabilityType.FINANCIAL_REPORTING],
+                'capabilities': [CapabilityType.PAYMENT_PROCESSING, CapabilityType.FINANCIAL_RECORD_KEEPING],
                 'agent_role': AgentRole.FINANCE_MANAGER,
                 'estimated_duration': 90
             },
             'performance_analysis': {
                 'description': 'Analyze performance data for {time_period}',
-                'capabilities': [CapabilityType.PERFORMANCE_ANALYSIS, CapabilityType.DATA_ANALYSIS],
+                'capabilities': [CapabilityType.BASIC_ANALYTICS, CapabilityType.DATA_RETRIEVAL],
                 'agent_role': AgentRole.PERFORMANCE_ANALYST,
                 'estimated_duration': 180
             }
@@ -217,22 +229,26 @@ class DynamicTaskDecomposer:
         required_capabilities = []
         task_lower = task.lower()
         
-        # Primary capabilities (must-have, high priority)
+        # Primary capabilities (must-have, high priority) - updated to use refined capabilities
         primary_mappings = {
-            CapabilityType.PLAYER_MANAGEMENT: ['player', 'registration', 'approve', 'status', 'info', 'myinfo'],
+            CapabilityType.PLAYER_ONBOARDING: ['player', 'registration', 'register', 'onboard'],
+            CapabilityType.PLAYER_STATUS_TRACKING: ['status', 'info', 'myinfo', 'check', 'list'],
+            CapabilityType.PLAYER_APPROVAL_MANAGEMENT: ['approve', 'reject', 'approval'],
             CapabilityType.PAYMENT_TRACKING: ['payment', 'pay', 'money', 'fee', 'financial'],
-            CapabilityType.PERFORMANCE_ANALYSIS: ['performance', 'analyze', 'stats', 'data', 'metrics'],
+            CapabilityType.PAYMENT_PROCESSING: ['process', 'payment', 'transaction'],
+            CapabilityType.BASIC_ANALYTICS: ['performance', 'analyze', 'stats', 'data', 'metrics'],
             CapabilityType.STRATEGIC_PLANNING: ['plan', 'strategy', 'match', 'fixture', 'tactical'],
-            CapabilityType.MESSAGING: ['send', 'message', 'notify', 'announce', 'broadcast'],
-            CapabilityType.DECISION_MAKING: ['decide', 'approve', 'reject', 'choose', 'select']
+            CapabilityType.MESSAGE_COMPOSITION: ['send', 'message', 'notify', 'announce', 'broadcast'],
+            CapabilityType.STRATEGIC_DECISION_MAKING: ['decide', 'choose', 'select', 'decision']
         }
         
-        # Secondary capabilities (nice-to-have, lower priority)
+        # Secondary capabilities (nice-to-have, lower priority) - updated to use refined capabilities
         secondary_mappings = {
-            CapabilityType.INTENT_ANALYSIS: ['what', 'how', 'why', 'check', 'query'],
-            CapabilityType.COORDINATION: ['coordinate', 'organize', 'manage', 'arrange'],
+            CapabilityType.NATURAL_LANGUAGE_UNDERSTANDING: ['what', 'how', 'why', 'understand', 'interpret', 'parse'],
+            CapabilityType.MULTI_AGENT_COORDINATION: ['coordinate', 'organize', 'manage', 'arrange'],
             CapabilityType.CONTEXT_MANAGEMENT: ['context', 'history', 'previous', 'last'],
-            CapabilityType.NATURAL_LANGUAGE_UNDERSTANDING: ['understand', 'interpret', 'parse']
+            CapabilityType.DATA_RETRIEVAL: ['get', 'fetch', 'retrieve', 'query'],
+            CapabilityType.ROUTING: ['route', 'direct', 'forward', 'send to']
         }
         
         # Check primary capabilities first
@@ -256,9 +272,9 @@ class DynamicTaskDecomposer:
         # If no capabilities identified, add a default
         if not required_capabilities:
             if 'status' in task_lower or 'info' in task_lower:
-                required_capabilities.append(CapabilityType.PLAYER_MANAGEMENT)
+                required_capabilities.append(CapabilityType.PLAYER_STATUS_TRACKING)
             else:
-                required_capabilities.append(CapabilityType.INTENT_ANALYSIS)
+                required_capabilities.append(CapabilityType.NATURAL_LANGUAGE_UNDERSTANDING)
         
         logger.debug(f"[DynamicTaskDecomposer] Identified capabilities for '{task}': {[cap.value for cap in required_capabilities]}")
         return required_capabilities
@@ -267,50 +283,129 @@ class DynamicTaskDecomposer:
         if not capabilities:
             logger.warning("[DynamicTaskDecomposer] No capabilities provided, defaulting to MESSAGE_PROCESSOR.")
             return AgentRole.MESSAGE_PROCESSOR  # Default fallback
-        agent_scores = {}
+        
+        # Use the refined capabilities system to find best agent
+        capability_matrix = get_hierarchical_capability_manager()
+        best_agent = None
+        best_score = 0.0
+        
+        # Check each agent's capabilities
         for agent_role in AgentRole:
-            score = 0
-            for capability in capabilities:
-                proficiency = self.capability_matrix.get_agent_proficiency(agent_role, capability)
-                score += proficiency
-            agent_scores[agent_role] = score
-        best_agent = max(agent_scores.items(), key=lambda x: x[1])[0]
-        logger.info(f"[DynamicTaskDecomposer] Routing: capabilities={capabilities}, agent_scores={agent_scores}, selected={best_agent}")
+            agent_capabilities = capability_matrix.get_agent_capabilities(agent_role)
+            total_score = 0.0
+            matched_capabilities = 0
+            
+            for required_capability in capabilities:
+                for agent_capability in agent_capabilities:
+                    if agent_capability.capability == required_capability:
+                        total_score += agent_capability.proficiency_level
+                        matched_capabilities += 1
+                        break
+            
+            # Calculate average score for this agent
+            if matched_capabilities > 0:
+                avg_score = total_score / matched_capabilities
+                if avg_score > best_score:
+                    best_score = avg_score
+                    best_agent = agent_role
+        
+        if best_agent is None:
+            logger.warning("[DynamicTaskDecomposer] No suitable agent found, defaulting to MESSAGE_PROCESSOR.")
+            return AgentRole.MESSAGE_PROCESSOR
+        
+        logger.info(f"[DynamicTaskDecomposer] Routing: capabilities={capabilities}, selected={best_agent} (score={best_score:.2f})")
         return best_agent
     
     def _create_llm_decomposition_prompt(self, task: str, context: TaskContext) -> str:
         """Create a structured prompt for LLM-based task decomposition."""
         return f"""
-You are an intelligent task decomposer for a football team management system. 
-Your job is to break down complex user requests into specific, actionable subtasks.
+You are an expert task decomposer for the KICKAI football team management system. Your role is to break down complex user requests into specific, actionable subtasks that can be executed by specialized agents.
 
-Available agents and their primary capabilities:
-- MESSAGE_PROCESSOR: Intent analysis, context management, routing
-- TEAM_MANAGER: Strategic planning, coordination, decision making
-- PLAYER_COORDINATOR: Player management, availability tracking, operational tasks
-- FINANCE_MANAGER: Payment tracking, financial reporting, budget management
-- PERFORMANCE_ANALYST: Performance analysis, tactical insights, data analysis
-- LEARNING_AGENT: Pattern learning, user preference analysis, system improvement
-- ONBOARDING_AGENT: Player onboarding, operational tasks, messaging
-- COMMAND_FALLBACK_AGENT: Natural language understanding, intent analysis, routing
+**SYSTEM CONTEXT:**
+- Team ID: {context.team_id}
+- User ID: {context.user_id}
+- Context Parameters: {context.parameters}
 
-User Request: "{task}"
-User ID: {context.user_id}
-Team ID: {context.team_id}
-Context Parameters: {context.parameters}
+**AVAILABLE AGENTS AND CAPABILITIES:**
 
-Please decompose this request into specific subtasks. For each subtask, provide:
-1. A clear description of what needs to be done
-2. Which agent should handle it
-3. Required capabilities
-4. Any dependencies on other subtasks
-5. Estimated duration in seconds
+1. **MESSAGE_PROCESSOR**: 
+   - Intent analysis and classification
+   - Context management and conversation flow
+   - Agent routing and load balancing
+   - Help system and user guidance
 
-Respond in JSON format:
+2. **TEAM_MANAGER**: 
+   - Strategic planning and coordination
+   - Decision making for team operations
+   - Performance monitoring and improvement
+   - Conflict resolution and team dynamics
+
+3. **PLAYER_COORDINATOR**: 
+   - Player registration and onboarding
+   - Individual player support and queries
+   - Player status tracking and updates
+   - Personal development guidance
+
+4. **FINANCE_MANAGER**: 
+   - Payment tracking and management
+   - Financial reporting and transparency
+   - Budget oversight and planning
+   - Financial query handling
+
+5. **PERFORMANCE_ANALYST**: 
+   - Performance data analysis and interpretation
+   - Statistical insights and trend identification
+   - Tactical recommendations and strategy support
+   - Player development guidance
+
+6. **LEARNING_AGENT**: 
+   - Pattern recognition and learning
+   - User preference analysis and personalization
+   - System performance optimization
+   - Process improvement recommendations
+
+7. **ONBOARDING_AGENT**: 
+   - New player registration guidance
+   - Step-by-step onboarding process
+   - Information validation and confirmation
+   - Team integration support
+
+8. **COMMAND_FALLBACK_AGENT**: 
+   - Unrecognized command handling
+   - Helpful guidance and alternative solutions
+   - Intent recognition from unclear requests
+   - User experience maintenance
+
+**DECOMPOSITION GUIDELINES:**
+
+1. **Task Analysis**: Understand the user's goal and break it into logical steps
+2. **Agent Selection**: Choose the most appropriate agent for each subtask based on capabilities
+3. **Dependency Management**: Identify which subtasks depend on others
+4. **Time Estimation**: Provide realistic duration estimates for each subtask
+5. **Priority Assignment**: Assign priorities (1-5, where 5 is highest) based on importance and dependencies
+
+**VALIDATION CRITERIA:**
+- Each subtask must be specific and actionable
+- Agent assignments must match agent capabilities
+- Dependencies must be logical and necessary
+- Time estimates must be realistic
+- Priorities must reflect task importance and dependencies
+
+**ERROR HANDLING:**
+- If task is unclear, create a single subtask for clarification
+- If multiple agents could handle a task, choose the most specialized one
+- If dependencies are complex, break them into smaller, manageable steps
+- Always provide fallback options for critical tasks
+
+**USER REQUEST:** "{task}"
+
+**RESPONSE FORMAT:**
+Respond with valid JSON only. Do not include any explanatory text outside the JSON structure.
+
 {{
     "subtasks": [
         {{
-            "description": "Clear description of the subtask",
+            "description": "Clear, specific description of what needs to be done",
             "agent_role": "AGENT_ROLE_NAME",
             "capabilities_required": ["CAPABILITY1", "CAPABILITY2"],
             "parameters": {{"key": "value"}},
@@ -320,8 +415,55 @@ Respond in JSON format:
         }}
     ],
     "complexity": "SIMPLE|MODERATE|COMPLEX|VERY_COMPLEX",
-    "reasoning": "Brief explanation of the decomposition strategy"
+    "reasoning": "Brief explanation of the decomposition strategy and agent selection logic"
 }}
+
+**EXAMPLES:**
+
+Example 1 - Simple Request: "What's my payment status?"
+{{
+    "subtasks": [
+        {{
+            "description": "Fetch user's payment records and current status",
+            "agent_role": "FINANCE_MANAGER",
+            "capabilities_required": ["payment_tracking", "financial_query_handling"],
+            "parameters": {{"user_id": "user123"}},
+            "dependencies": [],
+            "estimated_duration": 15,
+            "priority": 5
+        }}
+    ],
+    "complexity": "SIMPLE",
+    "reasoning": "Single subtask handled by Finance Manager who specializes in payment tracking"
+}}
+
+Example 2 - Complex Request: "I want to register a new player and set up their payment plan"
+{{
+    "subtasks": [
+        {{
+            "description": "Guide new player through registration process",
+            "agent_role": "ONBOARDING_AGENT",
+            "capabilities_required": ["player_registration", "onboarding_guidance"],
+            "parameters": {{"registration_type": "new_player"}},
+            "dependencies": [],
+            "estimated_duration": 120,
+            "priority": 5
+        }},
+        {{
+            "description": "Set up payment plan for registered player",
+            "agent_role": "FINANCE_MANAGER",
+            "capabilities_required": ["payment_plan_setup", "financial_planning"],
+            "parameters": {{"plan_type": "new_player"}},
+            "dependencies": ["subtask_1"],
+            "estimated_duration": 45,
+            "priority": 4
+        }}
+    ],
+    "complexity": "MODERATE",
+    "reasoning": "Two sequential subtasks: registration first, then payment setup with dependency"
+}}
+
+Now decompose the user request above following these guidelines and examples.
 """
     
     def decompose(self, task: str, context: TaskContext, _recursion_depth: int = 0) -> List[Subtask]:
@@ -503,26 +645,45 @@ class CapabilityBasedRouter:
     
     def __init__(self, capability_matrix: AgentCapabilityMatrix = None):
         self.capability_matrix = capability_matrix or AgentCapabilityMatrix()
+        self.hierarchical_manager = get_hierarchical_capability_manager()
         self.agent_loads = defaultdict(int)
         self.agent_availability = defaultdict(lambda: True)
         self.routing_history = []
-        logger.info("[CapabilityBasedRouter] Initialized with hierarchical routing strategy")
+        logger.info("[CapabilityBasedRouter] Initialized with hierarchical capability system")
     
     def _calculate_agent_score(self, agent_role: AgentRole, subtask: Subtask) -> float:
-        """Calculate agent score with weighted capability matching."""
+        """Calculate agent score with hierarchical capability matching."""
         score = 0.0
         
-        # Primary capability match (weight: 0.6)
-        primary_capabilities = self.capability_matrix.get_primary_capabilities(agent_role)
-        for cap in subtask.capabilities_required:
-            if cap in [pc.capability for pc in primary_capabilities]:
-                score += 0.6 * self.capability_matrix.get_agent_proficiency(agent_role, cap)
+        # Get agent's hierarchical capabilities
+        agent_capabilities = self.hierarchical_manager.get_agent_capabilities(agent_role)
         
-        # Secondary capability match (weight: 0.3)
-        all_capabilities = self.capability_matrix.get_agent_capabilities(agent_role)
-        for cap in subtask.capabilities_required:
-            if cap in [ac.capability for ac in all_capabilities]:
-                score += 0.3 * self.capability_matrix.get_agent_proficiency(agent_role, cap)
+        # Check capability matches with hierarchical consideration
+        for required_capability in subtask.capabilities_required:
+            # Try to find exact match first
+            exact_match = None
+            for cap_profile in agent_capabilities:
+                if cap_profile.capability.value == required_capability.value:
+                    exact_match = cap_profile
+                    break
+            
+            if exact_match:
+                # Exact match gets full weight
+                score += exact_match.proficiency_level * 0.7  # 70% weight for exact capability match
+                
+                # Bonus for primary capabilities
+                if exact_match.is_primary:
+                    score += 0.1
+                
+                # Bonus for specialized capabilities
+                if exact_match.is_specialized:
+                    score += 0.05
+            else:
+                # Check for hierarchical relationships
+                hierarchical_score = self._calculate_hierarchical_match_score(
+                    agent_capabilities, required_capability
+                )
+                score += hierarchical_score * 0.5  # 50% weight for hierarchical matches
         
         # Load balancing (weight: 0.1)
         load_factor = 1.0 / (1.0 + self.get_agent_load(agent_role))
@@ -530,6 +691,55 @@ class CapabilityBasedRouter:
         
         logger.debug(f"[CapabilityBasedRouter] Agent {agent_role.value} score: {score:.3f} for capabilities {[cap.value for cap in subtask.capabilities_required]}")
         return score
+    
+    def _calculate_hierarchical_match_score(self, agent_capabilities: List, required_capability: CapabilityType) -> float:
+        """Calculate score based on hierarchical capability relationships."""
+        best_score = 0.0
+        
+        # Convert required capability to refined type for comparison
+        try:
+            refined_required = RefinedCapabilityType(required_capability.value)
+        except ValueError:
+            # If conversion fails, return 0
+            return 0.0
+        
+        for cap_profile in agent_capabilities:
+            # Check if this capability is related to the required one
+            related_capabilities = self.hierarchical_manager.get_related_capabilities(cap_profile.capability)
+            
+            if refined_required in related_capabilities:
+                # Calculate relationship strength
+                relationship_score = self._calculate_relationship_strength(
+                    cap_profile.capability, refined_required
+                )
+                score = cap_profile.proficiency_level * relationship_score
+                best_score = max(best_score, score)
+        
+        return best_score
+    
+    def _calculate_relationship_strength(self, agent_capability: RefinedCapabilityType, 
+                                       required_capability: RefinedCapabilityType) -> float:
+        """Calculate the strength of relationship between two capabilities."""
+        hierarchy = self.hierarchical_manager.get_capability_hierarchy(agent_capability)
+        
+        # Direct parent-child relationship
+        if required_capability in hierarchy['children']:
+            return 0.8  # Strong relationship
+        elif required_capability in hierarchy['parents']:
+            return 0.6  # Moderate relationship
+        elif required_capability in hierarchy['siblings']:
+            return 0.4  # Weak relationship
+        elif required_capability in hierarchy['dependencies']:
+            return 0.3  # Dependency relationship
+        
+        # Check if they're in the same category
+        agent_def = self.hierarchical_manager.get_capability_definition(agent_capability)
+        required_def = self.hierarchical_manager.get_capability_definition(required_capability)
+        
+        if agent_def and required_def and agent_def.category == required_def.category:
+            return 0.2  # Same category relationship
+        
+        return 0.0  # No relationship
     
     def _find_available_agents(self, agents: List) -> List:
         """Find available agents from the list."""
@@ -639,25 +849,35 @@ class CapabilityBasedRouter:
             logger.warning("[CapabilityBasedRouter] No available agents for routing")
             return None
         
+        logger.info(f"[CapabilityBasedRouter] Routing subtask: {subtask.description}")
+        logger.info(f"[CapabilityBasedRouter] Required capabilities: {[cap.value for cap in subtask.capabilities_required]}")
+        logger.info(f"[CapabilityBasedRouter] Available agents: {[self._get_agent_role(agent).value for agent in available_agents]}")
+        
         # Tier 1: Exact capability match
         exact_match = self._find_exact_capability_match(subtask, available_agents)
         if exact_match:
             best_agent = exact_match
             routing_tier = "exact_match"
+            logger.info(f"[CapabilityBasedRouter] ✅ Found exact capability match: {self._get_agent_role(best_agent).value}")
         else:
+            logger.info(f"[CapabilityBasedRouter] ⚠️ No exact capability match found")
             # Tier 2: Partial capability match
             partial_match = self._find_partial_capability_match(subtask, available_agents)
             if partial_match:
                 best_agent = partial_match
                 routing_tier = "partial_match"
+                logger.info(f"[CapabilityBasedRouter] ✅ Found partial capability match: {self._get_agent_role(best_agent).value}")
             else:
+                logger.info(f"[CapabilityBasedRouter] ⚠️ No partial capability match found")
                 # Tier 3: Fallback routing
                 fallback_agent = self._find_fallback_agent(subtask, available_agents)
                 if fallback_agent:
                     best_agent = fallback_agent
                     routing_tier = "fallback"
+                    logger.info(f"[CapabilityBasedRouter] ✅ Using fallback agent: {self._get_agent_role(best_agent).value}")
                 else:
-                    logger.error(f"[CapabilityBasedRouter] Failed to route subtask: {subtask.description}")
+                    logger.error(f"[CapabilityBasedRouter] ❌ Failed to route subtask: {subtask.description}")
+                    logger.error(f"[CapabilityBasedRouter] ❌ No agents available for any routing tier")
                     return None
         
         # Update load tracking
@@ -676,7 +896,7 @@ class CapabilityBasedRouter:
         }
         self.routing_history.append(routing_decision)
         
-        logger.info(f"[CapabilityBasedRouter] Routed subtask '{subtask.description}' to {best_role.value} (tier: {routing_tier})")
+        logger.info(f"[CapabilityBasedRouter] ✅ Routed subtask '{subtask.description}' to {best_role.value} (tier: {routing_tier})")
         
         return best_agent
     
@@ -1366,27 +1586,31 @@ class IntentClassifier:
         return best_intent
     
     def _extract_entities(self, text: str) -> Dict[str, Any]:
-        """Extract entities from text."""
-        entities = {}
-        text_lower = text.lower()
+        """Extract entities from text using centralized ID processor."""
+        from utils.id_processor import extract_entities_from_text, IDType
         
-        # Extract phone numbers
-        phone_pattern = r'\b(?:\+?44|0)?[17]\d{9}\b'
-        phone_matches = re.findall(phone_pattern, text)
-        if phone_matches:
-            entities['phone'] = phone_matches[0]
+        # Use centralized ID processor for entity extraction
+        result = extract_entities_from_text(text, [
+            IDType.PLAYER_ID,
+            IDType.PHONE_NUMBER,
+            IDType.EMAIL,
+            IDType.MATCH_ID
+        ])
+        
+        # Convert ProcessedID objects to simple values for backward compatibility
+        entities = {}
+        for entity_name, processed_id in result.entities.items():
+            if processed_id.is_valid:
+                entities[entity_name] = processed_id.normalized_value
+        
+        # Extract additional entities not handled by ID processor
+        text_lower = text.lower()
         
         # Extract player names (simple heuristic)
         name_pattern = r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b'
         name_matches = re.findall(name_pattern, text)
         if len(name_matches) >= 2:  # Likely first and last name
             entities['player_name'] = ' '.join(name_matches[:2])
-        
-        # Extract player IDs
-        id_pattern = r'\b[A-Z]{2,4}\d*\b'
-        id_matches = re.findall(id_pattern, text)
-        if id_matches:
-            entities['player_id'] = id_matches[0]
         
         # Extract amounts
         amount_pattern = r'\b\d+(?:\.\d{2})?\s*(?:pounds?|£|euros?|€|dollars?|\$)\b'
@@ -1405,22 +1629,70 @@ class IntentClassifier:
     def _create_llm_classification_prompt(self, text: str) -> str:
         """Create prompt for LLM-based intent classification."""
         return f"""
-You are an intent classifier for a football team management system. 
-Analyze the following user message and classify their intent.
+You are an expert intent classifier for the KICKAI football team management system. Your role is to accurately classify user messages and extract relevant entities to enable proper routing and handling.
 
-Available intents:
-- player_registration: User wants to register as a player
-- player_approval: User wants to approve a player
-- status_inquiry: User is asking about their status
-- payment_inquiry: User is asking about payments or fees
-- match_inquiry: User is asking about matches or games
-- availability_update: User is updating their availability
-- help_request: User needs help or support
-- general_inquiry: General questions or information requests
+**CLASSIFICATION TASK:**
+Analyze the user message and classify their primary intent, extract relevant entities, and assess context factors.
 
-User message: "{text}"
+**AVAILABLE INTENTS:**
 
-Please respond in JSON format:
+1. **player_registration**: User wants to register as a player or start onboarding process
+   - Keywords: register, join, sign up, new player, onboarding
+   - Examples: "I want to join the team", "/register", "How do I sign up?"
+
+2. **player_approval**: User wants to approve a player (leadership/admin function)
+   - Keywords: approve, accept, approve player, /approve
+   - Examples: "/approve JS1", "Approve John Smith for the team"
+
+3. **status_inquiry**: User is asking about their status or information
+   - Keywords: status, my info, check status, /status, /myinfo
+   - Examples: "/status 07123456789", "What's my status?", "Check my info"
+
+4. **payment_inquiry**: User is asking about payments, fees, or financial matters
+   - Keywords: payment, fee, money, cost, balance, financial
+   - Examples: "How much do I owe?", "Payment status", "What are the fees?"
+
+5. **match_inquiry**: User is asking about matches, games, or scheduling
+   - Keywords: match, game, schedule, when, where, fixture
+   - Examples: "When's the next match?", "Match schedule", "Game details"
+
+6. **availability_update**: User is updating their availability for matches
+   - Keywords: available, can't make it, attending, not coming
+   - Examples: "I can't make the match", "Available for Saturday", "Count me in"
+
+7. **help_request**: User needs help, support, or guidance
+   - Keywords: help, support, how to, what do I do, confused
+   - Examples: "/help", "I need help", "How does this work?"
+
+8. **general_inquiry**: General questions or information requests
+   - Keywords: what, how, when, where, who, general questions
+   - Examples: "What time is training?", "How many players are there?"
+
+**ENTITY EXTRACTION:**
+Extract relevant entities from the message:
+- **player_name**: Full name of a player
+- **phone**: Phone number (UK format: +44 or 07xxx)
+- **player_id**: Player identifier (e.g., JS1, MH2)
+- **amount**: Financial amounts (e.g., £25, 25 pounds)
+- **date**: Dates and times
+- **position**: Football positions (e.g., striker, midfielder, defender)
+
+**CONTEXT ASSESSMENT:**
+- **urgency**: high|medium|low (based on language and content)
+- **complexity**: simple|moderate|complex (based on request complexity)
+
+**CONFIDENCE GUIDELINES:**
+- **0.9-1.0**: Clear, unambiguous intent with strong keyword matches
+- **0.7-0.89**: Good intent match with some ambiguity
+- **0.5-0.69**: Moderate confidence with multiple possible intents
+- **0.3-0.49**: Low confidence, unclear intent
+- **0.1-0.29**: Very low confidence, likely general_inquiry
+
+**USER MESSAGE:** "{text}"
+
+**RESPONSE FORMAT:**
+Respond with valid JSON only. Do not include any explanatory text outside the JSON structure.
+
 {{
     "primary_intent": "intent_name",
     "confidence": 0.95,
@@ -1432,13 +1704,86 @@ Please respond in JSON format:
         "player_name": "John Smith",
         "phone": "+447123456789",
         "player_id": "JS1",
-        "amount": "£25"
+        "amount": "£25",
+        "date": "2024-01-15",
+        "position": "striker"
     }},
     "context": {{
         "urgency": "high|medium|low",
         "complexity": "simple|moderate|complex"
     }}
 }}
+
+**EXAMPLES:**
+
+Example 1: "What's my payment status?"
+{{
+    "primary_intent": "payment_inquiry",
+    "confidence": 0.95,
+    "secondary_intents": [
+        ["status_inquiry", 0.3]
+    ],
+    "entities": {{}},
+    "context": {{
+        "urgency": "medium",
+        "complexity": "simple"
+    }}
+}}
+
+Example 2: "/register John Smith 07123456789 striker"
+{{
+    "primary_intent": "player_registration",
+    "confidence": 0.98,
+    "secondary_intents": [],
+    "entities": {{
+        "player_name": "John Smith",
+        "phone": "07123456789",
+        "position": "striker"
+    }},
+    "context": {{
+        "urgency": "high",
+        "complexity": "simple"
+    }}
+}}
+
+Example 3: "I can't make the match on Saturday, sorry"
+{{
+    "primary_intent": "availability_update",
+    "confidence": 0.92,
+    "secondary_intents": [
+        ["match_inquiry", 0.2]
+    ],
+    "entities": {{
+        "date": "Saturday"
+    }},
+    "context": {{
+        "urgency": "high",
+        "complexity": "simple"
+    }}
+}}
+
+Example 4: "How does this bot work?"
+{{
+    "primary_intent": "help_request",
+    "confidence": 0.85,
+    "secondary_intents": [
+        ["general_inquiry", 0.4]
+    ],
+    "entities": {{}},
+    "context": {{
+        "urgency": "low",
+        "complexity": "simple"
+    }}
+}}
+
+**VALIDATION RULES:**
+- Confidence must be between 0.1 and 1.0
+- Primary intent must be one of the listed intents
+- Secondary intents should only include intents with confidence > 0.2
+- Entities should only be extracted if clearly present in the message
+- Context values must be one of the specified options
+
+Now classify the user message above following these guidelines and examples.
 """
     
     def classify(self, text: str) -> IntentClassification:

@@ -7,9 +7,11 @@ This adapter implements the domain interface by wrapping the application layer s
 import logging
 from typing import Optional
 
-from src.services.player_service import PlayerService
-from src.database.firebase_client import get_firebase_client
-from src.domain.interfaces.player_operations import IPlayerOperations, PlayerInfo
+from services.player_service import PlayerService
+from database.firebase_client import get_firebase_client
+from domain.interfaces.player_operations import IPlayerOperations, PlayerInfo
+from domain.interfaces.player_models import PlayerPosition
+from services.player_service import get_player_service
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +90,6 @@ class PlayerOperationsAdapter(IPlayerOperations):
         """Add a new player to the team."""
         logger.info(f"[PlayerOperationsAdapter] add_player called with name='{name}', phone='{phone}', position='{position}', team_id='{team_id}'")
         try:
-            from src.domain.interfaces.player_models import PlayerPosition
             if not position or position == PlayerPosition.ANY or position == "any":
                 position_enum = PlayerPosition.ANY
             elif isinstance(position, PlayerPosition):
@@ -102,7 +103,6 @@ class PlayerOperationsAdapter(IPlayerOperations):
             else:
                 logger.warning(f"[PlayerOperationsAdapter] Unknown position type '{type(position)}', using ANY")
                 position_enum = PlayerPosition.ANY
-            from src.services.player_service import get_player_service
             player_service = get_player_service(team_id=team_id)
             player = await player_service.create_player(name, phone, team_id, position=position_enum)
             success_message = f"✅ Player {player.name} ({player.player_id}) added successfully!"

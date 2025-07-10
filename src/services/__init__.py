@@ -14,6 +14,8 @@ from .fa_registration_checker import FARegistrationChecker
 from .bot_status_service import BotStatusService
 from .background_tasks import BackgroundTaskManager
 from .monitoring import *
+from .health_check_service import get_health_check_service, HealthCheckService
+from .background_health_monitor import get_background_health_monitor, BackgroundHealthMonitor
 
 __all__ = [
     # Player Service
@@ -48,5 +50,11 @@ __all__ = [
     # Monitoring
     'PerformanceMonitor',
     'SystemMonitor',
-    'AgentMonitor'
+    'AgentMonitor',
+    
+    # Health Check Services
+    'get_health_check_service',
+    'HealthCheckService',
+    'get_background_health_monitor',
+    'BackgroundHealthMonitor'
 ] 

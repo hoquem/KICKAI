@@ -329,6 +329,9 @@ class PlayerService(IPlayerService):
     async def register_player(self, user_id: str, team_id: str, player_id: Optional[str] = None) -> tuple[bool, str]:
         """Register a player (complete onboarding process)."""
         try:
+            # First, check if a player with this Telegram ID already exists
+            existing_player_with_telegram_id = await self.get_player_by_telegram_id(user_id, team_id)
+            
             # Get the player by ID or create a new one
             if player_id:
                 player = await self.get_player(player_id)
@@ -339,10 +342,26 @@ class PlayerService(IPlayerService):
                 # For now, return an error indicating player needs to be created first
                 return False, "Player must be created first using /add command"
             
-            # Update player status to completed onboarding
+            # If a player with this Telegram ID already exists, check if it's the same player
+            if existing_player_with_telegram_id:
+                # Check if the existing player's ID matches the provided player_id
+                if existing_player_with_telegram_id.player_id == player_id:
+                    # Same player, just confirm registration and show details
+                    detailed_status = existing_player_with_telegram_id.get_detailed_status()
+                    return True, f"✅ You are already registered!\n\n👤 Player Details:\n• Name: {existing_player_with_telegram_id.name}\n• Player ID: {existing_player_with_telegram_id.player_id}\n• Phone: {existing_player_with_telegram_id.phone}\n• Position: {existing_player_with_telegram_id.position.value.title()}\n• Status: {detailed_status}"
+                else:
+                    # Different player ID, show conflict message
+                    return False, f"❌ A player with your Telegram ID is already registered in the system.\n\n👤 Player Details:\n• Name: {existing_player_with_telegram_id.name}\n• Player ID: {existing_player_with_telegram_id.player_id}\n• Phone: {existing_player_with_telegram_id.phone}\n\n💡 To complete your registration:\nPlease ask the club admin to remove the existing player record so you can register with your correct player ID.\n\n🔧 Admin Action Required:\nUse `/remove {existing_player_with_telegram_id.player_id}` in the leadership chat.\n\n💡 Please contact the team admin if you believe this is an error."
+            
+            # Check if the player already has a Telegram ID
+            if player.telegram_id and player.telegram_id != user_id:
+                return False, f"❌ Player {player.name} ({player.player_id}) is already registered with a different Telegram account.\n\n💡 Please contact the team admin if you believe this is an error."
+            
+            # Update player status to completed onboarding and link Telegram ID
             update_data = serialize_enums_for_firestore({
                 'onboarding_status': OnboardingStatus.COMPLETED,
                 'onboarding_completed_at': datetime.now().isoformat(),
+                'telegram_id': user_id,
             })
             await self._data_store.update_player(player_id, update_data)
             
@@ -359,10 +378,12 @@ class PlayerService(IPlayerService):
             if not player:
                 return False, f"Player with ID {player_id} not found"
             
-            # Update player to approved status
+            # Update player to approved status - also set onboarding to completed
             update_data = serialize_enums_for_firestore({
                 'admin_approved': True,
                 'admin_approved_at': datetime.now().isoformat(),
+                'onboarding_status': OnboardingStatus.COMPLETED,
+                'onboarding_completed_at': datetime.now().isoformat(),
             })
             await self._data_store.update_player(player_id, update_data)
             
@@ -402,7 +423,7 @@ class PlayerService(IPlayerService):
             
             result = "📋 Players pending approval:\n"
             for player in pending_players:
-                result += f"• {player.name} ({player.player_id}) - {player.phone}\n"
+                result += f"• {player.player_id} - {player.name} ({player.phone})\n"
             
             return result
             
@@ -417,8 +438,9 @@ class PlayerService(IPlayerService):
             if not player:
                 return False, "Player not found. Please register first."
             
-            status = player.get_display_status()
-            return True, f"👤 **{player.name}** ({player.player_id})\n📱 {player.phone}\n🏃 {player.position.value.title()}\n📊 Status: {status}"
+            detailed_status = player.get_detailed_status()
+            # Remove markdown, use plain text formatting
+            return True, f"👤 {player.name} ({player.player_id})\n📱 {player.phone}\n🏃 {player.position.value.title()}\n📊 Status: {detailed_status}"
             
         except Exception as e:
             logging.error(f"Failed to get player info: {e}")
@@ -428,43 +450,49 @@ class PlayerService(IPlayerService):
         """List all players in a team."""
         try:
             players = await self.get_team_players(team_id)
-            
             if not players:
-                return "📋 No players found in the team"
-            
-            result = f"📋 **Team Players** ({len(players)} total)\n\n"
+                return "📋 No players found in the team."
             
             # Group players by status
             active_players = [p for p in players if p.is_active()]
             pending_players = [p for p in players if p.is_pending_approval()]
             injured_players = [p for p in players if p.is_injured]
             suspended_players = [p for p in players if p.is_suspended]
+
+            # Only count players that will be shown
+            total_listed = len(active_players) + len(pending_players) + len(injured_players) + len(suspended_players)
+
+            lines = [f"📋 Team Players ({total_listed} total)"]
             
             if active_players:
-                result += "✅ **Active Players:**\n"
+                lines.append("\n✅ Active Players:")
                 for player in active_players:
-                    result += f"• {player.name} ({player.player_id}) - {player.position.value.title()}\n"
-                result += "\n"
+                    info = f"• {player.player_id} - {player.name}"
+                    if player.position:
+                        info += f" ({player.position.value.title()})"
+                    lines.append(info)
             
             if pending_players:
-                result += "⏳ **Pending Approval:**\n"
+                lines.append("\n⏳ Pending Approval:")
                 for player in pending_players:
-                    result += f"• {player.name} ({player.player_id}) - {player.phone}\n"
-                result += "\n"
+                    info = f"• {player.player_id} - {player.name}"
+                    if player.phone:
+                        info += f" ({player.phone})"
+                    lines.append(info)
             
             if injured_players:
-                result += "🏥 **Injured Players:**\n"
+                lines.append("\n🏥 Injured Players:")
                 for player in injured_players:
-                    result += f"• {player.name} ({player.player_id}) - {player.injury_details or 'No details'}\n"
-                result += "\n"
+                    details = player.injury_details or "No details"
+                    lines.append(f"• {player.player_id} - {player.name} ({details})")
             
             if suspended_players:
-                result += "🚫 **Suspended Players:**\n"
+                lines.append("\n🚫 Suspended Players:")
                 for player in suspended_players:
-                    result += f"• {player.name} ({player.player_id}) - {player.suspension_details or 'No details'}\n"
+                    details = player.suspension_details or "No details"
+                    lines.append(f"• {player.player_id} - {player.name} ({details})")
             
-            return result
-            
+            return "\n".join(lines)
         except Exception as e:
             logging.error(f"Failed to list players: {e}")
             return f"Error listing players: {str(e)}"

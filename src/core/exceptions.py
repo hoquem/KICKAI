@@ -126,6 +126,81 @@ class AgentCapabilityError(AgentError):
     pass
 
 
+# Validation Errors (moved here for inheritance)
+class GeneralValidationError(KICKAIError):
+    """General validation errors."""
+    pass
+
+
+# Alias for backward compatibility
+ValidationError = GeneralValidationError
+
+
+class InputValidationError(GeneralValidationError):
+    """Input validation errors."""
+    pass
+
+
+class DataValidationError(GeneralValidationError):
+    """Data validation errors."""
+    pass
+
+
+class AgentToolError(AgentError):
+    """Agent tool-related errors."""
+    pass
+
+
+class ToolExecutionError(AgentToolError):
+    """Tool execution errors."""
+    pass
+
+
+class ToolNotFoundError(AgentToolError, NotFoundError):
+    """Tool not found errors."""
+    pass
+
+
+class ToolValidationError(AgentToolError, GeneralValidationError):
+    """Tool validation errors."""
+    pass
+
+
+class ToolPermissionError(AgentToolError):
+    """Tool permission errors."""
+    pass
+
+
+class OrchestrationError(KICKAIError):
+    """Orchestration pipeline errors."""
+    pass
+
+
+class IntentClassificationError(OrchestrationError):
+    """Intent classification errors."""
+    pass
+
+
+class TaskDecompositionError(OrchestrationError):
+    """Task decomposition errors."""
+    pass
+
+
+class AgentRoutingError(OrchestrationError):
+    """Agent routing errors."""
+    pass
+
+
+class TaskExecutionError(OrchestrationError):
+    """Task execution errors."""
+    pass
+
+
+class ResultAggregationError(OrchestrationError):
+    """Result aggregation errors."""
+    pass
+
+
 # Telegram Errors
 class TelegramError(KICKAIError):
     """Base exception for Telegram-related errors."""
@@ -199,6 +274,9 @@ class TeamPermissionError(TeamError):
     pass
 
 
+
+
+
 # Service Errors
 class ServiceError(KICKAIError):
     """Base exception for service-related errors."""
@@ -217,26 +295,6 @@ class ServiceTimeoutError(ServiceError):
 
 class ServiceAuthenticationError(ServiceError):
     """Service authentication errors."""
-    pass
-
-
-# Validation Errors
-class GeneralValidationError(KICKAIError):
-    """General validation errors."""
-    pass
-
-
-# Alias for backward compatibility
-ValidationError = GeneralValidationError
-
-
-class InputValidationError(GeneralValidationError):
-    """Input validation errors."""
-    pass
-
-
-class DataValidationError(GeneralValidationError):
-    """Data validation errors."""
     pass
 
 

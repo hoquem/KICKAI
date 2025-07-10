@@ -6,9 +6,10 @@ This service handles operations across multiple teams and manages team mappings.
 
 import logging
 from typing import List, Optional, Dict, Any
-from src.database.models_improved import Team, BotMapping
-from src.database.firebase_client import get_firebase_client
-from src.core.exceptions import TeamError
+from database.models_improved import Team, BotMapping
+from database.firebase_client import get_firebase_client
+from core.exceptions import TeamError
+from database.models_improved import TeamStatus
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,6 @@ class MultiTeamManager:
     async def get_teams_by_status(self, status: str) -> List[Team]:
         """Get teams filtered by status."""
         try:
-            from src.database.models_improved import TeamStatus
             team_status = TeamStatus(status)
             return await self._data_store.get_all_teams(team_status)
         except Exception as e:

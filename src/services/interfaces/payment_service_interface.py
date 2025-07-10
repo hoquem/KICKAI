@@ -24,6 +24,10 @@ class IPaymentService(ABC):
     async def update_payment_status(self, payment_id: str, new_status: PaymentStatus, paid_date: Optional[datetime] = None) -> Payment:
         pass
 
+    @abstractmethod
+    async def list_payments(self, player_id: Optional[str] = None, status: Optional[PaymentStatus] = None, payment_type: Optional[PaymentType] = None) -> List[Payment]:
+        pass
+
 # Backward compatibility alias
 PaymentServiceInterface = IPaymentService
 PaymentRecord = Payment

@@ -16,6 +16,8 @@ This replaces the monolithic ConfigurationManager with a modular, extensible sys
 import os
 import json
 import logging
+
+print("DEBUG: improved_config_system.py imported")
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
@@ -28,8 +30,7 @@ try:
 except ImportError:
     DOTENV_AVAILABLE = False
 
-import src.core.enums
-from src.core.enums import AIProvider
+from .enums import AIProvider
 
 logger = logging.getLogger(__name__)
 

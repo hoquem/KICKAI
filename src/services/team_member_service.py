@@ -229,6 +229,130 @@ class TeamMemberService(ITeamMemberService):
             logger.error(f"❌ Failed to get user role for {user_id} in team {team_id}: {e}")
             return 'player'  # Default to player role on error
 
+    async def generate_invitation(self, identifier: str, team_id: str) -> tuple[bool, str]:
+        """Generate an invitation for a player by phone number or player ID."""
+        try:
+            from services.player_service import get_player_service
+            from services.team_service import get_team_service
+            from core.bot_config_manager import get_bot_config_manager
+            from utils.phone_utils import normalize_phone
+            
+            player_service = get_player_service(team_id=team_id)
+            team_service = get_team_service(team_id=team_id)
+            bot_config_manager = get_bot_config_manager()
+            
+            # Find player by phone or ID
+            player = None
+            if any(char.isalpha() for char in identifier):
+                # It's a player ID - search by player_id
+                players = await player_service.get_team_players(team_id)
+                for p in players:
+                    if p.player_id.lower() == identifier.lower():
+                        player = p
+                        break
+            else:
+                # It's a phone number - normalize and search
+                normalized_phone = normalize_phone(identifier)
+                if normalized_phone:
+                    player = await player_service.get_player_by_phone(normalized_phone, team_id)
+                else:
+                    return False, f"❌ Invalid phone number format: {identifier}"
+            
+            if not player:
+                return False, f"❌ Player not found with identifier: {identifier}"
+            
+            # Get team info
+            team = await team_service.get_team(team_id)
+            team_name = team.name if team else "KICKAI Team"
+            
+            # Get bot configuration for invite link
+            bot_config = bot_config_manager.get_bot_config(team_id)
+            if not bot_config or not bot_config.main_chat_id:
+                return False, f"❌ Bot configuration not available for team {team_id}"
+            
+            # Create Telegram invite link
+            invite_link = await self._create_telegram_invite_link(bot_config)
+            
+            # Generate invitation message
+            invitation_message = f"""🎉 <b>Welcome to {team_name}!</b>
+
+Hi {player.name},
+
+You've been invited to join {team_name}! We're excited to have you on the team.
+
+📋 <b>Your Details:</b>
+• Name: {player.name}
+• Position: {player.position.value.title() if hasattr(player.position, 'value') else player.position}
+• Player ID: {player.player_id.upper()}
+
+🔗 <b>Join Our Main Team Chat:</b>
+{invite_link}
+
+📱 <b>Next Steps:</b>
+1. Click the link above to join our main team group
+2. Once you join, the bot will automatically welcome you
+3. If the bot doesn't welcome you automatically, type: <code>/register {player.player_id.upper()}</code>
+4. Complete your onboarding process by following the bot's prompts
+5. Get ready for training and matches!
+
+⚠️ <b>Important:</b> 
+• This invitation is for our main team chat only
+• Leadership chat access is managed separately
+• Make sure to use your Player ID: <b>{player.player_id.upper()}</b> if needed
+
+⚽ <b>What to Expect:</b>
+• Team announcements and updates
+• Training schedules
+• Match information
+• Team communication
+
+If you have any questions, please contact the team leadership.
+
+Welcome aboard! 🏆
+
+- {team_name} Management"""
+            
+            logger.info(f"✅ Invitation generated for player: {player.name} ({identifier})")
+            return True, invitation_message
+            
+        except Exception as e:
+            logger.error(f"❌ Error generating invitation for {identifier}: {e}")
+            return False, f"❌ Error generating invitation: {str(e)}"
+    
+    async def _create_telegram_invite_link(self, bot_config) -> str:
+        """Create a Telegram group invite link using the Bot API."""
+        try:
+            import requests
+            
+            # Create invite link using Telegram Bot API
+            url = f"https://api.telegram.org/bot{bot_config.token}/createChatInviteLink"
+            data = {
+                'chat_id': bot_config.main_chat_id,
+                'name': 'KICKAI Team Invite',
+                'creates_join_request': False,
+                'expire_date': None,  # No expiration
+                'member_limit': None  # No member limit
+            }
+            
+            response = requests.post(url, json=data, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            
+            if result.get('ok') and result.get('result'):
+                invite_link = result['result']['invite_link']
+                logger.info(f"✅ Created Telegram invite link: {invite_link}")
+                return invite_link
+            else:
+                error_msg = f"Failed to create invite link: {result.get('description', 'Unknown error')}"
+                logger.error(error_msg)
+                # Fallback to a placeholder link
+                return f"https://t.me/+{bot_config.main_chat_id.replace('-', '')}"
+                
+        except Exception as e:
+            logger.error(f"❌ Error creating Telegram invite link: {e}")
+            # Fallback to a placeholder link
+            return f"https://t.me/+{bot_config.main_chat_id.replace('-', '')}"
+
 # Global instance - now team-specific
 _team_member_service_instances: dict[str, TeamMemberService] = {}
 

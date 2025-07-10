@@ -12,14 +12,14 @@ from dataclasses import dataclass
 from enum import Enum
 
 # Import centralized logging configuration
-from src.core.logging_config import (
+from core.logging_config import (
     get_logger, LogContext, LogMessages,
     log_system_event, log_performance
 )
 
 # Import core components
-from src.database.interfaces import DataStoreInterface
-from src.database.firebase_client import get_firebase_client
+from database.interfaces import DataStoreInterface
+from database.firebase_client import get_firebase_client
 
 logger = get_logger(__name__)
 

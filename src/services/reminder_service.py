@@ -68,7 +68,7 @@ class ReminderService(IReminderService):
         """Send an automated reminder to a player."""
         try:
             reminder_number = player.reminders_sent + 1
-            message = self._generate_reminder_message(player, reminder_number)
+            message = await self._generate_reminder_message(player, reminder_number)
             
             # Update player reminder tracking
             player.send_reminder()
@@ -150,14 +150,19 @@ class ReminderService(IReminderService):
             logging.error(f"Error sending manual reminder: {e}")
             return False, f"❌ Error sending reminder: {str(e)}"
     
-    def _generate_reminder_message(self, player: Player, reminder_number: int) -> str:
+    async def _generate_reminder_message(self, player: Player, reminder_number: int) -> str:
         """Generate reminder message based on reminder number and player status."""
         progress = player.get_onboarding_progress()
 
-        # Check for outstanding payments
-        outstanding_payments = asyncio.run(self.payment_service.list_payments(player_id=player.id, status=PaymentStatus.PENDING))
+        # Check for outstanding payments - properly async
+        try:
+            outstanding_payments = await self.payment_service.list_payments(player_id=player.id, status=PaymentStatus.PENDING)
+        except Exception as e:
+            logging.error(f"Error getting outstanding payments: {e}")
+            outstanding_payments = []
+        
         if outstanding_payments:
-            return self._generate_payment_reminder_message(player, outstanding_payments)
+            return await self._generate_payment_reminder_message(player, outstanding_payments)
 
         # Existing onboarding reminders
         if reminder_number == 1:
@@ -222,22 +227,65 @@ This is your final reminder to complete your KICKAI Team onboarding.
 
 Let's get you set up today! 🏆"""
 
-    def _generate_payment_reminder_message(self, player: Player, payments: List[Any]) -> str:
+    async def _generate_payment_reminder_message(self, player: Player, payments: List[Any]) -> str:
         """Generates an AI-driven gentle nudge for outstanding payments."""
         llm_client = LLMClient()
 
         payment_details = "\n".join([f"- £{p.amount:.2f} for {p.description or p.type.value.replace('_', ' ')} (Due: {p.due_date.strftime('%d/%m/%Y') if p.due_date else 'N/A'})" for p in payments])
 
-        prompt = f"""Generate a gentle and friendly reminder message for a football player named {player.name} about their outstanding payments. The message should encourage them to pay without being overly pushy. Include the following details:
+        prompt = f"""You are a professional football team administrator creating a gentle payment reminder message. Your goal is to encourage payment while maintaining a positive, supportive relationship with the player.
 
-Outstanding Payments:
+**MESSAGE REQUIREMENTS:**
+- Tone: Friendly, encouraging, and supportive (not pushy or demanding)
+- Length: Concise but warm (2-3 sentences maximum)
+- Focus: Positive reinforcement and team spirit
+- Cultural Sensitivity: Respectful of diverse backgrounds and financial situations
+
+**TONE GUIDELINES:**
+- Use encouraging language that motivates action
+- Emphasize team benefits and positive outcomes
+- Avoid negative language or pressure tactics
+- Maintain a professional but approachable tone
+- Show understanding of busy schedules and commitments
+
+**MESSAGE STRUCTURE:**
+1. Friendly greeting with player's name
+2. Gentle reminder about outstanding payments
+3. Positive note about team participation
+4. Clear next steps or contact information
+
+**CULTURAL CONSIDERATIONS:**
+- Be mindful of different financial situations
+- Avoid assumptions about payment ability
+- Use inclusive language
+- Respect privacy and dignity
+- Consider cultural communication preferences
+
+**EXAMPLES OF GOOD MESSAGES:**
+✅ "Hi {player.name}! Just a friendly reminder about your outstanding payments. We'd love to have you fully set up and ready to play with the team. Let me know if you need any help with the payment process!"
+
+✅ "Hey {player.name}! Quick note about your pending payments - getting these sorted will ensure you're all set for our upcoming matches. Thanks for being part of our team!"
+
+**EXAMPLES TO AVOID:**
+❌ "You need to pay your fees immediately or you'll be removed from the team."
+❌ "Why haven't you paid yet? Everyone else has."
+❌ "Your payments are overdue and this is unacceptable."
+
+**OUTSTANDING PAYMENTS:**
 {payment_details}
 
-Keep it concise and encouraging. End with a positive note about playing with the team.
-"""
+**CREATION GUIDELINES:**
+- Personalize the message using the player's name
+- Reference the specific outstanding payments
+- Keep the tone light and encouraging
+- End with a positive note about team participation
+- Make it easy for the player to take action
+
+Create a gentle, friendly reminder message that encourages payment while maintaining a positive relationship with the player."""
         try:
-            # Use LLM to generate the message
-            generated_message = asyncio.run(llm_client.generate_text(prompt))
+            # Use LLM to generate the message - properly async
+            generated_message = await llm_client.generate_text(prompt)
+                
             return f"""👋 Hi {player.name}!
 
 {generated_message}

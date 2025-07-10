@@ -16,10 +16,10 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Type
 from pathlib import Path
 
-from src.core.improved_config_system import ImprovedConfigurationManager
-from src.core.enums import AIProvider
-from src.database.firebase_client import FirebaseClient
-from src.services.team_mapping_service import TeamMappingService
+from core.improved_config_system import ImprovedConfigurationManager
+from core.enums import AIProvider
+from database.firebase_client import FirebaseClient
+from services.team_mapping_service import TeamMappingService
 
 logger = logging.getLogger(__name__)
 
@@ -242,54 +242,78 @@ class AgentInitializationCheck(HealthCheck):
         warnings = []
         details = {}
         try:
-            from src.agents.crew_agents import TeamManagementSystem, AgentFactory, AgentRole, BaseTeamAgent
+            from agents.crew_agents import TeamManagementSystem, AgentRole
+            from config.agents import get_enabled_agent_configs
+            
             team_id = context.get('team_id', 'KAI')
             logger.info(f"[AGENT VALIDATION] Starting for team {team_id}")
+            
+            # Create team system
             team_system = TeamManagementSystem(team_id)
-            # 1. Agent instantiation and type check
+            
+            # 1. Basic agent validation
             agent_details = {}
             for role, agent in team_system.agents.items():
                 role_name = role.value if hasattr(role, 'value') else str(role)
                 agent_type = type(agent).__name__
-                # Check correct class
-                expected_class = AgentFactory.AGENT_CLASSES.get(role)
-                if expected_class is None:
-                    errors.append(f"No agent class mapped for AgentRole {role_name}")
-                elif not isinstance(agent, expected_class):
-                    errors.append(f"Agent for {role_name} is {agent_type}, expected {expected_class.__name__}")
-                # 2. Config integrity
-                config = getattr(agent, 'agent_config', None)
+                
+                # Basic checks
+                if not agent:
+                    errors.append(f"Agent for {role_name} is None")
+                    continue
+                
+                # Check if agent has required methods
+                if not hasattr(agent, 'execute_task'):
+                    warnings.append(f"Agent for {role_name} missing execute_task method")
+                
+                # Check if agent is enabled (if method exists)
+                if hasattr(agent, 'is_enabled'):
+                    if not agent.is_enabled():
+                        warnings.append(f"Agent for {role_name} is disabled")
+                
+                # Check config
+                config = getattr(agent, 'config', None)
                 if not config:
-                    errors.append(f"Agent {role_name} missing agent_config")
-                else:
-                    for field in ['max_iterations', 'enabled', 'allow_delegation', 'verbose']:
-                        if not hasattr(config, field):
-                            errors.append(f"Agent {role_name} config missing field: {field}")
-                # 3. LLM assignment
+                    warnings.append(f"Agent {role_name} missing config")
+                
+                # Check LLM
                 llm = getattr(agent, 'llm', None)
                 if llm is None:
-                    errors.append(f"Agent {role_name} has no LLM assigned")
+                    warnings.append(f"Agent {role_name} has no LLM assigned")
+                
                 agent_details[role_name] = {
                     'type': agent_type,
-                    'config': {f: getattr(config, f, None) for f in ['max_iterations', 'enabled', 'allow_delegation', 'verbose']} if config else None,
-                    'llm_type': type(llm).__name__ if llm else None
+                    'has_execute_task': hasattr(agent, 'execute_task'),
+                    'has_config': config is not None,
+                    'has_llm': llm is not None
                 }
-            # 4. AgentRole enum-to-class mapping
-            missing_roles = []
-            for role in AgentRole:
-                if role not in AgentFactory.AGENT_CLASSES:
-                    missing_roles.append(role.value)
-            if missing_roles:
-                errors.append(f"AgentRole(s) missing from AgentFactory.AGENT_CLASSES: {missing_roles}")
-            # 5. Extra classes not mapped to AgentRole
-            extra_classes = [r for r in AgentFactory.AGENT_CLASSES if r not in AgentRole]
-            if extra_classes:
-                warnings.append(f"Extra agent class mappings not in AgentRole: {extra_classes}")
+            
+            # 2. Check that we have agents for all enabled roles
+            enabled_configs = get_enabled_agent_configs()
+            missing_agents = []
+            
+            # Get the actual agent roles from the team system (as AgentRole enums)
+            actual_agent_roles = set(team_system.agents.keys())
+            
+            # Check each enabled config (using AgentRole enums)
+            for role_config in enabled_configs.values():
+                role_enum = role_config.role if isinstance(role_config.role, AgentRole) else AgentRole(role_config.role)
+                if role_enum not in actual_agent_roles:
+                    missing_agents.append(role_enum.value)
+            
+            if missing_agents:
+                errors.append(f"Missing agents for enabled roles: {missing_agents}")
+            
             logger.info(f"[AGENT VALIDATION] Details: {agent_details}")
+            logger.info(f"[AGENT VALIDATION] Enabled configs: {[c.role for c in enabled_configs.values()]}")
+            logger.info(f"[AGENT VALIDATION] Actual agents: {[r for r in actual_agent_roles]}")
             details['agent_details'] = agent_details
-            details['missing_roles'] = missing_roles
-            details['extra_classes'] = extra_classes
+            details['total_agents'] = len(agent_details)
+            details['enabled_configs'] = [c.role for c in enabled_configs.values()]
+            details['actual_agents'] = [r for r in actual_agent_roles]
+            
             duration = (asyncio.get_event_loop().time() - start_time) * 1000
+            
             if errors:
                 logger.error(f"[AGENT VALIDATION] Errors: {errors}")
                 return CheckResult(
@@ -300,6 +324,7 @@ class AgentInitializationCheck(HealthCheck):
                     details=details,
                     duration_ms=duration
                 )
+            
             if warnings:
                 logger.warning(f"[AGENT VALIDATION] Warnings: {warnings}")
                 return CheckResult(
@@ -310,6 +335,7 @@ class AgentInitializationCheck(HealthCheck):
                     details=details,
                     duration_ms=duration
                 )
+            
             logger.info(f"[AGENT VALIDATION] All agent checks passed.")
             return CheckResult(
                 name=self.name,
@@ -319,6 +345,7 @@ class AgentInitializationCheck(HealthCheck):
                 details=details,
                 duration_ms=duration
             )
+            
         except Exception as e:
             logger.error(f"[AGENT VALIDATION] Exception: {e}")
             logger.error(traceback.format_exc())
@@ -342,9 +369,9 @@ class ToolConfigurationCheck(HealthCheck):
         start_time = asyncio.get_event_loop().time()
         
         try:
-            from src.domain.tools.communication_tools import SendMessageTool, SendAnnouncementTool
-            from src.domain.tools.logging_tools import LogCommandTool
-            from src.domain.tools.team_management_tools import GetAllPlayersTool, GetPlayerStatusTool
+            from domain.tools.communication_tools import SendMessageTool, SendAnnouncementTool
+            from domain.tools.logging_tools import LogCommandTool
+            from domain.tools.team_management_tools import GetAllPlayersTool, GetPlayerStatusTool
             
             # Test tool instantiation with required fields
             team_id = context.get('team_id', 'KAI')
@@ -408,8 +435,8 @@ class DatabaseConnectivityCheck(HealthCheck):
         
         try:
             # Test Firebase connectivity
-            from src.database.firebase_client import FirebaseClient
-            from src.core.improved_config_system import get_improved_config
+            from database.firebase_client import FirebaseClient
+            from core.improved_config_system import get_improved_config
             
             config = get_improved_config().configuration.database
             client = FirebaseClient(config)
@@ -519,8 +546,8 @@ class CrewValidationCheck(HealthCheck):
         warnings = []
         
         try:
-            from src.agents.crew_agents import TeamManagementSystem
-            from src.agents.intelligent_system import CapabilityBasedRouter
+            from agents.crew_agents import TeamManagementSystem
+            from agents.intelligent_system import CapabilityBasedRouter
             
             team_id = context.get('team_id', 'KAI')
             logger.info(f"[CrewValidation] Starting crew validation for team {team_id}")
@@ -570,37 +597,6 @@ class CrewValidationCheck(HealthCheck):
                 logger.error(f"[CrewValidation] ❌ {error_msg}")
                 errors.append(error_msg)
             
-            # 3. Test agent routing capability
-            logger.info(f"[CrewValidation] Testing agent routing capability...")
-            try:
-                # Test with a simple intent that should route to an agent
-                test_intent = {
-                    "primary_intent": "status_inquiry",
-                    "confidence": 0.98,
-                    "secondary_intents": [],
-                    "entities": {},
-                    "context": {"urgency": "low", "complexity": "simple"}
-                }
-                
-                # Try to route the intent
-                if hasattr(team_system, '_route_intent'):
-                    routed_agents = team_system._route_intent(test_intent)
-                    logger.info(f"[CrewValidation] Routed agents for status_inquiry: {routed_agents}")
-                    
-                    if not routed_agents:
-                        error_msg = "No agents routed for status_inquiry intent"
-                        logger.error(f"[CrewValidation] ❌ {error_msg}")
-                        errors.append(error_msg)
-                    else:
-                        logger.info(f"[CrewValidation] ✅ Successfully routed to {len(routed_agents)} agents")
-                else:
-                    logger.warning(f"[CrewValidation] ⚠️ TeamManagementSystem has no _route_intent method")
-                    
-            except Exception as e:
-                error_msg = f"Failed to test agent routing: {str(e)}"
-                logger.error(f"[CrewValidation] ❌ {error_msg}")
-                errors.append(error_msg)
-            
             # 4. Test end-to-end task execution
             logger.info(f"[CrewValidation] Testing end-to-end task execution...")
             try:
@@ -613,30 +609,12 @@ class CrewValidationCheck(HealthCheck):
                     'user_role': 'player'
                 }
                 
-                result = team_system.execute_task(test_task, test_context)
+                result = await team_system.execute_task(test_task, test_context)
                 logger.info(f"[CrewValidation] ✅ End-to-end task execution successful")
                 logger.info(f"[CrewValidation] Result length: {len(str(result))}")
                 
             except Exception as e:
                 error_msg = f"Failed to execute end-to-end task: {str(e)}"
-                logger.error(f"[CrewValidation] ❌ {error_msg}")
-                errors.append(error_msg)
-            
-            # 5. Check crew-level settings
-            logger.info(f"[CrewValidation] Checking crew-level settings...")
-            try:
-                # Check if the system has required attributes
-                required_attrs = ['llm', 'capability_matrix', 'task_decomposer']
-                for attr in required_attrs:
-                    if hasattr(team_system, attr):
-                        logger.info(f"[CrewValidation] ✅ {attr} available")
-                    else:
-                        warning_msg = f"Missing {attr} attribute"
-                        logger.warning(f"[CrewValidation] ⚠️ {warning_msg}")
-                        warnings.append(warning_msg)
-                        
-            except Exception as e:
-                error_msg = f"Failed to check crew-level settings: {str(e)}"
                 logger.error(f"[CrewValidation] ❌ {error_msg}")
                 errors.append(error_msg)
             

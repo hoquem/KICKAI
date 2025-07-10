@@ -8,9 +8,9 @@ into the domain implementation, maintaining clean architecture.
 from typing import Optional
 import logging
 
-from src.domain.interfaces.command_operations import ICommandOperations
-from src.domain.command_operations_impl import CommandOperationsImpl
-from src.domain.adapters import (
+from domain.interfaces.command_operations import ICommandOperations
+from domain.command_operations_impl import CommandOperationsImpl
+from domain.adapters import (
     PlayerOperationsAdapter,
     TeamOperationsAdapter,
     MatchOperationsAdapter,
@@ -45,22 +45,22 @@ def get_command_operations(team_id: Optional[str] = None) -> ICommandOperations:
         
         # Create adapters
         logger.info(f"[CommandOperationsFactory] Creating PlayerOperationsAdapter")
-        from src.services.player_service import get_player_service
+        from services.player_service import get_player_service
         player_service = get_player_service(team_id=team_id)
         player_adapter = PlayerOperationsAdapter(player_service)
         
         logger.info(f"[CommandOperationsFactory] Creating TeamOperationsAdapter")
-        from src.services.team_service import get_team_service
+        from services.team_service import get_team_service
         team_service = get_team_service()
         team_adapter = TeamOperationsAdapter(team_service)
         
         logger.info(f"[CommandOperationsFactory] Creating MatchOperationsAdapter")
-        from src.services.match_service import get_match_service
+        from services.match_service import get_match_service
         match_service = get_match_service()
         match_adapter = MatchOperationsAdapter(match_service)
         
         logger.info(f"[CommandOperationsFactory] Creating PaymentOperationsAdapter")
-        from src.services.payment_service import get_payment_service
+        from services.payment_service import get_payment_service
         payment_service = get_payment_service()
         payment_adapter = PaymentOperationsAdapter(payment_service)
         
