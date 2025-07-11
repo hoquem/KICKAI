@@ -13,7 +13,7 @@ from typing import Callable, Any, Optional, Dict, Type, Union
 from contextlib import contextmanager
 from dataclasses import dataclass
 
-from src.core.exceptions import (
+from core.exceptions import (
     KICKAIError, AgentError, AgentExecutionError, ToolExecutionError,
     OrchestrationError, IntentClassificationError, TaskDecompositionError,
     AgentRoutingError, TaskExecutionError, ResultAggregationError,

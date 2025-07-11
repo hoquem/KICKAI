@@ -161,10 +161,26 @@ Contact the team admin in the leadership chat."""
             return f"❌ Error registering player: {str(e)}"
     
     def _get_player_not_found_message(self, user_id: str, team_id: str, command_type: str) -> str:
-        """Get a standardized message when a player is not found."""
+        """Get a friendly and helpful message when a player is not found."""
         command_name = command_type.replace("_", " ").title()
         
-        return f"""❓ Player Not Found
+        if command_type in ["status", "myinfo"]:
+            return f"""👋 Welcome to KICKAI! 
+
+I don't see your registration in our system yet. No worries - let's get you set up to join the team! 
+
+📝 To register, use: /register
+💡 Or ask me: "How do I register?"
+
+I'll guide you through the simple registration process step by step. It only takes a minute! 🚀
+
+Need help? Just ask or contact the team admin.
+
+📝 Command: {command_name}
+👤 User ID: {user_id}
+🏆 Team: {team_id}"""
+        else:
+            return f"""❓ Player Not Found
 
 I couldn't find your information in our system.
 
@@ -277,6 +293,8 @@ class MessageProcessorMixin(BaseBehavioralMixin):
         """Get help message for main chat."""
         return """🤖 KICKAI BOT HELP
 
+👋 Welcome to the KICKAI team management system! I'm here to help you with everything team-related.
+
 📋 AVAILABLE COMMANDS:
 
 🌐 GENERAL:
@@ -290,9 +308,11 @@ class MessageProcessorMixin(BaseBehavioralMixin):
 • /status [phone] - Check player status
 
 💡 TIPS:
-• Use natural language: "What's my phone number?"
+• Use natural language: "What's my phone number?" or "How do I register?"
 • Type /help [command] for detailed help
-• Contact team admin for assistance"""
+• I can understand regular questions too - just ask!
+
+🎯 Need something specific? Just ask me in plain English!"""
 
 
 class CommandFallbackMixin(BaseBehavioralMixin):
@@ -380,61 +400,68 @@ class CommandFallbackMixin(BaseBehavioralMixin):
             
             # Check for common command patterns
             if any(word in command_lower for word in ['add', 'register', 'join']):
-                return """📝 Registration Help
+                return """👋 Registration Help
 
-It looks like you're trying to register or add someone to the team.
+It looks like you want to register or add someone to the team! 
 
-Try these commands:
+📝 Here's how to do it:
 • /register - Register yourself as a new player
 • /add [name] [phone] [position] - Add a new player (leadership only)
 
 💡 Example: /add John Smith 07123456789 midfielder
 
-Need help? Contact the team admin in the leadership chat."""
+🎯 Want to register yourself? Just type /register and I'll guide you through it step by step!
+
+Need help? Just ask me or contact the team admin."""
             
             elif any(word in command_lower for word in ['status', 'info', 'details']):
                 return """📊 Status Help
 
-It looks like you're trying to check player status or information.
+It looks like you want to check player status or information! 
 
-Try these commands:
+📝 Here's how to do it:
 • /myinfo - Get your own player information
 • /status [phone] - Check status of a specific player
 • /list - See all team players
 
 💡 Example: /status 07123456789
 
-Need help? Contact the team admin in the leadership chat."""
+🎯 Want to check your own info? Just type /myinfo and I'll show you your details!
+
+Need help? Just ask me or contact the team admin."""
             
             elif any(word in command_lower for word in ['approve', 'accept', 'ok']):
                 return """✅ Approval Help
 
-It looks like you're trying to approve a player.
+It looks like you want to approve a player! 
 
-Try this command:
+📝 Here's how to do it:
 • /approve [player_id] - Approve a player (leadership only)
 
 💡 Example: /approve MH123
 
-Need help? Contact the team admin in the leadership chat."""
+🎯 This command is for team leadership only. If you need to approve someone, make sure you're in the leadership chat!
+
+Need help? Just ask me or contact the team admin."""
             
             else:
-                return f"""🤖 Command Not Recognized
+                return f"""🤖 I'm Not Sure What You Mean
 
-I couldn't understand the command: "{failed_command}"
+I couldn't understand: "{failed_command}"
 
-💡 Try these common commands:
+💡 Here are some common things you might want to do:
 • /help - Show all available commands
 • /register - Register as a new player
 • /myinfo - Get your player information
 • /list - See all team players
 • /status [phone] - Check player status
 
-🔧 Need Help?
-Contact the team admin in the leadership chat for assistance.
+🎯 You can also just ask me in plain English! Try:
+• "How do I register?"
+• "What's my status?"
+• "Show me all players"
 
-📝 Original command: {failed_command}
-❌ Error: {error_message}"""
+Need help? Just ask me or contact the team admin!"""
             
         except Exception as e:
             self.logger.error(f"Error in _analyze_failed_command: {e}", exc_info=True)
