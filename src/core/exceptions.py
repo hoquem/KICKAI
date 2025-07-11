@@ -5,7 +5,7 @@ This module defines a comprehensive exception hierarchy for the KICKAI system,
 providing proper error categorization and context for different types of failures.
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from dataclasses import dataclass
 
 
@@ -126,6 +126,81 @@ class AgentCapabilityError(AgentError):
     pass
 
 
+# Validation Errors (moved here for inheritance)
+class GeneralValidationError(KICKAIError):
+    """General validation errors."""
+    pass
+
+
+# Alias for backward compatibility
+ValidationError = GeneralValidationError
+
+
+class InputValidationError(GeneralValidationError):
+    """Input validation errors."""
+    pass
+
+
+class DataValidationError(GeneralValidationError):
+    """Data validation errors."""
+    pass
+
+
+class AgentToolError(AgentError):
+    """Agent tool-related errors."""
+    pass
+
+
+class ToolExecutionError(AgentToolError):
+    """Tool execution errors."""
+    pass
+
+
+class ToolNotFoundError(AgentToolError, NotFoundError):
+    """Tool not found errors."""
+    pass
+
+
+class ToolValidationError(AgentToolError, GeneralValidationError):
+    """Tool validation errors."""
+    pass
+
+
+class ToolPermissionError(AgentToolError):
+    """Tool permission errors."""
+    pass
+
+
+class OrchestrationError(KICKAIError):
+    """Orchestration pipeline errors."""
+    pass
+
+
+class IntentClassificationError(OrchestrationError):
+    """Intent classification errors."""
+    pass
+
+
+class TaskDecompositionError(OrchestrationError):
+    """Task decomposition errors."""
+    pass
+
+
+class AgentRoutingError(OrchestrationError):
+    """Agent routing errors."""
+    pass
+
+
+class TaskExecutionError(OrchestrationError):
+    """Task execution errors."""
+    pass
+
+
+class ResultAggregationError(OrchestrationError):
+    """Result aggregation errors."""
+    pass
+
+
 # Telegram Errors
 class TelegramError(KICKAIError):
     """Base exception for Telegram-related errors."""
@@ -199,6 +274,9 @@ class TeamPermissionError(TeamError):
     pass
 
 
+
+
+
 # Service Errors
 class ServiceError(KICKAIError):
     """Base exception for service-related errors."""
@@ -217,26 +295,6 @@ class ServiceTimeoutError(ServiceError):
 
 class ServiceAuthenticationError(ServiceError):
     """Service authentication errors."""
-    pass
-
-
-# Validation Errors
-class GeneralValidationError(KICKAIError):
-    """General validation errors."""
-    pass
-
-
-# Alias for backward compatibility
-ValidationError = GeneralValidationError
-
-
-class InputValidationError(GeneralValidationError):
-    """Input validation errors."""
-    pass
-
-
-class DataValidationError(GeneralValidationError):
-    """Data validation errors."""
     pass
 
 
@@ -284,6 +342,79 @@ class ResourceExhaustedError(PerformanceError):
 
 class RateLimitExceededError(PerformanceError):
     """Rate limit exceeded errors."""
+    pass
+
+
+# Payment Errors
+class PaymentError(KICKAIError):
+    """Base exception for payment-related errors."""
+    pass
+
+
+class PaymentValidationError(PaymentError, GeneralValidationError):
+    """Payment validation errors."""
+    pass
+
+
+class PaymentProcessingError(PaymentError):
+    """Payment processing errors."""
+    pass
+
+
+class PaymentProviderError(PaymentError):
+    """Payment provider (Collectiv) errors."""
+    pass
+
+
+class PaymentTimeoutError(PaymentError, TimeoutError):
+    """Payment timeout errors."""
+    pass
+
+
+class PaymentAuthenticationError(PaymentError, AuthenticationError):
+    """Payment authentication errors."""
+    pass
+
+
+class PaymentNotFoundError(PaymentError, NotFoundError):
+    """Payment not found errors."""
+    pass
+
+
+# Match Errors
+class MatchError(KICKAIError):
+    """Base exception for match-related errors."""
+    pass
+
+
+class MatchNotFoundError(MatchError, NotFoundError):
+    """Match not found errors."""
+    pass
+
+
+class MatchValidationError(MatchError, GeneralValidationError):
+    """Match validation errors."""
+    pass
+
+
+class MatchPermissionError(MatchError):
+    """Match permission errors."""
+    pass
+
+
+# Expense Errors
+class ExpenseError(KICKAIError):
+    """Base exception for expense-related errors."""
+    pass
+
+
+class ExpenseNotFoundError(ExpenseError, NotFoundError):
+    """Expense not found errors."""
+    pass
+
+
+class ExpenseValidationError(ExpenseError, GeneralValidationError):
+    """Expense validation errors."""
     pass
 
 
