@@ -1,0 +1,18 @@
+# Improved Command Parser Dependencies
+# These libraries provide robust command parsing and validation
+
+# Modern command-line interface library (13.5k+ stars on GitHub)
+typer>=0.9.0
+
+# Data validation using Python type annotations (15k+ stars on GitHub)
+pydantic>=2.0.0
+
+# Rich terminal output (used by Typer)
+rich>=13.0.0
+
+# Type hints support
+typing-extensions>=4.0.0
+
+# Optional: For better development experience
+# click-completion>=0.5.0  # Auto-completion for Click/Typer
+# shellingham>=1.5.0      # Shell detection for auto-completion 

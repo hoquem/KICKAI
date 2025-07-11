@@ -1,34 +1,30 @@
-# Local Development Dependencies for KICKAI
-# Use this for local development with Ollama and CrewAI
-
+# Local development requirements
 # Core dependencies
-python-telegram-bot==20.7
+python-telegram-bot==22.2
 python-dotenv==1.0.0
-Flask==3.0.0
-requests==2.32.4
-charset-normalizer==3.4.2
-
-# Firebase dependencies
 firebase-admin==6.4.0
+requests==2.32.4
+phonenumbers==8.13.31
 
-# AI and CrewAI dependencies - local development
-crewai==0.28.8
-langchain==0.1.10
-langchain-community==0.0.20
-langchain-core==0.1.30
-langchain-ollama==0.1.0
-openai==1.58.1
-google-generativeai==0.8.5
-litellm==1.30.0
+# AI and LangChain dependencies - FULLY PINNED COMPATIBLE SET
+crewai==0.141.0
+langchain==0.1.14
+langchain-core==0.1.53
+langchain-google-genai==0.0.9
+langsmith==0.1.147
+pydantic==2.6.4
 
-# HTTP and utilities
-httpx==0.25.2
-pydantic==2.5.0
-pydantic_core==2.14.1
-python-dateutil==2.9.0.post0
-tenacity==8.2.3
-structlog==24.1.0
-
-# Development and testing
+# Development tools
 pytest==8.0.0
-pytest-asyncio==0.24.0 
+pytest-asyncio==0.23.0
+pytest-mock==3.12.0
+black==24.1.0
+ruff==0.2.0
+mypy==1.8.0
+
+# Additional dependencies for compatibility
+typer==0.9.0
+rich==13.7.0
+httpx==0.28.1
+protobuf==5.29.5
+tiktoken==0.9.0 

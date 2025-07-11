@@ -1,0 +1,14 @@
+{
+  "environment": "production",
+  "default_team": "production-team-id",
+  "teams": {
+    "production-team-id": {
+      "name": "KICKAI Production Team",
+      "bot_token": "PRODUCTION_BOT_TOKEN",
+      "username": "kickai_production_bot",
+      "main_chat_id": "-1001234567894",
+      "leadership_chat_id": "-1001234567895",
+      "webhook_url": "https://production-kickai.railway.app/webhook"
+    }
+  }
+} 

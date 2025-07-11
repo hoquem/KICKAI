@@ -18,8 +18,8 @@ import re
 import logging
 import hashlib
 from datetime import datetime
-from typing import Dict, Set, Optional, Tuple
-from dataclasses import dataclass, field
+from typing import Dict, Set, Optional
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -126,18 +126,14 @@ class PlayerIDGenerator(IDGenerator):
         # Create a unique key for this player
         player_key = f"{first_norm} {last_norm}"
         
-        # Check if we already have a mapping
-        if player_key in self.name_mappings:
-            return self.name_mappings[player_key]
-        
         # Generate base ID: first letter of first name + first letter of last name
         base_id = f"{first_name[0].upper()}{last_name[0].upper()}"
         
         # Use existing IDs if provided, otherwise use our internal set
         id_set = existing_ids or self.used_ids
         
-        # Resolve collision
-        final_id = self._resolve_collision(base_id, id_set)
+        # Find the next available ID
+        final_id = self.find_next_available_id(base_id, id_set)
         
         # Store mapping
         self.name_mappings[player_key] = final_id
@@ -148,6 +144,19 @@ class PlayerIDGenerator(IDGenerator):
         
         logger.info(f"Generated player ID '{final_id}' for '{first_name} {last_name}'")
         return final_id
+
+    def find_next_available_id(self, base_id: str, existing_ids: Set[str]) -> str:
+        """Find the next available player ID given a base and a set of existing IDs."""
+        # Try base_id, then base_id1, base_id2, ...
+        if base_id not in existing_ids:
+            return base_id
+        for i in range(1, 100):
+            candidate = f"{base_id}{i}"
+            if candidate not in existing_ids:
+                return candidate
+        # Fallback to hash-based suffix
+        hash_suffix = hashlib.md5(base_id.encode()).hexdigest()[:2].upper()
+        return f"{base_id}{hash_suffix}"
 
 
 class MatchIDGenerator(IDGenerator):
@@ -291,7 +300,7 @@ if __name__ == "__main__":
     print("=" * 50)
     
     teams = [
-        "BP Hatters FC",
+        "Team",
         "Liverpool",
         "Manchester United",
         "Arsenal",
@@ -322,7 +331,7 @@ if __name__ == "__main__":
     
     print("\nMatch IDs:")
     matches = [
-        ("BP Hatters FC", "Liverpool", "01/07/2025", "10:30"),
+        ("Team", "Liverpool", "01/07/2025", "10:30"),
         ("Manchester United", "Arsenal", "15/07/2025", "14:00"),
         ("Chelsea", "Tottenham Hotspur", "22/07/2025", "16:30")
     ]
