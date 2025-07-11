@@ -10,7 +10,7 @@ import asyncio
 from datetime import datetime
 import logging
 
-from core.bot_config_manager import get_bot_config_manager
+from core.settings import get_settings
 from services.player_service import PlayerService
 from services.team_service import TeamService
 from services.team_member_service import TeamMemberService
@@ -71,10 +71,10 @@ class BackgroundTaskManager:
         """
         try:
             # Get leadership chat ID
-            manager = get_bot_config_manager()
-            bot_config = manager.get_bot_config(team_id)
+            settings = get_settings()
+            leadership_chat_id = settings.telegram_leadership_chat_id
             
-            if not bot_config or not bot_config.leadership_chat_id:
+            if not leadership_chat_id:
                 logging.error(f"❌ No leadership chat configured for team {team_id}")
                 return
             
@@ -83,11 +83,12 @@ class BackgroundTaskManager:
             # Start the daily status service
             await start_daily_status_service(
                 team_id=team_id,
-                leadership_chat_id=bot_config.leadership_chat_id,
+                leadership_chat_id=leadership_chat_id,
                 player_service=player_service,
                 team_service=team_service,
                 team_member_service=team_member_service,
-                bot_token=bot_token
+                bot_token=bot_token,
+                bot_config_manager=settings
             )
             
         except Exception as e:
@@ -191,10 +192,10 @@ class BackgroundTaskManager:
             team_member_service = TeamMemberService(firebase_client)
             
             # Get bot configuration
-            manager = get_bot_config_manager()
-            bot_config = manager.get_bot_config(team_id)
+            settings = get_settings()
+            bot_token = settings.telegram_bot_token
             
-            if not bot_config:
+            if not bot_token:
                 logging.error(f"❌ No bot configuration found for team {team_id}")
                 return
             
@@ -209,7 +210,7 @@ class BackgroundTaskManager:
             # Start daily status service
             status_task = asyncio.create_task(
                 self.start_daily_status_service(
-                    team_id, player_service, team_service, team_member_service, bot_config.token, manager
+                    team_id, player_service, team_service, team_member_service, bot_token, settings
                 )
             )
             self.tasks.append(status_task)
@@ -228,13 +229,7 @@ class BackgroundTaskManager:
             
             # Start financial report service
             financial_report_task = asyncio.create_task(
-                start_financial_report_service(team_id, bot_config.token)
-            )
-            self.tasks.append(financial_report_task)
-            
-            # Start financial report service
-            financial_report_task = asyncio.create_task(
-                start_financial_report_service(team_id, bot_config.token)
+                start_financial_report_service(team_id, bot_token)
             )
             self.tasks.append(financial_report_task)
 

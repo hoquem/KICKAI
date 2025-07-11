@@ -20,7 +20,7 @@ from google.cloud.firestore_v1 import CollectionReference
 from google.api_core import exceptions as google_exceptions
 from google.cloud import firestore as firestore_client
 
-from core.improved_config_system import get_improved_config, DatabaseConfig
+from core.settings import get_settings
 from core.constants import FIRESTORE_COLLECTION_PREFIX
 from core.exceptions import (
     DatabaseError, ConnectionError, NotFoundError, 
@@ -33,14 +33,14 @@ from utils.async_utils import async_retry, async_timeout, async_operation_contex
 class FirebaseClient:
     """Robust Firebase client wrapper with connection pooling and error handling."""
     
-    def __init__(self, config: DatabaseConfig):
+    def __init__(self, config):
         self.config = config
         self._client: Optional[firestore_client.Client] = None
         self._connection_pool: Dict[str, Any] = {}
         self._batch_operations: List[Dict[str, Any]] = []
         
         # Skip initialization in testing environment
-        if config.project_id == "test_project":
+        if config.firebase_project_id == "test_project":
             logging.info("Test environment detected, skipping Firebase initialization")
             return
             
@@ -125,7 +125,7 @@ class FirebaseClient:
     def client(self) -> firestore_client.Client:
         """Get the Firebase client instance."""
         if self._client is None:
-            if self.config.project_id == "test_project":
+            if self.config.firebase_project_id == "test_project":
                 raise ConnectionError(
                     "Firebase client not available in test environment",
                     create_error_context("firebase_client_access")
@@ -284,9 +284,11 @@ class FirebaseClient:
     async def query_documents(self, collection: str, filters: Optional[List[Dict[str, Any]]] = None,
                             order_by: Optional[str] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Query documents with filters and ordering."""
+        print(f"🔍 [DEBUG] FirebaseClient.query_documents called with collection={collection}, filters={filters}, limit={limit}")
         async with async_operation_context("query_documents", collection=collection, filters_count=len(filters) if filters else 0):
             try:
                 query = self._get_collection(collection)
+                print(f"🔍 [DEBUG] FirebaseClient got collection: {collection}")
                 
                 # Apply filters
                 if filters:
@@ -294,17 +296,21 @@ class FirebaseClient:
                         field = filter_item['field']
                         operator = filter_item['operator']
                         value = filter_item['value']
+                        print(f"🔍 [DEBUG] FirebaseClient applying filter: {field} {operator} {value}")
                         query = query.where(field, operator, value)
                 
                 # Apply ordering
                 if order_by:
+                    print(f"🔍 [DEBUG] FirebaseClient applying order_by: {order_by}")
                     query = query.order_by(order_by)
                 
                 # Apply limit
                 if limit:
+                    print(f"🔍 [DEBUG] FirebaseClient applying limit: {limit}")
                     query = query.limit(limit)
                 
                 # Execute query
+                print(f"🔍 [DEBUG] FirebaseClient executing query.stream()")
                 docs = query.stream()
                 results = []
                 
@@ -313,9 +319,11 @@ class FirebaseClient:
                     data['id'] = doc.id
                     results.append(data)
                 
+                print(f"🔍 [DEBUG] FirebaseClient.query_documents returning {len(results)} results: {results}")
                 return results
                 
             except Exception as e:
+                print(f"❌ [DEBUG] FirebaseClient.query_documents exception: {e}")
                 self._handle_firebase_error(e, "query_documents", 
                                           additional_info={'collection': collection, 'filters': filters})
                 return []  # Return empty list on error
@@ -378,10 +386,11 @@ class FirebaseClient:
         data_list = await self.query_documents('players', filters)
         players = []
         for data in data_list:
-            try:
-                players.append(Player.from_dict(data))
-            except Exception as e:
-                logging.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}): {e}")
+            player = Player.from_dict(data)
+            if player:
+                players.append(player)
+            else:
+                logging.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_players_by_team")
         return players
     
     async def get_player_by_phone(self, phone: str, team_id: Optional[str] = None) -> Optional[Player]:
@@ -398,10 +407,11 @@ class FirebaseClient:
                 filters.append({'field': 'team_id', 'operator': '==', 'value': team_id})
             data_list = await self.query_documents('players', filters, limit=1)
             for data in data_list:
-                try:
-                    return Player.from_dict(data)
-                except Exception as e:
-                    logging.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}): {e}")
+                player = Player.from_dict(data)
+                if player:
+                    return player
+                else:
+                    logging.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_player_by_phone")
         return None
     
     async def get_team_players(self, team_id: str) -> List[Player]:
@@ -417,10 +427,11 @@ class FirebaseClient:
         data_list = await self.query_documents('players', filters)
         players = []
         for data in data_list:
-            try:
-                players.append(Player.from_dict(data))
-            except Exception as e:
-                logging.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}): {e}")
+            player = Player.from_dict(data)
+            if player:
+                players.append(player)
+            else:
+                logging.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_players_by_status")
         return players
     
     async def get_all_players(self, team_id: str) -> List[Player]:
@@ -617,16 +628,23 @@ class FirebaseClient:
     
     async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[Player]:
         """Get a player by telegram_id and team_id efficiently."""
+        print(f"🔍 [DEBUG] FirebaseClient.get_player_by_telegram_id called with telegram_id={telegram_id}, team_id={team_id}")
         try:
             filters = [
                 {'field': 'telegram_id', 'operator': '==', 'value': telegram_id},
                 {'field': 'team_id', 'operator': '==', 'value': team_id}
             ]
+            print(f"🔍 [DEBUG] FirebaseClient calling query_documents('players', {filters}, limit=1)")
             data_list = await self.query_documents('players', filters, limit=1)
+            print(f"🔍 [DEBUG] FirebaseClient.query_documents result: {data_list}")
             if data_list:
-                return Player.from_dict(data_list[0])
+                player = Player.from_dict(data_list[0])
+                print(f"🔍 [DEBUG] FirebaseClient created Player object: {player}")
+                return player
+            print(f"🔍 [DEBUG] FirebaseClient: No player found with telegram_id={telegram_id}, team_id={team_id}")
             return None
         except Exception as e:
+            print(f"❌ [DEBUG] FirebaseClient.get_player_by_telegram_id exception: {e}")
             logging.error(f"Error getting player by telegram_id: {e}")
             return None
     
@@ -665,16 +683,16 @@ def get_firebase_client() -> FirebaseClient:
     """Get the global Firebase client instance."""
     global _firebase_client
     if _firebase_client is None:
-        config = get_improved_config().configuration.database
+        config = get_settings()
         _firebase_client = FirebaseClient(config)
     return _firebase_client
 
 
-def initialize_firebase_client(config: Optional[DatabaseConfig] = None) -> FirebaseClient:
+def initialize_firebase_client(config=None) -> FirebaseClient:
     """Initialize the global Firebase client."""
     global _firebase_client
     if config is None:
-        config = get_improved_config().configuration.database
+        config = get_settings()
     _firebase_client = FirebaseClient(config)
     return _firebase_client 
 

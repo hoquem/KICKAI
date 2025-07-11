@@ -69,6 +69,16 @@ class IPlayerOperations(ABC):
         pass
     
     @abstractmethod
+    async def reject_player_by_identifier(self, identifier: str, reason: str, team_id: str) -> tuple[bool, str]:
+        """Reject a player by player ID or phone number."""
+        pass
+
+    @abstractmethod
+    async def update_player_info(self, user_id: str, field: str, value: str, team_id: str) -> tuple[bool, str]:
+        """Update a player's information."""
+        pass
+    
+    @abstractmethod
     async def get_pending_approvals(self, team_id: str) -> str:
         """Get list of players pending approval."""
         pass

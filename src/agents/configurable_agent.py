@@ -1,17 +1,17 @@
 """
-Generic ConfigurableAgent for KICKAI
+Configurable Agent for KICKAI System
 
-This module provides a single, generic ConfigurableAgent class that can be
-instantiated with different configurations for different roles. All agent-specific
-configurations are managed through the centralized configuration system.
+This module provides a configurable agent that can be used with different
+configurations and behavioral mixins.
 """
 
 import logging
-from typing import List, Dict, Any, Optional, Callable
+from typing import Dict, List, Any, Optional, Type
 from dataclasses import dataclass
+import traceback
 
 from crewai import Agent
-from langchain.tools import BaseTool
+from langchain_core.tools import BaseTool
 
 from core.enums import AgentRole
 from config.agents import get_agent_config, AgentConfig
@@ -21,6 +21,52 @@ from core.error_handling import handle_agent_errors, validate_input
 
 
 logger = logging.getLogger(__name__)
+
+
+class LoggingCrewAIAgent(Agent):
+    """CrewAI Agent wrapper with comprehensive logging for tool selection and execution."""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Use module-level logger instead of instance attribute to avoid Pydantic conflicts
+        logger.info(f"[CREWAI AGENT] LoggingCrewAIAgent initialized with role: {self.role}")
+        logger.info(f"[CREWAI AGENT] Available tools: {[tool.name for tool in self.tools] if hasattr(self, 'tools') and self.tools else 'None'}")
+    
+    def execute_task(self, task, *args, **kwargs):
+        """Execute a task with comprehensive logging."""
+        print(f"🔍 [DEBUG] LoggingCrewAIAgent.execute_task called")
+        logger.info(f"[CREWAI AGENT] Starting task execution")
+        logger.info(f"[CREWAI AGENT] Task description: {task.description if hasattr(task, 'description') else str(task)}")
+        logger.info(f"[CREWAI AGENT] Agent role: {self.role}")
+        logger.info(f"[CREWAI AGENT] Agent tools: {[tool.name for tool in self.tools] if hasattr(self, 'tools') and self.tools else 'None'}")
+        
+        # Log detailed tool information
+        if hasattr(self, 'tools') and self.tools:
+            for i, tool in enumerate(self.tools):
+                logger.info(f"[CREWAI AGENT] Tool {i+1}: {tool.name} - {getattr(tool, 'description', 'No description')}")
+        
+        try:
+            print(f"🔍 [DEBUG] LoggingCrewAIAgent calling super().execute_task")
+            logger.info(f"[CREWAI AGENT] Calling parent execute_task method...")
+            
+            # Log LLM information
+            if hasattr(self, 'llm'):
+                logger.info(f"[CREWAI AGENT] LLM type: {type(self.llm).__name__}")
+                logger.info(f"[CREWAI AGENT] LLM model: {getattr(self.llm, 'model', 'Unknown')}")
+            
+            # Call the parent execute_task method (this is sync in CrewAI)
+            result = super().execute_task(task, *args, **kwargs)
+            
+            print(f"🔍 [DEBUG] LoggingCrewAIAgent super().execute_task completed")
+            logger.info(f"[CREWAI AGENT] Task execution completed successfully")
+            logger.info(f"[CREWAI AGENT] Result: {result[:200]}..." if len(str(result)) > 200 else f"[CREWAI AGENT] Result: {result}")
+            
+            return result
+            
+        except Exception as e:
+            print(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
+            logger.error(f"[AGENT ERROR TRACE] [CREWAI AGENT] Error during task execution: {e}", exc_info=True)
+            raise
 
 
 @dataclass
@@ -79,115 +125,122 @@ class ConfigurableAgent:
                 'role': self.config.role.value,
                 'goal': self.config.goal,
                 'backstory': self.config.backstory,
-                'tools': self.tools,
                 'llm': self.llm,
                 'verbose': self.config.verbose,
                 'allow_delegation': self.config.allow_delegation,
-                'max_iter': self.config.max_iterations
+                'max_iter': self.config.max_iterations,
+                'tools': self.tools  # Pass tools to the agent
             }
             
             # Add memory if enabled - use boolean value
             if self.config.memory_enabled:
-                agent_params['memory'] = True
-            else:
-                agent_params['memory'] = False
+                agent_params['memory'] = self.team_memory.get_memory() # Use the actual memory object
             
-            # Create the CrewAI agent
-            crew_agent = Agent(**agent_params)
-            
-            logger.info(f"✅ Created CrewAI agent for role {self.config.role}")
-            return crew_agent
-            
+            # Use our logging wrapper instead of the base Agent
+            agent = LoggingCrewAIAgent(**agent_params)
+            return agent
         except Exception as e:
-            logger.error(f"Error creating CrewAI agent for role {self.config.role}: {e}")
+            logging.exception(f"Failed to create CrewAI Agent: {e}")
             raise
     
     @handle_agent_errors(operation="agent_execution")
-    def execute(self, task: str, context: Optional[Dict[str, Any]] = None) -> str:
-        """
-        Execute a task using this agent.
+    async def execute(self, task: str, context: Optional[Dict[str, Any]] = None) -> str:
+        """Execute a task using the agent."""
+        print(f"[DEBUG][ConfigurableAgent] ENTER execute with task={task}, context={context}")
+        logger.info(f"[DEBUG][ConfigurableAgent] ENTER execute with task={task}, context={context}")
+        print(f"🔍 [DEBUG] ConfigurableAgent.execute called with task='{task}', context={context}")
+        logger.info(f"[AGENT EXECUTE] Starting execution for {self.role.value}")
+        logger.info(f"[AGENT EXECUTE] Task: {task}")
+        logger.info(f"[AGENT EXECUTE] Context: {context}")
+        logger.info(f"[AGENT EXECUTE] Available tools: {[tool.name for tool in self.tools]}")
         
-        Args:
-            task: The task to execute
-            context: Optional context information
-            
-        Returns:
-            The result of task execution
-        """
-        # Validate inputs
-        validate_input(task, str, "task", required=True)
-        if context is not None:
-            validate_input(context, dict, "context", required=False)
+        # Log detailed tool information
+        for i, tool in enumerate(self.tools):
+            logger.info(f"[AGENT EXECUTE] Tool {i+1}: {tool.name} - {tool.description}")
         
-        # Apply behavioral mixin if available
-        if self.behavioral_mixin and hasattr(self.behavioral_mixin, 'pre_execute'):
-            task = self.behavioral_mixin.pre_execute(task, context)
-        
-        # Execute the task using the CrewAI agent
-        result = self._crew_agent.execute(task)
-        
-        # Apply behavioral mixin post-processing if available
-        if self.behavioral_mixin and hasattr(self.behavioral_mixin, 'post_execute'):
-            result = self.behavioral_mixin.post_execute(result, context)
-        
-        return result
-    
-    @handle_agent_errors(operation="agent_task_execution")
-    async def execute_task(self, subtask: Any, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Execute a task using this agent (async version for orchestration pipeline).
-        
-        Args:
-            subtask: The subtask to execute (can be a string or subtask object)
-            context: Optional context information
-            
-        Returns:
-            Dictionary containing the result of task execution
-        """
         try:
-            # Extract task description from subtask
-            if hasattr(subtask, 'description'):
-                task_description = subtask.description
-            elif isinstance(subtask, dict):
-                task_description = subtask.get('description', str(subtask))
-            else:
-                task_description = str(subtask)
-            
             # Validate inputs
-            validate_input(task_description, str, "task_description", required=True)
+            validate_input(task, str, "task", required=True)
             if context is not None:
                 validate_input(context, dict, "context", required=False)
-            
-            logger.info(f"Agent {self.role.value} executing task: {task_description[:100]}...")
+                print(f"[DEBUG][ConfigurableAgent] Input validated.")
+                logger.info(f"[DEBUG][ConfigurableAgent] Input validated.")
             
             # Apply behavioral mixin if available
             if self.behavioral_mixin and hasattr(self.behavioral_mixin, 'pre_execute'):
-                task_description = self.behavioral_mixin.pre_execute(task_description, context)
+                print(f"[DEBUG][ConfigurableAgent] Applying pre_execute behavioral mixin")
+                logger.info(f"[AGENT EXECUTE] Applying pre_execute mixin")
+                task = self.behavioral_mixin.pre_execute(task, context)
+                logger.info(f"[AGENT EXECUTE] Modified task after pre_execute: {task}")
             
-            # Execute the task using the CrewAI agent
-            result = self._crew_agent.execute(task_description)
+            # Create a CrewAI Task object
+            from crewai import Task
+            
+            crew_task = Task(
+                description=task,
+                agent=self._crew_agent,
+                expected_output="Task result as a string"
+            )
+            print(f"[DEBUG][ConfigurableAgent] Building CrewAI task...")
+            logger.info(f"[DEBUG][ConfigurableAgent] Building CrewAI task...")
+            print(f"🔍 [DEBUG] ConfigurableAgent executing CrewAI task: {task}")
+            logger.info(f"[AGENT EXECUTE] Created CrewAI task, executing...")
+            logger.info(f"[AGENT EXECUTE] CrewAI task description: {crew_task.description}")
+            logger.info(f"[AGENT EXECUTE] CrewAI agent role: {self._crew_agent.role}")
+            logger.info(f"[AGENT EXECUTE] CrewAI agent tools count: {len(self._crew_agent.tools) if hasattr(self._crew_agent, 'tools') else 'unknown'}")
+            
+            # Log CrewAI agent tool details
+            if hasattr(self._crew_agent, 'tools') and self._crew_agent.tools:
+                for i, tool in enumerate(self._crew_agent.tools):
+                    logger.info(f"[AGENT EXECUTE] CrewAI Tool {i+1}: {tool.name} - {getattr(tool, 'description', 'No description')}")
+            
+            # Execute the task using the CrewAI agent (async)
+            logger.info(f"[AGENT EXECUTE] Starting CrewAI agent execution...")
+            
+            # Use run_in_executor to handle CrewAI's sync execute_task method
+            import asyncio
+            loop = asyncio.get_event_loop()
+            
+            print(f"🔍 [DEBUG] ConfigurableAgent about to execute CrewAI task with timeout")
+            logger.info(f"[AGENT EXECUTE] Starting CrewAI execution with timeout...")
+            
+            try:
+                # Add timeout to prevent hanging
+                result = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None, 
+                        lambda: self._crew_agent.execute_task(crew_task)
+                    ),
+                    timeout=60.0  # 60 second timeout
+                )
+                print(f"🔍 [DEBUG] ConfigurableAgent CrewAI execution completed within timeout")
+                logger.info(f"[AGENT EXECUTE] CrewAI execution completed within timeout")
+            except asyncio.TimeoutError:
+                print(f"[AGENT ERROR TRACE] CrewAI execution timed out after 60 seconds")
+                logger.error(f"[AGENT ERROR TRACE] CrewAI execution timed out after 60 seconds")
+                raise Exception("CrewAI agent execution timed out")
+            except Exception as e:
+                print(f"[AGENT ERROR TRACE] CrewAI execution failed: {traceback.format_exc()}")
+                logger.error(f"[AGENT ERROR TRACE] CrewAI execution failed: {e}", exc_info=True)
+                raise
+            
+            print(f"🔍 [DEBUG] ConfigurableAgent CrewAI result: {result}")
+            logger.info(f"[AGENT EXECUTE] CrewAI execution completed, result: {result}")
             
             # Apply behavioral mixin post-processing if available
             if self.behavioral_mixin and hasattr(self.behavioral_mixin, 'post_execute'):
+                print(f"🔍 [DEBUG] ConfigurableAgent applying post_execute behavioral mixin")
+                logger.info(f"[AGENT EXECUTE] Applying post_execute mixin")
                 result = self.behavioral_mixin.post_execute(result, context)
+                logger.info(f"[AGENT EXECUTE] Modified result after post_execute: {result}")
             
-            logger.info(f"Agent {self.role.value} completed task successfully")
-            
-            return {
-                "success": True,
-                "result": result,
-                "agent_role": self.role.value,
-                "task_description": task_description
-            }
-            
+            print(f"🔍 [DEBUG] ConfigurableAgent.execute returning: {result}")
+            logger.info(f"[AGENT EXECUTE] Final result: {result}")
+            return result
         except Exception as e:
-            logger.error(f"Agent {self.role.value} failed to execute task: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "agent_role": self.role.value,
-                "task_description": getattr(subtask, 'description', str(subtask)) if hasattr(subtask, 'description') else str(subtask)
-            }
+            print(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
+            logger.error(f"[AGENT ERROR TRACE] [AGENT EXECUTE] Error during execution: {e}", exc_info=True)
+            raise
     
     def get_role(self) -> AgentRole:
         """Get the agent's role."""
@@ -291,45 +344,54 @@ class AgentFactory:
         logger.info(f"Initialized AgentFactory for team {team_id}")
     
     def create_agent(self, role: AgentRole) -> Optional[ConfigurableAgent]:
-        """
-        Create a ConfigurableAgent for the specified role.
-        
-        Args:
-            role: The agent role to create
-            
-        Returns:
-            Configured agent instance or None if role not found/disabled
-        """
+        """Create an agent for the specified role."""
         try:
-            # Get configuration for the role
+            logger.info(f"[AGENT FACTORY] Creating agent for role: {role.value}")
+            
+            # Get agent configuration
             config = get_agent_config(role)
             if not config:
-                logger.warning(f"No configuration found for role {role}")
+                logger.warning(f"[AGENT FACTORY] No configuration found for role {role}")
                 return None
             
             if not config.enabled:
-                logger.info(f"Agent role {role} is disabled")
+                logger.info(f"[AGENT FACTORY] Agent {role.value} is disabled, skipping creation")
                 return None
             
-            # Get tools for this role
-            tools = self._get_tools_for_role(config.tools)
+            logger.info(f"[AGENT FACTORY] Agent configuration: enabled={config.enabled}, tools={config.tools}")
             
-            # Create context
+            # Get tools for this agent
+            tools = self._get_tools_for_role(config.tools)
+            logger.info(f"[AGENT FACTORY] Found {len(tools)} tools for agent {role.value}: {[tool.name for tool in tools]}")
+            
+            # Create team memory if needed
+            team_memory = None
+            if config.memory_enabled:
+                from agents.team_memory import TeamMemory
+                team_memory = TeamMemory(self.team_id)
+                logger.info(f"[AGENT FACTORY] Created team memory for agent {role.value}")
+            
+            # Create agent context
             context = AgentCreationContext(
                 team_id=self.team_id,
                 llm=self.llm,
                 tools=tools,
                 config=config,
-                team_memory=self.team_memory
+                team_memory=team_memory
             )
             
-            # Create and return the agent
+            logger.info(f"[AGENT FACTORY] Created agent context for {role.value}")
+            
+            # Create the agent
             agent = ConfigurableAgent(context)
-            logger.info(f"✅ Created agent for role {role}")
+            
+            logger.info(f"[AGENT FACTORY] ✅ Successfully created agent {role.value}")
+            logger.info(f"[AGENT FACTORY] Agent {role.value} tools: {[tool.name for tool in agent.get_tools()]}")
+            
             return agent
             
         except Exception as e:
-            logger.error(f"Error creating agent for role {role}: {e}")
+            logger.error(f"[AGENT FACTORY] Error creating agent {role.value}: {e}", exc_info=True)
             return None
     
     def create_all_agents(self) -> Dict[AgentRole, ConfigurableAgent]:
@@ -350,24 +412,21 @@ class AgentFactory:
         return agents
     
     def _get_tools_for_role(self, tool_names: List[str]) -> List[BaseTool]:
-        """
-        Get tools for a role based on tool names.
-        
-        Args:
-            tool_names: List of tool names to get
-            
-        Returns:
-            List of tool instances
-        """
+        """Get tools for a specific role."""
         tools = []
+        
+        logger.info(f"[AGENT FACTORY] Getting tools for role: {tool_names}")
+        logger.info(f"[AGENT FACTORY] Available tools in registry: {list(self.tool_registry.keys())}")
         
         for tool_name in tool_names:
             if tool_name in self.tool_registry:
-                tools.append(self.tool_registry[tool_name])
+                tool = self.tool_registry[tool_name]
+                tools.append(tool)
+                logger.info(f"[AGENT FACTORY] ✅ Found tool '{tool_name}' for role")
             else:
-                logger.warning(f"Tool {tool_name} not found in registry")
+                logger.warning(f"[AGENT FACTORY] ❌ Tool '{tool_name}' not found in registry")
         
-        logger.info(f"🔧 Loading {len(tools)} tools for role")
+        logger.info(f"[AGENT FACTORY] Returning {len(tools)} tools for role")
         return tools
     
     def update_tool_registry(self, new_tool_registry: Dict[str, BaseTool]) -> None:

@@ -69,6 +69,14 @@ class CommandOperationsImpl(ICommandOperations):
         """Reject a player for match squad selection."""
         return await self.player_adapter.reject_player(player_id, reason, team_id)
     
+    async def reject_player_by_identifier(self, identifier: str, reason: str, team_id: str) -> tuple[bool, str]:
+        """Reject a player by player ID or phone number."""
+        return await self.player_adapter.reject_player_by_identifier(identifier, reason, team_id)
+
+    async def update_player_info(self, user_id: str, field: str, value: str, team_id: str) -> tuple[bool, str]:
+        """Update a player's information."""
+        return await self.player_adapter.update_player_info(user_id, field, value, team_id)
+    
     async def get_pending_approvals(self, team_id: str) -> str:
         """Get list of players pending approval."""
         return await self.player_adapter.get_pending_approvals(team_id)

@@ -21,7 +21,7 @@ import nest_asyncio
 nest_asyncio.apply()
 
 from core.constants import BOT_VERSION, FIRESTORE_COLLECTION_PREFIX
-from core.improved_config_system import get_improved_config, initialize_improved_config
+from core.settings import get_settings, initialize_settings
 from database.firebase_client import initialize_firebase_client
 from services.player_service import get_player_service
 from services.team_service import get_team_service
@@ -30,11 +30,29 @@ from bot_telegram.unified_command_system import get_command_registry
 from telegram.ext import ApplicationBuilder, Application, CommandHandler
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
+
+def handle_exception(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        # Don't interfere with Ctrl+C
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+
+    logger.critical("Unhandled exception caught by sys.excepthook:", exc_info=(exc_type, exc_value, exc_traceback))
+    # Force flush all handlers
+    for handler in logger.handlers:
+        handler.flush()
+    sys.exit(1) # Exit with an error code
+
+sys.excepthook = handle_exception
+
+# Ensure logs are flushed immediately
+for handler in logger.handlers:
+    if isinstance(handler, logging.StreamHandler):
+        handler.flush = sys.stdout.flush # For stdout
+    elif isinstance(handler, logging.FileHandler):
+        handler.flush() # For files
+
 
 VERSION = BOT_VERSION
 
@@ -66,12 +84,24 @@ def setup_environment():
         check_network_connectivity()
         
         # Initialize configuration manager and get Configuration object
-        initialize_improved_config()
-        config = get_improved_config().configuration
-        logger.info("✅ Configuration loaded successfully")
+        initialize_settings()
+        config = get_settings()
+        
+        # Configure logging with the path from settings
+        from core.logging_config import configure_logging
+        log_file_path = config.log_file_path if config.log_file_path else "logs/kickai.log"
+        configure_logging(
+            log_level=config.log_level,
+            log_format=config.log_format,
+            log_file=log_file_path,
+            max_file_size=config.log_max_file_size,
+            backup_count=config.log_backup_count,
+            include_context=True # Always include context for structured logging
+        )
+        logger.info("✅ Configuration loaded successfully and logging configured")
         
         # Initialize Firebase with database config
-        initialize_firebase_client(config.database)
+        initialize_firebase_client(config)
         logger.info("✅ Firebase client initialized")
         
         # Initialize services
@@ -83,7 +113,7 @@ def setup_environment():
         return config
         
     except Exception as e:
-        logger.error(f"❌ Failed to setup environment: {e}")
+        logger.critical(f"❌ Failed to setup environment: {e}", exc_info=True)
         raise
 
 def initialize_player_service():
@@ -162,86 +192,118 @@ async def send_shutdown_message(application: Application) -> None:
     logger.info("🔄 [Shutdown] post_stop callback complete.")
 
 async def main():
-    # Load config and initialize application as before
-    config = setup_environment()
-    
-    # Run comprehensive startup validation
-    logger.info("🔍 Running comprehensive startup validation...")
     try:
-        from core.startup_validator import StartupValidator
+        # Load config and initialize application as before
+        config = setup_environment()
         
-        # Create and run startup validator
-        validator = StartupValidator()
-        validation_report = await validator.validate()
-        
-        # Check if any critical checks failed
-        if not validation_report.is_healthy():
-            logger.error("❌ Critical startup validation failures detected:")
-            for failure in validation_report.critical_failures:
-                logger.error(f"   - {failure}")
-            logger.error("🚫 Bot startup aborted due to critical validation failures")
+        # Run comprehensive startup validation
+        logger.info("🔍 Running comprehensive startup validation...")
+        try:
+            from core.startup_validator import StartupValidator
+            
+            # Create and run startup validator
+            validator = StartupValidator()
+            validation_report = await validator.validate()
+            
+            # Check if any critical checks failed
+            if not validation_report.is_healthy():
+                logger.error("❌ Critical startup validation failures detected:")
+                for failure in validation_report.critical_failures:
+                    logger.error(f"   - {failure}")
+                logger.error("🚫 Bot startup aborted due to critical validation failures")
+                return
+            
+            # Log validation summary
+            total_checks = len(validation_report.checks)
+            passed = len([r for r in validation_report.checks if r.status.value == "PASSED"])
+            failed = len([r for r in validation_report.checks if r.status.value == "FAILED"])
+            warnings = len([r for r in validation_report.checks if r.status.value == "WARNING"])
+            
+            logger.info(f"✅ Startup validation complete: {passed}/{total_checks} passed, {failed} failed, {warnings} warnings")
+            
+            if failed > 0 or warnings > 0:
+                logger.warning("⚠️ Some validation checks failed or have warnings:")
+                for result in validation_report.checks:
+                    if result.status.value in ["FAILED", "WARNING"]:
+                        logger.warning(f"   - {result.category.value}:{result.name}: {result.message}")
+            
+            # Print detailed report
+            validator.print_report(validation_report)
+            
+        except Exception as e:
+            logger.error(f"❌ Startup validation failed: {e}")
+            logger.error("🚫 Bot startup aborted due to validation error")
             return
         
-        # Log validation summary
-        total_checks = len(validation_report.checks)
-        passed = len([r for r in validation_report.checks if r.status.value == "PASSED"])
-        failed = len([r for r in validation_report.checks if r.status.value == "FAILED"])
-        warnings = len([r for r in validation_report.checks if r.status.value == "WARNING"])
+        application = start_bot(config)  # This should be the function that returns the Application instance
+        VERSION = "1.0.0" # Replace with actual version retrieval logic
+        chat_ids = get_chat_ids()
         
-        logger.info(f"✅ Startup validation complete: {passed}/{total_checks} passed, {failed} failed, {warnings} warnings")
-        
-        if failed > 0 or warnings > 0:
-            logger.warning("⚠️ Some validation checks failed or have warnings:")
-            for result in validation_report.checks:
-                if result.status.value in ["FAILED", "WARNING"]:
-                    logger.warning(f"   - {result.category.value}:{result.name}: {result.message}")
-        
-        # Print detailed report
-        validator.print_report(validation_report)
-        
-    except Exception as e:
-        logger.error(f"❌ Startup validation failed: {e}")
-        logger.error("🚫 Bot startup aborted due to validation error")
-        return
-    
-    application = start_bot(config)  # This should be the function that returns the Application instance
-    VERSION = "1.0.0" # Replace with actual version retrieval logic
-    chat_ids = get_chat_ids()
-    
-    # Startup message will be sent automatically by post_init callback
-    # --- End application creation logic ---
+        # Startup message will be sent automatically by post_init callback
+        # --- End application creation logic ---
 
-    try:
-        logger.info("🤖 Bot is running. Press Ctrl+C to exit.")
-        # Create polling task
-        polling_task = asyncio.create_task(
-            application.run_polling(
-                allowed_updates=["message", "callback_query"],
-                drop_pending_updates=True,
-                close_loop=True
-            )
-        )
+        # Set up signal handling for graceful shutdown
+        shutdown_event = asyncio.Event()
         
-        # Wait for shutdown signal
-        await polling_task
-            
-    finally:
-        logger.info("🔄 Sending shutdown messages...")
+        def signal_handler(signum, frame):
+            logger.info(f"🛑 Received signal {signum}, initiating graceful shutdown...")
+            shutdown_event.set()
+        
+        import signal
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+
         try:
-            await send_shutdown_message(application)
+            logger.info("🤖 Bot is running. Press Ctrl+C to exit.")
+            
+            # Create polling task
+            polling_task = asyncio.create_task(
+                application.run_polling(
+                    allowed_updates=["message", "callback_query"],
+                    drop_pending_updates=True,
+                    close_loop=False  # Don't close the loop, let it run naturally
+                )
+            )
+            
+            # Wait for either shutdown signal or polling to complete
+            await asyncio.wait(
+                [polling_task, shutdown_event.wait()],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            # If we got here due to shutdown signal, cancel the polling task
+            if shutdown_event.is_set():
+                logger.info("🛑 Shutdown signal received, stopping bot...")
+                polling_task.cancel()
+                try:
+                    await polling_task
+                except asyncio.CancelledError:
+                    logger.info("✅ Bot polling stopped")
+                
+        except asyncio.CancelledError:
+            logger.info("🛑 Bot polling cancelled")
         except Exception as e:
-            logger.error(f"❌ Error sending shutdown messages: {e}")
-        
-        logger.info("🔄 Flushing logs and cleaning up...")
-        for handler in logging.getLogger().handlers:
-            handler.flush()
-        logger.info("✅ Shutdown complete. Exiting.")
+            logger.error(f"❌ Error during bot polling: {e}")
+        finally:
+            logger.info("🔄 Sending shutdown messages...")
+            try:
+                await send_shutdown_message(application)
+            except Exception as e:
+                logger.error(f"❌ Error sending shutdown messages: {e}")
+            
+            logger.info("🔄 Flushing logs and cleaning up...")
+            for handler in logging.getLogger().handlers:
+                handler.flush()
+            logger.info("✅ Shutdown complete. Exiting.")
+    except Exception as e:
+        logger.critical(f"Unhandled exception in main: {e}", exc_info=True)
+        raise
 
 def start_bot(config):
     """Start the Telegram bot."""
     try:
         # Get bot token from config
-        bot_token = config.telegram.bot_token
+        bot_token = config.telegram_bot_token
         if not bot_token:
             raise ValueError("TELEGRAM_BOT_TOKEN not found in environment variables")
         
@@ -341,10 +403,15 @@ if __name__ == "__main__":
         sys.exit(1)
     
     # Run the bot
+    print("KICKAI Bot: Starting up...") # Very early print statement
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("KeyboardInterrupt received. Exiting.")
     except Exception as e:
         logger.exception(f"Unhandled exception: {e}")
-        sys.exit(1) 
+        sys.exit(1)
+    finally:
+        # Ensure all logs are flushed before exiting
+        for handler in logging.getLogger().handlers:
+            handler.flush() 

@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from services.payment_service import PaymentService
 from services.expense_service import ExpenseService
 from services.team_service import TeamService
-from core.bot_config_manager import get_bot_config_manager
+from core.settings import get_settings
 # from tools.telegram_tools import format_message_for_telegram  # File doesn't exist
 from database.models_improved import ExpenseCategory
 import requests
@@ -22,7 +22,7 @@ class FinancialReportService:
         self.payment_service = PaymentService(team_id=team_id)
         self.expense_service = ExpenseService()
         self.team_service = TeamService()
-        self.bot_config_manager = get_bot_config_manager()
+        self.settings = get_settings()
 
     async def generate_financial_summary(self) -> str:
         """Generates a comprehensive financial summary for the team."""
@@ -73,8 +73,8 @@ Expense Breakdown:"""
     async def send_financial_report(self) -> bool:
         """Generates and sends the financial report to the leadership chat."""
         try:
-            bot_config = self.bot_config_manager.get_bot_config(self.team_id)
-            if not bot_config or not bot_config.leadership_chat_id:
+            bot_token = self.settings.telegram_bot_token
+            if not bot_token or not self.settings.telegram_leadership_chat_id:
                 logger.error(f"❌ No leadership chat configured for team {self.team_id}")
                 return False
 
@@ -83,14 +83,14 @@ Expense Breakdown:"""
 
             url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
             data = {
-                "chat_id": bot_config.leadership_chat_id,
+                "chat_id": self.settings.telegram_leadership_chat_id,
                 "text": formatted_message,
                 "parse_mode": "HTML"
             }
 
             response = requests.post(url, json=data, timeout=10)
             if response.status_code == 200:
-                logger.info(f"✅ Financial report sent to leadership chat {bot_config.leadership_chat_id}")
+                logger.info(f"✅ Financial report sent to leadership chat {self.settings.telegram_leadership_chat_id}")
                 return True
             else:
                 logger.error(f"❌ Failed to send financial report: {response.status_code} - {response.text}")
@@ -104,7 +104,12 @@ Expense Breakdown:"""
         while True:
             try:
                 now = datetime.now()
-                financial_report_config = self.bot_config_manager.get_financial_report_config(self.team_id)
+                # Use default financial report settings
+                financial_report_config = {
+                    "enabled": True,
+                    "interval_hours": 24,
+                    "send_to_leadership": True
+                }
 
                 if not financial_report_config or not financial_report_config.get("enabled", False):
                     logger.info(f"Financial reports disabled for team {self.team_id}. Sleeping for 24 hours.")

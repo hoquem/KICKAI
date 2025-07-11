@@ -1,5 +1,5 @@
 from domain.interfaces.bot_config import BotConfig, BotConfigManager
-from core.bot_config_manager import BotConfigManager as InfrastructureBotConfigManager
+from core.config_adapter import BotConfigManager as InfrastructureBotConfigManager
 
 
 class BotConfigAdapter(BotConfig):

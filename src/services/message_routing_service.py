@@ -36,9 +36,8 @@ class MessageRoutingService:
             return False, "No player found"
         
         # Use Player model's encapsulated method as single source of truth
-        if player.is_pending_onboarding():
-            # Only route PENDING players to onboarding - IN_PROGRESS players can use general commands
-            if player.onboarding_status == OnboardingStatus.PENDING:
+        # Only route PENDING players to onboarding - IN_PROGRESS players can use general commands
+        if player.onboarding_status == OnboardingStatus.PENDING:
                 logger.info(f"[ROUTING] Player {player.name} is pending onboarding, routing to onboarding handler")
                 return True, f"Player {player.name} is pending onboarding"
             else:

@@ -18,7 +18,7 @@ from core.exceptions import (
     get_error_category, format_error_message, get_user_friendly_message,
     should_notify_admin, is_retryable_error, is_critical_error
 )
-from core.improved_config_system import get_improved_config
+from core.settings import get_settings
 from services.telegram_service import get_telegram_service
 
 logger = get_logger(__name__)
@@ -48,9 +48,8 @@ class ErrorHandlingService:
     
     def __init__(self, team_id: str):
         self.team_id = team_id
-        config = get_improved_config()
-        team_config = config.get_team_config(team_id)
-        self.admin_chat_id = team_config.leadership_chat_id if team_config else None
+        config = get_settings()
+        self.admin_chat_id = config.telegram_leadership_chat_id
         self.error_reports: List[ErrorReport] = []
         self.max_reports = 100  # Keep last 100 error reports in memory
         

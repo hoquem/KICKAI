@@ -18,7 +18,7 @@ from services.team_service import TeamService
 from services.team_member_service import TeamMemberService
 from services.fa_registration_checker import run_fa_registration_check, run_fa_fixtures_check
 from database.models_improved import Player
-from core.bot_config_manager import get_bot_config_manager
+
 from services.interfaces.daily_status_service_interface import IDailyStatusService
 
 class DailyStatusService(IDailyStatusService):
@@ -29,12 +29,12 @@ class DailyStatusService(IDailyStatusService):
                  team_service: TeamService,
                  team_member_service: Optional[TeamMemberService],
                  bot_token: str,
-                 bot_config_manager):
+                 settings):
         self.player_service = player_service
         self.team_service = team_service
         self.team_member_service = team_member_service
         self.bot_token = bot_token
-        self.bot_config_manager = bot_config_manager
+        self.settings = settings
         
     async def generate_team_stats(self, team_id: str) -> Dict:
         """
@@ -210,9 +210,13 @@ Generated automatically by KICKAI Team Management System"""
         try:
             logging.info(f"📊 Generating daily status report for team {team_id}")
 
-            # Get daily report configuration
-            daily_report_config = self.bot_config_manager.get_daily_report_config(team_id)
-            if not daily_report_config or not daily_report_config.get("enabled", False):
+            # Use default daily report configuration
+            daily_report_config = {
+                "enabled": True,
+                "time": "09:00",
+                "content": ["players", "fixtures", "system_status"]
+            }
+            if not daily_report_config.get("enabled", False):
                 logging.info(f"Daily reports disabled for team {team_id}")
                 return False
 
@@ -263,7 +267,11 @@ Generated automatically by KICKAI Team Management System"""
         while True:
             try:
                 now = datetime.now()
-                daily_report_config = self.bot_config_manager.get_daily_report_config(team_id)
+                daily_report_config = {
+                    "enabled": True,
+                    "time": "09:00",
+                    "content": ["players", "fixtures", "system_status"]
+                }
                 report_time_str = daily_report_config.get("time", "09:00") # Default to 09:00 AM
                 report_hour, report_minute = map(int, report_time_str.split(":"))
 
@@ -296,7 +304,7 @@ async def start_daily_status_service(team_id: str,
                                    team_service: TeamService,
                                    team_member_service: TeamMemberService,
                                    bot_token: str,
-                                   bot_config_manager) -> None:
+                                   settings) -> None:
     """
     Start the daily status service.
     
@@ -313,7 +321,7 @@ async def start_daily_status_service(team_id: str,
         team_service=team_service,
         team_member_service=team_member_service,
         bot_token=bot_token,
-        bot_config_manager=bot_config_manager
+        settings=settings
     )
     
     # Start the scheduled task
@@ -348,25 +356,25 @@ def get_daily_status_service(team_id: str = None) -> DailyStatusService:
     from services.player_service import get_player_service
     from services.team_service import get_team_service
     from services.team_member_service import get_team_member_service
-    from core.bot_config_manager import get_bot_config_manager
-    from core.improved_config_system import get_improved_config
+    from core.settings import get_settings
+    
     
     # Get configuration
-    config = get_improved_config()
+    config = get_settings()
     
     # Get dependencies with explicit team_id
     player_service = get_player_service(team_id=team_id)
     team_service = get_team_service(team_id=team_id)
     team_member_service = get_team_member_service(team_id=team_id)
-    bot_config_manager = get_bot_config_manager()
+    settings = config
     
     # Create service instance
     service = DailyStatusService(
         player_service=player_service,
         team_service=team_service,
         team_member_service=team_member_service,
-        bot_token=config.configuration.telegram.bot_token,
-        bot_config_manager=bot_config_manager
+        bot_token=config.telegram_bot_token,
+        settings=settings
     )
     
     # Store instance for this team

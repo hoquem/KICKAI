@@ -306,20 +306,28 @@ class PlayerService(IPlayerService):
     
     async def get_player_by_telegram_id(self, telegram_id: str, team_id: Optional[str] = None) -> Optional[InfrastructurePlayer]:
         """Get a player by Telegram ID, optionally filtered by team."""
+        print(f"🔍 [DEBUG] PlayerService.get_player_by_telegram_id called with telegram_id={telegram_id}, team_id={team_id}")
         try:
             # If team_id is provided, use it; otherwise use the instance team_id
             target_team_id = team_id or self._team_id
+            print(f"🔍 [DEBUG] PlayerService using target_team_id={target_team_id}")
             if not target_team_id:
+                print(f"🔍 [DEBUG] PlayerService: No team_id provided for get_player_by_telegram_id")
                 logging.info(f"No team_id provided for get_player_by_telegram_id")
                 return None
             # Use efficient Firestore query
+            print(f"🔍 [DEBUG] PlayerService calling _data_store.get_player_by_telegram_id({telegram_id}, {target_team_id})")
             player = await self._data_store.get_player_by_telegram_id(telegram_id, target_team_id)
+            print(f"🔍 [DEBUG] PlayerService._data_store.get_player_by_telegram_id result: {player}")
             if player:
+                print(f"🔍 [DEBUG] PlayerService: Found player {player.name} with telegram_id {telegram_id}")
                 logging.info(f"Found player {player.name} with telegram_id {telegram_id}")
                 return player
+            print(f"🔍 [DEBUG] PlayerService: No player found with telegram_id: {telegram_id}")
             logging.info(f"No player found with telegram_id: {telegram_id}")
             return None
         except Exception as e:
+            print(f"❌ [DEBUG] PlayerService.get_player_by_telegram_id exception: {e}")
             logging.error("Failed to get player by telegram_id")
             raise PlayerError(
                 f"Failed to get player by telegram_id: {str(e)}",
@@ -415,8 +423,9 @@ class PlayerService(IPlayerService):
     async def get_pending_approvals(self, team_id: str) -> str:
         """Get list of players pending approval."""
         try:
-            players = await self.get_players_by_status(team_id, OnboardingStatus.COMPLETED)
-            pending_players = [p for p in players if not p.admin_approved]
+            # Get all team players and filter for pending approval
+            all_players = await self.get_team_players(team_id)
+            pending_players = [p for p in all_players if p.is_pending_approval()]
             
             if not pending_players:
                 return "✅ No players pending approval"
@@ -433,16 +442,24 @@ class PlayerService(IPlayerService):
 
     async def get_player_info(self, user_id: str, team_id: str) -> tuple[bool, str]:
         """Get player information by user ID."""
+        print(f"🔍 [DEBUG] PlayerService.get_player_info called with user_id={user_id}, team_id={team_id}")
         try:
+            print(f"🔍 [DEBUG] PlayerService calling get_player_by_telegram_id({user_id}, {team_id})")
             player = await self.get_player_by_telegram_id(user_id, team_id)
+            print(f"🔍 [DEBUG] PlayerService.get_player_by_telegram_id result: {player}")
+            
             if not player:
+                print(f"🔍 [DEBUG] PlayerService: Player not found for user_id={user_id}")
                 return False, "Player not found. Please register first."
             
             detailed_status = player.get_detailed_status()
+            result = f"👤 {player.name} ({player.player_id})\n📱 {player.phone}\n🏃 {player.position.value.title()}\n📊 Status: {detailed_status}"
+            print(f"🔍 [DEBUG] PlayerService.get_player_info returning: {result}")
             # Remove markdown, use plain text formatting
-            return True, f"👤 {player.name} ({player.player_id})\n📱 {player.phone}\n🏃 {player.position.value.title()}\n📊 Status: {detailed_status}"
+            return True, result
             
         except Exception as e:
+            print(f"❌ [DEBUG] PlayerService.get_player_info exception: {e}")
             logging.error(f"Failed to get player info: {e}")
             return False, f"Error getting player info: {str(e)}"
 
@@ -658,11 +675,11 @@ def get_player_service(team_id: Optional[str] = None) -> PlayerService:
     global _player_service_instance
     
     if _player_service_instance is None:
-        from core.improved_config_system import get_improved_config
+        from core.settings import get_settings
         from services.mocks.mock_external_player_service import MockExternalPlayerService
         
-        config_manager = get_improved_config()
-        data_store = FirebaseClient(config_manager.configuration.database)
+        config_manager = get_settings()
+        data_store = FirebaseClient(config_manager)
         external_player_service = MockExternalPlayerService()
         
         # Create service instance
@@ -677,11 +694,11 @@ def get_player_service(team_id: Optional[str] = None) -> PlayerService:
 def initialize_player_service(team_id: Optional[str] = None):
     """Explicitly (re)initialize the player service singleton."""
     global _player_service_instance
-    from core.improved_config_system import get_improved_config
+    from core.settings import get_settings
     from services.mocks.mock_external_player_service import MockExternalPlayerService
 
-    config_manager = get_improved_config()
-    data_store = FirebaseClient(config_manager.configuration.database)
+    config_manager = get_settings()
+    data_store = FirebaseClient(config_manager)
     external_player_service = MockExternalPlayerService()
     
     _player_service_instance = PlayerService(

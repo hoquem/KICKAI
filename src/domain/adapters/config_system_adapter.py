@@ -1,5 +1,5 @@
 from domain.interfaces.config_system import ConfigSystem
-from core.improved_config_system import get_improved_config as get_infrastructure_config
+from core.settings import get_settings as get_infrastructure_config
 
 
 class ConfigSystemAdapter(ConfigSystem):

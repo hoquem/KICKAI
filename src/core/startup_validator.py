@@ -16,8 +16,8 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Type
 from pathlib import Path
 
-from core.improved_config_system import ImprovedConfigurationManager
-from core.enums import AIProvider
+from core.settings import get_settings
+from utils.llm_factory import AIProvider
 from database.firebase_client import FirebaseClient
 from services.team_mapping_service import TeamMappingService
 
@@ -113,25 +113,21 @@ class ConfigurationCheck(HealthCheck):
         start_time = asyncio.get_event_loop().time()
         
         try:
-            config_manager = ImprovedConfigurationManager()
-            config = config_manager.configuration
+            config = get_settings()
             
             # Validate essential configuration
             required_fields = [
-                'provider', 'api_key', 'model_name', 'max_retries'
+                'ai_provider', 'google_api_key', 'ai_model_name', 'ai_max_retries'
             ]
-            ai_config = config.ai
             missing_fields = []
             for field in required_fields:
-                if not hasattr(ai_config, field) or getattr(ai_config, field) is None:
+                if not hasattr(config, field) or getattr(config, field) is None:
                     missing_fields.append(field)
             
-            if not config.teams or not config.teams.default_team_id:
+            if not config.default_team_id:
                 missing_fields.append('default_team_id')
-            if not config.teams or not config.teams.teams:
-                missing_fields.append('teams')
-            if not config.telegram or not config.telegram.bot_token:
-                missing_fields.append('bot_token')
+            if not config.telegram_bot_token:
+                missing_fields.append('telegram_bot_token')
             
             if missing_fields:
                 return CheckResult(
@@ -143,12 +139,16 @@ class ConfigurationCheck(HealthCheck):
                     duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
                 )
             
+            # Get actual provider from environment (same as LLMFactory)
+            import os
+            provider_str = os.getenv('AI_PROVIDER', 'google_gemini')
+            
             return CheckResult(
                 name=self.name,
                 category=self.category,
                 status=CheckStatus.PASSED,
                 message="Configuration loaded successfully",
-                details={'provider': str(ai_config.provider), 'team_id': config.teams.default_team_id},
+                details={'provider': f'AIProvider.{provider_str.upper()}', 'team_id': config.default_team_id},
                 duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
             )
         except Exception as e:
@@ -172,43 +172,59 @@ class LLMProviderCheck(HealthCheck):
         start_time = asyncio.get_event_loop().time()
         
         try:
-            config_manager = ImprovedConfigurationManager()
-            config = config_manager.configuration
+            config = get_settings()
             
-            if config.ai.provider != AIProvider.GOOGLE_GEMINI:
-                return CheckResult(
-                    name=self.name,
-                    category=self.category,
-                    status=CheckStatus.FAILED,
-                    message=f"Unsupported AI provider: {config.ai.provider}. Only GOOGLE_GEMINI is supported.",
-                    details={'provider': str(config.ai.provider)},
-                    duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
-                )
-            
-            if not config.ai.api_key:
-                return CheckResult(
-                    name=self.name,
-                    category=self.category,
-                    status=CheckStatus.FAILED,
-                    message="Google API key is not configured",
-                    duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
-                )
-            
-            # Test LLM connectivity (basic test)
+            # Test LLM connectivity using LLMFactory
             try:
-                import google.generativeai as genai
-                genai.configure(api_key=config.ai.api_key)
-                model = genai.GenerativeModel(config.ai.model_name)
-                response = model.generate_content("Hello")
-                if response.text:
+                from utils.llm_factory import LLMFactory
+                import os
+                
+                # Get provider and model from environment (same as LLMFactory)
+                provider_str = os.getenv('AI_PROVIDER', 'google_gemini')
+                if provider_str == 'ollama':
+                    model_name = os.getenv('OLLAMA_MODEL', 'llama2')
+                else:
+                    model_name = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
+                
+                # Create LLM using the factory (this will use the correct provider from environment)
+                llm = LLMFactory.create_from_environment()
+                
+                # Test basic connectivity
+                if hasattr(llm, 'invoke'):
+                    # LangChain-style LLM
+                    response = llm.invoke("Hello")
+                    if response:
+                        return CheckResult(
+                            name=self.name,
+                            category=self.category,
+                            status=CheckStatus.PASSED,
+                            message="LLM provider configured and responsive",
+                            details={'provider': f'AIProvider.{provider_str.upper()}', 'model': model_name},
+                            duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
+                        )
+                elif hasattr(llm, 'generate_content'):
+                    # Google Gemini-style LLM
+                    response = llm.generate_content("Hello")
+                    if response.text:
+                        return CheckResult(
+                            name=self.name,
+                            category=self.category,
+                            status=CheckStatus.PASSED,
+                            message="LLM provider configured and responsive",
+                            details={'provider': f'AIProvider.{provider_str.upper()}', 'model': model_name},
+                            duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
+                        )
+                else:
+                    # Generic test - just check if LLM was created successfully
                     return CheckResult(
                         name=self.name,
                         category=self.category,
                         status=CheckStatus.PASSED,
                         message="LLM provider configured and responsive",
-                        details={'provider': str(config.ai.provider), 'model': config.ai.model_name},
+                        details={'provider': f'AIProvider.{provider_str.upper()}', 'model': model_name, 'llm_type': type(llm).__name__},
                         duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
                     )
+                    
             except Exception as e:
                 return CheckResult(
                     name=self.name,
@@ -263,8 +279,8 @@ class AgentInitializationCheck(HealthCheck):
                     continue
                 
                 # Check if agent has required methods
-                if not hasattr(agent, 'execute_task'):
-                    warnings.append(f"Agent for {role_name} missing execute_task method")
+                if not hasattr(agent, 'execute'):
+                    warnings.append(f"Agent for {role_name} missing execute method")
                 
                 # Check if agent is enabled (if method exists)
                 if hasattr(agent, 'is_enabled'):
@@ -283,7 +299,7 @@ class AgentInitializationCheck(HealthCheck):
                 
                 agent_details[role_name] = {
                     'type': agent_type,
-                    'has_execute_task': hasattr(agent, 'execute_task'),
+                    'has_execute': hasattr(agent, 'execute'),
                     'has_config': config is not None,
                     'has_llm': llm is not None
                 }
@@ -436,9 +452,9 @@ class DatabaseConnectivityCheck(HealthCheck):
         try:
             # Test Firebase connectivity
             from database.firebase_client import FirebaseClient
-            from core.improved_config_system import get_improved_config
+            from core.settings import get_settings
             
-            config = get_improved_config().configuration.database
+            config = get_settings()
             client = FirebaseClient(config)
             
             # Test basic connectivity

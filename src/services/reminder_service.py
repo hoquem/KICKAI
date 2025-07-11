@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from database.models_improved import Player, OnboardingStatus, PaymentStatus
 from services.player_service import get_player_service
-from core.bot_config_manager import get_bot_config_manager
+from core.settings import get_settings
 from utils.llm_client import LLMClient
 from utils.llm_intent import LLMIntent
 from services.interfaces.reminder_service_interface import IReminderService
@@ -34,7 +34,7 @@ class ReminderService(IReminderService):
     def __init__(self, team_id: str):
         self.team_id = team_id
         self.player_service = get_player_service(team_id=team_id)
-        self.bot_config_manager = get_bot_config_manager()
+        self.settings = get_settings()
         from services.payment_service import get_payment_service
         self.payment_service = get_payment_service(team_id=team_id)
         
@@ -359,8 +359,8 @@ Let me know if you need any help! 🏆"""
     async def _notify_admin_reminder_sent(self, player: Player, reminder_number: int) -> None:
         """Notify admin that a reminder was sent."""
         try:
-            bot_config = self.bot_config_manager.get_bot_config(self.team_id)
-            if not bot_config or not bot_config.leadership_chat_id:
+            bot_token = self.settings.telegram_bot_token
+            if not bot_token or not self.settings.telegram_leadership_chat_id:
                 return
             
             # Send to leadership chat (this would need to be implemented)

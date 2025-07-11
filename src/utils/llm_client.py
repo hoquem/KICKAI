@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional
 from utils.llm_intent import extract_intent
 from utils.async_utils import async_retry, async_timeout, safe_async_call
 from utils.llm_factory import LLMFactory, LLMConfig, LLMProviderError
-from core.enums import AIProvider
+from utils.llm_factory import AIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -53,25 +53,11 @@ class LLMClient:
         self._initialize_llm()
     
     def _initialize_llm(self):
-        """Initialize the LLM instance."""
+        """Initialize the LLM instance using the factory pattern."""
         try:
-            # Try to get configuration from environment or config
-            api_key = self.config.get('api_key') or self._get_api_key_from_env()
-            model_name = self.config.get('model_name', 'gemini-pro')
-            
-            if api_key:
-                llm_config = LLMConfig(
-                    provider=AIProvider.GOOGLE_GEMINI,
-                    model_name=model_name,
-                    api_key=api_key,
-                    temperature=self.config.get('temperature', 0.7),
-                    timeout_seconds=self.config.get('timeout_seconds', 30),
-                    max_retries=self.config.get('max_retries', 3)
-                )
-                self._llm_instance = LLMFactory.create_llm(llm_config)
-                logger.info(f"✅ LLM initialized with model: {model_name}")
-            else:
-                logger.warning("No API key found, using fallback LLM client")
+            # Use the new factory method that reads from environment
+            self._llm_instance = LLMFactory.create_from_environment()
+            logger.info(f"✅ LLM initialized successfully: {type(self._llm_instance).__name__}")
                 
         except Exception as e:
             logger.warning(f"Failed to initialize LLM: {e}. Using fallback client.")

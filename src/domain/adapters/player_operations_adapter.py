@@ -143,6 +143,90 @@ class PlayerOperationsAdapter(IPlayerOperations):
             self.logger.error(f"Error rejecting player: {e}", exc_info=True)
             return False, f"Error rejecting player: {str(e)}"
 
+    async def reject_player_by_identifier(self, identifier: str, reason: str, team_id: str) -> tuple[bool, str]:
+        """Reject a player by player ID or phone number."""
+        self.logger.info(f"[PlayerOperationsAdapter] reject_player_by_identifier called with identifier={identifier}, reason={reason}, team_id={team_id}")
+        try:
+            # Determine if identifier is a player ID or phone number
+            if identifier.replace('+', '').isdigit():
+                # It's a phone number
+                player = await self.player_service.get_player_by_phone(identifier, team_id)
+                if not player:
+                    return False, f"❌ No player found with phone number {identifier}"
+                player_id = player.id
+            else:
+                # It's a player ID
+                player_id = identifier
+            
+            # Now reject the player using the player ID
+            result = await self.player_service.reject_player(player_id, reason, team_id)
+            self.logger.info(f"[PlayerOperationsAdapter] reject_player_by_identifier result: {result}")
+            return result
+        except Exception as e:
+            self.logger.error(f"Error rejecting player by identifier: {e}", exc_info=True)
+            return False, f"Error rejecting player: {str(e)}"
+
+    async def update_player_info(self, user_id: str, field: str, value: str, team_id: str) -> tuple[bool, str]:
+        """Update a player's information."""
+        self.logger.info(f"[PlayerOperationsAdapter] update_player_info called with user_id={user_id}, field={field}, value={value}, team_id={team_id}")
+        try:
+            # Get the current player
+            player = await self.player_service.get_player_by_telegram_id(user_id, team_id)
+            if not player:
+                return False, "❌ Player not found. Please register first using /register"
+            
+            # Update the specific field
+            field = field.lower()
+            if field == "phone":
+                # Validate phone number format
+                if not value.replace('+', '').isdigit() or len(value.replace('+', '')) < 10:
+                    return False, "❌ Invalid phone number format. Please use a valid phone number (e.g., 07123456789 or +447123456789)"
+                player.phone = value
+                update_message = f"✅ Phone number updated to {value}"
+                
+            elif field == "emergency":
+                # Parse emergency contact (name and phone)
+                parts = value.split()
+                if len(parts) < 2:
+                    return False, "❌ Emergency contact format: /update emergency [name] [phone]"
+                contact_name = " ".join(parts[:-1])
+                contact_phone = parts[-1]
+                if not contact_phone.replace('+', '').isdigit():
+                    return False, "❌ Invalid emergency contact phone number"
+                player.emergency_contact = {"name": contact_name, "phone": contact_phone}
+                update_message = f"✅ Emergency contact updated to {contact_name} ({contact_phone})"
+                
+            elif field == "dob":
+                # Validate date format (YYYY-MM-DD)
+                try:
+                    from datetime import datetime
+                    datetime.strptime(value, "%Y-%m-%d")
+                    player.date_of_birth = value
+                    update_message = f"✅ Date of birth updated to {value}"
+                except ValueError:
+                    return False, "❌ Invalid date format. Please use YYYY-MM-DD (e.g., 1990-01-15)"
+                    
+            elif field == "position":
+                # Validate position
+                valid_positions = ["goalkeeper", "defender", "midfielder", "forward", "striker", "winger"]
+                if value.lower() not in valid_positions:
+                    return False, f"❌ Invalid position. Please choose from: {', '.join(valid_positions)}"
+                player.position = value.lower()
+                update_message = f"✅ Position updated to {value}"
+                
+            else:
+                return False, f"❌ Unknown field '{field}'. Available fields: phone, emergency, dob, position"
+            
+            # Save the updated player
+            await self.player_service.update_player(player.id, player.to_dict(), team_id)
+            
+            self.logger.info(f"[PlayerOperationsAdapter] update_player_info success: {update_message}")
+            return True, update_message
+            
+        except Exception as e:
+            self.logger.error(f"Error updating player info: {e}", exc_info=True)
+            return False, f"Error updating player information: {str(e)}"
+
     async def get_pending_approvals(self, team_id: str) -> str:
         self.logger.info(f"[PlayerOperationsAdapter] get_pending_approvals called with team_id={team_id}")
         try:

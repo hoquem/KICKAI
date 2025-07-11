@@ -31,9 +31,9 @@ from core.exceptions import KICKAIError
 from services.monitoring import MonitoringService
 from services.multi_team_manager import MultiTeamManager
 from database.firebase_client import FirebaseClient
-from core.improved_config_system import get_improved_config
+from core.settings import get_settings
 
-from core.improved_config_system import initialize_improved_config, get_improved_config
+from core.settings import initialize_settings, get_settings
 from core.exceptions import ConfigurationError
 from database.firebase_client import initialize_firebase_client, get_firebase_client
 from services.player_service import initialize_player_service
@@ -241,12 +241,12 @@ class KICKAIApplication:
         """Initialize all application components."""
         try:
             # Initialize configuration
-            initialize_improved_config()
-            config = get_improved_config().configuration
+            initialize_settings()
+            config = get_settings()
             logging.info("Configuration initialized")
             
             # Initialize Firebase client
-            self._firebase_client = initialize_firebase_client(config.database)
+            self._firebase_client = initialize_firebase_client(config)
             logging.info("Firebase client initialized")
             
             # Test Firebase connection immediately

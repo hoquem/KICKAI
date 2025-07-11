@@ -258,9 +258,9 @@ def get_fa_registration_checker(team_id: Optional[str] = None):
     # Create new instance for this team
     from services.player_service import get_player_service
     from services.team_service import get_team_service
-    from core.improved_config_system import get_improved_config
+    from core.settings import get_settings
     
-    config = get_improved_config()
+    config = get_settings()
     
     player_service = get_player_service(team_id=team_id)
     team_service = get_team_service(team_id=team_id)

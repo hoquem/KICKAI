@@ -26,7 +26,7 @@ import nest_asyncio
 nest_asyncio.apply()
 
 from telegram.ext import Application, CommandHandler
-from core.improved_config_system import initialize_improved_config, get_improved_config
+from core.settings import get_settings
 from database.firebase_client import initialize_firebase_client
 from bot_telegram.unified_message_handler import register_unified_handler
 from services.player_service import initialize_player_service
@@ -85,12 +85,12 @@ async def setup_environment():
         await check_network_connectivity()
         
         # Initialize configuration manager and get Configuration object
-        initialize_improved_config()
-        config = get_improved_config().configuration
+
+        config = get_settings()
         logger.info("✅ Configuration loaded successfully")
         
         # Initialize Firebase with database config
-        initialize_firebase_client(config.database)
+        initialize_firebase_client(config)
         logger.info("✅ Firebase client initialized")
         
         # Initialize services

@@ -89,6 +89,33 @@ class PlayerRole(Enum):
         """Check if a role is a leadership role."""
         leadership_roles = {cls.CAPTAIN, cls.VICE_CAPTAIN, cls.MANAGER, cls.COACH}
         return role in leadership_roles
+    
+    @classmethod
+    def from_string(cls, role_str: str) -> 'PlayerRole':
+        """Create PlayerRole from string with legacy value handling."""
+        if not role_str:
+            return cls.PLAYER
+        
+        # Normalize the string
+        normalized = role_str.lower().strip()
+        
+        # Handle legacy "admin" value by mapping to "manager"
+        if normalized == "admin":
+            return cls.MANAGER
+        
+        # Try exact match first
+        try:
+            return cls(normalized)
+        except ValueError:
+            pass
+        
+        # Try case-insensitive matching
+        for role in cls:
+            if role.value.lower() == normalized:
+                return role
+        
+        # Default to player if no match found
+        return cls.PLAYER
 
 
 class OnboardingStatus(Enum):
@@ -563,7 +590,7 @@ class Player(BaseModel, ValidatorMixin):
             data['position'] = PlayerPosition.from_string(data['position'])
         
         if 'role' in data and isinstance(data['role'], str):
-            data['role'] = PlayerRole(data['role'])
+            data['role'] = PlayerRole.from_string(data['role'])
         
         if 'onboarding_status' in data and isinstance(data['onboarding_status'], str):
             data['onboarding_status'] = OnboardingStatus.from_string(data['onboarding_status'])
@@ -578,7 +605,13 @@ class Player(BaseModel, ValidatorMixin):
             if field in data and isinstance(data[field], str):
                 data[field] = datetime.fromisoformat(data[field])
         
-        return cls(**data)
+        try:
+            return cls(**data)
+        except ValueError as e:
+            # Log the error and the data that caused it
+            # In a real application, you'd use a proper logger
+            print(f"Skipping player due to validation error: {e}. Data: {data}")
+            return None
     
     @classmethod
     def create(cls, name: str, phone: str, team_id: str, **kwargs) -> 'Player':

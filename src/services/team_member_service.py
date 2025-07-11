@@ -234,12 +234,12 @@ class TeamMemberService(ITeamMemberService):
         try:
             from services.player_service import get_player_service
             from services.team_service import get_team_service
-            from core.bot_config_manager import get_bot_config_manager
+            from core.settings import get_settings
             from utils.phone_utils import normalize_phone
             
             player_service = get_player_service(team_id=team_id)
             team_service = get_team_service(team_id=team_id)
-            bot_config_manager = get_bot_config_manager()
+            settings = get_settings()
             
             # Find player by phone or ID
             player = None
@@ -266,12 +266,12 @@ class TeamMemberService(ITeamMemberService):
             team_name = team.name if team else "KICKAI Team"
             
             # Get bot configuration for invite link
-            bot_config = bot_config_manager.get_bot_config(team_id)
-            if not bot_config or not bot_config.main_chat_id:
+            bot_token = settings.telegram_bot_token
+            if not bot_token or not settings.telegram_main_chat_id:
                 return False, f"❌ Bot configuration not available for team {team_id}"
             
             # Create Telegram invite link
-            invite_link = await self._create_telegram_invite_link(bot_config)
+            invite_link = await self._create_telegram_invite_link(bot_token, settings.telegram_main_chat_id)
             
             # Generate invitation message
             invitation_message = f"""🎉 <b>Welcome to {team_name}!</b>
@@ -319,15 +319,15 @@ Welcome aboard! 🏆
             logger.error(f"❌ Error generating invitation for {identifier}: {e}")
             return False, f"❌ Error generating invitation: {str(e)}"
     
-    async def _create_telegram_invite_link(self, bot_config) -> str:
+    async def _create_telegram_invite_link(self, bot_token: str, chat_id: str) -> str:
         """Create a Telegram group invite link using the Bot API."""
         try:
             import requests
             
             # Create invite link using Telegram Bot API
-            url = f"https://api.telegram.org/bot{bot_config.token}/createChatInviteLink"
+            url = f"https://api.telegram.org/bot{bot_token}/createChatInviteLink"
             data = {
-                'chat_id': bot_config.main_chat_id,
+                'chat_id': chat_id,
                 'name': 'KICKAI Team Invite',
                 'creates_join_request': False,
                 'expire_date': None,  # No expiration
@@ -346,12 +346,12 @@ Welcome aboard! 🏆
                 error_msg = f"Failed to create invite link: {result.get('description', 'Unknown error')}"
                 logger.error(error_msg)
                 # Fallback to a placeholder link
-                return f"https://t.me/+{bot_config.main_chat_id.replace('-', '')}"
+                return f"https://t.me/+{chat_id.replace('-', '')}"
                 
         except Exception as e:
             logger.error(f"❌ Error creating Telegram invite link: {e}")
             # Fallback to a placeholder link
-            return f"https://t.me/+{bot_config.main_chat_id.replace('-', '')}"
+            return f"https://t.me/+{chat_id.replace('-', '')}"
 
 # Global instance - now team-specific
 _team_member_service_instances: dict[str, TeamMemberService] = {}

@@ -674,8 +674,8 @@ Contact the team admin in the leadership chat."""
 MIXIN_REGISTRY = {
     "player_coordinator": PlayerCoordinatorMixin,
     "message_processor": MessageProcessorMixin,
-    "command_fallback_agent": CommandFallbackMixin,
-    "finance_manager": FinancialManagementMixin,
+    "command_fallback": CommandFallbackMixin,
+    "financial_management": FinancialManagementMixin,
     "performance_analyst": PerformanceAnalysisMixin,
     "learning_agent": LearningOptimizationMixin,
     "onboarding_agent": OnboardingMixin,

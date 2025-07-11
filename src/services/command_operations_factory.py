@@ -65,7 +65,28 @@ def get_command_operations(team_id: Optional[str] = None) -> ICommandOperations:
         payment_adapter = PaymentOperationsAdapter(payment_service)
         
         logger.info(f"[CommandOperationsFactory] Creating UtilityOperationsAdapter")
-        utility_adapter = UtilityOperationsAdapter()
+        from services.team_member_service import get_team_member_service
+        from services.fa_registration_checker import get_fa_registration_checker
+        from services.daily_status_service import get_daily_status_service
+        from services.background_tasks import get_background_tasks_service
+        from services.reminder_service import get_reminder_service
+        from core.settings import get_settings
+        
+        team_member_service = get_team_member_service(team_id=team_id)
+        fa_registration_checker = get_fa_registration_checker()
+        daily_status_service = get_daily_status_service(team_id=team_id)
+        background_tasks_service = get_background_tasks_service()
+        reminder_service = get_reminder_service(team_id=team_id)
+        settings = get_settings()
+        
+        utility_adapter = UtilityOperationsAdapter(
+            fa_registration_checker=fa_registration_checker,
+            daily_status_service=daily_status_service,
+            background_tasks_service=background_tasks_service,
+            reminder_service=reminder_service,
+            team_member_service=team_member_service,
+            bot_config_manager=settings
+        )
         
         logger.info(f"[CommandOperationsFactory] Creating CommandOperationsImpl")
         # Create the implementation

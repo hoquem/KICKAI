@@ -37,7 +37,7 @@ from services.fa_registration_checker import get_fa_registration_checker
 from database.firebase_client import get_firebase_client
 from utils.llm_client import LLMClient
 from services.stripe_payment_gateway import StripePaymentGateway
-from core.improved_config_system import get_improved_config
+from core.settings import get_settings
 
 
 class HealthCheckService(IHealthCheckService):
@@ -835,8 +835,8 @@ class HealthCheckService(IHealthCheckService):
     async def _check_telegram_connectivity(self) -> Dict[str, Any]:
         """Check Telegram connectivity."""
         try:
-            config = get_improved_config()
-            bot_token = config.configuration.telegram.bot_token
+            config = get_settings()
+            bot_token = config.telegram_bot_token
             
             if not bot_token:
                 return {

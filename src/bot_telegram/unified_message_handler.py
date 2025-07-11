@@ -19,7 +19,8 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 # Import core components
-from core.improved_config_system import get_improved_config
+from core.settings import get_settings
+from core.enums import AgentRole
 from agents.crew_agents import TeamManagementSystem
 from services.team_mapping_service import get_team_mapping_service
 from database.models_improved import PlayerRole
@@ -84,6 +85,9 @@ class UnifiedMessageHandler:
             
             logger.info(f"Processing message: {text[:20]}... from {username} ({user_id}) in {chat_id}")
             
+            # Update Telegram context for tools
+            self._update_telegram_context(context)
+            
             # Execute task using the intelligent agent system for non-slash commands
             if is_myinfo_command:
                 logger.info(f"🔍 MYINFO FLOW STEP 3: Preparing execution context")
@@ -124,10 +128,30 @@ class UnifiedMessageHandler:
                     logger.info(f"🔍 FALLING BACK TO INTELLIGENT SYSTEM")
             
             # Execute task using the intelligent agent system for non-slash commands
-            if is_myinfo_command:
-                logger.info(f"🔍 MYINFO FLOW STEP 5: Calling TeamManagementSystem.execute_task")
-            
+            if not text.startswith('/'):
+                logger.info(f"[NLP] Received NLP message: {text} from {username} ({user_id}) in {chat_id}")
+                
+                # Handle common natural language queries directly
+                text_lower = text.lower().strip()
+                if any(phrase in text_lower for phrase in ['what my status', 'my status', 'check my status', 'player status']):
+                    logger.info(f"[NLP] Detected status query, routing to player coordinator for user {user_id}")
+                    player_coordinator = self.team_system.get_agent(AgentRole.PLAYER_COORDINATOR)
+                    if player_coordinator:
+                        logger.debug(f"[NLP] About to execute player_coordinator with task: Check player status for user {user_id} and context: {execution_context}")
+                        try:
+                            result = await player_coordinator.execute(f"Check player status for user {user_id}", execution_context)
+                            logger.info(f"[NLP] Player coordinator result: {result}")
+                            return result
+                        except Exception as agent_e:
+                            logger.critical(f"[NLP] CRITICAL ERROR during player_coordinator execution: {agent_e}", exc_info=True)
+                            return f"❌ An internal error occurred while checking player status. Details: {agent_e}"
+                    else:
+                        logger.warning(f"[NLP] Player coordinator not available")
+                
+                logger.info(f"[NLP] Routing to agentic system: {text}")
             result = await self.team_system.execute_task(text, execution_context)
+            if not text.startswith('/'):
+                logger.info(f"[NLP] Agentic system result: {result}")
             
             if is_myinfo_command:
                 logger.info(f"🔍 MYINFO FLOW STEP 6: TeamManagementSystem.execute_task completed")
@@ -142,14 +166,21 @@ class UnifiedMessageHandler:
     async def _determine_user_role(self, user_id: str) -> str:
         """Determine user role for the current team."""
         try:
+            from database.models_improved import PlayerRole
+            
             # Get player by telegram ID
             players = await self.player_service.get_team_players(self.team_id)
             for player in players:
                 if player.telegram_id == user_id:
-                    if player.role == PlayerRole.ADMIN:
+                    # Handle both enum and string role values
+                    role_value = player.role.value if hasattr(player.role, 'value') else str(player.role)
+                    
+                    if role_value == 'manager':
                         return 'admin'
-                    elif player.role == PlayerRole.LEADER:
+                    elif role_value in ['captain', 'vice_captain', 'coach']:
                         return 'leader'
+                    elif role_value == 'admin':
+                        return 'admin'  # Handle legacy 'admin' string
                     else:
                         return 'player'
             return 'player'  # Default to player if not found
@@ -170,19 +201,34 @@ class UnifiedMessageHandler:
     async def _get_user_role(self, user_id: str) -> str:
         """Get user role for permission checking."""
         try:
+            from database.models_improved import PlayerRole
+            
             # Get player by telegram ID
             players = await self.player_service.get_team_players(self.team_id)
             for player in players:
-                if player.telegram_id == user_id:
-                    if player.role == PlayerRole.ADMIN:
+                if player and player.telegram_id == user_id:
+                    # Ensure player.role is a PlayerRole enum
+                    if not isinstance(player.role, PlayerRole):
+                        # Attempt to convert if it's a string
+                        try:
+                            player.role = PlayerRole.from_string(str(player.role))
+                        except ValueError:
+                            logger.warning(f"Invalid player role found for player {player.id}: {player.role}. Defaulting to PLAYER.")
+                            player.role = PlayerRole.PLAYER # Default to player if conversion fails
+
+                    role_value = player.role.value
+
+                    if role_value == 'manager':
                         return 'admin'
-                    elif player.role == PlayerRole.LEADER:
+                    elif role_value in ['captain', 'vice_captain', 'coach']:
                         return 'leader'
+                    elif role_value == 'admin':
+                        return 'admin'  # Handle legacy 'admin' string
                     else:
                         return 'player'
             return 'player'  # Default to player if not found
         except Exception as e:
-            logger.error(f"Error getting user role: {e}")
+            logger.error(f"Error getting user role: {e}", exc_info=True)
             return 'player'  # Default to player on error
 
     def _initialize_team_config(self):
@@ -209,6 +255,20 @@ class UnifiedMessageHandler:
         except Exception as e:
             logger.error(f"Error initializing agent system: {e}")
             self.team_system = None
+    
+    def _update_telegram_context(self, context: ContextTypes.DEFAULT_TYPE):
+        """Update Telegram context for tools."""
+        try:
+            if self.team_system and hasattr(self.team_system, 'agents'):
+                # Update the send_message tool with Telegram context
+                for agent in self.team_system.agents.values():
+                    if hasattr(agent, 'tools'):
+                        for tool in agent.tools:
+                            if hasattr(tool, 'name') and tool.name == 'send_message' and hasattr(tool, 'set_telegram_context'):
+                                tool.set_telegram_context(context)
+                                logger.debug(f"Updated Telegram context for send_message tool in agent {agent.role}")
+        except Exception as e:
+            logger.error(f"Error updating Telegram context: {e}")
 
 
 # ============================================================================
@@ -230,7 +290,7 @@ async def _get_team_id_from_context(context: ContextTypes.DEFAULT_TYPE, update: 
     """
     try:
         # Get the improved configuration manager
-        config_manager = get_improved_config()
+        config_manager = get_settings()
         
         # Extract context information
         bot_token = None
@@ -246,12 +306,8 @@ async def _get_team_id_from_context(context: ContextTypes.DEFAULT_TYPE, update: 
         if update.effective_chat:
             chat_id = str(update.effective_chat.id)
         
-        # Resolve team ID using the improved config system
-        team_id = config_manager.resolve_team_id(
-            bot_token=bot_token,
-            bot_username=bot_username,
-            chat_id=chat_id
-        )
+        # Get team ID from settings
+        team_id = config_manager.default_team_id
         
         logger.debug(f"Resolved team ID: {team_id} (bot: {bot_username}, chat: {chat_id})")
         return team_id
@@ -260,11 +316,8 @@ async def _get_team_id_from_context(context: ContextTypes.DEFAULT_TYPE, update: 
         logger.error(f"Error getting team ID from context: {e}")
         # Fallback to default team ID
         try:
-            config_manager = get_improved_config()
-            default_team_config = config_manager.get_default_team_config()
-            if default_team_config:
-                return default_team_config.team_id
-            return os.getenv('DEFAULT_TEAM_ID', 'KAI')
+            config_manager = get_settings()
+            return config_manager.default_team_id
         except:
             return os.getenv('DEFAULT_TEAM_ID', 'KAI')  # Final fallback
 
@@ -305,7 +358,7 @@ async def handle_message_unified(update: Update, context: ContextTypes.DEFAULT_T
             logger.info(f"🔍 TELEGRAM RESPONSE DEBUG: Sending response to Telegram")
             await update.effective_message.reply_text(
                 result,
-                parse_mode='HTML'
+                parse_mode='Markdown'
             )
         elif not result:
             logger.warning(f"🔍 TELEGRAM RESPONSE DEBUG: No result to send")
@@ -321,7 +374,7 @@ async def handle_message_unified(update: Update, context: ContextTypes.DEFAULT_T
                     try:
                         await update.effective_message.reply_text(
                             "❌ Sorry, I encountered an error processing your request. Please try again.",
-                            parse_mode='HTML'
+                            parse_mode='Markdown'
                         )
                         break
                     except Exception as send_error:

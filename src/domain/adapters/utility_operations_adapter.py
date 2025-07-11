@@ -21,7 +21,7 @@ class UtilityOperationsAdapter:
         self.background_tasks_service = background_tasks_service
         self.reminder_service = reminder_service
         self.team_member_service = team_member_service
-        self.bot_config_manager = bot_config_manager
+        self.settings = bot_config_manager  # Now using settings instead of bot_config_manager
         self.logger = logging.getLogger(__name__)
 
     async def check_fa_registration(self, player_id: str, team_id: str) -> tuple[bool, str]:

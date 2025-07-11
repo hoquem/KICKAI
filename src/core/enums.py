@@ -18,5 +18,6 @@ class AgentRole(Enum):
     COMMAND_FALLBACK_AGENT = "command_fallback_agent"
 
 class AIProvider(Enum):
-    """AI provider types (Gemini only)."""
-    GOOGLE_GEMINI = "google_gemini" 
+    """AI provider types."""
+    GOOGLE_GEMINI = "google_gemini"
+    OLLAMA = "ollama" 

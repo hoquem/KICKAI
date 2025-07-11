@@ -1,13 +1,15 @@
 """
-LangChain tools for logging operations.
+Logging tools for the KICKAI system.
 
-These tools provide logging capabilities for agents.
+This module provides LangChain tools for logging operations.
 """
 
 import logging
-from typing import Dict, Any, Optional
-from langchain.tools import BaseTool
+from typing import Any, Optional, Dict, Type
 from pydantic import BaseModel, Field
+
+from crewai.tools import BaseTool
+from domain.interfaces.command_operations import ICommandOperations
 
 logger = logging.getLogger(__name__)
 
@@ -18,39 +20,35 @@ class LogCommandInput(BaseModel):
     command: str = Field(description="The command executed")
     team_id: str = Field(description="The team ID")
     success: bool = Field(description="Whether the command was successful")
+    chat_id: str = Field(description="The chat ID where the command was executed")
+    details: Optional[str] = Field(default=None, description="Additional details about the command")
 
 
 class LogEventInput(BaseModel):
     """Input for logging an event."""
     event_type: str = Field(description="The type of event")
-    details: Dict[str, Any] = Field(description="Event details")
+    details: Any = Field(description="Event details")
     team_id: str = Field(description="The team ID")
+    user_id: str = Field(description="The user ID associated with the event")
 
 
 class LogCommandTool(BaseTool):
     """Tool to log command execution."""
     
-    name = "log_command"
-    description = "Log a command execution"
-    args_schema = LogCommandInput
-    
-    # Class-level attributes required by agent system
-    logger: Optional[logging.Logger] = Field(default=None, description="Logger instance")
+    name: str = Field(default="log_command", description="Tool name")
+    description: str = Field(default="Log a command execution", description="Tool description")
+    args_schema: Type[BaseModel] = Field(default=LogCommandInput, description="Input schema")
     team_id: Optional[str] = Field(default=None, description="Team ID")
+    logger: Optional[logging.Logger] = Field(default_factory=lambda: logging.getLogger(__name__), description="Logger instance")
+
+    def __init__(self, team_id: str, **kwargs):
+        super().__init__(team_id=team_id, **kwargs)
     
-    def __init__(self, team_id: str):
-        super().__init__()
-        self.team_id = team_id
-        self.logger = logging.getLogger(__name__)
-        # Set class-level attributes for agent system compatibility
-        LogCommandTool.logger = self.logger
-        LogCommandTool.team_id = team_id
-    
-    def _run(self, user_id: str, command: str, team_id: str, success: bool) -> str:
+    def _run(self, command: str, user_id: str, chat_id: str, success: bool, details: Optional[str] = None) -> str:
         """Log a command synchronously."""
         try:
             status = "SUCCESS" if success else "FAILED"
-            self.logger.info(f"Command logged - User: {user_id}, Command: {command}, Team: {team_id}, Status: {status}")
+            self.logger.info(f"Command logged - User: {user_id}, Command: {command}, Team: {self.team_id}, Status: {status}")
             return f"Command logged: {command} by {user_id} - {status}"
         except Exception as e:
             self.logger.error(f"Error logging command: {e}")
@@ -64,31 +62,24 @@ class LogCommandTool(BaseTool):
 class LogEventTool(BaseTool):
     """Tool to log an event."""
     
-    name = "log_event"
-    description = "Log an event"
-    args_schema = LogEventInput
-    
-    # Class-level attributes required by agent system
-    logger: Optional[logging.Logger] = Field(default=None, description="Logger instance")
+    name: str = Field(default="log_event", description="Tool name")
+    description: str = Field(default="Log an event", description="Tool description")
+    args_schema: Type[BaseModel] = Field(default=LogEventInput, description="Input schema")
     team_id: Optional[str] = Field(default=None, description="Team ID")
+    logger: Optional[logging.Logger] = Field(default_factory=lambda: logging.getLogger(__name__), description="Logger instance")
+
+    def __init__(self, team_id: str, **kwargs):
+        super().__init__(team_id=team_id, **kwargs)
     
-    def __init__(self, team_id: str):
-        super().__init__()
-        self.team_id = team_id
-        self.logger = logging.getLogger(__name__)
-        # Set class-level attributes for agent system compatibility
-        LogEventTool.logger = self.logger
-        LogEventTool.team_id = team_id
-    
-    def _run(self, event_type: str, details: Dict[str, Any], team_id: str) -> str:
+    def _run(self, event_type: str, user_id: str, details: Optional[str] = None) -> str:
         """Log an event synchronously."""
         try:
-            self.logger.info(f"Event logged - Type: {event_type}, Team: {team_id}, Details: {details}")
-            return f"Event logged: {event_type} for team {team_id}"
+            self.logger.info(f"Event logged - Type: {event_type}, Team: {self.team_id}, Details: {details}")
+            return f"Event logged: {event_type} for team {self.team_id}"
         except Exception as e:
             self.logger.error(f"Error logging event: {e}")
             return f"Error: {str(e)}"
     
-    async def _arun(self, event_type: str, details: Dict[str, Any], team_id: str) -> str:
+    async def _arun(self, event_type: str, details: Any, team_id: str) -> str:
         """Log an event asynchronously."""
         return self._run(event_type, details, team_id) 

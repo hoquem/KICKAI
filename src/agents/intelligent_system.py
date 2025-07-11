@@ -13,6 +13,9 @@ import threading
 import os
 from pathlib import Path
 from collections import defaultdict
+from unittest.mock import Mock
+import asyncio
+import traceback
 
 # Import our existing components
 from agents.crew_agents import AgentRole
@@ -540,7 +543,7 @@ Now decompose the user request above following these guidelines and examples.
             prompt = self._create_llm_decomposition_prompt(task, context)
             response = self.llm.invoke(prompt)
             try:
-                data = json.loads(response)
+                data = json.loads(response.content)
                 subtasks = []
                 for i, subtask_data in enumerate(data.get('subtasks', [])):
                     agent_role_str = subtask_data.get('agent_role', 'MESSAGE_PROCESSOR')
@@ -628,15 +631,101 @@ Now decompose the user request above following these guidelines and examples.
 class ImprovedAgenticSystem:
     """Improved agentic system for task execution."""
     
-    def __init__(self):
-        self.mock = Mock()
+    def __init__(self, team_management_system=None, llm=None):
+        self.team_management_system = team_management_system
+        self.llm = llm
+        self.intent_classifier = IntentClassifier(llm=llm) if llm else None
+        self.task_decomposer = DynamicTaskDecomposer(llm=llm) if llm else None
+        self.capability_router = CapabilityBasedRouter() if llm else None
+        self.execution_orchestrator = TaskExecutionOrchestrator() if llm else None
+        logger.info("[ImprovedAgenticSystem] Initialized with full orchestration pipeline")
     
     def execute(self, task: str, context: TaskContext) -> Dict[str, Any]:
-        """Execute a task."""
-        return self.mock(task, context)
+        """Execute a task using the orchestration pipeline."""
+        try:
+            # If we have a team management system, use it directly
+            if self.team_management_system:
+                import asyncio
+                return asyncio.run(self.team_management_system.execute_task(task, context.parameters))
+            
+            # Otherwise, use the orchestration pipeline
+            if not all([self.intent_classifier, self.task_decomposer, self.capability_router, self.execution_orchestrator]):
+                return {
+                    'success': False,
+                    'error': 'Orchestration pipeline not fully initialized',
+                    'result': '❌ System temporarily unavailable. Please try again.'
+                }
+            
+            # Step 1: Intent Classification
+            intent_result = self.intent_classifier.classify(task)
+            
+            # Step 2: Task Decomposition
+            subtasks = self.task_decomposer.decompose(task, context)
+            
+            # Step 3: Agent Routing (if we have agents)
+            if self.team_management_system and self.team_management_system.agents:
+                # Route to appropriate agents
+                execution_results = []
+                for subtask in subtasks:
+                    agent = self.capability_router.route(subtask, list(self.team_management_system.agents.values()))
+                    if agent:
+                        # Execute the subtask
+                        result = asyncio.run(agent.execute(subtask.description, context.parameters))
+                        execution_results.append({
+                            'subtask': subtask.description,
+                            'agent': agent.__class__.__name__,
+                            'result': result
+                        })
+                    else:
+                        execution_results.append({
+                            'subtask': subtask.description,
+                            'agent': 'No agent available',
+                            'result': '❌ No agent available for this task'
+                        })
+                
+                # Aggregate results
+                if execution_results:
+                    successful_results = [r for r in execution_results if not r['result'].startswith('❌')]
+                    if successful_results:
+                        return {
+                            'success': True,
+                            'result': '\n'.join([r['result'] for r in successful_results]),
+                            'execution_details': execution_results
+                        }
+                    else:
+                        return {
+                            'success': False,
+                            'error': 'All subtasks failed',
+                            'result': '❌ Sorry, I was unable to process your request. Please try again or contact support.',
+                            'execution_details': execution_results
+                        }
+                else:
+                    return {
+                        'success': False,
+                        'error': 'No subtasks generated',
+                        'result': '❌ Unable to break down your request into actionable tasks.'
+                    }
+            else:
+                # Fallback: return intent classification result
+                return {
+                    'success': True,
+                    'result': f"I understand you want to {intent_result.primary_intent}. However, I need more context to help you effectively.",
+                    'intent': intent_result.primary_intent,
+                    'confidence': intent_result.confidence
+                }
+                
+        except Exception as e:
+            print(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
+            logger.error(f"[AGENT ERROR TRACE] [ImprovedAgenticSystem] Error executing task: {e}", exc_info=True)
+            return {
+                'success': False,
+                'error': str(e),
+                'result': '❌ Sorry, I encountered an error processing your request. Please try again.'
+            }
     
     async def aexecute(self, task: str, context: TaskContext) -> Dict[str, Any]:
         """Async execute a task."""
+        # For now, just call the sync version
         return self.execute(task, context)
 
 
@@ -1160,36 +1249,14 @@ class TaskExecutionOrchestrator:
             # Update status to running
             self._update_execution_status(task_id, 'running', 0.1)
             
-            # Primary: Use the unified execute() interface
+            # Use the unified execute() interface
             if hasattr(agent, 'execute') and callable(getattr(agent, 'execute')):
                 logger.debug(f"Using unified agent.execute() interface for subtask {task_id}")
                 result = agent.execute(subtask.description, subtask.parameters)
-                
-            # Fallback 1: Legacy execute_task method
-            elif hasattr(agent, 'execute_task') and callable(getattr(agent, 'execute_task')):
-                logger.debug(f"Using legacy agent.execute_task() for subtask {task_id}")
-                result = agent.execute_task(subtask.description, subtask.parameters)
-                
-            # Fallback 2: Legacy process method
-            elif hasattr(agent, 'process') and callable(getattr(agent, 'process')):
-                logger.debug(f"Using legacy agent.process() for subtask {task_id}")
-                result = agent.process(subtask.description, subtask.parameters)
-                
-            # Fallback 3: Legacy handle method
-            elif hasattr(agent, 'handle') and callable(getattr(agent, 'handle')):
-                logger.debug(f"Using legacy agent.handle() for subtask {task_id}")
-                result = agent.handle(subtask.description, subtask.parameters)
-                
-            # Fallback 4: Direct callable agent
-            elif callable(agent):
-                logger.debug(f"Using direct agent call for subtask {task_id}")
-                result = agent(subtask.description, subtask.parameters)
-                
             else:
                 # No suitable execution method found
                 raise ValueError(
-                    f"Agent {type(agent).__name__} does not implement any recognized execution interface. "
-                    f"Expected: execute(), execute_task(), process(), handle(), or callable agent. "
+                    f"Agent {type(agent).__name__} does not implement the required execute() method. "
                     f"Available methods: {[m for m in dir(agent) if not m.startswith('_')]}"
                 )
             
@@ -1240,7 +1307,8 @@ class TaskExecutionOrchestrator:
                 }
             )
             
-            logger.error(f"❌ Subtask '{subtask.description}' failed: {str(e)}")
+            print(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
+            logger.error(f"[AGENT ERROR TRACE] ❌ Subtask '{subtask.description}' failed: {str(e)}", exc_info=True)
             return execution_result
     
     def execute_tasks(self, subtasks: List[Subtask], agents: List, router: CapabilityBasedRouter) -> Dict[str, ExecutionResult]:
@@ -1866,27 +1934,200 @@ Now classify the user message above following these guidelines and examples.
         prompt = self._create_llm_classification_prompt(text)
         response = self.llm.invoke(prompt)
         
+        logger.info(f"[LLM Classification] Raw response type: {type(response)}")
+        logger.info(f"[LLM Classification] Raw response: {response}")
+        
         try:
-            data = json.loads(response)
+            # Step 1: Extract string content from various response types
+            response_text = None
             
-            return IntentClassification(
-                primary_intent=data.get('primary_intent', 'general_inquiry'),
-                confidence=data.get('confidence', 0.5),
-                secondary_intents=data.get('secondary_intents', []),
-                entities=data.get('entities', {}),
-                context=data.get('context', {}),
-                classification_method='llm'
-            )
+            # Check if response has content attribute (LangChain AIMessage)
+            if hasattr(response, 'content'):
+                logger.info(f"[LLM Classification] Found 'content' attribute: {type(response.content)}")
+                if isinstance(response.content, str):
+                    response_text = response.content
+                    logger.info(f"[LLM Classification] Using response.content (string): {response_text[:100]}...")
+                else:
+                    logger.warning(f"[LLM Classification] response.content is not string: {type(response.content)}")
             
-        except json.JSONDecodeError:
-            logger.warning(f"Invalid JSON response from LLM: {response}")
-            # Fallback to pattern classification
-            intent, confidence = self._pattern_classification(text)
+            # Check if response has text attribute
+            elif hasattr(response, 'text'):
+                logger.info(f"[LLM Classification] Found 'text' attribute: {type(response.text)}")
+                if isinstance(response.text, str):
+                    response_text = response.text
+                    logger.info(f"[LLM Classification] Using response.text (string): {response_text[:100]}...")
+                else:
+                    logger.warning(f"[LLM Classification] response.text is not string: {type(response.text)}")
+            
+            # Check if response has message attribute
+            elif hasattr(response, 'message'):
+                logger.info(f"[LLM Classification] Found 'message' attribute: {type(response.message)}")
+                if isinstance(response.message, str):
+                    response_text = response.message
+                    logger.info(f"[LLM Classification] Using response.message (string): {response_text[:100]}...")
+                else:
+                    logger.warning(f"[LLM Classification] response.message is not string: {type(response.message)}")
+            
+            # Check if response is already a string
+            elif isinstance(response, str):
+                response_text = response
+                logger.info(f"[LLM Classification] Response is already string: {response_text[:100]}...")
+            
+            # Check if response has to_json method
+            elif hasattr(response, 'to_json'):
+                logger.info(f"[LLM Classification] Using response.to_json() method")
+                response_text = response.to_json()
+                logger.info(f"[LLM Classification] to_json result: {response_text[:100]}...")
+            
+            # Fallback to string conversion
+            else:
+                response_text = str(response)
+                logger.warning(f"[LLM Classification] Fallback to str(response): {response_text[:100]}...")
+            
+            # Step 2: Validate we have a string
+            if response_text is None:
+                raise ValueError("Failed to extract string content from response")
+            
+            if not isinstance(response_text, str):
+                raise ValueError(f"Response text is not string: {type(response_text)}")
+            
+            logger.info(f"[LLM Classification] Final response_text length: {len(response_text)}")
+            logger.info(f"[LLM Classification] Final response_text: {response_text}")
+            
+            # Step 3: Clean the response text (remove markdown code blocks)
+            cleaned_text = response_text.strip()
+            
+            # Remove markdown code blocks if present
+            if cleaned_text.startswith('```json'):
+                cleaned_text = cleaned_text[7:]  # Remove ```json
+            elif cleaned_text.startswith('```'):
+                cleaned_text = cleaned_text[3:]  # Remove ```
+            
+            if cleaned_text.endswith('```'):
+                cleaned_text = cleaned_text[:-3]  # Remove trailing ```
+            
+            cleaned_text = cleaned_text.strip()
+            logger.info(f"[LLM Classification] Cleaned text: {cleaned_text}")
+            
+            # Step 4: Try to parse as JSON
+            try:
+                data = json.loads(cleaned_text)
+                logger.info(f"[LLM Classification] JSON parsing successful: {data}")
+                
+                # Step 4: Validate JSON structure for IntentClassification
+                if not isinstance(data, dict):
+                    raise ValueError(f"Parsed JSON is not a dictionary: {type(data)}")
+                
+                # Check required fields
+                if 'primary_intent' not in data:
+                    raise ValueError("Missing 'primary_intent' in JSON response")
+                if 'confidence' not in data:
+                    raise ValueError("Missing 'confidence' in JSON response")
+                
+                logger.info(f"[LLM Classification] Creating IntentClassification with data: {data}")
+                return IntentClassification(**data)
+                
+            except json.JSONDecodeError as json_error:
+                logger.error(f"[LLM Classification] JSON decode error: {json_error}")
+                logger.error(f"[LLM Classification] Invalid JSON content: {response_text}")
+                raise ValueError(f"Response is not valid JSON: {json_error}")
+                
+        except Exception as e:
+            logger.error(f"[LLM Classification] Classification failed: {e}")
+            logger.error(f"[LLM Classification] Response type: {type(response)}")
+            logger.error(f"[LLM Classification] Response: {response}")
+            
+            # Return fallback classification
             return IntentClassification(
-                primary_intent=intent,
-                confidence=confidence,
-                classification_method='llm_fallback'
+                primary_intent="unknown", 
+                confidence=0.0, 
+                classification_method="llm_fallback"
             )
+    
+    def _pattern_classification(self, text: str) -> Tuple[str, float]:
+        """Classify intent using regex patterns."""
+        text_lower = text.lower()
+        intent_scores = {}
+        
+        for intent, patterns in self.intent_patterns.items():
+            score = 0
+            for pattern in patterns:
+                if re.search(pattern, text_lower, re.IGNORECASE):
+                    score += 1
+            
+            if score > 0:
+                # Normalize score by number of patterns
+                intent_scores[intent] = score / len(patterns)
+        
+        if not intent_scores:
+            return 'general_inquiry', 0.2  # Default fallback
+        
+        # Return intent with highest score
+        best_intent = max(intent_scores.items(), key=lambda x: x[1])
+        return best_intent
+    
+    def _keyword_classification(self, text: str) -> Tuple[str, float]:
+        """Classify intent using keyword matching."""
+        text_lower = text.lower()
+        intent_scores = {}
+        
+        for intent, keywords in self.keyword_mappings.items():
+            score = 0
+            for keyword in keywords:
+                if keyword in text_lower:
+                    score += 1
+            
+            if score > 0:
+                # Normalize score by number of keywords
+                intent_scores[intent] = score / len(keywords)
+        
+        if not intent_scores:
+            return 'general_inquiry', 0.3  # Default fallback
+        
+        # Return intent with highest score
+        best_intent = max(intent_scores.items(), key=lambda x: x[1])
+        return best_intent
+    
+    def _extract_entities(self, text: str) -> Dict[str, Any]:
+        """Extract entities from text using centralized ID processor."""
+        from utils.id_processor import extract_entities_from_text, IDType
+        
+        # Use centralized ID processor for entity extraction
+        result = extract_entities_from_text(text, [
+            IDType.PLAYER_ID,
+            IDType.PHONE_NUMBER,
+            IDType.EMAIL,
+            IDType.MATCH_ID
+        ])
+        
+        # Convert ProcessedID objects to simple values for backward compatibility
+        entities = {}
+        for entity_name, processed_id in result.entities.items():
+            if processed_id.is_valid:
+                entities[entity_name] = processed_id.normalized_value
+        
+        # Extract additional entities not handled by ID processor
+        text_lower = text.lower()
+        
+        # Extract player names (simple heuristic)
+        name_pattern = r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b'
+        name_matches = re.findall(name_pattern, text)
+        if len(name_matches) >= 2:  # Likely first and last name
+            entities['player_name'] = ' '.join(name_matches[:2])
+        
+        # Extract amounts
+        amount_pattern = r'\b\d+(?:\.\d{2})?\s*(?:pounds?|£|euros?|€|dollars?|\$)\b'
+        amount_matches = re.findall(amount_pattern, text_lower)
+        if amount_matches:
+            entities['amount'] = amount_matches[0]
+        
+        # Extract dates
+        date_pattern = r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b'
+        date_matches = re.findall(date_pattern, text)
+        if date_matches:
+            entities['date'] = date_matches[0]
+        
+        return entities
     
     def get_classification_analytics(self) -> Dict[str, Any]:
         """Get analytics about intent classification."""

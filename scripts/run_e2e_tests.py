@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'tests'))
 
 from frameworks.e2e_framework import E2ETestRunner, TelegramBotTester, FirestoreValidator
 from frameworks.test_suites import load_test_suite, get_available_suites
-from core.improved_config_system import get_improved_config
+from core.settings import get_settings
 
 # Configure logging
 logging.basicConfig(
@@ -109,13 +109,13 @@ async def run_test_suite(suite_name: str, verbose: bool = False) -> bool:
     log_chat_configuration()
     
     # Get configuration
-    config = get_improved_config()
+    config = get_settings()
     # Fix: Use correct attribute for team ID
     team_id = None
-    if hasattr(config.configuration, 'team') and hasattr(config.configuration.team, 'default_team_id'):
-        team_id = config.configuration.team.default_team_id
-    elif hasattr(config.configuration, 'teams'):
-        teams = config.configuration.teams
+    if hasattr(config, 'team') and hasattr(config.team, 'default_team_id'):
+        team_id = config.team.default_team_id
+    elif hasattr(config, 'teams'):
+        teams = config.teams
         if isinstance(teams, dict):
             # Try 'default' key or first key
             if 'default' in teams and hasattr(teams['default'], 'team_id'):

@@ -10,6 +10,7 @@ import logging
 from typing import Dict, List, Any, Optional
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+import traceback
 
 from core.enums import AgentRole
 from agents.configurable_agent import ConfigurableAgent
@@ -57,10 +58,11 @@ class AgentSelection:
 @dataclass
 class ExecutionResult:
     """Result of task execution."""
+    task_id: str
     success: bool
     result: str
     execution_time: float
-    agent_used: AgentRole
+    agent_role: AgentRole
     error: Optional[str] = None
 
 
@@ -191,6 +193,7 @@ class DefaultTaskDecomposer(TaskDecomposer):
             )
             
         except Exception as e:
+            print(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
             # Raise a specific exception for better error handling
             raise TaskDecompositionError(
                 f"Failed to decompose task: {str(e)}",
@@ -213,6 +216,14 @@ class DefaultAgentRouter(AgentRouter):
         validate_input(available_agents, dict, "available_agents", required=True)
         validate_input(context, dict, "context", required=True)
         
+        logger.info(f"[AGENT ROUTING] Starting agent routing for {len(subtasks)} subtasks")
+        logger.info(f"[AGENT ROUTING] Available agents: {list(available_agents.keys())}")
+        
+        # Log detailed agent information
+        for role, agent in available_agents.items():
+            tools = agent.get_tools()
+            logger.info(f"[AGENT ROUTING] Agent '{role.value}' has {len(tools)} tools: {[tool.name for tool in tools]}")
+        
         try:
             from agents.intelligent_system import CapabilityBasedRouter, AgentCapabilityMatrix
             
@@ -220,8 +231,18 @@ class DefaultAgentRouter(AgentRouter):
             capability_matrix = self._create_capability_matrix(available_agents)
             router = CapabilityBasedRouter(capability_matrix)
             
+            logger.info(f"[AGENT ROUTING] Capability matrix created with {len(capability_matrix._capability_matrix)} agent roles")
+            
+            # Log capability matrix details
+            for role, capabilities in capability_matrix._capability_matrix.items():
+                capability_names = [cap.capability.value for cap in capabilities]
+                logger.info(f"[AGENT ROUTING] Agent '{role.value}' capabilities: {capability_names}")
+            
             # Route the subtasks
+            logger.info(f"[AGENT ROUTING] Starting capability-based routing for {len(subtasks)} subtasks")
             routing_result = router.route_multiple(subtasks, list(available_agents.values()))
+            
+            logger.info(f"[AGENT ROUTING] Routing result: {routing_result}")
             
             # Convert to our standardized format
             selected_agents = {}
@@ -230,10 +251,26 @@ class DefaultAgentRouter(AgentRouter):
             
             for task_id, result in routing_result.items():
                 agent_role = result.get('agent_role')
+                logger.info(f"[AGENT ROUTING] Task {task_id}: routed to agent_role={agent_role}")
+                
                 if agent_role and agent_role in available_agents:
                     selected_agents[task_id] = available_agents[agent_role]
                     routing_reasoning[task_id] = f"Routed to {agent_role.value} based on capabilities"
                     capability_matches[task_id] = [agent_role.value]
+                    logger.info(f"[AGENT ROUTING] ✅ Task {task_id} successfully routed to {agent_role.value}")
+                    
+                    # Log the selected agent's details
+                    agent = available_agents[agent_role]
+                    agent_tools = [tool.name for tool in agent.get_tools()]
+                    logger.info(f"[AGENT ROUTING] Selected agent '{agent_role.value}' for task '{task_id}' with tools: {agent_tools}")
+                else:
+                    logger.warning(f"[AGENT ROUTING] ❌ Task {task_id} could not be routed - agent_role={agent_role}, available={list(available_agents.keys())}")
+            
+            logger.info(f"[AGENT ROUTING] Final selection: {len(selected_agents)} tasks routed out of {len(subtasks)}")
+            
+            # Log final routing summary
+            for task_id, agent in selected_agents.items():
+                logger.info(f"[AGENT ROUTING] FINAL ROUTING: Task '{task_id}' → Agent '{agent.get_role().value}'")
             
             return AgentSelection(
                 selected_agents=selected_agents,
@@ -242,6 +279,8 @@ class DefaultAgentRouter(AgentRouter):
             )
             
         except Exception as e:
+            print(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
+            logger.error(f"[AGENT ERROR TRACE] Error in agent routing: {e}", exc_info=True)
             # Raise a specific exception for better error handling
             raise AgentRoutingError(
                 f"Failed to route agents: {str(e)}",
@@ -283,7 +322,8 @@ class DefaultAgentRouter(AgentRouter):
                     capability_manager._capability_matrix[role].append(profile)
                     
                 except Exception as e:
-                    logger.warning(f"Could not map tool {tool.name} to capability: {e}")
+                    # Silently continue - tool mapping is not critical
+                    # System will default to COMMAND_PROCESSING capability
                     continue
         
         return capability_manager
@@ -328,43 +368,104 @@ class DefaultTaskExecutor(TaskExecutor):
         validate_input(selected_agents, AgentSelection, "selected_agents", required=True)
         validate_input(context, dict, "context", required=True)
         
+        logger.info(f"[TASK EXECUTION] Starting execution of {len(subtasks)} subtasks")
+        logger.info(f"[TASK EXECUTION] Selected agents: {list(selected_agents.selected_agents.keys())}")
+        
+        # Log task-agent mapping
+        for task_id, agent in selected_agents.selected_agents.items():
+            logger.info(f"[TASK EXECUTION] Task '{task_id}' will be executed by agent '{agent.get_role().value}'")
+        
         execution_results = []
         
         for i, subtask in enumerate(subtasks):
-            task_id = f"task_{i}"
-            agent = selected_agents.selected_agents.get(task_id)
+            start_time = time.time()
             
+            # Handle both Subtask objects and dictionaries
+            if hasattr(subtask, 'task_id'):
+                # Subtask object
+                task_id = subtask.task_id
+                description = subtask.description
+                agent_role = subtask.agent_role
+            else:
+                # Dictionary
+                task_id = subtask.get('task_id', f"task_{i}")
+                description = subtask.get('description', 'Unknown task')
+                agent_role = subtask.get('agent_role', 'MESSAGE_PROCESSOR')
+            
+            logger.info(f"[TASK EXECUTION] Executing subtask {i+1}/{len(subtasks)}: {task_id}")
+            logger.info(f"[TASK EXECUTION] Task description: {description}")
+            logger.info(f"[TASK EXECUTION] Expected agent role: {agent_role}")
+            
+            # Find the agent for this task
+            agent = selected_agents.selected_agents.get(task_id)
             if not agent:
+                logger.warning(f"[TASK EXECUTION] ❌ No agent available for task {task_id}")
+                logger.warning(f"[TASK EXECUTION] Available task-agent mappings: {list(selected_agents.selected_agents.keys())}")
                 execution_results.append(ExecutionResult(
+                    task_id=task_id,
                     success=False,
-                    result="No agent available for task",
+                    result=None,
+                    error=f"No agent available for task {task_id}",
                     execution_time=0.0,
-                    agent_used=AgentRole.COMMAND_FALLBACK_AGENT,
-                    error="No agent available"
+                    agent_role=agent_role
                 ))
                 continue
             
+            logger.info(f"[TASK EXECUTION] ✅ Found agent '{agent.get_role().value}' for task '{task_id}'")
+            logger.info(f"[TASK EXECUTION] Agent tools: {[tool.name for tool in agent.get_tools()]}")
+            
             try:
-                start_time = time.time()
-                result = await agent.execute(subtask.get('description', ''), context)
+                # Execute the task using the agent
+                logger.info(f"[TASK EXECUTION] Starting agent execution for task '{task_id}'")
+                logger.info(f"[TASK EXECUTION] Agent execution context: {context}")
+                
+                if hasattr(agent, 'execute') and callable(getattr(agent, 'execute')):
+                    # Use the unified execute() interface
+                    logger.info(f"[TASK EXECUTION] Using unified execute() interface")
+                    result = await agent.execute(description, context)
+                else:
+                    # Fallback for legacy agents
+                    logger.info(f"[TASK EXECUTION] Using legacy execute_task() interface")
+                    result = await agent.execute_task(description, context)
+                
                 execution_time = time.time() - start_time
                 
-                execution_results.append(ExecutionResult(
+                logger.info(f"[TASK EXECUTION] ✅ Agent execution completed for task '{task_id}' in {execution_time:.2f}s")
+                logger.info(f"[TASK EXECUTION] Agent execution result: {result[:200]}..." if len(str(result)) > 200 else f"[TASK EXECUTION] Agent execution result: {result}")
+                
+                execution_result = ExecutionResult(
+                    task_id=task_id,
                     success=True,
                     result=result,
                     execution_time=execution_time,
-                    agent_used=agent.get_role()
-                ))
+                    agent_role=agent_role
+                )
+                
+                logger.info(f"[TASK EXECUTION] ✅ Subtask {task_id} completed successfully in {execution_time:.2f}s")
+                execution_results.append(execution_result)
                 
             except Exception as e:
-                logger.error(f"Error executing task {task_id}: {e}", exc_info=True)
-                execution_results.append(ExecutionResult(
+                print(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
+                execution_time = time.time() - start_time
+                error_msg = f"Error executing task {task_id}: {str(e)}"
+                
+                logger.error(f"[AGENT ERROR TRACE] [TASK EXECUTION] ❌ Error during agent execution for task '{task_id}': {e}", exc_info=True)
+                
+                execution_result = ExecutionResult(
+                    task_id=task_id,
                     success=False,
-                    result=f"Error executing task: {str(e)}",
-                    execution_time=0.0,
-                    agent_used=agent.get_role(),
-                    error=str(e)
-                ))
+                    result=None,
+                    error=error_msg,
+                    execution_time=execution_time,
+                    agent_role=agent_role
+                )
+                
+                logger.error(f"[TASK EXECUTION] ❌ Subtask {task_id} failed: {error_msg}")
+                execution_results.append(execution_result)
+        
+        logger.info(f"[TASK EXECUTION] Completed execution of {len(execution_results)} subtasks")
+        successful_count = len([r for r in execution_results if r.success])
+        logger.info(f"[TASK EXECUTION] Success rate: {successful_count}/{len(execution_results)} tasks completed successfully")
         
         return execution_results
 
@@ -408,6 +509,7 @@ class DefaultResultAggregator(ResultAggregator):
 {failure_text}"""
             
         except Exception as e:
+            print(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
             # Raise a specific exception for better error handling
             raise ResultAggregationError(
                 f"Failed to aggregate results: {str(e)}",
@@ -489,31 +591,60 @@ class OrchestrationPipeline:
             )
         ):
             logger.info(f"🤖 ORCHESTRATION PIPELINE: Starting task execution for '{task_description[:50]}...'")
+            logger.info(f"🤖 ORCHESTRATION PIPELINE: Available agents: {[role.value for role in available_agents.keys()]}")
             
             # Step 1: Intent Classification
             logger.info("🤖 ORCHESTRATION PIPELINE: Step 1 - Intent Classification")
             intent_result = self.intent_classifier.classify(task_description, execution_context)
             logger.info(f"🤖 ORCHESTRATION PIPELINE: Intent classified as '{intent_result.intent}' with confidence {intent_result.confidence}")
+            logger.info(f"🤖 ORCHESTRATION PIPELINE: Intent entities: {intent_result.entities}")
+            logger.info(f"🤖 ORCHESTRATION PIPELINE: Secondary intents: {intent_result.secondary_intents}")
             
             # Step 2: Task Decomposition
             logger.info("🤖 ORCHESTRATION PIPELINE: Step 2 - Task Decomposition")
             decomposition = self.task_decomposer.decompose(task_description, intent_result, execution_context)
             logger.info(f"🤖 ORCHESTRATION PIPELINE: Task decomposed into {len(decomposition.subtasks)} subtasks")
+            logger.info(f"🤖 ORCHESTRATION PIPELINE: Task complexity: {decomposition.complexity}")
+            logger.info(f"🤖 ORCHESTRATION PIPELINE: Estimated duration: {decomposition.estimated_duration}s")
+            
+            # Log each subtask for debugging
+            for i, subtask in enumerate(decomposition.subtasks):
+                if hasattr(subtask, 'task_id'):
+                    logger.info(f"🤖 ORCHESTRATION PIPELINE: Subtask {i+1}: {subtask.task_id} - {subtask.description}")
+                else:
+                    logger.info(f"🤖 ORCHESTRATION PIPELINE: Subtask {i+1}: {subtask.get('task_id', 'unknown')} - {subtask.get('description', 'unknown')}")
             
             # Step 3: Agent Routing
             logger.info("🤖 ORCHESTRATION PIPELINE: Step 3 - Agent Routing")
             agent_selection = self.agent_router.route(decomposition.subtasks, available_agents, execution_context)
             logger.info(f"🤖 ORCHESTRATION PIPELINE: Routed to {len(agent_selection.selected_agents)} agents")
             
+            # Log agent selection details
+            for task_id, agent in agent_selection.selected_agents.items():
+                logger.info(f"🤖 ORCHESTRATION PIPELINE: Task '{task_id}' → Agent '{agent.get_role().value}'")
+                logger.info(f"🤖 ORCHESTRATION PIPELINE: Agent '{agent.get_role().value}' tools: {[tool.name for tool in agent.get_tools()]}")
+            
+            # Log routing reasoning
+            for task_id, reasoning in agent_selection.routing_reasoning.items():
+                logger.info(f"🤖 ORCHESTRATION PIPELINE: Routing reasoning for '{task_id}': {reasoning}")
+            
             # Step 4: Task Execution
             logger.info("🤖 ORCHESTRATION PIPELINE: Step 4 - Task Execution")
             execution_results = await self.task_executor.execute(decomposition.subtasks, agent_selection, execution_context)
             logger.info(f"🤖 ORCHESTRATION PIPELINE: Executed {len(execution_results)} tasks")
             
+            # Log execution results
+            for result in execution_results:
+                status = "✅ SUCCESS" if result.success else "❌ FAILED"
+                logger.info(f"🤖 ORCHESTRATION PIPELINE: {status} - Task '{result.task_id}' ({result.agent_role.value}) in {result.execution_time:.2f}s")
+                if not result.success:
+                    logger.error(f"🤖 ORCHESTRATION PIPELINE: Task '{result.task_id}' error: {result.error}")
+            
             # Step 5: Result Aggregation
             logger.info("🤖 ORCHESTRATION PIPELINE: Step 5 - Result Aggregation")
             final_response = self.result_aggregator.aggregate(execution_results, execution_context)
             logger.info(f"🤖 ORCHESTRATION PIPELINE: Task execution completed successfully")
+            logger.info(f"🤖 ORCHESTRATION PIPELINE: Final response length: {len(final_response)} characters")
             
             return final_response
     

@@ -2,33 +2,28 @@
 """
 Simplified CrewAI Football Team Management System - 8-Agent Architecture
 
-This module implements a simplified team management system using the new
-generic ConfigurableAgent class and centralized configuration system.
-
-8-Agent Architecture:
-1. Message Processor: Primary user interface and command parsing
-2. Team Manager: Strategic coordination and high-level planning
-3. Player Coordinator: Operational player management and registration
-4. Finance Manager: Financial tracking and payment management
-5. Performance Analyst: Performance analysis and tactical insights
-6. Learning Agent: Continuous learning and system improvement
-7. Onboarding Agent: Specialized player onboarding and registration
-8. Command Fallback Agent: Handles unrecognized commands and fallback scenarios
-
-Each agent is created using the generic ConfigurableAgent class with
-configuration from the centralized config system.
+This module provides a simplified, production-ready implementation of the
+CrewAI-based football team management system with 8 specialized agents.
 """
 
 import logging
-import traceback
-from typing import Dict, List, Optional, Any
-from contextlib import contextmanager
+import asyncio
+import os
+import sys
+from typing import Dict, List, Any, Optional, Union
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from functools import wraps
+from contextlib import contextmanager
+import traceback
+import time
+
+
 
 from crewai import Agent, Crew
-from langchain.tools import BaseTool
+from langchain_core.tools import BaseTool
 
-from core.improved_config_system import get_improved_config, TeamConfig
+from core.settings import get_settings
 from core.enums import AgentRole, AIProvider
 from config.agents import get_agent_config, get_enabled_agent_configs
 from agents.configurable_agent import ConfigurableAgent, AgentFactory
@@ -67,28 +62,86 @@ def log_errors(func):
 class AgentToolsManager:
     """Manages tool loading and configuration for agents."""
     
-    def __init__(self, team_config: TeamConfig):
+    def __init__(self, team_config, telegram_context=None):
         self.team_config = team_config
+        self.telegram_context = telegram_context
         self._tool_registry = self._build_tool_registry()
     
     def _build_tool_registry(self) -> Dict[str, BaseTool]:
         """Build the tool registry with all available tools."""
         tool_registry = {}
         
+        print(f"🔍 [DEBUG] AgentToolsManager._build_tool_registry called for team {self.team_config.default_team_id}")
+        logger.info(f"[TOOL REGISTRY] Starting tool registry build for team {self.team_config.default_team_id}")
+        
         try:
-            # Import and register only the tools that actually exist
+            # Import and register all available tools
             from domain.tools.communication_tools import (
                 SendMessageTool, SendPollTool, SendAnnouncementTool
             )
+            from domain.tools.player_tools import (
+                GetAllPlayersTool, GetPlayerByIdTool, GetPendingApprovalsTool,
+    GetPlayerStatusTool, GetMyStatusTool, ApprovePlayerTool
+            )
+            from domain.tools.logging_tools import (
+                LogCommandTool, LogEventTool
+            )
+            
+            # Get command operations interface
+            from domain.interfaces.command_operations import ICommandOperations
+            from services.command_operations_factory import get_command_operations
+            
+            print(f"🔍 [DEBUG] Getting command operations interface")
+            logger.info(f"[TOOL REGISTRY] Getting command operations interface")
+            command_operations = get_command_operations()
+            print(f"🔍 [DEBUG] Command operations interface: {type(command_operations).__name__}")
+            logger.info(f"[TOOL REGISTRY] Command operations interface: {type(command_operations).__name__}")
             
             # Communication tools
-            tool_registry['send_message'] = SendMessageTool(team_id=self.team_config.team_id)
-            tool_registry['send_poll'] = SendPollTool(team_id=self.team_config.team_id)
-            tool_registry['send_announcement'] = SendAnnouncementTool(team_id=self.team_config.team_id)
+            print(f"🔍 [DEBUG] Registering communication tools")
+            logger.info(f"[TOOL REGISTRY] Registering communication tools")
+            send_message_tool = SendMessageTool(team_id=self.team_config.default_team_id)
+            if self.telegram_context:
+                send_message_tool.set_telegram_context(self.telegram_context)
+            tool_registry['send_message'] = send_message_tool
+            tool_registry['send_poll'] = SendPollTool(team_id=self.team_config.default_team_id)
+            tool_registry['send_announcement'] = SendAnnouncementTool(team_id=self.team_config.default_team_id)
+            print(f"🔍 [DEBUG] Communication tools registered: {list(tool_registry.keys())[-3:]}")
+            logger.info(f"[TOOL REGISTRY] ✅ Communication tools registered: {list(tool_registry.keys())[-3:]}")
             
-            logger.info(f"✅ Tool registry built with {len(tool_registry)} tools")
+            # Player tools - need command_operations
+            print(f"🔍 [DEBUG] Registering player tools with command_operations")
+            logger.info(f"[TOOL REGISTRY] Registering player tools with command_operations")
+            tool_registry['get_all_players'] = GetAllPlayersTool(team_id=self.team_config.default_team_id, command_operations=command_operations)
+            tool_registry['get_player_by_id'] = GetPlayerByIdTool(team_id=self.team_config.default_team_id, command_operations=command_operations)
+            tool_registry['get_pending_approvals'] = GetPendingApprovalsTool(team_id=self.team_config.default_team_id, command_operations=command_operations)
+            tool_registry['get_player_status'] = GetPlayerStatusTool(team_id=self.team_config.default_team_id, command_operations=command_operations)
+            tool_registry['get_my_status'] = GetMyStatusTool(team_id=self.team_config.default_team_id, command_operations=command_operations)
+            tool_registry['approve_player'] = ApprovePlayerTool(team_id=self.team_config.default_team_id, command_operations=command_operations)
+            print(f"🔍 [DEBUG] Player tools registered: {list(tool_registry.keys())[-6:]}")
+            logger.info(f"[TOOL REGISTRY] ✅ Player tools registered: {list(tool_registry.keys())[-6:]}")
+            
+            # Logging tools
+            print(f"🔍 [DEBUG] Registering logging tools")
+            logger.info(f"[TOOL REGISTRY] Registering logging tools")
+            tool_registry['log_command'] = LogCommandTool(team_id=self.team_config.default_team_id)
+            tool_registry['log_event'] = LogEventTool(team_id=self.team_config.default_team_id)
+            print(f"🔍 [DEBUG] Logging tools registered: {list(tool_registry.keys())[-2:]}")
+            logger.info(f"[TOOL REGISTRY] ✅ Logging tools registered: {list(tool_registry.keys())[-2:]}")
+            
+            # Debug: print type, module, and MRO for each tool
+            print(f"🔍 [DEBUG] Tool registry details:")
+            logger.info(f"[TOOL REGISTRY] Tool registry details:")
+            for name, tool in tool_registry.items():
+                print(f"[TOOL DEBUG] {name}: type={type(tool)}, module={tool.__class__.__module__}, mro={tool.__class__.__mro__}")
+                logger.info(f"[TOOL DEBUG] {name}: type={type(tool)}, module={tool.__class__.__module__}, mro={tool.__class__.__mro__}")
+                logger.info(f"[TOOL DEBUG] {name}: name='{tool.name}', description='{tool.description}'")
+            
+            print(f"🔍 [DEBUG] Tool registry built with {len(tool_registry)} tools: {list(tool_registry.keys())}")
+            logger.info(f"✅ Tool registry built with {len(tool_registry)} tools: {list(tool_registry.keys())}")
             
         except Exception as e:
+            print(f"❌ [DEBUG] Error building tool registry: {e}")
             logger.error(f"Error building tool registry: {e}", exc_info=True)
             # Don't raise the exception, just return empty registry
             return {}
@@ -159,9 +212,9 @@ class TeamManagementSystem:
         
         # Initialize configuration
         logger.info(f"[TEAM INIT] Getting improved config")
-        self.config_manager = get_improved_config()
+        self.config_manager = get_settings()
         logger.info(f"[TEAM INIT] Getting team config for {team_id}")
-        self.team_config = self.config_manager.get_team_config(team_id)
+        self.team_config = self.config_manager
         logger.info(f"[TEAM INIT] Loaded team_config: {self.team_config}")
         
         if not self.team_config:
@@ -182,43 +235,133 @@ class TeamManagementSystem:
         logger.info(f"✅ TeamManagementSystem initialized for team {team_id}")
     
     def _initialize_llm(self):
-        """Initialize the language model."""
+        """Initialize the LLM using the factory pattern with robust error handling."""
         try:
-            import os
-            from utils.llm_factory import LLMConfig
+            # Use the new factory method that reads from environment
+            self.llm = LLMFactory.create_from_environment()
             
-            # Get AI configuration from team config
-            ai_config = self.team_config.ai_config if hasattr(self.team_config, 'ai_config') else None
+            # Wrap the LLM with our robust error handling for CrewAI
+            self.llm = self._wrap_llm_with_error_handling(self.llm)
             
-            if ai_config:
-                logger.info(f"Initializing LangChain Gemini LLM with model: {ai_config.model_name}")
-                config = LLMConfig(
-                    provider=AIProvider.GOOGLE_GEMINI,
-                    model_name=ai_config.model_name,
-                    api_key=ai_config.api_key or os.getenv('GOOGLE_API_KEY'),
-                    temperature=ai_config.temperature,
-                    timeout_seconds=ai_config.timeout_seconds,
-                    max_retries=ai_config.max_retries
-                )
-                self.llm = LLMFactory.create_llm(config)
-            else:
-                # Fallback to default configuration
-                logger.info("Initializing LangChain Gemini LLM with default model: gemini-1.5-flash")
-                config = LLMConfig(
-                    provider=AIProvider.GOOGLE_GEMINI,
-                    model_name="gemini-1.5-flash",
-                    api_key=os.getenv('GOOGLE_API_KEY'),
-                    temperature=0.7,
-                    timeout_seconds=60,
-                    max_retries=3
-                )
-                self.llm = LLMFactory.create_llm(config)
-            
-            logger.info(f"✅ LangChain Gemini LLM initialized successfully: {type(self.llm).__name__}")
+            logger.info(f"✅ LLM initialized successfully with robust error handling: {type(self.llm).__name__}")
             
         except Exception as e:
             logger.error(f"Error initializing LLM: {e}", exc_info=True)
             raise
+    
+    def _wrap_llm_with_error_handling(self, llm):
+        """Wrap the LLM with robust error handling for CrewAI."""
+        try:
+            # Create a wrapper that adds error handling to the LLM
+            class RobustLLMWrapper:
+                def __init__(self, original_llm):
+                    self.original_llm = original_llm
+                    self.model_name = getattr(original_llm, 'model_name', 'unknown')
+                    self.client = getattr(original_llm, 'client', None)
+                
+                def invoke(self, prompt, **kwargs):
+                    """Synchronous invoke with error handling."""
+                    start_time = time.time()
+                    try:
+                        logger.info(f"[LLM REQUEST] CrewAI invoke request to {self.model_name}")
+                        logger.info(f"[LLM REQUEST] Prompt preview: {str(prompt)[:100]}...")
+                        
+                        result = self.original_llm.invoke(prompt, **kwargs)
+                        
+                        duration = (time.time() - start_time) * 1000
+                        logger.info(f"[LLM SUCCESS] CrewAI invoke completed in {duration:.2f}ms")
+                        logger.info(f"[LLM SUCCESS] Result preview: {str(result)[:100]}...")
+                        
+                        return result
+                        
+                    except Exception as e:
+                        duration = (time.time() - start_time) * 1000
+                        self._handle_crewai_error(e, duration, prompt, **kwargs)
+                        raise
+                
+                async def ainvoke(self, prompt, **kwargs):
+                    """Asynchronous invoke with error handling."""
+                    start_time = time.time()
+                    try:
+                        logger.info(f"[LLM REQUEST] CrewAI ainvoke request to {self.model_name}")
+                        logger.info(f"[LLM REQUEST] Prompt preview: {str(prompt)[:100]}...")
+                        
+                        result = await self.original_llm.ainvoke(prompt, **kwargs)
+                        
+                        duration = (time.time() - start_time) * 1000
+                        logger.info(f"[LLM SUCCESS] CrewAI ainvoke completed in {duration:.2f}ms")
+                        logger.info(f"[LLM SUCCESS] Result preview: {str(result)[:100]}...")
+                        
+                        return result
+                        
+                    except Exception as e:
+                        duration = (time.time() - start_time) * 1000
+                        self._handle_crewai_error(e, duration, prompt, **kwargs)
+                        raise
+                
+                def _handle_crewai_error(self, error, duration_ms, prompt, **kwargs):
+                    """Handle CrewAI LLM errors with detailed logging."""
+                    error_type = type(error).__name__
+                    error_msg = str(error)
+                    
+                    # Create detailed error context
+                    error_context = {
+                        "error_type": error_type,
+                        "error_message": error_msg,
+                        "model": self.model_name,
+                        "duration_ms": duration_ms,
+                        "prompt_length": len(str(prompt)),
+                        "kwargs": list(kwargs.keys())
+                    }
+                    
+                    # Categorize and log errors appropriately
+                    if "503" in error_msg or "service unavailable" in error_msg.lower():
+                        logger.error(f"[LLM ERROR] 🚫 SERVICE UNAVAILABLE (503): {error_msg}")
+                        logger.error(f"[LLM ERROR] 🚫 Google Gemini API is temporarily unavailable")
+                        logger.error(f"[LLM ERROR] 🚫 This is a Google service issue, not a configuration problem")
+                        logger.error(f"[LLM ERROR] 🚫 Error context: {error_context}")
+                        
+                    elif "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+                        logger.error(f"[LLM ERROR] ⏰ TIMEOUT ERROR: {error_msg}")
+                        logger.error(f"[LLM ERROR] ⏰ Request timed out after {duration_ms:.2f}ms")
+                        logger.error(f"[LLM ERROR] ⏰ Consider increasing timeout or checking network connectivity")
+                        logger.error(f"[LLM ERROR] ⏰ Error context: {error_context}")
+                        
+                    elif "quota" in error_msg.lower() or "rate limit" in error_msg.lower():
+                        logger.error(f"[LLM ERROR] 📊 QUOTA/RATE LIMIT ERROR: {error_msg}")
+                        logger.error(f"[LLM ERROR] 📊 Google Gemini API quota exceeded or rate limited")
+                        logger.error(f"[LLM ERROR] 📊 Check your Google Cloud Console for quota usage")
+                        logger.error(f"[LLM ERROR] 📊 Error context: {error_context}")
+                        
+                    elif "authentication" in error_msg.lower() or "unauthorized" in error_msg.lower():
+                        logger.critical(f"[LLM ERROR] 🔑 API KEY ERROR: {error_msg}")
+                        logger.critical(f"[LLM ERROR] 🔑 This is likely an invalid or expired GOOGLE_API_KEY")
+                        logger.critical(f"[LLM ERROR] 🔑 Please check your .env file and ensure GOOGLE_API_KEY is correct")
+                        logger.critical(f"[LLM ERROR] 🔑 Error context: {error_context}")
+                        
+                    else:
+                        # Generic error handling
+                        logger.error(f"[LLM ERROR] ❌ UNKNOWN ERROR: {error_msg}")
+                        logger.error(f"[LLM ERROR] ❌ Error type: {error_type}")
+                        logger.error(f"[LLM ERROR] ❌ Full error context: {error_context}")
+                        logger.error(f"[LLM ERROR] ❌ Full traceback: {traceback.format_exc()}")
+                    
+                    # Additional diagnostics
+                    logger.info(f"[LLM DIAGNOSTICS] Environment check:")
+                    logger.info(f"[LLM DIAGNOSTICS] - GOOGLE_API_KEY present: {bool(os.getenv('GOOGLE_API_KEY'))}")
+                    logger.info(f"[LLM DIAGNOSTICS] - AI_PROVIDER: {os.getenv('AI_PROVIDER', 'not set')}")
+                    logger.info(f"[LLM DIAGNOSTICS] - AI_MODEL_NAME: {os.getenv('AI_MODEL_NAME', 'not set')}")
+                    logger.info(f"[LLM DIAGNOSTICS] - Request duration: {duration_ms:.2f}ms")
+                
+                # Forward any other attributes to the original LLM
+                def __getattr__(self, name):
+                    return getattr(self.original_llm, name)
+            
+            return RobustLLMWrapper(llm)
+            
+        except Exception as e:
+            logger.error(f"Error wrapping LLM with error handling: {e}")
+            return llm  # Return original LLM if wrapping fails
     
     def _initialize_agents(self) -> None:
         """Initialize all agents using the new generic ConfigurableAgent system."""
@@ -226,7 +369,7 @@ class TeamManagementSystem:
             logger.info(f"[AGENT INIT] Initializing agents...")
             
             # Create tools manager
-            tools_manager = AgentToolsManager(self.team_config)
+            tools_manager = AgentToolsManager(self.team_config, telegram_context=None)
             
             # Create agent factory
             agent_factory = AgentFactory(
@@ -290,6 +433,16 @@ class TeamManagementSystem:
         which breaks down the process into separate, swappable components.
         """
         try:
+            logger.info(f"🤖 TEAM MANAGEMENT: Starting task execution for team {self.team_id}")
+            logger.info(f"🤖 TEAM MANAGEMENT: Task description: {task_description}")
+            logger.info(f"🤖 TEAM MANAGEMENT: Execution context: {execution_context}")
+            logger.info(f"🤖 TEAM MANAGEMENT: Available agents: {[role.value for role in self.agents.keys()]}")
+            
+            # Log agent details
+            for role, agent in self.agents.items():
+                tools = agent.get_tools()
+                logger.info(f"🤖 TEAM MANAGEMENT: Agent '{role.value}' has {len(tools)} tools: {[tool.name for tool in tools]}")
+            
             # Initialize orchestration pipeline if not already done
             if not hasattr(self, '_orchestration_pipeline'):
                 from agents.orchestration_pipeline import OrchestrationPipeline
@@ -304,10 +457,12 @@ class TeamManagementSystem:
                 # Get the Message Processor agent for help commands
                 message_processor = self.get_agent(AgentRole.MESSAGE_PROCESSOR)
                 if message_processor:
+                    logger.info(f"🤖 ORCHESTRATION: Using Message Processor agent for help command")
                     result = await message_processor.execute(task_description, execution_context)
                     logger.info(f"🤖 ORCHESTRATION: Help command executed successfully")
                     return result
                 else:
+                    logger.warning(f"🤖 ORCHESTRATION: Message Processor agent not available for help command")
                     return "❌ Sorry, the help system is currently unavailable."
             
             # Use the orchestration pipeline for all other tasks
@@ -320,10 +475,14 @@ class TeamManagementSystem:
                 execution_context=execution_context
             )
             
+            logger.info(f"🤖 TEAM MANAGEMENT: Task execution completed successfully")
+            logger.info(f"🤖 TEAM MANAGEMENT: Result length: {len(str(result))} characters")
+            
             return str(result) if result else "Task completed successfully."
             
         except Exception as e:
-            logger.error(f"Error in TeamManagementSystem.execute_task: {e}", exc_info=True)
+            print(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
+            logger.error(f"[AGENT ERROR TRACE] Error in TeamManagementSystem.execute_task: {e}", exc_info=True)
             return f"❌ Sorry, I encountered an error processing your request: {str(e)}"
     
     @contextmanager

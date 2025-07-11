@@ -198,69 +198,105 @@ class HelpCommand(Command):
     """Help command implementation."""
     
     def __init__(self, command_registry: 'CommandRegistry'):
-        super().__init__("/help", "Show available commands", PermissionLevel.PUBLIC)
+        super().__init__("/help", "Show help information", PermissionLevel.PUBLIC)
         self.command_registry = command_registry
     
     async def execute(self, context: CommandContext) -> CommandResult:
+        """Execute the help command."""
         try:
-            # CHAT-BASED PERMISSIONS: Show commands based on chat type only
-            all_commands = self.command_registry.get_all_commands()
+            # Get available commands for this user
+            available_commands = self.command_registry.get_available_commands(context)
             
-            if context.chat_type == ChatType.LEADERSHIP:
-                # Leadership chat: Show ALL commands (public, player, leadership, admin)
-                public_commands = [cmd for cmd in all_commands if cmd.permission_level == PermissionLevel.PUBLIC]
-                player_commands = [cmd for cmd in all_commands if cmd.permission_level == PermissionLevel.PLAYER]
-                leadership_commands = [cmd for cmd in all_commands if cmd.permission_level == PermissionLevel.LEADERSHIP]
-                admin_commands = [cmd for cmd in all_commands if cmd.permission_level == PermissionLevel.ADMIN]
-            else:
-                # Main chat: Show only public and player commands
-                public_commands = [cmd for cmd in all_commands if cmd.permission_level == PermissionLevel.PUBLIC]
-                player_commands = [cmd for cmd in all_commands if cmd.permission_level == PermissionLevel.PLAYER]
-                leadership_commands = []
-                admin_commands = []
+            # Group commands by permission level
+            public_commands = [cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.PUBLIC]
+            player_commands = [cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.PLAYER]
+            leadership_commands = [cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.LEADERSHIP]
+            admin_commands = [cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.ADMIN]
             
-            # Build help message
-            if context.chat_type == ChatType.LEADERSHIP:
-                title = "🤖 KICKAI BOT HELP (LEADERSHIP)"
-            else:
-                title = "🤖 KICKAI BOT HELP"
-            
-            message = f"{title}\n\n📋 AVAILABLE COMMANDS:\n\n"
+            message = "🤖 **KICKAI Bot Help**\n\n"
             
             if public_commands:
-                message += "🌐 GENERAL:\n"
-                for cmd in public_commands:
+                message += "**📋 Public Commands:**\n"
+                for cmd in sorted(public_commands, key=lambda x: x.name):
                     message += f"• {cmd.get_help_text()}\n"
                 message += "\n"
             
             if player_commands:
-                message += "👥 PLAYER:\n"
-                for cmd in player_commands:
+                message += "**👥 Player Commands:**\n"
+                for cmd in sorted(player_commands, key=lambda x: x.name):
                     message += f"• {cmd.get_help_text()}\n"
                 message += "\n"
             
             if leadership_commands:
-                message += "👑 LEADERSHIP:\n"
-                for cmd in leadership_commands:
+                message += "**👑 Leadership Commands:**\n"
+                for cmd in sorted(leadership_commands, key=lambda x: x.name):
                     message += f"• {cmd.get_help_text()}\n"
                 message += "\n"
             
             if admin_commands:
-                message += "🔧 ADMIN:\n"
-                for cmd in admin_commands:
+                message += "**🔧 Admin Commands:**\n"
+                for cmd in sorted(admin_commands, key=lambda x: x.name):
                     message += f"• {cmd.get_help_text()}\n"
                 message += "\n"
             
-            message += "💡 TIPS:\n"
-            message += "• Use natural language: \"Add John Smith as midfielder\"\n"
-            message += "• Type /help [command] for detailed help\n"
-            if context.chat_type != ChatType.LEADERSHIP:
-                message += "• Admin commands available in leadership chat\n"
+            message += "💡 **Tip**: Use `/help [command]` for detailed help on a specific command."
             
-            return CommandResult(success=True, message=message)
+            return CommandResult(
+                success=True,
+                message=message
+            )
         except Exception as e:
             logger.error(f"Error in help command: {e}")
-            return CommandResult(success=False, message="❌ Error displaying help", error=str(e))
+            return CommandResult(
+                success=False,
+                message="❌ Error displaying help",
+                error=str(e)
+            )
+
+
+class StartCommand(Command):
+    """Start command implementation."""
+    
+    def __init__(self):
+        super().__init__("/start", "Start the bot", PermissionLevel.PUBLIC)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        """Execute the start command."""
+        try:
+            message = f"""🤖 **WELCOME TO KICKAI BOT!**
+
+👋 Hello! I'm your AI-powered football team management assistant.
+
+💡 **WHAT I CAN HELP YOU WITH:**
+• Player registration and management
+• Match scheduling and coordination  
+• Team statistics and analytics
+• Communication and notifications
+• Payment processing and tracking
+
+🚀 **GETTING STARTED:**
+• Type `/help` to see all available commands
+• Use `/register [player_id]` to register as a player
+• Use `/myinfo` to check your player information
+
+🔧 **NEED HELP?**
+• Type `/help` for command list
+• Contact your team admin for access issues
+
+**Your Team**: {context.team_id}
+**Your Role**: {context.user_role.title()}"""
+            
+            return CommandResult(
+                success=True,
+                message=message
+            )
+        except Exception as e:
+            logger.error(f"Error in start command: {e}")
+            return CommandResult(
+                success=False,
+                message="❌ Error starting bot",
+                error=str(e)
+            )
 
 
 class ListPlayersCommand(Command):
@@ -335,6 +371,62 @@ class MyInfoCommand(Command):
             )
 
 
+class UpdatePlayerCommand(Command):
+    """Update player command implementation."""
+    
+    def __init__(self):
+        super().__init__("/update", "Update your player information", PermissionLevel.PLAYER)
+    
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            logger.info(f"[UpdatePlayerCommand] Processing for user {context.user_id} in team {context.team_id}")
+            
+            # Parse command
+            parts = context.message_text.split()
+            if len(parts) < 3:
+                return CommandResult(success=False, message="""❌ Usage: /update [field] [value]
+
+📝 Available fields to update:
+• phone [new_phone_number] - Update your phone number
+• emergency [contact_name] [contact_phone] - Update emergency contact
+• dob [date_of_birth] - Update date of birth (YYYY-MM-DD)
+• position [new_position] - Update your position
+
+💡 Examples:
+• /update phone 07123456789
+• /update emergency John Smith 07123456789
+• /update dob 1990-01-15
+• /update position midfielder
+
+🔒 Note: You can only update your own information.""")
+            
+            field = parts[1].lower()
+            value = " ".join(parts[2:])
+            
+            # Execute command
+            command_operations = get_command_operations(team_id=context.team_id)
+            success, message = await command_operations.update_player_info(context.user_id, field, value, context.team_id)
+            
+            if success:
+                return CommandResult(success=True, message=message)
+            else:
+                return CommandResult(success=False, message=message)
+                
+        except KICKAIError as user_error:
+            # User-facing error (e.g., player not found, validation error)
+            logger.info(f"[UpdatePlayerCommand] User-facing error: {user_error}")
+            return CommandResult(success=False, message=str(user_error))
+            
+        except Exception as e:
+            # System error
+            logger.error(f"[UpdatePlayerCommand] System error: {e}", exc_info=True)
+            return CommandResult(
+                success=False, 
+                message="❌ Sorry, something went wrong while updating your information. Please try again later.",
+                error=str(e)
+            )
+
+
 class StatusCommand(Command):
     """Status command implementation."""
     
@@ -352,7 +444,7 @@ class StatusCommand(Command):
                 success, message = await command_operations.get_player_info(context.user_id, context.team_id)
                 
                 if success:
-                    return CommandResult(success=True, message=f"📊 <b>Your Status</b>\n\n{message}")
+                    return CommandResult(success=True, message=f"📊 **Your Status**\n\n{message}")
                 else:
                     return CommandResult(success=False, message="❌ Player not found. Please contact team admin.")
             
@@ -380,28 +472,37 @@ class StatusCommand(Command):
                 return CommandResult(success=False, message=f"❌ Player with phone {raw_phone} not found")
             
             # Format player status for admin view
-            status_message = f"""📊 <b>Player Status: {player_info.name}</b>
+            def format_enum(val):
+                if hasattr(val, 'name'):
+                    return val.name.replace('_', ' ').title()
+                elif hasattr(val, 'value'):
+                    return str(val.value).replace('_', ' ').title()
+                elif isinstance(val, str):
+                    return val.title()
+                return str(val)
 
-📋 <b>Basic Info:</b>
+            status_message = f"""📊 **Player Status: {player_info.name}**
+
+📋 **Basic Info:**
 • Name: {player_info.name}
 • Player ID: {player_info.player_id.upper()}
-• Position: {player_info.position.title()}
+• Position: {format_enum(player_info.position)}
 • Phone: {player_info.phone}
 
-📊 <b>Status:</b>
-• Onboarding: {player_info.onboarding_status.title()}
+📊 **Status:**
+• Onboarding: {format_enum(player_info.onboarding_status)}
 • FA Registered: {'Yes' if player_info.is_fa_registered else 'No'}
 • FA Eligible: {'Yes' if player_info.is_fa_eligible else 'No'}
 • Match Eligible: {'Yes' if player_info.is_match_eligible else 'No'}
 
-📞 <b>Contact Info:</b>
+📞 **Contact Info:**
 • Emergency Contact: {player_info.emergency_contact or 'Not provided'}
 • Date of Birth: {player_info.date_of_birth or 'Not provided'}
 • Telegram: @{player_info.telegram_username or 'Not linked'}
 
-📅 <b>Timestamps:</b>
-• Created: {player_info.created_at or 'Unknown'}
-• Last Updated: {player_info.updated_at or 'Unknown'}"""
+📅 **Timestamps:**
+• Created: {player_info.created_at.strftime('%Y-%m-%d %H:%M:%S') if player_info.created_at else 'Unknown'}
+• Last Updated: {player_info.updated_at.strftime('%Y-%m-%d %H:%M:%S') if player_info.updated_at else 'Unknown'}"""
             
             return CommandResult(success=True, message=status_message)
                 
@@ -413,9 +514,31 @@ class StatusCommand(Command):
         except Exception as e:
             # System error
             logger.error(f"[StatusCommand] System error: {e}", exc_info=True)
+            
+            # Provide more helpful error messages based on context
+            if context.chat_type == ChatType.LEADERSHIP:
+                error_message = f"""❌ **Status Check Failed**
+
+🔍 **Error Details:**
+• Type: System Error
+• Description: {str(e)[:100]}{'...' if len(str(e)) > 100 else ''}
+
+💡 **Troubleshooting:**
+• Check if the player exists in the database
+• Verify the phone number format is correct
+• Ensure the player is registered with the team
+• Contact system admin if the issue persists
+
+🔧 **Alternative Commands:**
+• `/list` - View all team players
+• `/myinfo` - Check your own status
+• `/pending` - View pending approvals"""
+            else:
+                error_message = "❌ Sorry, something went wrong while checking player status. Please try again later."
+            
             return CommandResult(
                 success=False, 
-                message="❌ Sorry, something went wrong while checking player status. Please try again later.",
+                message=error_message,
                 error=str(e)
             )
 
@@ -687,15 +810,17 @@ class RejectPlayerCommand(Command):
         try:
             # Parse command
             parts = context.message_text.split()
-            if len(parts) < 3:
-                return CommandResult(success=False, message="❌ Usage: /reject [player_id] [reason]")
+            if len(parts) < 2:
+                return CommandResult(success=False, message="❌ Usage: /reject [player_id_or_phone] [reason]")
             
-            player_id = parts[1]
-            reason = " ".join(parts[2:])
+            identifier = parts[1]
+            reason = " ".join(parts[2:]) if len(parts) > 2 else "No reason provided"
+            
+            logger.info(f"[RejectPlayerCommand] Rejecting player with identifier: {identifier}, reason: {reason}")
             
             # Execute command
             command_operations = get_command_operations(team_id=context.team_id)
-            success, message = await command_operations.reject_player(player_id, reason, context.team_id)
+            success, message = await command_operations.reject_player_by_identifier(identifier, reason, context.team_id)
             
             if success:
                 return CommandResult(success=True, message=message)
@@ -1831,10 +1956,12 @@ class CommandRegistry:
         commands = [
             # Utility Commands
             self._help_command,
+            StartCommand(),
             
             # Player Commands
             ListPlayersCommand(),
             MyInfoCommand(),
+            UpdatePlayerCommand(),
             StatusCommand(),
             RegisterCommand(),
             AddPlayerCommand(),
@@ -1982,6 +2109,10 @@ class CommandProcessor:
                             raw_update: Any = None) -> CommandResult:
         """Process a command through the chain."""
         try:
+            # Log command entry
+            logger.info(f"[CommandProcessor] Processing command: {command_name} from user {user_id} in chat {chat_id} (team: {team_id})")
+            logger.info(f"[CommandProcessor] Full message: {message_text}")
+            
             # Step 1: Create context
             context = CommandContext(
                 user_id=user_id,
@@ -1997,6 +2128,7 @@ class CommandProcessor:
             # Step 2: Get command
             command = self.command_registry.get_command(command_name)
             if not command:
+                logger.info(f"[CommandProcessor] Unknown command: {command_name}")
                 return CommandResult(
                     success=False,
                     message=f"❌ Unknown command: `{command_name}`\n\nType `/help` for available commands."
@@ -2004,12 +2136,14 @@ class CommandProcessor:
             
             # Step 3: Check permissions
             if not command.can_execute(context):
+                logger.info(f"[CommandProcessor] Permission denied for command {command_name} by user {user_id}")
                 return CommandResult(
                     success=False,
                     message=command.get_access_denied_message(context)
                 )
             
             # Step 4: Execute command
+            logger.info(f"[CommandProcessor] Executing command {command_name} with context: {context}")
             result = await command.execute(context)
             
             # Step 5: Log command execution
@@ -2170,5 +2304,15 @@ class RecordExpenseCommand(Command):
                 message=error_msg,
                 error=str(e)
             )
+
+
+def format_enum(val):
+    if hasattr(val, 'name'):
+        return val.name.replace('_', ' ').title()
+    elif hasattr(val, 'value'):
+        return str(val.value).replace('_', ' ').title()
+    elif isinstance(val, str):
+        return val.title()
+    return str(val)
 
 
