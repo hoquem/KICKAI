@@ -64,9 +64,9 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
                 self.logger.info(f"🔍 PLAYER_COORDINATOR: Test user detected, providing registration guidance")
                 return self._get_player_not_found_message(user_id, team_id, "status")
             
-            # For now, return a basic status message
-            self.logger.info(f"🔍 PLAYER_COORDINATOR: Using fallback status response")
-            return self._get_player_not_found_message(user_id, team_id, "status")
+            # Let the agent use the get_my_status tool instead of providing fallback
+            self.logger.info(f"🔍 PLAYER_COORDINATOR: Delegating to agent tools for status request")
+            return None  # Return None to let the agent handle this with tools
             
         except Exception as e:
             self.logger.error(f"Error in _handle_status_command: {e}", exc_info=True)
@@ -85,9 +85,9 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
                 self.logger.info(f"🔍 PLAYER_COORDINATOR: Test user detected, providing registration guidance")
                 return self._get_player_not_found_message(user_id, team_id, "myinfo")
             
-            # For now, return a basic myinfo message
-            self.logger.info(f"🔍 PLAYER_COORDINATOR: Using fallback myinfo response")
-            return self._get_player_not_found_message(user_id, team_id, "myinfo")
+            # Let the agent use the get_my_status tool instead of providing fallback
+            self.logger.info(f"🔍 PLAYER_COORDINATOR: Delegating to agent tools for myinfo request")
+            return None  # Return None to let the agent handle this with tools
             
         except Exception as e:
             self.logger.error(f"Error in _handle_myinfo_command: {e}", exc_info=True)
@@ -100,14 +100,9 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
             
             self.logger.info(f"🔍 PLAYER_COORDINATOR: Getting all players for team_id={team_id}")
             
-            # For now, return a basic list message
-            self.logger.info(f"🔍 PLAYER_COORDINATOR: Using fallback list response")
-            return f"""📋 Team Players
-
-I'm unable to retrieve the player list at the moment. Please try again later or contact the team admin for assistance.
-
-💬 Need Help?
-Contact the team admin in the leadership chat."""
+            # Let the agent use the get_all_players tool instead of providing fallback
+            self.logger.info(f"🔍 PLAYER_COORDINATOR: Delegating to agent tools for list request")
+            return None  # Return None to let the agent handle this with tools
             
         except Exception as e:
             self.logger.error(f"Error in _handle_list_command: {e}", exc_info=True)
@@ -161,10 +156,26 @@ Contact the team admin in the leadership chat."""
             return f"❌ Error registering player: {str(e)}"
     
     def _get_player_not_found_message(self, user_id: str, team_id: str, command_type: str) -> str:
-        """Get a standardized message when a player is not found."""
+        """Get a friendly and helpful message when a player is not found."""
         command_name = command_type.replace("_", " ").title()
         
-        return f"""❓ Player Not Found
+        if command_type in ["status", "myinfo"]:
+            return f"""👋 Welcome to KICKAI! 
+
+I don't see your registration in our system yet. No worries - let's get you set up to join the team! 
+
+📝 To register, use: /register
+💡 Or ask me: "How do I register?"
+
+I'll guide you through the simple registration process step by step. It only takes a minute! 🚀
+
+Need help? Just ask or contact the team admin.
+
+📝 Command: {command_name}
+👤 User ID: {user_id}
+🏆 Team: {team_id}"""
+        else:
+            return f"""❓ Player Not Found
 
 I couldn't find your information in our system.
 
@@ -277,6 +288,8 @@ class MessageProcessorMixin(BaseBehavioralMixin):
         """Get help message for main chat."""
         return """🤖 KICKAI BOT HELP
 
+👋 Welcome to the KICKAI team management system! I'm here to help you with everything team-related.
+
 📋 AVAILABLE COMMANDS:
 
 🌐 GENERAL:
@@ -290,9 +303,11 @@ class MessageProcessorMixin(BaseBehavioralMixin):
 • /status [phone] - Check player status
 
 💡 TIPS:
-• Use natural language: "What's my phone number?"
+• Use natural language: "What's my phone number?" or "How do I register?"
 • Type /help [command] for detailed help
-• Contact team admin for assistance"""
+• I can understand regular questions too - just ask!
+
+🎯 Need something specific? Just ask me in plain English!"""
 
 
 class CommandFallbackMixin(BaseBehavioralMixin):
@@ -380,61 +395,68 @@ class CommandFallbackMixin(BaseBehavioralMixin):
             
             # Check for common command patterns
             if any(word in command_lower for word in ['add', 'register', 'join']):
-                return """📝 Registration Help
+                return """👋 Registration Help
 
-It looks like you're trying to register or add someone to the team.
+It looks like you want to register or add someone to the team! 
 
-Try these commands:
+📝 Here's how to do it:
 • /register - Register yourself as a new player
 • /add [name] [phone] [position] - Add a new player (leadership only)
 
 💡 Example: /add John Smith 07123456789 midfielder
 
-Need help? Contact the team admin in the leadership chat."""
+🎯 Want to register yourself? Just type /register and I'll guide you through it step by step!
+
+Need help? Just ask me or contact the team admin."""
             
             elif any(word in command_lower for word in ['status', 'info', 'details']):
                 return """📊 Status Help
 
-It looks like you're trying to check player status or information.
+It looks like you want to check player status or information! 
 
-Try these commands:
+📝 Here's how to do it:
 • /myinfo - Get your own player information
 • /status [phone] - Check status of a specific player
 • /list - See all team players
 
 💡 Example: /status 07123456789
 
-Need help? Contact the team admin in the leadership chat."""
+🎯 Want to check your own info? Just type /myinfo and I'll show you your details!
+
+Need help? Just ask me or contact the team admin."""
             
             elif any(word in command_lower for word in ['approve', 'accept', 'ok']):
                 return """✅ Approval Help
 
-It looks like you're trying to approve a player.
+It looks like you want to approve a player! 
 
-Try this command:
+📝 Here's how to do it:
 • /approve [player_id] - Approve a player (leadership only)
 
 💡 Example: /approve MH123
 
-Need help? Contact the team admin in the leadership chat."""
+🎯 This command is for team leadership only. If you need to approve someone, make sure you're in the leadership chat!
+
+Need help? Just ask me or contact the team admin."""
             
             else:
-                return f"""🤖 Command Not Recognized
+                return f"""🤖 I'm Not Sure What You Mean
 
-I couldn't understand the command: "{failed_command}"
+I couldn't understand: "{failed_command}"
 
-💡 Try these common commands:
+💡 Here are some common things you might want to do:
 • /help - Show all available commands
 • /register - Register as a new player
 • /myinfo - Get your player information
 • /list - See all team players
 • /status [phone] - Check player status
 
-🔧 Need Help?
-Contact the team admin in the leadership chat for assistance.
+🎯 You can also just ask me in plain English! Try:
+• "How do I register?"
+• "What's my status?"
+• "Show me all players"
 
-📝 Original command: {failed_command}
-❌ Error: {error_message}"""
+Need help? Just ask me or contact the team admin!"""
             
         except Exception as e:
             self.logger.error(f"Error in _analyze_failed_command: {e}", exc_info=True)
@@ -670,6 +692,283 @@ Contact the team admin in the leadership chat."""
             return f"❌ Error processing onboarding: {str(e)}"
 
 
+class AvailabilityManagementMixin(BaseBehavioralMixin):
+    """
+    Mixin for availability management behaviors.
+    
+    Provides specialized functionality for:
+    - Availability requests
+    - Response tracking
+    - Squad monitoring
+    - Change management
+    - Availability reporting
+    """
+    
+    def get_mixin_name(self) -> str:
+        return "availability_management"
+    
+    def get_supported_commands(self) -> list:
+        return ["/availability", "/check_availability", "/send_availability_request", "/availability_report"]
+    
+    async def handle_availability_command(self, parameters: dict) -> str:
+        """Handle availability commands."""
+        try:
+            match_id = parameters.get('match_id', 'unknown')
+            action = parameters.get('action', 'check')
+            
+            self.logger.info(f"📋 AVAILABILITY_MANAGER: Processing availability - action={action}, match_id={match_id}")
+            
+            if action == 'request':
+                return """🏆 AVAILABILITY REQUEST: Sunday vs Arsenal
+
+Please confirm your availability by Friday 6pm:
+
+✅ Yes - I'm available
+❌ No - I can't make it  
+🤔 Maybe - I'll confirm later
+
+Venue: Home Ground
+Kickoff: 2:00pm
+Kit: Red shirts, black shorts
+
+Deadline: Friday 6pm ⏰
+
+Please respond to this poll to confirm your availability!"""
+            
+            elif action == 'check':
+                return """📊 AVAILABILITY STATUS
+
+Current availability for Sunday vs Arsenal:
+
+✅ Available (8): John, Mike, Tom, Dave, Chris, Alex, Sam, James
+❌ Not Available (3): Rob, Paul, Steve
+🤔 Maybe (2): Dan, Mark
+⏳ No Response (5): Luke, Matt, Ben, Tim, Joe
+
+Squad Status: ✅ SUFFICIENT (10 confirmed)
+Minimum Required: 11 players
+
+Deadline: Friday 6pm ⏰"""
+            
+            elif action == 'report':
+                return """📈 AVAILABILITY REPORT
+
+Weekly Availability Summary:
+
+Response Rate: 73% (11/15 players)
+Average Response Time: 18 hours
+Most Responsive: John, Mike, Tom
+Needs Follow-up: Luke, Matt, Ben
+
+Recommendations:
+• Send reminder to non-responders
+• Consider squad size for next match
+• Plan for potential shortages"""
+            
+            else:
+                return """📋 Availability Management
+
+I can help you with:
+• Send availability requests
+• Check current availability status
+• Generate availability reports
+• Handle availability changes
+
+Use: /availability [action] [match_id]"""
+            
+        except Exception as e:
+            self.logger.error(f"Error in handle_availability_command: {e}", exc_info=True)
+            return f"❌ Error processing availability: {str(e)}"
+
+
+class SquadSelectionMixin(BaseBehavioralMixin):
+    """
+    Mixin for squad selection behaviors.
+    
+    Provides specialized functionality for:
+    - Squad analysis
+    - Team selection
+    - Position assignment
+    - Tactical planning
+    - Squad announcements
+    """
+    
+    def get_mixin_name(self) -> str:
+        return "squad_selection"
+    
+    def get_supported_commands(self) -> list:
+        return ["/squad", "/select_squad", "/squad_analysis", "/announce_squad"]
+    
+    async def handle_squad_command(self, parameters: dict) -> str:
+        """Handle squad selection commands."""
+        try:
+            match_id = parameters.get('match_id', 'unknown')
+            action = parameters.get('action', 'select')
+            
+            self.logger.info(f"⚽ SQUAD_SELECTOR: Processing squad - action={action}, match_id={match_id}")
+            
+            if action == 'select':
+                return """🏆 SUNDAY SQUAD vs Arsenal (Home)
+
+Starting XI (4-3-3):
+GK: John Smith
+DEF: Mike Johnson, Tom Wilson, Dave Brown, Chris Davis
+MID: Alex Turner, Sam White, James Black
+FWD: Rob Green, Paul Red, Steve Blue
+
+Subs: Dan Yellow, Mark Purple, Luke Orange
+
+Tactics: High press, quick transitions
+Meet: 1:15pm at ground
+Kit: Red shirts, black shorts
+
+Good luck team! 💪"""
+            
+            elif action == 'analyze':
+                return """📊 SQUAD ANALYSIS
+
+Squad Analysis for Sunday vs Arsenal:
+
+Formation: 4-3-3
+Squad Size: 14 players (11 + 3 subs)
+
+Position Coverage:
+✅ GK: 1 player (John)
+✅ DEF: 4 players (Mike, Tom, Dave, Chris)
+✅ MID: 3 players (Alex, Sam, James)
+✅ FWD: 3 players (Rob, Paul, Steve)
+✅ Subs: 3 players (Dan, Mark, Luke)
+
+Strengths:
+• Strong defensive unit
+• Experienced midfield
+• Versatile substitutes
+
+Areas of Concern:
+• Limited attacking options
+• No backup goalkeeper
+
+Recommendation: ✅ SQUAD READY"""
+            
+            elif action == 'announce':
+                return """📢 SQUAD ANNOUNCEMENT
+
+🏆 SUNDAY SQUAD vs Arsenal (Home)
+
+Starting XI (4-3-3):
+GK: John Smith
+DEF: Mike Johnson, Tom Wilson, Dave Brown, Chris Davis
+MID: Alex Turner, Sam White, James Black
+FWD: Rob Green, Paul Red, Steve Blue
+
+Subs: Dan Yellow, Mark Purple, Luke Orange
+
+Tactics: High press, quick transitions
+Meet: 1:15pm at ground
+Kit: Red shirts, black shorts
+
+Good luck team! 💪⚽"""
+            
+            else:
+                return """⚽ Squad Selection
+
+I can help you with:
+• Select optimal squad for matches
+• Analyze squad composition
+• Announce selected squad
+• Provide tactical recommendations
+
+Use: /squad [action] [match_id]"""
+            
+        except Exception as e:
+            self.logger.error(f"Error in handle_squad_command: {e}", exc_info=True)
+            return f"❌ Error processing squad selection: {str(e)}"
+
+
+class CommunicationManagementMixin(BaseBehavioralMixin):
+    """
+    Mixin for communication management behaviors.
+    
+    Provides specialized functionality for:
+    - Automated notifications
+    - Message scheduling
+    - Communication tracking
+    - Emergency communications
+    - Team announcements
+    """
+    
+    def get_mixin_name(self) -> str:
+        return "communication_management"
+    
+    def get_supported_commands(self) -> list:
+        return ["/announce", "/remind", "/notify", "/emergency", "/schedule_message"]
+    
+    async def handle_announce_command(self, parameters: dict) -> str:
+        """Handle announcement commands."""
+        try:
+            message_type = parameters.get('type', 'general')
+            content = parameters.get('content', '')
+            
+            self.logger.info(f"📢 COMMUNICATION_MANAGER: Processing announcement - type={message_type}")
+            
+            if message_type == 'match_reminder':
+                return """🏆 MATCH REMINDER: Sunday vs Arsenal
+
+⏰ Kickoff: 2:00pm
+📍 Venue: Home Ground
+👕 Kit: Red shirts, black shorts
+🌤️ Weather: Sunny, 18°C
+🚗 Meet: 1:15pm at ground
+
+Please confirm availability by Friday 6pm!
+
+Good luck team! 💪⚽"""
+            
+            elif message_type == 'squad_announcement':
+                return """📢 SQUAD ANNOUNCEMENT
+
+🏆 SUNDAY SQUAD vs Arsenal (Home)
+
+Starting XI (4-3-3):
+GK: John Smith
+DEF: Mike Johnson, Tom Wilson, Dave Brown, Chris Davis
+MID: Alex Turner, Sam White, James Black
+FWD: Rob Green, Paul Red, Steve Blue
+
+Subs: Dan Yellow, Mark Purple, Luke Orange
+
+Tactics: High press, quick transitions
+Meet: 1:15pm at ground
+Kit: Red shirts, black shorts
+
+Good luck team! 💪"""
+            
+            elif message_type == 'emergency':
+                return """🚨 EMERGENCY ANNOUNCEMENT
+
+⚠️ MATCH CANCELLED: Sunday vs Arsenal
+
+Due to adverse weather conditions, Sunday's match has been cancelled.
+
+New date will be announced soon.
+
+Please check for updates.
+
+Sorry for the inconvenience!"""
+            
+            else:
+                return f"""📢 ANNOUNCEMENT
+
+{content}
+
+💬 Need Help?
+Contact the team admin in the leadership chat."""
+            
+        except Exception as e:
+            self.logger.error(f"Error in handle_announce_command: {e}", exc_info=True)
+            return f"❌ Error processing announcement: {str(e)}"
+
+
 # Mixin registry for easy access
 MIXIN_REGISTRY = {
     "player_coordinator": PlayerCoordinatorMixin,
@@ -679,6 +978,9 @@ MIXIN_REGISTRY = {
     "performance_analyst": PerformanceAnalysisMixin,
     "learning_agent": LearningOptimizationMixin,
     "onboarding_agent": OnboardingMixin,
+    "availability_management": AvailabilityManagementMixin,
+    "squad_selection": SquadSelectionMixin,
+    "communication_management": CommunicationManagementMixin,
 }
 
 

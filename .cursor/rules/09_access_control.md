@@ -75,10 +75,11 @@ read_only_commands = {
 - **`coach`**: Team coach
 - **`admin`**: Administrative access
 - **`volunteer`**: Volunteer helper
+- **`secretary`**: Team secretarial tasks
 
 ### Role Hierarchy
 ```python
-leadership_roles = {'captain', 'vice_captain', 'manager', 'coach', 'admin', 'volunteer'}
+leadership_roles = {'captain', 'vice_captain', 'manager', 'coach', 'admin', 'volunteer', 'secretary'}
 player_role = {'player'}
 ```
 

@@ -366,7 +366,7 @@ class Player(BaseModel, ValidatorMixin):
     })
     
     def __post_init__(self):
-        """Validate player data after initialization."""
+        """Validate player data after initialization and auto-generate player_id if missing."""
         super().__post_init__()
         
         if not self.name.strip():
@@ -383,6 +383,12 @@ class Player(BaseModel, ValidatorMixin):
         
         if self.email and not self._validate_email(self.email):
             raise ValueError("Invalid email format")
+        
+        # Auto-generate player_id if not provided
+        if not self.player_id:
+            from utils.id_generator import generate_player_id_from_name
+            self.player_id = generate_player_id_from_name(self.name, self.team_id)
+            self.id = self.player_id
         
         # Set onboarding started time if status is in progress
         if self.onboarding_status == OnboardingStatus.IN_PROGRESS and not self.onboarding_started_at:
@@ -616,6 +622,24 @@ class Player(BaseModel, ValidatorMixin):
     @classmethod
     def create(cls, name: str, phone: str, team_id: str, **kwargs) -> 'Player':
         """Factory method to create a player with validation."""
+        # Handle position with flexible parsing
+        if 'position' in kwargs and isinstance(kwargs['position'], str):
+            kwargs['position'] = PlayerPosition.from_string(kwargs['position'])
+        
+        return cls(name=name, phone=phone, team_id=team_id, **kwargs)
+    
+    @classmethod
+    def with_generated_id(cls, name: str, phone: str, team_id: str, **kwargs) -> 'Player':
+        """Factory method to create a player with a generated ID."""
+        from utils.id_generator import generate_player_id_from_name
+        
+        # Generate player ID
+        player_id = generate_player_id_from_name(name, team_id)
+        
+        # Set the generated ID
+        kwargs['player_id'] = player_id
+        kwargs['id'] = player_id  # Also set the base id field
+        
         # Handle position with flexible parsing
         if 'position' in kwargs and isinstance(kwargs['position'], str):
             kwargs['position'] = PlayerPosition.from_string(kwargs['position'])

@@ -1,290 +1,332 @@
+#!/usr/bin/env python3
 """
-Player tools for the KICKAI system.
+Player Tools for KICKAI
 
-This module provides LangChain tools for player-related operations.
+This module provides tools for player-related operations that can be used by agents.
+All tools are designed to work with the context manager for proper user identification.
 """
 
 import logging
-from typing import Any, Optional, List, Dict, Type
-from pydantic import BaseModel, Field
-
+from typing import Dict, Any, Optional
 from crewai.tools import BaseTool
-from domain.interfaces.command_operations import ICommandOperations
+
+from database.models_improved import Player
+from domain.adapters.player_operations_adapter import PlayerOperationsAdapter
+from domain.interfaces.player_operations import IPlayerOperations
+from core.context_manager import get_context_manager, UserContext
 
 logger = logging.getLogger(__name__)
 
 
-class PlayerToolsInput(BaseModel):
-    """Input schema for player tools."""
-    team_id: str = Field(description="The team ID")
-
-
-class GetAllPlayersInput(PlayerToolsInput):
-    """Input for getting all players."""
-    pass
-
-
-class GetPlayerByIdInput(PlayerToolsInput):
-    """Input for getting player by ID."""
-    player_id: str = Field(description="The player ID")
-
-
-class GetPlayerByPhoneInput(PlayerToolsInput):
-    """Input for getting player by phone."""
-    phone: str = Field(description="The player's phone number")
-
-
-class GetPendingApprovalsInput(PlayerToolsInput):
-    """Input for getting pending approvals."""
-    pass
-
-
-class GetPlayerStatusInput(PlayerToolsInput):
-    """Input for getting player status."""
-    player_id: str = Field(description="The player ID")
-
-
-class GetMyStatusInput(PlayerToolsInput):
-    """Input for getting current user's status by Telegram user ID."""
-    user_id: str = Field(description="The Telegram user ID")
-
-
-class PlayerTools(BaseTool):
-    """LangChain tool for player operations."""
+class GetPlayerStatusTool(BaseTool):
+    """Tool to get player status by player ID."""
     
-    name: str = Field(default="player_tools", description="Tool name")
-    description: str = Field(default="Tools for managing player information and operations", description="Tool description")
-    args_schema: Type[BaseModel] = Field(default=PlayerToolsInput, description="Input schema")
+    name: str = "get_player_status"
+    description: str = "Get player status by player ID."
+    team_id: str = None
+    player_id: str = None
+    player_operations: PlayerOperationsAdapter = None
     
-    def __init__(self, team_id: str, command_operations: ICommandOperations):
+    def __init__(self, team_id: str = None, player_id: str = None, player_operations: IPlayerOperations = None):
         super().__init__()
         self.team_id = team_id
-        self.command_operations = command_operations
-        self.logger = logging.getLogger(__name__)
-    
-    def _run(self, **kwargs) -> str:
-        """Run the tool synchronously."""
-        try:
-            # This is a placeholder - in a real implementation, you'd call the async methods
-            # For now, we'll return a message indicating the tool is available
-            return f"Player tools available for team {self.team_id}. Use specific player tool methods."
-        except Exception as e:
-            self.logger.error(f"Error in player tools: {e}")
-            return f"Error: {str(e)}"
-    
-    async def _arun(self, **kwargs) -> str:
-        """Run the tool asynchronously."""
-        try:
-            # This is a placeholder - in a real implementation, you'd call the async methods
-            return f"Player tools available for team {self.team_id}. Use specific player tool methods."
-        except Exception as e:
-            self.logger.error(f"Error in player tools: {e}")
-            return f"Error: {str(e)}"
-
-
-class GetAllPlayersTool(BaseTool):
-    """Tool to get all players for a team (async-only)."""
-    
-    name: str = Field(default="get_all_players", description="Tool name")
-    description: str = Field(default="Get all players for a team", description="Tool description")
-    args_schema: Type[BaseModel] = Field(default=GetAllPlayersInput, description="Input schema")
-    team_id: Optional[str] = Field(default=None, description="Team ID")
-    logger: Optional[logging.Logger] = Field(default_factory=lambda: logging.getLogger(__name__), description="Logger instance")
-    command_operations: Optional[Any] = Field(default=None, description="Command operations interface")
-
-    def __init__(self, team_id: str, **kwargs):
-        super().__init__(team_id=team_id, **kwargs)
-    
-    def _run(self, team_id: str) -> str:
-        raise NotImplementedError("GetAllPlayersTool is async-only. Use 'await _arun(...)' instead.")
-    
-    async def _arun(self, team_id: str) -> str:
-        """Get all players asynchronously."""
-        try:
-            # Use the command operations to get player list
-            result = await self.command_operations.list_players(team_id)
-            return result
-        except Exception as e:
-            self.logger.error(f"Error getting all players: {e}")
-            return f"Error: {str(e)}"
-
-
-class GetPlayerByIdTool(BaseTool):
-    """Tool to get a player by ID (async-only)."""
-    
-    name: str = Field(default="get_player_by_id", description="Tool name")
-    description: str = Field(default="Get a player by their ID", description="Tool description")
-    args_schema: Type[BaseModel] = Field(default=GetPlayerByIdInput, description="Input schema")
-    team_id: Optional[str] = Field(default=None, description="Team ID")
-    logger: Optional[logging.Logger] = Field(default_factory=lambda: logging.getLogger(__name__), description="Logger instance")
-    command_operations: Optional[Any] = Field(default=None, description="Command operations interface")
-
-    def __init__(self, team_id: str, **kwargs):
-        super().__init__(team_id=team_id, **kwargs)
+        self.player_id = player_id
+        if player_operations:
+            self.player_operations = PlayerOperationsAdapter(player_operations)
+        else:
+            # Fallback to legacy pattern for backward compatibility
+            from services.player_service import get_player_service
+            self.player_operations = PlayerOperationsAdapter(get_player_service(team_id=team_id))
     
     def _run(self, player_id: str) -> str:
-        raise NotImplementedError("GetPlayerByIdTool is async-only. Use 'await _arun(...)' instead.")
-    
-    async def _arun(self, player_id: str, team_id: str) -> str:
-        """Get player by ID asynchronously."""
+        """Get player status by player ID."""
         try:
-            success, result = await self.command_operations.get_player_info(player_id, team_id)
-            if success:
-                return result
-            else:
-                return f"Failed to get player: {result}"
+            # Validate context
+            if not self.team_id or not player_id:
+                return "❌ Missing team or player ID."
+            
+            # Get player status
+            player = self.player_operations.get_player_by_id(player_id, self.team_id)
+            if not player:
+                return f"❌ Player {player_id} not found in team {self.team_id}."
+            
+            # Format player status
+            status_info = f"""
+👤 **Player Status: {player.name}**
+📱 Phone: {player.phone}
+🏃 Position: {player.position}
+📊 Status: {player.onboarding_status.value}
+📅 Registration Date: {player.registration_date}
+"""
+            return status_info.strip()
+            
         except Exception as e:
-            self.logger.error(f"Error getting player by ID: {e}")
-            return f"Error: {str(e)}"
-
-
-class GetPendingApprovalsTool(BaseTool):
-    """Tool to get pending player approvals (async-only)."""
-    
-    name: str = Field(default="get_pending_approvals", description="Tool name")
-    description: str = Field(default="Get list of players pending approval", description="Tool description")
-    args_schema: Type[BaseModel] = Field(default=GetPendingApprovalsInput, description="Input schema")
-    team_id: Optional[str] = Field(default=None, description="Team ID")
-    logger: Optional[logging.Logger] = Field(default_factory=lambda: logging.getLogger(__name__), description="Logger instance")
-    command_operations: Optional[Any] = Field(default=None, description="Command operations interface")
-
-    def __init__(self, team_id: str, **kwargs):
-        super().__init__(team_id=team_id, **kwargs)
-    
-    def _run(self, team_id: str) -> str:
-        raise NotImplementedError("GetPendingApprovalsTool is async-only. Use 'await _arun(...)' instead.")
-    
-    async def _arun(self, team_id: str) -> str:
-        """Get pending approvals asynchronously."""
-        try:
-            # Use the command operations to get pending approvals
-            result = await self.command_operations.get_pending_approvals(team_id)
-            return result
-        except Exception as e:
-            self.logger.error(f"Error getting pending approvals: {e}")
-            return f"Error: {str(e)}"
-
-
-class GetPlayerStatusTool(BaseTool):
-    """Tool to get player status by player ID (async-only)."""
-    
-    name: str = Field(default="get_player_status", description="Tool name")
-    description: str = Field(default="Get player status by player ID", description="Tool description")
-    args_schema: Type[BaseModel] = Field(default=GetPlayerStatusInput, description="Input schema")
-    team_id: Optional[str] = Field(default=None, description="Team ID")
-    logger: Optional[logging.Logger] = Field(default_factory=lambda: logging.getLogger(__name__), description="Logger instance")
-    command_operations: Optional[Any] = Field(default=None, description="Command operations interface")
-
-    def __init__(self, team_id: str, **kwargs):
-        super().__init__(team_id=team_id, **kwargs)
-    
-    def _run(self, player_id: str) -> str:
-        raise NotImplementedError("GetPlayerStatusTool is async-only. Use 'await _arun(...)' instead.")
-    
-    async def _arun(self, player_id: str, team_id: str) -> str:
-        """Get player status asynchronously."""
-        try:
-            success, result = await self.command_operations.get_player_info(player_id, team_id)
-            if success:
-                return result
-            else:
-                return f"Failed to get player status: {result}"
-        except Exception as e:
-            self.logger.error(f"Error getting player status: {e}")
-            return f"Error: {str(e)}"
+            logger.error(f"Error in GetPlayerStatusTool: {e}")
+            return f"❌ Error retrieving player status: {str(e)}"
 
 
 class GetMyStatusTool(BaseTool):
-    """Tool to get current user's status by Telegram user ID (async-only)."""
+    """Tool to get the current user's own status."""
     
-    name: str = Field(default="get_my_status", description="Tool name")
-    description: str = Field(default="Get current user's status by Telegram user ID", description="Tool description")
-    args_schema: Type[BaseModel] = Field(default=GetMyStatusInput, description="Input schema")
-    team_id: Optional[str] = Field(default=None, description="Team ID")
-    logger: Optional[logging.Logger] = Field(default_factory=lambda: logging.getLogger(__name__), description="Logger instance")
-    command_operations: Optional[Any] = Field(default=None, description="Command operations interface")
-
-    def __init__(self, team_id: str, **kwargs):
-        super().__init__(team_id=team_id, **kwargs)
-        print(f"🔍 [DEBUG] GetMyStatusTool.__init__ called with team_id='{team_id}', kwargs={kwargs}")
-        logger.info(f"[TOOL INIT] GetMyStatusTool initialized with team_id='{team_id}'")
-        logger.info(f"[TOOL INIT] GetMyStatusTool kwargs: {kwargs}")
-        
-        # Extract command_operations from kwargs
-        if 'command_operations' in kwargs:
-            self.command_operations = kwargs['command_operations']
-            logger.info(f"[TOOL INIT] GetMyStatusTool command_operations set: {type(self.command_operations).__name__}")
+    name: str = "get_my_status"
+    description: str = "Get the current user's own player status."
+    team_id: str = None
+    user_id: str = None
+    player_operations: PlayerOperationsAdapter = None
+    
+    def __init__(self, team_id: str = None, user_id: str = None, player_operations: IPlayerOperations = None):
+        super().__init__()
+        self.team_id = team_id
+        self.user_id = user_id
+        if player_operations:
+            self.player_operations = PlayerOperationsAdapter(player_operations)
         else:
-            logger.warning(f"[TOOL INIT] GetMyStatusTool command_operations not provided in kwargs")
-            self.command_operations = None
+            # Fallback to legacy pattern for backward compatibility
+            from services.player_service import get_player_service
+            self.player_operations = PlayerOperationsAdapter(get_player_service(team_id=team_id))
     
-    def _run(self, user_id: str) -> str:
-        raise NotImplementedError("GetMyStatusTool is async-only. Use 'await _arun(...)' instead.")
-    
-    async def _arun(self, user_id: str, team_id: str) -> str:
-        """Get current user's status asynchronously."""
-        print(f"🔍 [DEBUG] GetMyStatusTool._arun called with user_id='{user_id}', team_id='{team_id}'")
-        logger.info(f"[TOOL EXECUTE] GetMyStatusTool._arun called")
-        logger.info(f"[TOOL EXECUTE] Parameters: user_id='{user_id}', team_id='{team_id}'")
-        logger.info(f"[TOOL EXECUTE] Self.team_id: '{self.team_id}'")
-        logger.info(f"[TOOL EXECUTE] Command operations available: {self.command_operations is not None}")
-        
-        if self.command_operations is None:
-            error_msg = "Command operations interface not available"
-            logger.error(f"[TOOL EXECUTE] ❌ {error_msg}")
-            return f"Error: {error_msg}"
-        
+    def _run(self) -> str:
+        """Get the current user's own status."""
         try:
-            logger.info(f"[TOOL EXECUTE] Calling command_operations.get_player_info with user_id='{user_id}', team_id='{team_id}'")
+            # Validate context
+            if not self.team_id or not self.user_id:
+                return "❌ Missing team or user ID."
             
-            # Call the command operations interface
-            success, result = await self.command_operations.get_player_info(user_id, team_id)
+            # Get player by telegram ID
+            player = self.player_operations.get_player_by_telegram_id(self.user_id, self.team_id)
+            if not player:
+                return "❌ You are not registered as a player in this team."
             
-            logger.info(f"[TOOL EXECUTE] Command operations result: success={success}")
-            logger.info(f"[TOOL EXECUTE] Command operations result: result={result}")
+            # Format player status
+            status_info = f"""
+👤 **Your Status: {player.name}**
+📱 Phone: {player.phone}
+🏃 Position: {player.position}
+📊 Status: {player.onboarding_status.value}
+📅 Registration Date: {player.registration_date}
+"""
+            return status_info.strip()
             
-            if success:
-                logger.info(f"[TOOL EXECUTE] ✅ GetMyStatusTool completed successfully")
-                return result
-            else:
-                logger.warning(f"[TOOL EXECUTE] ⚠️ GetMyStatusTool failed: {result}")
-                return f"Failed to get player status: {result}"
-                
         except Exception as e:
-            error_msg = f"Error getting player status: {e}"
-            logger.error(f"[TOOL EXECUTE] ❌ {error_msg}", exc_info=True)
-            return f"Error: {error_msg}"
+            logger.error(f"Error in GetMyStatusTool: {e}")
+            return f"❌ Error retrieving your status: {str(e)}"
 
 
-class ApprovePlayerInput(PlayerToolsInput):
-    """Input for approving a player."""
-    player_id: str = Field(description="The player ID to approve")
+class GetAllPlayersTool(BaseTool):
+    """Tool to get all players in the team."""
+    
+    name: str = "get_all_players"
+    description: str = "Get all players in the team."
+    team_id: str = None
+    is_leadership_chat: bool = False
+    player_operations: PlayerOperationsAdapter = None
+    
+    def __init__(self, team_id: str = None, is_leadership_chat: bool = False, player_operations: IPlayerOperations = None):
+        super().__init__()
+        self.team_id = team_id
+        self.is_leadership_chat = is_leadership_chat
+        if player_operations:
+            self.player_operations = PlayerOperationsAdapter(player_operations)
+        else:
+            # Fallback to legacy pattern for backward compatibility
+            from services.player_service import get_player_service
+            self.player_operations = PlayerOperationsAdapter(get_player_service(team_id=team_id))
+    
+    def _run(self) -> str:
+        """Get all players in the team."""
+        try:
+            # Validate context
+            if not self.team_id:
+                return "❌ Missing team ID."
+            
+            # Get all players
+            players = self.player_operations.get_all_players(self.team_id, self.is_leadership_chat)
+            if not players:
+                return "❌ No players found in this team."
+            
+            # Format player list
+            player_list = "👥 **Team Players:**\n\n"
+            for player in players:
+                status_emoji = "✅" if player.onboarding_status.value == "ACTIVE" else "⏸️"
+                player_list += f"{status_emoji} **{player.name}** ({player.player_id})\n"
+                player_list += f"   📱 {player.phone} | 🏃 {player.position}\n"
+                player_list += f"   📊 {player.onboarding_status.value}\n\n"
+            
+            return player_list.strip()
+            
+        except Exception as e:
+            logger.error(f"Error in GetAllPlayersTool: {e}")
+            return f"❌ Error retrieving player list: {str(e)}"
+
+
+class GetPlayerByIdTool(BaseTool):
+    """Tool to get player by ID."""
+    
+    name: str = "get_player_by_id"
+    description: str = "Get player information by player ID."
+    team_id: str = None
+    player_operations: PlayerOperationsAdapter = None
+    
+    def __init__(self, team_id: str = None, player_operations: IPlayerOperations = None):
+        super().__init__()
+        self.team_id = team_id
+        if player_operations:
+            self.player_operations = PlayerOperationsAdapter(player_operations)
+        else:
+            # Fallback to legacy pattern for backward compatibility
+            from services.player_service import get_player_service
+            self.player_operations = PlayerOperationsAdapter(get_player_service(team_id=team_id))
+    
+    def _run(self, player_id: str) -> str:
+        """Get player by ID."""
+        try:
+            # Validate context
+            if not self.team_id or not player_id:
+                return "❌ Missing team or player ID."
+            
+            # Get player
+            player = self.player_operations.get_player_by_id(player_id, self.team_id)
+            if not player:
+                return f"❌ Player {player_id} not found in team {self.team_id}."
+            
+            # Format player information
+            player_info = f"""
+👤 **Player Information: {player.name}**
+🆔 Player ID: {player.player_id}
+📱 Phone: {player.phone}
+🏃 Position: {player.position}
+📊 Status: {player.onboarding_status.value}
+📅 Registration Date: {player.registration_date}
+"""
+            return player_info.strip()
+            
+        except Exception as e:
+            logger.error(f"Error in GetPlayerByIdTool: {e}")
+            return f"❌ Error retrieving player information: {str(e)}"
+
+
+class GetPendingApprovalsTool(BaseTool):
+    """Tool to get pending player approvals."""
+    
+    name: str = "get_pending_approvals"
+    description: str = "Get list of players pending approval."
+    team_id: str = None
+    player_operations: PlayerOperationsAdapter = None
+    
+    def __init__(self, team_id: str = None, player_operations: IPlayerOperations = None):
+        super().__init__()
+        self.team_id = team_id
+        if player_operations:
+            self.player_operations = PlayerOperationsAdapter(player_operations)
+        else:
+            # Fallback to legacy pattern for backward compatibility
+            from services.player_service import get_player_service
+            self.player_operations = PlayerOperationsAdapter(get_player_service(team_id=team_id))
+    
+    def _run(self) -> str:
+        """Get pending player approvals."""
+        try:
+            # Validate context
+            if not self.team_id:
+                return "❌ Missing team ID."
+            
+            # Get pending approvals
+            pending_players = self.player_operations.get_pending_approvals(self.team_id)
+            if not pending_players:
+                return "✅ No players pending approval."
+            
+            # Format pending approvals list
+            pending_list = "⏳ **Players Pending Approval:**\n\n"
+            for player in pending_players:
+                pending_list += f"👤 **{player.name}** ({player.player_id})\n"
+                pending_list += f"   📱 {player.phone} | 🏃 {player.position}\n"
+                pending_list += f"   📅 Registration Date: {player.registration_date}\n\n"
+            
+            return pending_list.strip()
+            
+        except Exception as e:
+            logger.error(f"Error in GetPendingApprovalsTool: {e}")
+            return f"❌ Error retrieving pending approvals: {str(e)}"
 
 
 class ApprovePlayerTool(BaseTool):
-    """Tool to approve a player (async-only)."""
+    """Tool to approve a player."""
     
-    name: str = Field(default="approve_player", description="Tool name")
-    description: str = Field(default="Approve a player for match squad selection", description="Tool description")
-    args_schema: Type[BaseModel] = Field(default=ApprovePlayerInput, description="Input schema")
-    team_id: Optional[str] = Field(default=None, description="Team ID")
-    logger: Optional[logging.Logger] = Field(default_factory=lambda: logging.getLogger(__name__), description="Logger instance")
-    command_operations: Optional[Any] = Field(default=None, description="Command operations interface")
-
-    def __init__(self, team_id: str, **kwargs):
-        super().__init__(team_id=team_id, **kwargs)
+    name: str = "approve_player"
+    description: str = "Approve a player for the team."
+    team_id: str = None
+    player_operations: PlayerOperationsAdapter = None
+    
+    def __init__(self, team_id: str = None, player_operations: IPlayerOperations = None):
+        super().__init__()
+        self.team_id = team_id
+        if player_operations:
+            self.player_operations = PlayerOperationsAdapter(player_operations)
+        else:
+            # Fallback to legacy pattern for backward compatibility
+            from services.player_service import get_player_service
+            self.player_operations = PlayerOperationsAdapter(get_player_service(team_id=team_id))
     
     def _run(self, player_id: str) -> str:
-        raise NotImplementedError("ApprovePlayerTool is async-only. Use 'await _arun(...)' instead.")
-    
-    async def _arun(self, player_id: str, team_id: str) -> str:
-        """Approve player asynchronously."""
+        """Approve a player."""
         try:
-            success, result = await self.command_operations.approve_player(player_id, team_id)
+            # Validate context
+            if not self.team_id or not player_id:
+                return "❌ Missing team or player ID."
+            
+            # Approve player
+            success = self.player_operations.approve_player(player_id, self.team_id)
             if success:
-                return result
+                return f"✅ Player {player_id} has been approved successfully."
             else:
-                return f"Failed to approve player: {result}"
+                return f"❌ Failed to approve player {player_id}."
+            
         except Exception as e:
-            self.logger.error(f"Error approving player: {e}")
-            return f"Error: {str(e)}" 
+            logger.error(f"Error in ApprovePlayerTool: {e}")
+            return f"❌ Error approving player: {str(e)}"
+
+
+def configure_tool_with_context(tool: BaseTool, context: Dict[str, Any]) -> None:
+    """
+    Configure a tool with execution context.
+    
+    This function sets the appropriate attributes on tools based on the context.
+    It also handles onboarding messages for unregistered users.
+    
+    Args:
+        tool: The tool to configure
+        context: Execution context dictionary
+    """
+    try:
+        # Set team_id on tools that support it
+        if hasattr(tool, 'team_id'):
+            tool.team_id = context.get('team_id')
+        
+        # Set user_id on tools that support it
+        if hasattr(tool, 'user_id'):
+            tool.user_id = context.get('user_id')
+        
+        # Set is_leadership_chat on tools that support it
+        if hasattr(tool, 'is_leadership_chat'):
+            tool.is_leadership_chat = context.get('is_leadership_chat', False)
+        
+        # Check if user needs onboarding
+        is_registered = context.get('is_registered', False)
+        is_in_correct_team = context.get('is_in_correct_team', False)
+        onboarding_message = context.get('onboarding_message')
+        
+        # If user needs onboarding, modify tool behavior
+        if not is_registered or not is_in_correct_team:
+            if onboarding_message:
+                # Override the tool's _run method to return onboarding message
+                original_run = tool._run
+                def onboarding_run(*args, **kwargs):
+                    return onboarding_message
+                tool._run = onboarding_run
+                logger.info(f"[TOOL CONFIG] Configured tool {tool.name} to show onboarding message")
+        
+        logger.debug(f"[TOOL CONFIG] Configured tool {getattr(tool, 'name', 'unknown')} with context")
+        
+    except Exception as e:
+        logger.warning(f"[TOOL CONFIG] Error configuring tool {getattr(tool, 'name', 'unknown')}: {e}")
+        # Don't raise - continue with other tools 

@@ -5,13 +5,13 @@ This adapter implements the domain interface by wrapping the application layer s
 """
 
 import logging
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime
 
 from services.player_service import PlayerService
 from database.firebase_client import get_firebase_client
 from domain.interfaces.player_operations import IPlayerOperations, PlayerInfo
 from domain.interfaces.player_models import PlayerPosition
-from services.player_service import get_player_service
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +103,8 @@ class PlayerOperationsAdapter(IPlayerOperations):
             else:
                 logger.warning(f"[PlayerOperationsAdapter] Unknown position type '{type(position)}', using ANY")
                 position_enum = PlayerPosition.ANY
-            player_service = get_player_service(team_id=team_id)
-            player = await player_service.create_player(name, phone, team_id, position=position_enum)
+            
+            player = await self.player_service.create_player(name, phone, team_id, position=position_enum)
             success_message = f"✅ Player {player.name} ({player.player_id}) added successfully!"
             if hasattr(player, '_cross_team_warning'):
                 success_message += f"\n\n{player._cross_team_warning}"
@@ -199,7 +199,6 @@ class PlayerOperationsAdapter(IPlayerOperations):
             elif field == "dob":
                 # Validate date format (YYYY-MM-DD)
                 try:
-                    from datetime import datetime
                     datetime.strptime(value, "%Y-%m-%d")
                     player.date_of_birth = value
                     update_message = f"✅ Date of birth updated to {value}"

@@ -6,11 +6,11 @@ and provide clean, maintainable tools for agents.
 """
 
 from .player_tools import (
-    PlayerTools,
     GetAllPlayersTool,
     GetPlayerByIdTool,
     GetPendingApprovalsTool,
     GetPlayerStatusTool,
+    GetMyStatusTool,
     ApprovePlayerTool
 )
 from .communication_tools import (
@@ -25,18 +25,16 @@ from .logging_tools import (
 
 __all__ = [
     # Player tools
-    'PlayerTools',
     'GetAllPlayersTool',
     'GetPlayerByIdTool',
     'GetPendingApprovalsTool',
     'GetPlayerStatusTool',
+    'GetMyStatusTool',
     'ApprovePlayerTool',
-    
     # Communication tools
     'SendMessageTool',
     'SendPollTool',
     'SendAnnouncementTool',
-    
     # Logging tools
     'LogCommandTool',
     'LogEventTool',

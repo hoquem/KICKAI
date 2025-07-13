@@ -1,5 +1,5 @@
-from .mock_external_player_service import MockExternalPlayerService
-from .mock_payment_service import MockPaymentService
+from services.mocks.mock_external_player_service import MockExternalPlayerService
+from services.mocks.mock_payment_service import MockPaymentService
 from database.models_improved import Player, Team, TeamMember, OnboardingStatus
 from services.interfaces.player_service_interface import IPlayerService
 from services.interfaces.team_service_interface import ITeamService

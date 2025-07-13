@@ -10,24 +10,25 @@ from datetime import datetime
 import logging
 
 from core.exceptions import (
-    TeamError, TeamNotFoundError, TeamValidationError,
-    create_error_context
+    TeamError, TeamNotFoundError, TeamValidationError, 
+    ValidationError, DatabaseError, create_error_context
 )
-from database.firebase_client import get_firebase_client
 from database.models_improved import Team, TeamStatus, TeamMember, BotMapping, ExpenseCategory
-from services.expense_service import get_expense_service
+from database.interfaces import DataStoreInterface
+from services.interfaces.team_service_interface import ITeamService
+from services.interfaces.budget_service_interface import IBudgetService
 from utils.id_generator import generate_team_id
-from .interfaces.team_service_interface import ITeamService
+from utils.phone_utils import normalize_phone
+from utils.validation_utils import validate_team_name, validate_team_id
+from utils.enum_utils import serialize_enums_for_firestore
 
 
 class TeamService(ITeamService):
     """Service for team management operations."""
     
-    def __init__(self, data_store=None):
-        if data_store is None:
-            self._data_store = get_firebase_client()
-        else:
-            self._data_store = data_store
+    def __init__(self, data_store: DataStoreInterface, budget_service: IBudgetService):
+        self._data_store = data_store
+        self.budget_service = budget_service
     
     async def create_team(self, name: str, description: Optional[str] = None,
                          settings: Optional[Dict[str, Any]] = None,
@@ -415,17 +416,9 @@ class TeamService(ITeamService):
     async def check_expense_against_budget(self, team_id: str, category: ExpenseCategory, amount: float) -> Tuple[bool, Optional[float]]:
         """Checks if a new expense exceeds the budget limit for its category."""
         try:
-            limit = await self.get_budget_limit(team_id, category)
-            if limit is None:
-                return True, None # No limit set
-
-            # Get total expenses for this category
-            expense_service = get_expense_service()
-            total_expenses = await expense_service.get_total_expenses_by_category(team_id, category)
-
-            if (total_expenses + amount) > limit:
-                return False, limit - total_expenses # Exceeds budget, return remaining budget
-            return True, limit - total_expenses
+            # Delegate to budget service
+            can_afford, remaining_budget = await self.budget_service.check_expense_against_budget(team_id, category, amount)
+            return can_afford, remaining_budget
         except Exception as e:
             logging.error(f"Error checking expense against budget: {e}")
             raise TeamError(f"Error checking expense against budget: {str(e)}", create_error_context("check_expense_against_budget"))
@@ -452,23 +445,4 @@ class TeamService(ITeamService):
             raise TeamValidationError(
                 "Team name cannot exceed 100 characters",
                 create_error_context("validate_team_name")
-            )
-
-
-# Global team service instance
-_team_service: Optional[TeamService] = None
-
-
-def get_team_service(team_id: Optional[str] = None) -> TeamService:
-    """Get the global team service instance."""
-    global _team_service
-    if _team_service is None:
-        _team_service = TeamService()
-    return _team_service
-
-
-def initialize_team_service(team_id: Optional[str] = None) -> TeamService:
-    """Initialize the global team service."""
-    global _team_service
-    _team_service = TeamService()
-    return _team_service 
+            ) 

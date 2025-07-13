@@ -145,18 +145,20 @@ class ConfigurableAgent:
     
     @handle_agent_errors(operation="agent_execution")
     async def execute(self, task: str, context: Optional[Dict[str, Any]] = None) -> str:
-        """Execute a task using the agent."""
-        print(f"[DEBUG][ConfigurableAgent] ENTER execute with task={task}, context={context}")
-        logger.info(f"[DEBUG][ConfigurableAgent] ENTER execute with task={task}, context={context}")
-        print(f"🔍 [DEBUG] ConfigurableAgent.execute called with task='{task}', context={context}")
-        logger.info(f"[AGENT EXECUTE] Starting execution for {self.role.value}")
+        """
+        Execute a task with the agent.
+        
+        Args:
+            task: The task description
+            context: Optional execution context containing team_id, user_id, etc.
+            
+        Returns:
+            The task result as a string
+        """
+        print(f"[DEBUG][ConfigurableAgent] Starting execution with task: {task}")
+        logger.info(f"[AGENT EXECUTE] Starting execution for agent {self.role}")
         logger.info(f"[AGENT EXECUTE] Task: {task}")
         logger.info(f"[AGENT EXECUTE] Context: {context}")
-        logger.info(f"[AGENT EXECUTE] Available tools: {[tool.name for tool in self.tools]}")
-        
-        # Log detailed tool information
-        for i, tool in enumerate(self.tools):
-            logger.info(f"[AGENT EXECUTE] Tool {i+1}: {tool.name} - {tool.description}")
         
         try:
             # Validate inputs
@@ -165,6 +167,10 @@ class ConfigurableAgent:
                 validate_input(context, dict, "context", required=False)
                 print(f"[DEBUG][ConfigurableAgent] Input validated.")
                 logger.info(f"[DEBUG][ConfigurableAgent] Input validated.")
+            
+            # CRITICAL: Configure tools with execution context before execution
+            if context:
+                self._configure_tools_with_context(context)
             
             # Apply behavioral mixin if available
             if self.behavioral_mixin and hasattr(self.behavioral_mixin, 'pre_execute'):
@@ -241,6 +247,71 @@ class ConfigurableAgent:
             print(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
             logger.error(f"[AGENT ERROR TRACE] [AGENT EXECUTE] Error during execution: {e}", exc_info=True)
             raise
+    
+    def _configure_tools_with_context(self, context: Dict[str, Any]) -> None:
+        """
+        Configure all tools with the execution context.
+        
+        This ensures that tools have access to team_id, user_id, and other
+        context information needed for proper execution.
+        
+        Args:
+            context: Execution context containing team_id, user_id, etc.
+        """
+        try:
+            team_id = context.get('team_id')
+            user_id = context.get('user_id')
+            chat_id = context.get('chat_id')
+            
+            logger.info(f"[TOOL CONFIG] Configuring tools with context: team_id={team_id}, user_id={user_id}, chat_id={chat_id}")
+            
+            # Configure each tool with the context
+            for tool in self.tools:
+                self._configure_single_tool(tool, context)
+                
+            # Also configure CrewAI agent tools if they exist
+            if hasattr(self._crew_agent, 'tools') and self._crew_agent.tools:
+                for tool in self._crew_agent.tools:
+                    self._configure_single_tool(tool, context)
+                    
+            logger.info(f"[TOOL CONFIG] Successfully configured {len(self.tools)} tools with execution context")
+            
+        except Exception as e:
+            logger.error(f"[TOOL CONFIG] Error configuring tools with context: {e}", exc_info=True)
+            # Don't raise - this is not critical for execution
+    
+    def _configure_single_tool(self, tool: Any, context: Dict[str, Any]) -> None:
+        """
+        Configure a single tool with execution context.
+        
+        Args:
+            tool: The tool to configure
+            context: Execution context
+        """
+        try:
+            # Set team_id on tools that support it
+            if hasattr(tool, 'team_id'):
+                tool.team_id = context.get('team_id')
+                logger.debug(f"[TOOL CONFIG] Set team_id={context.get('team_id')} on tool {getattr(tool, 'name', 'unknown')}")
+            
+            # Set user_id on tools that support it
+            if hasattr(tool, 'user_id'):
+                tool.user_id = context.get('user_id')
+                logger.debug(f"[TOOL CONFIG] Set user_id={context.get('user_id')} on tool {getattr(tool, 'name', 'unknown')}")
+            
+            # Set chat_id on tools that support it
+            if hasattr(tool, 'chat_id'):
+                tool.chat_id = context.get('chat_id')
+                logger.debug(f"[TOOL CONFIG] Set chat_id={context.get('chat_id')} on tool {getattr(tool, 'name', 'unknown')}")
+            
+            # Call custom configuration method if available
+            if hasattr(tool, 'configure_with_context'):
+                tool.configure_with_context(context)
+                logger.debug(f"[TOOL CONFIG] Called configure_with_context on tool {getattr(tool, 'name', 'unknown')}")
+                
+        except Exception as e:
+            logger.warning(f"[TOOL CONFIG] Error configuring tool {getattr(tool, 'name', 'unknown')}: {e}")
+            # Don't raise - continue with other tools
     
     def get_role(self) -> AgentRole:
         """Get the agent's role."""

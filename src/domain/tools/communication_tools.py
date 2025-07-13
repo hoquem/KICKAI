@@ -69,11 +69,12 @@ class SendMessageTool(BaseTool):
         self._telegram_context = context
         logger.debug("Telegram context set for SendMessageTool")
     
-    def _run(self, message: str, team_id: str, chat_id: str = None) -> str:
+    def _run(self, message: str, team_id: str = None, chat_id: str = None, **kwargs) -> str:
         """Send a message synchronously."""
         try:
-            # Get the actual chat ID from Telegram context if not provided
-            actual_chat_id = chat_id
+            # Look for chat_id and team_id in kwargs/context if not provided
+            actual_chat_id = chat_id or kwargs.get('chat_id')
+            actual_team_id = team_id or kwargs.get('team_id')
             if not actual_chat_id and self._telegram_context and hasattr(self._telegram_context, 'effective_chat'):
                 actual_chat_id = str(self._telegram_context.effective_chat.id)
                 logger.info(f"[SEND_MESSAGE] Using chat ID from Telegram context: {actual_chat_id}")
@@ -82,32 +83,31 @@ class SendMessageTool(BaseTool):
                 settings = get_settings()
                 actual_chat_id = settings.telegram_main_chat_id
                 logger.info(f"[SEND_MESSAGE] Using main chat ID from settings: {actual_chat_id}")
-            
+            if not actual_team_id:
+                settings = get_settings()
+                actual_team_id = settings.default_team_id
+                logger.info(f"[SEND_MESSAGE] Using default team ID from settings: {actual_team_id}")
             if not actual_chat_id:
                 logger.error("[SEND_MESSAGE] No chat ID available")
                 return "❌ No chat ID available for sending message"
-            
             logger.info(f"[SEND_MESSAGE] Attempting to send message to chat {actual_chat_id}")
             logger.info(f"[SEND_MESSAGE] Message preview: {message[:100]}...")
-            logger.info(f"[SEND_MESSAGE] Team ID: {team_id}")
-            
+            logger.info(f"[SEND_MESSAGE] Team ID: {actual_team_id}")
             # Try multiple methods to send the message
             result = self._send_via_telegram_api(actual_chat_id, message)
-            
             if result:
                 logger.info(f"[SEND_MESSAGE] ✅ Message sent successfully to chat {actual_chat_id}")
                 return f"✅ Message sent successfully to chat {actual_chat_id}"
             else:
                 logger.warning(f"[SEND_MESSAGE] ⚠️ Message could not be sent via Telegram API")
                 return f"⚠️ Message logged but could not be sent via Telegram API to chat {actual_chat_id}"
-                
         except Exception as e:
             logger.error(f"[SEND_MESSAGE] ❌ Error sending message: {e}", exc_info=True)
             return f"❌ Error sending message: {str(e)}"
-    
-    async def _arun(self, message: str, team_id: str, chat_id: str = None) -> str:
+
+    async def _arun(self, message: str, team_id: str = None, chat_id: str = None, **kwargs) -> str:
         """Send a message asynchronously."""
-        return self._run(message, team_id, chat_id)
+        return self._run(message, team_id, chat_id, **kwargs)
     
     def _send_via_telegram_api(self, chat_id: str, message: str) -> bool:
         """Send message via Telegram Bot API."""

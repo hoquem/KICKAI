@@ -2,29 +2,24 @@ import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from database.firebase_client import get_firebase_client
-from database.models_improved import Expense, ExpenseCategory
 from core.exceptions import ExpenseError, create_error_context
+from services.interfaces.budget_service_interface import IBudgetService
+from database.models_improved import Expense, ExpenseCategory
+from database.interfaces import DataStoreInterface
 
 logger = logging.getLogger(__name__)
 
 class ExpenseService:
     """Service for managing team expenses."""
-
-    def __init__(self, data_store=None):
-        if data_store is None:
-            self._data_store = get_firebase_client()
-        else:
-            self._data_store = data_store
-        # Local import to break circular dependency
-        from services.team_service import get_team_service
-        self.team_service = get_team_service()
+    def __init__(self, data_store: DataStoreInterface, budget_service: IBudgetService):
+        self._data_store = data_store
+        self.budget_service = budget_service
 
     async def record_expense(self, team_id: str, amount: float, category: ExpenseCategory, description: Optional[str] = None, receipt_url: Optional[str] = None) -> Expense:
         """Records a new expense for a team."""
         try:
             # Check against budget limits
-            can_afford, remaining_budget = await self.team_service.check_expense_against_budget(team_id, category, amount)
+            can_afford, remaining_budget = await self.budget_service.check_expense_against_budget(team_id, category, amount)
             if not can_afford:
                 raise ExpenseError(f"Expense of £{amount:.2f} for {category.value} exceeds budget limit. Remaining budget: £{remaining_budget:.2f}")
 
@@ -108,17 +103,3 @@ class ExpenseService:
         elif "fa fee" in description_lower or "registration" in description_lower:
             return ExpenseCategory.FA_FEES
         return ExpenseCategory.OTHER
-
-
-_expense_service: Optional[ExpenseService] = None
-
-def get_expense_service() -> ExpenseService:
-    global _expense_service
-    if _expense_service is None:
-        _expense_service = ExpenseService()
-    return _expense_service
-
-def initialize_expense_service() -> ExpenseService:
-    global _expense_service
-    _expense_service = ExpenseService()
-    return _expense_service

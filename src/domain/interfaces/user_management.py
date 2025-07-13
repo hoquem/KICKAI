@@ -10,6 +10,20 @@ from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 
 
+class IExternalPlayerService(ABC):
+    """Interface for external player service operations."""
+    
+    @abstractmethod
+    async def get_player_by_phone(self, phone: str) -> Optional[Dict[str, Any]]:
+        """Get player information by phone number."""
+        pass
+    
+    @abstractmethod
+    async def get_player_by_id(self, player_id: str) -> Optional[Dict[str, Any]]:
+        """Get player information by player ID."""
+        pass
+
+
 @dataclass
 class UserRole:
     """User role information."""
