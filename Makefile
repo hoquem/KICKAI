@@ -1,93 +1,151 @@
 # KICKAI Makefile
-# Provides easy commands for development tasks
+# Provides convenient commands for development, testing, and deployment
 
-.PHONY: help install lint format test clean
+.PHONY: help setup-dev test test-unit test-integration test-e2e lint clean deploy-testing deploy-production
 
 # Default target
 help:
 	@echo "KICKAI Development Commands"
 	@echo "=========================="
 	@echo ""
-	@echo "Setup:"
-	@echo "  install     Install dependencies"
-	@echo "  setup       Setup pre-commit hooks"
+	@echo "Development:"
+	@echo "  setup-dev     - Set up development environment"
+	@echo "  dev           - Start development server"
+	@echo "  test          - Run all tests"
+	@echo "  test-unit     - Run unit tests only"
+	@echo "  test-integration - Run integration tests only"
+	@echo "  test-e2e      - Run E2E tests only"
+	@echo "  lint          - Run code quality checks"
+	@echo "  clean         - Clean up temporary files"
 	@echo ""
-	@echo "Code Quality:"
-	@echo "  lint        Run all linters"
-	@echo "  format      Format code with Black and isort"
-	@echo "  check-imports Run custom import linter"
+	@echo "Deployment:"
+	@echo "  deploy-testing    - Deploy to testing environment"
+	@echo "  deploy-production - Deploy to production environment"
+	@echo "  validate-testing  - Validate testing environment"
+	@echo "  validate-production - Validate production environment"
 	@echo ""
-	@echo "Testing:"
-	@echo "  test        Run all tests"
-	@echo "  test-unit   Run unit tests only"
-	@echo "  test-integration Run integration tests only"
-	@echo "  test-e2e    Run end-to-end tests only"
-	@echo ""
-	@echo "Cleanup:"
-	@echo "  clean       Clean up cache and temporary files"
-	@echo ""
+	@echo "Environment:"
+	@echo "  env-dev       - Load development environment"
+	@echo "  env-testing   - Load testing environment"
+	@echo "  env-production - Load production environment"
 
-# Setup commands
-install:
-	@echo "Installing dependencies..."
-	pip install -e .
-	pip install -e ".[dev]"
-
-setup:
-	@echo "Setting up pre-commit hooks..."
+# Development setup
+setup-dev:
+	@echo "Setting up development environment..."
+	python -m venv venv
+	. venv/bin/activate && pip install -r requirements.txt
+	. venv/bin/activate && pip install -r requirements-local.txt
 	pre-commit install
+	@echo "Development environment setup complete!"
 
-# Code quality commands
-lint:
-	@echo "Running comprehensive linting..."
-	./scripts/lint.sh
-
-format:
-	@echo "Formatting code..."
-	black src tests scripts
-	isort src tests scripts
-
-check-imports:
-	@echo "Checking import architecture..."
-	python scripts/check_imports.py
+# Development server
+dev:
+	@echo "Starting development server..."
+	export PYTHONPATH=src && python run_telegram_bot.py
 
 # Testing commands
-test:
-	@echo "Running all tests..."
-	PYTHONPATH=src pytest tests/ -v
+test: test-unit test-integration test-e2e
 
 test-unit:
 	@echo "Running unit tests..."
-	PYTHONPATH=src pytest tests/unit/ -v
+	export PYTHONPATH=src && python -m pytest tests/unit/ -v
 
 test-integration:
 	@echo "Running integration tests..."
-	PYTHONPATH=src pytest tests/integration/ -v
+	export PYTHONPATH=src && python -m pytest tests/integration/ -v
 
 test-e2e:
-	@echo "Running end-to-end tests..."
-	PYTHONPATH=src pytest tests/e2e/ -v
+	@echo "Running E2E tests..."
+	export PYTHONPATH=src && python run_e2e_tests.py --suite=smoke
 
-# Cleanup commands
+# Code quality
+lint:
+	@echo "Running code quality checks..."
+	python -m flake8 src/
+	python -m black --check src/
+	python -m isort --check-only src/
+	python -m mypy src/
+
+# Clean up
 clean:
-	@echo "Cleaning up..."
-	find . -type d -name "__pycache__" -exec rm -rf {} +
+	@echo "Cleaning up temporary files..."
 	find . -type f -name "*.pyc" -delete
-	find . -type f -name "*.pyo" -delete
-	find . -type f -name "*.pyd" -delete
-	find . -type d -name "*.egg-info" -exec rm -rf {} +
-	find . -type d -name ".pytest_cache" -exec rm -rf {} +
-	find . -type d -name ".mypy_cache" -exec rm -rf {} +
-	find . -type d -name ".coverage" -delete
-	find . -type d -name "htmlcov" -exec rm -rf {} +
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name "*.log" -delete
+	find . -type f -name "e2e_report_*.txt" -delete
+	find . -type f -name "e2e_report_*.html" -delete
+	rm -rf .pytest_cache/
+	rm -rf htmlcov/
+	rm -rf .coverage
 	@echo "Cleanup complete!"
 
-# Development workflow
-dev-setup: install setup
-	@echo "Development environment setup complete!"
+# Environment loading
+env-dev:
+	@echo "Loading development environment..."
+	export $(cat .env.development | xargs)
 
-quick-check: check-imports format
-	@echo "Quick code quality check complete!"
+env-testing:
+	@echo "Loading testing environment..."
+	export $(cat .env.testing | xargs)
 
-full-check: lint test
-	@echo "Full code quality check complete!" 
+env-production:
+	@echo "Loading production environment..."
+	export $(cat .env.production | xargs)
+
+# Deployment commands
+deploy-testing:
+	@echo "Deploying to testing environment..."
+	railway up --service kickai-testing
+
+deploy-production:
+	@echo "Deploying to production environment..."
+	railway up --service kickai-production
+
+# Validation commands
+validate-testing:
+	@echo "Validating testing environment..."
+	export PYTHONPATH=src && python scripts/validate_feature_deployment.py --feature=all --environment=testing
+
+validate-production:
+	@echo "Validating production environment..."
+	export PYTHONPATH=src && python scripts/validate_feature_deployment.py --feature=all --environment=production
+
+# Health checks
+health-check:
+	@echo "Running health checks..."
+	export PYTHONPATH=src && python scripts/run_health_checks.py
+
+# Bootstrap commands
+bootstrap-testing:
+	@echo "Bootstrapping testing environment..."
+	export PYTHONPATH=src && python scripts/bootstrap_team.py --environment=testing
+
+bootstrap-production:
+	@echo "Bootstrapping production environment..."
+	export PYTHONPATH=src && python scripts/bootstrap_team.py --environment=production
+
+# Database cleanup
+cleanup-testing:
+	@echo "Cleaning up testing database..."
+	export PYTHONPATH=src && python scripts-oneoff/cleanup/clean_firestore_collections.py --environment=testing
+
+cleanup-production:
+	@echo "Cleaning up production database..."
+	export PYTHONPATH=src && python scripts-oneoff/cleanup/clean_firestore_collections.py --environment=production
+
+# Full deployment pipeline
+deploy-pipeline: test lint deploy-testing validate-testing deploy-production validate-production
+	@echo "Full deployment pipeline completed!"
+
+# Quick development workflow
+dev-workflow: clean test lint
+	@echo "Development workflow completed!"
+
+# Emergency rollback
+rollback-testing:
+	@echo "Rolling back testing environment..."
+	railway rollback --service kickai-testing
+
+rollback-production:
+	@echo "Rolling back production environment..."
+	railway rollback --service kickai-production 
