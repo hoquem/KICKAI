@@ -66,7 +66,7 @@ LOG_LEVEL=INFO
 
 # Real Services
 FIRESTORE_PROJECT_ID=kickai-testing-firestore
-FIREBASE_CREDENTIALS_FILE=./credentials/firebase_credentials_testing.json
+FIREBASE_CREDENTIALS_JSON={"type":"service_account","project_id":"kickai-testing-firestore","private_key_id":"your_private_key_id","private_key":"-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n","client_email":"firebase-adminsdk-xxxxx@kickai-testing-firestore.iam.gserviceaccount.com","client_id":"your_client_id","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-xxxxx%40kickai-testing-firestore.iam.gserviceaccount.com"}
 TELEGRAM_BOT_TOKEN=your_testing_bot_token
 TELEGRAM_BOT_USERNAME=KickAI_Testing_Bot
 TELEGRAM_MAIN_CHAT_ID=-1001234567890
@@ -94,7 +94,7 @@ LOG_LEVEL=WARNING
 
 # Real Services
 FIRESTORE_PROJECT_ID=kickai-production-firestore
-FIREBASE_CREDENTIALS_FILE=./credentials/firebase_credentials_production.json
+FIREBASE_CREDENTIALS_JSON={"type":"service_account","project_id":"kickai-production-firestore","private_key_id":"your_private_key_id","private_key":"-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n","client_email":"firebase-adminsdk-xxxxx@kickai-production-firestore.iam.gserviceaccount.com","client_id":"your_client_id","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-xxxxx%40kickai-production-firestore.iam.gserviceaccount.com"}
 TELEGRAM_BOT_TOKEN=your_production_bot_token
 TELEGRAM_BOT_USERNAME=KickAI_Bot
 TELEGRAM_MAIN_CHAT_ID=-1001234567892
@@ -196,7 +196,7 @@ python scripts/bootstrap_team.py --environment=production
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
 | `FIRESTORE_PROJECT_ID` | Firebase project ID | ⚠️ | `my-project-123` |
-| `FIREBASE_CREDENTIALS_FILE` | Path to credentials | ⚠️ | `./credentials/firebase_credentials.json` |
+| `FIREBASE_CREDENTIALS_JSON` | Firebase credentials JSON | ⚠️ | `{"type":"service_account",...}` |
 
 ### Telegram Configuration
 
@@ -322,33 +322,3 @@ make deploy-testing
 make test-production
 make deploy-production
 ```
-
-## 📚 Additional Resources
-
-- [Development Environment Setup](DEVELOPMENT_ENVIRONMENT_SETUP.md)
-- [Railway Deployment Guide](RAILWAY_DEPLOYMENT_GUIDE.md)
-- [Deployment Environment Plan](DEPLOYMENT_ENVIRONMENT_PLAN.md)
-- [Telegram Bot API Documentation](https://core.telegram.org/bots/api)
-- [Google Cloud Console](https://console.cloud.google.com/)
-- [Firebase Console](https://console.firebase.google.com/)
-- [Railway Documentation](https://docs.railway.app/)
-
-## 🛡️ Security Best Practices
-
-1. **Never commit secrets to version control**
-2. **Use different keys for different environments**
-3. **Rotate API keys regularly**
-4. **Use environment-specific credentials**
-5. **Limit API key permissions to minimum required**
-6. **Monitor API usage for unusual activity**
-7. **Use secure credential storage in production**
-8. **Use Railway's built-in secret management**
-
-## 📞 Support
-
-If you encounter issues:
-1. Check the troubleshooting section above
-2. Run validation scripts for your environment
-3. Check the logs with `DEBUG=true`
-4. Review the environment-specific setup guides
-5. Check the [README.md](README.md) for additional information 

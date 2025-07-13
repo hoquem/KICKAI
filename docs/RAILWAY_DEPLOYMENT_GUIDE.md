@@ -69,7 +69,7 @@ LOG_LEVEL=INFO
 
 # Firebase Configuration
 FIRESTORE_PROJECT_ID=kickai-testing-firestore
-FIREBASE_CREDENTIALS_FILE=./credentials/firebase_credentials_testing.json
+FIREBASE_CREDENTIALS_JSON={"type":"service_account","project_id":"kickai-testing-firestore","private_key_id":"your_private_key_id","private_key":"-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n","client_email":"firebase-adminsdk-xxxxx@kickai-testing-firestore.iam.gserviceaccount.com","client_id":"your_client_id","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-xxxxx%40kickai-testing-firestore.iam.gserviceaccount.com"}
 
 # Telegram Configuration
 TELEGRAM_BOT_TOKEN=your_testing_bot_token
@@ -99,7 +99,7 @@ LOG_LEVEL=WARNING
 
 # Firebase Configuration
 FIRESTORE_PROJECT_ID=kickai-production-firestore
-FIREBASE_CREDENTIALS_FILE=./credentials/firebase_credentials_production.json
+FIREBASE_CREDENTIALS_JSON={"type":"service_account","project_id":"kickai-production-firestore","private_key_id":"your_private_key_id","private_key":"-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n","client_email":"firebase-adminsdk-xxxxx@kickai-production-firestore.iam.gserviceaccount.com","client_id":"your_client_id","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-xxxxx%40kickai-production-firestore.iam.gserviceaccount.com"}
 
 # Telegram Configuration
 TELEGRAM_BOT_TOKEN=your_production_bot_token
@@ -135,17 +135,31 @@ PAYMENT_ENABLED=true
 4. Click "Generate new private key"
 5. Save as `firebase_credentials_production.json`
 
-### Upload Credentials to Railway
+### Set Firebase Credentials as Environment Variables
 
+#### For Testing Environment
 ```bash
-# For testing environment
-cd kickai-testing
-railway variables set FIREBASE_CREDENTIALS="$(cat ../credentials/firebase_credentials_testing.json)"
+# Extract the JSON content from your credentials file
+FIREBASE_CREDENTIALS_JSON=$(cat firebase_credentials_testing.json)
 
-# For production environment
-cd kickai-production
-railway variables set FIREBASE_CREDENTIALS="$(cat ../credentials/firebase_credentials_production.json)"
+# Set in Railway dashboard or via CLI
+railway variables set FIREBASE_CREDENTIALS_JSON="$FIREBASE_CREDENTIALS_JSON"
 ```
+
+#### For Production Environment
+```bash
+# Extract the JSON content from your credentials file
+FIREBASE_CREDENTIALS_JSON=$(cat firebase_credentials_production.json)
+
+# Set in Railway dashboard or via CLI
+railway variables set FIREBASE_CREDENTIALS_JSON="$FIREBASE_CREDENTIALS_JSON"
+```
+
+### Important Notes
+- **Security**: Never commit credential files to version control
+- **Environment Variables**: Use Railway's environment variable system for all secrets
+- **JSON Format**: The entire JSON content should be set as a single environment variable
+- **Validation**: Ensure the JSON is properly escaped and valid
 
 ## 🔧 Step 4: Railway Configuration Files
 
