@@ -12,7 +12,6 @@ from typing import Dict, List, Optional, Set, Callable, Any
 from dataclasses import dataclass, field
 from enum import Enum
 
-from services.health_check_service import HealthCheckService
 from services.health_check_types import SystemHealthReport, HealthStatus, ComponentType
 from utils.async_utils import async_operation_context
 

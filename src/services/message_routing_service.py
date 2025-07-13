@@ -38,11 +38,11 @@ class MessageRoutingService:
         # Use Player model's encapsulated method as single source of truth
         # Only route PENDING players to onboarding - IN_PROGRESS players can use general commands
         if player.onboarding_status == OnboardingStatus.PENDING:
-                logger.info(f"[ROUTING] Player {player.name} is pending onboarding, routing to onboarding handler")
-                return True, f"Player {player.name} is pending onboarding"
-            else:
-                logger.info(f"[ROUTING] Player {player.name} is in progress but not pending, allowing general commands")
-                return False, f"Player {player.name} is in progress but can use general commands"
+            logger.info(f"[ROUTING] Player {player.name} is pending onboarding, routing to onboarding handler")
+            return True, f"Player {player.name} is pending onboarding"
+        else:
+            logger.info(f"[ROUTING] Player {player.name} is in progress but not pending, allowing general commands")
+            return False, f"Player {player.name} is in progress but can use general commands"
         
         logger.info(f"[ROUTING] Player {player.name} is not in onboarding, allowing general commands")
         return False, f"Player {player.name} is not in onboarding"
@@ -159,8 +159,4 @@ class MessageRoutingService:
             'should_onboard': should_onboard,
             'should_update': should_update,
             'player': player
-        }
-
-
-# Global instance for easy access
-message_routing_service = MessageRoutingService() 
+        } 

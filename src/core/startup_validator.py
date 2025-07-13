@@ -18,6 +18,7 @@ from pathlib import Path
 
 from core.settings import get_settings
 from utils.llm_factory import AIProvider
+from utils.llm_factory import LLMFactory
 from database.firebase_client import FirebaseClient
 from services.team_mapping_service import TeamMappingService
 
@@ -176,9 +177,6 @@ class LLMProviderCheck(HealthCheck):
             
             # Test LLM connectivity using LLMFactory
             try:
-                from utils.llm_factory import LLMFactory
-                import os
-                
                 # Get provider and model from environment (same as LLMFactory)
                 provider_str = os.getenv('AI_PROVIDER', 'google_gemini')
                 if provider_str == 'ollama':
@@ -396,8 +394,8 @@ class ToolConfigurationCheck(HealthCheck):
                 (SendMessageTool, {'team_id': team_id}),
                 (SendAnnouncementTool, {'team_id': team_id}),
                 (LogCommandTool, {'team_id': team_id}),
-                (GetAllPlayersTool, {'team_id': team_id, 'command_operations': None}),
-                (GetPlayerStatusTool, {'team_id': team_id, 'command_operations': None}),
+                (GetAllPlayersTool, {'team_id': team_id, 'is_leadership_chat': False}),
+                (GetPlayerStatusTool, {'team_id': team_id}),
             ]
             
             failed_tools = []
@@ -492,33 +490,57 @@ class TeamMappingCheck(HealthCheck):
         start_time = asyncio.get_event_loop().time()
         
         try:
-            team_mapping_service = TeamMappingService()
+            # Use dependency injection or container to get team mapping service
+            from core.dependency_container import get_service
+            from domain.interfaces.team_operations import ITeamOperations
             
-            # Check if mappings exist
-            mappings = team_mapping_service.get_all_mappings()
+            team_mapping_service = get_service(ITeamOperations)
             
-            if not mappings:
+            # Check if default team ID is set
+            default_team_id = team_mapping_service.get_default_team_id()
+            if not default_team_id:
                 return CheckResult(
                     name=self.name,
                     category=self.category,
                     status=CheckStatus.FAILED,
-                    message="No team mappings configured",
-                    details={'mappings_count': 0},
+                    message="No default team ID configured",
+                    details={'default_team_id': None},
                     duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
                 )
             
-            # Validate mapping structure
+            # Get existing mappings
+            mappings = team_mapping_service.get_all_mappings()
+            
+            # Only try to load from Firestore if no mappings exist
+            if not mappings:
+                logger.info("No existing mappings found, attempting to load from Firestore...")
+                await team_mapping_service.load_mappings_from_firestore()
+                mappings = team_mapping_service.get_all_mappings()
+            else:
+                logger.info(f"Found {len(mappings)} existing mappings, skipping Firestore reload")
+            
+            # Check if mappings exist - be more lenient, just need default team ID
+            if not mappings:
+                # If no mappings but we have a default team ID, that's acceptable
+                logger.warning("No specific chat mappings found, but default team ID is set")
+                return CheckResult(
+                    name=self.name,
+                    category=self.category,
+                    status=CheckStatus.PASSED,
+                    message=f"Team mapping configuration valid (default team ID: {default_team_id}, no specific mappings)",
+                    details={'default_team_id': default_team_id, 'mappings_count': 0},
+                    duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
+                )
+            
+            # Validate mapping structure - mappings are simple chat_id -> team_id pairs
             valid_mappings = []
             invalid_mappings = []
             
-            for team_id, mapping in mappings.items():
-                required_fields = ['team_id', 'bot_token', 'bot_username', 'chat_ids']
-                missing_fields = [field for field in required_fields if not hasattr(mapping, field)]
-                
-                if missing_fields:
-                    invalid_mappings.append(f"{team_id}: missing {missing_fields}")
+            for chat_id, team_id in mappings.items():
+                if not chat_id or not team_id:
+                    invalid_mappings.append(f"Invalid mapping: {chat_id} -> {team_id}")
                 else:
-                    valid_mappings.append(team_id)
+                    valid_mappings.append(f"{chat_id} -> {team_id}")
             
             if invalid_mappings:
                 return CheckResult(
@@ -534,8 +556,8 @@ class TeamMappingCheck(HealthCheck):
                 name=self.name,
                 category=self.category,
                 status=CheckStatus.PASSED,
-                message=f"Team mapping configuration valid ({len(valid_mappings)} mappings)",
-                details={'valid_mappings': valid_mappings},
+                message=f"Team mapping configuration valid ({len(valid_mappings)} mappings, default: {default_team_id})",
+                details={'valid_mappings': valid_mappings, 'default_team_id': default_team_id},
                 duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
             )
             

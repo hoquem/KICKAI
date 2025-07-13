@@ -7,7 +7,7 @@ Defined agent roles in the 8-agent KICKAI system.
 """
 
 class AgentRole(Enum):
-    """Agent roles in the 8-agent system."""
+    """Agent roles in the 11-agent system."""
     MESSAGE_PROCESSOR = "message_processor"
     TEAM_MANAGER = "team_manager"
     PLAYER_COORDINATOR = "player_coordinator"
@@ -16,6 +16,9 @@ class AgentRole(Enum):
     LEARNING_AGENT = "learning_agent"
     ONBOARDING_AGENT = "onboarding_agent"
     COMMAND_FALLBACK_AGENT = "command_fallback_agent"
+    AVAILABILITY_MANAGER = "availability_manager"
+    SQUAD_SELECTOR = "squad_selector"
+    COMMUNICATION_MANAGER = "communication_manager"
 
 class AIProvider(Enum):
     """AI provider types."""

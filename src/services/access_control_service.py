@@ -93,21 +93,17 @@ class AccessControlService:
     def is_leadership_chat(self, chat_id: str, team_id: str) -> bool:
         """Check if a chat ID corresponds to the leadership chat for a team."""
         try:
-            # Use TeamMappingService to get team-specific configuration
-            from services.team_mapping_service import TeamMappingService
-            team_mapping_service = TeamMappingService()
-            
-            # Get team mapping for the specific team
-            team_mapping = team_mapping_service.get_team_mapping(team_id)
-            if team_mapping and team_mapping.chat_ids:
-                # Check if the chat_id is in the team's leadership chat IDs
-                # Based on the mapping, the first chat ID is leadership
-                if len(team_mapping.chat_ids) >= 1:
-                    leadership_chat_id = team_mapping.chat_ids[0]  # First chat ID is leadership
-                    return str(chat_id) == str(leadership_chat_id)
-            
-            # Fallback to environment variables for backward compatibility
+            # Check against environment variables for known chat IDs
             import os
+            from core.settings import get_settings
+            
+            settings = get_settings()
+            
+            # Check if this is the leadership chat
+            if str(settings.telegram_leadership_chat_id) == str(chat_id):
+                return True
+            
+            # Fallback to environment variable
             leadership_chat_id = os.getenv("TELEGRAM_LEADERSHIP_CHAT_ID")
             if leadership_chat_id:
                 return str(chat_id) == str(leadership_chat_id)
@@ -121,21 +117,17 @@ class AccessControlService:
     def is_main_chat(self, chat_id: str, team_id: str) -> bool:
         """Check if a chat ID corresponds to the main chat for a team."""
         try:
-            # Use TeamMappingService to get team-specific configuration
-            from services.team_mapping_service import TeamMappingService
-            team_mapping_service = TeamMappingService()
-            
-            # Get team mapping for the specific team
-            team_mapping = team_mapping_service.get_team_mapping(team_id)
-            if team_mapping and team_mapping.chat_ids:
-                # Check if the chat_id is in the team's main chat IDs
-                # Based on the mapping, the second chat ID is main
-                if len(team_mapping.chat_ids) >= 2:
-                    main_chat_id = team_mapping.chat_ids[1]  # Second chat ID is main
-                    return str(chat_id) == str(main_chat_id)
-            
-            # Fallback to environment variables for backward compatibility
+            # Check against environment variables for known chat IDs
             import os
+            from core.settings import get_settings
+            
+            settings = get_settings()
+            
+            # Check if this is the main chat
+            if str(settings.telegram_main_chat_id) == str(chat_id):
+                return True
+            
+            # Fallback to environment variable
             main_chat_id = os.getenv("TELEGRAM_MAIN_CHAT_ID")
             if main_chat_id:
                 return str(chat_id) == str(main_chat_id)

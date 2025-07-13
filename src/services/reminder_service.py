@@ -4,18 +4,17 @@ Reminder Service for KICKAI
 This module handles automated and manual reminders for player onboarding.
 """
 
-import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Any
 from dataclasses import dataclass
 
-from database.models_improved import Player, OnboardingStatus, PaymentStatus
-from services.player_service import get_player_service
-from core.settings import get_settings
-from utils.llm_client import LLMClient
-from utils.llm_intent import LLMIntent
+from core.settings import Settings
+from database.models_improved import Player, OnboardingStatus
 from services.interfaces.reminder_service_interface import IReminderService
+from domain.interfaces.player_operations import IPlayerOperations
+from domain.interfaces.payment_operations import IPaymentOperations
+from utils.llm_client import LLMClient
 
 
 @dataclass
@@ -29,17 +28,16 @@ class ReminderMessage:
 
 
 class ReminderService(IReminderService):
-    """Service for handling onboarding reminders."""
+    """Service for managing player reminders and notifications."""
     
-    def __init__(self, team_id: str):
+    def __init__(self, team_id: str, player_operations: IPlayerOperations, payment_operations: IPaymentOperations):
         self.team_id = team_id
-        self.player_service = get_player_service(team_id=team_id)
-        self.settings = get_settings()
-        from services.payment_service import get_payment_service
-        self.payment_service = get_payment_service(team_id=team_id)
+        self.player_operations = player_operations
+        self.payment_operations = payment_operations
+        self.settings = Settings()
         
-        # Reminder schedule (in hours)
-        self.reminder_schedule = {
+        # Reminder configuration
+        self.reminder_config = {
             "first_reminder": 24,
             "second_reminder": 48,
             "third_reminder": 72,
@@ -49,7 +47,7 @@ class ReminderService(IReminderService):
     async def check_and_send_reminders(self) -> List[ReminderMessage]:
         """Check for players who need reminders and send them."""
         try:
-            players = await self.player_service.get_team_players(self.team_id)
+            players = await self.player_operations.get_team_players(self.team_id)
             reminders_sent = []
             
             for player in players:
@@ -72,7 +70,7 @@ class ReminderService(IReminderService):
             
             # Update player reminder tracking
             player.send_reminder()
-            await self.player_service.update_player(
+            await self.player_operations.update_player(
                 player.id,
                 reminders_sent=player.reminders_sent,
                 last_reminder_sent=player.last_reminder_sent,
@@ -101,7 +99,7 @@ class ReminderService(IReminderService):
         """Send a manual reminder to a player (admin triggered)."""
         try:
             # Find player by player_id
-            players = await self.player_service.get_team_players(self.team_id)
+            players = await self.player_operations.get_team_players(self.team_id)
             player = None
             for p in players:
                 if p.player_id.upper() == player_id.upper():
@@ -119,7 +117,7 @@ class ReminderService(IReminderService):
             
             # Update player reminder tracking
             player.send_reminder()
-            await self.player_service.update_player(
+            await self.player_operations.update_player(
                 player.id,
                 reminders_sent=player.reminders_sent,
                 last_reminder_sent=player.last_reminder_sent,
@@ -156,7 +154,8 @@ class ReminderService(IReminderService):
 
         # Check for outstanding payments - properly async
         try:
-            outstanding_payments = await self.payment_service.list_payments(player_id=player.id, status=PaymentStatus.PENDING)
+            from domain.interfaces.payment_models import PaymentStatus
+            outstanding_payments = await self.payment_operations.list_payments(player_id=player.id, status=PaymentStatus.PENDING)
         except Exception as e:
             logging.error(f"Error getting outstanding payments: {e}")
             outstanding_payments = []
@@ -372,13 +371,8 @@ Let me know if you need any help! 🏆"""
     async def get_players_needing_reminders(self) -> List[Player]:
         """Get list of players who need reminders."""
         try:
-            players = await self.player_service.get_team_players(self.team_id)
+            players = await self.player_operations.get_team_players(self.team_id)
             return [p for p in players if p.needs_reminder()]
         except Exception as e:
             logging.error(f"Error getting players needing reminders: {e}")
-            return []
-
-
-def get_reminder_service(team_id: str) -> ReminderService:
-    """Get reminder service instance."""
-    return ReminderService(team_id) 
+            return [] 

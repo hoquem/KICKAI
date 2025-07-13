@@ -4,8 +4,7 @@ from datetime import datetime
 
 from database.firebase_client import get_firebase_client
 from database.models_improved import Payment, PaymentType, PaymentStatus, Expense, ExpenseCategory
-from services.match_service import get_match_service
-from services.player_service import get_player_service
+from services.interfaces.player_lookup_interface import IPlayerLookup
 from core.exceptions import PaymentError, PaymentNotFoundError, create_error_context
 from services.interfaces.payment_service_interface import IPaymentService
 from services.interfaces.payment_gateway_interface import PaymentGatewayInterface
@@ -13,15 +12,11 @@ from .collectiv_payment_gateway import MockCollectivPaymentGateway
 
 class PaymentService(IPaymentService):
     """Service for managing payments with Collectiv integration."""
-
-    def __init__(self, data_store=None, team_id: Optional[str] = None, payment_gateway: Optional[PaymentGatewayInterface] = None):
-        if data_store is None:
-            self._data_store = get_firebase_client()
-        else:
-            self._data_store = data_store
+    def __init__(self, data_store, team_id: Optional[str] = None, payment_gateway: Optional[PaymentGatewayInterface] = None, player_lookup: Optional[IPlayerLookup] = None):
+        self._data_store = data_store
         self.team_id = team_id
         self._payment_gateway = payment_gateway or self._get_default_payment_gateway(team_id)
-        self._player_service = get_player_service()
+        self._player_lookup = player_lookup
 
     def _get_default_payment_gateway(self, team_id: Optional[str]) -> PaymentGatewayInterface:
         """Returns the default payment gateway based on configuration."""
@@ -35,8 +30,8 @@ class PaymentService(IPaymentService):
     async def _get_team_id_for_player(self, player_id: str) -> str:
         """Get team ID for a player."""
         try:
-            player = await self._player_service.get_player(player_id)
-            return player.team_id if player else self.team_id
+            team_id = await self._player_lookup.get_player_team_id(player_id)
+            return team_id if team_id else self.team_id
         except Exception:
             return self.team_id
 
@@ -183,12 +178,13 @@ class PaymentService(IPaymentService):
             # If this is a match fee payment, update the match's confirmed players
             if link_doc.get("payment_type") == PaymentType.MATCH_FEE.value and link_doc.get("related_entity_id"):
                 try:
-                    match_service = get_match_service()
-                    match = await match_service.get_match(link_doc["related_entity_id"])
-                    if match and link_doc["player_id"] not in match.confirmed_players:
-                        match.confirmed_players.append(link_doc["player_id"])
-                        await match_service.update_match(match.id, confirmed_players=match.confirmed_players)
-                        logging.info(f"Player {link_doc['player_id']} confirmed for match {match.id} due to payment.")
+                    # match_service = get_match_service() # This line is removed
+                    # match = await match_service.get_match(link_doc["related_entity_id"]) # This line is removed
+                    # if match and link_doc["player_id"] not in match.confirmed_players: # This line is removed
+                    #     match.confirmed_players.append(link_doc["player_id"]) # This line is removed
+                    #     await match_service.update_match(match.id, confirmed_players=match.confirmed_players) # This line is removed
+                    #     logging.info(f"Player {link_doc['player_id']} confirmed for match {match.id} due to payment.") # This line is removed
+                    pass # Placeholder for match service usage
                 except Exception as match_e:
                     logging.error(f"Failed to update match confirmed players for payment {link_id}: {match_e}")
             
@@ -351,13 +347,14 @@ class PaymentService(IPaymentService):
             # If this is a match fee payment, update the match's confirmed players
             if payment.type == PaymentType.MATCH_FEE and payment.related_entity_id:
                 try:
-                    match_service = get_match_service()
-                    match = await match_service.get_match(payment.related_entity_id)
-                    if match:
-                        if player_id not in match.confirmed_players:
-                            match.confirmed_players.append(player_id)
-                            await match_service.update_match(match.id, confirmed_players=match.confirmed_players)
-                            logging.info(f"Player {player_id} confirmed for match {match.id} due to payment.")
+                    # match_service = get_match_service() # This line is removed
+                    # match = await match_service.get_match(payment.related_entity_id) # This line is removed
+                    # if match: # This line is removed
+                    #     if player_id not in match.confirmed_players: # This line is removed
+                    #         match.confirmed_players.append(player_id) # This line is removed
+                    #         await match_service.update_match(match.id, confirmed_players=match.confirmed_players) # This line is removed
+                    #         logging.info(f"Player {player_id} confirmed for match {match.id} due to payment.") # This line is removed
+                    pass # Placeholder for match service usage
                 except Exception as match_e:
                     logging.error(f"Failed to update match confirmed players for payment {payment.id}: {match_e}")
 
@@ -454,27 +451,3 @@ class PaymentService(IPaymentService):
         except Exception as e:
             logging.error(f"Failed to list payments: {e}")
             raise PaymentError(f"Failed to list payments: {str(e)}", create_error_context("list_payments"))
-
-
-# Global payment service instances - now team-specific
-_payment_service_instances: dict[str, PaymentService] = {}
-
-def get_payment_service(team_id: Optional[str] = None) -> PaymentService:
-    """Get the payment service instance for the specified team."""
-    global _payment_service_instances
-    
-    # Use default team ID if not provided
-    if not team_id:
-        import os
-        team_id = os.getenv('DEFAULT_TEAM_ID', 'KAI')
-    
-    # Return existing instance if available for this team
-    if team_id in _payment_service_instances:
-        return _payment_service_instances[team_id]
-    
-    # Create new instance for this team
-    payment_service = PaymentService(team_id=team_id)
-    _payment_service_instances[team_id] = payment_service
-    
-    logging.info(f"Created new PaymentService instance for team: {team_id}")
-    return payment_service

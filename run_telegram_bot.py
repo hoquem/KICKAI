@@ -21,10 +21,8 @@ import nest_asyncio
 nest_asyncio.apply()
 
 from core.constants import BOT_VERSION, FIRESTORE_COLLECTION_PREFIX
-from core.settings import get_settings, initialize_settings
+from core.settings import Settings, initialize_settings
 from database.firebase_client import initialize_firebase_client
-from services.player_service import get_player_service
-from services.team_service import get_team_service
 from bot_telegram.unified_message_handler import UnifiedMessageHandler, register_unified_handler
 from bot_telegram.unified_command_system import get_command_registry
 from telegram.ext import ApplicationBuilder, Application, CommandHandler
@@ -85,7 +83,7 @@ def setup_environment():
         
         # Initialize configuration manager and get Configuration object
         initialize_settings()
-        config = get_settings()
+        config = Settings()
         
         # Configure logging with the path from settings
         from core.logging_config import configure_logging
@@ -103,6 +101,16 @@ def setup_environment():
         # Initialize Firebase with database config
         initialize_firebase_client(config)
         logger.info("✅ Firebase client initialized")
+        
+        # Initialize caching system
+        from core.cache import initialize_cache_manager
+        cache_manager = initialize_cache_manager()
+        logger.info("✅ Cache manager initialized")
+        
+        # Initialize team mapping service
+        from services.team_mapping_service import initialize_team_mapping_service
+        team_mapping_service = initialize_team_mapping_service()
+        logger.info("✅ Team mapping service initialized")
         
         # Initialize services
         initialize_player_service()

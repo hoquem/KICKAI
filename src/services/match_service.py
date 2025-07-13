@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 
-from database.firebase_client import get_firebase_client
+from database.interfaces import DataStoreInterface
 from database.models_improved import Match, MatchStatus
 from core.exceptions import MatchError, MatchNotFoundError, create_error_context
 from services.interfaces.match_service_interface import IMatchService
@@ -12,11 +12,8 @@ logger = logging.getLogger(__name__)
 class MatchService(IMatchService):
     """Service for managing matches."""
 
-    def __init__(self, data_store=None):
-        if data_store is None:
-            self._data_store = get_firebase_client()
-        else:
-            self._data_store = data_store
+    def __init__(self, data_store: DataStoreInterface):
+        self._data_store = data_store
 
     async def create_match(self, team_id: str, opponent: str, date: datetime, location: Optional[str] = None, status: MatchStatus = MatchStatus.SCHEDULED, home_away: str = "home", competition: Optional[str] = None) -> Match:
         """Creates a new match."""
@@ -101,17 +98,3 @@ class MatchService(IMatchService):
             match = await self.create_match(team_id, opponent, match_date, location="Generated Venue", status=MatchStatus.SCHEDULED, home_away="home", competition="Friendly")
             generated_matches.append(match)
         return generated_matches
-
-
-_match_service: Optional[MatchService] = None
-
-def get_match_service() -> MatchService:
-    global _match_service
-    if _match_service is None:
-        _match_service = MatchService()
-    return _match_service
-
-def initialize_match_service() -> MatchService:
-    global _match_service
-    _match_service = MatchService()
-    return _match_service

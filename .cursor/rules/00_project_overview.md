@@ -1,5 +1,14 @@
 # KICKAI Project Overview
 
+**Guiding Principles (apply to all new code and refactors):**
+- Keep code complexity low: prefer simple, readable, maintainable code
+- All features must be modularized (feature-first, not monolithic)
+- Use dependency injection and the DI container for all dependencies
+- Strictly enforce clean architecture dependency rules
+- All code must be clean, testable, and maintainable
+
+---
+
 ## 🎯 **Project Status: PRODUCTION READY**
 
 KICKAI is a sophisticated Telegram bot system for football team management, built with an 8-agent AI architecture using CrewAI. The system is now **production-ready** with all core functionality working correctly.

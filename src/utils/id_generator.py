@@ -288,6 +288,35 @@ def generate_player_id(first_name: str, last_name: str, existing_ids: Optional[S
     return id_manager.generate_player_id(first_name, last_name, existing_ids)
 
 
+def generate_player_id_from_name(name: str, team_id: str = "", existing_ids: Optional[Set[str]] = None) -> str:
+    """Generate a player ID from a full name, always appending '1' for the first instance."""
+    # Split the name into first and last name
+    name_parts = name.strip().split()
+    if len(name_parts) >= 2:
+        first_name = name_parts[0]
+        last_name = name_parts[-1]
+    else:
+        # If only one name, use it for both
+        first_name = name_parts[0] if name_parts else "Unknown"
+        last_name = first_name
+    
+    base_id = f"{first_name[0].upper()}{last_name[0].upper()}"
+    # Always start with '1' appended
+    candidate = f"{base_id}1"
+    id_set = existing_ids if existing_ids is not None else set()
+    if candidate not in id_set:
+        return candidate
+    # If taken, increment
+    for i in range(2, 100):
+        candidate = f"{base_id}{i}"
+        if candidate not in id_set:
+            return candidate
+    # Fallback to hash-based suffix
+    import hashlib
+    hash_suffix = hashlib.md5(base_id.encode()).hexdigest()[:2].upper()
+    return f"{base_id}{hash_suffix}"
+
+
 def generate_match_id(home_team: str, away_team: str, match_date: str, match_time: str = "") -> str:
     """Generate a match ID."""
     return id_manager.generate_match_id(home_team, away_team, match_date, match_time)

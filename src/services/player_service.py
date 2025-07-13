@@ -10,18 +10,21 @@ import re
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from services.interfaces.player_service_interface import IPlayerService
+from domain.interfaces.player_operations import IPlayerOperations as IPlayerService
 from domain.interfaces.player_models import PlayerPosition, PlayerRole, OnboardingStatus
 from database.models_improved import Player as InfrastructurePlayer
-from services.interfaces.external_player_service_interface import IExternalPlayerService
+from domain.interfaces.user_management import IExternalPlayerService
 from database.interfaces import DataStoreInterface
 from database.firebase_client import FirebaseClient
 from core.exceptions import (
-    PlayerError, PlayerNotFoundError, PlayerDuplicateError, PlayerValidationError, create_error_context
+    DatabaseError, ConnectionError, NotFoundError, 
+    DuplicateError, create_error_context,
+    PlayerError, PlayerValidationError, PlayerDuplicateError, PlayerNotFoundError
 )
 from utils.phone_utils import normalize_phone, get_phone_variants
 from utils.validation_utils import validate_phone_with_error, validate_name_with_error, validate_email_with_error, validate_team_id_with_error
 from utils.enum_utils import serialize_enums_for_firestore
+from utils.player_id_service import generate_unique_player_id
 
 logger = logging.getLogger(__name__)
 
@@ -68,20 +71,11 @@ class PlayerService(IPlayerService):
             other_team_names = []
             if other_teams:
                 # Try to get team names for these IDs
-                from services.team_service import get_team_service
-                team_service = get_team_service()
+                # Note: This would need team_operations injected if we want to get team names
+                # For now, just use team IDs
                 for otid in set(other_teams):
-                    try:
-                        team = await team_service.get_team(otid)
-                        if team:
-                            other_team_names.append(team.name)
-                        else:
-                            other_team_names.append(otid)
-                    except Exception:
-                        other_team_names.append(otid)
+                    other_team_names.append(otid)
             
-            from utils.player_id_service import generate_unique_player_id
-
             # --- Centralized player_id generation ---
             if player_id:
                 generated_player_id = player_id
@@ -591,6 +585,83 @@ class PlayerService(IPlayerService):
             logging.error(f"Failed to recover player: {e}")
             return False, f"Error recovering player: {str(e)}"
     
+    async def add_player(self, name: str, phone: str, position: str, team_id: str) -> tuple[bool, str]:
+        """Add a new player to the team."""
+        try:
+            # Convert position string to enum
+            from domain.interfaces.player_models import PlayerPosition
+            position_enum = PlayerPosition(position.lower()) if position else PlayerPosition.ANY
+            
+            # Create player
+            player = await self.create_player(
+                name=name,
+                phone=phone,
+                team_id=team_id,
+                position=position_enum
+            )
+            
+            return True, f"Player {player.name} ({player.player_id}) added successfully"
+            
+        except Exception as e:
+            logging.error(f"Failed to add player: {e}")
+            return False, f"Failed to add player: {str(e)}"
+    
+    async def reject_player_by_identifier(self, identifier: str, reason: str, team_id: str) -> tuple[bool, str]:
+        """Reject a player by player ID or phone number."""
+        try:
+            # Try to find player by ID first, then by phone
+            player = await self.get_player(identifier)
+            if not player:
+                # Try by phone
+                player = await self.get_player_by_phone(identifier, team_id)
+            
+            if not player:
+                return False, f"Player with identifier {identifier} not found"
+            
+            # Use the existing reject_player method
+            return await self.reject_player(player.player_id, reason, team_id)
+            
+        except Exception as e:
+            logging.error(f"Failed to reject player by identifier {identifier}: {e}")
+            return False, f"Failed to reject player: {str(e)}"
+    
+    async def update_player_info(self, user_id: str, field: str, value: str, team_id: str) -> tuple[bool, str]:
+        """Update a player's information."""
+        try:
+            # Find player by telegram user_id
+            player = await self.get_player_by_telegram_id(user_id, team_id)
+            if not player:
+                return False, f"Player with telegram ID {user_id} not found"
+            
+            # Validate field
+            allowed_fields = ['name', 'phone', 'email', 'position']
+            if field not in allowed_fields:
+                return False, f"Invalid field '{field}'. Allowed fields: {', '.join(allowed_fields)}"
+            
+            # Validate value based on field
+            if field == 'phone':
+                normalized_phone = normalize_phone(value)
+                if not normalized_phone:
+                    return False, f"Invalid phone number format: {value}"
+                value = normalized_phone
+            elif field == 'position':
+                from domain.interfaces.player_models import PlayerPosition
+                try:
+                    position_enum = PlayerPosition(value.lower())
+                    value = position_enum.value
+                except ValueError:
+                    return False, f"Invalid position '{value}'. Valid positions: {', '.join([p.value for p in PlayerPosition])}"
+            
+            # Update player
+            updates = {field: value}
+            updated_player = await self.update_player(player.player_id, **updates)
+            
+            return True, f"Player {updated_player.name} {field} updated successfully"
+            
+        except Exception as e:
+            logging.error(f"Failed to update player info: {e}")
+            return False, f"Failed to update player info: {str(e)}"
+    
     # Validation methods
     def _validate_player_data(self, name: str, phone: str, email: Optional[str], team_id: str):
         """Validate player data using centralized validation functions."""
@@ -664,45 +735,4 @@ class PlayerService(IPlayerService):
             raise PlayerValidationError(
                 error_msg,
                 create_error_context("validate_team_id")
-            )
-
-
-# Factory function for dependency injection
-_player_service_instance: Optional[PlayerService] = None
-
-def get_player_service(team_id: Optional[str] = None) -> PlayerService:
-    """Get the player service instance (singleton pattern)."""
-    global _player_service_instance
-    
-    if _player_service_instance is None:
-        from core.settings import get_settings
-        from services.mocks.mock_external_player_service import MockExternalPlayerService
-        
-        config_manager = get_settings()
-        data_store = FirebaseClient(config_manager)
-        external_player_service = MockExternalPlayerService()
-        
-        # Create service instance
-        _player_service_instance = PlayerService(
-            data_store=data_store,
-            external_player_service=external_player_service,
-            team_id=team_id
-        )
-    
-    return _player_service_instance
-
-def initialize_player_service(team_id: Optional[str] = None):
-    """Explicitly (re)initialize the player service singleton."""
-    global _player_service_instance
-    from core.settings import get_settings
-    from services.mocks.mock_external_player_service import MockExternalPlayerService
-
-    config_manager = get_settings()
-    data_store = FirebaseClient(config_manager)
-    external_player_service = MockExternalPlayerService()
-    
-    _player_service_instance = PlayerService(
-        data_store=data_store,
-        external_player_service=external_player_service,
-        team_id=team_id
-    ) 
+            ) 
