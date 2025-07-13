@@ -1,6 +1,11 @@
-# Environment Variables Setup Guide
+# Environment Setup Guide
 
-This guide explains how to set up environment variables for KICKAI securely, keeping sensitive data out of source control.
+## 🎯 Overview
+
+This guide explains how to set up environment variables for KICKAI across different environments:
+- **Development** (Local with mocks)
+- **Testing** (Railway with real services)
+- **Production** (Railway with real services)
 
 ## 🔒 Security First
 
@@ -11,157 +16,246 @@ This guide explains how to set up environment variables for KICKAI securely, kee
 - Firebase credentials
 - Session strings
 
-## 📋 Required Environment Variables
+## 🏗️ Environment-Specific Setup
+
+### Development Environment
+
+For local development, use mock services by default:
+
+```bash
+# .env.development
+ENVIRONMENT=development
+DEBUG=true
+LOG_LEVEL=DEBUG
+
+# Mock Services (Recommended for development)
+USE_MOCK_DATASTORE=true
+USE_MOCK_TELEGRAM=true
+USE_MOCK_AI=true
+USE_MOCK_PAYMENT=true
+
+# AI Configuration
+AI_PROVIDER=mock  # or 'ollama' for local AI
+AI_MODEL_NAME=mock-model
+
+# Application Configuration
+DEFAULT_TEAM_ID=KAI
+PAYMENT_ENABLED=false
+
+# Development-specific
+PYTHONPATH=src
+TESTING=true
+```
+
+**Benefits of Mock Services:**
+- Fast development cycles
+- No external dependencies
+- Consistent test data
+- No API costs
+- No risk of affecting real data
+
+### Testing Environment (Railway)
+
+For integration testing with real services:
+
+```bash
+# Railway Testing Environment Variables
+ENVIRONMENT=testing
+DEBUG=false
+LOG_LEVEL=INFO
+
+# Real Services
+FIRESTORE_PROJECT_ID=kickai-testing-firestore
+FIREBASE_CREDENTIALS_JSON={"type":"service_account","project_id":"kickai-testing-firestore","private_key_id":"your_private_key_id","private_key":"-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n","client_email":"firebase-adminsdk-xxxxx@kickai-testing-firestore.iam.gserviceaccount.com","client_id":"your_client_id","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-xxxxx%40kickai-testing-firestore.iam.gserviceaccount.com"}
+TELEGRAM_BOT_TOKEN=your_testing_bot_token
+TELEGRAM_BOT_USERNAME=KickAI_Testing_Bot
+TELEGRAM_MAIN_CHAT_ID=-1001234567890
+TELEGRAM_LEADERSHIP_CHAT_ID=-1001234567891
+
+# AI Configuration
+AI_PROVIDER=google_gemini
+AI_MODEL_NAME=gemini-pro
+GOOGLE_API_KEY=your_google_api_key
+
+# Application Configuration
+DEFAULT_TEAM_ID=KAI
+PAYMENT_ENABLED=false
+```
+
+### Production Environment (Railway)
+
+For live user service:
+
+```bash
+# Railway Production Environment Variables
+ENVIRONMENT=production
+DEBUG=false
+LOG_LEVEL=WARNING
+
+# Real Services
+FIRESTORE_PROJECT_ID=kickai-production-firestore
+FIREBASE_CREDENTIALS_JSON={"type":"service_account","project_id":"kickai-production-firestore","private_key_id":"your_private_key_id","private_key":"-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n","client_email":"firebase-adminsdk-xxxxx@kickai-production-firestore.iam.gserviceaccount.com","client_id":"your_client_id","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-xxxxx%40kickai-production-firestore.iam.gserviceaccount.com"}
+TELEGRAM_BOT_TOKEN=your_production_bot_token
+TELEGRAM_BOT_USERNAME=KickAI_Bot
+TELEGRAM_MAIN_CHAT_ID=-1001234567892
+TELEGRAM_LEADERSHIP_CHAT_ID=-1001234567893
+
+# AI Configuration
+AI_PROVIDER=google_gemini
+AI_MODEL_NAME=gemini-pro
+GOOGLE_API_KEY=your_google_api_key
+
+# Application Configuration
+DEFAULT_TEAM_ID=KAI
+PAYMENT_ENABLED=true
+```
+
+## 🚀 Quick Setup
+
+### Development Setup
+
+```bash
+# Clone repository
+git clone https://github.com/your-org/KICKAI.git
+cd KICKAI
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+pip install -r requirements-local.txt
+
+# Set up development environment
+cp .env.development.example .env.development
+# Edit .env.development with your preferences
+
+# Load environment
+export $(cat .env.development | xargs)
+
+# Run tests
+python -m pytest tests/unit/ -v
+```
+
+### Testing Environment Setup
+
+```bash
+# Set up Railway project
+railway login
+railway init kickai-testing
+
+# Configure environment variables in Railway dashboard
+# (Use the testing environment variables above)
+
+# Deploy to Railway
+railway up
+
+# Initialize test environment
+python scripts/bootstrap_team.py --environment=testing
+```
+
+### Production Environment Setup
+
+```bash
+# Set up Railway project
+railway init kickai-production
+
+# Configure environment variables in Railway dashboard
+# (Use the production environment variables above)
+
+# Deploy to Railway
+railway up
+
+# Initialize production environment
+python scripts/bootstrap_team.py --environment=production
+```
+
+## 🔧 Environment Variable Reference
 
 ### Core Configuration
 
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
-| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather | ✅ | `123456789:ABCdefGHIjklMNOpqrsTUVwxyz` |
-| `TELEGRAM_BOT_USERNAME` | Bot username (without @) | ✅ | `my_bot` |
-| `TELEGRAM_MAIN_CHAT_ID` | Main chat ID | ✅ | `-1001234567890` |
-| `TELEGRAM_LEADERSHIP_CHAT_ID` | Leadership chat ID | ✅ | `-1001234567891` |
-| `FIRESTORE_PROJECT_ID` | Firebase project ID | ✅ | `my-project-123` |
-| `FIREBASE_CREDENTIALS_FILE` | Path to Firebase credentials | ✅ | `./credentials/firebase_credentials.json` |
+| `ENVIRONMENT` | Environment name | ✅ | `development`, `testing`, `production` |
+| `DEBUG` | Debug mode | ❌ | `true`, `false` |
+| `LOG_LEVEL` | Logging level | ❌ | `DEBUG`, `INFO`, `WARNING` |
+| `PYTHONPATH` | Python path | ❌ | `src` |
+
+### Mock Services Configuration
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `USE_MOCK_DATASTORE` | Use mock database | ❌ | `true`, `false` |
+| `USE_MOCK_TELEGRAM` | Use mock Telegram | ❌ | `true`, `false` |
+| `USE_MOCK_AI` | Use mock AI | ❌ | `true`, `false` |
+| `USE_MOCK_PAYMENT` | Use mock payments | ❌ | `true`, `false` |
+
+### Firebase Configuration
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `FIRESTORE_PROJECT_ID` | Firebase project ID | ⚠️ | `my-project-123` |
+| `FIREBASE_CREDENTIALS_JSON` | Firebase credentials JSON | ⚠️ | `{"type":"service_account",...}` |
+
+### Telegram Configuration
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather | ⚠️ | `123456789:ABCdefGHIjklMNOpqrsTUVwxyz` |
+| `TELEGRAM_BOT_USERNAME` | Bot username (without @) | ⚠️ | `my_bot` |
+| `TELEGRAM_MAIN_CHAT_ID` | Main chat ID | ⚠️ | `-1001234567890` |
+| `TELEGRAM_LEADERSHIP_CHAT_ID` | Leadership chat ID | ⚠️ | `-1001234567891` |
 
 ### AI Provider Configuration
 
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
-| `AI_PROVIDER` | AI provider to use | ✅ | `google_gemini` |
-| `GOOGLE_API_KEY` | Google API key (for Gemini) | ✅ | `AIzaSy...` |
-| `OPENAI_API_KEY` | OpenAI API key (if using OpenAI) | ⚠️ | `sk-...` |
-| `AI_MODEL_NAME` | AI model name | ✅ | `gemini-pro` |
+| `AI_PROVIDER` | AI provider to use | ✅ | `mock`, `ollama`, `google_gemini` |
+| `AI_MODEL_NAME` | AI model name | ✅ | `mock-model`, `llama2`, `gemini-pro` |
+| `GOOGLE_API_KEY` | Google API key (for Gemini) | ⚠️ | `AIzaSy...` |
 
-### Optional Configuration
+### Application Configuration
 
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
-| `ENVIRONMENT` | Environment name | ❌ | `development` |
-| `DEBUG` | Debug mode | ❌ | `true` |
-| `LOG_LEVEL` | Logging level | ❌ | `INFO` |
 | `DEFAULT_TEAM_ID` | Default team ID | ❌ | `KAI` |
-| `PAYMENT_ENABLED` | Enable payment system | ❌ | `false` |
-
-## 🚀 Quick Setup
-
-### Option 1: Automated Setup (Recommended)
-
-Run the setup wizard:
-
-```bash
-python setup_local_environment.py
-```
-
-This will guide you through the setup process and generate the commands to set your environment variables.
-
-### Option 2: Manual Setup
-
-1. Copy the template:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Edit `.env` with your actual values:
-   ```bash
-   nano .env
-   ```
-
-3. Set environment variables from the file:
-   ```bash
-   export $(cat .env | xargs)
-   ```
-
-## 🔧 Setting Environment Variables
-
-### macOS/Linux
-
-#### Temporary (Current Session Only)
-```bash
-export TELEGRAM_BOT_TOKEN="your_bot_token_here"
-export GOOGLE_API_KEY="your_google_api_key_here"
-export FIRESTORE_PROJECT_ID="your_project_id"
-# ... add other variables
-```
-
-#### Permanent (Add to Shell Profile)
-Add to `~/.bashrc`, `~/.zshrc`, or `~/.profile`:
-
-```bash
-# KICKAI Environment Variables
-export TELEGRAM_BOT_TOKEN="your_bot_token_here"
-export GOOGLE_API_KEY="your_google_api_key_here"
-export FIRESTORE_PROJECT_ID="your_project_id"
-export TELEGRAM_BOT_USERNAME="your_bot_username"
-export TELEGRAM_MAIN_CHAT_ID="-1001234567890"
-export TELEGRAM_LEADERSHIP_CHAT_ID="-1001234567891"
-export FIREBASE_CREDENTIALS_FILE="./credentials/firebase_credentials.json"
-export AI_PROVIDER="google_gemini"
-export AI_MODEL_NAME="gemini-pro"
-export ENVIRONMENT="development"
-export DEBUG="true"
-export LOG_LEVEL="INFO"
-export DEFAULT_TEAM_ID="KAI"
-export PAYMENT_ENABLED="false"
-```
-
-Then reload your shell:
-```bash
-source ~/.bashrc  # or ~/.zshrc
-```
-
-### Windows
-
-#### Command Prompt (Temporary)
-```cmd
-set TELEGRAM_BOT_TOKEN=your_bot_token_here
-set GOOGLE_API_KEY=your_google_api_key_here
-set FIRESTORE_PROJECT_ID=your_project_id
-```
-
-#### PowerShell (Temporary)
-```powershell
-$env:TELEGRAM_BOT_TOKEN="your_bot_token_here"
-$env:GOOGLE_API_KEY="your_google_api_key_here"
-$env:FIRESTORE_PROJECT_ID="your_project_id"
-```
-
-#### System Environment Variables (Permanent)
-1. Open System Properties → Advanced → Environment Variables
-2. Add each variable under "User variables" or "System variables"
-3. Restart your terminal/IDE
-
-## 🧪 Testing Environment Setup
-
-For E2E testing, you'll need additional variables:
-
-```bash
-# Test-specific variables
-export TEST_MODE="true"
-export ADMIN_SESSION_STRING="your_session_string_here"
-export PLAYER_SESSION_STRING="your_session_string_here"
-export TEST_TIMEOUT="30"
-export TEST_MAX_RETRIES="3"
-export TEST_PARALLEL="false"
-export TEST_LOG_LEVEL="INFO"
-export TEST_TEAM_ID="test-team-123"
-export TEST_USER_ID="test_user_123"
-export TEST_CHAT_ID="test_chat_456"
-```
-
-Generate session strings using:
-```bash
-python setup_telegram_credentials.py
-```
+| `PAYMENT_ENABLED` | Enable payment system | ❌ | `true`, `false` |
 
 ## 🔍 Verifying Your Setup
 
-Run the validation script:
+### Development Environment
+
 ```bash
-python validate_setup.py
+# Validate development setup
+python scripts/validate_feature_deployment.py --feature=player_registration
+
+# Run health checks
+python scripts/run_health_checks.py
+
+# Run tests
+python -m pytest tests/unit/ -v
 ```
 
-This will check that all required environment variables are set correctly.
+### Testing Environment
+
+```bash
+# Validate testing setup
+python scripts/validate_feature_deployment.py --feature=all --environment=testing
+
+# Run E2E tests
+python run_e2e_tests.py --suite=smoke --environment=testing
+```
+
+### Production Environment
+
+```bash
+# Validate production setup
+python scripts/validate_feature_deployment.py --feature=all --environment=production
+
+# Run smoke tests
+python run_e2e_tests.py --suite=smoke --environment=production
+```
 
 ## 🚨 Troubleshooting
 
@@ -184,58 +278,47 @@ This will check that all required environment variables are set correctly.
    - Verify your API key is active in Google Cloud Console
    - Check that the API key has the necessary permissions
 
+5. **"Mock service not working"**
+   - Ensure `USE_MOCK_*` variables are set to `true`
+   - Check that mock services are properly imported
+
 ### Debug Mode
 
 Enable debug logging to see what's happening:
+
 ```bash
 export DEBUG="true"
 export LOG_LEVEL="DEBUG"
 ```
 
-## 🔄 Environment-Specific Configuration
+## 🔄 Environment Switching
 
-### Development
+### Switch Between Environments
+
 ```bash
-export ENVIRONMENT="development"
-export DEBUG="true"
-export LOG_LEVEL="DEBUG"
+# Development
+export $(cat .env.development | xargs)
+
+# Testing (if running locally)
+export $(cat .env.testing | xargs)
+
+# Production (if running locally)
+export $(cat .env.production | xargs)
 ```
 
-### Production
+### Environment-Specific Commands
+
 ```bash
-export ENVIRONMENT="production"
-export DEBUG="false"
-export LOG_LEVEL="WARNING"
+# Development commands
+make dev
+make test-dev
+make lint-dev
+
+# Testing commands
+make test-testing
+make deploy-testing
+
+# Production commands
+make test-production
+make deploy-production
 ```
-
-### Testing
-```bash
-export ENVIRONMENT="testing"
-export TEST_MODE="true"
-export LOG_LEVEL="INFO"
-```
-
-## 📚 Additional Resources
-
-- [Telegram Bot API Documentation](https://core.telegram.org/bots/api)
-- [Google Cloud Console](https://console.cloud.google.com/)
-- [Firebase Console](https://console.firebase.google.com/)
-- [Environment Variables Best Practices](https://12factor.net/config)
-
-## 🛡️ Security Best Practices
-
-1. **Never commit secrets to version control**
-2. **Use different keys for different environments**
-3. **Rotate API keys regularly**
-4. **Use environment-specific credentials**
-5. **Limit API key permissions to minimum required**
-6. **Monitor API usage for unusual activity**
-7. **Use secure credential storage in production**
-
-## 📞 Support
-
-If you encounter issues:
-1. Check the troubleshooting section above
-2. Run `python validate_setup.py` for diagnostics
-3. Check the logs with `DEBUG=true`
-4. Review the [README.md](README.md) for additional information 
