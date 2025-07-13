@@ -402,6 +402,22 @@ class MatchPermissionError(MatchError):
     pass
 
 
+# Budget Errors
+class BudgetError(KICKAIError):
+    """Base exception for budget-related errors."""
+    pass
+
+
+class BudgetValidationError(BudgetError, GeneralValidationError):
+    """Budget validation errors."""
+    pass
+
+
+class BudgetLimitError(BudgetError):
+    """Budget limit exceeded errors."""
+    pass
+
+
 # Expense Errors
 class ExpenseError(KICKAIError):
     """Base exception for expense-related errors."""

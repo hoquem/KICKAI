@@ -1,5 +1,15 @@
 # Service Interfaces & Dependency Injection
 
+**Summary: All services must use interfaces. Dependency injection is mandatory. Code must be testable, maintainable, and easy to mock. Mocks are required for all interfaces. This is required for all new code and refactors.**
+
+- **Interface-Driven Design**: Every service must have an interface in `src/services/interfaces/`. No direct dependencies on concrete implementations.
+- **Dependency Injection**: All services, repositories, and agents must be injected via the DI container. No singletons, global state, or direct instantiation.
+- **Testability**: All code must be easy to test in isolation. Mocks must be provided for every interface in `src/services/mocks/`.
+- **Maintainability**: Interfaces and DI make it easy to swap implementations, add features, and refactor safely.
+- **Contract Enforcement**: Interfaces define clear contracts for all implementations.
+
+---
+
 ## Overview
 
 The KICKAI system implements a comprehensive service interface system using Python's Abstract Base Classes (ABCs) and corresponding mock implementations. This approach provides dependency injection, easy testing, contract enforcement, and code maintainability.

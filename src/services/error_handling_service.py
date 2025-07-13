@@ -14,12 +14,12 @@ import os
 
 from core.logging_config import get_logger, LogContext
 from core.exceptions import (
-    KICKAIError, UserFacingError, SystemError, create_error_context,
-    get_error_category, format_error_message, get_user_friendly_message,
-    should_notify_admin, is_retryable_error, is_critical_error
+    KICKAIError, create_error_context,
+    get_error_category, format_error_message,
+    is_retryable_error, is_critical_error
 )
 from core.settings import get_settings
-from services.telegram_service import get_telegram_service
+from typing import Any
 
 logger = get_logger(__name__)
 
@@ -46,12 +46,14 @@ class ErrorHandlingService:
     Centralized error handling service for robust user feedback and system monitoring.
     """
     
-    def __init__(self, team_id: str):
+    def __init__(self, team_id: str, telegram_service: Any = None):
         self.team_id = team_id
         config = get_settings()
         self.admin_chat_id = config.telegram_leadership_chat_id
+        self.telegram_service = telegram_service
         self.error_reports: List[ErrorReport] = []
         self.max_reports = 100  # Keep last 100 error reports in memory
+        logger.info(f"✅ ErrorHandlingService initialized for team {team_id}")
         
     async def handle_error(
         self,
@@ -86,14 +88,14 @@ class ErrorHandlingService:
             await self._log_error(error_report)
             
             # Send admin notification if needed
-            if should_notify_admin(error):
+            if is_critical_error(error):
                 await self._notify_admin(error_report)
             
             # Store error report
             self._store_error_report(error_report)
             
             # Return user-friendly message
-            return get_user_friendly_message(error)
+            return "❌ Sorry, something went wrong. Please try again or contact support if the issue persists."
             
         except Exception as logging_error:
             # If error handling itself fails, log it and return generic message
@@ -120,7 +122,7 @@ class ErrorHandlingService:
             message_text=message_text,
             error_category=get_error_category(error),
             is_retryable=is_retryable_error(error),
-            requires_admin_attention=should_notify_admin(error),
+            requires_admin_attention=is_critical_error(error),
             stack_trace=traceback.format_exc(),
             context=context or {}
         )
@@ -178,22 +180,21 @@ class ErrorHandlingService:
             return
         
         try:
-            # Import here to avoid circular imports
-            from services.telegram_service import get_telegram_service
-            
-            telegram_service = get_telegram_service()
-            
-            # Create admin notification message
-            notification = self._format_admin_notification(error_report)
-            
-            # Send notification
-            await telegram_service.send_message(
-                chat_id=self.admin_chat_id,
-                message=notification,
-                parse_mode='HTML'
-            )
-            
-            logger.info(f"Admin notification sent for error: {error_report.error.__class__.__name__}")
+            # Use injected telegram service if available
+            if self.telegram_service:
+                # Create admin notification message
+                notification = self._format_admin_notification(error_report)
+                
+                # Send notification
+                await self.telegram_service.send_message(
+                    chat_id=self.admin_chat_id,
+                    message=notification,
+                    parse_mode='HTML'
+                )
+                
+                logger.info(f"Admin notification sent for error: {error_report.error.__class__.__name__}")
+            else:
+                logger.warning("No telegram service available for admin notification")
             
         except Exception as e:
             logger.error(f"Failed to send admin notification: {e}", exc_info=True)
@@ -288,77 +289,6 @@ class ErrorHandlingService:
         """Clear stored error reports."""
         self.error_reports.clear()
         logger.info("Error reports cleared")
-
-
-# Global error handling service instance
-_error_handling_service: Optional[ErrorHandlingService] = None
-
-
-def get_error_handling_service(team_id: str) -> ErrorHandlingService:
-    """Get the global error handling service instance."""
-    global _error_handling_service
-    if _error_handling_service is None or _error_handling_service.team_id != team_id:
-        _error_handling_service = ErrorHandlingService(team_id)
-    return _error_handling_service
-
-
-async def handle_error_async(
-    error: Exception,
-    team_id: str,
-    user_id: Optional[str] = None,
-    chat_id: Optional[str] = None,
-    message_text: Optional[str] = None,
-    operation: str = "unknown",
-    context: Optional[Dict[str, Any]] = None
-) -> str:
-    """
-    Convenience function to handle errors asynchronously.
-    
-    Args:
-        error: The exception that occurred
-        team_id: Team ID for context
-        user_id: ID of the user who triggered the error
-        chat_id: ID of the chat where the error occurred
-        message_text: Original message text that caused the error
-        operation: Operation being performed when error occurred
-        context: Additional context information
-        
-    Returns:
-        User-friendly error message to display
-    """
-    service = get_error_handling_service(team_id)
-    return await service.handle_error(
-        error, user_id, chat_id, message_text, operation, context
-    )
-
-
-def handle_error_sync(
-    error: Exception,
-    team_id: str,
-    user_id: Optional[str] = None,
-    chat_id: Optional[str] = None,
-    message_text: Optional[str] = None,
-    operation: str = "unknown",
-    context: Optional[Dict[str, Any]] = None
-) -> str:
-    """
-    Synchronous version of error handling for non-async contexts.
-    
-    Args:
-        error: The exception that occurred
-        team_id: Team ID for context
-        user_id: ID of the user who triggered the error
-        chat_id: ID of the chat where the error occurred
-        message_text: Original message text that caused the error
-        operation: Operation being performed when error occurred
-        context: Additional context information
-        
-    Returns:
-        User-friendly error message to display
-    """
-    # For sync contexts, we just return the user-friendly message
-    # Logging will be handled by the calling code
-    return get_user_friendly_message(error)
 
 
 # Error handling decorators for easy integration

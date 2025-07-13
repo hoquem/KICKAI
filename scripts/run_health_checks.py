@@ -14,8 +14,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.core.startup_validator import run_startup_validation
-from services.health_check_service import get_health_check_service
-from services.background_health_monitor import get_background_health_monitor
 
 # Configure logging
 logging.basicConfig(

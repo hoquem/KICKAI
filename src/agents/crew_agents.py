@@ -112,12 +112,10 @@ class AgentToolsManager:
             # Player tools - need command_operations
             print(f"🔍 [DEBUG] Registering player tools with command_operations")
             logger.info(f"[TOOL REGISTRY] Registering player tools with command_operations")
-            tool_registry['get_all_players'] = GetAllPlayersTool(team_id=self.team_config.default_team_id, command_operations=command_operations)
-            tool_registry['get_player_by_id'] = GetPlayerByIdTool(team_id=self.team_config.default_team_id, command_operations=command_operations)
-            tool_registry['get_pending_approvals'] = GetPendingApprovalsTool(team_id=self.team_config.default_team_id, command_operations=command_operations)
-            tool_registry['get_player_status'] = GetPlayerStatusTool(team_id=self.team_config.default_team_id, command_operations=command_operations)
-            tool_registry['get_my_status'] = GetMyStatusTool(team_id=self.team_config.default_team_id, command_operations=command_operations)
-            tool_registry['approve_player'] = ApprovePlayerTool(team_id=self.team_config.default_team_id, command_operations=command_operations)
+            tool_registry['get_all_players'] = GetAllPlayersTool(team_id=self.team_config.default_team_id, is_leadership_chat=False)
+            tool_registry['get_player_by_id'] = GetPlayerByIdTool(team_id=self.team_config.default_team_id)
+            tool_registry['get_pending_approvals'] = GetPendingApprovalsTool(team_id=self.team_config.default_team_id)
+            tool_registry['approve_player'] = ApprovePlayerTool(team_id=self.team_config.default_team_id)
             print(f"🔍 [DEBUG] Player tools registered: {list(tool_registry.keys())[-6:]}")
             logger.info(f"[TOOL REGISTRY] ✅ Player tools registered: {list(tool_registry.keys())[-6:]}")
             
@@ -443,6 +441,10 @@ class TeamManagementSystem:
                 tools = agent.get_tools()
                 logger.info(f"🤖 TEAM MANAGEMENT: Agent '{role.value}' has {len(tools)} tools: {[tool.name for tool in tools]}")
             
+            # CRITICAL: Configure tools with execution context before execution
+            if execution_context:
+                self._configure_tools_with_context(execution_context)
+            
             # Initialize orchestration pipeline if not already done
             if not hasattr(self, '_orchestration_pipeline'):
                 from agents.orchestration_pipeline import OrchestrationPipeline
@@ -451,39 +453,101 @@ class TeamManagementSystem:
             
             # Enhanced logging for debugging
             is_help_command = task_description.lower().strip() == "/help"
-            if is_help_command:
-                logger.info(f"🤖 ORCHESTRATION: Help command detected")
-                
-                # Get the Message Processor agent for help commands
-                message_processor = self.get_agent(AgentRole.MESSAGE_PROCESSOR)
-                if message_processor:
-                    logger.info(f"🤖 ORCHESTRATION: Using Message Processor agent for help command")
-                    result = await message_processor.execute(task_description, execution_context)
-                    logger.info(f"🤖 ORCHESTRATION: Help command executed successfully")
-                    return result
-                else:
-                    logger.warning(f"🤖 ORCHESTRATION: Message Processor agent not available for help command")
-                    return "❌ Sorry, the help system is currently unavailable."
+            is_myinfo_command = task_description.lower().strip() == "/myinfo"
             
-            # Use the orchestration pipeline for all other tasks
-            logger.info(f"🤖 ORCHESTRATION: Using orchestration pipeline for task execution")
+            if is_myinfo_command:
+                logger.info(f"🔍 MYINFO FLOW STEP 7: About to call orchestration pipeline")
+                logger.info(f"🔍 MYINFO FLOW STEP 7a: task_description='{task_description}'")
+                logger.info(f"🔍 MYINFO FLOW STEP 7b: execution_context={execution_context}")
             
-            # Execute using the orchestration pipeline
+            # Execute task through orchestration pipeline
             result = await self._orchestration_pipeline.execute_task(
                 task_description=task_description,
                 available_agents=self.agents,
                 execution_context=execution_context
             )
             
-            logger.info(f"🤖 TEAM MANAGEMENT: Task execution completed successfully")
-            logger.info(f"🤖 TEAM MANAGEMENT: Result length: {len(str(result))} characters")
+            if is_myinfo_command:
+                logger.info(f"🔍 MYINFO FLOW STEP 8: Orchestration pipeline completed")
+                logger.info(f"🔍 MYINFO FLOW STEP 8a: result={result}")
             
-            return str(result) if result else "Task completed successfully."
+            logger.info(f"🤖 TEAM MANAGEMENT: Task execution completed successfully")
+            return result
             
         except Exception as e:
-            print(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
-            logger.error(f"[AGENT ERROR TRACE] Error in TeamManagementSystem.execute_task: {e}", exc_info=True)
+            logger.error(f"🤖 TEAM MANAGEMENT: Error during task execution: {e}", exc_info=True)
             return f"❌ Sorry, I encountered an error processing your request: {str(e)}"
+    
+    def _configure_tools_with_context(self, context: Dict[str, Any]) -> None:
+        """
+        Configure all tools with the execution context.
+        
+        This ensures that tools have access to team_id, user_id, and other
+        context information needed for proper execution.
+        
+        Args:
+            context: Execution context containing team_id, user_id, etc.
+        """
+        try:
+            team_id = context.get('team_id')
+            user_id = context.get('user_id')
+            chat_id = context.get('chat_id')
+            
+            logger.info(f"[TOOL CONFIG] Configuring tools with context: team_id={team_id}, user_id={user_id}, chat_id={chat_id}")
+            
+            # Import the tool configuration function
+            from domain.tools.player_tools import configure_tool_with_context
+            
+            # Configure each tool with the context
+            for role, agent in self.agents.items():
+                tools = agent.get_tools()
+                for tool in tools:
+                    configure_tool_with_context(tool, context)
+                
+                # Also configure CrewAI agent tools if they exist
+                crew_agent = agent.get_crew_agent()
+                if hasattr(crew_agent, 'tools') and crew_agent.tools:
+                    for tool in crew_agent.tools:
+                        configure_tool_with_context(tool, context)
+                    
+            logger.info(f"[TOOL CONFIG] Successfully configured {len(self.agents)} agents' tools with execution context")
+            
+        except Exception as e:
+            logger.error(f"[TOOL CONFIG] Error configuring tools with context: {e}", exc_info=True)
+            # Don't raise - this is not critical for execution
+    
+    def _configure_single_tool(self, tool: Any, context: Dict[str, Any]) -> None:
+        """
+        Configure a single tool with execution context.
+        
+        Args:
+            tool: The tool to configure
+            context: Execution context
+        """
+        try:
+            # Set team_id on tools that support it
+            if hasattr(tool, 'team_id'):
+                tool.team_id = context.get('team_id')
+                logger.debug(f"[TOOL CONFIG] Set team_id={context.get('team_id')} on tool {getattr(tool, 'name', 'unknown')}")
+            
+            # Set user_id on tools that support it
+            if hasattr(tool, 'user_id'):
+                tool.user_id = context.get('user_id')
+                logger.debug(f"[TOOL CONFIG] Set user_id={context.get('user_id')} on tool {getattr(tool, 'name', 'unknown')}")
+            
+            # Set chat_id on tools that support it
+            if hasattr(tool, 'chat_id'):
+                tool.chat_id = context.get('chat_id')
+                logger.debug(f"[TOOL CONFIG] Set chat_id={context.get('chat_id')} on tool {getattr(tool, 'name', 'unknown')}")
+            
+            # Call custom configuration method if available
+            if hasattr(tool, 'configure_with_context'):
+                tool.configure_with_context(context)
+                logger.debug(f"[TOOL CONFIG] Called configure_with_context on tool {getattr(tool, 'name', 'unknown')}")
+                
+        except Exception as e:
+            logger.warning(f"[TOOL CONFIG] Error configuring tool {getattr(tool, 'name', 'unknown')}: {e}")
+            # Don't raise - continue with other tools
     
     @contextmanager
     def debug_mode(self):

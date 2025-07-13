@@ -1,4 +1,18 @@
-# Core Architecture: Clean & SOLID
+# Core Architecture: Clean, Modular, and Testable
+
+**These rules are non-negotiable and apply to all new code and refactors.**
+
+- **Keep Code Complexity Low**: Prioritize simplicity, readability, and maintainability. Avoid clever hacks, deep inheritance, and over-engineering. Code should be easy to reason about and fix.
+- **Feature Modularity**: All new features must be modularized. Use a feature-first structure (e.g., `src/features/feature_name/`) and avoid monolithic or tangled code. Each feature should encapsulate its own domain, application, and infrastructure logic.
+- **Dependency Injection (DI) & Container**: All dependencies (services, repositories, agents, etc.) must be injected via a DI container. No direct instantiation or singleton patterns. This is critical for decoupling, testability, and maintainability.
+- **Clean Architecture Dependency Rules**: Dependencies must only point inwards. Presentation → Application → Domain. Infrastructure implements interfaces defined in Application/Domain. No domain code should ever import from another layer.
+- **Service Interfaces**: All services must implement interfaces defined in `src/services/interfaces/`. This enables DI, easy testing, contract enforcement, and maintainability.
+- **Testable, Clean Code**: All code must be easily testable. Avoid tight coupling, global state, and hidden dependencies. Use composition over inheritance. Write code that is easy to mock and verify in tests.
+- **Code Reviews**: All code reviews must check for architectural violations, complexity creep, and testability issues.
+
+---
+
+# (Original content follows)
 
 This project's long-term health depends on strict adherence to these architectural principles.
 

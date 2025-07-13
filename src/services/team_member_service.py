@@ -1,19 +1,21 @@
 """
 Team Member Service for KICKAI
 
-This service handles all team member operations with dependency injection
-and clean architecture principles.
+This service manages team membership, roles, and access control.
 """
 
 import logging
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 
-from database.models_improved import TeamMember
-from database.firebase_client import FirebaseClient
-from core.exceptions import DatabaseError, ValidationError
+from database.interfaces import DataStoreInterface
 from services.interfaces.team_member_service_interface import ITeamMemberService
+from domain.interfaces.player_operations import IPlayerOperations
+from domain.interfaces.team_operations import ITeamOperations
+from database.models_improved import TeamMember
+from utils.phone_utils import normalize_phone
+
 
 logger = logging.getLogger(__name__)
 
@@ -30,42 +32,38 @@ class TeamMemberServiceConfig:
 
 
 class TeamMemberService(ITeamMemberService):
-    """Service for managing team members with dependency injection."""
+    """Service for managing team members and their roles."""
     
-    def __init__(self, firebase_client: FirebaseClient, config: Optional[TeamMemberServiceConfig] = None):
-        self.firebase_client = firebase_client
+    def __init__(self, data_store: DataStoreInterface, player_operations: IPlayerOperations, team_operations: ITeamOperations, config: Optional[TeamMemberServiceConfig] = None):
+        self.data_store = data_store
+        self.player_operations = player_operations
+        self.team_operations = team_operations
         self.config = config or TeamMemberServiceConfig()
-        logger.info("✅ TeamMemberService initialized")
-    
+
     async def create_team_member(self, team_member: TeamMember) -> str:
         """Create a new team member."""
         try:
-            # Validate telegram_id uniqueness
-            if team_member.telegram_id:
-                existing = await self.get_team_member_by_telegram_id(team_member.telegram_id, team_member.team_id)
-                if existing:
-                    raise ValidationError(f"Team member with telegram_id {team_member.telegram_id} already exists")
-            
-            member_id = await self.firebase_client.create_team_member(team_member)
-            logger.info(f"✅ Created team member: {team_member.user_id} with roles {team_member.roles}")
+            team_member.created_at = datetime.now()
+            team_member.updated_at = datetime.now()
+            member_id = await self.data_store.create_team_member(team_member)
+            logger.info(f"✅ Created team member: {team_member.name} ({member_id})")
             return member_id
-            
         except Exception as e:
             logger.error(f"❌ Failed to create team member: {e}")
-            raise DatabaseError(f"Failed to create team member: {str(e)}")
-    
+            raise
+
     async def get_team_member(self, member_id: str) -> Optional[TeamMember]:
         """Get a team member by ID."""
         try:
-            return await self.firebase_client.get_team_member(member_id)
+            return await self.data_store.get_team_member(member_id)
         except Exception as e:
             logger.error(f"❌ Failed to get team member {member_id}: {e}")
             return None
-    
+
     async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[TeamMember]:
-        """Get a team member by telegram_id and team_id."""
+        """Get a team member by Telegram ID and team ID."""
         try:
-            team_members = await self.firebase_client.get_team_members_by_team(team_id)
+            team_members = await self.get_team_members_by_team(team_id)
             for member in team_members:
                 if member.telegram_id == telegram_id:
                     return member
@@ -73,111 +71,129 @@ class TeamMemberService(ITeamMemberService):
         except Exception as e:
             logger.error(f"❌ Failed to get team member by telegram_id {telegram_id}: {e}")
             return None
-    
+
     async def update_team_member(self, team_member: TeamMember) -> bool:
-        """Update a team member."""
+        """Update an existing team member."""
         try:
-            success = await self.firebase_client.update_team_member(team_member)
+            team_member.updated_at = datetime.now()
+            success = await self.data_store.update_team_member(team_member)
             if success:
-                logger.info(f"✅ Updated team member: {team_member.user_id}")
+                logger.info(f"✅ Updated team member: {team_member.name}")
             return success
         except Exception as e:
-            logger.error(f"❌ Failed to update team member {team_member.user_id}: {e}")
+            logger.error(f"❌ Failed to update team member {team_member.id}: {e}")
             return False
-    
+
     async def delete_team_member(self, member_id: str) -> bool:
         """Delete a team member."""
         try:
-            success = await self.firebase_client.delete_team_member(member_id)
+            success = await self.data_store.delete_team_member(member_id)
             if success:
                 logger.info(f"✅ Deleted team member: {member_id}")
             return success
         except Exception as e:
             logger.error(f"❌ Failed to delete team member {member_id}: {e}")
             return False
-    
+
     async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]:
-        """Get all team members for a team."""
+        """Get all team members for a specific team."""
         try:
-            return await self.firebase_client.get_team_members_by_team(team_id)
+            return await self.data_store.get_team_members_by_team(team_id)
         except Exception as e:
             logger.error(f"❌ Failed to get team members for team {team_id}: {e}")
             return []
-    
+
     async def get_team_members_by_role(self, team_id: str, role: str) -> List[TeamMember]:
-        """Get team members by role."""
+        """Get team members with a specific role."""
         try:
-            team_members = await self.get_team_members_by_team(team_id)
-            return [member for member in team_members if member.has_role(role)]
+            all_members = await self.get_team_members_by_team(team_id)
+            return [member for member in all_members if role in member.roles]
         except Exception as e:
             logger.error(f"❌ Failed to get team members by role {role}: {e}")
             return []
-    
+
     async def get_leadership_members(self, team_id: str) -> List[TeamMember]:
-        """Get all leadership members (with any leadership role)."""
+        """Get all leadership members for a team."""
         try:
-            team_members = await self.get_team_members_by_team(team_id)
-            return [member for member in team_members if member.has_any_leadership_role()]
+            all_members = await self.get_team_members_by_team(team_id)
+            leadership_members = []
+            for member in all_members:
+                if any(role in self.config.leadership_roles for role in member.roles):
+                    leadership_members.append(member)
+            return leadership_members
         except Exception as e:
             logger.error(f"❌ Failed to get leadership members for team {team_id}: {e}")
             return []
-    
+
     async def get_players(self, team_id: str) -> List[TeamMember]:
-        """Get all team members who are players."""
+        """Get all players (non-leadership members) for a team."""
         try:
-            team_members = await self.get_team_members_by_team(team_id)
-            return [member for member in team_members if member.is_player()]
+            all_members = await self.get_team_members_by_team(team_id)
+            players = []
+            for member in all_members:
+                if not any(role in self.config.leadership_roles for role in member.roles):
+                    players.append(member)
+            return players
         except Exception as e:
             logger.error(f"❌ Failed to get players for team {team_id}: {e}")
             return []
-    
+
     async def add_role_to_member(self, member_id: str, role: str) -> bool:
         """Add a role to a team member."""
         try:
             member = await self.get_team_member(member_id)
             if not member:
+                logger.error(f"❌ Member not found: {member_id}")
                 return False
             
             if role not in member.roles:
                 member.roles.append(role)
                 member.updated_at = datetime.now()
-                return await self.update_team_member(member)
-            
-            return True  # Role already exists
+                success = await self.update_team_member(member)
+                if success:
+                    logger.info(f"✅ Added role {role} to member {member.name}")
+                return success
+            else:
+                logger.info(f"ℹ️ Role {role} already exists for member {member.name}")
+                return True
         except Exception as e:
             logger.error(f"❌ Failed to add role {role} to member {member_id}: {e}")
             return False
-    
+
     async def remove_role_from_member(self, member_id: str, role: str) -> bool:
         """Remove a role from a team member."""
         try:
             member = await self.get_team_member(member_id)
             if not member:
+                logger.error(f"❌ Member not found: {member_id}")
                 return False
             
             if role in member.roles:
                 member.roles.remove(role)
                 member.updated_at = datetime.now()
-                
-                # Ensure member still has at least one role
-                if not member.roles and self.config.require_roles:
-                    raise ValidationError("Team member must have at least one role")
-                
-                return await self.update_team_member(member)
-            
-            return True  # Role doesn't exist
+                success = await self.update_team_member(member)
+                if success:
+                    logger.info(f"✅ Removed role {role} from member {member.name}")
+                return success
+            else:
+                logger.info(f"ℹ️ Role {role} doesn't exist for member {member.name}")
+                return True
         except Exception as e:
             logger.error(f"❌ Failed to remove role {role} from member {member_id}: {e}")
             return False
-    
+
     async def update_chat_access(self, member_id: str, chat_type: str, has_access: bool) -> bool:
         """Update chat access for a team member."""
         try:
             member = await self.get_team_member(member_id)
             if not member:
+                logger.error(f"❌ Member not found: {member_id}")
                 return False
             
-            member.chat_access[chat_type] = has_access
+            if chat_type not in member.chat_access:
+                member.chat_access[chat_type] = has_access
+            else:
+                member.chat_access[chat_type] = has_access
             member.updated_at = datetime.now()
             return await self.update_team_member(member)
         except Exception as e:
@@ -232,20 +248,15 @@ class TeamMemberService(ITeamMemberService):
     async def generate_invitation(self, identifier: str, team_id: str) -> tuple[bool, str]:
         """Generate an invitation for a player by phone number or player ID."""
         try:
-            from services.player_service import get_player_service
-            from services.team_service import get_team_service
-            from core.settings import get_settings
-            from utils.phone_utils import normalize_phone
+            from core.settings import Settings
             
-            player_service = get_player_service(team_id=team_id)
-            team_service = get_team_service(team_id=team_id)
-            settings = get_settings()
+            settings = Settings()
             
             # Find player by phone or ID
             player = None
             if any(char.isalpha() for char in identifier):
                 # It's a player ID - search by player_id
-                players = await player_service.get_team_players(team_id)
+                players = await self.player_operations.get_team_players(team_id)
                 for p in players:
                     if p.player_id.lower() == identifier.lower():
                         player = p
@@ -254,7 +265,7 @@ class TeamMemberService(ITeamMemberService):
                 # It's a phone number - normalize and search
                 normalized_phone = normalize_phone(identifier)
                 if normalized_phone:
-                    player = await player_service.get_player_by_phone(normalized_phone, team_id)
+                    player = await self.player_operations.get_player_by_phone(normalized_phone, team_id)
                 else:
                     return False, f"❌ Invalid phone number format: {identifier}"
             
@@ -262,7 +273,7 @@ class TeamMemberService(ITeamMemberService):
                 return False, f"❌ Player not found with identifier: {identifier}"
             
             # Get team info
-            team = await team_service.get_team(team_id)
+            team = await self.team_operations.get_team(team_id)
             team_name = team.name if team else "KICKAI Team"
             
             # Get bot configuration for invite link
@@ -351,51 +362,4 @@ Welcome aboard! 🏆
         except Exception as e:
             logger.error(f"❌ Error creating Telegram invite link: {e}")
             # Fallback to a placeholder link
-            return f"https://t.me/+{chat_id.replace('-', '')}"
-
-# Global instance - now team-specific
-_team_member_service_instances: dict[str, TeamMemberService] = {}
-
-
-def get_team_member_service(team_id: Optional[str] = None) -> TeamMemberService:
-    """Get the team member service instance for the specified team."""
-    global _team_member_service_instances
-    
-    # Use default team ID if not provided
-    if not team_id:
-        import os
-        team_id = os.getenv('DEFAULT_TEAM_ID', 'KAI')
-    
-    # Return existing instance if available for this team
-    if team_id in _team_member_service_instances:
-        return _team_member_service_instances[team_id]
-    
-    # Create new instance for this team
-    from database.firebase_client import get_firebase_client
-    firebase_client = get_firebase_client()
-    
-    team_member_service = TeamMemberService(firebase_client)
-    _team_member_service_instances[team_id] = team_member_service
-    
-    logger.info(f"Created new TeamMemberService instance for team: {team_id}")
-    return team_member_service
-
-
-def initialize_team_member_service(team_id: Optional[str] = None) -> TeamMemberService:
-    """Initialize the team member service for the specified team."""
-    global _team_member_service_instances
-    
-    # Use default team ID if not provided
-    if not team_id:
-        import os
-        team_id = os.getenv('DEFAULT_TEAM_ID', 'KAI')
-    
-    # Create new instance (overwriting if exists)
-    from database.firebase_client import get_firebase_client
-    firebase_client = get_firebase_client()
-    
-    team_member_service = TeamMemberService(firebase_client)
-    _team_member_service_instances[team_id] = team_member_service
-    
-    logger.info(f"Initialized TeamMemberService for team: {team_id}")
-    return team_member_service 
+            return f"https://t.me/+{chat_id.replace('-', '')}" 

@@ -287,7 +287,7 @@ def validate_input(
     Raises:
         InputValidationError: If validation fails
     """
-    from src.core.exceptions import InputValidationError
+    from core.exceptions import InputValidationError
     
     # Check if required field is present
     if required and value is None:

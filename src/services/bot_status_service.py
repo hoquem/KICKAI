@@ -100,4 +100,91 @@ class BotStatusService:
     def get_uptime(self) -> str:
         """Get formatted uptime string."""
         uptime = datetime.now() - self.start_time
-        return str(uptime).split('.')[0]  # Remove microseconds 
+        return str(uptime).split('.')[0]  # Remove microseconds
+    
+    def get_main_chat_features(self) -> Dict[str, Any]:
+        """Get information about main chat features and capabilities."""
+        try:
+            return {
+                "features": {
+                    "player_registration": {
+                        "enabled": True,
+                        "commands": ["/register", "/myinfo", "/list"],
+                        "description": "Player registration and management"
+                    },
+                    "match_management": {
+                        "enabled": True,
+                        "commands": ["/match", "/attendance", "/status"],
+                        "description": "Match scheduling and attendance tracking"
+                    },
+                    "team_administration": {
+                        "enabled": True,
+                        "commands": ["/approve", "/reject", "/admin"],
+                        "description": "Team administration and player approval"
+                    },
+                    "payment_tracking": {
+                        "enabled": False,  # Disabled as per user preference
+                        "commands": [],
+                        "description": "Payment tracking and management"
+                    }
+                },
+                "natural_language": {
+                    "enabled": True,
+                    "description": "Natural language processing for queries"
+                },
+                "ai_assistance": {
+                    "enabled": True,
+                    "description": "AI-powered assistance and recommendations"
+                },
+                "status": "active",
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"❌ Error getting main chat features: {e}")
+            return {
+                "status": "error",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def get_leadership_chat_features(self) -> Dict[str, Any]:
+        """Get information about leadership chat features and capabilities."""
+        try:
+            return {
+                "Commands": {
+                    "admin_commands": ["/add", "/remove", "/approve", "/reject", "/admin"],
+                    "management_commands": ["/team", "/match", "/stats", "/report"],
+                    "description": "Leadership and administrative commands"
+                },
+                "Permissions": {
+                    "admin_only": ["/add", "/remove", "/admin"],
+                    "leadership": ["/approve", "/reject", "/team", "/match"],
+                    "description": "Permission levels for different commands"
+                },
+                "status": "active",
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"❌ Error getting leadership chat features: {e}")
+            return {
+                "status": "error",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def get_version_info(self) -> Dict[str, Any]:
+        """Get version information for the bot."""
+        try:
+            return {
+                "version": "1.0.0",
+                "name": "KICKAI Bot",
+                "description": "AI-powered football team management bot",
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"❌ Error getting version info: {e}")
+            return {
+                "version": "unknown",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            } 

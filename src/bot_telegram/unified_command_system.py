@@ -22,16 +22,19 @@ from typing import Dict, List, Optional, Any
 from domain.interfaces.command_operations import ICommandOperations
 from services.command_operations_factory import get_command_operations
 from services.access_control_service import AccessControlService
+from utils.format_utils import player_formatter
 from core.enhanced_logging import (
     log_command_error, log_error, ErrorCategory, ErrorSeverity, 
     ErrorMessageTemplates, create_error_context
 )
-from services.background_tasks import get_background_tasks_service
+from services.interfaces.background_tasks_service_interface import IBackgroundTasksService
 from bot_telegram.improved_command_parser import parse_command, CommandType
 from core.exceptions import (
     KICKAIError, PlayerError, TeamError, ValidationError, 
     PlayerDuplicateError, PlayerNotFoundError, TeamNotFoundError
 )
+from utils.phone_utils import normalize_phone
+from utils.id_processor import extract_entities_from_command, IDType
 
 logger = logging.getLogger(__name__)
 
@@ -313,19 +316,22 @@ class ListPlayersCommand(Command):
             # Pass the chat type information to determine if this is leadership chat
             is_leadership_chat = context.chat_type == ChatType.LEADERSHIP
             result = await command_operations.list_players(context.team_id, is_leadership_chat)
+            
+            # The result is already a formatted string from the player service
+            # No need to format it again with player_formatter
             return CommandResult(success=True, message=result)
             
         except KICKAIError as user_error:
             # User-facing error
             logger.info(f"[ListPlayersCommand] User-facing error: {user_error}")
-            return CommandResult(success=False, message=str(user_error))
+            return CommandResult(success=False, message=player_formatter.format_error_message(str(user_error)))
             
         except Exception as e:
             # System error
             logger.error(f"[ListPlayersCommand] System error: {e}", exc_info=True)
             return CommandResult(
                 success=False, 
-                message="❌ Sorry, something went wrong while listing players. Please try again later.",
+                message=player_formatter.format_error_message("Sorry, something went wrong while listing players. Please try again later."),
                 error=str(e)
             )
 
@@ -351,22 +357,24 @@ class MyInfoCommand(Command):
             logger.info(f"[MyInfoCommand] get_player_info returned success={success}, message_length={len(message) if message else 0}")
             
             if success:
-                return CommandResult(success=True, message=message)
+                # Use the shared formatting service for consistent output
+                formatted_result = player_formatter.format_player_status(message, context.team_id)
+                return CommandResult(success=True, message=formatted_result)
             else:
                 logger.warning(f"[MyInfoCommand] Failed to get player info for user {context.user_id}: {message}")
-                return CommandResult(success=False, message=message)
+                return CommandResult(success=False, message=player_formatter.format_error_message(message))
                 
         except KICKAIError as user_error:
             # User-facing error (e.g., player not found)
             logger.info(f"[MyInfoCommand] User-facing error: {user_error}")
-            return CommandResult(success=False, message=str(user_error))
+            return CommandResult(success=False, message=player_formatter.format_error_message(str(user_error)))
             
         except Exception as e:
             # System error
             logger.error(f"[MyInfoCommand] System error: {e}", exc_info=True)
             return CommandResult(
                 success=False, 
-                message="❌ Sorry, something went wrong while getting your information. Please try again later.",
+                message=player_formatter.format_error_message("Sorry, something went wrong while getting your information. Please try again later."),
                 error=str(e)
             )
 

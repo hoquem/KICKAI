@@ -42,12 +42,17 @@ class MockDataStore:
         """Get a player by ID."""
         return self.players.get(player_id)
     
-    async def update_player(self, player: Player) -> bool:
-        """Update a player."""
-        if player.id in self.players:
-            self.players[player.id] = player
-            return True
-        return False
+    async def update_player(self, player_id: str, updates: Dict[str, Any]) -> Optional[Player]:
+        """Update a player by ID with updates dictionary."""
+        if player_id in self.players:
+            player = self.players[player_id]
+            # Apply updates to the player object
+            for key, value in updates.items():
+                if hasattr(player, key):
+                    setattr(player, key, value)
+            self.players[player_id] = player
+            return player
+        return None
     
     async def delete_player(self, player_id: str) -> bool:
         """Delete a player."""
@@ -208,11 +213,25 @@ class MockDataStore:
                 return mapping
         return None
     
+    # Additional collection operations
+    async def create_fixture(self, fixture_data: Dict[str, Any]) -> str:
+        """Create a fixture."""
+        fixture_id = f"fixture_{len(self.fixtures) + 1}"
+        self.fixtures[fixture_id] = fixture_data
+        print(f"✅ Created fixture with ID: {fixture_id}")
+        return fixture_id
+    
+    async def get_fixture(self, fixture_id: str) -> Optional[Dict[str, Any]]:
+        """Get a fixture by ID."""
+        return self.fixtures.get(fixture_id)
+    
     # Generic document operations
-    async def create_document(self, collection: str, data: Dict[str, Any]) -> str:
+    async def create_document(self, collection: str, data: Dict[str, Any], doc_id: Optional[str] = None) -> str:
         """Create a generic document."""
-        doc_id = f"{collection}_{len(self._get_collection(collection)) + 1}"
+        if doc_id is None:
+            doc_id = f"{collection}_{len(self._get_collection(collection)) + 1}"
         self._get_collection(collection)[doc_id] = data
+        print(f"✅ Created document with ID: {doc_id}")
         return doc_id
     
     async def get_document(self, collection: str, doc_id: str) -> Optional[Dict[str, Any]]:
@@ -276,18 +295,12 @@ class MockDataStore:
                         results.append({**doc_data, 'id': doc_id})
         return results
     
-    # Additional collection operations
-    async def create_fixture(self, fixture_data: Dict[str, Any]) -> str:
-        """Create a fixture."""
-        fixture_id = f"fixture_{len(self.fixtures) + 1}"
-        self.fixtures[fixture_id] = fixture_data
-        return fixture_id
-    
     # Health check and utility methods
     async def health_check(self) -> Dict[str, Any]:
         """Perform health check."""
         return {
             "status": "healthy",
+            "message": "Mock data store is operational",
             "collections": len(await self.list_collections()),
             "total_documents": sum(len(self._get_collection(c)) for c in await self.list_collections()),
             "timestamp": datetime.now().isoformat()

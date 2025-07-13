@@ -1,0 +1,31 @@
+[flake8]
+max-line-length = 100
+exclude = 
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    .pytest_cache,
+    build,
+    dist,
+    *.egg-info,
+    migrations,
+    node_modules
+
+# Import organization and style
+extend-ignore = 
+    E203,  # whitespace before ':'
+    W503,  # line break before binary operator
+    E501,  # line too long (handled by max-line-length)
+
+# Import rules
+per-file-ignores =
+    # Allow relative imports in __init__.py files
+    __init__.py: F401
+    # Allow unused imports in test files for fixtures
+    tests/: F401
+    # Allow unused imports in feature modules for exports
+    src/features/*/__init__.py: F401
+
+# Import sorting
+import-order-style = google 

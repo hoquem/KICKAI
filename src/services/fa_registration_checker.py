@@ -18,20 +18,20 @@ import logging
 from services.player_service import PlayerService
 from services.team_service import TeamService
 from database.models_improved import Player, FixtureData
-from database.firebase_client import get_firebase_client
+from database.interfaces import DataStoreInterface
 from services.interfaces.fa_registration_checker_interface import IFARegistrationChecker
 
 class FARegistrationChecker(IFARegistrationChecker):
     """Service to check FA registration status for players."""
     
-    def __init__(self, player_service: PlayerService, team_service: TeamService, team_id: str):
+    def __init__(self, player_service: PlayerService, team_service: TeamService, data_store: DataStoreInterface, team_id: str):
         self.player_service = player_service
         self.team_service = team_service
+        self.data_store = data_store
         self.team_id = team_id
         self.fa_team_url: Optional[str] = None
         self.fa_fixtures_url: Optional[str] = None
         self.session: Optional[aiohttp.ClientSession] = None
-        self._db = get_firebase_client()
 
     async def _load_fa_urls(self):
         team = await self.team_service.get_team(self.team_id)
@@ -199,11 +199,7 @@ class FARegistrationChecker(IFARegistrationChecker):
                         'timestamp': datetime.now().isoformat()
                     })
             
-            logging.info(f"✅ Found {len(fixtures)} fixtures/results on FA site")
-            
-            # Save fixtures to Firestore
-            await self._save_fixture_data(fixtures)
-
+            logging.info(f"✅ Found {len(fixtures)} fixtures on FA site")
             return fixtures
             
         except Exception as e:
@@ -211,62 +207,29 @@ class FARegistrationChecker(IFARegistrationChecker):
             return []
 
     async def _save_fixture_data(self, fixtures: List[Dict]) -> None:
-        """Saves scraped fixture data to Firestore."""
+        """Save fixture data to database."""
         try:
-            for fixture_dict in fixtures:
-                # Create FixtureData object
-                fixture = FixtureData(
+            for fixture in fixtures:
+                fixture_data = FixtureData(
                     team_id=self.team_id,
-                    fixture_text=fixture_dict['text'],
-                    fixture_date=datetime.fromisoformat(fixture_dict['timestamp'])
+                    fixture_text=fixture['text'],
+                    timestamp=fixture['timestamp'],
+                    source='fa_website'
                 )
-                # Save to Firestore
-                await self._db.create_document('fixtures', fixture.to_dict(), fixture.id)
-            logging.info(f"✅ Saved {len(fixtures)} fixtures to Firestore.")
+                await self.data_store.add_document('fixtures', fixture_data.to_dict())
+            
+            logging.info(f"✅ Saved {len(fixtures)} fixtures to database")
         except Exception as e:
-            logging.error(f"❌ Error saving fixture data to Firestore: {e}")
+            logging.error(f"❌ Error saving fixture data: {e}")
 
 
-async def run_fa_registration_check(team_id: str, player_service: PlayerService, team_service: TeamService) -> Dict[str, bool]:
+async def run_fa_registration_check(team_id: str, player_service: PlayerService, team_service: TeamService, data_store: DataStoreInterface) -> Dict[str, bool]:
     """Run a single FA registration check for a team."""
-    async with FARegistrationChecker(player_service, team_service, team_id) as checker:
+    async with FARegistrationChecker(player_service, team_service, data_store, team_id) as checker:
         return await checker.check_player_registration(team_id)
 
 
-async def run_fa_fixtures_check(team_id: str, player_service: PlayerService, team_service: TeamService) -> List[Dict]:
+async def run_fa_fixtures_check(team_id: str, player_service: PlayerService, team_service: TeamService, data_store: DataStoreInterface) -> List[Dict]:
     """Run FA fixtures check for a team."""
-    async with FARegistrationChecker(player_service, team_service, team_id) as checker:
-        return await checker.scrape_fixtures()
-
-
-# Global instances - now team-specific
-_fa_registration_checker_instances: dict[str, FARegistrationChecker] = {}
-
-def get_fa_registration_checker(team_id: Optional[str] = None):
-    """Get a FA registration checker instance for the specified team."""
-    global _fa_registration_checker_instances
-    
-    # Use default team ID if not provided
-    if not team_id:
-        import os
-        team_id = os.getenv('DEFAULT_TEAM_ID', 'KAI')
-    
-    # Return existing instance if available for this team
-    if team_id in _fa_registration_checker_instances:
-        return _fa_registration_checker_instances[team_id]
-    
-    # Create new instance for this team
-    from services.player_service import get_player_service
-    from services.team_service import get_team_service
-    from core.settings import get_settings
-    
-    config = get_settings()
-    
-    player_service = get_player_service(team_id=team_id)
-    team_service = get_team_service(team_id=team_id)
-    
-    fa_checker = FARegistrationChecker(player_service, team_service, team_id)
-    _fa_registration_checker_instances[team_id] = fa_checker
-    
-    logging.info(f"Created new FARegistrationChecker instance for team: {team_id}")
-    return fa_checker 
+    async with FARegistrationChecker(player_service, team_service, data_store, team_id) as checker:
+        return await checker.scrape_fixtures() 
