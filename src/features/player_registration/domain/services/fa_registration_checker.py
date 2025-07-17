@@ -15,11 +15,11 @@ from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
 import logging
 
-from services.player_service import PlayerService
-from services.team_service import TeamService
-from database.models_improved import Player, FixtureData
-from database.interfaces import DataStoreInterface
-from services.interfaces.fa_registration_checker_interface import IFARegistrationChecker
+from src.features.player_registration.domain.services.player_service import PlayerService
+from src.features.team_administration.domain.services.team_service import TeamService
+from src.database.models_improved import Player, FixtureData
+from src.database.interfaces import DataStoreInterface
+from src.features.player_registration.domain.interfaces.fa_registration_checker_interface import IFARegistrationChecker
 
 class FARegistrationChecker(IFARegistrationChecker):
     """Service to check FA registration status for players."""
@@ -199,13 +199,13 @@ class FARegistrationChecker(IFARegistrationChecker):
                         'timestamp': datetime.now().isoformat()
                     })
             
-            logging.info(f"✅ Found {len(fixtures)} fixtures on FA site")
+            logging.info(f"✅ Found {len(fixtures)} fixtures/results")
             return fixtures
             
         except Exception as e:
             logging.error(f"❌ Error scraping FA fixtures: {e}")
             return []
-
+    
     async def _save_fixture_data(self, fixtures: List[Dict]) -> None:
         """Save fixture data to database."""
         try:
@@ -213,23 +213,25 @@ class FARegistrationChecker(IFARegistrationChecker):
                 fixture_data = FixtureData(
                     team_id=self.team_id,
                     fixture_text=fixture['text'],
-                    timestamp=fixture['timestamp'],
-                    source='fa_website'
+                    timestamp=datetime.fromisoformat(fixture['timestamp'])
                 )
-                await self.data_store.add_document('fixtures', fixture_data.to_dict())
+                await self.data_store.create_document('fixtures', fixture_data.to_dict(), fixture_data.id)
             
             logging.info(f"✅ Saved {len(fixtures)} fixtures to database")
+            
         except Exception as e:
             logging.error(f"❌ Error saving fixture data: {e}")
 
 
+# Standalone functions for backward compatibility
 async def run_fa_registration_check(team_id: str, player_service: PlayerService, team_service: TeamService, data_store: DataStoreInterface) -> Dict[str, bool]:
-    """Run a single FA registration check for a team."""
+    """Run FA registration check for a team."""
     async with FARegistrationChecker(player_service, team_service, data_store, team_id) as checker:
         return await checker.check_player_registration(team_id)
-
 
 async def run_fa_fixtures_check(team_id: str, player_service: PlayerService, team_service: TeamService, data_store: DataStoreInterface) -> List[Dict]:
     """Run FA fixtures check for a team."""
     async with FARegistrationChecker(player_service, team_service, data_store, team_id) as checker:
-        return await checker.scrape_fixtures() 
+        fixtures = await checker.scrape_fixtures()
+        await checker._save_fixture_data(fixtures)
+        return fixtures 
