@@ -34,7 +34,7 @@ class LoggingCrewAIAgent(Agent):
     
     def execute_task(self, task, *args, **kwargs):
         """Execute a task with comprehensive logging."""
-        print(f"🔍 [DEBUG] LoggingCrewAIAgent.execute_task called")
+        logger.debug("LoggingCrewAIAgent.execute_task called")
         logger.info(f"[CREWAI AGENT] Starting task execution")
         logger.info(f"[CREWAI AGENT] Task description: {task.description if hasattr(task, 'description') else str(task)}")
         logger.info(f"[CREWAI AGENT] Agent role: {self.role}")
@@ -46,7 +46,7 @@ class LoggingCrewAIAgent(Agent):
                 logger.info(f"[CREWAI AGENT] Tool {i+1}: {tool.name} - {getattr(tool, 'description', 'No description')}")
         
         try:
-            print(f"🔍 [DEBUG] LoggingCrewAIAgent calling super().execute_task")
+            logger.debug("LoggingCrewAIAgent calling super().execute_task")
             logger.info(f"[CREWAI AGENT] Calling parent execute_task method...")
             
             # Log LLM information
@@ -57,14 +57,14 @@ class LoggingCrewAIAgent(Agent):
             # Call the parent execute_task method (this is sync in CrewAI)
             result = super().execute_task(task, *args, **kwargs)
             
-            print(f"🔍 [DEBUG] LoggingCrewAIAgent super().execute_task completed")
+            logger.debug("LoggingCrewAIAgent super().execute_task completed")
             logger.info(f"[CREWAI AGENT] Task execution completed successfully")
             logger.info(f"[CREWAI AGENT] Result: {result[:200]}..." if len(str(result)) > 200 else f"[CREWAI AGENT] Result: {result}")
             
             return result
             
         except Exception as e:
-            print(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
+            logger.error(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
             logger.error(f"[AGENT ERROR TRACE] [CREWAI AGENT] Error during task execution: {e}", exc_info=True)
             raise
 
@@ -155,7 +155,7 @@ class ConfigurableAgent:
         Returns:
             The task result as a string
         """
-        print(f"[DEBUG][ConfigurableAgent] Starting execution with task: {task}")
+        logger.debug(f"[DEBUG][ConfigurableAgent] Starting execution with task: {task}")
         logger.info(f"[AGENT EXECUTE] Starting execution for agent {self.role}")
         logger.info(f"[AGENT EXECUTE] Task: {task}")
         logger.info(f"[AGENT EXECUTE] Context: {context}")
@@ -165,7 +165,7 @@ class ConfigurableAgent:
             validate_input(task, str, "task", required=True)
             if context is not None:
                 validate_input(context, dict, "context", required=False)
-                print(f"[DEBUG][ConfigurableAgent] Input validated.")
+                logger.debug(f"[DEBUG][ConfigurableAgent] Input validated.")
                 logger.info(f"[DEBUG][ConfigurableAgent] Input validated.")
             
             # CRITICAL: Configure tools with execution context before execution
@@ -174,7 +174,7 @@ class ConfigurableAgent:
             
             # Apply behavioral mixin if available
             if self.behavioral_mixin and hasattr(self.behavioral_mixin, 'pre_execute'):
-                print(f"[DEBUG][ConfigurableAgent] Applying pre_execute behavioral mixin")
+                logger.debug(f"[DEBUG][ConfigurableAgent] Applying pre_execute behavioral mixin")
                 logger.info(f"[AGENT EXECUTE] Applying pre_execute mixin")
                 task = self.behavioral_mixin.pre_execute(task, context)
                 logger.info(f"[AGENT EXECUTE] Modified task after pre_execute: {task}")
@@ -187,9 +187,9 @@ class ConfigurableAgent:
                 agent=self._crew_agent,
                 expected_output="Task result as a string"
             )
-            print(f"[DEBUG][ConfigurableAgent] Building CrewAI task...")
+            logger.debug(f"[DEBUG][ConfigurableAgent] Building CrewAI task...")
             logger.info(f"[DEBUG][ConfigurableAgent] Building CrewAI task...")
-            print(f"🔍 [DEBUG] ConfigurableAgent executing CrewAI task: {task}")
+            logger.debug(f"🔍 [DEBUG] ConfigurableAgent executing CrewAI task: {task}")
             logger.info(f"[AGENT EXECUTE] Created CrewAI task, executing...")
             logger.info(f"[AGENT EXECUTE] CrewAI task description: {crew_task.description}")
             logger.info(f"[AGENT EXECUTE] CrewAI agent role: {self._crew_agent.role}")
@@ -207,7 +207,7 @@ class ConfigurableAgent:
             import asyncio
             loop = asyncio.get_event_loop()
             
-            print(f"🔍 [DEBUG] ConfigurableAgent about to execute CrewAI task with timeout")
+            logger.debug(f"🔍 [DEBUG] ConfigurableAgent about to execute CrewAI task with timeout")
             logger.info(f"[AGENT EXECUTE] Starting CrewAI execution with timeout...")
             
             try:
@@ -219,33 +219,33 @@ class ConfigurableAgent:
                     ),
                     timeout=60.0  # 60 second timeout
                 )
-                print(f"🔍 [DEBUG] ConfigurableAgent CrewAI execution completed within timeout")
+                logger.debug(f"🔍 [DEBUG] ConfigurableAgent CrewAI execution completed within timeout")
                 logger.info(f"[AGENT EXECUTE] CrewAI execution completed within timeout")
             except asyncio.TimeoutError:
-                print(f"[AGENT ERROR TRACE] CrewAI execution timed out after 60 seconds")
                 logger.error(f"[AGENT ERROR TRACE] CrewAI execution timed out after 60 seconds")
                 raise Exception("CrewAI agent execution timed out")
             except Exception as e:
-                print(f"[AGENT ERROR TRACE] CrewAI execution failed: {traceback.format_exc()}")
-                logger.error(f"[AGENT ERROR TRACE] CrewAI execution failed: {e}", exc_info=True)
+                logger.error(f"[AGENT ERROR TRACE] CrewAI execution failed: {traceback.format_exc()}")
                 raise
             
-            print(f"🔍 [DEBUG] ConfigurableAgent CrewAI result: {result}")
-            logger.info(f"[AGENT EXECUTE] CrewAI execution completed, result: {result}")
+            logger.debug(f"🔍 [DEBUG] ConfigurableAgent CrewAI result: {result}")
+            logger.info(f"[AGENT EXECUTE] CrewAI execution successful")
+            logger.info(f"[AGENT EXECUTE] Result: {result[:200]}..." if len(str(result)) > 200 else f"[AGENT EXECUTE] Result: {result}")
             
-            # Apply behavioral mixin post-processing if available
+            # Apply behavioral mixin if available
             if self.behavioral_mixin and hasattr(self.behavioral_mixin, 'post_execute'):
-                print(f"🔍 [DEBUG] ConfigurableAgent applying post_execute behavioral mixin")
+                logger.debug(f"🔍 [DEBUG] ConfigurableAgent applying post_execute behavioral mixin")
                 logger.info(f"[AGENT EXECUTE] Applying post_execute mixin")
                 result = self.behavioral_mixin.post_execute(result, context)
-                logger.info(f"[AGENT EXECUTE] Modified result after post_execute: {result}")
+                logger.info(f"[AGENT EXECUTE] Modified result after post_execute: {result[:200]}..." if len(str(result)) > 200 else f"[AGENT EXECUTE] Modified result: {result}")
             
-            print(f"🔍 [DEBUG] ConfigurableAgent.execute returning: {result}")
-            logger.info(f"[AGENT EXECUTE] Final result: {result}")
+            logger.debug(f"🔍 [DEBUG] ConfigurableAgent.execute returning: {result}")
+            logger.info(f"[AGENT EXECUTE] Execution completed successfully")
             return result
+            
         except Exception as e:
-            print(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
-            logger.error(f"[AGENT ERROR TRACE] [AGENT EXECUTE] Error during execution: {e}", exc_info=True)
+            logger.error(f"[AGENT ERROR TRACE] {traceback.format_exc()}")
+            logger.error(f"[AGENT EXECUTE] Error during execution: {e}", exc_info=True)
             raise
     
     def _configure_tools_with_context(self, context: Dict[str, Any]) -> None:

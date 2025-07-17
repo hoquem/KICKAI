@@ -16,76 +16,79 @@ from datetime import datetime, timedelta
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.core.dependency_container import get_service
-from src.domain.interfaces.health_check_service import IHealthCheckService
+from features.health_monitoring.domain.interfaces.health_check_service_interface import IHealthCheckService
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 async def run_health_check(team_id: str, export: bool = False, verbose: bool = False):
     """Run a comprehensive health check."""
-    print(f"🔍 Running health check for team {team_id}...")
+    logger.info(f"🔍 Running health check for team {team_id}...")
     
     try:
         health_service = get_service(IHealthCheckService)
         report = await health_service.perform_comprehensive_health_check()
         
         # Display results
-        print(f"\n📊 Health Check Results for {team_id}")
-        print("=" * 60)
-        print(f"Overall Status: {report.overall_status.value}")
-        print(f"Timestamp: {report.timestamp}")
-        print(f"Total Checks: {len(report.checks)}")
+        logger.info(f"\n📊 Health Check Results for {team_id}")
+        logger.info("=" * 60)
+        logger.info(f"Overall Status: {report.overall_status.value}")
+        logger.info(f"Timestamp: {report.timestamp}")
+        logger.info(f"Total Checks: {len(report.checks)}")
         
         if verbose:
             # Detailed results
-            print(f"\n🔍 Detailed Results:")
+            logger.info(f"\n🔍 Detailed Results:")
             for check in report.checks:
                 status_emoji = "✅" if check.status.value == "healthy" else "⚠️" if check.status.value == "degraded" else "❌"
-                print(f"  {status_emoji} {check.component_type.value}:{check.component_name}")
-                print(f"    Status: {check.status.value}")
-                print(f"    Message: {check.message}")
-                print(f"    Response Time: {check.response_time_ms:.2f}ms")
+                logger.info(f"  {status_emoji} {check.component_type.value}:{check.component_name}")
+                logger.info(f"    Status: {check.status.value}")
+                logger.info(f"    Message: {check.message}")
+                logger.info(f"    Response Time: {check.response_time_ms:.2f}ms")
                 if check.details:
-                    print(f"    Details: {check.details}")
-                print()
+                    logger.info(f"    Details: {check.details}")
+                logger.info("")
         
         # Summary
-        print(f"\n📈 Summary:")
+        logger.info(f"\n📈 Summary:")
         for component_type, status_counts in report.summary.items():
-            print(f"  {component_type.value}:")
+            logger.info(f"  {component_type.value}:")
             for status, count in status_counts.items():
                 if count > 0:
-                    print(f"    {status.value}: {count}")
+                    logger.info(f"    {status.value}: {count}")
         
         # Issues and recommendations
         if report.critical_issues:
-            print(f"\n🚨 Critical Issues:")
+            logger.error(f"\n🚨 Critical Issues:")
             for issue in report.critical_issues:
-                print(f"  - {issue}")
+                logger.error(f"  - {issue}")
         
         if report.warnings:
-            print(f"\n⚠️ Warnings:")
+            logger.warning(f"\n⚠️ Warnings:")
             for warning in report.warnings:
-                print(f"  - {warning}")
+                logger.warning(f"  - {warning}")
         
         if report.recommendations:
-            print(f"\n💡 Recommendations:")
+            logger.info(f"\n💡 Recommendations:")
             for rec in report.recommendations:
-                print(f"  - {rec}")
+                logger.info(f"  - {rec}")
         
         # Export if requested
         if export:
             export_file = await health_service.export_health_report()
-            print(f"\n💾 Health report exported to: {export_file}")
+            logger.info(f"\n💾 Health report exported to: {export_file}")
         
         return report.is_healthy()
         
     except Exception as e:
-        print(f"❌ Health check failed: {e}")
+        logger.error(f"❌ Health check failed: {e}")
         return False
 
 
 async def start_monitoring(team_id: str, interval: int = 300):
     """Start background health monitoring."""
-    print(f"🚀 Starting background health monitoring for team {team_id}...")
+    logger.info(f"🚀 Starting background health monitoring for team {team_id}...")
     
     try:
         # The original script had get_background_health_monitor here,
@@ -106,32 +109,32 @@ async def start_monitoring(team_id: str, interval: int = 300):
                 "info": "ℹ️"
             }
             emoji = level_emoji.get(alert.level.value, "ℹ️")
-            print(f"{emoji} [{alert.timestamp.strftime('%H:%M:%S')}] {alert.component_type.value}:{alert.component_name} - {alert.message}")
+            logger.info(f"{emoji} [{alert.timestamp.strftime('%H:%M:%S')}] {alert.component_type.value}:{alert.component_name} - {alert.message}")
         
         # monitor.add_alert_handler(console_alert_handler)
         
         # Start monitoring
         # await monitor.start_monitoring()
         
-        print(f"✅ Background monitoring started (interval: {interval}s)")
-        print("Press Ctrl+C to stop monitoring...")
+        logger.info(f"✅ Background monitoring started (interval: {interval}s)")
+        logger.info("Press Ctrl+C to stop monitoring...")
         
         try:
             # Keep running until interrupted
             while True:
                 await asyncio.sleep(1)
         except KeyboardInterrupt:
-            print("\n🛑 Stopping background monitoring...")
+            logger.info("\n🛑 Stopping background monitoring...")
             # await monitor.stop_monitoring() # This line will now cause an error
-            print("✅ Background monitoring stopped")
+            logger.info("✅ Background monitoring stopped")
         
     except Exception as e:
-        print(f"❌ Failed to start monitoring: {e}")
+        logger.error(f"❌ Failed to start monitoring: {e}")
 
 
 async def show_status(team_id: str):
     """Show current monitoring status."""
-    print(f"📊 Showing status for team {team_id}...")
+    logger.info(f"📊 Showing status for team {team_id}...")
     
     try:
         # The original script had get_background_health_monitor here,
@@ -143,37 +146,37 @@ async def show_status(team_id: str):
         # monitor = get_background_health_monitor(team_id)
         # status = await monitor.get_status_summary()
         
-        # print(f"\n📈 Monitoring Status:")
-        # print(f"  Active: {status['monitoring_active']}")
-        # print(f"  Team ID: {status['team_id']}")
-        # print(f"  Check Interval: {status['check_interval_seconds']}s")
-        # print(f"  Active Alerts: {status['active_alerts_count']}")
+        # logger.info(f"\n📈 Monitoring Status:")
+        # logger.info(f"  Active: {status['monitoring_active']}")
+        # logger.info(f"  Team ID: {status['team_id']}")
+        # logger.info(f"  Check Interval: {status['check_interval_seconds']}s")
+        # logger.info(f"  Active Alerts: {status['active_alerts_count']}")
         
         # if status['active_alerts_count'] > 0:
-        #     print(f"\n🚨 Active Alerts:")
+        #     logger.info(f"\n🚨 Active Alerts:")
         #     for level, count in status['alert_summary'].items():
         #         if count > 0:
-        #             print(f"  {level}: {count}")
+        #             logger.info(f"  {level}: {count}")
         
-        # print(f"\n📊 Performance Metrics:")
+        # logger.info(f"\n📊 Performance Metrics:")
         # for metric, value in status['performance_metrics'].items():
         #     if isinstance(value, float):
-        #         print(f"  {metric}: {value:.2f}")
+        #         logger.info(f"  {metric}: {value:.2f}")
         #     else:
-        #         print(f"  {metric}: {value}")
+        #         logger.info(f"  {metric}: {value}")
         
         # if status['last_check_time']:
-        #     print(f"\n🕐 Last Check: {status['last_check_time']}")
+        #     logger.info(f"\n🕐 Last Check: {status['last_check_time']}")
         
-        print("Background monitoring functionality is currently disabled.")
+        logger.info("Background monitoring functionality is currently disabled.")
         
     except Exception as e:
-        print(f"❌ Failed to get status: {e}")
+        logger.error(f"❌ Failed to get status: {e}")
 
 
 async def show_alerts(team_id: str, hours: int = 24):
     """Show recent alerts."""
-    print(f"🚨 Showing alerts for team {team_id} (last {hours}h)...")
+    logger.info(f"🚨 Showing alerts for team {team_id} (last {hours}h)...")
     
     try:
         # The original script had get_background_health_monitor here,
@@ -186,10 +189,10 @@ async def show_alerts(team_id: str, hours: int = 24):
         # alerts = await monitor.get_alert_history(hours)
         
         # if not alerts:
-        #     print("✅ No alerts in the specified time period")
+        #     logger.info("✅ No alerts in the specified time period")
         #     return
         
-        # print(f"\n📋 Alert History ({len(alerts)} alerts):")
+        # logger.info(f"\n📋 Alert History ({len(alerts)} alerts):")
         # for alert in alerts[-10:]:  # Show last 10 alerts
         #     level_emoji = {
         #         "critical": "🚨",
@@ -199,47 +202,32 @@ async def show_alerts(team_id: str, hours: int = 24):
         #     }
         #     emoji = level_emoji.get(alert.level.value, "ℹ️")
         #     resolved = "✅" if alert.resolved else "⏳"
-        #     print(f"{emoji} {resolved} [{alert.timestamp.strftime('%Y-%m-%d %H:%M:%S')}] {alert.component_type.value}:{alert.component_name}")
-        #     print(f"    {alert.message}")
+        #     logger.info(f"{emoji} {resolved} [{alert.timestamp.strftime('%Y-%m-%d %H:%M:%S')}] {alert.component_type.value}:{alert.component_name}")
+        #     logger.info(f"    {alert.message}")
         #     if alert.details:
-        #         print(f"    Details: {alert.details}")
-        #     print()
+        #         logger.info(f"    Details: {alert.details}")
+        #     logger.info("")
         
-        print("Background monitoring functionality is currently disabled.")
+        logger.info("Background monitoring functionality is currently disabled.")
         
     except Exception as e:
-        print(f"❌ Failed to get alerts: {e}")
+        logger.error(f"❌ Failed to get alerts: {e}")
 
 
 async def force_check(team_id: str):
     """Force an immediate health check."""
-    print(f"🔍 Forcing immediate health check for team {team_id}...")
+    logger.info(f"🔍 Forcing immediate health check for team {team_id}...")
     
     try:
-        # The original script had get_background_health_monitor here,
-        # but it was removed from imports. This function will now
-        # need to be refactored or removed if background monitoring
-        # is no longer supported. For now, we'll keep it as is,
-        # but it will likely fail if get_background_health_monitor
-        # is not available.
-        # monitor = get_background_health_monitor(team_id)
-        # report = await monitor.force_health_check()
+        health_service = get_service(IHealthCheckService)
+        report = await health_service.perform_comprehensive_health_check()
         
-        # print(f"✅ Forced health check completed")
-        # print(f"Status: {report.overall_status.value}")
-        # print(f"Checks performed: {len(report.checks)}")
-        
-        # # Show unhealthy components
-        # unhealthy = [check for check in report.checks if check.status.value == "unhealthy"]
-        # if unhealthy:
-        #     print(f"\n❌ Unhealthy components:")
-        #     for check in unhealthy:
-        #         print(f"  - {check.component_type.value}:{check.component_name} - {check.message}")
-        
-        print("Background monitoring functionality is currently disabled.")
+        # logger.info(f"✅ Forced health check completed")
+        return report.is_healthy()
         
     except Exception as e:
-        print(f"❌ Failed to force health check: {e}")
+        logger.error(f"❌ Forced health check failed: {e}")
+        return False
 
 
 def main():
@@ -293,10 +281,10 @@ def main():
             asyncio.run(force_check(args.team_id))
         
     except KeyboardInterrupt:
-        print("\n🛑 Operation cancelled by user")
+        logger.info("\n🛑 Operation cancelled by user")
         sys.exit(1)
     except Exception as e:
-        print(f"❌ Error: {e}")
+        logger.error(f"❌ Error: {e}")
         sys.exit(1)
 
 

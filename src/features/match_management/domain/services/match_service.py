@@ -3,9 +3,9 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 
 from database.firebase_client import get_firebase_client
-from database.models_improved import Match, MatchStatus
+from features.match_management.domain.entities.match import Match, MatchStatus
 from core.exceptions import MatchError, MatchNotFoundError, create_error_context
-from services.interfaces.match_service_interface import IMatchService
+from features.match_management.domain.interfaces.match_service_interface import IMatchService
 
 logger = logging.getLogger(__name__)
 

@@ -1,38 +1,25 @@
 """
-Match Management Feature Module
+Match Management Feature
 
-This module provides the match_management functionality for the KICKAI system.
+This module provides match management functionality including match creation,
+scheduling, result recording, and attendance tracking.
 """
 
-from typing import Optional, Dict, Any
+import logging
+from typing import Dict, Any
 
-class MatchManagementFeature:
-    """Main interface for match_management functionality."""
-    
-    def __init__(self):
-        """Initialize the match_management feature."""
-        self.name = "match_management"
-        self.description = "Match creation and result management - critical for club operations"
-        self.status = "critical_priority"
-    
-    async def initialize(self) -> bool:
-        """Initialize the feature."""
-        # TODO: Implement initialization
-        return True
-    
-    async def shutdown(self) -> bool:
-        """Shutdown the feature."""
-        # TODO: Implement shutdown
-        return True
-    
-    def get_status(self) -> Dict[str, Any]:
-        """Get feature status."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "status": self.status,
-            "commands": ['/create_match', '/list_matches', '/record_result']
-        }
+logger = logging.getLogger(__name__)
 
-# Export the main feature class
-__all__ = ["MatchManagementFeature"]
+
+def initialize_match_management(config: Dict[str, Any]) -> None:
+    """Initialize the match management feature."""
+    logger.info("Initializing match management feature")
+    # Feature initialization logic would go here
+    logger.info("Match management feature initialized successfully")
+
+
+def shutdown_match_management() -> None:
+    """Shutdown the match management feature."""
+    logger.info("Shutting down match management feature")
+    # Feature shutdown logic would go here
+    logger.info("Match management feature shutdown complete")

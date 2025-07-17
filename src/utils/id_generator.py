@@ -325,8 +325,8 @@ def generate_match_id(home_team: str, away_team: str, match_date: str, match_tim
 # Example usage and testing
 if __name__ == "__main__":
     # Test team ID generation
-    print("🧪 Testing ID Generation")
-    print("=" * 50)
+    logger.info("🧪 Testing ID Generation")
+    logger.info("=" * 50)
     
     teams = [
         "Team",
@@ -339,12 +339,12 @@ if __name__ == "__main__":
         "Everton"
     ]
     
-    print("Team IDs:")
+    logger.info("Team IDs:")
     for team in teams:
         team_id = generate_team_id(team)
-        print(f"  {team} -> {team_id}")
+        logger.info(f"  {team} -> {team_id}")
     
-    print("\nPlayer IDs:")
+    logger.info("\nPlayer IDs:")
     players = [
         ("John", "Smith"),
         ("Mike", "Johnson"),
@@ -356,9 +356,9 @@ if __name__ == "__main__":
     existing_player_ids = set()
     for first, last in players:
         player_id = generate_player_id(first, last, existing_player_ids)
-        print(f"  {first} {last} -> {player_id}")
+        logger.info(f"  {first} {last} -> {player_id}")
     
-    print("\nMatch IDs:")
+    logger.info("\nMatch IDs:")
     matches = [
         ("Team", "Liverpool", "01/07/2025", "10:30"),
         ("Manchester United", "Arsenal", "15/07/2025", "14:00"),
@@ -367,6 +367,6 @@ if __name__ == "__main__":
     
     for home, away, date, time in matches:
         match_id = generate_match_id(home, away, date, time)
-        print(f"  {home} vs {away} on {date} @ {time} -> {match_id}")
+        logger.info(f"  {home} vs {away} on {date} @ {time} -> {match_id}")
     
-    print(f"\nKnown teams: {id_manager.get_known_teams()}") 
+    logger.info(f"\nKnown teams: {id_manager.get_known_teams()}") 

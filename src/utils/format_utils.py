@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from database.models_improved import Player, OnboardingStatus
+from features.player_registration.domain.entities.player import Player, OnboardingStatus
 
 logger = logging.getLogger(__name__)
 

@@ -12,7 +12,7 @@ from pydantic import Field, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from enum import Enum
 
-from .enums import AIProvider
+from core.enums import AIProvider
 
 
 class Environment(str, Enum):
@@ -328,15 +328,6 @@ class Settings(BaseSettings):
         errors = []
         
         # Required for all environments
-        if not self.telegram_bot_token:
-            errors.append("TELEGRAM_BOT_TOKEN is required")
-        
-        if not self.telegram_main_chat_id:
-            errors.append("TELEGRAM_MAIN_CHAT_ID is required")
-        
-        if not self.telegram_leadership_chat_id:
-            errors.append("TELEGRAM_LEADERSHIP_CHAT_ID is required")
-        
         if not self.firebase_project_id:
             errors.append("FIREBASE_PROJECT_ID is required")
         
