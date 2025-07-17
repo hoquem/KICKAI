@@ -15,7 +15,7 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, asdict
 from enum import Enum
 
-from services.interfaces.payment_gateway_interface import PaymentGatewayInterface
+from src.features.payment_management.domain.interfaces.payment_gateway_interface import PaymentGatewayInterface
 
 logger = logging.getLogger(__name__)
 
@@ -201,8 +201,8 @@ class MockCollectivPaymentGateway(PaymentGatewayInterface):
             status=TransactionStatus.COMPLETED,
             transaction_data={
                 "payment_method": payment_method,
-                "processor": "mock_collectiv",
-                "card_last4": "1234" if payment_method == "card" else None
+                "card_last4": "1234",
+                "card_brand": "visa"
             },
             created_at=datetime.now(),
             completed_at=datetime.now()
@@ -215,14 +215,13 @@ class MockCollectivPaymentGateway(PaymentGatewayInterface):
         link.paid_at = datetime.now()
         link.transaction_id = transaction_id
         
-        logger.info(f"✅ Processed payment for link {link_id}: £{link.amount}")
-        
         # Simulate webhook notification
         await self._simulate_webhook(link_id, transaction_id)
         
+        logger.info(f"✅ Processed payment for link {link_id}: £{link.amount}")
+        
         return {
             "id": transaction_id,
-            "payment_link_id": link_id,
             "amount": link.amount,
             "currency": link.currency,
             "status": "completed",
@@ -236,7 +235,7 @@ class MockCollectivPaymentGateway(PaymentGatewayInterface):
         
         Args:
             transaction_id: Transaction ID to refund
-            amount: Amount to refund (full amount if not specified)
+            amount: Amount to refund (if None, refunds full amount)
             
         Returns:
             Dict containing refund details
@@ -262,7 +261,7 @@ class MockCollectivPaymentGateway(PaymentGatewayInterface):
             status=TransactionStatus.REFUNDED,
             transaction_data={
                 "original_transaction_id": transaction_id,
-                "refund_reason": "user_requested"
+                "refund_reason": "customer_request"
             },
             created_at=datetime.now(),
             completed_at=datetime.now()
@@ -273,80 +272,81 @@ class MockCollectivPaymentGateway(PaymentGatewayInterface):
         # Update original transaction
         transaction.status = TransactionStatus.REFUNDED
         
-        logger.info(f"✅ Refunded payment {transaction_id}: £{refund_amount}")
+        logger.info(f"✅ Processed refund for transaction {transaction_id}: £{refund_amount}")
         
         return {
             "id": refund_id,
-            "original_transaction_id": transaction_id,
             "amount": refund_amount,
             "currency": transaction.currency,
             "status": "refunded",
-            "created_at": datetime.now().isoformat()
+            "original_transaction_id": transaction_id,
+            "completed_at": datetime.now().isoformat()
         }
     
     async def _simulate_webhook(self, link_id: str, transaction_id: str):
         """Simulate sending a webhook notification."""
         if not self.webhook_url:
-            logger.info(f"Webhook URL not configured, skipping webhook for {link_id}")
             return
         
         webhook_data = {
-            "event_type": "payment.completed",
+            "event": "payment.completed",
             "data": {
                 "payment_link_id": link_id,
                 "transaction_id": transaction_id,
                 "amount": self.payment_links[link_id].amount,
                 "currency": self.payment_links[link_id].currency,
-                "status": "completed",
-                "timestamp": datetime.now().isoformat()
+                "completed_at": datetime.now().isoformat()
             }
         }
         
-        logger.info(f"📡 Simulated webhook sent for payment {link_id}")
-        # In a real implementation, this would make an HTTP POST to the webhook URL
+        # In a real implementation, this would send an HTTP POST to the webhook URL
+        logger.info(f"📡 Simulated webhook notification: {json.dumps(webhook_data, indent=2)}")
     
     def set_webhook_url(self, url: str):
-        """Set the webhook URL for payment notifications."""
+        """Set the webhook URL for notifications."""
         self.webhook_url = url
-        logger.info(f"Webhook URL set to: {url}")
-    
-    # Implement PaymentGatewayInterface methods for backward compatibility
+        logger.info(f"✅ Webhook URL set to: {url}")
     
     async def create_charge(self, amount: float, currency: str, source: str, 
                           description: Optional[str] = None) -> Dict[str, Any]:
-        """Create a charge (simplified interface for backward compatibility)."""
-        link_id = f"cl_{uuid.uuid4().hex[:16]}"
-        reference = f"charge_{source}_{int(datetime.now().timestamp())}"
+        """
+        Create a direct charge (not using payment links).
         
-        link_data = await self.create_payment_link(
-            amount=amount,
-            currency=currency,
-            description=description or "Payment",
-            reference=reference
-        )
+        Args:
+            amount: Charge amount
+            currency: Currency code
+            source: Payment source (e.g., card token)
+            description: Charge description
+            
+        Returns:
+            Dict containing charge details
+        """
+        charge_id = f"ch_{uuid.uuid4().hex[:16]}"
         
-        # Process the payment immediately
-        transaction_data = await self.process_payment(link_id)
+        # Simulate processing delay
+        await asyncio.sleep(1)
+        
+        logger.info(f"✅ Created charge: {charge_id} for £{amount}")
         
         return {
-            "id": transaction_data["id"],
+            "id": charge_id,
             "amount": amount,
             "currency": currency,
             "status": "succeeded",
-            "payment_link_id": link_id
+            "description": description,
+            "created_at": datetime.now().isoformat()
         }
     
     async def create_refund(self, charge_id: str, amount: Optional[float] = None) -> Dict[str, Any]:
-        """Create a refund (simplified interface for backward compatibility)."""
-        return await self.refund_payment(charge_id, amount)
+        """Create a refund for a charge."""
+        refund_id = f"rf_{uuid.uuid4().hex[:16]}"
+        logger.info(f"✅ Created refund: {refund_id} for charge {charge_id}")
+        return {"id": refund_id, "status": "succeeded"}
     
     async def get_payment_status(self, charge_id: str) -> str:
-        """Get payment status (simplified interface for backward compatibility)."""
-        if charge_id in self.transactions:
-            return self.transactions[charge_id].status.value
-        return "unknown"
-    
-    # Additional utility methods
+        """Get the status of a payment."""
+        # Mock implementation - always returns succeeded
+        return "succeeded"
     
     def get_payment_link(self, link_id: str) -> Optional[MockPaymentLink]:
         """Get a payment link by ID."""
@@ -357,44 +357,32 @@ class MockCollectivPaymentGateway(PaymentGatewayInterface):
         return self.transactions.get(transaction_id)
     
     def list_payment_links(self, status: Optional[PaymentLinkStatus] = None) -> List[MockPaymentLink]:
-        """List payment links, optionally filtered by status."""
+        """List payment links with optional status filter."""
         links = list(self.payment_links.values())
         if status:
             links = [link for link in links if link.status == status]
         return links
     
     def list_transactions(self, status: Optional[TransactionStatus] = None) -> List[MockTransaction]:
-        """List transactions, optionally filtered by status."""
+        """List transactions with optional status filter."""
         transactions = list(self.transactions.values())
         if status:
             transactions = [tx for tx in transactions if tx.status == status]
         return transactions
     
     def clear_mock_data(self):
-        """Clear all mock data (useful for testing)."""
+        """Clear all mock data for testing."""
         self.payment_links.clear()
         self.transactions.clear()
-        logger.info("🧹 Cleared all mock payment data")
+        logger.info("✅ Cleared all mock payment data")
     
     def get_mock_statistics(self) -> Dict[str, Any]:
-        """Get statistics about mock payment data."""
-        total_links = len(self.payment_links)
-        total_transactions = len(self.transactions)
-        
-        status_counts = {}
-        for link in self.payment_links.values():
-            status_counts[link.status.value] = status_counts.get(link.status.value, 0) + 1
-        
-        transaction_status_counts = {}
-        for tx in self.transactions.values():
-            transaction_status_counts[tx.status.value] = transaction_status_counts.get(tx.status.value, 0) + 1
-        
-        total_amount = sum(link.amount for link in self.payment_links.values() if link.status == PaymentLinkStatus.PAID)
-        
+        """Get statistics about mock data."""
         return {
-            "total_payment_links": total_links,
-            "total_transactions": total_transactions,
-            "payment_link_status_counts": status_counts,
-            "transaction_status_counts": transaction_status_counts,
-            "total_amount_paid": total_amount
+            "payment_links_count": len(self.payment_links),
+            "transactions_count": len(self.transactions),
+            "pending_links": len([link for link in self.payment_links.values() if link.status == PaymentLinkStatus.PENDING]),
+            "paid_links": len([link for link in self.payment_links.values() if link.status == PaymentLinkStatus.PAID]),
+            "completed_transactions": len([tx for tx in self.transactions.values() if tx.status == TransactionStatus.COMPLETED]),
+            "refunded_transactions": len([tx for tx in self.transactions.values() if tx.status == TransactionStatus.REFUNDED])
         } 

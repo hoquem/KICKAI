@@ -26,7 +26,7 @@ def add_player(player_data, team_id=None):
         return result
     except Exception as e:
         logger.error(f"[Adapter] add_player failed: {e}", exc_info=True)
-        raise
+        return False, f"Failed to add player: {str(e)}"
 
 def register_player(player_data, team_id=None):
     logger.info(f"[Adapter] register_player called with data: {player_data}, team_id: {team_id}")
@@ -36,7 +36,7 @@ def register_player(player_data, team_id=None):
         return result
     except Exception as e:
         logger.error(f"[Adapter] register_player failed: {e}", exc_info=True)
-        raise
+        return False, f"Failed to register player: {str(e)}"
 
 
 class PlayerOperationsAdapter(IPlayerOperations):
@@ -54,7 +54,7 @@ class PlayerOperationsAdapter(IPlayerOperations):
             return result
         except Exception as e:
             self.logger.error(f"Error getting player info: {e}", exc_info=True)
-            return False, f"Error getting player info: {str(e)}"
+            return False, f"Failed to get player info: {str(e)}"
 
     async def get_player_by_phone(self, phone: str, team_id: str) -> Optional[PlayerInfo]:
         self.logger.info(f"[PlayerOperationsAdapter] get_player_by_phone called with phone={phone}, team_id={team_id}")
@@ -64,7 +64,7 @@ class PlayerOperationsAdapter(IPlayerOperations):
             return result
         except Exception as e:
             self.logger.error(f"Error getting player by phone: {e}", exc_info=True)
-            return None
+            return False, f"Failed to get player by phone: {str(e)}"
 
     async def list_players(self, team_id: str, is_leadership_chat: bool = False) -> str:
         self.logger.info(f"[PlayerOperationsAdapter] list_players called with team_id={team_id}, is_leadership_chat={is_leadership_chat}")
@@ -74,7 +74,7 @@ class PlayerOperationsAdapter(IPlayerOperations):
             return result
         except Exception as e:
             self.logger.error(f"Error listing players: {e}", exc_info=True)
-            return f"Error listing players: {str(e)}"
+            return False, f"Failed to list players: {str(e)}"
 
     async def register_player(self, user_id: str, team_id: str, player_id: Optional[str] = None) -> tuple[bool, str]:
         self.logger.info(f"[PlayerOperationsAdapter] register_player called with user_id={user_id}, team_id={team_id}, player_id={player_id}")
@@ -84,7 +84,7 @@ class PlayerOperationsAdapter(IPlayerOperations):
             return result
         except Exception as e:
             self.logger.error(f"Error registering player: {e}", exc_info=True)
-            return False, f"Error registering player: {str(e)}"
+            return False, f"Failed to register player: {str(e)}"
 
     async def add_player(self, name: str, phone: str, position: str = None, team_id: str = None) -> tuple[bool, str]:
         """Add a new player to the team."""
@@ -111,7 +111,7 @@ class PlayerOperationsAdapter(IPlayerOperations):
             return True, success_message
         except Exception as e:
             logger.error(f"[PlayerOperationsAdapter] Error in add_player: {e}", exc_info=True)
-            return False, f"Error adding player: {str(e)}"
+            return False, f"Failed to add player: {str(e)}"
 
     async def remove_player(self, player_id: str, team_id: str) -> tuple[bool, str]:
         self.logger.info(f"[PlayerOperationsAdapter] remove_player called with player_id={player_id}, team_id={team_id}")
@@ -121,7 +121,7 @@ class PlayerOperationsAdapter(IPlayerOperations):
             return result
         except Exception as e:
             self.logger.error(f"Error removing player: {e}", exc_info=True)
-            return False, f"Error removing player: {str(e)}"
+            return False, f"Failed to remove player: {str(e)}"
 
     async def approve_player(self, player_id: str, team_id: str) -> tuple[bool, str]:
         self.logger.info(f"[PlayerOperationsAdapter] approve_player called with player_id={player_id}, team_id={team_id}")
@@ -131,7 +131,7 @@ class PlayerOperationsAdapter(IPlayerOperations):
             return result
         except Exception as e:
             self.logger.error(f"Error approving player: {e}", exc_info=True)
-            return False, f"Error approving player: {str(e)}"
+            return False, f"Failed to approve player: {str(e)}"
 
     async def reject_player(self, player_id: str, reason: str, team_id: str) -> tuple[bool, str]:
         self.logger.info(f"[PlayerOperationsAdapter] reject_player called with player_id={player_id}, reason={reason}, team_id={team_id}")
@@ -141,7 +141,7 @@ class PlayerOperationsAdapter(IPlayerOperations):
             return result
         except Exception as e:
             self.logger.error(f"Error rejecting player: {e}", exc_info=True)
-            return False, f"Error rejecting player: {str(e)}"
+            return False, f"Failed to reject player: {str(e)}"
 
     async def reject_player_by_identifier(self, identifier: str, reason: str, team_id: str) -> tuple[bool, str]:
         """Reject a player by player ID or phone number."""
@@ -164,7 +164,7 @@ class PlayerOperationsAdapter(IPlayerOperations):
             return result
         except Exception as e:
             self.logger.error(f"Error rejecting player by identifier: {e}", exc_info=True)
-            return False, f"Error rejecting player: {str(e)}"
+            return False, f"Failed to reject player: {str(e)}"
 
     async def update_player_info(self, user_id: str, field: str, value: str, team_id: str) -> tuple[bool, str]:
         """Update a player's information."""
@@ -224,7 +224,7 @@ class PlayerOperationsAdapter(IPlayerOperations):
             
         except Exception as e:
             self.logger.error(f"Error updating player info: {e}", exc_info=True)
-            return False, f"Error updating player information: {str(e)}"
+            return False, f"Failed to update player info: {str(e)}"
 
     async def get_pending_approvals(self, team_id: str) -> str:
         self.logger.info(f"[PlayerOperationsAdapter] get_pending_approvals called with team_id={team_id}")
@@ -234,7 +234,7 @@ class PlayerOperationsAdapter(IPlayerOperations):
             return result
         except Exception as e:
             self.logger.error(f"Error getting pending approvals: {e}", exc_info=True)
-            return f"Error getting pending approvals: {str(e)}"
+            return False, f"Failed to get pending approvals: {str(e)}"
 
     async def injure_player(self, player_id: str, team_id: str) -> tuple[bool, str]:
         self.logger.info(f"[PlayerOperationsAdapter] injure_player called with player_id={player_id}, team_id={team_id}")
@@ -244,7 +244,7 @@ class PlayerOperationsAdapter(IPlayerOperations):
             return result
         except Exception as e:
             self.logger.error(f"Error injuring player: {e}", exc_info=True)
-            return False, f"Error injuring player: {str(e)}"
+            return False, f"Failed to injure player: {str(e)}"
 
     async def suspend_player(self, player_id: str, reason: str, team_id: str) -> tuple[bool, str]:
         self.logger.info(f"[PlayerOperationsAdapter] suspend_player called with player_id={player_id}, reason={reason}, team_id={team_id}")
@@ -254,7 +254,7 @@ class PlayerOperationsAdapter(IPlayerOperations):
             return result
         except Exception as e:
             self.logger.error(f"Error suspending player: {e}", exc_info=True)
-            return False, f"Error suspending player: {str(e)}"
+            return False, f"Failed to suspend player: {str(e)}"
 
     async def recover_player(self, player_id: str, team_id: str) -> tuple[bool, str]:
         self.logger.info(f"[PlayerOperationsAdapter] recover_player called with player_id={player_id}, team_id={team_id}")
@@ -264,4 +264,4 @@ class PlayerOperationsAdapter(IPlayerOperations):
             return result
         except Exception as e:
             self.logger.error(f"Error recovering player: {e}", exc_info=True)
-            return False, f"Error recovering player: {str(e)}" 
+            return False, f"Failed to recover player: {str(e)}" 

@@ -9,12 +9,12 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Any
 from dataclasses import dataclass
 
-from core.settings import Settings
-from database.models_improved import Player, OnboardingStatus
-from services.interfaces.reminder_service_interface import IReminderService
-from domain.interfaces.player_operations import IPlayerOperations
-from domain.interfaces.payment_operations import IPaymentOperations
-from utils.llm_client import LLMClient
+from src.core.settings import Settings
+from src.database.models_improved import Player, OnboardingStatus
+from src.features.communication.domain.interfaces.reminder_service_interface import IReminderService
+from src.features.player_registration.domain.interfaces.player_operations import IPlayerOperations
+from src.features.payment_management.domain.interfaces.payment_operations import IPaymentOperations
+from src.utils.llm_client import LLMClient
 
 
 @dataclass
@@ -154,7 +154,7 @@ class ReminderService(IReminderService):
 
         # Check for outstanding payments - properly async
         try:
-            from domain.interfaces.payment_models import PaymentStatus
+            from src.features.payment_management.domain.entities.payment_models import PaymentStatus
             outstanding_payments = await self.payment_operations.list_payments(player_id=player.id, status=PaymentStatus.PENDING)
         except Exception as e:
             logging.error(f"Error getting outstanding payments: {e}")
@@ -198,13 +198,13 @@ Your KICKAI Team onboarding is still incomplete. Let's get you set up!
 🔄 Step 4: FA Registration {'✅ Completed' if progress['steps']['fa_registration']['completed'] else '⏳ Pending'}
 
 💡 Quick Start:
-Just reply with: "My emergency contact is [Name], [Phone], [Relationship]"
+• Emergency Contact: Reply with "emergency: [name] [phone]"
+• Date of Birth: Reply with "dob: [YYYY-MM-DD]"
+• FA Registration: Reply with "fa: [FA number]"
 
-Example: "My emergency contact is John Doe, 07123456789, my husband"
+Need help? Just reply with "help"!"""
 
-Need help? Reply with "help" or contact admin."""
-
-        else:  # reminder_number == 3
+        else:  # reminder_number >= 3
             return f"""⏰ Final Reminder - Complete Onboarding
 
 Hi {player.name}! 👋
@@ -217,104 +217,49 @@ This is your final reminder to complete your KICKAI Team onboarding.
 🔄 Step 3: Date of Birth {'✅ Completed' if progress['steps']['date_of_birth']['completed'] else '⏳ Pending'}
 🔄 Step 4: FA Registration {'✅ Completed' if progress['steps']['fa_registration']['completed'] else '⏳ Pending'}
 
-⚠️ Important: Incomplete onboarding may delay your team approval.
+⚠️ Action Required:
+Please complete your onboarding within 24 hours to avoid delays.
 
-💡 Need Immediate Help?
-• Reply with "help" for step-by-step guidance
-• Contact admin directly
-• Use /status to see your current progress
+💡 Quick Commands:
+• /status - Check your progress
+• /help - Get assistance
+• Contact admin for support
 
-Let's get you set up today! 🏆"""
+Let's get you fully registered!"""
 
     async def _generate_payment_reminder_message(self, player: Player, payments: List[Any]) -> str:
-        """Generates an AI-driven gentle nudge for outstanding payments."""
-        llm_client = LLMClient()
-
-        payment_details = "\n".join([f"- £{p.amount:.2f} for {p.description or p.type.value.replace('_', ' ')} (Due: {p.due_date.strftime('%d/%m/%Y') if p.due_date else 'N/A'})" for p in payments])
-
-        prompt = f"""You are a professional football team administrator creating a gentle payment reminder message. Your goal is to encourage payment while maintaining a positive, supportive relationship with the player.
-
-**MESSAGE REQUIREMENTS:**
-- Tone: Friendly, encouraging, and supportive (not pushy or demanding)
-- Length: Concise but warm (2-3 sentences maximum)
-- Focus: Positive reinforcement and team spirit
-- Cultural Sensitivity: Respectful of diverse backgrounds and financial situations
-
-**TONE GUIDELINES:**
-- Use encouraging language that motivates action
-- Emphasize team benefits and positive outcomes
-- Avoid negative language or pressure tactics
-- Maintain a professional but approachable tone
-- Show understanding of busy schedules and commitments
-
-**MESSAGE STRUCTURE:**
-1. Friendly greeting with player's name
-2. Gentle reminder about outstanding payments
-3. Positive note about team participation
-4. Clear next steps or contact information
-
-**CULTURAL CONSIDERATIONS:**
-- Be mindful of different financial situations
-- Avoid assumptions about payment ability
-- Use inclusive language
-- Respect privacy and dignity
-- Consider cultural communication preferences
-
-**EXAMPLES OF GOOD MESSAGES:**
-✅ "Hi {player.name}! Just a friendly reminder about your outstanding payments. We'd love to have you fully set up and ready to play with the team. Let me know if you need any help with the payment process!"
-
-✅ "Hey {player.name}! Quick note about your pending payments - getting these sorted will ensure you're all set for our upcoming matches. Thanks for being part of our team!"
-
-**EXAMPLES TO AVOID:**
-❌ "You need to pay your fees immediately or you'll be removed from the team."
-❌ "Why haven't you paid yet? Everyone else has."
-❌ "Your payments are overdue and this is unacceptable."
-
-**OUTSTANDING PAYMENTS:**
-{payment_details}
-
-**CREATION GUIDELINES:**
-- Personalize the message using the player's name
-- Reference the specific outstanding payments
-- Keep the tone light and encouraging
-- End with a positive note about team participation
-- Make it easy for the player to take action
-
-Create a gentle, friendly reminder message that encourages payment while maintaining a positive relationship with the player."""
-        try:
-            # Use LLM to generate the message - properly async
-            generated_message = await llm_client.generate_text(prompt)
-                
-            return f"""👋 Hi {player.name}!
-
-{generated_message}
-
-To view your full financial dashboard, type /financial_dashboard.
-
-Thanks for your cooperation! ⚽🏆"""
-        except Exception as e:
-            logging.error(f"Error generating AI payment reminder: {e}")
-            # Fallback to a default message if LLM fails
-            return f"""👋 Hi {player.name}!
-
-Just a friendly reminder about your outstanding payments:
-{payment_details}
-
-Please take a moment to settle these so we can keep everything running smoothly.
-
-To view your full financial dashboard, type /financial_dashboard.
-
-Thanks for your cooperation! ⚽🏆"""
-
-    def _generate_manual_reminder_message(self, player: Player):
-        """Generate manual reminder message from admin."""
-        progress = player.get_onboarding_progress()
+        """Generate payment reminder message."""
+        total_amount = sum(payment.amount for payment in payments)
         
-        return f"""📢 Message from Admin
+        return f"""💰 Payment Reminder
 
 Hi {player.name}! 👋
 
-Just checking in on your onboarding progress. We'd love to have you fully set up and ready to play!
+You have outstanding payments that need to be settled:
+
+📊 Outstanding Payments:
+{chr(10).join([f"• {payment.description}: £{payment.amount}" for payment in payments])}
+
+💰 Total Outstanding: £{total_amount}
+
+💳 Payment Options:
+• Use the payment link provided earlier
+• Contact admin for alternative payment methods
+• Reply with "payment" for assistance
+
+⏰ Please settle these payments to avoid any delays in your registration.
+
+Need help? Reply with "help" or contact admin!"""
+
+    def _generate_manual_reminder_message(self, player: Player):
+        """Generate manual reminder message."""
+        progress = player.get_onboarding_progress()
+        
+        return f"""📢 Admin Reminder - Complete Your Onboarding
+
+Hi {player.name}! 👋
+
+Your team admin has sent you a reminder to complete your onboarding.
 
 📊 Your Progress:
 🔄 Step 1: Basic Registration ✅ Completed
@@ -322,57 +267,41 @@ Just checking in on your onboarding progress. We'd love to have you fully set up
 🔄 Step 3: Date of Birth {'✅ Completed' if progress['steps']['date_of_birth']['completed'] else '⏳ Pending'}
 🔄 Step 4: FA Registration {'✅ Completed' if progress['steps']['fa_registration']['completed'] else '⏳ Pending'}
 
-💡 Quick Help:
-Just reply with your emergency contact details to continue!
+💡 Quick Commands:
+• /status - Check your progress
+• /help - Get assistance
+• Contact admin for support
 
-Example: "My emergency contact is John Doe, 07123456789, my husband"
+Please complete your onboarding as soon as possible!"""
 
-Let me know if you need any help! 🏆"""
-    
     def _get_time_since_last_activity(self, player: Player) -> str:
-        """Get human-readable time since last activity."""
+        """Get formatted time since last activity."""
         if not player.last_activity:
             return "Unknown"
         
         time_diff = datetime.now() - player.last_activity
-        hours = int(time_diff.total_seconds() / 3600)
-        
-        if hours < 1:
-            return "Less than 1 hour"
-        elif hours < 24:
-            return f"{hours} hours"
+        if time_diff.days > 0:
+            return f"{time_diff.days} days"
+        elif time_diff.seconds > 3600:
+            return f"{time_diff.seconds // 3600} hours"
         else:
-            days = hours // 24
-            remaining_hours = hours % 24
-            if remaining_hours == 0:
-                return f"{days} days"
-            else:
-                return f"{days} days, {remaining_hours} hours"
-    
+            return f"{time_diff.seconds // 60} minutes"
+
     async def _send_telegram_message(self, telegram_id: str, message: str) -> None:
         """Send message via Telegram (placeholder for integration)."""
         # This would integrate with the Telegram bot
-        # For now, just log the message
-        logging.info(f"Sending reminder to Telegram ID {telegram_id}: {message[:100]}...")
-    
+        logging.info(f"Would send message to {telegram_id}: {message[:100]}...")
+
     async def _notify_admin_reminder_sent(self, player: Player, reminder_number: int) -> None:
         """Notify admin that a reminder was sent."""
-        try:
-            bot_token = self.settings.telegram_bot_token
-            if not bot_token or not self.settings.telegram_leadership_chat_id:
-                return
-            
-            # Send to leadership chat (this would need to be implemented)
-            logging.info(f"Admin notification sent for reminder to {player.name}")
-            
-        except Exception as e:
-            logging.error(f"Error notifying admin about reminder: {e}")
-    
+        # This would send a notification to admin
+        logging.info(f"Reminder #{reminder_number} sent to {player.name} ({player.player_id})")
+
     async def get_players_needing_reminders(self) -> List[Player]:
         """Get list of players who need reminders."""
         try:
             players = await self.player_operations.get_team_players(self.team_id)
-            return [p for p in players if p.needs_reminder()]
+            return [player for player in players if player.needs_reminder()]
         except Exception as e:
             logging.error(f"Error getting players needing reminders: {e}")
             return [] 

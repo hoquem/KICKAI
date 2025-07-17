@@ -128,7 +128,7 @@ class PlayerService(IPlayerService):
         except (PlayerError, PlayerDuplicateError):
             raise
         except Exception as e:
-            logging.error("Failed to create player")
+            logging.error(f"Failed to create player: {e}")
             raise PlayerError(
                 f"Failed to create player: {str(e)}",
                 create_error_context("create_player", team_id=team_id)
@@ -145,7 +145,7 @@ class PlayerService(IPlayerService):
             return player
             
         except Exception as e:
-            logging.error("Failed to get player")
+            logging.error(f"Failed to get player: {e} (player_id={player_id})")
             raise PlayerError(
                 f"Failed to get player: {str(e)}",
                 create_error_context("get_player", entity_id=player_id)
@@ -203,7 +203,7 @@ class PlayerService(IPlayerService):
         except (PlayerError, PlayerNotFoundError, PlayerDuplicateError):
             raise
         except Exception as e:
-            logging.error("Failed to update player")
+            logging.error(f"Failed to update player: {e}")
             raise PlayerError(
                 f"Failed to update player: {str(e)}",
                 create_error_context("update_player", entity_id=player_id)
@@ -222,7 +222,7 @@ class PlayerService(IPlayerService):
             return success
             
         except Exception as e:
-            logging.error("Failed to delete player")
+            logging.error(f"Failed to delete player: {e}")
             raise PlayerError(
                 f"Failed to delete player: {str(e)}",
                 create_error_context("delete_player", entity_id=player_id)
@@ -240,7 +240,7 @@ class PlayerService(IPlayerService):
             return players
             
         except Exception as e:
-            logging.error("Failed to get team players")
+            logging.error(f"Failed to get team players: {e}")
             raise PlayerError(
                 f"Failed to get team players: {str(e)}",
                 create_error_context("get_team_players", team_id=team_id)
@@ -262,7 +262,7 @@ class PlayerService(IPlayerService):
             return players
             
         except Exception as e:
-            logging.error("Failed to get players by status")
+            logging.error(f"Failed to get players by status: {e}")
             raise PlayerError(
                 f"Failed to get players by status: {str(e)}",
                 create_error_context("get_players_by_status", team_id=team_id, status=status.value)
@@ -292,7 +292,7 @@ class PlayerService(IPlayerService):
             return None
             
         except Exception as e:
-            logging.error("Failed to get player by phone")
+            logging.error(f"Failed to get player by phone: {e}")
             raise PlayerError(
                 f"Failed to get player by phone: {str(e)}",
                 create_error_context("get_player_by_phone", additional_info={'phone': phone, 'team_id': team_id})
@@ -322,7 +322,7 @@ class PlayerService(IPlayerService):
             return None
         except Exception as e:
             print(f"❌ [DEBUG] PlayerService.get_player_by_telegram_id exception: {e}")
-            logging.error("Failed to get player by telegram_id")
+            logging.error(f"Failed to get player by telegram_id: {e}")
             raise PlayerError(
                 f"Failed to get player by telegram_id: {str(e)}",
                 create_error_context("get_player_by_telegram_id", additional_info={'telegram_id': telegram_id, 'team_id': team_id})
@@ -729,10 +729,19 @@ class PlayerService(IPlayerService):
             )
     
     def _validate_team_id(self, team_id: str):
-        """Validate team ID using centralized validation."""
-        is_valid, error_msg = validate_team_id_with_error(team_id)
-        if not is_valid:
-            raise PlayerValidationError(
-                error_msg,
-                create_error_context("validate_team_id")
-            ) 
+        """Validate team ID format."""
+        validate_team_id_with_error(team_id)
+
+
+# Global instance and convenience function
+_player_service: Optional[PlayerService] = None
+
+
+def get_player_service(team_id: Optional[str] = None) -> PlayerService:
+    """Get the global player service instance."""
+    global _player_service
+    if _player_service is None:
+        from core.dependency_container import get_singleton
+        data_store = get_singleton("data_store")
+        _player_service = PlayerService(data_store, team_id=team_id)
+    return _player_service 

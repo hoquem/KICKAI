@@ -74,7 +74,7 @@ class TeamService(ITeamService):
         except TeamError:
             raise
         except Exception as e:
-            logging.error("Failed to create team", error=e)
+            logging.error(f"Failed to create team: {e}")
             raise TeamError(
                 f"Failed to create team: {str(e)}",
                 create_error_context("create_team")
@@ -91,7 +91,7 @@ class TeamService(ITeamService):
             return team
             
         except Exception as e:
-            logging.error("Failed to get team", error=e, entity_id=team_id)
+            logging.error(f"Failed to get team: {e} (team_id={team_id})")
             raise TeamError(
                 f"Failed to get team: {str(e)}",
                 create_error_context("get_team", entity_id=team_id)
@@ -104,7 +104,7 @@ class TeamService(ITeamService):
             return team
             
         except Exception as e:
-            logging.error("Failed to get team by name", error=e)
+            logging.error(f"Failed to get team by name: {e} (name={name})")
             raise TeamError(
                 f"Failed to get team by name: {str(e)}",
                 create_error_context("get_team_by_name", additional_info={'team_name': name})
@@ -161,7 +161,7 @@ class TeamService(ITeamService):
         except (TeamError, TeamNotFoundError):
             raise
         except Exception as e:
-            logging.error("Failed to update team", error=e, entity_id=team_id)
+            logging.error(f"Failed to update team: {e} (team_id={team_id})")
             raise TeamError(
                 f"Failed to update team: {str(e)}",
                 create_error_context("update_team", entity_id=team_id)
@@ -195,7 +195,7 @@ class TeamService(ITeamService):
         except (TeamError, TeamNotFoundError):
             raise
         except Exception as e:
-            logging.error("Failed to delete team", error=e, entity_id=team_id)
+            logging.error(f"Failed to delete team: {e} (team_id={team_id})")
             raise TeamError(
                 f"Failed to delete team: {str(e)}",
                 create_error_context("delete_team", entity_id=team_id)
@@ -218,7 +218,7 @@ class TeamService(ITeamService):
             return teams
             
         except Exception as e:
-            logging.error("Failed to get all teams", error=e)
+            logging.error(f"Failed to get all teams: {e}")
             raise TeamError(
                 f"Failed to get all teams: {str(e)}",
                 create_error_context("get_all_teams")
@@ -257,7 +257,7 @@ class TeamService(ITeamService):
         except (TeamError, TeamNotFoundError):
             raise
         except Exception as e:
-            logging.error("Failed to add team member", error=e, team_id=team_id, user_id=user_id)
+            logging.error(f"Failed to add team member: {e} (team_id={team_id}, user_id={user_id})")
             raise TeamError(
                 f"Failed to add team member: {str(e)}",
                 create_error_context("add_team_member", team_id=team_id, user_id=user_id)
@@ -299,7 +299,7 @@ class TeamService(ITeamService):
         except TeamError:
             raise
         except Exception as e:
-            logging.error("Failed to remove team member", error=e, team_id=team_id, user_id=user_id)
+            logging.error(f"Failed to remove team member: {e} (team_id={team_id}, user_id={user_id})")
             raise TeamError(
                 f"Failed to remove team member: {str(e)}",
                 create_error_context("remove_team_member", team_id=team_id, user_id=user_id)
@@ -319,46 +319,46 @@ class TeamService(ITeamService):
             return members
             
         except Exception as e:
-            logging.error("Failed to get team members", error=e, team_id=team_id)
+            logging.error(f"Failed to get team members: {e} (team_id={team_id})")
             raise TeamError(
                 f"Failed to get team members: {str(e)}",
                 create_error_context("get_team_members", team_id=team_id)
             )
     
-    async def create_bot_mapping(self, team_name: str, bot_username: str, 
+    async def create_bot_mapping(self, team_id: str, bot_username: str, 
                                chat_id: str, bot_token: str) -> BotMapping:
         """Create a bot mapping for a team."""
         try:
             # Validate team exists
-            team = await self.get_team_by_name(team_name)
+            team = await self.get_team(team_id)
             if not team:
                 raise TeamNotFoundError(
-                    f"Team not found: {team_name}",
-                    create_error_context("create_bot_mapping", additional_info={'team_name': team_name})
+                    f"Team not found: {team_id}",
+                    create_error_context("create_bot_mapping", team_id=team_id)
                 )
             
             # Check for existing mapping
-            existing_mapping = await self._data_store.get_bot_mapping_by_team(team_name)
+            existing_mapping = await self._data_store.get_bot_mapping_by_team_id(team_id)
             if existing_mapping:
                 raise TeamError(
-                    f"Bot mapping already exists for team: {team_name}",
-                    create_error_context("create_bot_mapping", team_id=team.id)
+                    f"Bot mapping already exists for team: {team.name} (ID: {team_id})",
+                    create_error_context("create_bot_mapping", team_id=team_id)
                 )
             
             # Create bot mapping
             mapping = BotMapping(
-                team_name=team_name,
+                team_name=team.name,  # Store team name for display purposes
                 bot_username=bot_username,
                 chat_id=chat_id,
                 bot_token=bot_token
             )
             
             # Save to database
-            mapping_id = await self._data_store.create_bot_mapping(mapping)
+            mapping_id = await self._data_store.create_bot_mapping(mapping, team_id)
             mapping.id = mapping_id
             
             logging.info(
-                f"Bot mapping created: {team_name} -> @{bot_username}"
+                f"Bot mapping created: {team.name} (ID: {team_id}) -> @{bot_username}"
             )
             
             return mapping
@@ -366,23 +366,23 @@ class TeamService(ITeamService):
         except (TeamError, TeamNotFoundError):
             raise
         except Exception as e:
-            logging.error("Failed to create bot mapping", error=e, team_name=team_name)
+            logging.error(f"Failed to create bot mapping: {e} (team_id={team_id})")
             raise TeamError(
                 f"Failed to create bot mapping: {str(e)}",
-                create_error_context("create_bot_mapping", additional_info={'team_name': team_name})
+                create_error_context("create_bot_mapping", team_id=team_id)
             )
     
-    async def get_bot_mapping(self, team_name: str) -> Optional[BotMapping]:
+    async def get_bot_mapping(self, team_id: str) -> Optional[BotMapping]:
         """Get bot mapping for a team."""
         try:
-            mapping = await self._data_store.get_bot_mapping_by_team(team_name)
+            mapping = await self._data_store.get_bot_mapping_by_team_id(team_id)
             return mapping
             
         except Exception as e:
-            logging.error("Failed to get bot mapping", error=e, team_name=team_name)
+            logging.error(f"Failed to get bot mapping: {e} (team_id={team_id})")
             raise TeamError(
                 f"Failed to get bot mapping: {str(e)}",
-                create_error_context("get_bot_mapping", additional_info={'team_name': team_name})
+                create_error_context("get_bot_mapping", team_id=team_id)
             )
 
     async def set_budget_limit(self, team_id: str, category: ExpenseCategory, limit: float) -> Team:

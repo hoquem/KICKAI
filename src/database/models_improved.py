@@ -707,6 +707,10 @@ class Team(BaseModel, ValidatorMixin):
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Team':
         """Create team from dictionary."""
+        # Remove team_id if present (it's not a field in the Team model)
+        if 'team_id' in data:
+            del data['team_id']
+        
         if 'status' in data and isinstance(data['status'], str):
             data['status'] = TeamStatus(data['status'])
         
