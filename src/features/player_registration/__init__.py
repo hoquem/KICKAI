@@ -1,38 +1,25 @@
 """
-Player Registration Feature Module
+Player Registration Feature
 
-This module provides the player_registration functionality for the KICKAI system.
+This module provides player registration functionality including
+player onboarding, validation, and management.
 """
 
-from typing import Optional, Dict, Any
+import logging
+from typing import Dict, Any
 
-class PlayerRegistrationFeature:
-    """Main interface for player_registration functionality."""
-    
-    def __init__(self):
-        """Initialize the player_registration feature."""
-        self.name = "player_registration"
-        self.description = "Simple player registration and approval management"
-        self.status = "ready_for_testing"
-    
-    async def initialize(self) -> bool:
-        """Initialize the feature."""
-        # TODO: Implement initialization
-        return True
-    
-    async def shutdown(self) -> bool:
-        """Shutdown the feature."""
-        # TODO: Implement shutdown
-        return True
-    
-    def get_status(self) -> Dict[str, Any]:
-        """Get feature status."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "status": self.status,
-            "commands": ['/register', '/add', '/approve', '/reject', '/status', '/list', '/pending', '/myinfo']
-        }
+logger = logging.getLogger(__name__)
 
-# Export the main feature class
-__all__ = ["PlayerRegistrationFeature"]
+
+def initialize_player_registration(config: Dict[str, Any]) -> None:
+    """Initialize the player registration feature."""
+    logger.info("Initializing player registration feature")
+    # Feature initialization logic would go here
+    logger.info("Player registration feature initialized successfully")
+
+
+def shutdown_player_registration() -> None:
+    """Shutdown the player registration feature."""
+    logger.info("Shutting down player registration feature")
+    # Feature shutdown logic would go here
+    logger.info("Player registration feature shutdown complete")

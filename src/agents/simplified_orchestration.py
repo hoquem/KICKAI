@@ -10,13 +10,44 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, List, Any, Optional
+from enum import Enum
 
 from agents.task_decomposition import TaskDecompositionManager
 from agents.complexity_assessor import RequestComplexityAssessor, ComplexityAssessment
-from agents.intelligent_system import TaskContext, Subtask, AgentRole
 from agents.configurable_agent import ConfigurableAgent
 
 logger = logging.getLogger(__name__)
+
+
+# Stub classes for compatibility - these should be imported from the new modular structure
+class AgentRole(Enum):
+    """Agent roles for task routing."""
+    MESSAGE_PROCESSOR = "message_processor"
+    TEAM_MANAGER = "team_manager"
+    PLAYER_MANAGER = "player_manager"
+    MATCH_MANAGER = "match_manager"
+    PAYMENT_MANAGER = "payment_manager"
+    SYSTEM_ADMIN = "system_admin"
+
+
+@dataclass
+class TaskContext:
+    """Context for task execution."""
+    task_id: str
+    user_id: str
+    team_id: str
+    parameters: Dict[str, Any]
+    metadata: Dict[str, Any]
+
+
+@dataclass
+class Subtask:
+    """Represents a subtask in task decomposition."""
+    task_id: str
+    description: str
+    agent_role: AgentRole
+    capabilities_required: List
+    estimated_duration: int
 
 
 @dataclass

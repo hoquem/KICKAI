@@ -1,6 +1,6 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from services.player_service import PlayerService
+from features.player_registration.domain.services.player_service import PlayerService
 from core.logger import BotLogger
 from core.exceptions import PlayerRegistrationError
 from utils.id_generator import IdGenerator

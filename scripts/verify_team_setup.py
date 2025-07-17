@@ -23,8 +23,8 @@ src_path = os.path.join(project_root, 'src')
 sys.path.insert(0, src_path)
 
 from database.firebase_client import get_firebase_client
-from services.team_service import TeamService
-from services.player_service import PlayerService
+from features.team_administration.domain.services.team_service import TeamService
+from features.player_registration.domain.services.player_service import PlayerService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

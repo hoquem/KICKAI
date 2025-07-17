@@ -11,7 +11,7 @@ import logging
 from typing import Dict, Any, List
 import firebase_admin
 from firebase_admin import credentials, firestore
-from src.database.models_improved import PlayerPosition, OnboardingStatus, Player
+from features.player_registration.domain.entities.player import Player, PlayerPosition, OnboardingStatus
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

@@ -17,7 +17,12 @@ Examples:
 import os
 import sys
 import subprocess
+import logging
 from pathlib import Path
+
+# Configure basic logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 def main():
     """Main entry point for E2E test runner."""
@@ -27,7 +32,7 @@ def main():
     
     # Check if the main E2E script exists
     if not e2e_script.exists():
-        print(f"Error: E2E test script not found at {e2e_script}")
+        logger.error(f"Error: E2E test script not found at {e2e_script}")
         sys.exit(1)
     
     # Set up environment
@@ -42,13 +47,13 @@ def main():
         result = subprocess.run(cmd, check=True)
         sys.exit(result.returncode)
     except subprocess.CalledProcessError as e:
-        print(f"E2E tests failed with exit code {e.returncode}")
+        logger.error(f"E2E tests failed with exit code {e.returncode}")
         sys.exit(e.returncode)
     except KeyboardInterrupt:
-        print("\nE2E tests interrupted by user")
+        logger.info("\nE2E tests interrupted by user")
         sys.exit(1)
     except Exception as e:
-        print(f"Error running E2E tests: {e}")
+        logger.error(f"Error running E2E tests: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":

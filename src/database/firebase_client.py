@@ -5,30 +5,34 @@ This module provides a robust Firebase client wrapper with connection pooling,
 error handling, batch operations, and performance optimization.
 """
 
-from typing import Dict, Any, Optional, List
-from datetime import datetime
-import json
-import time
-from contextlib import asynccontextmanager
-import os
 import logging
-import traceback
-
+import os
+import json
+import asyncio
+from typing import Dict, Any, Optional, List, Union
+from datetime import datetime, timezone
+from contextlib import asynccontextmanager
+from dataclasses import asdict
 import firebase_admin
 from firebase_admin import credentials, firestore
-from google.cloud.firestore_v1 import CollectionReference
-from google.api_core import exceptions as google_exceptions
 from google.cloud import firestore as firestore_client
+from google.cloud.firestore import CollectionReference
+from google.cloud.firestore_v1.base_document import DocumentSnapshot
+from google.api_core import exceptions as google_exceptions
 
-from core.settings import get_settings
-from core.constants import FIRESTORE_COLLECTION_PREFIX
-from core.exceptions import (
+from src.core.logging_config import get_logger, LogContext
+from src.core.settings import get_settings
+from src.core.constants import FIRESTORE_COLLECTION_PREFIX
+from src.core.exceptions import (
     DatabaseError, ConnectionError, NotFoundError, 
     DuplicateError, create_error_context
 )
-from utils.enum_utils import serialize_enums_for_firestore
-from utils.async_utils import async_retry, async_timeout, async_operation_context, safe_async_call
-from database.models_improved import Player, Team, Match, TeamMember, BotMapping, OnboardingStatus, TeamStatus
+from src.utils.enum_utils import serialize_enums_for_firestore
+from src.utils.async_utils import async_retry, async_timeout, async_operation_context, safe_async_call
+from src.features.team_administration.domain.entities.bot_mapping import BotMapping
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 class FirebaseClient:
     """Robust Firebase client wrapper with connection pooling and error handling."""
@@ -41,7 +45,7 @@ class FirebaseClient:
         
         # Skip initialization in testing environment
         if config.firebase_project_id == "test_project":
-            logging.info("Test environment detected, skipping Firebase initialization")
+            logger.info("Test environment detected, skipping Firebase initialization")
             return
             
         self._initialize_client()
@@ -53,21 +57,21 @@ class FirebaseClient:
                 import os
                 import json
                 
-                logging.info("🔍 Starting Firebase client initialization...")
+                logger.info("🔍 Starting Firebase client initialization...")
                 
                 # Check if Firebase app is already initialized
                 try:
                     firebase_admin.get_app()
-                    logging.info("✅ Using existing Firebase app")
+                    logger.info("✅ Using existing Firebase app")
                 except ValueError:
-                    logging.info("🔄 Initializing new Firebase app...")
+                    logger.info("🔄 Initializing new Firebase app...")
                     
                     # Get credentials from FIREBASE_CREDENTIALS_JSON or FIREBASE_CREDENTIALS_FILE
                     firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
                     creds_dict = None
                     if firebase_creds_json:
                         try:
-                            logging.info("🔄 Using FIREBASE_CREDENTIALS_JSON...")
+                            logger.info("🔄 Using FIREBASE_CREDENTIALS_JSON...")
                             creds_dict = json.loads(firebase_creds_json)
                         except json.JSONDecodeError as e:
                             raise RuntimeError(f"Invalid JSON in FIREBASE_CREDENTIALS_JSON: {e}")
@@ -75,7 +79,7 @@ class FirebaseClient:
                         firebase_creds_file = os.getenv('FIREBASE_CREDENTIALS_FILE')
                         if firebase_creds_file:
                             try:
-                                logging.info(f"🔄 Using FIREBASE_CREDENTIALS_FILE: {firebase_creds_file} ...")
+                                logger.info(f"🔄 Using FIREBASE_CREDENTIALS_FILE: {firebase_creds_file} ...")
                                 with open(firebase_creds_file, 'r') as f:
                                     creds_dict = json.load(f)
                             except Exception as e:
@@ -85,37 +89,37 @@ class FirebaseClient:
 
                     # Log private key details for debugging
                     private_key = creds_dict.get('private_key', '')
-                    logging.info(f"🔍 Private key length: {len(private_key)} characters")
+                    logger.info(f"🔍 Private key length: {len(private_key)} characters")
                     
                     # Create credentials
                     try:
                         cred = credentials.Certificate(creds_dict)
-                        logging.info("✅ Credentials created from JSON string")
+                        logger.info("✅ Credentials created from JSON string")
                     except Exception as e:
                         raise RuntimeError(f"Failed to create credentials from JSON: {e}")
                     
                     # Initialize Firebase app
                     try:
-                        logging.info("🔄 Initializing Firebase app...")
+                        logger.info("🔄 Initializing Firebase app...")
                         firebase_admin.initialize_app(cred)
-                        logging.info("✅ Firebase app initialized successfully")
+                        logger.info("✅ Firebase app initialized successfully")
                     except Exception as e:
                         raise RuntimeError(f"Failed to initialize Firebase app: {e}")
             
             # Create Firestore client with error handling
             try:
                 self._client = firestore.client()
-                logging.info("✅ Firebase Firestore client created successfully")
+                logger.info("✅ Firebase Firestore client created successfully")
             except Exception as e:
                 if "AuthMetadataPluginCallback" in str(e):
-                    logging.warning("⚠️ gRPC AuthMetadataPluginCallback error in client creation (usually harmless): {e}")
+                    logger.warning("⚠️ gRPC AuthMetadataPluginCallback error in client creation (usually harmless): {e}")
                     # Try to continue anyway
                     self._client = firestore.client()
                 else:
                     raise e
             
         except Exception as e:
-            logging.error("Failed to initialize Firebase client")
+            logger.error("Failed to initialize Firebase client")
             raise ConnectionError(
                 f"Failed to initialize Firebase client: {str(e)}",
                 create_error_context("firebase", error=e)
@@ -199,7 +203,7 @@ class FirebaseClient:
                     results.append(doc_id)
             
             batch.commit()
-            logging.info(f"Batch operation completed: {len(operations)} operations")
+            logger.info(f"Batch operation completed: {len(operations)} operations")
             return results
             
         except Exception as e:
@@ -215,13 +219,13 @@ class FirebaseClient:
         async with async_operation_context("create_document", collection=collection, document_id=document_id):
             try:
                 data_serialized = serialize_enums_for_firestore(data)
-                logging.info(f"[Firestore] Creating document in '{collection}' with data: {data_serialized}")
+                logger.info(f"[Firestore] Creating document in '{collection}' with data: {data_serialized}")
                 doc_ref = self._get_collection(collection).document(document_id) if document_id else self._get_collection(collection).document()
                 doc_ref.set(data_serialized)
-                logging.info(f"[Firestore] Document created: {doc_ref.id}")
+                logger.info(f"[Firestore] Document created: {doc_ref.id}")
                 return doc_ref.id
             except Exception as e:
-                logging.error(f"[Firestore] Failed to create document in '{collection}': {e}\n{traceback.format_exc()}")
+                logger.error(f"[Firestore] Failed to create document in '{collection}': {e}\n{traceback.format_exc()}")
                 self._handle_firebase_error(e, "create_document", additional_info={'collection': collection})
                 return ""
     
@@ -254,13 +258,13 @@ class FirebaseClient:
         async with async_operation_context("update_document", collection=collection, document_id=document_id):
             try:
                 data_serialized = serialize_enums_for_firestore(data)
-                logging.info(f"[Firestore] Updating document in '{collection}' with ID: {document_id}, data: {data_serialized}")
+                logger.info(f"[Firestore] Updating document in '{collection}' with ID: {document_id}, data: {data_serialized}")
                 doc_ref = self._get_collection(collection).document(document_id)
                 doc_ref.update(data_serialized)
-                logging.info(f"[Firestore] Document updated: {document_id}")
+                logger.info(f"[Firestore] Document updated: {document_id}")
                 return True
             except Exception as e:
-                logging.error(f"[Firestore] Failed to update document in '{collection}' (document_id={document_id}): {e}\n{traceback.format_exc()}")
+                logger.error(f"[Firestore] Failed to update document in '{collection}' (document_id={document_id}): {e}\n{traceback.format_exc()}")
                 self._handle_firebase_error(e, "update_document", 
                                           entity_id=document_id, additional_info={'collection': collection})
                 return False  # Return False on error
@@ -268,13 +272,13 @@ class FirebaseClient:
     async def delete_document(self, collection: str, document_id: str) -> bool:
         """Delete a document."""
         try:
-            logging.info(f"[Firestore] Deleting document in '{collection}' with ID: {document_id}")
+            logger.info(f"[Firestore] Deleting document in '{collection}' with ID: {document_id}")
             doc_ref = self._get_collection(collection).document(document_id)
             doc_ref.delete()
-            logging.info(f"[Firestore] Document deleted: {document_id}")
+            logger.info(f"[Firestore] Document deleted: {document_id}")
             return True
         except Exception as e:
-            logging.error(f"[Firestore] Failed to delete document in '{collection}' (document_id={document_id}): {e}\n{traceback.format_exc()}")
+            logger.error(f"[Firestore] Failed to delete document in '{collection}' (document_id={document_id}): {e}\n{traceback.format_exc()}")
             self._handle_firebase_error(e, "delete_document", 
                                       entity_id=document_id, additional_info={'collection': collection})
             return False  # Return False on error
@@ -284,11 +288,11 @@ class FirebaseClient:
     async def query_documents(self, collection: str, filters: Optional[List[Dict[str, Any]]] = None,
                             order_by: Optional[str] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Query documents with filters and ordering."""
-        print(f"🔍 [DEBUG] FirebaseClient.query_documents called with collection={collection}, filters={filters}, limit={limit}")
+        logger.debug(f"Query documents called with collection={collection}, filters={filters}, limit={limit}")
         async with async_operation_context("query_documents", collection=collection, filters_count=len(filters) if filters else 0):
             try:
                 query = self._get_collection(collection)
-                print(f"🔍 [DEBUG] FirebaseClient got collection: {collection}")
+                logger.debug(f"Got collection: {collection}")
                 
                 # Apply filters
                 if filters:
@@ -296,21 +300,21 @@ class FirebaseClient:
                         field = filter_item['field']
                         operator = filter_item['operator']
                         value = filter_item['value']
-                        print(f"🔍 [DEBUG] FirebaseClient applying filter: {field} {operator} {value}")
+                        logger.debug(f"Applying filter: {field} {operator} {value}")
                         query = query.where(field, operator, value)
                 
                 # Apply ordering
                 if order_by:
-                    print(f"🔍 [DEBUG] FirebaseClient applying order_by: {order_by}")
+                    logger.debug(f"Applying order_by: {order_by}")
                     query = query.order_by(order_by)
                 
                 # Apply limit
                 if limit:
-                    print(f"🔍 [DEBUG] FirebaseClient applying limit: {limit}")
+                    logger.debug(f"Applying limit: {limit}")
                     query = query.limit(limit)
                 
                 # Execute query
-                print(f"🔍 [DEBUG] FirebaseClient executing query.stream()")
+                logger.debug("Executing query.stream()")
                 docs = query.stream()
                 results = []
                 
@@ -319,11 +323,11 @@ class FirebaseClient:
                     data['id'] = doc.id
                     results.append(data)
                 
-                print(f"🔍 [DEBUG] FirebaseClient.query_documents returning {len(results)} results: {results}")
+                logger.debug(f"Query documents returning {len(results)} results: {results}")
                 return results
                 
             except Exception as e:
-                print(f"❌ [DEBUG] FirebaseClient.query_documents exception: {e}")
+                logger.error(f"Query documents exception: {e}")
                 self._handle_firebase_error(e, "query_documents", 
                                           additional_info={'collection': collection, 'filters': filters})
                 return []  # Return empty list on error
@@ -339,20 +343,20 @@ class FirebaseClient:
             return []  # Return empty list on error
     
     # Player-specific operations
-    async def create_player(self, player: Player) -> str:
+    async def create_player(self, player: Any) -> str:
         """Create a new player."""
         data = serialize_enums_for_firestore(player.to_dict())
         # Use player_id as the document ID for predictable lookups
         return await self.create_document('players', data, player.player_id)
     
-    async def get_player(self, player_id: str) -> Optional[Player]:
+    async def get_player(self, player_id: str) -> Optional[Any]:
         """Get a player by ID."""
         data = await self.get_document('players', player_id)
         if data:
-            return Player.from_dict(data)
+            return Any.from_dict(data)
         return None
     
-    async def update_player(self, player_id: str, updates: Dict[str, Any]) -> Optional[Player]:
+    async def update_player(self, player_id: str, updates: Dict[str, Any]) -> Optional[Any]:
         """Update a player by ID with specific fields and return the updated player."""
         try:
             # First get the current player data
@@ -370,30 +374,30 @@ class FirebaseClient:
                 return None
             
             # Return the updated player object
-            return Player.from_dict(current_data)
+            return Any.from_dict(current_data)
             
         except Exception as e:
-            logging.error(f"Failed to update player {player_id}: {e}")
+            logger.error(f"Failed to update player {player_id}: {e}")
             return None
     
     async def delete_player(self, player_id: str) -> bool:
         """Delete a player."""
         return await self.delete_document('players', player_id)
     
-    async def get_players_by_team(self, team_id: str) -> List[Player]:
+    async def get_players_by_team(self, team_id: str) -> List[Any]:
         """Get all players for a team."""
         filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
         data_list = await self.query_documents('players', filters)
         players = []
         for data in data_list:
-            player = Player.from_dict(data)
+            player = Any.from_dict(data)
             if player:
                 players.append(player)
             else:
-                logging.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_players_by_team")
+                logger.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_players_by_team")
         return players
     
-    async def get_player_by_phone(self, phone: str, team_id: Optional[str] = None) -> Optional[Player]:
+    async def get_player_by_phone(self, phone: str, team_id: Optional[str] = None) -> Optional[Any]:
         """Get a player by phone number, optionally filtered by team."""
         from utils.phone_utils import get_phone_variants
         
@@ -407,18 +411,18 @@ class FirebaseClient:
                 filters.append({'field': 'team_id', 'operator': '==', 'value': team_id})
             data_list = await self.query_documents('players', filters, limit=1)
             for data in data_list:
-                player = Player.from_dict(data)
+                player = Any.from_dict(data)
                 if player:
                     return player
                 else:
-                    logging.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_player_by_phone")
+                    logger.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_player_by_phone")
         return None
     
-    async def get_team_players(self, team_id: str) -> List[Player]:
+    async def get_team_players(self, team_id: str) -> List[Any]:
         """Get all players for a team."""
         return await self.get_players_by_team(team_id)
     
-    async def get_players_by_status(self, team_id: str, status: OnboardingStatus) -> List[Player]:
+    async def get_players_by_status(self, team_id: str, status: Any) -> List[Any]:
         """Get players by onboarding status."""
         filters = [
             {'field': 'team_id', 'operator': '==', 'value': team_id},
@@ -427,31 +431,31 @@ class FirebaseClient:
         data_list = await self.query_documents('players', filters)
         players = []
         for data in data_list:
-            player = Player.from_dict(data)
+            player = Any.from_dict(data)
             if player:
                 players.append(player)
             else:
-                logging.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_players_by_status")
+                logger.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_players_by_status")
         return players
     
-    async def get_all_players(self, team_id: str) -> List[Player]:
+    async def get_all_players(self, team_id: str) -> List[Any]:
         """Get all players for a team (alias for get_players_by_team)."""
         return await self.get_players_by_team(team_id)
     
     # Team-specific operations
-    async def create_team(self, team: Team) -> str:
+    async def create_team(self, team: Any) -> str:
         """Create a new team."""
         data = team.to_dict()
         return await self.create_document('teams', data, team.id)
     
-    async def get_team(self, team_id: str) -> Optional[Team]:
+    async def get_team(self, team_id: str) -> Optional[Any]:
         """Get a team by ID."""
         data = await self.get_document('teams', team_id)
         if data:
-            return Team.from_dict(data)
+            return Any.from_dict(data)
         return None
     
-    async def update_team(self, team: Team) -> bool:
+    async def update_team(self, team: Any) -> bool:
         """Update a team."""
         data = team.to_dict()
         return await self.update_document('teams', team.id, data)
@@ -460,49 +464,57 @@ class FirebaseClient:
         """Delete a team."""
         return await self.delete_document('teams', team_id)
     
-    async def get_team_by_name(self, name: str) -> Optional[Team]:
+    async def get_team_by_name(self, name: str) -> Optional[Any]:
         """Get a team by name."""
         filters = [{'field': 'name', 'operator': '==', 'value': name}]
         data_list = await self.query_documents('teams', filters, limit=1)
         if data_list:
-            return Team.from_dict(data_list[0])
+            return Any.from_dict(data_list[0])
         return None
     
-    async def get_all_teams(self, status: Optional[TeamStatus] = None) -> List[Team]:
+    async def get_all_teams(self, status: Optional[Any] = None) -> List[Any]:
         """Get all teams, optionally filtered by status."""
         filters = []
         if status:
             filters.append({'field': 'status', 'operator': '==', 'value': status.value})
         data_list = await self.query_documents('teams', filters)
-        return [Team.from_dict(data) for data in data_list]
+        return [Any.from_dict(data) for data in data_list]
     
     # Bot mapping operations
-    async def create_bot_mapping(self, mapping: BotMapping) -> str:
+    async def create_bot_mapping(self, mapping: Any) -> str:
         """Create a new bot mapping."""
         data = mapping.to_dict()
         return await self.create_document('bot_mappings', data, mapping.id)
     
-    async def get_bot_mapping(self, team_name: str) -> Optional[BotMapping]:
+    async def get_bot_mapping(self, team_name: str) -> Optional[Any]:
         """Get a bot mapping by team name."""
         filters = [{'field': 'team_name', 'operator': '==', 'value': team_name}]
         data_list = await self.query_documents('bot_mappings', filters, limit=1)
         if data_list:
-            return BotMapping.from_dict(data_list[0])
+            return Any.from_dict(data_list[0])
         return None
     
-    async def get_bot_mapping_by_username(self, bot_username: str) -> Optional[BotMapping]:
+    async def get_bot_mapping_by_username(self, bot_username: str) -> Optional[Any]:
         """Get a bot mapping by bot username."""
         filters = [{'field': 'bot_username', 'operator': '==', 'value': bot_username}]
         data_list = await self.query_documents('bot_mappings', filters, limit=1)
         if data_list:
-            return BotMapping.from_dict(data_list[0])
+            return Any.from_dict(data_list[0])
         return None
     
-    async def get_bot_mapping_by_team(self, team_name: str) -> Optional[BotMapping]:
+    async def get_bot_mapping_by_team(self, team_name: str) -> Optional[Any]:
         """Get a bot mapping by team name (alias for get_bot_mapping)."""
         return await self.get_bot_mapping(team_name)
     
-    async def update_bot_mapping(self, mapping: BotMapping) -> bool:
+    async def get_bot_mapping_by_team_id(self, team_id: str) -> Optional[Any]:
+        """Get a bot mapping by team ID."""
+        filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
+        data_list = await self.query_documents('bot_mappings', filters, limit=1)
+        if data_list:
+            return Any.from_dict(data_list[0])
+        return None
+    
+    async def update_bot_mapping(self, mapping: Any) -> bool:
         """Update a bot mapping."""
         data = mapping.to_dict()
         return await self.update_document('bot_mappings', mapping.id, data)
@@ -515,29 +527,29 @@ class FirebaseClient:
             return await self.delete_document('bot_mappings', data_list[0]['id'])
         return False
     
-    async def get_all_bot_mappings(self) -> List[BotMapping]:
+    async def get_all_bot_mappings(self) -> List[Any]:
         """Get all bot mappings from Firestore."""
         try:
             data_list = await self.query_documents('bot_mappings')
-            return [BotMapping.from_dict(data) for data in data_list]
+            return [Any.from_dict(data) for data in data_list]
         except Exception as e:
-            logging.error(f"Failed to fetch bot mappings: {e}")
+            logger.error(f"Failed to fetch bot mappings: {e}")
             return []
     
     # Match-specific operations
-    async def create_match(self, match: Match) -> str:
+    async def create_match(self, match: Any) -> str:
         """Create a new match."""
         data = match.to_dict()
         return await self.create_document('matches', data, match.id)
     
-    async def get_match(self, match_id: str) -> Optional[Match]:
+    async def get_match(self, match_id: str) -> Optional[Any]:
         """Get a match by ID."""
         data = await self.get_document('matches', match_id)
         if data:
-            return Match.from_dict(data)
+            return Any.from_dict(data)
         return None
     
-    async def update_match(self, match: Match) -> bool:
+    async def update_match(self, match: Any) -> bool:
         """Update a match."""
         data = match.to_dict()
         return await self.update_document('matches', match.id, data)
@@ -546,31 +558,31 @@ class FirebaseClient:
         """Delete a match."""
         return await self.delete_document('matches', match_id)
     
-    async def get_matches_by_team(self, team_id: str) -> List[Match]:
+    async def get_matches_by_team(self, team_id: str) -> List[Any]:
         """Get all matches for a team."""
         filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
         data_list = await self.query_documents('matches', filters)
-        return [Match.from_dict(data) for data in data_list]
+        return [Any.from_dict(data) for data in data_list]
     
-    async def get_team_matches(self, team_id: str) -> List[Match]:
+    async def get_team_matches(self, team_id: str) -> List[Any]:
         """Get all matches for a team."""
         return await self.get_matches_by_team(team_id)
     
     # Team Member methods
-    async def create_team_member(self, team_member: TeamMember) -> str:
+    async def create_team_member(self, team_member: Any) -> str:
         """Create a new team member."""
         data = team_member.to_dict()
         return await self.create_document('team_members', data)
     
-    async def get_team_member(self, member_id: str) -> Optional[TeamMember]:
+    async def get_team_member(self, member_id: str) -> Optional[Any]:
         """Get a team member by ID."""
         data = await self.get_document('team_members', member_id)
         if data:
             data['id'] = member_id
-            return TeamMember.from_dict(data)
+            return Any.from_dict(data)
         return None
     
-    async def update_team_member(self, team_member: TeamMember) -> bool:
+    async def update_team_member(self, team_member: Any) -> bool:
         """Update a team member."""
         data = team_member.to_dict()
         return await self.update_document('team_members', team_member.id, data)
@@ -579,17 +591,17 @@ class FirebaseClient:
         """Delete a team member."""
         return await self.delete_document('team_members', member_id)
     
-    async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]:
+    async def get_team_members_by_team(self, team_id: str) -> List[Any]:
         """Get all team members for a team."""
         try:
             filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
             documents = await self.query_documents('team_members', filters)
-            return [TeamMember.from_dict(doc) for doc in documents]
+            return [Any.from_dict(doc) for doc in documents]
         except Exception:
-            logging.error("Error getting team members by team")
+            logger.error("Error getting team members by team")
             return []  # Return empty list on error
     
-    async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[TeamMember]:
+    async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[Any]:
         """Get a team member by telegram_id and team_id."""
         try:
             filters = [
@@ -599,13 +611,13 @@ class FirebaseClient:
             documents = await self.query_documents('team_members', filters)
             
             if documents:
-                return TeamMember.from_dict(documents[0])
+                return Any.from_dict(documents[0])
             return None
             
         except Exception:
-            logging.error("Error getting team member by telegram_id")
+            logger.error("Error getting team member by telegram_id")
     
-    async def get_team_members_by_role(self, team_id: str, role: str) -> List[TeamMember]:
+    async def get_team_members_by_role(self, team_id: str, role: str) -> List[Any]:
         """Get team members by role."""
         filters = [
             {'field': 'team_id', 'operator': '==', 'value': team_id},
@@ -616,36 +628,35 @@ class FirebaseClient:
         team_members = []
         for data in data_list:
             if 'id' in data:
-                team_members.append(TeamMember.from_dict(data))
+                team_members.append(Any.from_dict(data))
         
         return team_members
     
-    async def get_leadership_members(self, team_id: str) -> List[TeamMember]:
+    async def get_leadership_members(self, team_id: str) -> List[Any]:
         """Get all leadership members (with leadership chat access)."""
         team_members = await self.get_team_members_by_team(team_id)
         return [member for member in team_members 
                 if member.chat_access.get('leadership_chat', False)]
     
-    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[Player]:
+    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[Any]:
         """Get a player by telegram_id and team_id efficiently."""
-        print(f"🔍 [DEBUG] FirebaseClient.get_player_by_telegram_id called with telegram_id={telegram_id}, team_id={team_id}")
+        logger.debug(f"get_player_by_telegram_id called with telegram_id={telegram_id}, team_id={team_id}")
         try:
             filters = [
                 {'field': 'telegram_id', 'operator': '==', 'value': telegram_id},
                 {'field': 'team_id', 'operator': '==', 'value': team_id}
             ]
-            print(f"🔍 [DEBUG] FirebaseClient calling query_documents('players', {filters}, limit=1)")
+            logger.debug(f"calling query_documents('players', {filters}, limit=1)")
             data_list = await self.query_documents('players', filters, limit=1)
-            print(f"🔍 [DEBUG] FirebaseClient.query_documents result: {data_list}")
+            logger.debug(f"query_documents result: {data_list}")
             if data_list:
-                player = Player.from_dict(data_list[0])
-                print(f"🔍 [DEBUG] FirebaseClient created Player object: {player}")
+                player = Any.from_dict(data_list[0])
+                logger.debug(f"created Player object: {player}")
                 return player
-            print(f"🔍 [DEBUG] FirebaseClient: No player found with telegram_id={telegram_id}, team_id={team_id}")
+            logger.debug(f"No player found with telegram_id={telegram_id}, team_id={team_id}")
             return None
         except Exception as e:
-            print(f"❌ [DEBUG] FirebaseClient.get_player_by_telegram_id exception: {e}")
-            logging.error(f"Error getting player by telegram_id: {e}")
+            logger.error(f"Error getting player by telegram_id: {e}")
             return None
     
     # Health check
@@ -667,7 +678,7 @@ class FirebaseClient:
             }
             
         except Exception as e:
-            logging.error("Database health check failed")
+            logger.error("Database health check failed")
             return {
                 'status': 'unhealthy',
                 'error': str(e),
@@ -701,7 +712,7 @@ import asyncio
 async def seed_kickai_testing_bot_mapping():
     """Seed Firestore with the KickAI Testing bot mapping for local testing."""
     client = get_firebase_client()
-    from database.models_improved import BotMapping
+    from features.team_administration.domain.entities.bot_mapping import BotMapping
     mapping = BotMapping.create(
         team_name="KAI",
         bot_username="KickAITesting_bot",
@@ -717,4 +728,4 @@ async def seed_kickai_testing_bot_mapping():
         bot_token="7693359073:AAEnLqhdbCOfnf0RDfjn71z8GLRooNKNYsM"
     )
     await client.create_bot_mapping(mapping_leadership)
-    print("✅ Seeded KickAI Testing bot mappings in Firestore.") 
+    logger.info("✅ Seeded KickAI Testing bot mappings in Firestore.") 

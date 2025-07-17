@@ -154,13 +154,17 @@ Ensure the admin has the following permissions in both chats:
 
 The admin should see an admin badge (👑) next to their name in both chats.
 
+### 4.4 Promoting Members to Admin
+
+To promote a member to admin, use `/promote <member_id>` in the leadership chat (admin only).
+
 ## Step 5: Bot Startup and Admin Registration
 
 ### 5.1 Start the Bot
 
 ```bash
 # Start the Telegram bot
-PYTHONPATH=src python run_telegram_bot.py
+PYTHONPATH=src python run_bot_local.py
 ```
 
 ### 5.2 Admin Registration
@@ -282,7 +286,7 @@ PYTHONPATH=src python scripts/bootstrap_team.py [parameters]
 
 #### If Bot Stops Working
 1. Check bot logs for errors
-2. Restart bot: `python run_telegram_bot.py`
+2. Restart bot: `python run_bot_local.py`
 3. Verify bot token is still valid
 4. Check database connectivity
 

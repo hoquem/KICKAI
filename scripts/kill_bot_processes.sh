@@ -6,7 +6,7 @@
 echo "🔍 Searching for KICKAI bot processes..."
 
 # Find and kill bot processes
-BOT_PROCESSES=$(ps aux | grep -E "(run_telegram_bot|railway_main|railway_web|7693359073)" | grep -v grep | awk '{print $2}')
+BOT_PROCESSES=$(ps aux | grep -E "(run_bot_local.py|run_bot_railway.py|railway_main|railway_web|7693359073)" | grep -v grep | awk '{print $2}')
 
 if [ -z "$BOT_PROCESSES" ]; then
     echo "✅ No bot processes found running"
@@ -23,7 +23,7 @@ else
 fi
 
 # Check for any remaining processes
-REMAINING=$(ps aux | grep -E "(run_telegram_bot|railway_main|railway_web|7693359073)" | grep -v grep)
+REMAINING=$(ps aux | grep -E "(run_bot_local.py|run_bot_railway.py|railway_main|railway_web|7693359073)" | grep -v grep)
 
 if [ -z "$REMAINING" ]; then
     echo "✅ All bot processes successfully terminated"
