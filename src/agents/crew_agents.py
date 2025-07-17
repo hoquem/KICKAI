@@ -28,11 +28,8 @@ from core.enums import AgentRole, AIProvider
 from config.agents import get_agent_config, get_enabled_agent_configs
 from agents.configurable_agent import ConfigurableAgent, AgentFactory
 from utils.llm_factory import LLMFactory, LLMConfig, LLMProviderError
-from agents.intelligent_system import (
-    IntentClassifier, RequestComplexityAssessor, DynamicTaskDecomposer,
-    CapabilityBasedRouter, TaskExecutionOrchestrator, UserPreferenceLearner,
-    TaskContext, TaskComplexity, Subtask, CapabilityType
-)
+# Removed imports from deleted intelligent_system - functionality moved to modular structure
+# TaskContext, Subtask, CapabilityType, AgentRole, IntentClassifier are now handled by modular components
 
 logger = logging.getLogger(__name__)
 
@@ -71,34 +68,32 @@ class AgentToolsManager:
         """Build the tool registry with all available tools."""
         tool_registry = {}
         
-        print(f"🔍 [DEBUG] AgentToolsManager._build_tool_registry called for team {self.team_config.default_team_id}")
+        logger.debug(f"AgentToolsManager._build_tool_registry called for team {self.team_config.default_team_id}")
         logger.info(f"[TOOL REGISTRY] Starting tool registry build for team {self.team_config.default_team_id}")
         
         try:
             # Import and register all available tools
-            from domain.tools.communication_tools import (
-                SendMessageTool, SendPollTool, SendAnnouncementTool
+            from features.communication.domain.tools.communication_tools import (
+                SendMessageTool, SendAnnouncementTool, GetChatInfoTool
             )
-            from domain.tools.player_tools import (
-                GetAllPlayersTool, GetPlayerByIdTool, GetPendingApprovalsTool,
-    GetPlayerStatusTool, GetMyStatusTool, ApprovePlayerTool
+            from features.player_registration.domain.tools.player_tools import (
+                GetAllPlayersTool, GetPlayerStatusTool, GetPlayerInfoTool, UpdatePlayerInfoTool
             )
-            from domain.tools.logging_tools import (
-                LogCommandTool, LogEventTool
+            from features.system_infrastructure.domain.tools.logging_tools import (
+                LogCommandTool, LogErrorTool
             )
             
             # Get command operations interface
-            from domain.interfaces.command_operations import ICommandOperations
-            from services.command_operations_factory import get_command_operations
+            from features.system_infrastructure.domain.services.command_operations_factory import get_command_operations
             
-            print(f"🔍 [DEBUG] Getting command operations interface")
+            logger.debug("Getting command operations interface")
             logger.info(f"[TOOL REGISTRY] Getting command operations interface")
             command_operations = get_command_operations()
-            print(f"🔍 [DEBUG] Command operations interface: {type(command_operations).__name__}")
+            logger.debug(f"Command operations interface: {type(command_operations).__name__}")
             logger.info(f"[TOOL REGISTRY] Command operations interface: {type(command_operations).__name__}")
             
             # Communication tools
-            print(f"🔍 [DEBUG] Registering communication tools")
+            logger.debug("Registering communication tools")
             logger.info(f"[TOOL REGISTRY] Registering communication tools")
             send_message_tool = SendMessageTool(team_id=self.team_config.default_team_id)
             if self.telegram_context:
@@ -106,40 +101,39 @@ class AgentToolsManager:
             tool_registry['send_message'] = send_message_tool
             tool_registry['send_poll'] = SendPollTool(team_id=self.team_config.default_team_id)
             tool_registry['send_announcement'] = SendAnnouncementTool(team_id=self.team_config.default_team_id)
-            print(f"🔍 [DEBUG] Communication tools registered: {list(tool_registry.keys())[-3:]}")
+            logger.debug(f"Communication tools registered: {list(tool_registry.keys())[-3:]}")
             logger.info(f"[TOOL REGISTRY] ✅ Communication tools registered: {list(tool_registry.keys())[-3:]}")
             
             # Player tools - need command_operations
-            print(f"🔍 [DEBUG] Registering player tools with command_operations")
+            logger.debug("Registering player tools with command_operations")
             logger.info(f"[TOOL REGISTRY] Registering player tools with command_operations")
             tool_registry['get_all_players'] = GetAllPlayersTool(team_id=self.team_config.default_team_id, is_leadership_chat=False)
             tool_registry['get_player_by_id'] = GetPlayerByIdTool(team_id=self.team_config.default_team_id)
             tool_registry['get_pending_approvals'] = GetPendingApprovalsTool(team_id=self.team_config.default_team_id)
             tool_registry['approve_player'] = ApprovePlayerTool(team_id=self.team_config.default_team_id)
-            print(f"🔍 [DEBUG] Player tools registered: {list(tool_registry.keys())[-6:]}")
+            logger.debug(f"Player tools registered: {list(tool_registry.keys())[-6:]}")
             logger.info(f"[TOOL REGISTRY] ✅ Player tools registered: {list(tool_registry.keys())[-6:]}")
             
             # Logging tools
-            print(f"🔍 [DEBUG] Registering logging tools")
+            logger.debug("Registering logging tools")
             logger.info(f"[TOOL REGISTRY] Registering logging tools")
             tool_registry['log_command'] = LogCommandTool(team_id=self.team_config.default_team_id)
             tool_registry['log_event'] = LogEventTool(team_id=self.team_config.default_team_id)
-            print(f"🔍 [DEBUG] Logging tools registered: {list(tool_registry.keys())[-2:]}")
+            logger.debug(f"Logging tools registered: {list(tool_registry.keys())[-2:]}")
             logger.info(f"[TOOL REGISTRY] ✅ Logging tools registered: {list(tool_registry.keys())[-2:]}")
             
             # Debug: print type, module, and MRO for each tool
-            print(f"🔍 [DEBUG] Tool registry details:")
+            logger.debug("Tool registry details:")
             logger.info(f"[TOOL REGISTRY] Tool registry details:")
             for name, tool in tool_registry.items():
-                print(f"[TOOL DEBUG] {name}: type={type(tool)}, module={tool.__class__.__module__}, mro={tool.__class__.__mro__}")
+                logger.debug(f"[TOOL DEBUG] {name}: type={type(tool)}, module={tool.__class__.__module__}, mro={tool.__class__.__mro__}")
                 logger.info(f"[TOOL DEBUG] {name}: type={type(tool)}, module={tool.__class__.__module__}, mro={tool.__class__.__mro__}")
                 logger.info(f"[TOOL DEBUG] {name}: name='{tool.name}', description='{tool.description}'")
             
-            print(f"🔍 [DEBUG] Tool registry built with {len(tool_registry)} tools: {list(tool_registry.keys())}")
+            logger.debug(f"Tool registry built with {len(tool_registry)} tools: {list(tool_registry.keys())}")
             logger.info(f"✅ Tool registry built with {len(tool_registry)} tools: {list(tool_registry.keys())}")
             
         except Exception as e:
-            print(f"❌ [DEBUG] Error building tool registry: {e}")
             logger.error(f"Error building tool registry: {e}", exc_info=True)
             # Don't raise the exception, just return empty registry
             return {}
@@ -496,7 +490,7 @@ class TeamManagementSystem:
             logger.info(f"[TOOL CONFIG] Configuring tools with context: team_id={team_id}, user_id={user_id}, chat_id={chat_id}")
             
             # Import the tool configuration function
-            from domain.tools.player_tools import configure_tool_with_context
+            from features.player_registration.domain.tools.player_tools import configure_tool_with_context
             
             # Configure each tool with the context
             for role, agent in self.agents.items():

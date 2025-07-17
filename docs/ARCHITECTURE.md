@@ -1,262 +1,240 @@
-# KICKAI Architecture & Dependency Rules
+# KICKAI Architecture Documentation
 
 ## Overview
 
-KICKAI follows a **Clean Architecture** approach with **feature-first organization** and **layered dependencies**. This document defines the architectural principles, dependency hierarchy, and import rules to maintain code quality and prevent circular dependencies.
+KICKAI follows a **feature-first, layered architecture** inspired by Clean Architecture principles, with a **Factory Pattern** for service creation and dependency injection. The system is designed for scalability, maintainability, and testability.
 
-## 🏗️ Architectural Layers
+## Core Architecture Principles
 
-### 1. **Infrastructure Layer** (Bottom)
-- **Purpose**: External interfaces, data persistence, third-party integrations
-- **Components**: 
-  - `src/database/` - Firebase/Firestore client
-  - `src/services/interfaces/` - Service interfaces
-  - `src/utils/` - Utility functions, LLM clients
-  - `src/core/` - Configuration, exceptions, core utilities
-- **Dependencies**: None (base layer)
+### 1. Feature-First Modular Structure
+- Each feature is self-contained with its own domain, application, and infrastructure layers
+- Features can be developed, tested, and deployed independently
+- Clear boundaries prevent tight coupling between features
 
-### 2. **Domain Layer** (Core Business Logic)
-- **Purpose**: Business entities, repositories, domain services
-- **Components**:
-  - `src/database/models_improved.py` - Data models
-  - `src/services/` - Business logic services
-- **Dependencies**: Infrastructure Layer only
-
-### 3. **Application Layer** (Use Cases & State Management)
-- **Purpose**: Application services, state management, orchestration
-- **Components**:
-  - `src/agents/` - AI agents and crew management
-  - `src/services/` - Service implementations
-  - `src/tasks/` - Background tasks
-- **Dependencies**: Domain Layer, Infrastructure Layer
-
-### 4. **Presentation Layer** (Top)
-- **Purpose**: User interface, message handling, command processing
-- **Components**:
-  - `src/telegram/` - Telegram bot handlers and commands
-  - `src/tools/` - Tool implementations
-- **Dependencies**: Application Layer, Domain Layer
-
-## 📁 Feature-First Organization
-
+### 2. Layered Architecture
 ```
-src/
-├── agents/           # AI agents and crew management
-├── core/            # Core utilities, config, exceptions
-├── database/        # Data models and persistence
-├── services/        # Business logic services
-│   └── interfaces/  # Service contracts
-├── tasks/           # Background tasks
-├── telegram/        # Telegram bot presentation layer
-├── tools/           # Tool implementations
-└── utils/           # Utility functions
+┌─────────────────────────────────────┐
+│           Presentation Layer        │  ← Telegram Bot, Web UI
+├─────────────────────────────────────┤
+│          Application Layer          │  ← Use Cases, Commands, Handlers
+├─────────────────────────────────────┤
+│            Domain Layer             │  ← Business Logic, Entities, Services
+├─────────────────────────────────────┤
+│        Infrastructure Layer         │  ← Database, External APIs
+└─────────────────────────────────────┘
 ```
 
-## 🔄 Dependency Rules
+### 3. Factory Pattern for Service Creation
+- **ServiceFactory**: Centralized factory for creating all feature services
+- **Lazy Creation**: Services are created only when needed
+- **Dependency Injection**: Proper dependency management through the factory
+- **Cross-Feature Dependencies**: Handled through the factory pattern
 
-### ✅ Allowed Dependencies
+## Dependency Management
 
-1. **Presentation → Application → Domain → Infrastructure** ✅
-2. **Same layer dependencies** ✅ (with caution)
-3. **Infrastructure → Infrastructure** ✅
-4. **Domain → Domain** ✅
+### Factory Pattern Implementation
 
-### ❌ Forbidden Dependencies
-
-1. **Infrastructure → Domain** ❌
-2. **Infrastructure → Application** ❌
-3. **Infrastructure → Presentation** ❌
-4. **Domain → Application** ❌
-5. **Domain → Presentation** ❌
-6. **Application → Presentation** ❌
-
-### 🔧 Import Rules
-
-#### 1. **Top-Level Imports Only**
 ```python
-# ✅ GOOD - Top-level imports
-from src.services.player_service import PlayerService
-from src.database.models_improved import Player
-
-# ❌ BAD - In-function imports (except for circular dependency resolution)
-def some_function():
-    from src.services.player_service import PlayerService  # Avoid this pattern
-```
-
-#### 2. **Service Layer Dependencies**
-```python
-# ✅ GOOD - Services depend on interfaces and models
-from src.services.interfaces.player_service_interface import PlayerServiceInterface
-from src.database.models_improved import Player
-
-# ❌ BAD - Services importing from presentation layer
-from src.telegram.unified_command_system import SomeCommand  # Wrong direction
-```
-
-#### 3. **Presentation Layer Dependencies**
-```python
-# ✅ GOOD - Presentation depends on services and models
-from src.services.player_service import PlayerService
-from src.database.models_improved import Player
-
-# ❌ BAD - Presentation importing from other presentation components
-from src.telegram.telegram_command_handler import SomeHandler  # Use interfaces instead
-```
-
-## 🚫 Circular Import Prevention
-
-### 1. **Interface-Based Design**
-- Define service contracts in `src/services/interfaces/`
-- Implement services in `src/services/`
-- Import interfaces, not implementations
-
-### 2. **Dependency Injection**
-- Pass dependencies as constructor parameters
-- Avoid direct imports of concrete implementations
-
-### 3. **Event-Driven Communication**
-- Use events for cross-layer communication
-- Decouple components through event systems
-
-## 📋 Import Guidelines
-
-### Service Layer
-```python
-# ✅ Correct service imports
-from src.database.models_improved import Player, Team
-from src.services.interfaces.player_service_interface import PlayerServiceInterface
-from src.core.exceptions import AccessDeniedError
-from src.utils.id_generator import generate_id
-```
-
-### Presentation Layer
-```python
-# ✅ Correct presentation imports
-from src.services.player_service import PlayerService
-from src.services.team_service import TeamService
-from src.database.models_improved import Player, Team
-from src.core.exceptions import AccessDeniedError
-```
-
-### Agent Layer
-```python
-# ✅ Correct agent imports
-from src.services.player_service import PlayerService
-from src.services.team_service import TeamService
-from src.database.models_improved import Player, Team
-from src.utils.llm_client import LLMClient
-```
-
-## 🔍 Linting Rules
-
-### Import Order
-1. Standard library imports
-2. Third-party imports
-3. Local application imports (src/)
-
-### Import Organization
-```python
-# Standard library
-import logging
-from typing import List, Optional
-
-# Third-party
-from telegram import Update
-from telegram.ext import ContextTypes
-
-# Local imports (src/)
-from src.services.player_service import PlayerService
-from src.database.models_improved import Player
-from src.core.exceptions import AccessDeniedError
-```
-
-## 🛠️ Enforcement
-
-### 1. **Pre-commit Hooks**
-- Run import order checks
-- Validate dependency direction
-- Check for circular imports
-
-### 2. **CI/CD Pipeline**
-- Automated dependency analysis
-- Import rule validation
-- Architecture compliance checks
-
-### 3. **Code Review**
-- Review import statements
-- Verify dependency direction
-- Check for architectural violations
-
-## 📚 Best Practices
-
-### 1. **Single Responsibility**
-- Each module has one clear purpose
-- Avoid mixing concerns across layers
-
-### 2. **Interface Segregation**
-- Define specific interfaces for each use case
-- Avoid large, monolithic interfaces
-
-### 3. **Dependency Inversion**
-- Depend on abstractions, not concretions
-- Use dependency injection for flexibility
-
-### 4. **Clean Imports**
-- Import only what you need
-- Use explicit imports over wildcard imports
-- Group imports logically
-
-## 🔧 Migration Guide
-
-### From Legacy Code
-1. **Identify circular dependencies**
-2. **Extract interfaces** where needed
-3. **Refactor imports** to follow hierarchy
-4. **Update service contracts**
-5. **Test thoroughly**
-
-### Adding New Features
-1. **Determine the layer** for your feature
-2. **Follow dependency rules** strictly
-3. **Create interfaces** for cross-layer communication
-4. **Update this document** if architecture changes
-
-## 📖 Examples
-
-### ✅ Good Architecture
-```python
-# Presentation Layer (telegram/)
-from src.services.player_service import PlayerService
-from src.database.models_improved import Player
-
-class PlayerCommand:
-    def __init__(self, player_service: PlayerService):
-        self.player_service = player_service
+# ServiceFactory creates services with proper dependencies
+class ServiceFactory:
+    def __init__(self, container: DependencyContainer):
+        self.container = container
     
-    def execute(self, player_id: str) -> str:
-        player = self.player_service.get_player(player_id)
-        return f"Player: {player.name}"
+    def create_player_registration_services(self):
+        # Creates repositories, services, and registers them
+        player_repo = FirebasePlayerRepository(self.get_database())
+        registration_service = PlayerRegistrationService(player_repo, player_id_service)
+        # Register with container
+        return {'player_repository': player_repo, 'registration_service': registration_service}
 ```
 
-### ❌ Bad Architecture
+### Dependency Container
+
 ```python
-# Infrastructure Layer (database/)
-from src.telegram.unified_command_system import PlayerCommand  # Wrong direction!
-
-class DatabaseClient:
-    def get_player(self, player_id: str):
-        # This creates a circular dependency
-        command = PlayerCommand()
-        return command.execute(player_id)
+# Centralized dependency management
+class DependencyContainer:
+    def __init__(self):
+        self._services = {}
+        self._factory = None
+    
+    def initialize(self):
+        # Initialize database
+        self._initialize_database()
+        # Create factory
+        self._factory = create_service_factory(self)
+        # Create all services through factory
+        self._factory.create_all_services()
 ```
 
-## 🎯 Summary
+## Feature Structure
 
-- **Follow the dependency hierarchy strictly**
-- **Use interfaces for cross-layer communication**
-- **Avoid in-function imports unless absolutely necessary**
-- **Keep imports clean and organized**
-- **Review architecture regularly**
-- **Enforce rules through linting and CI/CD**
+Each feature follows this structure:
 
-This architecture ensures maintainable, testable, and scalable code while preventing the common pitfalls of circular dependencies and tight coupling. 
+```
+features/
+├── feature_name/
+│   ├── application/
+│   │   ├── commands/          # Command handlers
+│   │   └── handlers/          # Business logic handlers
+│   ├── domain/
+│   │   ├── entities/          # Business entities
+│   │   ├── repositories/      # Repository interfaces
+│   │   ├── services/          # Business services
+│   │   └── interfaces/        # Service interfaces
+│   ├── infrastructure/
+│   │   └── firebase_*_repository.py  # Concrete implementations
+│   └── tests/
+│       ├── unit/
+│       ├── integration/
+│       └── e2e/
+```
+
+## Cross-Feature Communication
+
+### 1. Service-to-Service Communication
+- Services communicate through interfaces
+- Factory pattern ensures proper dependency injection
+- No direct imports between feature implementations
+
+### 2. Event-Driven Communication
+- Domain events for loose coupling
+- Event handlers in application layer
+- Asynchronous processing where appropriate
+
+### 3. Shared Domain Models
+- Common entities in `features/shared/`
+- Adapters for cross-feature data transformation
+- Consistent data models across features
+
+## Database Architecture
+
+### Firebase/Firestore Structure
+```
+teams/{team_id}/
+├── players/
+├── matches/
+├── payments/
+├── attendance/
+└── settings/
+```
+
+### Repository Pattern
+- Interface defined in domain layer
+- Implementation in infrastructure layer
+- Factory creates concrete implementations
+
+## Testing Strategy
+
+### 1. Unit Tests
+- Test individual services and components
+- Mock dependencies using interfaces
+- Fast execution, high coverage
+
+### 2. Integration Tests
+- Test service interactions
+- Use in-memory database for speed
+- Verify business logic flows
+
+### 3. E2E Tests
+- Test complete user journeys
+- Use real Firebase Testing environment
+- Validate cross-feature flows
+
+## Security & Access Control
+
+### 1. Team-Based Isolation
+- All data scoped to team_id
+- Multi-tenant architecture
+- Secure data boundaries
+
+### 2. Role-Based Access
+- Player vs Admin roles
+- Feature-specific permissions
+- Audit logging for sensitive operations
+
+## Performance Considerations
+
+### 1. Async/Await Pattern
+- I/O operations are asynchronous
+- Non-blocking service calls
+- Efficient resource utilization
+
+### 2. Caching Strategy
+- Redis for session data
+- In-memory caching for frequently accessed data
+- Cache invalidation on data changes
+
+### 3. Database Optimization
+- Indexed queries on team_id
+- Efficient data structures
+- Connection pooling
+
+## Deployment Architecture
+
+### 1. Multi-Environment Support
+- Local development with .env
+- Testing with .env.test
+- Production with Railway environment variables
+
+### 2. Multi-Bot Support
+- One bot per team
+- Isolated bot sessions
+- Centralized bot management
+
+## Monitoring & Observability
+
+### 1. Health Monitoring
+- Service health checks
+- Database connectivity monitoring
+- Bot status monitoring
+
+### 2. Logging Strategy
+- Structured logging
+- Error tracking
+- Performance metrics
+
+## Migration Strategy
+
+### 1. Feature Migrations
+- Gradual migration to new architecture
+- Backward compatibility during transition
+- Feature flags for gradual rollout
+
+### 2. Data Migrations
+- Schema evolution support
+- Data transformation utilities
+- Rollback capabilities
+
+## Best Practices
+
+### 1. Code Organization
+- Follow feature-first structure
+- Use factory pattern for service creation
+- Maintain clean dependency hierarchy
+
+### 2. Error Handling
+- Comprehensive exception handling
+- Graceful degradation
+- User-friendly error messages
+
+### 3. Documentation
+- Keep architecture docs updated
+- Document cross-feature flows
+- Maintain API documentation
+
+## Future Considerations
+
+### 1. Scalability
+- Horizontal scaling support
+- Load balancing capabilities
+- Database sharding strategies
+
+### 2. Extensibility
+- Plugin architecture for new features
+- API versioning strategy
+- Backward compatibility
+
+### 3. Performance
+- Caching strategies
+- Database optimization
+- Async processing improvements 

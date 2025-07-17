@@ -22,11 +22,14 @@ from typing import Dict, Any, List
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from database.models_improved import (
-    Player, Team, TeamMember, Match, Payment, BotMapping,
-    PlayerPosition, PlayerRole, OnboardingStatus, TeamStatus, 
-    MatchStatus, PaymentType, PaymentStatus
+from features.player_registration.domain.entities.player import (
+    Player, PlayerPosition, PlayerRole, OnboardingStatus
 )
+from features.team_administration.domain.entities.team import Team, TeamStatus
+from features.team_administration.domain.entities.team_member import TeamMember
+from features.team_administration.domain.entities.bot_mapping import BotMapping
+from features.team_administration.domain.entities.match import Match, MatchStatus
+from features.team_administration.domain.entities.payment import Payment, PaymentType, PaymentStatus
 from utils.id_generator import IDGenerator
 
 # Configure logging

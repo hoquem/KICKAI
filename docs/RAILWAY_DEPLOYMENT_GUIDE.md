@@ -174,7 +174,7 @@ Create `railway.json` in your project root:
     "builder": "nixpacks"
   },
   "deploy": {
-    "startCommand": "python run_telegram_bot.py",
+    "startCommand": "python run_bot_railway.py",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
@@ -198,14 +198,14 @@ cmds = ["pip install -r requirements.txt"]
 cmds = ["python -m pytest tests/ --cov=src"]
 
 [start]
-cmd = "python run_telegram_bot.py"
+cmd = "python run_bot_railway.py"
 ```
 
 ## 🔧 Step 5: Health Check Implementation
 
 ### Add Health Check Endpoints
 
-Update your `run_telegram_bot.py` to include health check endpoints:
+Update your `run_bot_railway.py` to include health check endpoints:
 
 ```python
 from flask import Flask, jsonify
@@ -450,7 +450,7 @@ railway variables
 
 # Test locally with same environment
 export $(railway variables | xargs)
-python run_telegram_bot.py
+python run_bot_railway.py
 ```
 
 #### Database Connection Issues

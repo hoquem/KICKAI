@@ -1,14 +1,27 @@
 """
-Mock data store for testing purposes.
+Mock Data Store for Testing
+
+This module provides a mock data store for testing purposes,
+simulating the behavior of the Firebase client without requiring
+a real database connection.
 """
 
-from typing import Dict, List, Optional, Any
+import logging
 from datetime import datetime
+from typing import Dict, Any, Optional, List
 from unittest.mock import Mock
-from database.models_improved import (
-    Player, Team, Match, TeamMember, BotMapping, 
-    PlayerPosition, PlayerRole, OnboardingStatus, TeamStatus, MatchStatus
-)
+
+from core.logging_config import get_logger
+
+# Get logger for this module
+logger = get_logger(__name__)
+
+from features.player_registration.domain.entities.player import Player
+from features.team_administration.domain.entities.team import Team
+from features.team_administration.domain.entities.team_member import TeamMember
+from features.match_management.domain.entities.match import Match
+from features.team_administration.domain.entities.bot_mapping import BotMapping
+from dataclasses import dataclass
 
 
 class MockDataStore:
@@ -218,7 +231,7 @@ class MockDataStore:
         """Create a fixture."""
         fixture_id = f"fixture_{len(self.fixtures) + 1}"
         self.fixtures[fixture_id] = fixture_data
-        print(f"✅ Created fixture with ID: {fixture_id}")
+        logger.info(f"✅ Created fixture with ID: {fixture_id}")
         return fixture_id
     
     async def get_fixture(self, fixture_id: str) -> Optional[Dict[str, Any]]:
@@ -231,7 +244,7 @@ class MockDataStore:
         if doc_id is None:
             doc_id = f"{collection}_{len(self._get_collection(collection)) + 1}"
         self._get_collection(collection)[doc_id] = data
-        print(f"✅ Created document with ID: {doc_id}")
+        logger.info(f"✅ Created document with ID: {doc_id}")
         return doc_id
     
     async def get_document(self, collection: str, doc_id: str) -> Optional[Dict[str, Any]]:
