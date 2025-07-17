@@ -2,6 +2,7 @@
 Service interfaces for KICKAI.
 """
 
+from services.interfaces.access_control_service_interface import IAccessControlService
 from services.interfaces.daily_status_service_interface import IDailyStatusService
 from services.interfaces.expense_service_interface import IExpenseService
 from services.interfaces.external_player_service_interface import IExternalPlayerService
@@ -16,6 +17,7 @@ from services.interfaces.team_member_service_interface import ITeamMemberService
 from services.interfaces.team_service_interface import ITeamService
 
 __all__ = [
+    'IAccessControlService',
     'IPlayerService',
     'IPaymentService',
     'IMatchService',

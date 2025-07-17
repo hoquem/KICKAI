@@ -502,6 +502,14 @@ class FirebaseClient:
         """Get a bot mapping by team name (alias for get_bot_mapping)."""
         return await self.get_bot_mapping(team_name)
     
+    async def get_bot_mapping_by_team_id(self, team_id: str) -> Optional[BotMapping]:
+        """Get a bot mapping by team ID."""
+        filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
+        data_list = await self.query_documents('bot_mappings', filters, limit=1)
+        if data_list:
+            return BotMapping.from_dict(data_list[0])
+        return None
+    
     async def update_bot_mapping(self, mapping: BotMapping) -> bool:
         """Update a bot mapping."""
         data = mapping.to_dict()

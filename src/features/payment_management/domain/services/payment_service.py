@@ -2,13 +2,13 @@ import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from database.firebase_client import get_firebase_client
-from database.models_improved import Payment, PaymentType, PaymentStatus, Expense, ExpenseCategory
-from services.interfaces.player_lookup_interface import IPlayerLookup
-from core.exceptions import PaymentError, PaymentNotFoundError, create_error_context
-from services.interfaces.payment_service_interface import IPaymentService
-from services.interfaces.payment_gateway_interface import PaymentGatewayInterface
-from .collectiv_payment_gateway import MockCollectivPaymentGateway
+from src.database.firebase_client import get_firebase_client
+from src.database.models_improved import Payment, PaymentType, PaymentStatus, Expense, ExpenseCategory
+from src.features.player_registration.domain.interfaces.player_lookup_interface import IPlayerLookup
+from src.core.exceptions import PaymentError, PaymentNotFoundError, create_error_context
+from src.features.payment_management.domain.interfaces.payment_service_interface import IPaymentService
+from src.features.payment_management.domain.interfaces.payment_gateway_interface import PaymentGatewayInterface
+from src.features.payment_management.infrastructure.collectiv_payment_gateway import MockCollectivPaymentGateway
 
 class PaymentService(IPaymentService):
     """Service for managing payments with Collectiv integration."""
@@ -207,15 +207,19 @@ class PaymentService(IPaymentService):
             Dict containing payment link status
         """
         try:
-            # Get from Collectiv
-            collectiv_status = await self._payment_gateway.get_payment_link_status(link_id)
-            
-            # Get from Firestore
             link_doc = await self._data_store.get_document('payment_links', link_id)
+            if not link_doc:
+                raise PaymentNotFoundError(f"Payment link {link_id} not found")
             
             return {
-                **collectiv_status,
-                "firestore_data": link_doc
+                "link_id": link_id,
+                "status": link_doc["status"],
+                "amount": link_doc["amount"],
+                "description": link_doc["description"],
+                "payment_url": link_doc["payment_url"],
+                "expires_at": link_doc.get("expires_at"),
+                "paid_at": link_doc.get("paid_at"),
+                "transaction_id": link_doc.get("transaction_id")
             }
             
         except Exception as e:
@@ -228,36 +232,35 @@ class PaymentService(IPaymentService):
         
         Args:
             transaction_id: Transaction ID to refund
-            amount: Amount to refund (full amount if not specified)
+            amount: Amount to refund (if None, refunds full amount)
             
         Returns:
             Dict containing refund details
         """
         try:
-            # Process refund through Collectiv
-            refund_data = await self._payment_gateway.refund_payment(transaction_id, amount)
+            # Get transaction from Firestore
+            transaction_doc = await self._data_store.get_document('transactions', transaction_id)
+            if not transaction_doc:
+                raise PaymentNotFoundError(f"Transaction {transaction_id} not found")
             
-            # Store refund transaction in Firestore
+            # Process refund through Collectiv
+            refund_amount = amount or transaction_doc["amount"]
+            refund_data = await self._payment_gateway.refund_payment(transaction_id, refund_amount)
+            
+            # Store refund in Firestore
             refund_doc = {
                 "refund_id": refund_data["id"],
-                "original_transaction_id": transaction_id,
-                "amount": refund_data["amount"],
+                "transaction_id": transaction_id,
+                "amount": refund_amount,
                 "currency": refund_data["currency"],
-                "status": "refunded",
-                "created_at": datetime.now().isoformat(),
+                "status": "completed",
+                "completed_at": datetime.now().isoformat(),
                 "refund_data": refund_data
             }
             
             await self._data_store.create_document('refunds', refund_doc, refund_data["id"])
             
-            # Update original transaction status
-            transaction_doc = await self._data_store.get_document('transactions', transaction_id)
-            if transaction_doc:
-                transaction_doc["status"] = "refunded"
-                transaction_doc["refunded_at"] = datetime.now().isoformat()
-                await self._data_store.update_document('transactions', transaction_id, transaction_doc)
-            
-            logging.info(f"✅ Refunded payment {transaction_id}: £{refund_data['amount']}")
+            logging.info(f"✅ Processed refund for transaction {transaction_id}: £{refund_amount}")
             
             return refund_data
             
@@ -279,36 +282,37 @@ class PaymentService(IPaymentService):
             Dict containing payment analytics
         """
         try:
-            # Query payments from Firestore
-            query_filters = [{"field": "team_id", "operator": "==", "value": team_id}]
+            # Get payments for the team
+            payments = await self.get_team_payments(team_id)
             
+            # Filter by date range if provided
             if start_date:
-                query_filters.append({"field": "created_at", "operator": ">=", "value": start_date.isoformat()})
+                payments = [p for p in payments if p.created_date >= start_date]
             if end_date:
-                query_filters.append({"field": "created_at", "operator": "<=", "value": end_date.isoformat()})
-            
-            payments = await self._data_store.query_documents('payments', query_filters)
+                payments = [p for p in payments if p.created_date <= end_date]
             
             # Calculate analytics
             total_payments = len(payments)
-            total_amount = sum(p.get("amount", 0) for p in payments if p.get("status") == PaymentStatus.PAID.value)
-            pending_amount = sum(p.get("amount", 0) for p in payments if p.get("status") == PaymentStatus.PENDING.value)
+            total_amount = sum(p.amount for p in payments if p.status == PaymentStatus.PAID)
+            pending_amount = sum(p.amount for p in payments if p.status == PaymentStatus.PENDING)
+            overdue_amount = sum(p.amount for p in payments if p.status == PaymentStatus.OVERDUE)
             
             # Group by payment type
             payment_types = {}
             for payment in payments:
-                payment_type = payment.get("type", "unknown")
+                payment_type = payment.type.value
                 if payment_type not in payment_types:
                     payment_types[payment_type] = {"count": 0, "amount": 0}
                 payment_types[payment_type]["count"] += 1
-                if payment.get("status") == PaymentStatus.PAID.value:
-                    payment_types[payment_type]["amount"] += payment.get("amount", 0)
+                if payment.status == PaymentStatus.PAID:
+                    payment_types[payment_type]["amount"] += payment.amount
             
             return {
+                "team_id": team_id,
                 "total_payments": total_payments,
                 "total_amount": total_amount,
                 "pending_amount": pending_amount,
-                "collection_rate": (total_amount / (total_amount + pending_amount) * 100) if (total_amount + pending_amount) > 0 else 0,
+                "overdue_amount": overdue_amount,
                 "payment_types": payment_types,
                 "period": {
                     "start_date": start_date.isoformat() if start_date else None,
@@ -320,12 +324,21 @@ class PaymentService(IPaymentService):
             logging.error(f"Failed to get payment analytics: {e}")
             raise PaymentError(f"Failed to get payment analytics: {str(e)}", create_error_context("get_payment_analytics"))
 
-    # Implement IPaymentService interface methods
-
     async def record_payment(self, player_id: str, amount: float, type: PaymentType, related_entity_id: Optional[str] = None, description: Optional[str] = None) -> Payment:
-        """Records a new payment."""
+        """
+        Record a manual payment (e.g., cash payment).
+        
+        Args:
+            player_id: Player ID
+            amount: Payment amount
+            type: Payment type
+            related_entity_id: Related entity ID
+            description: Payment description
+            
+        Returns:
+            Payment object
+        """
         try:
-            # Get team_id for the player
             team_id = await self._get_team_id_for_player(player_id)
             await self._validate_team_id(team_id)
             
@@ -335,64 +348,83 @@ class PaymentService(IPaymentService):
                 amount=amount,
                 type=type,
                 status=PaymentStatus.PAID,
-                paid_date=datetime.now(),
                 related_entity_id=related_entity_id,
-                description=description
+                description=description or f"Manual {type.value} payment"
             )
-
+            
             payment_id = await self._data_store.create_document('payments', payment.to_dict(), payment.id)
             payment.id = payment_id
-            logging.info(f"Payment recorded: {payment.id} for team {team_id}")
-
-            # If this is a match fee payment, update the match's confirmed players
-            if payment.type == PaymentType.MATCH_FEE and payment.related_entity_id:
-                try:
-                    # match_service = get_match_service() # This line is removed
-                    # match = await match_service.get_match(payment.related_entity_id) # This line is removed
-                    # if match: # This line is removed
-                    #     if player_id not in match.confirmed_players: # This line is removed
-                    #         match.confirmed_players.append(player_id) # This line is removed
-                    #         await match_service.update_match(match.id, confirmed_players=match.confirmed_players) # This line is removed
-                    #         logging.info(f"Player {player_id} confirmed for match {match.id} due to payment.") # This line is removed
-                    pass # Placeholder for match service usage
-                except Exception as match_e:
-                    logging.error(f"Failed to update match confirmed players for payment {payment.id}: {match_e}")
-
+            
+            logging.info(f"✅ Recorded manual payment for player {player_id}: £{amount}")
+            
             return payment
+            
         except Exception as e:
             logging.error(f"Failed to record payment: {e}")
             raise PaymentError(f"Failed to record payment: {str(e)}", create_error_context("record_payment"))
 
     async def get_player_payments(self, player_id: str, status: Optional[PaymentStatus] = None) -> List[Payment]:
-        """Get payments for a specific player."""
-        try:
-            query_filters = [{"field": "player_id", "operator": "==", "value": player_id}]
-            if status:
-                query_filters.append({"field": "status", "operator": "==", "value": status.value})
+        """
+        Get payments for a specific player.
+        
+        Args:
+            player_id: Player ID
+            status: Optional payment status filter
             
-            payment_docs = await self._data_store.query_documents('payments', query_filters)
+        Returns:
+            List of Payment objects
+        """
+        try:
+            filters = [("player_id", "==", player_id)]
+            if status:
+                filters.append(("status", "==", status.value))
+            
+            payment_docs = await self._data_store.query_documents('payments', filters)
             return [Payment.from_dict(doc) for doc in payment_docs]
+            
         except Exception as e:
             logging.error(f"Failed to get player payments: {e}")
             raise PaymentError(f"Failed to get player payments: {str(e)}", create_error_context("get_player_payments"))
 
     async def get_team_payments(self, team_id: str, status: Optional[PaymentStatus] = None) -> List[Payment]:
-        """Get payments for a specific team."""
-        try:
-            query_filters = [{"field": "team_id", "operator": "==", "value": team_id}]
-            if status:
-                query_filters.append({"field": "status", "operator": "==", "value": status.value})
+        """
+        Get payments for a specific team.
+        
+        Args:
+            team_id: Team ID
+            status: Optional payment status filter
             
-            payment_docs = await self._data_store.query_documents('payments', query_filters)
+        Returns:
+            List of Payment objects
+        """
+        try:
+            filters = [("team_id", "==", team_id)]
+            if status:
+                filters.append(("status", "==", status.value))
+            
+            payment_docs = await self._data_store.query_documents('payments', filters)
             return [Payment.from_dict(doc) for doc in payment_docs]
+            
         except Exception as e:
             logging.error(f"Failed to get team payments: {e}")
             raise PaymentError(f"Failed to get team payments: {str(e)}", create_error_context("get_team_payments"))
 
     async def create_payment_request(self, player_id: str, amount: float, type: PaymentType, due_date: datetime, description: Optional[str] = None, related_entity_id: Optional[str] = None) -> Payment:
-        """Creates a payment request (sets status to PENDING)."""
+        """
+        Create a payment request (manual payment tracking).
+        
+        Args:
+            player_id: Player ID
+            amount: Payment amount
+            type: Payment type
+            due_date: Due date
+            description: Payment description
+            related_entity_id: Related entity ID
+            
+        Returns:
+            Payment object
+        """
         try:
-            # Get team_id for the player
             team_id = await self._get_team_id_for_player(player_id)
             await self._validate_team_id(team_id)
             
@@ -404,50 +436,78 @@ class PaymentService(IPaymentService):
                 status=PaymentStatus.PENDING,
                 due_date=due_date,
                 related_entity_id=related_entity_id,
-                description=description
+                description=description or f"{type.value} payment request"
             )
-
+            
             payment_id = await self._data_store.create_document('payments', payment.to_dict(), payment.id)
             payment.id = payment_id
-            logging.info(f"Payment request created: {payment.id} for team {team_id}")
+            
+            logging.info(f"✅ Created payment request for player {player_id}: £{amount}")
+            
             return payment
+            
         except Exception as e:
             logging.error(f"Failed to create payment request: {e}")
             raise PaymentError(f"Failed to create payment request: {str(e)}", create_error_context("create_payment_request"))
 
     async def update_payment_status(self, payment_id: str, new_status: PaymentStatus, paid_date: Optional[datetime] = None) -> Payment:
-        """Update the status of a payment."""
+        """
+        Update the status of a payment.
+        
+        Args:
+            payment_id: Payment ID
+            new_status: New payment status
+            paid_date: Date when payment was made (for PAID status)
+            
+        Returns:
+            Updated Payment object
+        """
         try:
             payment_doc = await self._data_store.get_document('payments', payment_id)
             if not payment_doc:
                 raise PaymentNotFoundError(f"Payment {payment_id} not found")
             
             payment_doc["status"] = new_status.value
-            if paid_date:
+            if new_status == PaymentStatus.PAID and paid_date:
                 payment_doc["paid_date"] = paid_date.isoformat()
-            payment_doc["updated_at"] = datetime.now().isoformat()
             
             await self._data_store.update_document('payments', payment_id, payment_doc)
             
-            return Payment.from_dict(payment_doc)
+            payment = Payment.from_dict(payment_doc)
+            payment.id = payment_id
+            
+            logging.info(f"✅ Updated payment {payment_id} status to {new_status.value}")
+            
+            return payment
+            
         except Exception as e:
             logging.error(f"Failed to update payment status: {e}")
             raise PaymentError(f"Failed to update payment status: {str(e)}", create_error_context("update_payment_status"))
 
     async def list_payments(self, player_id: Optional[str] = None, status: Optional[PaymentStatus] = None, payment_type: Optional[PaymentType] = None) -> List[Payment]:
-        """List payments with optional filters."""
+        """
+        List payments with optional filters.
+        
+        Args:
+            player_id: Optional player ID filter
+            status: Optional status filter
+            payment_type: Optional payment type filter
+            
+        Returns:
+            List of Payment objects
+        """
         try:
-            query_filters = []
-            
+            filters = []
             if player_id:
-                query_filters.append({"field": "player_id", "operator": "==", "value": player_id})
+                filters.append(("player_id", "==", player_id))
             if status:
-                query_filters.append({"field": "status", "operator": "==", "value": status.value})
+                filters.append(("status", "==", status.value))
             if payment_type:
-                query_filters.append({"field": "type", "operator": "==", "value": payment_type.value})
+                filters.append(("type", "==", payment_type.value))
             
-            payment_docs = await self._data_store.query_documents('payments', query_filters)
+            payment_docs = await self._data_store.query_documents('payments', filters)
             return [Payment.from_dict(doc) for doc in payment_docs]
+            
         except Exception as e:
             logging.error(f"Failed to list payments: {e}")
-            raise PaymentError(f"Failed to list payments: {str(e)}", create_error_context("list_payments"))
+            raise PaymentError(f"Failed to list payments: {str(e)}", create_error_context("list_payments")) 

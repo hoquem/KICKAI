@@ -118,12 +118,15 @@ class UtilityOperationsAdapter:
     async def get_user_role(self, user_id: str, team_id: str) -> str:
         self.logger.info(f"[UtilityOperationsAdapter] get_user_role called with user_id={user_id}, team_id={team_id}")
         try:
-            if self.team_member_service:
-                result = await self.team_member_service.get_user_role(user_id, team_id)
-                self.logger.info(f"[UtilityOperationsAdapter] get_user_role result: {result}")
-                return result
-            else:
-                return "Team member service not available"
+            # Use centralized permission service
+            from features.system_infrastructure.domain.services.permission_service import get_permission_service
+            
+            permission_service = get_permission_service()
+            result = await permission_service.get_user_role(user_id, team_id)
+            
+            self.logger.info(f"[UtilityOperationsAdapter] get_user_role result: {result}")
+            return result
+            
         except Exception as e:
             self.logger.error(f"Error getting user role: {e}", exc_info=True)
-            return f"Error getting user role: {str(e)}" 
+            return "player"  # Default fallback 

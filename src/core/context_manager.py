@@ -69,8 +69,14 @@ class ContextManager:
         
         # Fallback to legacy pattern for backward compatibility
         if not self.team_operations:
-            from services.team_mapping_service import get_team_mapping_service
-            self.team_operations = get_team_mapping_service()
+            from services.team_mapping_service import TeamMappingService
+            from database.firebase_client import FirebaseClient
+            from core.cache.cache_manager import CacheManager
+            from core.settings import get_settings
+            settings = get_settings()
+            firebase_client = FirebaseClient(settings)
+            cache_manager = CacheManager()
+            self.team_operations = TeamMappingService(firebase_client, cache_manager)
         if not self.player_operations:
             from services.player_service import get_player_service
             self.player_operations = get_player_service()

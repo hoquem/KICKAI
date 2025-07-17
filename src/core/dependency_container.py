@@ -23,6 +23,7 @@ from services.interfaces.background_tasks_service_interface import IBackgroundTa
 from services.interfaces.error_handling_service_interface import IErrorHandlingService
 from services.interfaces.financial_report_service_interface import IFinancialReportService
 from services.interfaces.user_management_interface import IUserManagement
+from services.interfaces.access_control_service_interface import IAccessControlService
 from database.interfaces import DataStoreInterface
 from database.mock_data_store import MockDataStore
 from database.firebase_client import get_firebase_client
@@ -100,7 +101,7 @@ def register_default_services() -> None:
     from services.expense_service import ExpenseService
     from services.health_check_service import HealthCheckService
     from services.match_service import MatchService
-    from services.stripe_payment_gateway import StripePaymentGateway
+    from services.mocks.mock_payment_gateway import MockPaymentGateway
     from services.reminder_service import ReminderService
     from services.team_member_service import TeamMemberService
     from services.mocks.mock_external_player_service import MockExternalPlayerService
@@ -115,6 +116,7 @@ def register_default_services() -> None:
     from services.multi_team_manager import MultiTeamManager
     from services.team_mapping_service import TeamMappingService
     from services.message_routing_service import MessageRoutingService
+    from services.access_control_service import AccessControlService
     
     # Create factory functions for services that need dependencies injected
     def create_team_service():
@@ -233,9 +235,7 @@ def register_default_services() -> None:
     
     def create_user_management():
         team_member_service = container.get_service(ITeamMemberService)
-        # For now, pass None for access_control_service - can be extended later
-        from services.access_control_service import AccessControlService
-        access_control_service = AccessControlService()
+        access_control_service = container.get_service(IAccessControlService)
         return create_user_management(team_member_service, access_control_service)
     
     def create_player_lookup_service():
@@ -253,6 +253,9 @@ def register_default_services() -> None:
     
     def create_message_routing_service():
         return MessageRoutingService()
+    
+    def create_access_control_service():
+        return AccessControlService()
 
     # Register service implementations
     container.register_service(IPlayerService, create_player_service)
@@ -263,7 +266,7 @@ def register_default_services() -> None:
     container.register_service(IExpenseService, create_expense_service)
     container.register_service(IHealthCheckService, create_health_check_service)
     container.register_service(IMatchService, create_match_service)
-    container.register_service(IPaymentGateway, StripePaymentGateway)
+    container.register_service(IPaymentGateway, MockPaymentGateway)
     container.register_service(IReminderService, create_reminder_service)
     container.register_service(ITeamMemberService, create_team_member_service)
     container.register_service(IExternalPlayerService, MockExternalPlayerService)
@@ -274,6 +277,7 @@ def register_default_services() -> None:
     container.register_service(IErrorHandlingService, create_error_handling_service)
     container.register_service(IFinancialReportService, create_financial_report_service)
     container.register_service(IUserManagement, create_user_management)
+    container.register_service(IAccessControlService, create_access_control_service)
 
 
 def initialize_container(data_store: Optional[DataStoreInterface] = None) -> None:
@@ -287,7 +291,8 @@ def initialize_container(data_store: Optional[DataStoreInterface] = None) -> Non
     if data_store is None:
         try:
             data_store = get_firebase_client()
-        except Exception:
+        except Exception as e:
+            logging.warning(f"Failed to initialize Firebase client, using mock data store: {e}")
             # Fallback to mock data store for testing
             data_store = MockDataStore()
     
@@ -298,5 +303,28 @@ def initialize_container(data_store: Optional[DataStoreInterface] = None) -> Non
     container.register_singleton("cache_manager", cache_manager)
 
 
-# Initialize container on module import
+def ensure_container_initialized() -> None:
+    """Ensure the container is initialized with Firebase client."""
+    container = get_container()
+    
+    # Check if data_store is already registered
+    try:
+        container.get_singleton("data_store")
+        return  # Already initialized
+    except KeyError:
+        pass
+    
+    # Initialize with Firebase client
+    try:
+        data_store = get_firebase_client()
+        container.register_singleton("data_store", data_store)
+        logging.info("✅ Firebase data store registered in dependency container")
+    except Exception as e:
+        logging.warning(f"Failed to initialize Firebase client, using mock data store: {e}")
+        data_store = MockDataStore()
+        container.register_singleton("data_store", data_store)
+        logging.info("✅ Mock data store registered in dependency container")
+
+
+# Initialize container on module import (will use mock data store initially)
 initialize_container() 

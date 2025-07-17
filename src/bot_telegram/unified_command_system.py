@@ -35,6 +35,9 @@ from core.exceptions import (
 )
 from utils.phone_utils import normalize_phone
 from utils.id_processor import extract_entities_from_command, IDType
+from features.system_infrastructure.domain.services.permission_service import (
+    get_permission_service, PermissionLevel, PermissionContext, ChatType
+)
 
 logger = logging.getLogger(__name__)
 
@@ -112,44 +115,90 @@ class PlayerPermissionStrategy(PermissionStrategy):
     """Strategy for player commands."""
     
     def can_execute(self, context: CommandContext) -> bool:
-        # CHAT-BASED: Allow in main chat or leadership chat
-        return context.chat_type in [ChatType.MAIN, ChatType.LEADERSHIP]
+        # Use centralized permission service
+        permission_service = get_permission_service()
+        permission_context = PermissionContext(
+            user_id=context.user_id,
+            team_id=context.team_id,
+            chat_id=context.chat_id,
+            chat_type=ChatType(context.chat_type.value),
+            username=context.username
+        )
+        
+        return permission_service.can_execute_command(PermissionLevel.PLAYER, permission_context)
     
     def get_access_denied_message(self, context: CommandContext) -> str:
-        return f"""❌ **Access Denied**
-
-🔒 This command requires player access.
-💡 Contact your team admin for access.
-
-Your Role: {context.user_role.title()}"""
+        # Use centralized permission service
+        permission_service = get_permission_service()
+        permission_context = PermissionContext(
+            user_id=context.user_id,
+            team_id=context.team_id,
+            chat_id=context.chat_id,
+            chat_type=ChatType(context.chat_type.value),
+            username=context.username
+        )
+        
+        return permission_service.get_permission_denied_message(PermissionLevel.PLAYER, permission_context)
 
 
 class LeadershipPermissionStrategy(PermissionStrategy):
     """Strategy for leadership commands."""
     
     def can_execute(self, context: CommandContext) -> bool:
-        # CHAT-BASED: Only allow in leadership chat (no role check)
-        return context.chat_type == ChatType.LEADERSHIP
+        # Use centralized permission service
+        permission_service = get_permission_service()
+        permission_context = PermissionContext(
+            user_id=context.user_id,
+            team_id=context.team_id,
+            chat_id=context.chat_id,
+            chat_type=ChatType(context.chat_type.value),
+            username=context.username
+        )
+        
+        return permission_service.can_execute_command(PermissionLevel.LEADERSHIP, permission_context)
     
     def get_access_denied_message(self, context: CommandContext) -> str:
-        return f"""❌ **Access Denied**
-
-🔒 Leadership commands are only available in the leadership chat.
-💡 Please use the leadership chat for this function."""
+        # Use centralized permission service
+        permission_service = get_permission_service()
+        permission_context = PermissionContext(
+            user_id=context.user_id,
+            team_id=context.team_id,
+            chat_id=context.chat_id,
+            chat_type=ChatType(context.chat_type.value),
+            username=context.username
+        )
+        
+        return permission_service.get_permission_denied_message(PermissionLevel.LEADERSHIP, permission_context)
 
 
 class AdminPermissionStrategy(PermissionStrategy):
     """Strategy for admin commands."""
     
     def can_execute(self, context: CommandContext) -> bool:
-        # CHAT-BASED: Only allow in leadership chat (no role check)
-        return context.chat_type == ChatType.LEADERSHIP
+        # Use centralized permission service
+        permission_service = get_permission_service()
+        permission_context = PermissionContext(
+            user_id=context.user_id,
+            team_id=context.team_id,
+            chat_id=context.chat_id,
+            chat_type=ChatType(context.chat_type.value),
+            username=context.username
+        )
+        
+        return permission_service.can_execute_command(PermissionLevel.ADMIN, permission_context)
     
     def get_access_denied_message(self, context: CommandContext) -> str:
-        return f"""❌ **Access Denied**
-
-🔒 Admin commands are only available in the leadership chat.
-💡 Please use the leadership chat for this function."""
+        # Use centralized permission service
+        permission_service = get_permission_service()
+        permission_context = PermissionContext(
+            user_id=context.user_id,
+            team_id=context.team_id,
+            chat_id=context.chat_id,
+            chat_type=ChatType(context.chat_type.value),
+            username=context.username
+        )
+        
+        return permission_service.get_permission_denied_message(PermissionLevel.ADMIN, permission_context)
 
 
 # ============================================================================
@@ -207,8 +256,28 @@ class HelpCommand(Command):
     async def execute(self, context: CommandContext) -> CommandResult:
         """Execute the help command."""
         try:
-            # Get available commands for this user
-            available_commands = self.command_registry.get_available_commands(context)
+            # Use centralized permission service to get available commands
+            from features.system_infrastructure.domain.services.permission_service import (
+                get_permission_service, PermissionContext, ChatType
+            )
+            
+            permission_service = get_permission_service()
+            permission_context = PermissionContext(
+                user_id=context.user_id,
+                team_id=context.team_id,
+                chat_id=context.chat_id,
+                chat_type=ChatType(context.chat_type.value),
+                username=context.username
+            )
+            
+            available_command_names = await permission_service.get_available_commands(permission_context)
+            
+            # Get command objects for the available commands
+            available_commands = []
+            for cmd_name in available_command_names:
+                cmd = self.command_registry.get_command(cmd_name)
+                if cmd:
+                    available_commands.append(cmd)
             
             # Group commands by permission level
             public_commands = [cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.PUBLIC]
@@ -250,11 +319,7 @@ class HelpCommand(Command):
             )
         except Exception as e:
             logger.error(f"Error in help command: {e}")
-            return CommandResult(
-                success=False,
-                message="❌ Error displaying help",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error getting help: {str(e)}")
 
 
 class StartCommand(Command):
@@ -295,11 +360,7 @@ class StartCommand(Command):
             )
         except Exception as e:
             logger.error(f"Error in start command: {e}")
-            return CommandResult(
-                success=False,
-                message="❌ Error starting bot",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error starting registration: {str(e)}")
 
 
 class ListPlayersCommand(Command):
@@ -327,13 +388,8 @@ class ListPlayersCommand(Command):
             return CommandResult(success=False, message=player_formatter.format_error_message(str(user_error)))
             
         except Exception as e:
-            # System error
             logger.error(f"[ListPlayersCommand] System error: {e}", exc_info=True)
-            return CommandResult(
-                success=False, 
-                message=player_formatter.format_error_message("Sorry, something went wrong while listing players. Please try again later."),
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error listing players: {str(e)}")
 
 
 class MyInfoCommand(Command):
@@ -362,7 +418,7 @@ class MyInfoCommand(Command):
                 return CommandResult(success=True, message=formatted_result)
             else:
                 logger.warning(f"[MyInfoCommand] Failed to get player info for user {context.user_id}: {message}")
-                return CommandResult(success=False, message=player_formatter.format_error_message(message))
+                return CommandResult(success=False, message=message)
                 
         except KICKAIError as user_error:
             # User-facing error (e.g., player not found)
@@ -370,13 +426,8 @@ class MyInfoCommand(Command):
             return CommandResult(success=False, message=player_formatter.format_error_message(str(user_error)))
             
         except Exception as e:
-            # System error
             logger.error(f"[MyInfoCommand] System error: {e}", exc_info=True)
-            return CommandResult(
-                success=False, 
-                message=player_formatter.format_error_message("Sorry, something went wrong while getting your information. Please try again later."),
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error getting player info: {str(e)}")
 
 
 class UpdatePlayerCommand(Command):
@@ -426,13 +477,8 @@ class UpdatePlayerCommand(Command):
             return CommandResult(success=False, message=str(user_error))
             
         except Exception as e:
-            # System error
             logger.error(f"[UpdatePlayerCommand] System error: {e}", exc_info=True)
-            return CommandResult(
-                success=False, 
-                message="❌ Sorry, something went wrong while updating your information. Please try again later.",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error updating player: {str(e)}")
 
 
 class StatusCommand(Command):
@@ -520,35 +566,8 @@ class StatusCommand(Command):
             return CommandResult(success=False, message=str(user_error))
             
         except Exception as e:
-            # System error
             logger.error(f"[StatusCommand] System error: {e}", exc_info=True)
-            
-            # Provide more helpful error messages based on context
-            if context.chat_type == ChatType.LEADERSHIP:
-                error_message = f"""❌ **Status Check Failed**
-
-🔍 **Error Details:**
-• Type: System Error
-• Description: {str(e)[:100]}{'...' if len(str(e)) > 100 else ''}
-
-💡 **Troubleshooting:**
-• Check if the player exists in the database
-• Verify the phone number format is correct
-• Ensure the player is registered with the team
-• Contact system admin if the issue persists
-
-🔧 **Alternative Commands:**
-• `/list` - View all team players
-• `/myinfo` - Check your own status
-• `/pending` - View pending approvals"""
-            else:
-                error_message = "❌ Sorry, something went wrong while checking player status. Please try again later."
-            
-            return CommandResult(
-                success=False, 
-                message=error_message,
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error checking status: {str(e)}")
 
 
 class RegisterCommand(Command):
@@ -670,13 +689,8 @@ Contact a team admin in the leadership chat for assistance."""
             return CommandResult(success=False, message=str(user_error))
             
         except Exception as e:
-            # System error
             logger.error(f"[RegisterCommand] System error: {e}", exc_info=True)
-            return CommandResult(
-                success=False, 
-                message="❌ Sorry, something went wrong while processing your registration. Please try again later.",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error registering player: {str(e)}")
 
 
 class AddPlayerCommand(Command):
@@ -692,7 +706,7 @@ class AddPlayerCommand(Command):
             parsed = parse_command(context.message_text)
             if not parsed.is_valid:
                 logger.warning(f"[AddPlayerCommand] Command parsing failed: {parsed.error_message}")
-                return CommandResult(success=False, message=f"❌ {parsed.error_message or 'Parameter validation failed'}")
+                return CommandResult(success=False, message=parsed.error_message)
             
             # Extract parameters
             name = parsed.get_parameter("name")
@@ -715,13 +729,8 @@ class AddPlayerCommand(Command):
             return CommandResult(success=False, message=str(user_error))
             
         except Exception as e:
-            # System error (e.g., database connection, code bug)
             logger.error(f"[AddPlayerCommand] System error: {e}", exc_info=True)
-            return CommandResult(
-                success=False, 
-                message="❌ Sorry, something went wrong while adding the player. Please try again later.",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error adding player: {str(e)}")
 
 
 class RemovePlayerCommand(Command):
@@ -754,13 +763,8 @@ class RemovePlayerCommand(Command):
             return CommandResult(success=False, message=str(user_error))
             
         except Exception as e:
-            # System error
             logger.error(f"[RemovePlayerCommand] System error: {e}", exc_info=True)
-            return CommandResult(
-                success=False, 
-                message="❌ Sorry, something went wrong while removing the player. Please try again later.",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error removing player: {str(e)}")
 
 
 class ApprovePlayerCommand(Command):
@@ -799,13 +803,8 @@ class ApprovePlayerCommand(Command):
             return CommandResult(success=False, message=str(user_error))
             
         except Exception as e:
-            # System error
             logger.error(f"[ApprovePlayerCommand] System error: {e}", exc_info=True)
-            return CommandResult(
-                success=False, 
-                message="❌ Sorry, something went wrong while approving the player. Please try again later.",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error approving player: {str(e)}")
 
 
 class RejectPlayerCommand(Command):
@@ -841,13 +840,8 @@ class RejectPlayerCommand(Command):
             return CommandResult(success=False, message=str(user_error))
             
         except Exception as e:
-            # System error
             logger.error(f"[RejectPlayerCommand] System error: {e}", exc_info=True)
-            return CommandResult(
-                success=False, 
-                message="❌ Sorry, something went wrong while rejecting the player. Please try again later.",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error rejecting player: {str(e)}")
 
 
 class PendingApprovalsCommand(Command):
@@ -869,13 +863,8 @@ class PendingApprovalsCommand(Command):
             return CommandResult(success=False, message=str(user_error))
             
         except Exception as e:
-            # System error
             logger.error(f"[PendingApprovalsCommand] System error: {e}", exc_info=True)
-            return CommandResult(
-                success=False, 
-                message="❌ Sorry, something went wrong while getting pending approvals. Please try again later.",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error getting pending approvals: {str(e)}")
 
 
 class CheckFACommand(Command):
@@ -908,13 +897,8 @@ class CheckFACommand(Command):
             return CommandResult(success=False, message=str(user_error))
             
         except Exception as e:
-            # System error
             logger.error(f"[CheckFACommand] System error: {e}", exc_info=True)
-            return CommandResult(
-                success=False, 
-                message="❌ Sorry, something went wrong while checking FA registration. Please try again later.",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error checking FA registration: {str(e)}")
 
 
 class DailyStatusCommand(Command):
@@ -936,13 +920,8 @@ class DailyStatusCommand(Command):
             return CommandResult(success=False, message=str(user_error))
             
         except Exception as e:
-            # System error
             logger.error(f"[DailyStatusCommand] System error: {e}", exc_info=True)
-            return CommandResult(
-                success=False, 
-                message="❌ Sorry, something went wrong while getting daily status. Please try again later.",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error getting daily status: {str(e)}")
 
 
 class BackgroundTasksCommand(Command):
@@ -964,13 +943,8 @@ class BackgroundTasksCommand(Command):
             return CommandResult(success=False, message=str(user_error))
             
         except Exception as e:
-            # System error
             logger.error(f"[BackgroundTasksCommand] System error: {e}", exc_info=True)
-            return CommandResult(
-                success=False, 
-                message="❌ Sorry, something went wrong while running background tasks. Please try again later.",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error running background tasks: {str(e)}")
 
 
 class RemindCommand(Command):
@@ -1006,26 +980,22 @@ class RemindCommand(Command):
             return CommandResult(success=False, message=str(user_error))
             
         except Exception as e:
-            # System error
             logger.error(f"[RemindCommand] System error: {e}", exc_info=True)
-            return CommandResult(
-                success=False, 
-                message="❌ Sorry, something went wrong while sending the reminder. Please try again later.",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error sending reminder: {str(e)}")
 
 
 # ============================================================================
 # MATCH COMMANDS
 # ============================================================================
 
-class CreateTeamCommand(Command):
-    """Command to create a new team."""
+class CreateMatchCommand(Command):
+    """Command to create a new match/fixture."""
 
     def __init__(self):
-        super().__init__("/create_team", "Create a new team", PermissionLevel.ADMIN)
+        super().__init__("/newmatch", "Create a new match/fixture", PermissionLevel.LEADERSHIP)
 
     async def execute(self, context: CommandContext) -> CommandResult:
+        """Execute the create match command."""
         try:
             command_operations = get_command_operations(team_id=context.team_id)
 
@@ -1050,180 +1020,6 @@ class CreateTeamCommand(Command):
             return CommandResult(success=False, message=f"❌ Error creating team: {str(e)}", error=str(e))
 
 
-class DeleteTeamCommand(Command):
-    """Command to delete a team."""
-
-    def __init__(self):
-        super().__init__("/delete_team", "Delete a team", PermissionLevel.ADMIN)
-
-    async def execute(self, context: CommandContext) -> CommandResult:
-        try:
-            command_operations = get_command_operations(team_id=context.team_id)
-
-            parts = context.message_text.split()
-            if len(parts) < 2:
-                return CommandResult(
-                    success=False,
-                    message="❌ Usage: /delete_team <team_id>",
-                    error="Missing team ID"
-                )
-
-            team_id = parts[1]
-            success, message = await command_operations.delete_team(team_id)
-            if success:
-                return CommandResult(success=True, message=message)
-            else:
-                return CommandResult(success=False, message=message, error=message)
-        except Exception as e:
-            logger.error(f"Error deleting team: {e}")
-            return CommandResult(success=False, message=f"❌ Error deleting team: {str(e)}", error=str(e))
-
-
-class ListTeamsCommand(Command):
-    """Command to list all teams."""
-
-    def __init__(self):
-        super().__init__("/list_teams", "List all teams", PermissionLevel.ADMIN)
-
-    async def execute(self, context: CommandContext) -> CommandResult:
-        try:
-            command_operations = get_command_operations(team_id=context.team_id)
-
-            result = await command_operations.list_teams()
-            return CommandResult(success=True, message=result)
-        except Exception as e:
-            logger.error(f"Error listing teams: {e}")
-            return CommandResult(success=False, message=f"❌ Error listing teams: {str(e)}", error=str(e))
-
-
-class CreateMatchCommand(Command):
-    """Command to create a new match/fixture."""
-    
-    def __init__(self):
-        super().__init__("/newmatch", "Create a new match/fixture", PermissionLevel.LEADERSHIP)
-    
-    async def execute(self, context: CommandContext) -> CommandResult:
-        """Execute the create match command."""
-        try:
-            command_operations = get_command_operations(team_id=context.team_id)
-            import re
-            
-            # Parse the message for match details
-            message = context.message_text.lower()
-            
-            # Extract match details using regex patterns
-            opponent = self._extract_opponent(message)
-            date = self._extract_date(message)
-            time = self._extract_time(message)
-            venue = self._extract_venue(message) or "Home"
-            competition = self._extract_competition(message) or "League"
-            
-            # Validate required fields
-            if not opponent:
-                return CommandResult(
-                    success=False,
-                    message="❌ Please specify an opponent.\n\nExample: `/newmatch Arsenal on July 1st at 2pm`",
-                    error="Missing opponent"
-                )
-            
-            if not date:
-                return CommandResult(
-                    success=False,
-                    message="❌ Please specify a date.\n\nExample: `/newmatch Arsenal on July 1st at 2pm`",
-                    error="Missing date"
-                )
-            
-            if not time:
-                return CommandResult(
-                    success=False,
-                    message="❌ Please specify a time.\n\nExample: `/newmatch Arsenal on July 1st at 2pm`",
-                    error="Missing time"
-                )
-            
-            # Create the fixture
-            success, message = await command_operations.create_match(
-                context.team_id, opponent, date, time, venue, competition
-            )
-            
-            if success:
-                return CommandResult(
-                    success=True,
-                    message=message
-                )
-            else:
-                return CommandResult(
-                    success=False,
-                    message=message,
-                    error=message
-                )
-                
-        except Exception as e:
-            logger.error(f"Error creating match: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error creating match: {str(e)}",
-                error=str(e)
-            )
-    
-    def _extract_opponent(self, message: str) -> str:
-        """Extract opponent from message."""
-        patterns = [
-            r'against\s+([a-zA-Z\s]+?)(?:\s+on|\s+at|\s+vs|\s+v|\s+versus|$)',
-            r'vs\s+([a-zA-Z\s]+?)(?:\s+on|\s+at|$)',
-            r'v\s+([a-zA-Z\s]+?)(?:\s+on|\s+at|$)',
-            r'versus\s+([a-zA-Z\s]+?)(?:\s+on|\s+at|$)',
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, message)
-            if match:
-                return match.group(1).strip()
-        return None
-    
-    def _extract_date(self, message: str) -> str:
-        """Extract date from message."""
-        patterns = [
-            r'(\d{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4})',
-            r'(\d{4}-\d{2}-\d{2})',
-            r'(\d{1,2}/\d{1,2}/\d{4})',
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, message, re.IGNORECASE)
-            if match:
-                return match.group(1)
-        return None
-    
-    def _extract_time(self, message: str) -> str:
-        """Extract time from message."""
-        patterns = [
-            r'(\d{1,2}:\d{2})',
-            r'(\d{1,2}(?:am|pm))',
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, message, re.IGNORECASE)
-            if match:
-                return match.group(1)
-        return None
-    
-    def _extract_venue(self, message: str) -> str:
-        """Extract venue from message."""
-        if 'home' in message:
-            return "Home"
-        elif 'away' in message:
-            return "Away"
-        return None
-    
-    def _extract_competition(self, message: str) -> str:
-        """Extract competition from message."""
-        competitions = ['league', 'cup', 'friendly', 'tournament']
-        for comp in competitions:
-            if comp in message:
-                return comp.title()
-        return None
-
-
 class ListMatchesCommand(Command):
     """Command to list all matches/fixtures."""
     
@@ -1239,11 +1035,7 @@ class ListMatchesCommand(Command):
             return CommandResult(success=True, message=result)
         except Exception as e:
             logger.error(f"Error listing matches: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error listing matches: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error listing matches: {str(e)}")
 
 
 class GetMatchCommand(Command):
@@ -1272,11 +1064,7 @@ class GetMatchCommand(Command):
             return CommandResult(success=True, message=result)
         except Exception as e:
             logger.error(f"Error getting match: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error getting match: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error getting match: {str(e)}")
     
     def _extract_match_id(self, message: str) -> str:
         """Extract match ID from message."""
@@ -1321,11 +1109,7 @@ class UpdateMatchCommand(Command):
                 return CommandResult(success=False, message=message, error=message)
         except Exception as e:
             logger.error(f"Error updating match: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error updating match: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error updating match: {str(e)}")
     
     def _extract_match_id(self, message: str) -> str:
         """Extract match ID from message."""
@@ -1373,11 +1157,7 @@ class DeleteMatchCommand(Command):
                 return CommandResult(success=False, message=message, error=message)
         except Exception as e:
             logger.error(f"Error deleting match: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error deleting match: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error deleting match: {str(e)}")
     
     def _extract_match_id(self, message: str) -> str:
         """Extract match ID from message."""
@@ -1399,11 +1179,7 @@ class RecordResultCommand(Command):
             return CommandResult(success=success, message=message)
         except Exception as e:
             logger.error(f"Record result command error: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error recording result: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error recording result: {str(e)}")
 
 
 # ============================================================================
@@ -1430,11 +1206,7 @@ class StatsCommand(Command):
             
         except Exception as e:
             logger.error(f"Error getting stats: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error getting stats: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error getting stats: {str(e)}")
 
 
 class InviteLinkCommand(Command):
@@ -1479,11 +1251,7 @@ class InviteLinkCommand(Command):
                 
         except Exception as e:
             logger.error(f"Error sending invitation: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error sending invitation: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error sending invitation: {str(e)}")
     
     def _extract_identifier(self, message: str) -> Optional[str]:
         """Extract phone number or player ID from message."""
@@ -1530,11 +1298,7 @@ class BroadcastCommand(Command):
                 
         except Exception as e:
             logger.error(f"Error sending broadcast: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error sending broadcast: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error sending broadcast: {str(e)}")
     
     def _extract_broadcast_message(self, message: str) -> str:
         """Extract broadcast message from command."""
@@ -1568,11 +1332,7 @@ class CreateMatchFeeCommand(Command):
             
         except Exception as e:
             logger.error(f"Create match fee command error: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Payment Error: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error creating match fee: {str(e)}")
 
 
 class CreateMembershipFeeCommand(Command):
@@ -1597,11 +1357,7 @@ class CreateMembershipFeeCommand(Command):
             
         except Exception as e:
             logger.error(f"Create membership fee command error: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Payment Error: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error creating membership fee: {str(e)}")
 
 
 class CreateFineCommand(Command):
@@ -1626,11 +1382,7 @@ class CreateFineCommand(Command):
             
         except Exception as e:
             logger.error(f"Create fine command error: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Payment Error: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error creating fine: {str(e)}")
 
 
 class PaymentStatusCommand(Command):
@@ -1655,11 +1407,7 @@ class PaymentStatusCommand(Command):
             
         except Exception as e:
             logger.error(f"Payment status command error: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Payment Error: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error getting payment status: {str(e)}")
 
 
 class PendingPaymentsCommand(Command):
@@ -1684,11 +1432,7 @@ class PendingPaymentsCommand(Command):
             
         except Exception as e:
             logger.error(f"Pending payments command error: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Payment Error: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error getting pending payments: {str(e)}")
 
 
 class PaymentHistoryCommand(Command):
@@ -1713,11 +1457,7 @@ class PaymentHistoryCommand(Command):
             
         except Exception as e:
             logger.error(f"Payment history command error: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Payment Error: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error getting payment history: {str(e)}")
 
 
 class PaymentStatsCommand(Command):
@@ -1739,11 +1479,7 @@ class PaymentStatsCommand(Command):
             
         except Exception as e:
             logger.error(f"Payment stats command error: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Payment Error: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error getting payment stats: {str(e)}")
 
 
 class PaymentHelpCommand(Command):
@@ -1854,11 +1590,7 @@ class AttendCommand(Command):
             return CommandResult(success=success, message=message)
         except Exception as e:
             logger.error(f"Attend command error: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error confirming attendance: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error attending match: {str(e)}")
 
 
 class UnattendCommand(Command):
@@ -1876,11 +1608,7 @@ class UnattendCommand(Command):
             return CommandResult(success=success, message=message)
         except Exception as e:
             logger.error(f"Unattend command error: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error canceling attendance: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error unattending match: {str(e)}")
 
 
 
@@ -1899,11 +1627,7 @@ class InjurePlayerCommand(Command):
             return CommandResult(success=success, message=message)
         except Exception as e:
             logger.error(f"Injure player command error: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error marking player as injured: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error injuring player: {str(e)}")
 
 
 class SuspendPlayerCommand(Command):
@@ -1920,11 +1644,7 @@ class SuspendPlayerCommand(Command):
             return CommandResult(success=success, message=message)
         except Exception as e:
             logger.error(f"Suspend player command error: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error marking player as suspended: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error suspending player: {str(e)}")
 
 
 class RecoverPlayerCommand(Command):
@@ -1941,11 +1661,7 @@ class RecoverPlayerCommand(Command):
             return CommandResult(success=success, message=message)
         except Exception as e:
             logger.error(f"Recover player command error: {e}")
-            return CommandResult(
-                success=False,
-                message=f"❌ Error recovering player: {str(e)}",
-                error=str(e)
-            )
+            return CommandResult(success=False, message=f"❌ Error recovering player: {str(e)}")
 
 class CommandRegistry:
     """Registry for all available commands."""
@@ -1983,9 +1699,7 @@ class CommandRegistry:
             DailyStatusCommand(),
             BackgroundTasksCommand(),
             RemindCommand(),
-            CreateTeamCommand(),
-            DeleteTeamCommand(),
-            ListTeamsCommand(),
+            PromoteCommand(),
             
             # Match Commands
             CreateMatchCommand(),
@@ -2087,17 +1801,18 @@ class CommandProcessor:
             return ChatType.MAIN  # Default to main chat
     
     async def _get_user_role(self, user_id: str, team_id: str) -> str:
-        """Get user role for permission checking."""
+        """Get user role for permission checking using centralized permission service."""
         logger.info(f"[CommandProcessor] _get_user_role called with user_id={user_id}, team_id={team_id}")
         try:
-            logger.info(f"[CommandProcessor] Getting command operations for team_id={team_id}")
-            command_operations = get_command_operations(team_id=team_id)
-            logger.info(f"[CommandProcessor] Command operations obtained: {type(command_operations)}")
+            # Use centralized permission service
+            from features.system_infrastructure.domain.services.permission_service import get_permission_service
             
-            logger.info(f"[CommandProcessor] Calling command_operations.get_user_role({user_id}, {team_id})")
-            role = await command_operations.get_user_role(user_id, team_id)
+            permission_service = get_permission_service()
+            role = await permission_service.get_user_role(user_id, team_id)
+            
             logger.info(f"[CommandProcessor] get_user_role returned: {role}")
             return role
+            
         except Exception as e:
             logger.error(f"[CommandProcessor] Error getting user role: {e}", exc_info=True)
             log_error(
@@ -2322,5 +2037,46 @@ def format_enum(val):
     elif isinstance(val, str):
         return val.title()
     return str(val)
+
+
+class PromoteCommand(Command):
+    """Command to promote a team member to admin."""
+
+    def __init__(self):
+        super().__init__("/promote", "Promote a team member to admin", PermissionLevel.ADMIN)
+
+    async def execute(self, context: CommandContext) -> CommandResult:
+        try:
+            from features.system_infrastructure.domain.services.permission_service import get_permission_service
+            
+            permission_service = get_permission_service()
+            
+            parts = context.message_text.split()
+            if len(parts) < 2:
+                return CommandResult(
+                    success=False,
+                    message="❌ Usage: /promote <member_id>",
+                    error="Missing member ID"
+                )
+
+            member_id = parts[1]
+            
+            # Promote the member to admin
+            success = await permission_service.promote_to_admin(member_id, context.team_id, context.user_id)
+            
+            if success:
+                return CommandResult(
+                    success=True, 
+                    message=f"✅ Successfully promoted {member_id} to admin"
+                )
+            else:
+                return CommandResult(
+                    success=False,
+                    message=f"❌ Failed to promote {member_id} to admin. Make sure they are a team member and you have admin permissions.",
+                    error="Promotion failed"
+                )
+        except Exception as e:
+            logger.error(f"Error promoting member: {e}")
+            return CommandResult(success=False, message=f"❌ Error promoting member: {str(e)}")
 
 

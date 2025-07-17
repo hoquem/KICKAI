@@ -126,7 +126,7 @@ class PlayerService(IPlayerService):
         except (PlayerError, PlayerDuplicateError):
             raise
         except Exception as e:
-            logging.error("Failed to create player")
+            logging.error(f"Failed to create player: {e}")
             raise PlayerError(
                 f"Failed to create player: {str(e)}",
                 create_error_context("create_player", team_id=team_id)
@@ -143,7 +143,7 @@ class PlayerService(IPlayerService):
             return player
             
         except Exception as e:
-            logging.error("Failed to get player")
+            logging.error(f"Failed to get player: {e}")
             raise PlayerError(
                 f"Failed to get player: {str(e)}",
                 create_error_context("get_player", entity_id=player_id)
@@ -201,7 +201,7 @@ class PlayerService(IPlayerService):
         except (PlayerError, PlayerNotFoundError, PlayerDuplicateError):
             raise
         except Exception as e:
-            logging.error("Failed to update player")
+            logging.error(f"Failed to update player: {e}")
             raise PlayerError(
                 f"Failed to update player: {str(e)}",
                 create_error_context("update_player", entity_id=player_id)
@@ -220,7 +220,7 @@ class PlayerService(IPlayerService):
             return success
             
         except Exception as e:
-            logging.error("Failed to delete player")
+            logging.error(f"Failed to delete player: {e}")
             raise PlayerError(
                 f"Failed to delete player: {str(e)}",
                 create_error_context("delete_player", entity_id=player_id)
@@ -238,7 +238,7 @@ class PlayerService(IPlayerService):
             return players
             
         except Exception as e:
-            logging.error("Failed to get team players")
+            logging.error(f"Failed to get team players: {e}")
             raise PlayerError(
                 f"Failed to get team players: {str(e)}",
                 create_error_context("get_team_players", team_id=team_id)
@@ -260,7 +260,7 @@ class PlayerService(IPlayerService):
             return players
             
         except Exception as e:
-            logging.error("Failed to get players by status")
+            logging.error(f"Failed to get players by status: {e}")
             raise PlayerError(
                 f"Failed to get players by status: {str(e)}",
                 create_error_context("get_players_by_status", team_id=team_id, status=status.value)
@@ -290,7 +290,7 @@ class PlayerService(IPlayerService):
             return None
             
         except Exception as e:
-            logging.error("Failed to get player by phone")
+            logging.error(f"Failed to get player by phone: {e}")
             raise PlayerError(
                 f"Failed to get player by phone: {str(e)}",
                 create_error_context("get_player_by_phone", additional_info={'phone': phone, 'team_id': team_id})
@@ -320,7 +320,7 @@ class PlayerService(IPlayerService):
             return None
         except Exception as e:
             print(f"❌ [DEBUG] PlayerService.get_player_by_telegram_id exception: {e}")
-            logging.error("Failed to get player by telegram_id")
+            logging.error(f"Failed to get player by telegram_id: {e}")
             raise PlayerError(
                 f"Failed to get player by telegram_id: {str(e)}",
                 create_error_context("get_player_by_telegram_id", additional_info={'telegram_id': telegram_id, 'team_id': team_id})
@@ -342,20 +342,10 @@ class PlayerService(IPlayerService):
                 # For now, return an error indicating player needs to be created first
                 return False, "Player must be created first using /add command"
             
-            # If a player with this Telegram ID already exists, check if it's the same player
-            if existing_player_with_telegram_id:
-                # Check if the existing player's ID matches the provided player_id
-                if existing_player_with_telegram_id.player_id == player_id:
-                    # Same player, just confirm registration and show details
-                    detailed_status = existing_player_with_telegram_id.get_detailed_status()
-                    return True, f"✅ You are already registered!\n\n👤 Player Details:\n• Name: {existing_player_with_telegram_id.name}\n• Player ID: {existing_player_with_telegram_id.player_id}\n• Phone: {existing_player_with_telegram_id.phone}\n• Position: {existing_player_with_telegram_id.position.value.title()}\n• Status: {detailed_status}"
-                else:
-                    # Different player ID, show conflict message
-                    return False, f"❌ A player with your Telegram ID is already registered in the system.\n\n👤 Player Details:\n• Name: {existing_player_with_telegram_id.name}\n• Player ID: {existing_player_with_telegram_id.player_id}\n• Phone: {existing_player_with_telegram_id.phone}\n\n💡 To complete your registration:\nPlease ask the club admin to remove the existing player record so you can register with your correct player ID.\n\n🔧 Admin Action Required:\nUse `/remove {existing_player_with_telegram_id.player_id}` in the leadership chat.\n\n💡 Please contact the team admin if you believe this is an error."
-            
-            # Check if the player already has a Telegram ID
-            if player.telegram_id and player.telegram_id != user_id:
-                return False, f"❌ Player {player.name} ({player.player_id}) is already registered with a different Telegram account.\n\n💡 Please contact the team admin if you believe this is an error."
+            # Check if this is the first user (no team members exist)
+            from features.player_registration.domain.services.team_member_service import TeamMemberService
+            team_member_service = TeamMemberService(self._data_store)
+            is_first_user = await team_member_service.is_first_user(team_id)
             
             # Update player status to completed onboarding and link Telegram ID
             update_data = serialize_enums_for_firestore({
@@ -365,11 +355,50 @@ class PlayerService(IPlayerService):
             })
             await self._data_store.update_player(player_id, update_data)
             
+            # If this is the first user, automatically assign admin role
+            if is_first_user:
+                await self._assign_first_user_admin(team_id, user_id)
+                return True, f"✅ Player {player.name} ({player.player_id}) registration completed! You are now the team admin."
+            
             return True, f"✅ Player {player.name} ({player.player_id}) registration completed!"
             
         except Exception as e:
             logging.error(f"Failed to register player: {e}")
             return False, f"Error registering player: {str(e)}"
+    
+    async def _assign_first_user_admin(self, team_id: str, user_id: str) -> None:
+        """Assign admin role to the first user of a team."""
+        try:
+            from features.player_registration.domain.services.team_member_service import TeamMemberService
+            team_member_service = TeamMemberService(self._data_store)
+            
+            # Get or create team member
+            team_member = await team_member_service.get_team_member_by_telegram_id(user_id, team_id)
+            
+            if team_member:
+                # Add admin role if not already present
+                if "admin" not in team_member.roles:
+                    team_member.roles.append("admin")
+                    team_member.updated_at = datetime.now()
+                    await team_member_service.update_team_member(team_member)
+                    logging.info(f"Assigned admin role to first user {user_id} for team {team_id}")
+            else:
+                # Create new team member with admin role
+                from database.models_improved import TeamMember
+                new_member = TeamMember(
+                    team_id=team_id,
+                    user_id=user_id,
+                    telegram_id=user_id,
+                    roles=["admin", "player", "team_member"],
+                    chat_access={"main_chat": True, "leadership_chat": True},
+                    joined_at=datetime.now()
+                )
+                await team_member_service.create_team_member(new_member)
+                logging.info(f"Created new team member with admin role for first user {user_id} in team {team_id}")
+                
+        except Exception as e:
+            logging.error(f"Failed to assign admin role to first user {user_id}: {e}")
+            # Don't raise the exception as this is not critical for player registration
 
     async def approve_player(self, player_id: str, team_id: str) -> tuple[bool, str]:
         """Approve a player for match squad selection."""

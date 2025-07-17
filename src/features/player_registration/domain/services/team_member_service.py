@@ -230,6 +230,90 @@ class TeamMemberService(ITeamMemberService):
             logger.error(f"❌ Failed to get user role for {user_id} in team {team_id}: {e}")
             return 'player'  # Default to player role on error
 
+    # New methods for chat-based role assignment integration
+    
+    async def is_first_user(self, team_id: str) -> bool:
+        """Check if this would be the first user in the team."""
+        try:
+            team_members = await self.get_team_members_by_team(team_id)
+            return len(team_members) == 0
+        except Exception as e:
+            logger.error(f"❌ Failed to check if first user for team {team_id}: {e}")
+            return False
+    
+    async def get_longest_tenured_leadership_member(self, team_id: str) -> Optional[TeamMember]:
+        """Get the longest-tenured leadership member with leadership chat access."""
+        try:
+            leadership_members = await self.get_leadership_members(team_id)
+            
+            # Filter to only those with leadership chat access
+            eligible_members = [m for m in leadership_members if m.can_access_chat("leadership_chat")]
+            
+            if not eligible_members:
+                return None
+            
+            # Sort by join date (oldest first)
+            eligible_members.sort(key=lambda m: m.joined_at)
+            return eligible_members[0]
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to get longest-tenured leadership member for team {team_id}: {e}")
+            return None
+    
+    async def promote_to_admin(self, user_id: str, team_id: str, promoted_by: str) -> bool:
+        """Promote a user to admin role (only by existing admin)."""
+        try:
+            # Check if promoter is admin
+            promoter = await self.get_team_member_by_telegram_id(promoted_by, team_id)
+            if not promoter or "admin" not in promoter.roles:
+                logger.warning(f"Non-admin user {promoted_by} attempted to promote {user_id}")
+                return False
+            
+            # Get user to promote
+            member = await self.get_team_member_by_telegram_id(user_id, team_id)
+            if not member:
+                logger.warning(f"User {user_id} not found in team {team_id}")
+                return False
+            
+            # Add admin role
+            if "admin" not in member.roles:
+                member.roles.append("admin")
+                member.updated_at = datetime.now()
+                success = await self.update_team_member(member)
+                if success:
+                    logger.info(f"User {user_id} promoted to admin by {promoted_by}")
+                return success
+            
+            return True  # Already admin
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to promote user {user_id} to admin: {e}")
+            return False
+    
+    async def handle_last_admin_leaving(self, team_id: str) -> Optional[str]:
+        """Handle when the last admin leaves - promote longest-tenured leadership member."""
+        try:
+            # Get longest-tenured leadership member
+            longest_tenured = await self.get_longest_tenured_leadership_member(team_id)
+            if not longest_tenured:
+                logger.warning(f"No eligible members to promote to admin in team {team_id}")
+                return None
+            
+            # Promote to admin
+            if "admin" not in longest_tenured.roles:
+                longest_tenured.roles.append("admin")
+                longest_tenured.updated_at = datetime.now()
+                success = await self.update_team_member(longest_tenured)
+                if success:
+                    logger.info(f"Promoted longest-tenured member {longest_tenured.user_id} to admin in team {team_id}")
+                    return longest_tenured.user_id
+            
+            return longest_tenured.user_id  # Already admin
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to handle last admin leaving for team {team_id}: {e}")
+            return None
+
     async def generate_invitation(self, identifier: str, team_id: str) -> tuple[bool, str]:
         """Generate an invitation for a player by phone number or player ID."""
         try:
@@ -249,67 +333,33 @@ You've been invited to join our team! We're excited to have you on board.
 🔗 <b>Join Our Main Team Chat:</b>
 [Invite link will be generated when bot is configured]
 
-📱 <b>Next Steps:</b>
-1. Click the link above to join our main team group
-2. Once you join, the bot will automatically welcome you
-3. If the bot doesn't welcome you automatically, type: <code>/register {identifier.upper()}</code>
-4. Complete your onboarding process by following the bot's prompts
-5. Get ready for training and matches!
+📋 <b>Next Steps:</b>
+1. Join the main team chat
+2. Complete your player registration
+3. Get approved by team admin
 
-⚠️ <b>Important:</b> 
-• This invitation is for our main team chat only
-• Leadership chat access is managed separately
-• Make sure to use your Player ID: <b>{identifier.upper()}</b> if needed
+🎯 <b>What You Can Do:</b>
+• Register as a player: `/register {identifier.upper()}`
+• Check your status: `/myinfo`
+• Get help: `/help`
 
-⚽ <b>What to Expect:</b>
-• Team announcements and updates
-• Training schedules
-• Match information
-• Team communication
+Welcome to the team! ⚽
 
-If you have any questions, please contact the team leadership.
+---
+<i>This invitation was generated by the KICKAI team management system.</i>"""
 
-Welcome aboard! 🏆
-
-- KICKAI Team Management"""
-            
-            logger.info(f"✅ Invitation generated for player: {identifier}")
             return True, invitation_message
             
         except Exception as e:
-            logger.error(f"❌ Error generating invitation for {identifier}: {e}")
-            return False, f"❌ Error generating invitation: {str(e)}"
-    
+            logger.error(f"❌ Failed to generate invitation: {e}")
+            return False, f"Error generating invitation: {str(e)}"
+
     async def _create_telegram_invite_link(self, bot_token: str, chat_id: str) -> str:
-        """Create a Telegram group invite link using the Bot API."""
+        """Create a Telegram invite link for a chat."""
         try:
-            import requests
-            
-            # Create invite link using Telegram Bot API
-            url = f"https://api.telegram.org/bot{bot_token}/createChatInviteLink"
-            data = {
-                'chat_id': chat_id,
-                'name': 'KICKAI Team Invite',
-                'creates_join_request': False,
-                'expire_date': None,  # No expiration
-                'member_limit': None  # No member limit
-            }
-            
-            response = requests.post(url, json=data, timeout=10)
-            response.raise_for_status()
-            result = response.json()
-            
-            if result.get('ok') and result.get('result'):
-                invite_link = result['result']['invite_link']
-                logger.info(f"✅ Created Telegram invite link: {invite_link}")
-                return invite_link
-            else:
-                error_msg = f"Failed to create invite link: {result.get('description', 'Unknown error')}"
-                logger.error(error_msg)
-                # Fallback to a placeholder link
-                return f"https://t.me/+{chat_id.replace('-', '')}"
-                
+            # This would integrate with Telegram Bot API to create invite links
+            # For now, return a placeholder
+            return f"https://t.me/joinchat/{chat_id}"
         except Exception as e:
-            logger.error(f"❌ Error creating Telegram invite link: {e}")
-            # Fallback to a placeholder link
-            return f"https://t.me/+{chat_id.replace('-', '')}" 
+            logger.error(f"❌ Failed to create Telegram invite link: {e}")
+            return "" 
