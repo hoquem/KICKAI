@@ -8,6 +8,7 @@ This script sets up the necessary team mappings for the KICKAI bot to function p
 import asyncio
 import os
 import sys
+import logging
 from pathlib import Path
 
 # Add src to path
@@ -18,6 +19,10 @@ from firebase_admin import credentials, firestore
 from dotenv import load_dotenv
 import json
 import os
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -33,11 +38,11 @@ def configure_team_mappings():
     """Configure team mappings in Firestore."""
     
     if not all([MAIN_CHAT_ID, LEADERSHIP_CHAT_ID, TEAM_ID, BOT_TOKEN]):
-        print("❌ Missing required environment variables:")
-        print(f"   TELEGRAM_MAIN_CHAT_ID: {MAIN_CHAT_ID}")
-        print(f"   TELEGRAM_LEADERSHIP_CHAT_ID: {LEADERSHIP_CHAT_ID}")
-        print(f"   TEAM_ID: {TEAM_ID}")
-        print(f"   TELEGRAM_BOT_TOKEN: {'Set' if BOT_TOKEN else 'Missing'}")
+        logger.error("❌ Missing required environment variables:")
+        logger.error(f"   TELEGRAM_MAIN_CHAT_ID: {MAIN_CHAT_ID}")
+        logger.error(f"   TELEGRAM_LEADERSHIP_CHAT_ID: {LEADERSHIP_CHAT_ID}")
+        logger.error(f"   TEAM_ID: {TEAM_ID}")
+        logger.error(f"   TELEGRAM_BOT_TOKEN: {'Set' if BOT_TOKEN else 'Missing'}")
         return False
     
     try:
@@ -45,22 +50,22 @@ def configure_team_mappings():
         if not firebase_admin._apps:
             firebase_creds_file = os.getenv('FIREBASE_CREDENTIALS_FILE')
             if firebase_creds_file and os.path.exists(firebase_creds_file):
-                print(f"🔄 Using Firebase credentials from: {firebase_creds_file}")
+                logger.info(f"🔄 Using Firebase credentials from: {firebase_creds_file}")
                 cred = credentials.Certificate(firebase_creds_file)
                 firebase_admin.initialize_app(cred)
             else:
-                print("❌ Firebase credentials file not found")
+                logger.error("❌ Firebase credentials file not found")
                 return False
         
         # Initialize Firestore client
         db = firestore.client()
         collection_ref = db.collection('kickai_bot_mappings')
         
-        print(f"🔧 Configuring team mappings for team: {TEAM_ID}")
-        print(f"   Main Chat ID: {MAIN_CHAT_ID}")
-        print(f"   Leadership Chat ID: {LEADERSHIP_CHAT_ID}")
-        print(f"   Bot Token: {BOT_TOKEN[:10]}...")
-        print(f"   Bot Username: {BOT_USERNAME}")
+        logger.info(f"🔧 Configuring team mappings for team: {TEAM_ID}")
+        logger.info(f"   Main Chat ID: {MAIN_CHAT_ID}")
+        logger.info(f"   Leadership Chat ID: {LEADERSHIP_CHAT_ID}")
+        logger.info(f"   Bot Token: {BOT_TOKEN[:10]}...")
+        logger.info(f"   Bot Username: {BOT_USERNAME}")
         
         # Configure main chat mapping
         main_chat_doc = {
@@ -87,59 +92,59 @@ def configure_team_mappings():
         }
         
         # Write documents to Firestore
-        print("\n📝 Writing team mappings to Firestore...")
+        logger.info("\n📝 Writing team mappings to Firestore...")
         
         # Use chat_id as document ID for easy lookup
         collection_ref.document(MAIN_CHAT_ID).set(main_chat_doc)
-        print(f"   ✅ Main chat mapping configured")
+        logger.info(f"   ✅ Main chat mapping configured")
         
         collection_ref.document(LEADERSHIP_CHAT_ID).set(leadership_chat_doc)
-        print(f"   ✅ Leadership chat mapping configured")
+        logger.info(f"   ✅ Leadership chat mapping configured")
         
         # Verify the mappings
-        print("\n🔍 Verifying team mappings...")
+        logger.info("\n🔍 Verifying team mappings...")
         
         main_doc = collection_ref.document(MAIN_CHAT_ID).get()
         leadership_doc = collection_ref.document(LEADERSHIP_CHAT_ID).get()
         
         if main_doc.exists and leadership_doc.exists:
-            print("   ✅ Team mappings verified successfully")
-            print(f"   📊 Total mappings configured: 2")
+            logger.info("   ✅ Team mappings verified successfully")
+            logger.info(f"   📊 Total mappings configured: 2")
             return True
         else:
-            print("   ❌ Failed to verify team mappings")
+            logger.error("   ❌ Failed to verify team mappings")
             return False
             
     except Exception as e:
-        print(f"❌ Error configuring team mappings: {e}")
+        logger.error(f"❌ Error configuring team mappings: {e}")
         return False
 
 def verify_bot_admin_status():
     """Verify that the bot is admin in both chats."""
-    print("\n🔍 Verifying bot admin status...")
-    print("   ⚠️  Please ensure the bot is added as an admin in both chats:")
-    print(f"      Main Chat: {MAIN_CHAT_ID}")
-    print(f"      Leadership Chat: {LEADERSHIP_CHAT_ID}")
-    print("   📋 Required permissions:")
-    print("      - Send Messages")
-    print("      - Read Messages")
-    print("      - Delete Messages (optional)")
-    print("      - Pin Messages (optional)")
+    logger.info("\n🔍 Verifying bot admin status...")
+    logger.info("   ⚠️  Please ensure the bot is added as an admin in both chats:")
+    logger.info(f"      Main Chat: {MAIN_CHAT_ID}")
+    logger.info(f"      Leadership Chat: {LEADERSHIP_CHAT_ID}")
+    logger.info("   📋 Required permissions:")
+    logger.info("      - Send Messages")
+    logger.info("      - Read Messages")
+    logger.info("      - Delete Messages (optional)")
+    logger.info("      - Pin Messages (optional)")
 
 def main():
     """Main function."""
-    print("🤖 KICKAI Team Mapping Configuration")
-    print("=" * 50)
+    logger.info("🤖 KICKAI Team Mapping Configuration")
+    logger.info("=" * 50)
     
     success = configure_team_mappings()
     
     if success:
         verify_bot_admin_status()
-        print("\n✅ Team mapping configuration completed successfully!")
-        print("🚀 The bot should now be able to start without validation errors.")
+        logger.info("\n✅ Team mapping configuration completed successfully!")
+        logger.info("🚀 The bot should now be able to start without validation errors.")
     else:
-        print("\n❌ Team mapping configuration failed!")
-        print("   Please check the error messages above and try again.")
+        logger.error("\n❌ Team mapping configuration failed!")
+        logger.error("   Please check the error messages above and try again.")
         sys.exit(1)
 
 if __name__ == "__main__":

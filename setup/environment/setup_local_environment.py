@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 """
-KICKAI Local Environment Setup
+Local Environment Setup Script
 
-This script helps set up the local environment for running KICKAI.
-It will guide you through setting up the required environment variables.
+This script helps set up the local environment for KICKAI development.
+It prompts for necessary configuration values and creates a .env file.
 """
 
 import os
 import json
 import sys
+import logging
 from pathlib import Path
+
+# Configure basic logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 def print_banner():
     """Print setup banner."""
-    print("""
+    logger.info("""
 🎯 KICKAI Local Environment Setup
 ================================
 
@@ -34,17 +39,17 @@ def get_input(prompt, default=None, required=True):
             value = input(f"{prompt}: ").strip()
         
         if required and not value:
-            print("❌ This field is required. Please provide a value.")
+            logger.error("❌ This field is required. Please provide a value.")
             continue
         
         return value
 
 def setup_telegram():
     """Set up Telegram bot configuration."""
-    print("\n🤖 TELEGRAM BOT SETUP")
-    print("=" * 30)
+    logger.info("\n🤖 TELEGRAM BOT SETUP")
+    logger.info("=" * 30)
     
-    print("""
+    logger.info("""
 To get your Telegram bot token:
 1. Message @BotFather on Telegram
 2. Send /newbot
@@ -54,7 +59,7 @@ To get your Telegram bot token:
     
     bot_token = get_input("Enter your Telegram bot token")
     
-    print("""
+    logger.info("""
 To get your chat IDs:
 1. Add your bot to your group
 2. Send a message in the group
@@ -73,10 +78,10 @@ To get your chat IDs:
 
 def setup_firebase():
     """Set up Firebase configuration."""
-    print("\n🔥 FIREBASE SETUP")
-    print("=" * 20)
+    logger.info("\n🔥 FIREBASE SETUP")
+    logger.info("=" * 20)
     
-    print("""
+    logger.info("""
 To set up Firebase:
 1. Go to https://console.firebase.google.com/
 2. Create a new project or select existing
@@ -87,7 +92,7 @@ To set up Firebase:
     
     project_id = get_input("Enter your Firebase project ID")
     
-    print("""
+    logger.info("""
 For the service account JSON:
 1. Open the downloaded JSON file
 2. Copy the entire content
@@ -100,7 +105,7 @@ For the service account JSON:
     try:
         json.loads(credentials_json)
     except json.JSONDecodeError:
-        print("❌ Invalid JSON format. Please check your service account JSON.")
+        logger.error("❌ Invalid JSON format. Please check your service account JSON.")
         return setup_firebase()
     
     return {
@@ -110,10 +115,10 @@ For the service account JSON:
 
 def setup_ai():
     """Set up AI provider configuration."""
-    print("\n🤖 AI PROVIDER SETUP")
-    print("=" * 25)
+    logger.info("\n🤖 AI PROVIDER SETUP")
+    logger.info("=" * 25)
     
-    print("""
+    logger.info("""
 Choose your AI provider:
 1. Google Gemini (recommended for production)
 2. OpenAI (requires API key)
@@ -123,7 +128,7 @@ Choose your AI provider:
     provider = get_input("Enter AI provider (google_gemini/openai/ollama)", "google_gemini")
     
     if provider == "google_gemini":
-        print("""
+        logger.info("""
 To get Google API key:
 1. Go to https://makersuite.google.com/app/apikey
 2. Create a new API key
@@ -132,7 +137,7 @@ To get Google API key:
         api_key = get_input("Enter your Google API key")
         model = "gemini-pro"
     elif provider == "openai":
-        print("""
+        logger.info("""
 To get OpenAI API key:
 1. Go to https://platform.openai.com/api-keys
 2. Create a new API key
@@ -141,7 +146,7 @@ To get OpenAI API key:
         api_key = get_input("Enter your OpenAI API key")
         model = "gpt-3.5-turbo"
     elif provider == "ollama":
-        print("""
+        logger.info("""
 For Ollama (local development):
 1. Install Ollama from https://ollama.ai
 2. Run: ollama pull llama3.1:8b-instruct-q4_0
@@ -150,7 +155,7 @@ For Ollama (local development):
         api_key = "ollama_local"
         model = "llama3.1:8b-instruct-q4_0"
     else:
-        print("❌ Invalid provider. Using Google Gemini.")
+        logger.error("❌ Invalid provider. Using Google Gemini.")
         provider = "google_gemini"
         api_key = get_input("Enter your Google API key")
         model = "gemini-pro"
@@ -163,8 +168,8 @@ For Ollama (local development):
 
 def setup_optional():
     """Set up optional configuration."""
-    print("\n⚙️ OPTIONAL CONFIGURATION")
-    print("=" * 30)
+    logger.info("\n⚙️ OPTIONAL CONFIGURATION")
+    logger.info("=" * 30)
     
     environment = get_input("Enter environment (development/production)", "development", required=False)
     payment_enabled = get_input("Enable payment system? (true/false)", "false", required=False)
@@ -175,7 +180,7 @@ def setup_optional():
     }
     
     if payment_enabled.lower() == "true":
-        print("""
+        logger.info("""
 Payment system setup:
 You'll need a Collectiv API key for payment processing.
 For now, we'll set it up as disabled.
@@ -220,7 +225,7 @@ VERBOSE_LOGGING=true
     with open(".env", "w") as f:
         f.write(env_content)
     
-    print("✅ .env file created successfully!")
+    logger.info("✅ .env file created successfully!")
 
 def main():
     """Main setup function."""
@@ -244,7 +249,7 @@ def main():
         # Create .env file
         create_env_file(config)
         
-        print("""
+        logger.info("""
 🎉 SETUP COMPLETE!
 
 Your KICKAI environment is now configured. Next steps:
@@ -253,7 +258,7 @@ Your KICKAI environment is now configured. Next steps:
    pip install -r requirements.txt
 
 2. Run the bot:
-   python run_telegram_bot.py
+   python run_bot_local.py
 
 3. Test the bot:
    Send /start to your bot on Telegram
@@ -265,10 +270,10 @@ Your KICKAI environment is now configured. Next steps:
 """)
         
     except KeyboardInterrupt:
-        print("\n👋 Setup cancelled by user")
+        logger.info("\n👋 Setup cancelled by user")
         sys.exit(0)
     except Exception as e:
-        print(f"\n❌ Setup failed: {e}")
+        logger.error(f"\n❌ Setup failed: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":

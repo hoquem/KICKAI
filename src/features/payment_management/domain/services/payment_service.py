@@ -2,23 +2,25 @@ import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from src.database.firebase_client import get_firebase_client
-from src.database.models_improved import Payment, PaymentType, PaymentStatus, Expense, ExpenseCategory
-from src.features.player_registration.domain.interfaces.player_lookup_interface import IPlayerLookup
-from src.core.exceptions import PaymentError, PaymentNotFoundError, create_error_context
-from src.features.payment_management.domain.interfaces.payment_service_interface import IPaymentService
-from src.features.payment_management.domain.interfaces.payment_gateway_interface import PaymentGatewayInterface
-from src.features.payment_management.infrastructure.collectiv_payment_gateway import MockCollectivPaymentGateway
+from database.firebase_client import get_firebase_client
+from features.payment_management.domain.entities.payment import Payment, PaymentType, PaymentStatus
+from features.payment_management.domain.entities.expense import Expense, ExpenseCategory
+from features.player_registration.domain.interfaces.player_lookup_interface import IPlayerLookup
+from core.exceptions import PaymentError, PaymentNotFoundError, create_error_context
+from features.payment_management.domain.interfaces.payment_service_interface import IPaymentService
+from features.payment_management.domain.interfaces.payment_gateway_interface import IPaymentGateway
+from features.payment_management.infrastructure.collectiv_payment_gateway import MockCollectivPaymentGateway
+from src.utils.validation_utils import validate_payment_details
 
 class PaymentService(IPaymentService):
     """Service for managing payments with Collectiv integration."""
-    def __init__(self, data_store, team_id: Optional[str] = None, payment_gateway: Optional[PaymentGatewayInterface] = None, player_lookup: Optional[IPlayerLookup] = None):
+    def __init__(self, data_store, team_id: Optional[str] = None, payment_gateway: Optional[IPaymentGateway] = None, player_lookup: Optional[IPlayerLookup] = None):
         self._data_store = data_store
         self.team_id = team_id
         self._payment_gateway = payment_gateway or self._get_default_payment_gateway(team_id)
         self._player_lookup = player_lookup
 
-    def _get_default_payment_gateway(self, team_id: Optional[str]) -> PaymentGatewayInterface:
+    def _get_default_payment_gateway(self, team_id: Optional[str]) -> IPaymentGateway:
         """Returns the default payment gateway based on configuration."""
         # Use MockCollectivPaymentGateway for development/testing
         # In production, this would check configuration and use real Collectiv API

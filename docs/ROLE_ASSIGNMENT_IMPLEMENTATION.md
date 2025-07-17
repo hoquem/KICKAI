@@ -108,7 +108,7 @@ The system generates appropriate welcome messages based on:
 
 ### Bot Startup
 
-The chat member handler is registered in `run_telegram_bot.py`:
+The chat member handler is registered in `run_bot_local.py`:
 
 ```python
 from bot_telegram.chat_member_handler import register_chat_member_handler

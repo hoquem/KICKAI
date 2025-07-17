@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 import logging
 
-from .phone_utils import is_valid_phone, normalize_phone
+from utils.phone_utils import is_valid_phone, normalize_phone
 
 logger = logging.getLogger(__name__)
 

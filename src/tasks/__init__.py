@@ -1,23 +1,34 @@
 """
 KICKAI Tasks Package
 
-This package contains task-related functionality for the KICKAI system.
+This package contains unified task management functionality for the KICKAI system.
+All task creation is now handled through the TaskRegistry system.
 """
 
-from .tasks import *
-from .task_templates import *
+from .tasks import Task, TaskStatus
+from .task_templates import (
+    TaskParameter,
+    TaskParameterType,
+    TaskTemplate,
+    TaskRegistry,
+    TASK_REGISTRY,
+    TaskParameterValidationError,
+    TaskParameterValidator
+)
 
 __all__ = [
-    # Tasks
-    'MessageProcessingTasks',
-    'PlayerManagementTasks', 
-    'FixtureManagementTasks',
-    'TeamManagementTasks',
-    'BotManagementTasks',
-    'CommandLoggingTasks',
+    # Core task types
+    'Task',
+    'TaskStatus',
     
-    # Task Templates
+    # Template system
+    'TaskParameter',
+    'TaskParameterType',
     'TaskTemplate',
-    'TaskTemplateManager',
-    'TASK_TEMPLATES'
+    'TaskParameterValidationError',
+    'TaskParameterValidator',
+    
+    # Registry system
+    'TaskRegistry',
+    'TASK_REGISTRY'
 ] 

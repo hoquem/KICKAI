@@ -13,13 +13,13 @@ from dataclasses import dataclass
 import logging
 import os
 
-from src.features.player_registration.domain.services.player_service import PlayerService
-from src.features.team_administration.domain.services.team_service import TeamService
-from src.features.player_registration.domain.services.team_member_service import TeamMemberService
-from src.features.player_registration.domain.services.fa_registration_checker import run_fa_registration_check, run_fa_fixtures_check
-from src.database.models_improved import Player
+from features.player_registration.domain.services.player_service import PlayerService
+from features.team_administration.domain.services.team_service import TeamService
+from features.player_registration.domain.services.team_member_service import TeamMemberService
+from features.player_registration.domain.services.fa_registration_checker import run_fa_registration_check, run_fa_fixtures_check
+from features.player_registration.domain.entities.player import Player
 
-from src.features.communication.domain.interfaces.daily_status_service_interface import IDailyStatusService
+from features.communication.domain.interfaces.daily_status_service_interface import IDailyStatusService
 
 class DailyStatusService(IDailyStatusService):
     """Service to generate and send daily team status reports."""

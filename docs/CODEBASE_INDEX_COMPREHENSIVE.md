@@ -246,7 +246,8 @@ KICKAI/
 ├── .github/                      # GitHub workflows
 ├── .pytest_cache/                # Pytest cache
 ├── venv/                         # Virtual environment
-├── run_telegram_bot.py          # Standard bot runner (14KB, 378 lines)
+├── run_bot_local.py          # Local bot runner
+├── run_bot_railway.py        # Railway deployment bot runner
 ├── test_crewai_llm.py           # CrewAI LLM test (1.6KB, 62 lines)
 ├── test_llm_classification.py   # LLM classification test (2.2KB, 75 lines)
 ├── debug_bot_startup.py         # Bot startup debug (7.0KB, 213 lines)

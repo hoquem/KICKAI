@@ -15,7 +15,7 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, asdict
 from enum import Enum
 
-from src.features.payment_management.domain.interfaces.payment_gateway_interface import PaymentGatewayInterface
+from features.payment_management.domain.interfaces.payment_gateway_interface import IPaymentGateway
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ class MockTransaction:
     completed_at: Optional[datetime] = None
 
 
-class MockCollectivPaymentGateway(PaymentGatewayInterface):
+class MockCollectivPaymentGateway(IPaymentGateway):
     """
     Mock Collectiv payment gateway for development and testing.
     

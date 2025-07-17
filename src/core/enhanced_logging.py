@@ -26,7 +26,7 @@ import json
 import inspect
 import os
 
-from .logging_config import LogContext, KICKAILogger, get_logger
+from core.logging_config import LogContext, KICKAILogger, get_logger
 
 
 class ErrorSeverity(Enum):

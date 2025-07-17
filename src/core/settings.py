@@ -12,7 +12,7 @@ from pydantic import Field, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from enum import Enum
 
-from .enums import AIProvider
+from core.enums import AIProvider
 
 
 class Environment(str, Enum):

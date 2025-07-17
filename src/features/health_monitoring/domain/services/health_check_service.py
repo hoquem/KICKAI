@@ -18,12 +18,12 @@ from dataclasses import dataclass, field
 from src.utils.async_utils import async_operation_context, async_retry, async_timeout
 from src.database.interfaces import DataStoreInterface
 from src.features.health_monitoring.domain.interfaces.health_check_service_interface import IHealthCheckService
-from src.features.player_registration.domain.interfaces.player_operations import IPlayerOperations
-from src.features.team_administration.domain.interfaces.team_operations import ITeamOperations
-from src.features.payment_management.domain.interfaces.payment_operations import IPaymentOperations
-from src.features.communication.domain.interfaces.reminder_service_interface import IReminderService
-from src.features.communication.domain.interfaces.daily_status_service_interface import IDailyStatusService
-from src.features.player_registration.domain.interfaces.fa_registration_checker_interface import IFARegistrationChecker
+from features.player_registration.domain.interfaces.player_operations import IPlayerOperations
+from features.team_administration.domain.interfaces.team_operations import ITeamOperations
+from features.payment_management.domain.interfaces.payment_operations import IPaymentOperations
+from features.communication.domain.interfaces.reminder_service_interface import IReminderService
+from features.communication.domain.interfaces.daily_status_service_interface import IDailyStatusService
+from features.player_registration.domain.interfaces.fa_registration_checker_interface import IFARegistrationChecker
 from src.utils.llm_client import LLMClient
 from src.features.health_monitoring.domain.entities.health_check_types import (
     HealthStatus, ComponentType, HealthCheckResult, 

@@ -2,62 +2,60 @@
 """
 Configuration Migration Script
 
-This script helps migrate from the old complex configuration system to the new
-clean Pydantic Settings system. It provides utilities to:
-
-1. Validate the new configuration system
-2. Compare old vs new configuration values
-3. Generate migration reports
-4. Test configuration loading
+This script helps migrate from the old configuration system to the new one.
+It validates the new configuration and provides a comparison report.
 """
 
 import os
 import sys
+import logging
 from pathlib import Path
-from typing import Dict, Any, List, Optional
-import json
+from typing import Dict, Any, List
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from core.settings import get_settings, Settings, Environment
-from core.config_adapter import get_improved_config  # Deprecated, only for migration comparison
+from core.settings import get_settings
+from core.improved_config import get_improved_config
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 def validate_new_config() -> List[str]:
     """Validate the new configuration system."""
-    print("🔍 Validating new configuration system...")
+    logger.info("🔍 Validating new configuration system...")
     
     errors = []
     
     try:
         # Test basic loading
         settings = get_settings()
-        print(f"✅ Settings loaded successfully")
-        print(f"   Environment: {settings.environment}")
-        print(f"   AI Provider: {settings.ai_provider}")
-        print(f"   Bot Token: {'✅ Set' if settings.telegram_bot_token else '❌ Missing'}")
+        logger.info(f"✅ Settings loaded successfully")
+        logger.info(f"   Environment: {settings.environment}")
+        logger.info(f"   AI Provider: {settings.ai_provider}")
+        logger.info(f"   Bot Token: {'✅ Set' if settings.telegram_bot_token else '❌ Missing'}")
         
         # Validate required fields
         validation_errors = settings.validate_required_fields()
         if validation_errors:
             errors.extend(validation_errors)
-            print(f"❌ Validation errors found: {len(validation_errors)}")
+            logger.error(f"❌ Validation errors found: {len(validation_errors)}")
             for error in validation_errors:
-                print(f"   - {error}")
+                logger.error(f"   - {error}")
         else:
-            print("✅ All required fields validated")
+            logger.info("✅ All required fields validated")
             
     except Exception as e:
         errors.append(f"Failed to load settings: {e}")
-        print(f"❌ Failed to load settings: {e}")
+        logger.error(f"❌ Failed to load settings: {e}")
     
     return errors
 
 
 def compare_configurations() -> Dict[str, Any]:
     """Compare old vs new configuration values."""
-    print("\n🔍 Comparing old vs new configuration...")
+    logger.info("\n🔍 Comparing old vs new configuration...")
     
     comparison = {
         "old_config": {},
@@ -149,14 +147,14 @@ def compare_configurations() -> Dict[str, Any]:
                     })
                     
             except Exception as e:
-                print(f"⚠️  Error comparing {key}: {e}")
+                logger.warning(f"⚠️  Error comparing {key}: {e}")
         
-        print(f"✅ Comparison completed")
-        print(f"   Total keys compared: {len(key_mappings)}")
-        print(f"   Differences found: {len(comparison['differences'])}")
+        logger.info(f"✅ Comparison completed")
+        logger.info(f"   Total keys compared: {len(key_mappings)}")
+        logger.info(f"   Differences found: {len(comparison['differences'])}")
         
     except Exception as e:
-        print(f"❌ Failed to compare configurations: {e}")
+        logger.error(f"❌ Failed to compare configurations: {e}")
     
     return comparison
 
@@ -184,7 +182,7 @@ def get_nested_value(obj: Any, path: str) -> Any:
 
 def generate_migration_report() -> str:
     """Generate a comprehensive migration report."""
-    print("\n📊 Generating migration report...")
+    logger.info("\n📊 Generating migration report...")
     
     report = []
     report.append("# Configuration Migration Report")
@@ -275,7 +273,7 @@ def generate_migration_report() -> str:
 
 def test_configuration_loading() -> bool:
     """Test configuration loading in different scenarios."""
-    print("\n🧪 Testing configuration loading...")
+    logger.info("\n🧪 Testing configuration loading...")
     
     tests_passed = 0
     total_tests = 0
@@ -285,64 +283,64 @@ def test_configuration_loading() -> bool:
     try:
         settings = get_settings()
         if settings is not None:
-            print("✅ Test 1: Basic loading passed")
+            logger.info("✅ Test 1: Basic loading passed")
             tests_passed += 1
         else:
-            print("❌ Test 1: Basic loading failed")
+            logger.error("❌ Test 1: Basic loading failed")
     except Exception as e:
-        print(f"❌ Test 1: Basic loading failed - {e}")
+        logger.error(f"❌ Test 1: Basic loading failed - {e}")
     
     # Test 2: Environment detection
     total_tests += 1
     try:
         settings = get_settings()
         if settings.environment in [Environment.DEVELOPMENT, Environment.PRODUCTION, Environment.TESTING]:
-            print(f"✅ Test 2: Environment detection passed - {settings.environment}")
+            logger.info(f"✅ Test 2: Environment detection passed - {settings.environment}")
             tests_passed += 1
         else:
-            print(f"❌ Test 2: Environment detection failed - {settings.environment}")
+            logger.error(f"❌ Test 2: Environment detection failed - {settings.environment}")
     except Exception as e:
-        print(f"❌ Test 2: Environment detection failed - {e}")
+        logger.error(f"❌ Test 2: Environment detection failed - {e}")
     
     # Test 3: AI provider validation
     total_tests += 1
     try:
         settings = get_settings()
         if settings.ai_provider is not None:
-            print(f"✅ Test 3: AI provider validation passed - {settings.ai_provider}")
+            logger.info(f"✅ Test 3: AI provider validation passed - {settings.ai_provider}")
             tests_passed += 1
         else:
-            print("❌ Test 3: AI provider validation failed")
+            logger.error("❌ Test 3: AI provider validation failed")
     except Exception as e:
-        print(f"❌ Test 3: AI provider validation failed - {e}")
+        logger.error(f"❌ Test 3: AI provider validation failed - {e}")
     
     # Test 4: Required field validation
     total_tests += 1
     try:
         settings = get_settings()
         errors = settings.validate_required_fields()
-        print(f"✅ Test 4: Required field validation passed - {len(errors)} errors found")
+        logger.info(f"✅ Test 4: Required field validation passed - {len(errors)} errors found")
         tests_passed += 1
     except Exception as e:
-        print(f"❌ Test 4: Required field validation failed - {e}")
+        logger.error(f"❌ Test 4: Required field validation failed - {e}")
     
-    print(f"\n📊 Test Results: {tests_passed}/{total_tests} tests passed")
+    logger.info(f"\n📊 Test Results: {tests_passed}/{total_tests} tests passed")
     return tests_passed == total_tests
 
 
 def main():
     """Main migration script."""
-    print("🚀 KICKAI Configuration Migration Script")
-    print("=" * 50)
+    logger.info("🚀 KICKAI Configuration Migration Script")
+    logger.info("=" * 50)
     
     # Check if we're in the right directory
     if not Path("src/core/settings.py").exists():
-        print("❌ Error: Please run this script from the project root directory")
+        logger.error("❌ Error: Please run this script from the project root directory")
         sys.exit(1)
     
     # Test configuration loading
     if not test_configuration_loading():
-        print("❌ Configuration tests failed. Please fix issues before proceeding.")
+        logger.error("❌ Configuration tests failed. Please fix issues before proceeding.")
         sys.exit(1)
     
     # Generate comparison
@@ -356,20 +354,20 @@ def main():
     with open(report_path, "w") as f:
         f.write(report)
     
-    print(f"\n📄 Migration report saved to: {report_path}")
+    logger.info(f"\n📄 Migration report saved to: {report_path}")
     
     # Summary
-    print("\n📋 Migration Summary:")
-    print(f"   - Configuration differences: {len(comparison['differences'])}")
-    print(f"   - Validation errors: {len(comparison.get('validation_errors', []))}")
-    print(f"   - Report generated: {report_path}")
+    logger.info("\n📋 Migration Summary:")
+    logger.info(f"   - Configuration differences: {len(comparison['differences'])}")
+    logger.info(f"   - Validation errors: {len(comparison.get('validation_errors', []))}")
+    logger.info(f"   - Report generated: {report_path}")
     
     if len(comparison['differences']) == 0:
-        print("\n🎉 No configuration differences found! Migration should be straightforward.")
+        logger.info("\n🎉 No configuration differences found! Migration should be straightforward.")
     else:
-        print(f"\n⚠️  Found {len(comparison['differences'])} differences. Review the report before migrating.")
+        logger.warning(f"\n⚠️  Found {len(comparison['differences'])} differences. Review the report before migrating.")
     
-    print("\n✅ Migration script completed successfully!")
+    logger.info("\n✅ Migration script completed successfully!")
 
 
 if __name__ == "__main__":

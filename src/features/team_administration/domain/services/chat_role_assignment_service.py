@@ -15,7 +15,6 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from dataclasses import dataclass
 
-from database.models_improved import TeamMember, Player
 from database.firebase_client import FirebaseClient
 from core.exceptions import DatabaseError, ValidationError
 from features.player_registration.domain.services.player_service import PlayerService

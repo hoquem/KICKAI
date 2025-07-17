@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
-from src.database.models_improved import Player
+from features.player_registration.domain.entities.player import Player
 
 class IReminderService(ABC):
     """Interface for reminder service operations."""
