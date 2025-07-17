@@ -9,13 +9,14 @@ import logging
 from typing import Any, Optional, Dict, List
 from datetime import datetime
 
-from .cache_interfaces import ICacheProvider, ICacheStrategy
-from .cache_strategies import (
-    NoCacheStrategy,
+from core.cache.cache_interfaces import ICacheProvider, ICacheStrategy
+from core.cache.cache_strategies import (
     MemoryCacheStrategy,
-    TTLMemoryCacheStrategy
+    RedisCacheStrategy,
+    FileCacheStrategy,
+    CompositeCacheStrategy
 )
-from .cache_keys import CacheKey, CacheKeyBuilder
+from core.cache.cache_keys import CacheKey, CacheKeyBuilder
 
 logger = logging.getLogger(__name__)
 

@@ -24,9 +24,10 @@ nest_asyncio.apply()
 
 from core.settings import initialize_settings, get_settings
 from database.firebase_client import initialize_firebase_client
-from services.multi_bot_manager import MultiBotManager
+from features.team_administration.domain.services.multi_bot_manager import MultiBotManager
 from core.dependency_container import get_service, get_singleton, ensure_container_initialized
-from services.interfaces.team_service_interface import ITeamService
+from features.team_administration.domain.interfaces.team_service_interface import ITeamService
+from features.player_registration.domain.interfaces.player_service_interface import IPlayerService
 from core.startup_validator import StartupValidator
 
 # Configure logging
@@ -159,7 +160,26 @@ async def create_multi_bot_manager():
 
 
 def flush_and_close_loggers():
+    """Flush and close all loggers gracefully, handling BrokenPipeError."""
     import logging
+    import sys
+    
+    # Flush stdout and stderr first
+    try:
+        sys.stdout.flush()
+    except BrokenPipeError:
+        pass
+    except Exception:
+        pass
+    
+    try:
+        sys.stderr.flush()
+    except BrokenPipeError:
+        pass
+    except Exception:
+        pass
+    
+    # Flush and close all logging handlers
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:
         try:
@@ -174,6 +194,23 @@ def flush_and_close_loggers():
             pass
         except Exception:
             pass
+    
+    # Also flush any remaining loggers
+    for logger_name in logging.root.manager.loggerDict:
+        logger_obj = logging.getLogger(logger_name)
+        for handler in logger_obj.handlers:
+            try:
+                handler.flush()
+            except BrokenPipeError:
+                pass
+            except Exception:
+                pass
+            try:
+                handler.close()
+            except BrokenPipeError:
+                pass
+            except Exception:
+                pass
 
 
 async def main():

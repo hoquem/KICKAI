@@ -9,12 +9,12 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Any
 from dataclasses import dataclass
 
-from src.core.settings import Settings
-from src.database.models_improved import Player, OnboardingStatus
-from src.features.communication.domain.interfaces.reminder_service_interface import IReminderService
-from src.features.player_registration.domain.interfaces.player_operations import IPlayerOperations
-from src.features.payment_management.domain.interfaces.payment_operations import IPaymentOperations
-from src.utils.llm_client import LLMClient
+from core.settings import Settings
+from features.player_registration.domain.entities.player import Player, OnboardingStatus
+from features.communication.domain.interfaces.reminder_service_interface import IReminderService
+from features.player_registration.domain.interfaces.player_operations import IPlayerOperations
+from features.payment_management.domain.interfaces.payment_operations import IPaymentOperations
+from utils.llm_client import LLMClient
 
 
 @dataclass

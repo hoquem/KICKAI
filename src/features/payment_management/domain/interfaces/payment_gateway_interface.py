@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 
-class PaymentGatewayInterface(ABC):
+class IPaymentGateway(ABC):
     """Interface for payment gateway operations."""
     
     @abstractmethod

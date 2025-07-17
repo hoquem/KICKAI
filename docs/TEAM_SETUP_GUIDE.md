@@ -164,7 +164,7 @@ To promote a member to admin, use `/promote <member_id>` in the leadership chat 
 
 ```bash
 # Start the Telegram bot
-PYTHONPATH=src python run_telegram_bot.py
+PYTHONPATH=src python run_bot_local.py
 ```
 
 ### 5.2 Admin Registration
@@ -286,7 +286,7 @@ PYTHONPATH=src python scripts/bootstrap_team.py [parameters]
 
 #### If Bot Stops Working
 1. Check bot logs for errors
-2. Restart bot: `python run_telegram_bot.py`
+2. Restart bot: `python run_bot_local.py`
 3. Verify bot token is still valid
 4. Check database connectivity
 

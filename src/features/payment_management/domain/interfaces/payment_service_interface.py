@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from src.database.models_improved import Payment, PaymentType, PaymentStatus
+from features.payment_management.domain.entities.payment import Payment, PaymentType, PaymentStatus
 
 class IPaymentService(ABC):
     """Interface for payment service operations."""

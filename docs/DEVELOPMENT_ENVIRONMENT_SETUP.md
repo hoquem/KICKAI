@@ -343,7 +343,7 @@ export DEBUG=true
 export LOG_LEVEL=DEBUG
 
 # Run with debug logging
-python run_telegram_bot.py
+python run_bot_local.py
 ```
 
 ### Common Issues

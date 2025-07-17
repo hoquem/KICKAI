@@ -24,9 +24,10 @@ nest_asyncio.apply()
 
 from core.settings import initialize_settings, get_settings
 from database.firebase_client import initialize_firebase_client
-from services.multi_bot_manager import MultiBotManager
+from features.team_administration.domain.services.multi_bot_manager import MultiBotManager
 from core.dependency_container import get_service, get_singleton, ensure_container_initialized
-from services.interfaces.team_service_interface import ITeamService
+from features.team_administration.domain.interfaces.team_service_interface import ITeamService
+from features.player_registration.domain.interfaces.player_service_interface import IPlayerService
 from core.startup_validator import StartupValidator
 
 # Configure logging
