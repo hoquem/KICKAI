@@ -151,7 +151,7 @@ PAYMENT_ENABLED=false
     "builder": "nixpacks"
   },
   "deploy": {
-    "startCommand": "python run_telegram_bot.py",
+    "startCommand": "python run_bot_railway.py",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",

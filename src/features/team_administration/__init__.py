@@ -1,38 +1,25 @@
 """
-Team Administration Feature Module
+Team Administration Feature
 
-This module provides the team_administration functionality for the KICKAI system.
+This module provides team administration functionality including
+team management, member management, and role assignment.
 """
 
-from typing import Optional, Dict, Any
+import logging
+from typing import Dict, Any
 
-class TeamAdministrationFeature:
-    """Main interface for team_administration functionality."""
-    
-    def __init__(self):
-        """Initialize the team_administration feature."""
-        self.name = "team_administration"
-        self.description = "Basic team management and administration"
-        self.status = "basic_management"
-    
-    async def initialize(self) -> bool:
-        """Initialize the feature."""
-        # TODO: Implement initialization
-        return True
-    
-    async def shutdown(self) -> bool:
-        """Shutdown the feature."""
-        # TODO: Implement shutdown
-        return True
-    
-    def get_status(self) -> Dict[str, Any]:
-        """Get feature status."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "status": self.status,
-            "commands": ['/add_team', '/list_teams', '/update_team_info', '/system_status']
-        }
+logger = logging.getLogger(__name__)
 
-# Export the main feature class
-__all__ = ["TeamAdministrationFeature"]
+
+def initialize_team_administration(config: Dict[str, Any]) -> None:
+    """Initialize the team administration feature."""
+    logger.info("Initializing team administration feature")
+    # Feature initialization logic would go here
+    logger.info("Team administration feature initialized successfully")
+
+
+def shutdown_team_administration() -> None:
+    """Shutdown the team administration feature."""
+    logger.info("Shutting down team administration feature")
+    # Feature shutdown logic would go here
+    logger.info("Team administration feature shutdown complete")

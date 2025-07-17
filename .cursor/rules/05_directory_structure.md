@@ -90,8 +90,8 @@ KICKAI/
 ├── config/                       # Configuration Files
 ├── scripts/                      # Deployment Scripts
 ├── credentials/                  # Credentials (gitignored)
-├── run_telegram_bot.py          # Standard bot runner
-├── run_telegram_bot_resilient.py # Resilient bot runner
+├── run_bot_local.py          # Local bot runner
+├── run_bot_railway.py        # Railway deployment bot runner
 ├── requirements.txt              # Production dependencies
 ├── requirements-local.txt        # Local development dependencies
 └── README.md                     # Project documentation

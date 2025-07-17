@@ -25,26 +25,28 @@ logging.basicConfig(
     ]
 )
 
+logger = logging.getLogger(__name__)
+
 async def main():
     """Run health checks and report results."""
-    print("🚀 Starting KICKAI System Health Checks...")
-    print("=" * 60)
+    logger.info("🚀 Starting KICKAI System Health Checks...")
+    logger.info("=" * 60)
     
     try:
         report = await run_startup_validation(team_id="KAI")
         
         if report.is_healthy():
-            print("\n🎉 All health checks passed! System is ready to start.")
+            logger.info("\n🎉 All health checks passed! System is ready to start.")
             return 0
         else:
-            print(f"\n❌ Health checks failed! {len(report.critical_failures)} critical issues found.")
-            print("\nPlease fix the critical failures before starting the system.")
+            logger.error(f"\n❌ Health checks failed! {len(report.critical_failures)} critical issues found.")
+            logger.error("\nPlease fix the critical failures before starting the system.")
             return 1
             
     except Exception as e:
-        print(f"\n💥 Health check execution failed: {str(e)}")
+        logger.error(f"\n💥 Health check execution failed: {str(e)}")
         import traceback
-        traceback.print_exc()
+        logger.error(traceback.format_exc())
         return 1
 
 if __name__ == "__main__":

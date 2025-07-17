@@ -179,6 +179,21 @@ python scripts/run_comprehensive_e2e_tests.py
   - Payment records
   - Match data
 
+### **Cross-Feature Tests**
+- **Location**: `tests/e2e/features/test_cross_feature_flows.py`, `tests/integration/features/test_cross_feature_integration.py`
+- **Focus**: End-to-end workflows spanning multiple features, service interactions across features
+- **Key Tests**:
+  - Registration → Match Assignment → Attendance → Payment
+  - Admin adds player → Onboarding → Match squad → Payment eligibility
+  - Payment completion → Status reflected in match, attendance, and team records
+  - Service layer integration across player, team, match, attendance, and payment features
+
+**Cross-Feature Test Scenarios:**
+1. **Complete User Journey**: Player registration through payment completion
+2. **Admin Workflow**: Adding players, managing matches, processing payments
+3. **Data Consistency**: Ensuring state changes propagate across all features
+4. **Service Integration**: Testing business logic interactions without UI layer
+
 ## 🔧 **Test Utilities**
 
 ### **Frameworks** (`tests/frameworks/`)

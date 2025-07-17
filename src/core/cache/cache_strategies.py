@@ -1,236 +1,271 @@
 """
-Cache strategies for the KICKAI caching system.
+Cache Strategies
 
-This module provides different caching strategies with varying TTL
-and storage mechanisms for different types of data.
+This module provides different caching strategies for the application.
 """
 
-import time
+import json
 import logging
-from typing import Any, Optional, Dict, Tuple
+import time
+import os
+from abc import ABC, abstractmethod
+from typing import Any, Optional, Dict
 from datetime import datetime, timedelta
-from .cache_interfaces import ICacheStrategy
 
 logger = logging.getLogger(__name__)
 
 
-class CacheStrategy(ICacheStrategy):
-    """Base cache strategy class."""
+class CacheStrategy(ABC):
+    """Abstract base class for cache strategies."""
     
-    def __init__(self, name: str):
-        self.name = name
-        self.stats = {
-            "hits": 0,
-            "misses": 0,
-            "sets": 0,
-            "deletes": 0,
-            "created_at": datetime.now()
-        }
-    
-    def _log_hit(self):
-        """Log a cache hit."""
-        self.stats["hits"] += 1
-    
-    def _log_miss(self):
-        """Log a cache miss."""
-        self.stats["misses"] += 1
-    
-    def _log_set(self):
-        """Log a cache set operation."""
-        self.stats["sets"] += 1
-    
-    def _log_delete(self):
-        """Log a cache delete operation."""
-        self.stats["deletes"] += 1
-    
-    def get_hit_rate(self) -> float:
-        """Calculate cache hit rate."""
-        total = self.stats["hits"] + self.stats["misses"]
-        return self.stats["hits"] / total if total > 0 else 0.0
-
-
-class NoCacheStrategy(CacheStrategy):
-    """Strategy that doesn't cache anything (for testing/debugging)."""
-    
-    def __init__(self):
-        super().__init__("no_cache")
-    
+    @abstractmethod
     def get(self, key: str) -> Optional[Any]:
-        """Always return None (no caching)."""
-        self._log_miss()
-        return None
+        """Get a value from cache."""
+        pass
     
+    @abstractmethod
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
-        """Do nothing (no caching)."""
-        self._log_set()
-        return True
+        """Set a value in cache."""
+        pass
     
+    @abstractmethod
     def delete(self, key: str) -> bool:
-        """Do nothing (no caching)."""
-        self._log_delete()
-        return True
+        """Delete a value from cache."""
+        pass
     
+    @abstractmethod
     def clear(self) -> bool:
-        """Do nothing (no caching)."""
-        return True
-    
-    def exists(self, key: str) -> bool:
-        """Always return False (no caching)."""
-        return False
-    
-    def get_stats(self) -> Dict[str, Any]:
-        """Get cache statistics."""
-        return {
-            **self.stats,
-            "hit_rate": self.get_hit_rate(),
-            "strategy": "no_cache"
-        }
+        """Clear all cache entries."""
+        pass
 
 
-class MemoryCacheStrategy(CacheStrategy):
-    """Simple in-memory cache strategy."""
+class InMemoryCacheStrategy(CacheStrategy):
+    """In-memory cache strategy."""
     
     def __init__(self, max_size: int = 1000):
-        super().__init__("memory")
+        self.cache: Dict[str, Dict[str, Any]] = {}
         self.max_size = max_size
-        self._cache: Dict[str, Any] = {}
+        self.access_times: Dict[str, float] = {}
     
     def get(self, key: str) -> Optional[Any]:
         """Get a value from cache."""
-        if key in self._cache:
-            self._log_hit()
-            return self._cache[key]
-        else:
-            self._log_miss()
+        if key not in self.cache:
             return None
+        
+        entry = self.cache[key]
+        
+        # Check if entry has expired
+        if 'expires_at' in entry and entry['expires_at'] < time.time():
+            del self.cache[key]
+            if key in self.access_times:
+                del self.access_times[key]
+            return None
+        
+        # Update access time
+        self.access_times[key] = time.time()
+        
+        return entry['value']
     
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """Set a value in cache."""
-        # Simple LRU eviction if cache is full
-        if len(self._cache) >= self.max_size and key not in self._cache:
-            # Remove oldest item (simple implementation)
-            oldest_key = next(iter(self._cache))
-            del self._cache[oldest_key]
+        # Check if cache is full and evict if necessary
+        if len(self.cache) >= self.max_size and key not in self.cache:
+            self._evict_oldest()
         
-        self._cache[key] = value
-        self._log_set()
+        entry = {
+            'value': value,
+            'created_at': time.time()
+        }
+        
+        if ttl:
+            entry['expires_at'] = time.time() + ttl
+        
+        self.cache[key] = entry
+        self.access_times[key] = time.time()
+        
         return True
     
     def delete(self, key: str) -> bool:
         """Delete a value from cache."""
-        if key in self._cache:
-            del self._cache[key]
-            self._log_delete()
+        if key in self.cache:
+            del self.cache[key]
+            if key in self.access_times:
+                del self.access_times[key]
             return True
         return False
     
     def clear(self) -> bool:
-        """Clear all cached values."""
-        self._cache.clear()
+        """Clear all cache entries."""
+        self.cache.clear()
+        self.access_times.clear()
         return True
     
-    def exists(self, key: str) -> bool:
-        """Check if a key exists in cache."""
-        return key in self._cache
-    
-    def get_stats(self) -> Dict[str, Any]:
-        """Get cache statistics."""
-        return {
-            **self.stats,
-            "hit_rate": self.get_hit_rate(),
-            "strategy": "memory",
-            "size": len(self._cache),
-            "max_size": self.max_size
-        }
+    def _evict_oldest(self) -> None:
+        """Evict the oldest accessed entry."""
+        if not self.access_times:
+            return
+        
+        oldest_key = min(self.access_times.keys(), key=lambda k: self.access_times[k])
+        del self.cache[oldest_key]
+        del self.access_times[oldest_key]
 
 
-class TTLMemoryCacheStrategy(CacheStrategy):
-    """Time-to-live in-memory cache strategy."""
+class RedisCacheStrategy(CacheStrategy):
+    """Redis cache strategy."""
     
-    def __init__(self, max_size: int = 1000, default_ttl: int = 3600):
-        super().__init__("ttl_memory")
-        self.max_size = max_size
-        self.default_ttl = default_ttl
-        self._cache: Dict[str, Tuple[Any, float]] = {}  # (value, expiry_time)
+    def __init__(self, redis_url: str = "redis://localhost:6379"):
+        self.redis_url = redis_url
+        self._redis_client = None
+        self._connect()
+    
+    def _connect(self) -> None:
+        """Connect to Redis."""
+        try:
+            import redis
+            self._redis_client = redis.from_url(self.redis_url)
+            # Test connection
+            self._redis_client.ping()
+            logger.info("Connected to Redis cache")
+        except ImportError:
+            logger.warning("Redis not available, falling back to in-memory cache")
+            self._redis_client = None
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis: {e}")
+            self._redis_client = None
     
     def get(self, key: str) -> Optional[Any]:
-        """Get a value from cache, checking TTL."""
-        if key in self._cache:
-            value, expiry_time = self._cache[key]
-            if time.time() < expiry_time:
-                self._log_hit()
-                return value
-            else:
-                # Expired, remove it
-                del self._cache[key]
+        """Get a value from Redis cache."""
+        if not self._redis_client:
+            return None
         
-        self._log_miss()
-        return None
+        try:
+            value = self._redis_client.get(key)
+            if value:
+                return json.loads(value)
+            return None
+        except Exception as e:
+            logger.error(f"Error getting from Redis cache: {e}")
+            return None
     
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
-        """Set a value in cache with TTL."""
-        # Use provided TTL or default
-        ttl_seconds = ttl if ttl is not None else self.default_ttl
-        expiry_time = time.time() + ttl_seconds
+        """Set a value in Redis cache."""
+        if not self._redis_client:
+            return False
         
-        # Simple LRU eviction if cache is full
-        if len(self._cache) >= self.max_size and key not in self._cache:
-            # Remove oldest item (simple implementation)
-            oldest_key = next(iter(self._cache))
-            del self._cache[oldest_key]
-        
-        self._cache[key] = (value, expiry_time)
-        self._log_set()
-        return True
+        try:
+            serialized_value = json.dumps(value)
+            if ttl:
+                return self._redis_client.setex(key, ttl, serialized_value)
+            else:
+                return self._redis_client.set(key, serialized_value)
+        except Exception as e:
+            logger.error(f"Error setting in Redis cache: {e}")
+            return False
     
     def delete(self, key: str) -> bool:
-        """Delete a value from cache."""
-        if key in self._cache:
-            del self._cache[key]
-            self._log_delete()
-            return True
-        return False
+        """Delete a value from Redis cache."""
+        if not self._redis_client:
+            return False
+        
+        try:
+            return bool(self._redis_client.delete(key))
+        except Exception as e:
+            logger.error(f"Error deleting from Redis cache: {e}")
+            return False
     
     def clear(self) -> bool:
-        """Clear all cached values."""
-        self._cache.clear()
-        return True
+        """Clear all cache entries."""
+        if not self._redis_client:
+            return False
+        
+        try:
+            self._redis_client.flushdb()
+            return True
+        except Exception as e:
+            logger.error(f"Error clearing Redis cache: {e}")
+            return False
+
+
+class FileCacheStrategy(CacheStrategy):
+    """File-based cache strategy."""
     
-    def exists(self, key: str) -> bool:
-        """Check if a key exists in cache and is not expired."""
-        if key in self._cache:
-            _, expiry_time = self._cache[key]
-            if time.time() < expiry_time:
+    def __init__(self, cache_dir: str = "cache"):
+        self.cache_dir = cache_dir
+        self._ensure_cache_dir()
+    
+    def _ensure_cache_dir(self) -> None:
+        """Ensure cache directory exists."""
+        try:
+            os.makedirs(self.cache_dir, exist_ok=True)
+        except Exception as e:
+            logger.error(f"Error creating cache directory: {e}")
+    
+    def _get_cache_file_path(self, key: str) -> str:
+        """Get cache file path for a key."""
+        import hashlib
+        safe_key = hashlib.md5(key.encode()).hexdigest()
+        return os.path.join(self.cache_dir, f"{safe_key}.json")
+    
+    def get(self, key: str) -> Optional[Any]:
+        """Get a value from file cache."""
+        try:
+            file_path = self._get_cache_file_path(key)
+            if not os.path.exists(file_path):
+                return None
+            
+            with open(file_path, 'r') as f:
+                entry = json.load(f)
+            
+            # Check if entry has expired
+            if 'expires_at' in entry and entry['expires_at'] < time.time():
+                os.remove(file_path)
+                return None
+            
+            return entry['value']
+        except Exception as e:
+            logger.error(f"Error getting from file cache: {e}")
+            return None
+    
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Set a value in file cache."""
+        try:
+            entry = {
+                'value': value,
+                'created_at': time.time()
+            }
+            
+            if ttl:
+                entry['expires_at'] = time.time() + ttl
+            
+            file_path = self._get_cache_file_path(key)
+            with open(file_path, 'w') as f:
+                json.dump(entry, f)
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error setting in file cache: {e}")
+            return False
+    
+    def delete(self, key: str) -> bool:
+        """Delete a value from file cache."""
+        try:
+            file_path = self._get_cache_file_path(key)
+            if os.path.exists(file_path):
+                os.remove(file_path)
                 return True
-            else:
-                # Expired, remove it
-                del self._cache[key]
-        return False
+            return False
+        except Exception as e:
+            logger.error(f"Error deleting from file cache: {e}")
+            return False
     
-    def cleanup_expired(self) -> int:
-        """Remove expired entries and return count of removed items."""
-        current_time = time.time()
-        expired_keys = [
-            key for key, (_, expiry_time) in self._cache.items()
-            if current_time >= expiry_time
-        ]
-        
-        for key in expired_keys:
-            del self._cache[key]
-        
-        return len(expired_keys)
-    
-    def get_stats(self) -> Dict[str, Any]:
-        """Get cache statistics."""
-        # Clean up expired entries before reporting stats
-        expired_count = self.cleanup_expired()
-        
-        return {
-            **self.stats,
-            "hit_rate": self.get_hit_rate(),
-            "strategy": "ttl_memory",
-            "size": len(self._cache),
-            "max_size": self.max_size,
-            "default_ttl": self.default_ttl,
-            "expired_cleaned": expired_count
-        } 
+    def clear(self) -> bool:
+        """Clear all cache entries."""
+        try:
+            for filename in os.listdir(self.cache_dir):
+                if filename.endswith('.json'):
+                    file_path = os.path.join(self.cache_dir, filename)
+                    os.remove(file_path)
+            return True
+        except Exception as e:
+            logger.error(f"Error clearing file cache: {e}")
+            return False 

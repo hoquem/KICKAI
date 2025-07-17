@@ -24,9 +24,9 @@ src_path = os.path.join(project_root, 'src')
 sys.path.insert(0, src_path)
 
 from core.dependency_container import get_service
-from services.interfaces.team_service_interface import ITeamService
-from services.interfaces.player_service_interface import IPlayerService
-from database.models_improved import Team, TeamStatus, TeamMember, BotMapping, PlayerRole
+from features.team_administration.domain.interfaces.team_service_interface import ITeamService
+from features.player_registration.domain.interfaces.player_service_interface import IPlayerService
+from features.player_registration.domain.entities.player import Team, TeamStatus, TeamMember, BotMapping, PlayerRole
 from utils.id_generator import generate_team_id
 from core.exceptions import TeamError, PlayerError
 

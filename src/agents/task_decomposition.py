@@ -6,15 +6,72 @@ This module breaks down the complex DynamicTaskDecomposer into smaller, focused 
 following the single responsibility principle and making the code more maintainable.
 """
 
-import json
 import logging
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Any, Optional, Tuple
 
-from agents.intelligent_system import TaskContext, Subtask, CapabilityType, AgentRole
+# Stub classes for compatibility - these should be imported from the new modular structure
+class AgentRole(Enum):
+    """Agent roles for task routing."""
+    MESSAGE_PROCESSOR = "message_processor"
+    TEAM_MANAGER = "team_manager"
+    PLAYER_COORDINATOR = "player_coordinator"
+    FINANCE_MANAGER = "finance_manager"
+    PERFORMANCE_ANALYST = "performance_analyst"
+    LEARNING_AGENT = "learning_agent"
+    ONBOARDING_AGENT = "onboarding_agent"
+    COMMAND_FALLBACK_AGENT = "command_fallback_agent"
+
+
+class CapabilityType(Enum):
+    """Capability types for task routing."""
+    PLAYER_ONBOARDING = "player_onboarding"
+    PLAYER_STATUS_TRACKING = "player_status_tracking"
+    PLAYER_APPROVAL_MANAGEMENT = "player_approval_management"
+    PAYMENT_TRACKING = "payment_tracking"
+    PAYMENT_PROCESSING = "payment_processing"
+    BASIC_ANALYTICS = "basic_analytics"
+    STRATEGIC_PLANNING = "strategic_planning"
+    MESSAGE_COMPOSITION = "message_composition"
+    STRATEGIC_DECISION_MAKING = "strategic_decision_making"
+    NATURAL_LANGUAGE_UNDERSTANDING = "natural_language_understanding"
+    MULTI_AGENT_COORDINATION = "multi_agent_coordination"
+    CONTEXT_MANAGEMENT = "context_management"
+    DATA_RETRIEVAL = "data_retrieval"
+    ROUTING = "routing"
+    USER_REGISTRATION = "user_registration"
+    FINANCIAL_RECORD_KEEPING = "financial_record_keeping"
+    PAYMENT_PLAN_SETUP = "payment_plan_setup"
+    FINANCIAL_PLANNING = "financial_planning"
+    ONBOARDING_GUIDANCE = "onboarding_guidance"
+    FINANCIAL_QUERY_HANDLING = "financial_query_handling"
+
+
+@dataclass
+class TaskContext:
+    """Context for task execution."""
+    task_id: str
+    user_id: str
+    team_id: str
+    parameters: Dict[str, Any]
+    metadata: Dict[str, Any]
+
+
+@dataclass
+class Subtask:
+    """Represents a subtask in task decomposition."""
+    task_id: str
+    description: str
+    agent_role: AgentRole
+    capabilities_required: List[CapabilityType]
+    parameters: Dict[str, Any] = None
+    dependencies: List[str] = None
+    estimated_duration: int = 60
+    priority: int = 1
 
 logger = logging.getLogger(__name__)
 
@@ -201,38 +258,20 @@ class AgentRouter:
             logger.warning("No capabilities provided, defaulting to MESSAGE_PROCESSOR.")
             return AgentRole.MESSAGE_PROCESSOR
         
-        # Use the refined capabilities system to find best agent
-        from agents.intelligent_system import get_hierarchical_capability_manager
-        capability_matrix = get_hierarchical_capability_manager()
-        best_agent = None
-        best_score = 0.0
+        # Simplified agent routing - capability matrix moved to modular structure
+        # Default routing based on primary capability
+        primary_capability = capabilities[0] if capabilities else None
         
-        # Check each agent's capabilities
-        for agent_role in AgentRole:
-            agent_capabilities = capability_matrix.get_agent_capabilities(agent_role)
-            total_score = 0.0
-            matched_capabilities = 0
-            
-            for required_capability in capabilities:
-                for agent_capability in agent_capabilities:
-                    if agent_capability.capability == required_capability:
-                        total_score += agent_capability.proficiency_level
-                        matched_capabilities += 1
-                        break
-            
-            # Calculate average score for this agent
-            if matched_capabilities > 0:
-                avg_score = total_score / matched_capabilities
-                if avg_score > best_score:
-                    best_score = avg_score
-                    best_agent = agent_role
-        
-        if best_agent is None:
-            logger.warning("No suitable agent found, defaulting to MESSAGE_PROCESSOR.")
+        if primary_capability == CapabilityType.PLAYER_ONBOARDING:
+            return AgentRole.PLAYER_COORDINATOR
+        elif primary_capability == CapabilityType.PAYMENT_PROCESSING:
+            return AgentRole.FINANCE_MANAGER
+        elif primary_capability == CapabilityType.STRATEGIC_PLANNING:
+            return AgentRole.TEAM_MANAGER
+        elif primary_capability == CapabilityType.BASIC_ANALYTICS:
+            return AgentRole.PERFORMANCE_ANALYST
+        else:
             return AgentRole.MESSAGE_PROCESSOR
-        
-        logger.info(f"Routing: capabilities={capabilities}, selected={best_agent} (score={best_score:.2f})")
-        return best_agent
 
 
 class LLMDecomposer:
