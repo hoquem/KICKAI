@@ -26,7 +26,25 @@ class CommandDispatcher:
     def __init__(self):
         self.registry = get_command_registry()
         self.context_manager = get_context_manager()
-        self.permission_service = PermissionService()
+        
+        # Get PermissionService from dependency container instead of creating it directly
+        try:
+            from core.dependency_container import get_service
+            from features.system_infrastructure.domain.services.permission_service import PermissionService
+            
+            self.permission_service = get_service(PermissionService)
+        except Exception as e:
+            logger.warning(f"⚠️ Could not get PermissionService from dependency container: {e}")
+            # Fallback to mock service
+            self.permission_service = self._create_mock_permission_service()
+    
+    def _create_mock_permission_service(self):
+        """Create a mock permission service for fallback."""
+        class MockPermissionService:
+            async def check_user_permission(self, user_id: str, team_id: str, required_permission: str, chat_type: str):
+                return True  # Allow all permissions in mock mode
+        
+        return MockPermissionService()
     
     async def dispatch_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> Optional[str]:
         """

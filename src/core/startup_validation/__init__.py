@@ -9,12 +9,7 @@ from .validator import StartupValidator, run_startup_validation
 from .checks import (
     ConfigurationCheck,
     LLMProviderCheck,
-    AgentInitializationCheck,
-    ToolConfigurationCheck,
-    DatabaseConnectivityCheck,
-    TeamMappingCheck,
-    CrewValidationCheck,
-    TelegramBotCheck
+    AgentInitializationCheck
 )
 from .reporting import ValidationReport, CheckResult, CheckStatus, CheckCategory
 
@@ -24,11 +19,6 @@ __all__ = [
     'ConfigurationCheck',
     'LLMProviderCheck',
     'AgentInitializationCheck',
-    'ToolConfigurationCheck',
-    'DatabaseConnectivityCheck',
-    'TeamMappingCheck',
-    'CrewValidationCheck',
-    'TelegramBotCheck',
     'ValidationReport',
     'CheckResult',
     'CheckStatus',

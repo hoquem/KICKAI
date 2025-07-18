@@ -15,6 +15,8 @@ from features.communication.domain.interfaces.reminder_service_interface import 
 from features.player_registration.domain.interfaces.player_operations import IPlayerOperations
 from features.payment_management.domain.interfaces.payment_operations import IPaymentOperations
 from utils.llm_client import LLMClient
+from features.communication.domain.entities.reminder import Reminder
+from features.communication.domain.repositories.reminder_repository_interface import ReminderRepositoryInterface
 
 
 @dataclass
@@ -154,7 +156,7 @@ class ReminderService(IReminderService):
 
         # Check for outstanding payments - properly async
         try:
-            from src.features.payment_management.domain.entities.payment_models import PaymentStatus
+            from features.payment_management.domain.entities.payment_models import PaymentStatus
             outstanding_payments = await self.payment_operations.list_payments(player_id=player.id, status=PaymentStatus.PENDING)
         except Exception as e:
             logging.error(f"Error getting outstanding payments: {e}")

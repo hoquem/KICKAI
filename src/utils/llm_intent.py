@@ -5,11 +5,9 @@ This module provides intent extraction functionality for natural language proces
 in the KICKAI system.
 """
 
-import logging
 import re
 from typing import Dict, Any
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 def extract_intent(message: str, context: str = "") -> Dict[str, Any]:

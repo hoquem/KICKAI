@@ -10,8 +10,9 @@ from typing import Any, Callable, Coroutine, TypeVar, Optional, List
 from functools import wraps
 from contextlib import asynccontextmanager
 import time
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+logger = logger
 
 T = TypeVar('T')
 

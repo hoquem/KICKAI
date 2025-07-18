@@ -117,9 +117,9 @@ class TeamMappingService:
             settings = get_settings()
             firebase_client = FirebaseClient(settings)
             
-            # Query team mappings from the kickai_bot_mappings collection
-            # Note: FirebaseClient adds 'kickai_' prefix, so we use 'bot_mappings' to get 'kickai_bot_mappings'
-            mappings = await firebase_client.query_documents('bot_mappings', [])
+            # Query team mappings from the bot_mappings collection
+            # Note: FirebaseClient adds 'kickai_' prefix, so we use COLLECTION_BOT_MAPPINGS
+            mappings = await firebase_client.query_documents(COLLECTION_BOT_MAPPINGS, [])
             
             for mapping in mappings:
                 chat_id = mapping.get('chat_id')
@@ -149,8 +149,8 @@ class TeamMappingService:
             }
             
             # Save to Firestore
-            # Note: FirebaseClient adds 'kickai_' prefix, so we use 'bot_mappings' to get 'kickai_bot_mappings'
-            await firebase_client.create_document('bot_mappings', mapping_data)
+            # Note: FirebaseClient adds 'kickai_' prefix, so we use COLLECTION_BOT_MAPPINGS
+            await firebase_client.create_document(COLLECTION_BOT_MAPPINGS, mapping_data)
             
             # Update local cache
             self.add_chat_mapping(chat_id, team_id)

@@ -5,7 +5,6 @@ This module provides a robust Firebase client wrapper with connection pooling,
 error handling, batch operations, and performance optimization.
 """
 
-import logging
 import os
 import json
 import asyncio
@@ -20,19 +19,17 @@ from google.cloud.firestore import CollectionReference
 from google.cloud.firestore_v1.base_document import DocumentSnapshot
 from google.api_core import exceptions as google_exceptions
 
-from src.core.logging_config import get_logger, LogContext
-from src.core.settings import get_settings
-from src.core.constants import FIRESTORE_COLLECTION_PREFIX
-from src.core.exceptions import (
+from core.logging_config import logger
+from core.settings import get_settings
+from core.constants import FIRESTORE_COLLECTION_PREFIX
+from core.exceptions import (
     DatabaseError, ConnectionError, NotFoundError, 
     DuplicateError, create_error_context
 )
-from src.utils.enum_utils import serialize_enums_for_firestore
-from src.utils.async_utils import async_retry, async_timeout, async_operation_context, safe_async_call
-from src.features.team_administration.domain.entities.bot_mapping import BotMapping
+from utils.enum_utils import serialize_enums_for_firestore
+from utils.async_utils import async_retry, async_timeout, async_operation_context, safe_async_call
 
-# Get logger for this module
-logger = get_logger(__name__)
+# Get logger for this module - using the imported logger directly
 
 class FirebaseClient:
     """Robust Firebase client wrapper with connection pooling and error handling."""
@@ -66,26 +63,41 @@ class FirebaseClient:
                 except ValueError:
                     logger.info("🔄 Initializing new Firebase app...")
                     
-                    # Get credentials from FIREBASE_CREDENTIALS_JSON or FIREBASE_CREDENTIALS_FILE
-                    firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
+                    # Get credentials from config object
                     creds_dict = None
-                    if firebase_creds_json:
+                    if self.config.firebase_credentials_json:
                         try:
-                            logger.info("🔄 Using FIREBASE_CREDENTIALS_JSON...")
-                            creds_dict = json.loads(firebase_creds_json)
+                            logger.info("🔄 Using firebase_credentials_json from config...")
+                            creds_dict = json.loads(self.config.firebase_credentials_json)
                         except json.JSONDecodeError as e:
-                            raise RuntimeError(f"Invalid JSON in FIREBASE_CREDENTIALS_JSON: {e}")
+                            raise RuntimeError(f"Invalid JSON in firebase_credentials_json: {e}")
+                    elif self.config.firebase_credentials_path:
+                        try:
+                            logger.info(f"🔄 Using firebase_credentials_path from config: {self.config.firebase_credentials_path} ...")
+                            with open(self.config.firebase_credentials_path, 'r') as f:
+                                creds_dict = json.load(f)
+                        except Exception as e:
+                            raise RuntimeError(f"Failed to load credentials from file {self.config.firebase_credentials_path}: {e}")
                     else:
-                        firebase_creds_file = os.getenv('FIREBASE_CREDENTIALS_FILE')
-                        if firebase_creds_file:
+                        # Fallback to environment variables for backward compatibility
+                        firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
+                        if firebase_creds_json:
                             try:
-                                logger.info(f"🔄 Using FIREBASE_CREDENTIALS_FILE: {firebase_creds_file} ...")
-                                with open(firebase_creds_file, 'r') as f:
-                                    creds_dict = json.load(f)
-                            except Exception as e:
-                                raise RuntimeError(f"Failed to load credentials from file {firebase_creds_file}: {e}")
+                                logger.info("🔄 Using FIREBASE_CREDENTIALS_JSON from environment...")
+                                creds_dict = json.loads(firebase_creds_json)
+                            except json.JSONDecodeError as e:
+                                raise RuntimeError(f"Invalid JSON in FIREBASE_CREDENTIALS_JSON: {e}")
                         else:
-                            raise RuntimeError("Neither FIREBASE_CREDENTIALS_JSON nor FIREBASE_CREDENTIALS_FILE environment variable is set. Please set one with your Firebase service account credentials.")
+                            firebase_creds_file = os.getenv('FIREBASE_CREDENTIALS_FILE')
+                            if firebase_creds_file:
+                                try:
+                                    logger.info(f"🔄 Using FIREBASE_CREDENTIALS_FILE from environment: {firebase_creds_file} ...")
+                                    with open(firebase_creds_file, 'r') as f:
+                                        creds_dict = json.load(f)
+                                except Exception as e:
+                                    raise RuntimeError(f"Failed to load credentials from file {firebase_creds_file}: {e}")
+                            else:
+                                raise RuntimeError("No Firebase credentials found. Please set either firebase_credentials_json, firebase_credentials_path in config, or FIREBASE_CREDENTIALS_JSON/FIREBASE_CREDENTIALS_FILE environment variables.")
 
                     # Log private key details for debugging
                     private_key = creds_dict.get('private_key', '')
@@ -480,62 +492,6 @@ class FirebaseClient:
         data_list = await self.query_documents('teams', filters)
         return [Any.from_dict(data) for data in data_list]
     
-    # Bot mapping operations
-    async def create_bot_mapping(self, mapping: Any) -> str:
-        """Create a new bot mapping."""
-        data = mapping.to_dict()
-        return await self.create_document('bot_mappings', data, mapping.id)
-    
-    async def get_bot_mapping(self, team_name: str) -> Optional[Any]:
-        """Get a bot mapping by team name."""
-        filters = [{'field': 'team_name', 'operator': '==', 'value': team_name}]
-        data_list = await self.query_documents('bot_mappings', filters, limit=1)
-        if data_list:
-            return Any.from_dict(data_list[0])
-        return None
-    
-    async def get_bot_mapping_by_username(self, bot_username: str) -> Optional[Any]:
-        """Get a bot mapping by bot username."""
-        filters = [{'field': 'bot_username', 'operator': '==', 'value': bot_username}]
-        data_list = await self.query_documents('bot_mappings', filters, limit=1)
-        if data_list:
-            return Any.from_dict(data_list[0])
-        return None
-    
-    async def get_bot_mapping_by_team(self, team_name: str) -> Optional[Any]:
-        """Get a bot mapping by team name (alias for get_bot_mapping)."""
-        return await self.get_bot_mapping(team_name)
-    
-    async def get_bot_mapping_by_team_id(self, team_id: str) -> Optional[Any]:
-        """Get a bot mapping by team ID."""
-        filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
-        data_list = await self.query_documents('bot_mappings', filters, limit=1)
-        if data_list:
-            return Any.from_dict(data_list[0])
-        return None
-    
-    async def update_bot_mapping(self, mapping: Any) -> bool:
-        """Update a bot mapping."""
-        data = mapping.to_dict()
-        return await self.update_document('bot_mappings', mapping.id, data)
-    
-    async def delete_bot_mapping(self, team_name: str) -> bool:
-        """Delete a bot mapping by team name."""
-        filters = [{'field': 'team_name', 'operator': '==', 'value': team_name}]
-        data_list = await self.query_documents('bot_mappings', filters, limit=1)
-        if data_list:
-            return await self.delete_document('bot_mappings', data_list[0]['id'])
-        return False
-    
-    async def get_all_bot_mappings(self) -> List[Any]:
-        """Get all bot mappings from Firestore."""
-        try:
-            data_list = await self.query_documents('bot_mappings')
-            return [Any.from_dict(data) for data in data_list]
-        except Exception as e:
-            logger.error(f"Failed to fetch bot mappings: {e}")
-            return []
-    
     # Match-specific operations
     async def create_match(self, match: Any) -> str:
         """Create a new match."""
@@ -693,6 +649,15 @@ _firebase_client: Optional[FirebaseClient] = None
 def get_firebase_client() -> FirebaseClient:
     """Get the global Firebase client instance."""
     global _firebase_client
+    
+    # Check if mock data store is enabled
+    use_mock_datastore = os.getenv('USE_MOCK_DATASTORE', 'false').lower() == 'true'
+    if use_mock_datastore:
+        raise RuntimeError(
+            "Firebase client requested but USE_MOCK_DATASTORE=true. "
+            "Use MockDataStore instead for development/testing."
+        )
+    
     if _firebase_client is None:
         config = get_settings()
         _firebase_client = FirebaseClient(config)
@@ -702,10 +667,19 @@ def get_firebase_client() -> FirebaseClient:
 def initialize_firebase_client(config=None) -> FirebaseClient:
     """Initialize the global Firebase client."""
     global _firebase_client
+    
+    # Check if mock data store is enabled
+    use_mock_datastore = os.getenv('USE_MOCK_DATASTORE', 'false').lower() == 'true'
+    if use_mock_datastore:
+        raise RuntimeError(
+            "Firebase client initialization requested but USE_MOCK_DATASTORE=true. "
+            "Use MockDataStore instead for development/testing."
+        )
+    
     if config is None:
         config = get_settings()
     _firebase_client = FirebaseClient(config)
-    return _firebase_client 
+    return _firebase_client
 
 # Utility function to seed bot mappings for testing
 import asyncio
@@ -719,7 +693,7 @@ async def seed_kickai_testing_bot_mapping():
         chat_id="-4889304885",  # main chat
         bot_token="7693359073:AAEnLqhdbCOfnf0RDfjn71z8GLRooNKNYsM"
     )
-    await client.create_bot_mapping(mapping)
+    await client.create_document('teams', mapping.to_dict(), mapping.id)
     # Add leadership chat as a separate mapping if needed
     mapping_leadership = BotMapping.create(
         team_name="KAI",
@@ -727,5 +701,5 @@ async def seed_kickai_testing_bot_mapping():
         chat_id="-4814449926",  # leadership chat
         bot_token="7693359073:AAEnLqhdbCOfnf0RDfjn71z8GLRooNKNYsM"
     )
-    await client.create_bot_mapping(mapping_leadership)
+    await client.create_document('teams', mapping_leadership.to_dict(), mapping_leadership.id)
     logger.info("✅ Seeded KickAI Testing bot mappings in Firestore.") 

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from src.features.health_monitoring.domain.entities.health_check_types import SystemHealthReport
+from features.health_monitoring.domain.entities.health_check_types import SystemHealthReport
 
 class IHealthCheckService(ABC):
     """Interface for health check service operations."""

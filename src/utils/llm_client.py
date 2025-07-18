@@ -5,15 +5,13 @@ This module provides LLM client functionality for natural language processing
 in the KICKAI system.
 """
 
-import logging
 import asyncio
 from typing import Dict, Any, Optional
 from utils.llm_intent import extract_intent
 from utils.async_utils import async_retry, async_timeout, safe_async_call
 from utils.llm_factory import LLMFactory, LLMConfig, LLMProviderError
 from utils.llm_factory import AIProvider
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 async def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
