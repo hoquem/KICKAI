@@ -5,8 +5,8 @@ This demonstrates how the ServiceFactory creates services with proper
 dependency injection and how to use them in the application.
 """
 
-from src.core.dependency_container import get_container, initialize_container
-from src.features.registry import ServiceFactory
+from core.dependency_container import get_container, initialize_container
+from features.registry import ServiceFactory
 
 
 def example_basic_usage():
@@ -27,8 +27,8 @@ def example_basic_usage():
     print(f"Created {len(payment_services)} payment management services")
     
     # Access services through the container
-    from src.features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
-    from src.features.payment_management.domain.services.payment_service import PaymentService
+    from features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
+    from features.payment_management.domain.services.payment_service import PaymentService
     
     registration_service = container.get_service(PlayerRegistrationService)
     payment_service = container.get_service(PaymentService)
@@ -87,8 +87,8 @@ def example_service_retrieval():
     print(f"Database: {type(database).__name__}")
     
     # Check if services are available
-    from src.features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
-    from src.features.payment_management.domain.services.payment_service import PaymentService
+    from features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
+    from features.payment_management.domain.services.payment_service import PaymentService
     
     has_registration = container.has_service(PlayerRegistrationService)
     has_payment = container.has_service(PaymentService)

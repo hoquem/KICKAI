@@ -10,11 +10,11 @@ from core.exceptions import PaymentError, PaymentNotFoundError, create_error_con
 from features.payment_management.domain.interfaces.payment_service_interface import IPaymentService
 from features.payment_management.domain.interfaces.payment_gateway_interface import IPaymentGateway
 from features.payment_management.infrastructure.collectiv_payment_gateway import MockCollectivPaymentGateway
-from src.utils.validation_utils import validate_payment_details
+from utils.validation_utils import validate_payment_details
 
 class PaymentService(IPaymentService):
     """Service for managing payments with Collectiv integration."""
-    def __init__(self, data_store, team_id: Optional[str] = None, payment_gateway: Optional[IPaymentGateway] = None, player_lookup: Optional[IPlayerLookup] = None):
+    def __init__(self, data_store, payment_gateway: Optional[IPaymentGateway] = None, player_lookup: Optional[IPlayerLookup] = None, team_id: Optional[str] = None):
         self._data_store = data_store
         self.team_id = team_id
         self._payment_gateway = payment_gateway or self._get_default_payment_gateway(team_id)
@@ -29,7 +29,7 @@ class PaymentService(IPaymentService):
             base_url="https://api.collectiv.com"
         )
 
-    async def _get_team_id_for_player(self, player_id: str) -> str:
+    async def _get_team_id_for_player(self, *, player_id: str) -> str:
         """Get team ID for a player."""
         try:
             team_id = await self._player_lookup.get_player_team_id(player_id)
@@ -37,7 +37,7 @@ class PaymentService(IPaymentService):
         except Exception:
             return self.team_id
 
-    async def _validate_team_id(self, team_id: str):
+    async def _validate_team_id(self, *, team_id: str):
         """Validate that team_id is set."""
         if not team_id:
             raise PaymentError("Team ID is required", create_error_context("_validate_team_id"))
@@ -60,8 +60,8 @@ class PaymentService(IPaymentService):
             Dict containing payment link details
         """
         try:
-            team_id = await self._get_team_id_for_player(player_id)
-            await self._validate_team_id(team_id)
+            team_id = await self._get_team_id_for_player(player_id=player_id)
+            await self._validate_team_id(team_id=team_id)
             
             # Create payment link using Collectiv
             reference = f"{team_id}_{player_id}_{int(datetime.now().timestamp())}"
@@ -341,8 +341,8 @@ class PaymentService(IPaymentService):
             Payment object
         """
         try:
-            team_id = await self._get_team_id_for_player(player_id)
-            await self._validate_team_id(team_id)
+            team_id = await self._get_team_id_for_player(player_id=player_id)
+            await self._validate_team_id(team_id=team_id)
             
             payment = Payment.create(
                 team_id=team_id,
@@ -427,8 +427,8 @@ class PaymentService(IPaymentService):
             Payment object
         """
         try:
-            team_id = await self._get_team_id_for_player(player_id)
-            await self._validate_team_id(team_id)
+            team_id = await self._get_team_id_for_player(player_id=player_id)
+            await self._validate_team_id(team_id=team_id)
             
             payment = Payment.create(
                 team_id=team_id,

@@ -1,52 +1,38 @@
+"""
+Player Commands
+
+This module provides player-related command handlers.
+"""
+
+import logging
+from typing import Optional
 from telegram import Update
 from telegram.ext import ContextTypes
-from features.player_registration.domain.services.player_service import PlayerService
-from core.logger import BotLogger
-from core.exceptions import PlayerRegistrationError
-from utils.id_generator import IdGenerator
-from typing import Optional
 
-logger = BotLogger.get_logger(__name__)
+from core.context_manager import get_context_manager, UserContext
 
-async def handle_add_player(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    player_name: str,
-    phone: str,
-    position: str,
-    fa_eligible: bool = False,
-    player_id: Optional[str] = None
-) -> None:
-    """
-    Handles the /addplayer command to register a new player.
-    Parameters are expected to be parsed by LLMIntentExtractor.
-    """
-    if not update.message:
-        logger.warning("Add player command received without a message.")
-        return
+logger = logging.getLogger(__name__)
 
-    player_service = PlayerService()
 
+async def handle_player_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Optional[str]:
+    """Handle player status command."""
     try:
-        if player_id:
-            # If player_id is provided, use it
-            new_player = await player_service.create_player(player_name=player_name, phone=phone, position=position, added_by=str(update.effective_user.id), fa_eligible=fa_eligible, player_id=player_id)
-            await update.message.reply_text(
-                f"Player '{new_player.player_name}' registered with ID '{new_player.player_id}'."
-            )
-            logger.info(f"Player '{new_player.player_name}' registered with provided ID '{new_player.player_id}'.")
-        else:
-            # If player_id is not provided, generate one
-            generated_player_id = IdGenerator.generate_player_id(player_name)
-            new_player = await player_service.create_player(player_name=player_name, phone=phone, position=position, added_by=str(update.effective_user.id), fa_eligible=fa_eligible, player_id=generated_player_id)
-            await update.message.reply_text(
-                f"Player '{new_player.player_name}' registered with generated ID '{new_player.player_id}'."
-            )
-            logger.info(f"Player '{new_player.player_name}' registered with generated ID '{new_player.player_id}'.")
-
-    except PlayerRegistrationError as e:
-        await update.message.reply_text(f"Error registering player: {e}")
-        logger.error(f"Error registering player '{player_name}' (ID: {player_id}): {e}")
+        # Get PlayerService from dependency container
+        from core.dependency_container import get_service
+        from features.player_registration.domain.services.player_service import PlayerService
+        
+        player_service = get_service(PlayerService)
+        
+        user_id = str(update.effective_user.id)
+        user_context = await get_context_manager().get_user_context(user_id)
+        
+        if not user_context:
+            return "❌ Unable to determine your team context. Please try again."
+        
+        # Get player by phone number (assuming phone is stored in user context)
+        # This is a simplified implementation
+        return "✅ Player status command received. Implementation pending."
+        
     except Exception as e:
-        await update.message.reply_text("An unexpected error occurred during player registration.")
-        logger.critical(f"Unexpected error in handle_add_player for '{player_name}' (ID: {player_id}): {e}", exc_info=True)
+        logger.error(f"Error handling player status: {e}")
+        return "❌ An error occurred while processing your request."

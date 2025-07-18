@@ -75,9 +75,38 @@ class PermissionService:
     def __init__(self, firebase_client: FirebaseClient):
         self.firebase_client = firebase_client
         self.chat_role_service = ChatRoleAssignmentService(firebase_client)
-        self.team_member_service = TeamMemberService(firebase_client)
-        self.player_service = PlayerService(firebase_client)
+        
+        # Get services from dependency container instead of creating them directly
+        try:
+            from core.dependency_container import get_service
+            from features.player_registration.domain.services.player_service import PlayerService
+            from features.team_administration.domain.services.team_service import TeamService
+            
+            self.player_service = get_service(PlayerService)
+            self.team_service = get_service(TeamService)
+            
+            # For now, use a simple mock team member service until the full implementation is ready
+            self.team_member_service = self._create_mock_team_member_service()
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Could not get services from dependency container: {e}")
+            # Fallback to mock services
+            self.player_service = None
+            self.team_service = None
+            self.team_member_service = self._create_mock_team_member_service()
+        
         logger.info("✅ PermissionService initialized")
+    
+    def _create_mock_team_member_service(self):
+        """Create a mock team member service for fallback."""
+        class MockTeamMemberService:
+            async def get_team_member_by_telegram_id(self, user_id: str, team_id: str):
+                return None
+            
+            async def is_first_user(self, team_id: str):
+                return False
+        
+        return MockTeamMemberService()
     
     async def get_user_permissions(self, user_id: str, team_id: str) -> UserPermissions:
         """

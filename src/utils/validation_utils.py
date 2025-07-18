@@ -11,6 +11,7 @@ import re
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 import logging
+from decimal import Decimal
 
 from utils.phone_utils import is_valid_phone, normalize_phone
 
@@ -421,7 +422,7 @@ def validate_team_id_with_error(team_id: str) -> tuple[bool, Optional[str]]:
 # PLAYER DATA VALIDATION
 # ============================================================================
 
-def validate_player_data(name: str, phone: str, email: Optional[str] = None, team_id: str = "") -> tuple[bool, List[str]]:
+def validate_player_data(name: str, phone: str, team_id: str, email: Optional[str] = None) -> tuple[bool, List[str]]:
     """
     Validate complete player data.
     
@@ -547,3 +548,31 @@ def validate_field_length(value: str, field_name: str, min_length: int = 1, max_
         return False, f"{field_name} cannot exceed {max_length} characters"
     
     return True, None 
+
+
+def validate_payment_details(payment_data: Dict[str, Any]) -> None:
+    """
+    Validate payment details dict. Raises ValueError if invalid.
+    Required fields: payer_id, payee_id, amount, currency, payment_date
+    """
+    required_fields = ["payer_id", "payee_id", "amount", "currency", "payment_date"]
+    for field in required_fields:
+        if field not in payment_data:
+            raise ValueError(f"Missing required payment field: {field}")
+
+    if not isinstance(payment_data["payer_id"], str) or not payment_data["payer_id"].strip():
+        raise ValueError("payer_id must be a non-empty string")
+    if not isinstance(payment_data["payee_id"], str) or not payment_data["payee_id"].strip():
+        raise ValueError("payee_id must be a non-empty string")
+    try:
+        amount = Decimal(str(payment_data["amount"]))
+        if amount <= 0:
+            raise ValueError
+    except Exception:
+        raise ValueError("amount must be a positive decimal number")
+    if not isinstance(payment_data["currency"], str) or not payment_data["currency"].strip():
+        raise ValueError("currency must be a non-empty string")
+    try:
+        datetime.fromisoformat(payment_data["payment_date"])
+    except Exception:
+        raise ValueError("payment_date must be a valid ISO format datetime string") 

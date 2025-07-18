@@ -8,19 +8,21 @@ import asyncio
 import logging
 from typing import Dict, Any
 
-from .base_check import HealthCheck, CheckResult, CheckCategory, CheckStatus
+from .base_check import BaseCheck
+from ..reporting import CheckResult, CheckCategory, CheckStatus
 from core.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
 
-class ConfigurationCheck(HealthCheck):
+class ConfigurationCheck(BaseCheck):
     """Check configuration loading and validation."""
     
-    def __init__(self):
-        super().__init__("Configuration Loading", CheckCategory.CONFIGURATION, critical=True)
+    name = "Configuration Loading"
+    category = CheckCategory.CONFIGURATION
+    description = "Validates that all required configuration is loaded and accessible"
     
-    async def execute(self, context: Dict[str, Any]) -> CheckResult:
+    async def execute(self, context: Dict[str, Any] = None) -> CheckResult:
         start_time = asyncio.get_event_loop().time()
         
         try:

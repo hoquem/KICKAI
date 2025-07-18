@@ -15,12 +15,12 @@ class PaymentStatus(Enum):
 
 @dataclass
 class Payment:
-    id: Optional[str]
     player_id: str
-    team_id: Optional[str]
     amount: float
     type: PaymentType
     status: PaymentStatus
+    id: Optional[str] = None
+    team_id: Optional[str] = None
     description: Optional[str] = None
     related_entity_id: Optional[str] = None
     created_at: Optional[str] = None

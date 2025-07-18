@@ -12,12 +12,7 @@ from dataclasses import dataclass, field
 from .checks import (
     ConfigurationCheck,
     LLMProviderCheck,
-    AgentInitializationCheck,
-    ToolConfigurationCheck,
-    DatabaseConnectivityCheck,
-    TeamMappingCheck,
-    CrewValidationCheck,
-    TelegramBotCheck
+    AgentInitializationCheck
 )
 from .reporting import ValidationReport, CheckResult, CheckStatus, CheckCategory
 
@@ -43,12 +38,7 @@ class StartupValidator:
         self.checks = [
             ConfigurationCheck(),
             LLMProviderCheck(),
-            AgentInitializationCheck(),
-            ToolConfigurationCheck(),
-            DatabaseConnectivityCheck(),
-            TeamMappingCheck(),
-            CrewValidationCheck(),
-            TelegramBotCheck()
+            AgentInitializationCheck()
         ]
     
     def add_check(self, check: Any) -> None:

@@ -2,19 +2,30 @@
 Team management tools for KICKAI (placeholder, not used in production).
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Optional, Type
+from loguru import logger
+from crewai.tools import BaseTool
+from pydantic import BaseModel, Field
 
-class TeamManagementTools:
-    """Team management tools for operations (placeholder)."""
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
-        self.config = config or {}
-    def create_team(self, name: str, description: Optional[str] = None) -> Dict[str, Any]:
+TOOL_REGISTRY = {}
+
+def register_tool_instance(tool_instance):
+    TOOL_REGISTRY[tool_instance.name] = tool_instance
+    return tool_instance
+
+class CreateTeamInput(BaseModel):
+    name: str = Field(..., description="Team name")
+    description: Optional[str] = Field(None, description="Team description (optional)")
+
+class CreateTeamTool(BaseTool):
+    name: str = "create_team"
+    description: str = "Create a new team (example tool)."
+    args_schema: Type[BaseModel] = CreateTeamInput
+
+    def _run(self, name: str, description: Optional[str] = None) -> dict:
+        logger.info(f"[TOOL] Creating team: {name} | Description: {description}")
         return {"id": "team-123", "name": name, "description": description}
-    def get_team(self, team_id: str) -> Optional[Dict[str, Any]]:
-        return None
-    def update_team(self, team_id: str, **updates) -> bool:
-        return True
-    def delete_team(self, team_id: str) -> bool:
-        return True
-    def list_teams(self) -> List[Dict[str, Any]]:
-        return [] 
+
+register_tool_instance(CreateTeamTool())
+
+__all__ = ["TOOL_REGISTRY"] 

@@ -12,10 +12,10 @@ class ExpenseCategory(Enum):
 
 @dataclass
 class Expense:
-    id: Optional[str]
     team_id: str
     amount: float
     category: ExpenseCategory
+    id: Optional[str] = None
     description: Optional[str] = None
     receipt_url: Optional[str] = None
     created_at: Optional[str] = None

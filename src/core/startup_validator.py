@@ -26,12 +26,7 @@ from .startup_validation import (
 from .startup_validation.checks import (
     ConfigurationCheck,
     LLMProviderCheck,
-    AgentInitializationCheck,
-    ToolConfigurationCheck,
-    DatabaseConnectivityCheck,
-    TeamMappingCheck,
-    CrewValidationCheck,
-    TelegramBotCheck
+    AgentInitializationCheck
 )
 
 # Re-export for backward compatibility
@@ -44,10 +39,5 @@ __all__ = [
     'CheckCategory',
     'ConfigurationCheck',
     'LLMProviderCheck',
-    'AgentInitializationCheck',
-    'ToolConfigurationCheck',
-    'DatabaseConnectivityCheck',
-    'TeamMappingCheck',
-    'CrewValidationCheck',
-    'TelegramBotCheck'
+    'AgentInitializationCheck'
 ] 

@@ -16,7 +16,7 @@ load_dotenv('.env.test')
 # Add src to path
 sys.path.insert(0, 'src')
 
-from src.database.firebase_client import get_firebase_client
+from database.firebase_client import get_firebase_client
 
 async def cleanup_test_data():
     """Clean up test data from Firestore."""

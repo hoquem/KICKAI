@@ -6,7 +6,7 @@ context managers, and utilities for consistent error management across
 the agent system.
 """
 
-import logging
+from loguru import logger
 import functools
 import traceback
 from typing import Callable, Any, Optional, Dict, Type, Union
@@ -21,14 +21,14 @@ from core.exceptions import (
     is_critical_error, get_error_category
 )
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__) # Remove this, use loguru's logger
 
 
 @dataclass
 class ErrorHandlingConfig:
     """Configuration for error handling behavior."""
     log_errors: bool = True
-    log_level: int = logging.ERROR
+    log_level: str = "ERROR"
     include_traceback: bool = False
     retry_on_retryable: bool = True
     max_retries: int = 3
