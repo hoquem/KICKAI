@@ -37,7 +37,7 @@ class IPaymentService(ABC):
     
     @abstractmethod
     async def record_payment(self, player_id: str, amount: float, type: PaymentType, 
-                           related_entity_id: Optional[str] = None, description: Optional[str] = None) -> Payment:
+                           description: Optional[str] = None, related_entity_id: Optional[str] = None) -> Payment:
         """Record a manual payment."""
         pass
     

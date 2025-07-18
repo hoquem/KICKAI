@@ -7,12 +7,26 @@ This module provides team management functionality.
 import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+from dataclasses import dataclass
 
-from ..entities.team import Team, TeamStatus
+from ..entities.team import Team, TeamStatus, TeamMember
 from ..repositories.team_repository_interface import TeamRepositoryInterface
 from features.payment_management.domain.services.expense_service import ExpenseService
+from loguru import logger
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TeamCreateParams:
+    name: str
+    description: str = ""
+    status: TeamStatus = TeamStatus.ACTIVE
+    created_by: str = "system"
+    settings: Optional[Dict[str, Any]] = None
+    bot_token: Optional[str] = None
+    main_chat_id: Optional[str] = None
+    leadership_chat_id: Optional[str] = None
 
 
 class TeamService:
@@ -21,54 +35,104 @@ class TeamService:
     def __init__(self, team_repository: TeamRepositoryInterface, expense_service: ExpenseService):
         self.team_repository = team_repository
         self.expense_service = expense_service
+        self.logger = logger
     
-    async def create_team(self, name: str, description: str, created_by: str,
-                         settings: Optional[Dict[str, Any]] = None) -> Team:
+    async def create_team(self, params: TeamCreateParams) -> Team:
         """Create a new team."""
         team = Team(
-            name=name,
-            description=description,
-            status=TeamStatus.ACTIVE,
-            created_by=created_by,
+            name=params.name,
+            description=params.description,
+            status=params.status,
+            created_by=params.created_by,
             created_at=datetime.now(),
-            settings=settings or {}
+            settings=params.settings or {},
+            bot_token=params.bot_token,
+            main_chat_id=params.main_chat_id,
+            leadership_chat_id=params.leadership_chat_id
         )
-        return await self.team_repository.create(team)
+        return await self.team_repository.create_team(team)
     
-    async def get_team_by_id(self, team_id: str) -> Optional[Team]:
+    async def get_team(self, *, team_id: str) -> Optional[Team]:
         """Get a team by ID."""
-        return await self.team_repository.get_by_id(team_id)
+        return await self.team_repository.get_team_by_id(team_id)
+    
+    async def get_team_by_id(self, *, team_id: str) -> Optional[Team]:
+        """Get a team by ID (alias for get_team)."""
+        return await self.get_team(team_id=team_id)
+    
+    async def get_team_by_name(self, name: str) -> Optional[Team]:
+        """Get a team by name."""
+        # This would need to be implemented in the repository
+        # For now, get all teams and filter by name
+        all_teams = await self.get_all_teams()
+        for team in all_teams:
+            if team.name == name:
+                return team
+        return None
+    
+    async def get_all_teams(self) -> List[Team]:
+        """Get all teams from the repository."""
+        try:
+            teams = await self.team_repository.list_all()
+            self.logger.info(f"📊 Retrieved {len(teams)} teams from repository")
+            return teams
+        except Exception as e:
+            self.logger.error(f"❌ Failed to get all teams: {e}")
+            return []
     
     async def get_teams_by_status(self, status: TeamStatus) -> List[Team]:
         """Get teams by status."""
         return await self.team_repository.get_by_status(status)
     
-    async def update_team(self, team_id: str, name: Optional[str] = None,
-                         description: Optional[str] = None,
-                         settings: Optional[Dict[str, Any]] = None) -> Team:
-        """Update a team."""
-        team = await self.team_repository.get_by_id(team_id)
+    async def update_team(self, team_id: str, **updates) -> Team:
+        """Update a team with provided updates."""
+        team = await self.team_repository.get_team_by_id(team_id)
         if not team:
             raise ValueError(f"Team with ID {team_id} not found")
         
-        if name:
-            team.name = name
-        if description:
-            team.description = description
-        if settings:
-            team.settings.update(settings)
+        # Apply updates
+        for key, value in updates.items():
+            if hasattr(team, key):
+                setattr(team, key, value)
         
         team.updated_at = datetime.now()
         
-        return await self.team_repository.update(team)
+        return await self.team_repository.update_team(team)
     
     async def delete_team(self, team_id: str) -> bool:
         """Delete a team."""
         return await self.team_repository.delete(team_id)
     
+    async def add_team_member(self, team_id: str, user_id: str, role: str = "player", 
+                             permissions: Optional[List[str]] = None) -> TeamMember:
+        """Add a member to a team."""
+        # This would need to be implemented in the repository
+        # For now, return a placeholder TeamMember
+        member = TeamMember(
+            team_id=team_id,
+            user_id=user_id,
+            role=role,
+            permissions=permissions or [],
+            joined_at=datetime.now()
+        )
+        # TODO: Save to repository
+        return member
+    
+    async def remove_team_member(self, team_id: str, user_id: str) -> bool:
+        """Remove a member from a team."""
+        # This would need to be implemented in the repository
+        # For now, return True as placeholder
+        return True
+    
+    async def get_team_members(self, team_id: str) -> List[TeamMember]:
+        """Get all members of a team."""
+        # This would need to be implemented in the repository
+        # For now, return empty list as placeholder
+        return []
+    
     async def get_team_financial_summary(self, team_id: str) -> Dict[str, Any]:
         """Get financial summary for a team including expenses."""
-        team = await self.get_team_by_id(team_id)
+        team = await self.get_team_by_id(team_id=team_id)
         if not team:
             return {}
         

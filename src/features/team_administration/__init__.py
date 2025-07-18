@@ -5,10 +5,8 @@ This module provides team administration functionality including
 team management, member management, and role assignment.
 """
 
-import logging
+from loguru import logger
 from typing import Dict, Any
-
-logger = logging.getLogger(__name__)
 
 
 def initialize_team_administration(config: Dict[str, Any]) -> None:

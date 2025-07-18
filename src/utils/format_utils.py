@@ -3,13 +3,11 @@ Shared formatting utilities for KICKAI bot responses.
 This module serves as the single source of truth for all user-facing formatting.
 """
 
-import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 from features.player_registration.domain.entities.player import Player, OnboardingStatus
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class PlayerFormattingService:

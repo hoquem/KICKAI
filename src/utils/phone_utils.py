@@ -8,9 +8,7 @@ phonenumbers library (Google's libphonenumber port).
 
 import phonenumbers
 from typing import Optional, List
-import logging
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 def normalize_phone(phone: str, region: str = "GB") -> Optional[str]:

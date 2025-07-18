@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
-from features.team_administration.domain.entities.team import Team, TeamStatus, TeamMember, BotMapping
+from features.team_administration.domain.entities.team import Team, TeamStatus, TeamMember
 
 class ITeamService(ABC):
     @abstractmethod
@@ -37,12 +37,4 @@ class ITeamService(ABC):
 
     @abstractmethod
     async def get_team_members(self, team_id: str) -> List[TeamMember]:
-        pass
-
-    @abstractmethod
-    async def create_bot_mapping(self, team_name: str, bot_username: str, chat_id: str, bot_token: str) -> BotMapping:
-        pass
-
-    @abstractmethod
-    async def get_bot_mapping(self, team_name: str) -> Optional[BotMapping]:
         pass 

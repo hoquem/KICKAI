@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from src.core.dependency_container import get_service
+from core.dependency_container import get_service
 from features.health_monitoring.domain.interfaces.health_check_service_interface import IHealthCheckService
 
 # Configure logging

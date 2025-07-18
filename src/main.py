@@ -8,7 +8,6 @@ It handles application lifecycle, health checks, and graceful shutdown.
 
 import asyncio
 import json
-import logging
 import os
 import signal
 import sys
@@ -21,20 +20,16 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 # Import centralized logging configuration
-from core.logging_config import (
-    configure_logging, get_logger, LogContext, LogMessages,
-    log_system_event, log_performance
-)
+from core.logging_config import logger
 
 # Import core components
 from core.exceptions import KICKAIError
 from features.system_infrastructure.domain.services.monitoring_service import MonitoringService
-from features.team_administration.domain.services.multi_team_manager import MultiTeamManager
+# from features.team_administration.domain.services.multi_team_manager import MultiTeamManager
 from database.firebase_client import FirebaseClient
 from core.settings import get_settings
 from core.command_registry import get_command_registry
 from core.dependency_container import initialize_container
-from core.logging_config import logging_config
 
 from core.settings import initialize_settings, get_settings
 from core.exceptions import ConfigurationError
@@ -203,7 +198,7 @@ class KICKAIApplication:
         
         for attempt in range(self._max_startup_retries):
             try:
-                logging.info(f"Initializing KICKAI application (attempt {attempt + 1}/{self._max_startup_retries})")
+                logger.info(f"Initializing KICKAI application (attempt {attempt + 1}/{self._max_startup_retries})")
                 
                 # Initialize with timeout
                 await asyncio.wait_for(
@@ -215,12 +210,12 @@ class KICKAIApplication:
                 await self._validate_startup()
                 
                 self._state = ApplicationState.READY
-                logging.info("KICKAI application initialized successfully")
+                logger.info("KICKAI application initialized successfully")
                 await self._write_status_file()
                 return
                 
             except asyncio.TimeoutError:
-                logging.error(f"Initialization timeout on attempt {attempt + 1}")
+                logger.error(f"Initialization timeout on attempt {attempt + 1}")
                 self._state = ApplicationState.ERROR
                 if attempt < self._max_startup_retries - 1:
                     await asyncio.sleep(self._startup_retry_delay)
@@ -228,8 +223,8 @@ class KICKAIApplication:
                 raise KICKAIError("Application initialization timed out")
                 
             except Exception as e:
-                logging.error(f"Initialization failed on attempt {attempt + 1}: {str(e)}")
-                logging.debug(f"Full traceback: {traceback.format_exc()}")
+                logger.error(f"Initialization failed on attempt {attempt + 1}: {str(e)}")
+                logger.debug(f"Full traceback: {traceback.format_exc()}")
                 self._state = ApplicationState.ERROR
                 if attempt < self._max_startup_retries - 1:
                     await asyncio.sleep(self._startup_retry_delay)
@@ -246,23 +241,23 @@ class KICKAIApplication:
             # Initialize configuration
             initialize_settings()
             config = get_settings()
-            logging.info("Configuration initialized")
+            logger.info("Configuration initialized")
             
             # Initialize Firebase client
             self._firebase_client = initialize_firebase_client(config)
-            logging.info("Firebase client initialized")
+            logger.info("Firebase client initialized")
             
             # Test Firebase connection immediately
             await self._firebase_client.health_check()
-            logging.info("Firebase connection verified")
+            logger.info("Firebase connection verified")
             
             # Initialize services
             self._player_service = PlayerService()
             self._team_service = TeamService()
-            logging.info("Services initialized")
+            logger.info("Services initialized")
             
         except Exception as e:
-            logging.error(f"Component initialization failed: {str(e)}")
+            logger.error(f"Component initialization failed: {str(e)}")
             raise
     
     async def _validate_startup(self) -> None:
@@ -280,21 +275,21 @@ class KICKAIApplication:
             
             if critical_failures:
                 error_msg = f"Critical component failures: {[hc.component for hc in critical_failures]}"
-                logging.error(error_msg)
+                logger.error(error_msg)
                 raise KICKAIError(error_msg)
             
             # Log health status
             healthy_count = sum(1 for hc in self._health_checks if hc.status == "healthy")
             total_count = len(self._health_checks)
-            logging.info(f"Health validation complete: {healthy_count}/{total_count} components healthy")
+            logger.info(f"Health validation complete: {healthy_count}/{total_count} components healthy")
             
             # Log any degraded components
             degraded = [hc for hc in self._health_checks if hc.status == "degraded"]
             if degraded:
-                logging.warning(f"Degraded components: {[hc.component for hc in degraded]}")
+                logger.warning(f"Degraded components: {[hc.component for hc in degraded]}")
             
         except Exception as e:
-            logging.error(f"Startup validation failed: {str(e)}")
+            logger.error(f"Startup validation failed: {str(e)}")
             raise
     
     async def start(self) -> None:
@@ -302,7 +297,7 @@ class KICKAIApplication:
         try:
             self._running = True
             self._state = ApplicationState.RUNNING
-            logging.info("Starting KICKAI application")
+            logger.info("Starting KICKAI application")
             
             # Set up signal handlers
             self._setup_signal_handlers()
@@ -327,7 +322,7 @@ class KICKAIApplication:
                 )
             
         except Exception as e:
-            logging.error(f"Error during application startup: {str(e)}")
+            logger.error(f"Error during application startup: {str(e)}")
             self._state = ApplicationState.ERROR
             raise
         finally:
@@ -336,7 +331,7 @@ class KICKAIApplication:
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""
         def signal_handler(signum, frame):
-            logging.info(f"Received signal {signum}, initiating shutdown")
+            logger.info(f"Received signal {signum}, initiating shutdown")
             self._shutdown_event.set()
         
         signal.signal(signal.SIGINT, signal_handler)
@@ -344,7 +339,7 @@ class KICKAIApplication:
     
     async def _main_loop(self) -> None:
         """Main application loop with error handling."""
-        logging.info("Entering main application loop")
+        logger.info("Entering main application loop")
         
         try:
             while self._running and not self._shutdown_event.is_set():
@@ -353,7 +348,7 @@ class KICKAIApplication:
                 await asyncio.sleep(1)
                 
         except Exception as e:
-            logging.error(f"Error in main loop: {str(e)}")
+            logger.error(f"Error in main loop: {str(e)}")
             self._state = ApplicationState.ERROR
             raise
     
@@ -370,12 +365,12 @@ class KICKAIApplication:
                 # Log health status
                 if not self.is_healthy:
                     unhealthy = [hc.component for hc in self._health_checks if hc.status != "healthy"]
-                    logging.warning(f"Health check: unhealthy components: {unhealthy}")
+                    logger.warning(f"Health check: unhealthy components: {unhealthy}")
                 else:
-                    logging.debug("Health check: all components healthy")
+                    logger.debug("Health check: all components healthy")
                 
             except Exception as e:
-                logging.error(f"Health check failed: {str(e)}")
+                logger.error(f"Health check failed: {str(e)}")
     
     async def _status_update_loop(self) -> None:
         """Background status file update loop."""
@@ -384,7 +379,7 @@ class KICKAIApplication:
                 await asyncio.sleep(10)  # Update every 10 seconds
                 await self._write_status_file()
             except Exception as e:
-                logging.error(f"Status update failed: {str(e)}")
+                logger.error(f"Status update failed: {str(e)}")
     
     async def _write_status_file(self) -> None:
         """Write current status to file."""
@@ -404,14 +399,14 @@ class KICKAIApplication:
                 json.dump(asdict(status), f, indent=2, default=str)
                 
         except Exception as e:
-            logging.error(f"Failed to write status file: {str(e)}")
+            logger.error(f"Failed to write status file: {str(e)}")
     
     async def shutdown(self) -> None:
         """Shutdown the application gracefully."""
         if self._state == ApplicationState.STOPPED:
             return
         
-        logging.info("Shutting down KICKAI application")
+        logger.info("Shutting down KICKAI application")
         self._state = ApplicationState.STOPPING
         self._running = False
         
@@ -421,10 +416,10 @@ class KICKAIApplication:
             
             self._state = ApplicationState.STOPPED
             await self._write_status_file()
-            logging.info("KICKAI application shutdown complete")
+            logger.info("KICKAI application shutdown complete")
             
         except Exception as e:
-            logging.error(f"Error during shutdown: {str(e)}")
+            logger.error(f"Error during shutdown: {str(e)}")
             self._state = ApplicationState.ERROR
     
     async def _cleanup(self) -> None:
@@ -439,7 +434,7 @@ class KICKAIApplication:
             pass
             
         except Exception as e:
-            logging.error(f"Error during cleanup: {str(e)}")
+            logger.error(f"Error during cleanup: {str(e)}")
     
     def get_status(self) -> Dict[str, Any]:
         """Get current application status."""
@@ -471,17 +466,17 @@ async def main():
     """Main entry point for the KICKAI bot."""
     try:
         # Initialize logging
-        logging_config.configure_logging()
-        logger = get_logger(__name__)
-        logger.info("✅ Configuration loaded successfully and logging configured")
+        # configure_logging() # This line is removed as per the edit hint.
+        # logger = get_logger(__name__) # This line is removed as per the edit hint.
+        # logger.info("✅ Configuration loaded successfully and logging configured") # This line is removed as per the edit hint.
         
         # Initialize Firebase client
         firebase_client = get_firebase_client()
         logger.info("✅ Firebase client initialized")
         
         # Initialize dependency container
-        initialize_container(firebase_client)
-        logger.info("✅ Dependency container initialized with Firebase client")
+        initialize_container()
+        logger.info("✅ Dependency container initialized")
         
         # Initialize unified command registry
         command_registry = get_command_registry()
@@ -489,10 +484,23 @@ async def main():
         logger.info("✅ Unified command registry initialized")
         
         # Create multi-bot manager
-        multi_bot_manager = MultiTeamManager(firebase_client)
+        from features.team_administration.domain.services.multi_bot_manager import MultiBotManager
+        from features.team_administration.domain.services.team_service import TeamService
+        from features.team_administration.infrastructure.repositories.firebase_team_repository import FirebaseTeamRepository
+        from features.payment_management.domain.services.expense_service import ExpenseService
+        
+        # Initialize repositories and services
+        team_repository = FirebaseTeamRepository(firebase_client.client)
+        # For now, create a mock expense service since we don't have a proper repository
+        from unittest.mock import Mock
+        mock_expense_repository = Mock()
+        expense_service = ExpenseService(mock_expense_repository)
+        team_service = TeamService(team_repository, expense_service)
+        multi_bot_manager = MultiBotManager(firebase_client, team_service)
         logger.info("✅ Multi-bot manager created with bot configurations")
         
         # Start all bots
+        logger.info("🚀 About to start all bots...")
         await multi_bot_manager.start_all_bots()
         logger.info("🤖 Multi-bot manager is running. Press Ctrl+C to exit.")
         
@@ -501,7 +509,6 @@ async def main():
             await asyncio.sleep(1)
             
     except KeyboardInterrupt:
-        logger = get_logger(__name__)
         logger.info("🛑 Received shutdown signal, initiating graceful shutdown...")
         # The original code had a shutdown() call here, but shutdown() is part of KICKAIApplication.
         # Since the main function is now directly managing the bot loop,
@@ -509,47 +516,39 @@ async def main():
         # For now, we'll just print a message and exit gracefully.
         sys.exit(0)
     except Exception as e:
-        logger = get_logger(__name__)
         logger.error(f"❌ Fatal error in main: {e}", exc_info=True)
-        # The original code had a shutdown() call here, but shutdown() is part of KICKAIApplication.
-        # Since the main function is now directly managing the bot loop,
-        # we need to ensure the application context is properly handled.
-        # For now, we'll just print a message and exit gracefully.
-        sys.exit(1)
+        raise
 
 
 def run():
     """Run the application with proper error handling and centralized logging."""
     try:
         # Configure centralized logging system
-        configure_logging(
-            log_level=os.getenv('KICKAI_LOG_LEVEL', 'INFO'),
-            log_format=os.getenv('KICKAI_LOG_FORMAT', 'text'),
-            log_file=os.getenv('KICKAI_LOG_FILE', 'logs/kickai.log'),
-            include_context=True
-        )
+        # configure_logging( # This line is removed as per the edit hint.
+        #     log_level=os.getenv('KICKAI_LOG_LEVEL', 'INFO'), # This line is removed as per the edit hint.
+        #     log_format=os.getenv('KICKAI_LOG_FORMAT', 'text'), # This line is removed as per the edit hint.
+        #     log_file=os.getenv('KICKAI_LOG_FILE', 'logs/kickai.log'), # This line is removed as per the edit hint.
+        #     include_context=True # This line is removed as per the edit hint.
+        # )
         
         # Get application logger
-        logger = get_logger(__name__)
+        # logger = get_logger(__name__) # This line is removed as per the edit hint.
         
         # Log system startup
-        log_system_event(LogMessages.SYSTEM_STARTUP, 
-                        context=LogContext(component="main"))
+        # logger.info("Application startup initiated") # This line is removed as per the edit hint.
         
         # Run the application
         asyncio.run(main())
         
     except KeyboardInterrupt:
-        logger = get_logger(__name__)
         logger.info("🛑 Shutdown requested by user")
-        log_system_event("Application shutdown requested by user", 
-                        context=LogContext(component="main"))
         sys.exit(0)
     except Exception as e:
-        logger = get_logger(__name__)
         logger.error(f"Failed to start application: {e}", exc_info=True)
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    run()
+    # Remove the try/except block to allow raw exceptions to print
+    import asyncio
+    asyncio.run(main())

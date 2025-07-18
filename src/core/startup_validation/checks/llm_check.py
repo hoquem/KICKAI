@@ -9,20 +9,22 @@ import logging
 import os
 from typing import Dict, Any
 
-from .base_check import HealthCheck, CheckResult, CheckCategory, CheckStatus
+from .base_check import BaseCheck
+from ..reporting import CheckResult, CheckCategory, CheckStatus
 from core.settings import get_settings
 from utils.llm_factory import LLMFactory
 
 logger = logging.getLogger(__name__)
 
 
-class LLMProviderCheck(HealthCheck):
+class LLMProviderCheck(BaseCheck):
     """Check LLM provider configuration and connectivity."""
     
-    def __init__(self):
-        super().__init__("LLM Provider", CheckCategory.LLM, critical=True)
+    name = "LLM Provider"
+    category = CheckCategory.LLM
+    description = "Validates LLM provider configuration and connectivity"
     
-    async def execute(self, context: Dict[str, Any]) -> CheckResult:
+    async def execute(self, context: Dict[str, Any] = None) -> CheckResult:
         start_time = asyncio.get_event_loop().time()
         
         try:
