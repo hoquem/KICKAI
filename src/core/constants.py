@@ -18,10 +18,12 @@ COLLECTION_PLAYERS = "players"
 COLLECTION_TEAMS = "teams"
 COLLECTION_TEAM_MEMBERS = "team_members"
 COLLECTION_MATCHES = "matches"
-COLLECTION_BOT_MAPPINGS = "bot_mappings"
 COLLECTION_PAYMENTS = "payments"
 COLLECTION_DAILY_STATUS = "daily_status"
 COLLECTION_FIXTURES = "fixtures"
+COLLECTION_MESSAGES = "messages"
+COLLECTION_HEALTH_CHECKS = "health_checks"
+COLLECTION_ATTENDANCE = "attendance"
 
 # Full collection names (with prefix)
 def get_collection_name(collection: str) -> str:
@@ -34,7 +36,6 @@ FIRESTORE_COLLECTIONS = {
     "teams": get_collection_name(COLLECTION_TEAMS),
     "team_members": get_collection_name(COLLECTION_TEAM_MEMBERS),
     "matches": get_collection_name(COLLECTION_MATCHES),
-    "bot_mappings": get_collection_name(COLLECTION_BOT_MAPPINGS),
     "payments": get_collection_name(COLLECTION_PAYMENTS),
     "daily_status": get_collection_name(COLLECTION_DAILY_STATUS),
     "fixtures": get_collection_name(COLLECTION_FIXTURES),

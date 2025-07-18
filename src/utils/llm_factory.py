@@ -22,6 +22,7 @@ class AIProvider(Enum):
     """Supported AI providers."""
     GOOGLE_GEMINI = "google_gemini"
     OLLAMA = "ollama"
+    MOCK = "mock"
 
 
 @dataclass
@@ -54,6 +55,53 @@ class LLMProvider(ABC):
     def validate_config(self, config: LLMConfig) -> bool:
         """Validate the configuration."""
         pass
+
+
+class MockLLMProvider(LLMProvider):
+    """Mock LLM provider for testing and development."""
+    
+    def validate_config(self, config: LLMConfig) -> bool:
+        """Validate mock configuration."""
+        # Mock provider doesn't require any specific configuration
+        return True
+    
+    def create_llm(self, config: LLMConfig):
+        """Create a mock LLM instance."""
+        self.validate_config(config)
+        
+        class MockLLM:
+            """Mock LLM for testing and development."""
+            
+            def __init__(self, model_name: str, temperature: float = 0.7):
+                self.model_name = model_name
+                self.temperature = temperature
+                logger.info(f"✅ Mock LLM created (model: {model_name}, temperature: {temperature})")
+            
+            def invoke(self, messages, **kwargs):
+                """Mock synchronous invocation."""
+                logger.info(f"[MOCK LLM] Invoke called with {len(messages)} messages")
+                return "Mock LLM response: This is a test response from the mock LLM."
+            
+            async def ainvoke(self, messages, **kwargs):
+                """Mock asynchronous invocation."""
+                logger.info(f"[MOCK LLM] Async invoke called with {len(messages)} messages")
+                return "Mock LLM response: This is a test response from the mock LLM."
+            
+            def __call__(self, messages, **kwargs):
+                """Call interface for compatibility."""
+                return self.invoke(messages, **kwargs)
+            
+            def is_available(self) -> bool:
+                """Check if the LLM is available (always True for mock)."""
+                return True
+        
+        llm = MockLLM(
+            model_name=config.model_name,
+            temperature=config.temperature
+        )
+        
+        logger.info(f"✅ Mock LLM created successfully (model: {config.model_name})")
+        return llm
 
 
 class GoogleGeminiProvider(LLMProvider):
@@ -103,148 +151,120 @@ class GoogleGeminiProvider(LLMProvider):
                     logger.info(f"[LLM INIT] Temperature: {temperature}")
                     logger.info(f"[LLM INIT] Timeout: {timeout}s")
                     logger.info(f"[LLM INIT] Max Retries: {max_retries}")
-
-                async def agenerate(self, messages, **kwargs):
-                    """Generate response with comprehensive error handling."""
-                    start_time = asyncio.get_event_loop().time()
-                    
-                    # Log the request
-                    logger.info(f"[LLM REQUEST] Starting LiteLLM completion request")
-                    logger.info(f"[LLM REQUEST] Model: {self.model_name}")
-                    logger.info(f"[LLM REQUEST] Messages count: {len(messages)}")
-                    logger.info(f"[LLM REQUEST] First message preview: {str(messages[0])[:100]}..." if messages else "No messages")
+                
+                def _clear_vertex_ai_environment(self):
+                    """Clear Vertex AI environment variables to avoid conflicts."""
+                    vertex_vars = [
+                        'GOOGLE_APPLICATION_CREDENTIALS',
+                        'GOOGLE_CLOUD_PROJECT',
+                        'VERTEX_AI_PROJECT',
+                        'VERTEX_AI_LOCATION'
+                    ]
+                    for var in vertex_vars:
+                        if var in os.environ:
+                            del os.environ[var]
+                            logger.info(f"[LLM INIT] Cleared {var} environment variable")
+                
+                def invoke(self, messages, **kwargs):
+                    """Synchronous invocation with comprehensive error handling."""
+                    start_time = asyncio.get_event_loop().time() * 1000
                     
                     try:
-                        # Convert LangChain messages to litellm format
-                        litellm_messages = []
-                        for msg in messages:
-                            if hasattr(msg, 'type') and msg.type == 'human':
-                                litellm_messages.append({"role": "user", "content": msg.content})
-                            elif hasattr(msg, 'type') and msg.type == 'ai':
-                                litellm_messages.append({"role": "assistant", "content": msg.content})
-                            else:
-                                litellm_messages.append({"role": "user", "content": str(msg)})
+                        # Convert messages to LiteLLM format
+                        formatted_messages = self._format_messages_for_litellm(messages)
                         
-                        logger.info(f"[LLM REQUEST] Converted to LiteLLM format: {len(litellm_messages)} messages")
+                        # Call LiteLLM
+                        response = completion(
+                            model=self.model_name,
+                            messages=formatted_messages,
+                            temperature=self.temperature,
+                            timeout=self.timeout,
+                            max_retries=self.max_retries,
+                            **kwargs
+                        )
                         
-                        # Make the LiteLLM API call with comprehensive error handling
-                        response = await self._make_litellm_request(litellm_messages, **kwargs)
+                        duration_ms = (asyncio.get_event_loop().time() * 1000) - start_time
+                        logger.info(f"[LLM SUCCESS] Request completed in {duration_ms:.2f}ms")
                         
-                        # Convert litellm response back to LangChain format
-                        from langchain_core.messages import AIMessage
-                        result = AIMessage(content=response.choices[0].message.content)
-                        
-                        # Log success
-                        duration = (asyncio.get_event_loop().time() - start_time) * 1000
-                        logger.info(f"[LLM SUCCESS] LiteLLM request completed successfully in {duration:.2f}ms")
-                        logger.info(f"[LLM SUCCESS] Response length: {len(result.content)} characters")
-                        logger.info(f"[LLM SUCCESS] Response preview: {result.content[:100]}...")
-                        
-                        return result
-                        
+                        # Extract content from response
+                        if hasattr(response, 'choices') and response.choices:
+                            content = response.choices[0].message.content
+                            return content
+                        else:
+                            return str(response)
+                            
                     except Exception as e:
-                        # Comprehensive error handling
-                        duration = (asyncio.get_event_loop().time() - start_time) * 1000
-                        await self._handle_litellm_error(e, duration, messages, **kwargs)
-                        raise
-
-                def generate(self, messages, **kwargs):
-                    """Synchronous wrapper for agenerate."""
-                    return asyncio.run(self.agenerate(messages, **kwargs))
+                        duration_ms = (asyncio.get_event_loop().time() * 1000) - start_time
+                        self._handle_litellm_error(e, duration_ms, messages, **kwargs)
                 
-                async def _make_litellm_request(self, litellm_messages, **kwargs):
-                    """Make the actual LiteLLM API request with retry logic."""
-                    from litellm import completion
+                async def ainvoke(self, messages, **kwargs):
+                    """Asynchronous invocation with comprehensive error handling."""
+                    start_time = asyncio.get_event_loop().time() * 1000
                     
-                    # Prepare request parameters
-                    request_params = {
-                        "model": self.model_name,
-                        "messages": litellm_messages,
-                        "api_key": self.api_key,
-                        "temperature": self.temperature,
-                        "request_timeout": self.timeout,
-                        "num_retries": self.max_retries,
-                        **kwargs
-                    }
-                    
-                    logger.info(f"[LLM API] Making LiteLLM completion request")
-                    logger.info(f"[LLM API] Request params: {list(request_params.keys())}")
-                    
-                    # Make the request - LiteLLM completion is sync, not async
-                    response = completion(**request_params)
-                    
-                    # Validate response
-                    if not response or not hasattr(response, 'choices') or not response.choices:
-                        raise LLMProviderError("LiteLLM returned empty or invalid response")
-                    
-                    if not response.choices[0] or not hasattr(response.choices[0], 'message'):
-                        raise LLMProviderError("LiteLLM response missing message content")
-                    
-                    return response
+                    try:
+                        # Convert messages to LiteLLM format
+                        formatted_messages = self._format_messages_for_litellm(messages)
+                        
+                        # Call LiteLLM asynchronously
+                        response = await asyncio.to_thread(
+                            completion,
+                            model=self.model_name,
+                            messages=formatted_messages,
+                            temperature=self.temperature,
+                            timeout=self.timeout,
+                            max_retries=self.max_retries,
+                            **kwargs
+                        )
+                        
+                        duration_ms = (asyncio.get_event_loop().time() * 1000) - start_time
+                        logger.info(f"[LLM SUCCESS] Async request completed in {duration_ms:.2f}ms")
+                        
+                        # Extract content from response
+                        if hasattr(response, 'choices') and response.choices:
+                            content = response.choices[0].message.content
+                            return content
+                        else:
+                            return str(response)
+                            
+                    except Exception as e:
+                        duration_ms = (asyncio.get_event_loop().time() * 1000) - start_time
+                        self._handle_litellm_error(e, duration_ms, messages, **kwargs)
                 
-                async def _handle_litellm_error(self, error, duration_ms, messages, **kwargs):
-                    """Handle LiteLLM errors with detailed logging and diagnostics."""
-                    error_type = type(error).__name__
-                    error_msg = str(error)
+                def _format_messages_for_litellm(self, messages):
+                    """Format messages for LiteLLM compatibility."""
+                    formatted = []
+                    for message in messages:
+                        if isinstance(message, str):
+                            formatted.append({"role": "user", "content": message})
+                        elif hasattr(message, 'content') and hasattr(message, 'type'):
+                            # Handle LangChain message objects
+                            role = "user" if message.type == "human" else "assistant"
+                            formatted.append({"role": role, "content": message.content})
+                        elif isinstance(message, dict):
+                            # Handle dict format
+                            if 'content' in message and 'role' in message:
+                                formatted.append(message)
+                            else:
+                                # Assume it's a user message
+                                formatted.append({"role": "user", "content": str(message)})
+                        else:
+                            # Fallback
+                            formatted.append({"role": "user", "content": str(message)})
+                    return formatted
+                
+                def _handle_litellm_error(self, error, duration_ms, messages, **kwargs):
+                    """Handle LiteLLM errors with comprehensive diagnostics."""
+                    error_msg = f"LiteLLM error after {duration_ms:.2f}ms: {str(error)}"
+                    logger.error(f"[LLM ERROR] {error_msg}")
                     
-                    # Create detailed error context
-                    error_context = {
-                        "error_type": error_type,
-                        "error_message": error_msg,
-                        "model": self.model_name,
-                        "api_key_present": bool(self.api_key),
-                        "api_key_preview": self.api_key[:10] + "..." if self.api_key else "None",
-                        "temperature": self.temperature,
-                        "timeout": self.timeout,
-                        "max_retries": self.max_retries,
-                        "duration_ms": duration_ms,
-                        "messages_count": len(messages),
-                        "request_kwargs": list(kwargs.keys())
-                    }
-                    
-                    # Categorize and log errors appropriately
-                    if "API key" in error_msg.lower() or "authentication" in error_msg.lower() or "unauthorized" in error_msg.lower():
-                        logger.critical(f"[LLM ERROR] 🔑 API KEY ERROR: {error_msg}")
-                        logger.critical(f"[LLM ERROR] 🔑 This is likely an invalid or expired GOOGLE_API_KEY")
-                        logger.critical(f"[LLM ERROR] 🔑 Please check your .env file and ensure GOOGLE_API_KEY is correct")
-                        logger.critical(f"[LLM ERROR] 🔑 Error context: {error_context}")
-                        
-                    elif "503" in error_msg or "service unavailable" in error_msg.lower():
-                        logger.error(f"[LLM ERROR] 🚫 SERVICE UNAVAILABLE (503): {error_msg}")
-                        logger.error(f"[LLM ERROR] 🚫 Google Gemini API is temporarily unavailable")
-                        logger.error(f"[LLM ERROR] 🚫 This is a Google service issue, not a configuration problem")
-                        logger.error(f"[LLM ERROR] 🚫 Error context: {error_context}")
-                        
-                    elif "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
-                        logger.error(f"[LLM ERROR] ⏰ TIMEOUT ERROR: {error_msg}")
-                        logger.error(f"[LLM ERROR] ⏰ Request timed out after {duration_ms:.2f}ms")
-                        logger.error(f"[LLM ERROR] ⏰ Consider increasing timeout or checking network connectivity")
-                        logger.error(f"[LLM ERROR] ⏰ Error context: {error_context}")
-                        
-                    elif "quota" in error_msg.lower() or "rate limit" in error_msg.lower():
-                        logger.error(f"[LLM ERROR] 📊 QUOTA/RATE LIMIT ERROR: {error_msg}")
-                        logger.error(f"[LLM ERROR] 📊 Google Gemini API quota exceeded or rate limited")
-                        logger.error(f"[LLM ERROR] 📊 Check your Google Cloud Console for quota usage")
-                        logger.error(f"[LLM ERROR] 📊 Error context: {error_context}")
-                        
-                    elif "model" in error_msg.lower() and "not found" in error_msg.lower():
-                        logger.error(f"[LLM ERROR] 🤖 MODEL NOT FOUND: {error_msg}")
-                        logger.error(f"[LLM ERROR] 🤖 Model '{self.model_name}' may not exist or be accessible")
-                        logger.error(f"[LLM ERROR] 🤖 Check your AI_MODEL_NAME environment variable")
-                        logger.error(f"[LLM ERROR] 🤖 Error context: {error_context}")
-                        
-                    elif "network" in error_msg.lower() or "connection" in error_msg.lower():
-                        logger.error(f"[LLM ERROR] 🌐 NETWORK ERROR: {error_msg}")
-                        logger.error(f"[LLM ERROR] 🌐 Network connectivity issue or DNS problem")
-                        logger.error(f"[LLM ERROR] 🌐 Check your internet connection and firewall settings")
-                        logger.error(f"[LLM ERROR] 🌐 Error context: {error_context}")
-                        
-                    else:
-                        # Generic error handling
-                        logger.error(f"[LLM ERROR] ❌ UNKNOWN ERROR: {error_msg}")
-                        logger.error(f"[LLM ERROR] ❌ Error type: {error_type}")
-                        logger.error(f"[LLM ERROR] ❌ Full error context: {error_context}")
-                        logger.error(f"[LLM ERROR] ❌ Full traceback: {traceback.format_exc()}")
+                    # Log detailed error information
+                    logger.error(f"[LLM ERROR] Error type: {type(error).__name__}")
+                    logger.error(f"[LLM ERROR] Error details: {str(error)}")
+                    logger.error(f"[LLM ERROR] Messages count: {len(messages)}")
+                    logger.error(f"[LLM ERROR] Model: {self.model_name}")
+                    logger.error(f"[LLM ERROR] Temperature: {self.temperature}")
+                    logger.error(f"[LLM ERROR] Timeout: {self.timeout}s")
+                    logger.error(f"[LLM ERROR] Max retries: {self.max_retries}")
                     
                     # Additional diagnostics
                     logger.info(f"[LLM DIAGNOSTICS] Environment check:")
@@ -252,6 +272,9 @@ class GoogleGeminiProvider(LLMProvider):
                     logger.info(f"[LLM DIAGNOSTICS] - AI_PROVIDER: {os.getenv('AI_PROVIDER', 'not set')}")
                     logger.info(f"[LLM DIAGNOSTICS] - AI_MODEL_NAME: {os.getenv('AI_MODEL_NAME', 'not set')}")
                     logger.info(f"[LLM DIAGNOSTICS] - Request duration: {duration_ms:.2f}ms")
+                    
+                    # Re-raise the error
+                    raise error
 
             llm = RobustLiteLLMChatModel(
                 model_name=litellm_model_name,
@@ -274,25 +297,18 @@ class GoogleGeminiProvider(LLMProvider):
             raise LLMProviderError(error_msg)
     
     def _clear_vertex_ai_environment(self):
-        """Clear any Vertex AI related environment variables."""
+        """Clear Vertex AI environment variables to avoid conflicts."""
         vertex_vars = [
             'GOOGLE_APPLICATION_CREDENTIALS',
-            'GOOGLE_CLOUD_PROJECT', 
-            'GOOGLE_CLOUD_LOCATION',
-            'GOOGLE_GENAI_USE_VERTEXAI'
+            'GOOGLE_CLOUD_PROJECT',
+            'VERTEX_AI_PROJECT',
+            'VERTEX_AI_LOCATION'
         ]
-        
         for var in vertex_vars:
             if var in os.environ:
-                logger.warning(f"⚠️  Found {var} environment variable. Clearing to prevent Vertex AI routing.")
                 del os.environ[var]
-        
-        # Clear any Google Cloud service account related variables
-        for key in list(os.environ.keys()):
-            if any(term in key.upper() for term in ['VERTEX', 'AIPLATFORM', 'GOOGLE_CLOUD']):
-                if key != 'GOOGLE_API_KEY':  # Keep the direct API key
-                    logger.info(f"Clearing potential Vertex AI variable: {key}")
-                    del os.environ[key]
+                logger.info(f"[LLM INIT] Cleared {var} environment variable")
+
 
 class OllamaProvider(LLMProvider):
     """Ollama LLM provider for local models."""
@@ -342,6 +358,7 @@ class LLMFactory:
     _providers: Dict[AIProvider, Type[LLMProvider]] = {
         AIProvider.GOOGLE_GEMINI: GoogleGeminiProvider,
         AIProvider.OLLAMA: OllamaProvider,
+        AIProvider.MOCK: MockLLMProvider,
     }
     
     @classmethod
@@ -388,37 +405,44 @@ class LLMFactory:
         """
         # Get provider from environment
         provider_str = os.getenv('AI_PROVIDER', 'google_gemini')
-        logger.info(f"🔍 [DEBUG] LLMFactory: AI_PROVIDER from env: {provider_str}")
+        logger.debug(f"🔍 [DEBUG] LLMFactory: AI_PROVIDER from env: {provider_str}")
         
         try:
             provider = AIProvider(provider_str)
-            logger.info(f"🔍 [DEBUG] LLMFactory: Selected provider: {provider.value}")
+            logger.debug(f"🔍 [DEBUG] LLMFactory: Selected provider: {provider.value}")
         except ValueError:
             raise LLMProviderError(f"Invalid AI_PROVIDER: {provider_str}")
         
-        # Get API key from environment
-        api_key = os.getenv('GOOGLE_API_KEY') if provider == AIProvider.GOOGLE_GEMINI else None
+        # Get API key from environment (only for real providers)
+        api_key = ""
+        if provider == AIProvider.GOOGLE_GEMINI:
+            api_key = os.getenv('GOOGLE_API_KEY', '')
+        elif provider == AIProvider.MOCK:
+            api_key = "mock-key"  # Mock doesn't need real API key
         
         # Use default model if not specified
         if not model_name:
             # Try AI_MODEL_NAME first, then provider-specific fallbacks
             model_name = os.getenv('AI_MODEL_NAME')
-            logger.info(f"🔍 [DEBUG] LLMFactory: AI_MODEL_NAME from env: {model_name}")
+            logger.debug(f"🔍 [DEBUG] LLMFactory: AI_MODEL_NAME from env: {model_name}")
             
         if not model_name:
             if provider == AIProvider.GOOGLE_GEMINI:
                 model_name = os.getenv('GOOGLE_AI_MODEL_NAME', 'gemini-1.5-flash')
-                logger.info(f"🔍 [DEBUG] LLMFactory: GOOGLE_AI_MODEL_NAME from env: {model_name}")
-            else:
+                logger.debug(f"🔍 [DEBUG] LLMFactory: GOOGLE_AI_MODEL_NAME from env: {model_name}")
+            elif provider == AIProvider.OLLAMA:
                 model_name = os.getenv('OLLAMA_MODEL', 'llama2')
-                logger.info(f"🔍 [DEBUG] LLMFactory: OLLAMA_MODEL from env: {model_name}")
+                logger.debug(f"🔍 [DEBUG] LLMFactory: OLLAMA_MODEL from env: {model_name}")
+            elif provider == AIProvider.MOCK:
+                model_name = os.getenv('MOCK_MODEL', 'mock-model')
+                logger.debug(f"🔍 [DEBUG] LLMFactory: MOCK_MODEL from env: {model_name}")
         
-        logger.info(f"🔍 [DEBUG] LLMFactory: Final model_name: {model_name}")
+        logger.debug(f"🔍 [DEBUG] LLMFactory: Final model_name: {model_name}")
         
         config = LLMConfig(
             provider=provider,
             model_name=model_name,
-            api_key=api_key or "",
+            api_key=api_key,
             temperature=float(os.getenv('LLM_TEMPERATURE', '0.7')),
             timeout_seconds=int(os.getenv('LLM_TIMEOUT', '30')),
             max_retries=int(os.getenv('LLM_MAX_RETRIES', '3')),

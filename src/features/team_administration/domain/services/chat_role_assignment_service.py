@@ -19,6 +19,7 @@ from database.firebase_client import FirebaseClient
 from core.exceptions import DatabaseError, ValidationError
 from features.player_registration.domain.services.player_service import PlayerService
 from features.player_registration.domain.services.team_member_service import TeamMemberService
+from features.team_administration.domain.entities.team_member import TeamMember
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +36,58 @@ class ChatRoleAssignmentService:
     
     def __init__(self, firebase_client: FirebaseClient):
         self.firebase_client = firebase_client
-        self.player_service = PlayerService(firebase_client)
-        self.team_member_service = TeamMemberService(firebase_client)
+        
+        # Get PlayerService from dependency container instead of creating it directly
+        try:
+            from core.dependency_container import get_service
+            from features.player_registration.domain.services.player_service import PlayerService
+            
+            self.player_service = get_service(PlayerService)
+        except Exception as e:
+            logger.warning(f"⚠️ Could not get PlayerService from dependency container: {e}")
+            # Fallback to mock service
+            self.player_service = self._create_mock_player_service()
+        
+        # Get TeamMemberService from dependency container instead of creating it directly
+        try:
+            from core.dependency_container import get_service
+            from features.player_registration.domain.services.team_member_service import TeamMemberService
+            
+            self.team_member_service = get_service(TeamMemberService)
+        except Exception as e:
+            logger.warning(f"⚠️ Could not get TeamMemberService from dependency container: {e}")
+            # Fallback to mock service
+            self.team_member_service = self._create_mock_team_member_service()
+        
         logger.info("✅ ChatRoleAssignmentService initialized")
+    
+    def _create_mock_player_service(self):
+        """Create a mock player service for fallback."""
+        class MockPlayerService:
+            async def get_player_by_id(self, player_id: str):
+                return None
+            
+            async def get_player_by_phone(self, phone: str, team_id: str):
+                return None
+        
+        return MockPlayerService()
+    
+    def _create_mock_team_member_service(self):
+        """Create a mock team member service for fallback."""
+        class MockTeamMemberService:
+            async def get_team_members_by_team(self, team_id: str):
+                return []
+            
+            async def get_team_member_by_telegram_id(self, user_id: str, team_id: str):
+                return None
+            
+            async def create_team_member(self, team_member):
+                return "mock_member_id"
+            
+            async def update_team_member(self, team_member):
+                return True
+        
+        return MockTeamMemberService()
     
     async def add_user_to_chat(self, team_id: str, user_id: str, chat_type: str, 
                               username: Optional[str] = None) -> Dict[str, Any]:

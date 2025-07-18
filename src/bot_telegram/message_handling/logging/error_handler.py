@@ -6,7 +6,8 @@ This module provides error handling functionality.
 
 import logging
 from core.context_manager import UserContext
-from core.logging_config import log_errors, ErrorCategory, ErrorSeverity
+from core.enhanced_logging import ErrorCategory
+from loguru import logger
 
 logger = logging.getLogger(__name__)
 
@@ -17,104 +18,69 @@ class ErrorHandler:
     @staticmethod
     def handle_validation_error(error: str) -> str:
         """Handle validation errors."""
-        log_errors(
-            error_type=ErrorCategory.VALIDATION,
-            severity=ErrorSeverity.WARNING,
-            message=f"Message validation failed: {error}",
-            context={"error": error}
-        )
+        logger.error(f"Message validation failed: {error}", context={"error": error})
         return f"❌ Message validation failed: {error}"
     
     @staticmethod
     def handle_permission_error(error: str, user_context: UserContext) -> str:
         """Handle permission errors."""
-        log_errors(
-            error_type=ErrorCategory.PERMISSION,
-            severity=ErrorSeverity.WARNING,
-            message=f"Permission denied: {error}",
-            context={
+        logger.error(f"Permission denied: {error}", context={
                 "user_id": user_context.user_id,
                 "chat_id": user_context.chat_id,
                 "error": error
-            }
-        )
+            })
         return f"❌ Permission denied: {error}"
     
     @staticmethod
     def handle_processing_error(error: str, user_context: UserContext) -> str:
         """Handle processing errors."""
-        log_errors(
-            error_type=ErrorCategory.PROCESSING,
-            severity=ErrorSeverity.ERROR,
-            message=f"Message processing failed: {error}",
-            context={
+        logger.error(f"Message processing failed: {error}", context={
                 "user_id": user_context.user_id,
                 "chat_id": user_context.chat_id,
                 "error": error
-            }
-        )
+            })
         return f"❌ Processing error: {error}"
     
     @staticmethod
     def handle_command_error(error: str, user_context: UserContext, command: str) -> str:
         """Handle command execution errors."""
-        log_errors(
-            error_type=ErrorCategory.COMMAND,
-            severity=ErrorSeverity.ERROR,
-            message=f"Command execution failed: {error}",
-            context={
+        logger.error(f"Command execution failed: {error}", context={
                 "user_id": user_context.user_id,
                 "chat_id": user_context.chat_id,
                 "command": command,
                 "error": error
-            }
-        )
+            })
         return f"❌ Command '{command}' failed: {error}"
     
     @staticmethod
     def handle_nlp_error(error: str, user_context: UserContext, query: str) -> str:
         """Handle natural language processing errors."""
-        log_errors(
-            error_type=ErrorCategory.NLP,
-            severity=ErrorSeverity.ERROR,
-            message=f"NLP processing failed: {error}",
-            context={
+        logger.error(f"NLP processing failed: {error}", context={
                 "user_id": user_context.user_id,
                 "chat_id": user_context.chat_id,
                 "query": query,
                 "error": error
-            }
-        )
+            })
         return f"❌ I couldn't understand your request: {error}"
     
     @staticmethod
     def handle_system_error(error: str, user_context: UserContext) -> str:
         """Handle system errors."""
-        log_errors(
-            error_type=ErrorCategory.SYSTEM,
-            severity=ErrorSeverity.CRITICAL,
-            message=f"System error: {error}",
-            context={
+        logger.error(f"System error: {error}", context={
                 "user_id": user_context.user_id,
                 "chat_id": user_context.chat_id,
                 "error": error
-            }
-        )
+            })
         return f"❌ System error: {error}"
     
     @staticmethod
     def handle_unknown_error(error: str, user_context: UserContext) -> str:
         """Handle unknown errors."""
-        log_errors(
-            error_type=ErrorCategory.UNKNOWN,
-            severity=ErrorSeverity.ERROR,
-            message=f"Unknown error: {error}",
-            context={
+        logger.error(f"Unknown error: {error}", context={
                 "user_id": user_context.user_id,
                 "chat_id": user_context.chat_id,
                 "error": error
-            }
-        )
+            })
         return f"❌ An unexpected error occurred: {error}"
     
     @staticmethod

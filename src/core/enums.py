@@ -23,4 +23,5 @@ class AgentRole(Enum):
 class AIProvider(Enum):
     """AI provider types."""
     GOOGLE_GEMINI = "google_gemini"
-    OLLAMA = "ollama" 
+    OLLAMA = "ollama"
+    MOCK = "mock" 

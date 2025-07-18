@@ -5,10 +5,8 @@ This module provides attendance management functionality including
 attendance tracking, reporting, and analytics.
 """
 
-import logging
+from loguru import logger
 from typing import Dict, Any
-
-logger = logging.getLogger(__name__)
 
 
 def initialize_attendance_management(config: Dict[str, Any]) -> None:

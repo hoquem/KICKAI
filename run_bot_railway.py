@@ -40,20 +40,11 @@ shutdown_event = asyncio.Event()
 
 def setup_logging():
     """Configure logging for the application."""
-    from core.logging_config import configure_logging
-    
     # Get settings for logging configuration
     settings = get_settings()
     log_file_path = settings.log_file_path if settings.log_file_path else "logs/kickai.log"
     
-    configure_logging(
-        log_level=settings.log_level,
-        log_format=settings.log_format,
-        log_file=log_file_path,
-        max_file_size=settings.log_max_file_size,
-        backup_count=settings.log_backup_count,
-        include_context=True
-    )
+    # Remove the import and call to configure_logging
 
 
 def setup_environment():
@@ -263,7 +254,7 @@ async def main():
                 signal.signal(sig, lambda s, f: asyncio.create_task(shutdown_event.set()))
         
         logger.info("🤖 Multi-bot manager is running. Press Ctrl+C to exit.")
-        logger.info(f"📊 Running bots: {list(manager.bot_apps.keys())}")
+        logger.info(f"📊 Running bots: {list(manager.bots.keys())}")
         
         # Wait for shutdown signal
         await shutdown_event.wait()

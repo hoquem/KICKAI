@@ -17,16 +17,26 @@ import logging
 from datetime import datetime
 from typing import Optional
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv('.env')
+except ImportError:
+    pass
+
 # Add src to path for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 src_path = os.path.join(project_root, 'src')
 sys.path.insert(0, src_path)
 
-from core.dependency_container import get_service
+from core.dependency_container import get_service, ensure_container_initialized
+from core.settings import initialize_settings, get_settings
+from database.firebase_client import initialize_firebase_client
 from features.team_administration.domain.interfaces.team_service_interface import ITeamService
 from features.player_registration.domain.interfaces.player_service_interface import IPlayerService
-from features.player_registration.domain.entities.player import Team, TeamStatus, TeamMember, BotMapping, PlayerRole
+from features.team_administration.domain.entities.team import Team, TeamStatus, TeamMember
+from features.team_administration.domain.entities.bot_mapping import BotMapping
 from utils.id_generator import generate_team_id
 from core.exceptions import TeamError, PlayerError
 
@@ -38,8 +48,16 @@ class TeamBootstrap:
     """Handles team bootstrap process."""
     
     def __init__(self):
-        self.team_service = get_service(ITeamService)
-        self.player_service = get_service(IPlayerService)
+        # Don't get services in constructor - get them when needed
+        pass
+    
+    def _get_team_service(self):
+        """Get team service when needed."""
+        return get_service(ITeamService)
+    
+    def _get_player_service(self):
+        """Get player service when needed."""
+        return get_service(IPlayerService)
     
     async def bootstrap_team(self, 
                            team_name: str,
@@ -64,7 +82,9 @@ class TeamBootstrap:
                 league_name=league_name,
                 division=division,
                 home_pitch=home_pitch,
-                fa_website_url=fa_website_url
+                fa_website_url=fa_website_url,
+                main_chat_id=main_chat_id,
+                leadership_chat_id=leadership_chat_id
             )
             
             # Step 2: Create admin user
@@ -78,7 +98,7 @@ class TeamBootstrap:
             # Step 3: Create team member record for admin
             admin_member = await self._create_admin_member(
                 team_id=team.id,
-                player_id=admin_player.player_id,
+                player_id=admin_player.id,
                 admin_name=admin_name
             )
             
@@ -93,7 +113,7 @@ class TeamBootstrap:
             logger.info(f"✅ Team bootstrap completed successfully!")
             logger.info(f"📋 Summary:")
             logger.info(f"   Team ID: {team.id}")
-            logger.info(f"   Admin Player ID: {admin_player.player_id}")
+            logger.info(f"   Admin Player ID: {admin_player.id}")
             logger.info(f"   Bot Username: {bot_username}")
             logger.info(f"   Main Chat: {main_chat_id}")
             logger.info(f"   Leadership Chat: {leadership_chat_id}")
@@ -109,7 +129,9 @@ class TeamBootstrap:
                           league_name: str,
                           division: str,
                           home_pitch: str,
-                          fa_website_url: str) -> Team:
+                          fa_website_url: str,
+                          main_chat_id: str,
+                          leadership_chat_id: str) -> Team:
         """Create team record."""
         
         logger.info(f"📝 Creating team: {team_name}")
@@ -117,8 +139,8 @@ class TeamBootstrap:
         # Generate team ID
         team_id = generate_team_id(team_name)
         
-        # Create team with league information
-        team = await self.team_service.create_team(
+        # Create team with league information and bot configuration
+        team = await self._get_team_service().create_team(
             name=team_name,
             description=f"Team playing in {league_name} - {division}",
             settings={
@@ -128,7 +150,9 @@ class TeamBootstrap:
                 "fa_website_url": fa_website_url,
                 "created_at": datetime.now().isoformat()
             },
-            fa_team_url=fa_website_url
+            bot_token=os.getenv('TELEGRAM_BOT_TOKEN', ''),
+            main_chat_id=main_chat_id,
+            leadership_chat_id=leadership_chat_id
         )
         
         logger.info(f"✅ Team created: {team.id}")
@@ -144,16 +168,15 @@ class TeamBootstrap:
         logger.info(f"👤 Creating admin user: {admin_name}")
         
         # Create admin as a player first
-        admin_player = await self.player_service.create_player(
+        admin_player = await self._get_player_service().create_player(
             name=admin_name,
             phone=admin_phone,
+            position="admin",  # Use position instead of role
             team_id=team_id,
-            email=admin_email,
-            role=PlayerRole.ADMIN,
-            fa_registered=True
+            created_by="system"  # Use created_by instead of email
         )
         
-        logger.info(f"✅ Admin user created: {admin_player.player_id}")
+        logger.info(f"✅ Admin user created: {admin_player.id}")
         return admin_player
     
     async def _create_admin_member(self,
@@ -165,7 +188,7 @@ class TeamBootstrap:
         logger.info(f"👥 Creating admin team member: {admin_name}")
         
         # Create team member with admin role
-        admin_member = await self.team_service.add_team_member(
+        admin_member = await self._get_team_service().add_team_member(
             team_id=team_id,
             user_id=player_id,
             role="admin",
@@ -178,7 +201,7 @@ class TeamBootstrap:
             ]
         )
         
-        logger.info(f"✅ Admin team member created: {admin_member.id}")
+        logger.info(f"✅ Admin team member created: {admin_member.user_id}")
         return admin_member
     
     async def _create_bot_mapping(self,
@@ -191,7 +214,7 @@ class TeamBootstrap:
         logger.info(f"🤖 Creating bot mapping for: {bot_username}")
         
         # Create bot mapping
-        bot_mapping = await self.team_service.create_bot_mapping(
+        bot_mapping = await self._get_team_service().create_bot_mapping(
             team_name=team_name,
             bot_username=bot_username,
             chat_id=main_chat_id,  # Main chat ID
@@ -241,6 +264,17 @@ def main():
     # Validate required environment variables
     if not os.getenv('TELEGRAM_BOT_TOKEN'):
         logger.error("❌ TELEGRAM_BOT_TOKEN environment variable not set")
+        sys.exit(1)
+    
+    # Initialize settings and dependency container
+    try:
+        initialize_settings()
+        config = get_settings()
+        initialize_firebase_client(config)
+        ensure_container_initialized()
+        logger.info("✅ Environment initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize environment: {e}")
         sys.exit(1)
     
     # Run bootstrap

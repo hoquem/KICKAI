@@ -14,10 +14,10 @@ from telegram import Update, ChatMemberUpdated, ChatMember
 from telegram.ext import ContextTypes
 
 from core.context_manager import get_context_manager
-from core.logging_config import log_user_event, log_errors
 from core.enhanced_logging import ErrorCategory, ErrorSeverity
 from features.team_administration.domain.services.chat_role_assignment_service import ChatRoleAssignmentService, ChatType
 from database.firebase_client import FirebaseClient
+from loguru import logger
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +65,8 @@ class ChatMemberHandler:
             
         except Exception as e:
             logger.error(f"Error handling chat member update: {e}", exc_info=True)
-            log_errors(
-                error_type=ErrorCategory.PROCESSING,
-                severity=ErrorSeverity.ERROR,
-                message=f"Chat member update failed: {e}",
+            logger.error(
+                f"Chat member update failed: {e}",
                 context={"team_id": self.team_id, "error": str(e)}
             )
             return None
@@ -108,10 +106,11 @@ class ChatMemberHandler:
             
             if result["success"]:
                 # Log the event
-                log_user_event(
-                    user_id=str(user.id),
-                    event_type="user_joined_chat",
-                    details={
+                logger.info(
+                    f"User {user.username or user.id} joined {chat_type} with roles: {result['roles']}",
+                    extra={
+                        "user_id": str(user.id),
+                        "event_type": "user_joined_chat",
                         "chat_id": str(chat.id),
                         "chat_title": chat.title,
                         "chat_type": chat_type,
@@ -156,10 +155,11 @@ class ChatMemberHandler:
             
             if result["success"]:
                 # Log the event
-                log_user_event(
-                    user_id=str(user.id),
-                    event_type="user_left_chat",
-                    details={
+                logger.info(
+                    f"User {user.username or user.id} left {chat_type}, remaining roles: {result['roles']}",
+                    extra={
+                        "user_id": str(user.id),
+                        "event_type": "user_left_chat",
                         "chat_id": str(chat.id),
                         "chat_title": chat.title,
                         "chat_type": chat_type,

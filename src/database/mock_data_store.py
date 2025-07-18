@@ -11,16 +11,12 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 from unittest.mock import Mock
 
-from core.logging_config import get_logger
-
-# Get logger for this module
-logger = get_logger(__name__)
+from loguru import logger
 
 from features.player_registration.domain.entities.player import Player
 from features.team_administration.domain.entities.team import Team
 from features.team_administration.domain.entities.team_member import TeamMember
 from features.match_management.domain.entities.match import Match
-from features.team_administration.domain.entities.bot_mapping import BotMapping
 from dataclasses import dataclass
 
 
@@ -32,7 +28,6 @@ class MockDataStore:
         self.teams: Dict[str, Team] = {}
         self.matches: Dict[str, Match] = {}
         self.team_members: Dict[str, TeamMember] = {}
-        self.bot_mappings: Dict[str, BotMapping] = {}
         self.fixtures: Dict[str, Dict[str, Any]] = {}
         self.command_logs: Dict[str, Dict[str, Any]] = {}
         self.team_bots: Dict[str, Dict[str, Any]] = {}
@@ -41,7 +36,7 @@ class MockDataStore:
     # Collection listing
     async def list_collections(self) -> List[str]:
         """List all available collections."""
-        return ['players', 'teams', 'matches', 'team_members', 'team_bots', 'fixtures', 'command_logs', 'bot_mappings']
+        return ['players', 'teams', 'matches', 'team_members', 'team_bots', 'fixtures', 'command_logs']
     
     # Player operations
     async def create_player(self, player: Player) -> str:
@@ -193,39 +188,6 @@ class MockDataStore:
         """Get matches by team ID."""
         return [m for m in self.matches.values() if m.team_id == team_id]
     
-    # Bot mapping operations
-    async def create_bot_mapping(self, mapping: BotMapping) -> str:
-        """Create a bot mapping."""
-        if mapping.id in self.bot_mappings:
-            raise ValueError("Bot mapping already exists")
-        self.bot_mappings[mapping.id] = mapping
-        return mapping.id
-    
-    async def get_bot_mapping(self, mapping_id: str) -> Optional[BotMapping]:
-        """Get a bot mapping by ID."""
-        return self.bot_mappings.get(mapping_id)
-    
-    async def update_bot_mapping(self, mapping: BotMapping) -> bool:
-        """Update a bot mapping."""
-        if mapping.id in self.bot_mappings:
-            self.bot_mappings[mapping.id] = mapping
-            return True
-        return False
-    
-    async def delete_bot_mapping(self, mapping_id: str) -> bool:
-        """Delete a bot mapping."""
-        if mapping_id in self.bot_mappings:
-            del self.bot_mappings[mapping_id]
-            return True
-        return False
-    
-    async def get_bot_mapping_by_team(self, team_name: str) -> Optional[BotMapping]:
-        """Get bot mapping by team name."""
-        for mapping in self.bot_mappings.values():
-            if mapping.team_name == team_name:
-                return mapping
-        return None
-    
     # Additional collection operations
     async def create_fixture(self, fixture_data: Dict[str, Any]) -> str:
         """Create a fixture."""
@@ -265,47 +227,93 @@ class MockDataStore:
             return True
         return False
     
-    async def query_documents(self, collection: str, filters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def query_documents(self, collection: str, filters: Optional[List[Dict[str, Any]]] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Query documents with filters."""
         collection_data = self._get_collection(collection)
+        logger.info(f"🔍 [MOCK] query_documents called for collection '{collection}' with {len(collection_data)} documents")
+        logger.info(f"🔍 [MOCK] Collection data keys: {list(collection_data.keys())}")
+        logger.info(f"🔍 [MOCK] Filters: {filters}, Limit: {limit}")
+        
         results = []
-        for doc_id, doc_data in collection_data.items():
-            # Handle list of filter dictionaries
-            if isinstance(filters, list):
-                matches_all = True
+        
+        # If no filters provided, return all documents
+        if not filters:
+            for doc_id, doc_data in collection_data.items():
+                logger.info(f"🔍 [MOCK] Processing document {doc_id}: {type(doc_data)}")
+                # Handle both dict and object types
+                if hasattr(doc_data, 'to_dict'):
+                    # Convert object to dict using to_dict method
+                    doc_dict = doc_data.to_dict()
+                    doc_dict['id'] = doc_id
+                    results.append(doc_dict)
+                elif isinstance(doc_data, dict):
+                    # Already a dict, just add id
+                    results.append({**doc_data, 'id': doc_id})
+                else:
+                    # Try to convert to dict using vars() or __dict__
+                    try:
+                        if hasattr(doc_data, '__dict__'):
+                            doc_dict = vars(doc_data)
+                        else:
+                            doc_dict = doc_data.__dict__
+                        doc_dict['id'] = doc_id
+                        results.append(doc_dict)
+                    except Exception as e:
+                        logger.error(f"🔍 [MOCK] Failed to convert document {doc_id} to dict: {e}")
+                        continue
+        else:
+            # Apply filters
+            for doc_id, doc_data in collection_data.items():
+                # Handle both dict and object types for filtering
+                if hasattr(doc_data, 'to_dict'):
+                    doc_dict = doc_data.to_dict()
+                elif isinstance(doc_data, dict):
+                    doc_dict = doc_data
+                else:
+                    try:
+                        if hasattr(doc_data, '__dict__'):
+                            doc_dict = vars(doc_data)
+                        else:
+                            doc_dict = doc_data.__dict__
+                    except Exception as e:
+                        logger.error(f"🔍 [MOCK] Failed to convert document {doc_id} to dict for filtering: {e}")
+                        continue
+                
+                # Apply filters
+                matches = True
                 for filter_dict in filters:
-                    field = filter_dict.get('field')
-                    operator = filter_dict.get('operator', '==')
-                    value = filter_dict.get('value')
-                    
-                    if field and field in doc_data:
-                        if operator == '==' and doc_data[field] != value:
-                            matches_all = False
+                    for field, value in filter_dict.items():
+                        if field not in doc_dict or doc_dict[field] != value:
+                            matches = False
                             break
-                        elif operator == '>=' and doc_data[field] < value:
-                            matches_all = False
-                            break
-                        elif operator == '<' and doc_data[field] >= value:
-                            matches_all = False
-                            break
-                    else:
-                        matches_all = False
+                    if not matches:
                         break
                 
-                if matches_all:
-                    # Handle both dict and object types
+                if matches:
+                    # Handle both dict and object types for results
                     if hasattr(doc_data, 'to_dict'):
-                        results.append({**doc_data.to_dict(), 'id': doc_id})
-                    else:
+                        doc_dict = doc_data.to_dict()
+                        doc_dict['id'] = doc_id
+                        results.append(doc_dict)
+                    elif isinstance(doc_data, dict):
                         results.append({**doc_data, 'id': doc_id})
-            else:
-                # Handle dict format for backward compatibility
-                if all(doc_data.get(k) == v for k, v in filters.items()):
-                    # Handle both dict and object types
-                    if hasattr(doc_data, 'to_dict'):
-                        results.append({**doc_data.to_dict(), 'id': doc_id})
                     else:
-                        results.append({**doc_data, 'id': doc_id})
+                        try:
+                            if hasattr(doc_data, '__dict__'):
+                                doc_dict = vars(doc_data)
+                            else:
+                                doc_dict = doc_data.__dict__
+                            doc_dict['id'] = doc_id
+                            results.append(doc_dict)
+                        except Exception as e:
+                            logger.error(f"🔍 [MOCK] Failed to convert document {doc_id} to dict for results: {e}")
+                            continue
+        
+        # Apply limit if specified
+        if limit and len(results) > limit:
+            results = results[:limit]
+        
+        logger.info(f"🔍 [MOCK] Returning {len(results)} documents")
         return results
     
     # Health check and utility methods
@@ -326,7 +334,6 @@ class MockDataStore:
             "teams": len(self.teams),
             "matches": len(self.matches),
             "team_members": len(self.team_members),
-            "bot_mappings": len(self.bot_mappings),
             "fixtures": len(self.fixtures),
             "command_logs": len(self.command_logs),
             "team_bots": len(self.team_bots)
@@ -338,7 +345,6 @@ class MockDataStore:
         self.teams.clear()
         self.matches.clear()
         self.team_members.clear()
-        self.bot_mappings.clear()
         self.fixtures.clear()
         self.command_logs.clear()
         self.team_bots.clear()
@@ -355,7 +361,6 @@ class MockDataStore:
             'teams': self.teams,
             'matches': self.matches,
             'team_members': self.team_members,
-            'bot_mappings': self.bot_mappings,
             'fixtures': self.fixtures,
             'command_logs': self.command_logs,
             'team_bots': self.team_bots

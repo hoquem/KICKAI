@@ -15,13 +15,11 @@ Features:
 """
 
 import re
-import logging
 import hashlib
 from datetime import datetime
 from typing import Dict, Set, Optional
 from dataclasses import dataclass
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 @dataclass
@@ -288,7 +286,7 @@ def generate_player_id(first_name: str, last_name: str, existing_ids: Optional[S
     return id_manager.generate_player_id(first_name, last_name, existing_ids)
 
 
-def generate_player_id_from_name(name: str, team_id: str = "", existing_ids: Optional[Set[str]] = None) -> str:
+def generate_player_id_from_name(name: str, team_id: str, existing_ids: Optional[Set[str]] = None) -> str:
     """Generate a player ID from a full name, always appending '1' for the first instance."""
     # Split the name into first and last name
     name_parts = name.strip().split()

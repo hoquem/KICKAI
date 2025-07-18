@@ -14,19 +14,41 @@ Features:
 - Debug information collection
 """
 
-import logging
-import traceback
-import sys
+from loguru import logger
 from datetime import datetime
 from typing import Dict, Any, Optional, Union, List, Callable
 from dataclasses import dataclass, asdict
 from enum import Enum
 from functools import wraps
+import traceback
+import sys
 import json
 import inspect
 import os
 
-from core.logging_config import LogContext, KICKAILogger, get_logger
+# Optionally provide a simple wrapper for enhanced logging if needed
+class EnhancedLogger:
+    @staticmethod
+    def info(message, *args, **kwargs):
+        logger.info(message, *args, **kwargs)
+
+    @staticmethod
+    def warning(message, *args, **kwargs):
+        logger.warning(message, *args, **kwargs)
+
+    @staticmethod
+    def error(message, *args, **kwargs):
+        logger.error(message, *args, **kwargs)
+
+    @staticmethod
+    def critical(message, *args, **kwargs):
+        logger.critical(message, *args, **kwargs)
+
+    @staticmethod
+    def debug(message, *args, **kwargs):
+        logger.debug(message, *args, **kwargs)
+
+get_logger = lambda: logger
 
 
 class ErrorSeverity(Enum):
@@ -180,8 +202,8 @@ class ErrorMessageTemplates:
 class ErrorHandler:
     """Centralized error handling with structured logging."""
     
-    def __init__(self, logger: Optional[KICKAILogger] = None):
-        self.logger = logger or get_logger(__name__)
+    def __init__(self):
+        pass # No longer need KICKAILogger
     
     def capture_error(self, 
                      error: Exception,
@@ -227,56 +249,77 @@ class ErrorHandler:
         # Log with appropriate level based on severity
         log_level = self._get_log_level(context.severity)
         
-        # Create log context
-        log_context = LogContext(
-            team_id=context.team_id,
-            user_id=context.user_id,
-            chat_id=context.chat_id,
-            operation=context.operation,
-            component=context.component,
-            request_id=context.request_id,
-            duration_ms=context.duration_ms,
-            metadata={
-                'error_type': structured_error.error_type,
-                'error_category': context.category.value,
-                'error_severity': context.severity.value,
-                'input_summary': context.input_data_summary,
-                'suggestions': structured_error.suggestions
-            }
-        )
-        
         # Log the error
-        if log_level == logging.ERROR:
-            self.logger.error(
+        if log_level == "ERROR":
+            logger.error(
                 f"Error in {context.operation}: {structured_error.error_message}",
-                context=log_context,
+                context={
+                    'team_id': context.team_id,
+                    'user_id': context.user_id,
+                    'chat_id': context.chat_id,
+                    'operation': context.operation,
+                    'component': context.component,
+                    'request_id': context.request_id,
+                    'duration_ms': context.duration_ms,
+                    'error_type': structured_error.error_type,
+                    'error_category': context.category.value,
+                    'error_severity': context.severity.value,
+                    'input_summary': context.input_data_summary,
+                    'suggestions': structured_error.suggestions
+                },
                 exc_info=error
             )
-        elif log_level == logging.CRITICAL:
-            self.logger.critical(
+        elif log_level == "CRITICAL":
+            logger.critical(
                 f"Critical error in {context.operation}: {structured_error.error_message}",
-                context=log_context,
+                context={
+                    'team_id': context.team_id,
+                    'user_id': context.user_id,
+                    'chat_id': context.chat_id,
+                    'operation': context.operation,
+                    'component': context.component,
+                    'request_id': context.request_id,
+                    'duration_ms': context.duration_ms,
+                    'error_type': structured_error.error_type,
+                    'error_category': context.category.value,
+                    'error_severity': context.severity.value,
+                    'input_summary': context.input_data_summary,
+                    'suggestions': structured_error.suggestions
+                },
                 exc_info=error
             )
         else:
-            self.logger.warning(
+            logger.warning(
                 f"Warning in {context.operation}: {structured_error.error_message}",
-                context=log_context,
+                context={
+                    'team_id': context.team_id,
+                    'user_id': context.user_id,
+                    'chat_id': context.chat_id,
+                    'operation': context.operation,
+                    'component': context.component,
+                    'request_id': context.request_id,
+                    'duration_ms': context.duration_ms,
+                    'error_type': structured_error.error_type,
+                    'error_category': context.category.value,
+                    'error_severity': context.severity.value,
+                    'input_summary': context.input_data_summary,
+                    'suggestions': structured_error.suggestions
+                },
                 exc_info=error
             )
         
         # Return user-friendly message
         return user_message or self._generate_user_message(structured_error)
     
-    def _get_log_level(self, severity: ErrorSeverity) -> int:
+    def _get_log_level(self, severity: ErrorSeverity) -> str:
         """Map error severity to log level."""
         mapping = {
-            ErrorSeverity.LOW: logging.WARNING,
-            ErrorSeverity.MEDIUM: logging.ERROR,
-            ErrorSeverity.HIGH: logging.ERROR,
-            ErrorSeverity.CRITICAL: logging.CRITICAL
+            ErrorSeverity.LOW: "WARNING",
+            ErrorSeverity.MEDIUM: "ERROR",
+            ErrorSeverity.HIGH: "ERROR",
+            ErrorSeverity.CRITICAL: "CRITICAL"
         }
-        return mapping.get(severity, logging.ERROR)
+        return mapping.get(severity, "ERROR")
     
     def _generate_suggestions(self, error: Exception, context: ErrorContext) -> List[str]:
         """Generate debugging suggestions based on error type and context."""

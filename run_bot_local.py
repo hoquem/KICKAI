@@ -15,6 +15,12 @@ import time
 from pathlib import Path
 from typing import Optional
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv('.env')
+except ImportError:
+    pass
+
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
@@ -29,9 +35,11 @@ from core.dependency_container import get_service, get_singleton, ensure_contain
 from features.team_administration.domain.interfaces.team_service_interface import ITeamService
 from features.player_registration.domain.interfaces.player_service_interface import IPlayerService
 from core.startup_validator import StartupValidator
+from core.logging_config import logger
+from features.communication.infrastructure import TelegramBotService
+from features.communication.domain.interfaces.telegram_bot_service_interface import TelegramBotServiceInterface
 
-# Configure logging
-logger = logging.getLogger(__name__)
+# Configure logging - using the imported logger directly
 
 # Global state
 multi_bot_manager: Optional[MultiBotManager] = None
@@ -40,28 +48,18 @@ shutdown_event = asyncio.Event()
 
 def setup_logging():
     """Configure logging for the application."""
-    from core.logging_config import configure_logging
-    
     # Get settings for logging configuration
     settings = get_settings()
     log_file_path = settings.log_file_path if settings.log_file_path else "logs/kickai.log"
     
-    configure_logging(
-        log_level=settings.log_level,
-        log_format=settings.log_format,
-        log_file=log_file_path,
-        max_file_size=settings.log_max_file_size,
-        backup_count=settings.log_backup_count,
-        include_context=True
-    )
+    # Remove the call to LoggingConfig.configure_logging
 
 
 def setup_environment():
     """Set up the environment and load configuration."""
     try:
         # Load environment variables
-        from dotenv import load_dotenv
-        load_dotenv()
+        # from dotenv import load_dotenv # This line is now redundant as load_dotenv is moved to the top
         
         # Initialize settings
         initialize_settings()
@@ -79,13 +77,19 @@ def setup_environment():
         setup_logging()
         logger.info("✅ Configuration loaded successfully and logging configured")
         
-        # Initialize Firebase
-        initialize_firebase_client(config)
-        logger.info("✅ Firebase client initialized")
+        # Check if mock services are enabled
+        use_mock_datastore = os.getenv('USE_MOCK_DATASTORE', 'false').lower() == 'true'
         
-        # Ensure dependency container is initialized with Firebase client
+        if use_mock_datastore:
+            logger.info("🔧 Mock services enabled - skipping Firebase initialization")
+        else:
+            # Initialize Firebase only if not using mock services
+            initialize_firebase_client(config)
+            logger.info("✅ Firebase client initialized")
+        
+        # Ensure dependency container is initialized (will use mock or real services)
         ensure_container_initialized()
-        logger.info("✅ Dependency container initialized with Firebase client")
+        logger.info("✅ Dependency container initialized")
         
         return config
         
@@ -136,15 +140,29 @@ async def create_multi_bot_manager():
     global multi_bot_manager
     
     try:
+        logger.info("🔧 Creating multi-bot manager...")
+        
         # Get services from dependency container
         team_service = get_service(ITeamService)
         data_store = get_singleton("data_store")
         
+        logger.info("✅ Got services from dependency container")
+        
         # Create multi-bot manager
+        logger.info("🔍 About to create MultiBotManager...")
         multi_bot_manager = MultiBotManager(data_store, team_service)
+        logger.info("✅ MultiBotManager instance created")
         
         # Load bot configurations from Firestore
-        bot_configs = await multi_bot_manager.load_bot_configurations()
+        logger.info("🔍 About to load bot configurations...")
+        try:
+            bot_configs = await multi_bot_manager.load_bot_configurations()
+            logger.info(f"🔍 Bot configurations loaded: {len(bot_configs)} found")
+        except Exception as e:
+            logger.error(f"❌ Exception in load_bot_configurations: {e}")
+            import traceback
+            logger.error(f"❌ Traceback: {traceback.format_exc()}")
+            return None
         
         if not bot_configs:
             logger.warning("⚠️ No bot configurations found in teams collection")
@@ -224,54 +242,42 @@ async def main():
 
     try:
         logger.info("🎯 KICKAI Multi-Bot Manager Starting (Local Mode)...")
-        
-        # Setup environment
+        logger.info("🔍 About to import dependency container...")
+        from core.dependency_container import initialize_container
+        logger.info("🔍 About to initialize container...")
+        initialize_container()
+        logger.info("🔍 About to setup environment...")
         config = setup_environment()
-        
-        # Run system validation
+        logger.info("🔍 About to run system validation...")
         validation_passed = await run_system_validation()
         if not validation_passed:
             logger.error("❌ System validation failed. Exiting.")
             return
-        
-        # Create multi-bot manager
+        logger.info("🔍 About to create multi bot manager...")
         manager = await create_multi_bot_manager()
         if not manager:
             logger.error("❌ No bot configurations available in teams collection. Exiting.")
             return
-        
-        # Start all bots
+        logger.info("🚀 About to start all bots...")
         await manager.start_all_bots()
-        
-        # Send startup messages
+        logger.info("🚀 About to send startup messages...")
         await manager.send_startup_messages()
-        
-        # Set up signal handling for graceful shutdown
+        # Remove old single-bot startup logic (no TelegramBotService here)
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
             try:
                 loop.add_signal_handler(sig, _signal_handler)
             except NotImplementedError:
                 signal.signal(sig, lambda s, f: asyncio.create_task(shutdown_event.set()))
-        
         logger.info("🤖 Multi-bot manager is running. Press Ctrl+C to exit.")
-        logger.info(f"📊 Running bots: {list(manager.bot_apps.keys())}")
-        
-        # Wait for shutdown signal
+        logger.info(f"📊 Running bots: {list(manager.bots.keys())}")
         await shutdown_event.wait()
-        
         logger.info("🛑 Shutdown signal received, stopping bots...")
-        
-        # Send shutdown messages
         await manager.send_shutdown_messages()
-        
-        # Stop all bots
         await manager.stop_all_bots()
-        
         logger.info("✅ Multi-bot manager shutdown complete")
         flush_and_close_loggers()
         sys.exit(0)
-        
     except Exception as e:
         logger.error(f"❌ Fatal error in main: {e}", exc_info=True)
         raise

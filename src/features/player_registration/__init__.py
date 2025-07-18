@@ -5,10 +5,8 @@ This module provides player registration functionality including
 player onboarding, validation, and management.
 """
 
-import logging
+from loguru import logger
 from typing import Dict, Any
-
-logger = logging.getLogger(__name__)
 
 
 def initialize_player_registration(config: Dict[str, Any]) -> None:

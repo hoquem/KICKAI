@@ -12,11 +12,8 @@ exclude =
     migrations,
     node_modules
 
-# Import organization and style
-extend-ignore = 
-    E203,  # whitespace before ':'
-    W503,  # line break before binary operator
-    E501,  # line too long (handled by max-line-length)
+# Ignore whitespace before ':' (E203), line break before binary operator (W503), and line too long (E501)
+extend-ignore = E203, W503, E501
 
 # Import rules
 per-file-ignores =

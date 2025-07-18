@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import traceback
 
 from crewai import Agent
-from langchain_core.tools import BaseTool
+from crewai.tools import BaseTool
 
 from core.enums import AgentRole
 from config.agents import get_agent_config, AgentConfig
@@ -417,7 +417,7 @@ class AgentFactory:
     def create_agent(self, role: AgentRole) -> Optional[ConfigurableAgent]:
         """Create an agent for the specified role."""
         try:
-            logger.info(f"[AGENT FACTORY] Creating agent for role: {role.value}")
+            logger.debug(f"[AGENT FACTORY] Creating agent for role: {role.value}")
             
             # Get agent configuration
             config = get_agent_config(role)
@@ -426,21 +426,21 @@ class AgentFactory:
                 return None
             
             if not config.enabled:
-                logger.info(f"[AGENT FACTORY] Agent {role.value} is disabled, skipping creation")
+                logger.debug(f"[AGENT FACTORY] Agent {role.value} is disabled, skipping creation")
                 return None
             
-            logger.info(f"[AGENT FACTORY] Agent configuration: enabled={config.enabled}, tools={config.tools}")
+            logger.debug(f"[AGENT FACTORY] Agent configuration: enabled={config.enabled}, tools={config.tools}")
             
             # Get tools for this agent
             tools = self._get_tools_for_role(config.tools)
-            logger.info(f"[AGENT FACTORY] Found {len(tools)} tools for agent {role.value}: {[tool.name for tool in tools]}")
+            logger.debug(f"[AGENT FACTORY] Found {len(tools)} tools for agent {role.value}")
             
             # Create team memory if needed
             team_memory = None
             if config.memory_enabled:
                 from agents.team_memory import TeamMemory
                 team_memory = TeamMemory(self.team_id)
-                logger.info(f"[AGENT FACTORY] Created team memory for agent {role.value}")
+                logger.debug(f"[AGENT FACTORY] Created team memory for agent {role.value}")
             
             # Create agent context
             context = AgentCreationContext(
@@ -451,13 +451,12 @@ class AgentFactory:
                 team_memory=team_memory
             )
             
-            logger.info(f"[AGENT FACTORY] Created agent context for {role.value}")
+            logger.debug(f"[AGENT FACTORY] Created agent context for {role.value}")
             
             # Create the agent
             agent = ConfigurableAgent(context)
             
-            logger.info(f"[AGENT FACTORY] ✅ Successfully created agent {role.value}")
-            logger.info(f"[AGENT FACTORY] Agent {role.value} tools: {[tool.name for tool in agent.get_tools()]}")
+            logger.debug(f"[AGENT FACTORY] ✅ Successfully created agent {role.value}")
             
             return agent
             
@@ -486,18 +485,18 @@ class AgentFactory:
         """Get tools for a specific role."""
         tools = []
         
-        logger.info(f"[AGENT FACTORY] Getting tools for role: {tool_names}")
-        logger.info(f"[AGENT FACTORY] Available tools in registry: {list(self.tool_registry.keys())}")
+        # Reduce verbose logging - only log summary
+        logger.debug(f"[AGENT FACTORY] Getting tools for role: {tool_names}")
         
         for tool_name in tool_names:
             if tool_name in self.tool_registry:
                 tool = self.tool_registry[tool_name]
                 tools.append(tool)
-                logger.info(f"[AGENT FACTORY] ✅ Found tool '{tool_name}' for role")
+                logger.debug(f"[AGENT FACTORY] ✅ Found tool '{tool_name}' for role")
             else:
                 logger.warning(f"[AGENT FACTORY] ❌ Tool '{tool_name}' not found in registry")
         
-        logger.info(f"[AGENT FACTORY] Returning {len(tools)} tools for role")
+        logger.debug(f"[AGENT FACTORY] Returning {len(tools)} tools for role")
         return tools
     
     def update_tool_registry(self, new_tool_registry: Dict[str, BaseTool]) -> None:
