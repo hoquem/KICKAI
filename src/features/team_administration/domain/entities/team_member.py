@@ -7,6 +7,8 @@ class TeamMember:
     """Team member entity representing a user's membership in a team."""
     id: Optional[str] = None
     user_id: str = ""
+    name: str = ""  # Full name of the team member
+    phone: str = ""  # Phone number of the team member
     telegram_id: Optional[str] = None
     telegram_username: Optional[str] = None
     team_id: str = ""
@@ -48,6 +50,8 @@ class TeamMember:
         return {
             'id': self.id,
             'user_id': self.user_id,
+            'name': self.name,
+            'phone': self.phone,
             'telegram_id': self.telegram_id,
             'telegram_username': self.telegram_username,
             'team_id': self.team_id,
@@ -64,6 +68,8 @@ class TeamMember:
         return cls(
             id=data.get('id'),
             user_id=data.get('user_id', ''),
+            name=data.get('name', ''),
+            phone=data.get('phone', ''),
             telegram_id=data.get('telegram_id'),
             telegram_username=data.get('telegram_username'),
             team_id=data.get('team_id', ''),
