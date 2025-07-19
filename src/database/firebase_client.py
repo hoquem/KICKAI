@@ -31,15 +31,22 @@ except ImportError:
             firebase_credentials_json = None
             firebase_credentials_path = None
         return MockSettings()
-from src.core.constants import FIRESTORE_COLLECTION_PREFIX
-from src.core.exceptions import (
+from core.constants import (
+    FIRESTORE_COLLECTION_PREFIX, 
+    get_team_members_collection,
+    get_team_players_collection,
+    get_team_matches_collection,
+    get_collection_name,
+    COLLECTION_PLAYERS
+)
+from core.exceptions import (
     DatabaseError, ConnectionError, NotFoundError, 
     DuplicateError, create_error_context
 )
-from src.utils.enum_utils import serialize_enums_for_firestore
-from src.utils.async_utils import async_retry, async_timeout, async_operation_context, safe_async_call
-
-# Get logger for this module - using the imported logger directly
+from utils.enum_utils import serialize_enums_for_firestore
+from utils.async_utils import async_retry, async_timeout, async_operation_context, safe_async_call
+# Import entity classes
+from features.team_administration.domain.entities.team_member import TeamMember
 
 class FirebaseClient:
     """Robust Firebase client wrapper with connection pooling and error handling."""
@@ -369,11 +376,13 @@ class FirebaseClient:
         """Create a new player."""
         data = serialize_enums_for_firestore(player.to_dict())
         # Use player_id as the document ID for predictable lookups
-        return await self.create_document('players', data, player.player_id)
+        collection_name = get_collection_name(COLLECTION_PLAYERS)
+        return await self.create_document(collection_name, data, player.player_id)
     
     async def get_player(self, player_id: str) -> Optional[Any]:
         """Get a player by ID."""
-        data = await self.get_document('players', player_id)
+        collection_name = get_collection_name(COLLECTION_PLAYERS)
+        data = await self.get_document(collection_name, player_id)
         if data:
             return Any.from_dict(data)
         return None
@@ -381,8 +390,9 @@ class FirebaseClient:
     async def update_player(self, player_id: str, updates: Dict[str, Any]) -> Optional[Any]:
         """Update a player by ID with specific fields and return the updated player."""
         try:
+            collection_name = get_collection_name(COLLECTION_PLAYERS)
             # First get the current player data
-            current_data = await self.get_document('players', player_id)
+            current_data = await self.get_document(collection_name, player_id)
             if not current_data:
                 return None
             
@@ -391,7 +401,7 @@ class FirebaseClient:
             
             # Ensure enums are serialized for Firestore
             updates_serialized = serialize_enums_for_firestore(updates)
-            success = await self.update_document('players', player_id, updates_serialized)
+            success = await self.update_document(collection_name, player_id, updates_serialized)
             if not success:
                 return None
             
@@ -404,12 +414,14 @@ class FirebaseClient:
     
     async def delete_player(self, player_id: str) -> bool:
         """Delete a player."""
-        return await self.delete_document('players', player_id)
+        collection_name = get_collection_name(COLLECTION_PLAYERS)
+        return await self.delete_document(collection_name, player_id)
     
     async def get_players_by_team(self, team_id: str) -> List[Any]:
         """Get all players for a team."""
+        collection_name = get_collection_name(COLLECTION_PLAYERS)
         filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
-        data_list = await self.query_documents('players', filters)
+        data_list = await self.query_documents(collection_name, filters)
         players = []
         for data in data_list:
             player = Any.from_dict(data)
@@ -423,6 +435,7 @@ class FirebaseClient:
         """Get a player by phone number, optionally filtered by team."""
         from utils.phone_utils import get_phone_variants
         
+        collection_name = get_collection_name(COLLECTION_PLAYERS)
         # Get all phone variants for flexible matching
         phone_variants = get_phone_variants(phone)
         
@@ -431,7 +444,7 @@ class FirebaseClient:
             filters = [{'field': 'phone', 'operator': '==', 'value': variant}]
             if team_id:
                 filters.append({'field': 'team_id', 'operator': '==', 'value': team_id})
-            data_list = await self.query_documents('players', filters, limit=1)
+            data_list = await self.query_documents(collection_name, filters, limit=1)
             for data in data_list:
                 player = Any.from_dict(data)
                 if player:
@@ -446,11 +459,12 @@ class FirebaseClient:
     
     async def get_players_by_status(self, team_id: str, status: Any) -> List[Any]:
         """Get players by onboarding status."""
+        collection_name = get_collection_name(COLLECTION_PLAYERS)
         filters = [
             {'field': 'team_id', 'operator': '==', 'value': team_id},
             {'field': 'onboarding_status', 'operator': '==', 'value': status.value}
         ]
-        data_list = await self.query_documents('players', filters)
+        data_list = await self.query_documents(collection_name, filters)
         players = []
         for data in data_list:
             player = Any.from_dict(data)
@@ -535,66 +549,80 @@ class FirebaseClient:
         return await self.get_matches_by_team(team_id)
     
     # Team Member methods
-    async def create_team_member(self, team_member: Any) -> str:
+    async def create_team_member(self, team_member: TeamMember) -> str:
         """Create a new team member."""
         data = team_member.to_dict()
-        return await self.create_document('team_members', data)
+        # Use centralized collection naming
+        collection_name = get_team_members_collection(team_member.team_id)
+        return await self.create_document(collection_name, data)
     
-    async def get_team_member(self, member_id: str) -> Optional[Any]:
+    async def get_team_member(self, member_id: str, team_id: str) -> Optional[TeamMember]:
         """Get a team member by ID."""
-        data = await self.get_document('team_members', member_id)
+        # Use centralized collection naming
+        collection_name = get_team_members_collection(team_id)
+        data = await self.get_document(collection_name, member_id)
         if data:
             data['id'] = member_id
-            return Any.from_dict(data)
+            return TeamMember.from_dict(data)
         return None
     
-    async def update_team_member(self, team_member: Any) -> bool:
+    async def update_team_member(self, team_member: TeamMember) -> bool:
         """Update a team member."""
         data = team_member.to_dict()
-        return await self.update_document('team_members', team_member.id, data)
+        # Use centralized collection naming
+        collection_name = get_team_members_collection(team_member.team_id)
+        return await self.update_document(collection_name, team_member.id, data)
     
-    async def delete_team_member(self, member_id: str) -> bool:
+    async def delete_team_member(self, member_id: str, team_id: str) -> bool:
         """Delete a team member."""
-        return await self.delete_document('team_members', member_id)
+        # Use centralized collection naming
+        collection_name = get_team_members_collection(team_id)
+        return await self.delete_document(collection_name, member_id)
     
-    async def get_team_members_by_team(self, team_id: str) -> List[Any]:
+    async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]:
         """Get all team members for a team."""
         try:
+            # Use centralized collection naming
+            collection_name = get_team_members_collection(team_id)
             filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
-            documents = await self.query_documents('team_members', filters)
-            return [Any.from_dict(doc) for doc in documents]
+            documents = await self.query_documents(collection_name, filters)
+            return [TeamMember.from_dict(doc) for doc in documents]
         except Exception:
             logger.error("Error getting team members by team")
             return []  # Return empty list on error
     
-    async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[Any]:
+    async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[TeamMember]:
         """Get a team member by telegram_id and team_id."""
         try:
+            # Use centralized collection naming
+            collection_name = get_team_members_collection(team_id)
             filters = [
                 {'field': 'telegram_id', 'operator': '==', 'value': telegram_id},
                 {'field': 'team_id', 'operator': '==', 'value': team_id}
             ]
-            documents = await self.query_documents('team_members', filters)
+            documents = await self.query_documents(collection_name, filters)
             
             if documents:
-                return Any.from_dict(documents[0])
+                return TeamMember.from_dict(documents[0])
             return None
             
         except Exception:
             logger.error("Error getting team member by telegram_id")
     
-    async def get_team_members_by_role(self, team_id: str, role: str) -> List[Any]:
+    async def get_team_members_by_role(self, team_id: str, role: str) -> List[TeamMember]:
         """Get team members by role."""
+        # Use centralized collection naming
+        collection_name = get_team_members_collection(team_id)
         filters = [
             {'field': 'team_id', 'operator': '==', 'value': team_id},
             {'field': 'role', 'operator': '==', 'value': role}
         ]
-        data_list = await self.query_documents('team_members', filters)
+        data_list = await self.query_documents(collection_name, filters)
         
         team_members = []
         for data in data_list:
             if 'id' in data:
-                team_members.append(Any.from_dict(data))
+                team_members.append(TeamMember.from_dict(data))
         
         return team_members
     
@@ -608,12 +636,13 @@ class FirebaseClient:
         """Get a player by telegram_id and team_id efficiently."""
         logger.debug(f"get_player_by_telegram_id called with telegram_id={telegram_id}, team_id={team_id}")
         try:
+            collection_name = get_collection_name(COLLECTION_PLAYERS)
             filters = [
                 {'field': 'telegram_id', 'operator': '==', 'value': telegram_id},
                 {'field': 'team_id', 'operator': '==', 'value': team_id}
             ]
-            logger.debug(f"calling query_documents('players', {filters}, limit=1)")
-            data_list = await self.query_documents('players', filters, limit=1)
+            logger.debug(f"calling query_documents('{collection_name}', {filters}, limit=1)")
+            data_list = await self.query_documents(collection_name, filters, limit=1)
             logger.debug(f"query_documents result: {data_list}")
             if data_list:
                 player = Any.from_dict(data_list[0])

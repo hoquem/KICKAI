@@ -1,18 +1,19 @@
 """
-Shared Commands Package
+Shared Commands Module
 
-This package provides shared command infrastructure for the KICKAI system.
+This module provides command handlers that are shared across multiple features.
 """
 
-from .base_command import Command, SimpleCommand, CommandContext, CommandResult, PermissionLevel
-from .types import CommandType, CommandMetadata
+from .help_commands import (
+    handle_help_command,
+    handle_list_command,
+    handle_status_command,
+    handle_myinfo_command
+)
 
 __all__ = [
-    "Command",
-    "SimpleCommand", 
-    "CommandContext",
-    "CommandResult",
-    "PermissionLevel",
-    "CommandType",
-    "CommandMetadata"
+    "handle_help_command",
+    "handle_list_command", 
+    "handle_status_command",
+    "handle_myinfo_command"
 ] 

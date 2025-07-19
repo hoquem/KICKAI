@@ -8,10 +8,12 @@ from .base_check import BaseCheck
 from .configuration_check import ConfigurationCheck
 from .llm_check import LLMProviderCheck
 from .agent_check import AgentInitializationCheck
+from .telegram_admin_check import TelegramAdminCheck
 
 __all__ = [
     'BaseCheck',
     'ConfigurationCheck',
     'LLMProviderCheck',
-    'AgentInitializationCheck'
+    'AgentInitializationCheck',
+    'TelegramAdminCheck'
 ] 

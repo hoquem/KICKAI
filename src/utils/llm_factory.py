@@ -15,14 +15,10 @@ from dataclasses import dataclass
 from typing import Dict, Type, Optional, Any
 from enum import Enum
 
+# Import the correct AIProvider enum from core.enums
+from core.enums import AIProvider
+
 logger = logging.getLogger(__name__)
-
-
-class AIProvider(Enum):
-    """Supported AI providers."""
-    GOOGLE_GEMINI = "google_gemini"
-    OLLAMA = "ollama"
-    MOCK = "mock"
 
 
 @dataclass
@@ -120,15 +116,13 @@ class GoogleGeminiProvider(LLMProvider):
         self.validate_config(config)
         
         try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
-            
             # Set environment variable for the API key
             os.environ["GOOGLE_API_KEY"] = config.api_key
             
             # Clear any Vertex AI related environment variables
             self._clear_vertex_ai_environment()
             
-            # Create the LangChain Gemini LLM
+            # Import LiteLLM for CrewAI compatibility
             from litellm import completion
             
             # LiteLLM expects model in 'provider/model_name' format
@@ -173,13 +167,14 @@ class GoogleGeminiProvider(LLMProvider):
                         # Convert messages to LiteLLM format
                         formatted_messages = self._format_messages_for_litellm(messages)
                         
-                        # Call LiteLLM
+                        # Call LiteLLM with explicit API key
                         response = completion(
                             model=self.model_name,
                             messages=formatted_messages,
                             temperature=self.temperature,
                             timeout=self.timeout,
                             max_retries=self.max_retries,
+                            api_key=self.api_key,
                             **kwargs
                         )
                         
@@ -205,14 +200,14 @@ class GoogleGeminiProvider(LLMProvider):
                         # Convert messages to LiteLLM format
                         formatted_messages = self._format_messages_for_litellm(messages)
                         
-                        # Call LiteLLM asynchronously
-                        response = await asyncio.to_thread(
-                            completion,
+                        # Call LiteLLM synchronously (LiteLLM completion is not async)
+                        response = completion(
                             model=self.model_name,
                             messages=formatted_messages,
                             temperature=self.temperature,
                             timeout=self.timeout,
                             max_retries=self.max_retries,
+                            api_key=self.api_key,
                             **kwargs
                         )
                         
@@ -230,48 +225,61 @@ class GoogleGeminiProvider(LLMProvider):
                         duration_ms = (asyncio.get_event_loop().time() * 1000) - start_time
                         self._handle_litellm_error(e, duration_ms, messages, **kwargs)
                 
+                def __call__(self, messages, **kwargs):
+                    """Call interface for compatibility."""
+                    return self.invoke(messages, **kwargs)
+                
+                def is_available(self) -> bool:
+                    """Check if the LLM is available."""
+                    return True
+                
                 def _format_messages_for_litellm(self, messages):
                     """Format messages for LiteLLM compatibility."""
-                    formatted = []
+                    formatted_messages = []
                     for message in messages:
-                        if isinstance(message, str):
-                            formatted.append({"role": "user", "content": message})
-                        elif hasattr(message, 'content') and hasattr(message, 'type'):
-                            # Handle LangChain message objects
-                            role = "user" if message.type == "human" else "assistant"
-                            formatted.append({"role": role, "content": message.content})
+                        if hasattr(message, 'content') and hasattr(message, 'role'):
+                            formatted_messages.append({
+                                'role': message.role,
+                                'content': message.content
+                            })
                         elif isinstance(message, dict):
-                            # Handle dict format
-                            if 'content' in message and 'role' in message:
-                                formatted.append(message)
-                            else:
-                                # Assume it's a user message
-                                formatted.append({"role": "user", "content": str(message)})
+                            formatted_messages.append(message)
                         else:
-                            # Fallback
-                            formatted.append({"role": "user", "content": str(message)})
-                    return formatted
+                            # Fallback: treat as user message
+                            formatted_messages.append({
+                                'role': 'user',
+                                'content': str(message)
+                            })
+                    return formatted_messages
                 
                 def _handle_litellm_error(self, error, duration_ms, messages, **kwargs):
-                    """Handle LiteLLM errors with comprehensive diagnostics."""
-                    error_msg = f"LiteLLM error after {duration_ms:.2f}ms: {str(error)}"
-                    logger.error(f"[LLM ERROR] {error_msg}")
-                    
-                    # Log detailed error information
+                    """Handle LiteLLM errors with detailed logging."""
+                    logger.error(f"[LLM ERROR] Request failed after {duration_ms:.2f}ms")
                     logger.error(f"[LLM ERROR] Error type: {type(error).__name__}")
-                    logger.error(f"[LLM ERROR] Error details: {str(error)}")
-                    logger.error(f"[LLM ERROR] Messages count: {len(messages)}")
+                    logger.error(f"[LLM ERROR] Error message: {str(error)}")
                     logger.error(f"[LLM ERROR] Model: {self.model_name}")
                     logger.error(f"[LLM ERROR] Temperature: {self.temperature}")
                     logger.error(f"[LLM ERROR] Timeout: {self.timeout}s")
                     logger.error(f"[LLM ERROR] Max retries: {self.max_retries}")
+                    logger.error(f"[LLM ERROR] Messages count: {len(messages)}")
                     
-                    # Additional diagnostics
-                    logger.info(f"[LLM DIAGNOSTICS] Environment check:")
-                    logger.info(f"[LLM DIAGNOSTICS] - GOOGLE_API_KEY present: {bool(os.getenv('GOOGLE_API_KEY'))}")
-                    logger.info(f"[LLM DIAGNOSTICS] - AI_PROVIDER: {os.getenv('AI_PROVIDER', 'not set')}")
-                    logger.info(f"[LLM DIAGNOSTICS] - AI_MODEL_NAME: {os.getenv('AI_MODEL_NAME', 'not set')}")
-                    logger.info(f"[LLM DIAGNOSTICS] - Request duration: {duration_ms:.2f}ms")
+                    # Log first message for debugging
+                    if messages:
+                        first_msg = messages[0]
+                        logger.error(f"[LLM ERROR] First message: {str(first_msg)[:200]}...")
+                    
+                    # Log additional parameters
+                    if kwargs:
+                        logger.error(f"[LLM ERROR] Additional parameters: {kwargs}")
+                    
+                    # Log full traceback for debugging
+                    logger.error(f"[LLM ERROR] Full traceback:")
+                    logger.error(traceback.format_exc())
+                    
+                    # Log diagnostics
+                    logger.error(f"[LLM DIAGNOSTICS] - API Key present: {bool(self.api_key)}")
+                    logger.error(f"[LLM DIAGNOSTICS] - API Key length: {len(self.api_key) if self.api_key else 0}")
+                    logger.error(f"[LLM DIAGNOSTICS] - Request duration: {duration_ms:.2f}ms")
                     
                     # Re-raise the error
                     raise error
@@ -288,7 +296,7 @@ class GoogleGeminiProvider(LLMProvider):
             return llm
             
         except ImportError:
-            error_msg = "langchain-google-genai package not installed. Please install it with 'pip install langchain-google-genai'."
+            error_msg = "LiteLLM package not installed. Please install it with 'pip install litellm'."
             logger.error(error_msg)
             raise LLMProviderError(error_msg)
         except Exception as e:
@@ -324,24 +332,41 @@ class OllamaProvider(LLMProvider):
         self.validate_config(config)
         
         try:
-            from langchain_ollama import OllamaLLM
+            # For now, return a mock LLM for Ollama since we're focusing on CrewAI
+            # This can be expanded later when we need Ollama support
+            class MockOllamaLLM:
+                def __init__(self, model_name: str, temperature: float = 0.7):
+                    self.model_name = model_name
+                    self.temperature = temperature
+                    logger.info(f"✅ Mock Ollama LLM created (model: {model_name}, temperature: {temperature})")
+                
+                def invoke(self, messages, **kwargs):
+                    """Mock synchronous invocation."""
+                    logger.info(f"[MOCK OLLAMA] Invoke called with {len(messages)} messages")
+                    return "Mock Ollama response: This is a test response from the mock Ollama LLM."
+                
+                async def ainvoke(self, messages, **kwargs):
+                    """Mock asynchronous invocation."""
+                    logger.info(f"[MOCK OLLAMA] Async invoke called with {len(messages)} messages")
+                    return "Mock Ollama response: This is a test response from the mock Ollama LLM."
+                
+                def __call__(self, messages, **kwargs):
+                    """Call interface for compatibility."""
+                    return self.invoke(messages, **kwargs)
+                
+                def is_available(self) -> bool:
+                    """Check if the LLM is available (always True for mock)."""
+                    return True
             
-            # Create the Ollama LLM with CrewAI-compatible configuration
-            llm = OllamaLLM(
-                model=config.model_name,
-                temperature=config.temperature,
-                timeout=config.timeout_seconds,
-                # Add additional parameters for better CrewAI compatibility
-                stop=None,
-                repeat_penalty=1.1,
-                top_k=10,
-                top_p=0.9,
+            llm = MockOllamaLLM(
+                model_name=config.model_name,
+                temperature=config.temperature
             )
-            logger.info(f"✅ Ollama LLM created successfully (model: {config.model_name})")
+            logger.info(f"✅ Mock Ollama LLM created successfully (model: {config.model_name})")
             return llm
             
         except ImportError:
-            error_msg = "langchain-community package not installed. Please install it with 'pip install langchain-community'."
+            error_msg = "Ollama package not installed. Please install it with 'pip install ollama'."
             logger.error(error_msg)
             raise LLMProviderError(error_msg)
         except Exception as e:
@@ -356,7 +381,7 @@ class LLMFactory:
     """
     
     _providers: Dict[AIProvider, Type[LLMProvider]] = {
-        AIProvider.GOOGLE_GEMINI: GoogleGeminiProvider,
+        AIProvider.GEMINI: GoogleGeminiProvider,
         AIProvider.OLLAMA: OllamaProvider,
         AIProvider.MOCK: MockLLMProvider,
     }
@@ -404,7 +429,7 @@ class LLMFactory:
             LangChain-compatible LLM instance
         """
         # Get provider from environment
-        provider_str = os.getenv('AI_PROVIDER', 'google_gemini')
+        provider_str = os.getenv('AI_PROVIDER', 'gemini')
         logger.debug(f"🔍 [DEBUG] LLMFactory: AI_PROVIDER from env: {provider_str}")
         
         try:
@@ -415,7 +440,7 @@ class LLMFactory:
         
         # Get API key from environment (only for real providers)
         api_key = ""
-        if provider == AIProvider.GOOGLE_GEMINI:
+        if provider == AIProvider.GEMINI:
             api_key = os.getenv('GOOGLE_API_KEY', '')
         elif provider == AIProvider.MOCK:
             api_key = "mock-key"  # Mock doesn't need real API key
@@ -427,7 +452,7 @@ class LLMFactory:
             logger.debug(f"🔍 [DEBUG] LLMFactory: AI_MODEL_NAME from env: {model_name}")
             
         if not model_name:
-            if provider == AIProvider.GOOGLE_GEMINI:
+            if provider == AIProvider.GEMINI:
                 model_name = os.getenv('GOOGLE_AI_MODEL_NAME', 'gemini-1.5-flash')
                 logger.debug(f"🔍 [DEBUG] LLMFactory: GOOGLE_AI_MODEL_NAME from env: {model_name}")
             elif provider == AIProvider.OLLAMA:

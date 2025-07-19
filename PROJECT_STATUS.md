@@ -28,7 +28,15 @@
 - **Player Management**: Extend player registration with new ID scheme
 - **Invite Link System**: Generate invite links for team members and players
 
-## 🚀 Recent Enhancements (July 19, 2025)
+## 🚀 Recent Enhancements (July 19-20, 2025)
+
+### ✅ Agentic Help Command System
+- **Command Information Tool**: Created `get_available_commands_tool` for context-aware command listing
+- **Agent Prompt Enhancement**: Updated message processor and command fallback agents to use the command tool
+- **Dynamic Command Listing**: Agents now return accurate, context-aware command lists based on chat type and user permissions
+- **Improved Formatting**: Enhanced help output formatting with logical command categorization
+- **Tool Registry Integration**: Added shared commands module to tool registry for agent access
+- **CrewAI Integration**: Agents now use the command tool instead of returning generic responses
 
 ### ✅ Team Member Registration System
 - **First User Detection**: Automatic detection of first user in leadership chat

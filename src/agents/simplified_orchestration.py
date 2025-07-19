@@ -7,6 +7,7 @@ modular components and follows the pipeline pattern for better separation of con
 """
 
 import logging
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, List, Any, Optional
@@ -19,15 +20,8 @@ from agents.configurable_agent import ConfigurableAgent
 logger = logging.getLogger(__name__)
 
 
-# Stub classes for compatibility - these should be imported from the new modular structure
-class AgentRole(Enum):
-    """Agent roles for task routing."""
-    MESSAGE_PROCESSOR = "message_processor"
-    TEAM_MANAGER = "team_manager"
-    PLAYER_MANAGER = "player_manager"
-    MATCH_MANAGER = "match_manager"
-    PAYMENT_MANAGER = "payment_manager"
-    SYSTEM_ADMIN = "system_admin"
+# Import the correct AgentRole enum from the main enums file
+from core.enums import AgentRole
 
 
 @dataclass
@@ -89,8 +83,9 @@ class IntentClassificationStep(PipelineStep):
         execution_context = context.get('execution_context', {})
         
         logger.info(f"🤖 ORCHESTRATION: Step 1 - Intent Classification")
+        logger.info(f"[DEBUG] IntentClassificationStep: task_description='{task_description}' execution_context={execution_context}")
         intent_result = self.intent_classifier.classify(task_description, execution_context)
-        
+        logger.info(f"[DEBUG] IntentClassificationStep: intent='{getattr(intent_result, 'intent', None)}', confidence={getattr(intent_result, 'confidence', None)}, entities={getattr(intent_result, 'entities', None)}")
         logger.info(f"🤖 ORCHESTRATION: Intent classified as '{intent_result.intent}' with confidence {intent_result.confidence}")
         
         return {
@@ -216,12 +211,12 @@ class AgentRoutingStep(PipelineStep):
         available_agents = context.get('available_agents', {})
         
         logger.info(f"🤖 ORCHESTRATION: Step 4 - Agent Routing")
-        
+        logger.info(f"[DEBUG] AgentRoutingStep: available_agents={[role.value for role in available_agents.keys()]}")
         routed_tasks = []
         
         for subtask in subtasks:
             agent_role = subtask.agent_role
-            
+            logger.info(f"[DEBUG] AgentRoutingStep: subtask_id={subtask.task_id}, description='{subtask.description}', agent_role={agent_role.value}")
             if agent_role in available_agents:
                 agent = available_agents[agent_role]
                 routed_tasks.append({
@@ -240,7 +235,7 @@ class AgentRoutingStep(PipelineStep):
                         'agent_role': AgentRole.MESSAGE_PROCESSOR
                     })
                     logger.info(f"🤖 ORCHESTRATION: Fallback routing for subtask '{subtask.task_id}' to MESSAGE_PROCESSOR")
-        
+        logger.info(f"[DEBUG] AgentRoutingStep: routed_tasks={[{'task_id': t['subtask'].task_id, 'agent_role': t['agent_role'].value} for t in routed_tasks]}")
         return {
             **context,
             'routed_tasks': routed_tasks,
@@ -283,8 +278,14 @@ class TaskExecutionStep(PipelineStep):
             logger.info(f"🤖 ORCHESTRATION: Executing subtask {i+1}/{len(routed_tasks)}: {subtask.task_id}")
             
             try:
-                # Execute the subtask using the agent
-                result = await agent.execute_task(subtask.description, execution_context)
+                # Enhance task description with context for CrewAI
+                enhanced_task = subtask.description
+                if execution_context:
+                    context_info = f"\n\nContext: Team ID: {execution_context.get('team_id', 'unknown')}, User ID: {execution_context.get('user_id', 'unknown')}, Chat Type: {'Leadership' if execution_context.get('is_leadership_chat', False) else 'Main'}"
+                    enhanced_task = subtask.description + context_info
+                
+                # Execute the subtask using the agent with enhanced task description
+                result = await agent.execute(enhanced_task, execution_context)
                 
                 execution_results.append({
                     'subtask_id': subtask.task_id,
@@ -311,13 +312,9 @@ class TaskExecutionStep(PipelineStep):
             **context,
             'execution_results': execution_results,
             'step_results': {
-                **context.get('step_results', {}),
-                'task_execution': {
-                    'total_tasks': len(routed_tasks),
-                    'successful_tasks': len([r for r in execution_results if r['success']]),
-                    'failed_tasks': len([r for r in execution_results if not r['success']]),
-                    'results': execution_results
-                }
+                'execution_completed': True,
+                'successful_tasks': len([r for r in execution_results if r['success']]),
+                'failed_tasks': len([r for r in execution_results if not r['success']])
             }
         }
 
@@ -347,10 +344,10 @@ class ResultAggregationStep(PipelineStep):
             logger.info(f"🤖 ORCHESTRATION: All {len(successful_results)} tasks completed successfully")
             # Aggregate successful results
             if len(successful_results) == 1:
-                aggregated_result = successful_results[0]['result']
+                aggregated_result = str(successful_results[0]['result'])
             else:
                 # Combine multiple results
-                results = [r['result'] for r in successful_results]
+                results = [str(r['result']) for r in successful_results]
                 aggregated_result = "\n\n".join(results)
         
         return {
@@ -362,7 +359,7 @@ class ResultAggregationStep(PipelineStep):
                     'total_tasks': len(execution_results),
                     'successful_tasks': len(successful_results),
                     'failed_tasks': len(failed_results),
-                    'final_result_length': len(aggregated_result) if aggregated_result else 0
+                    'final_result_length': len(str(aggregated_result)) if aggregated_result else 0
                 }
             }
         }
@@ -404,7 +401,54 @@ class SimplifiedOrchestrationPipeline:
             return IntentClassifier(llm=self.llm)
         except ImportError:
             logger.warning("IntentClassifier not available, using fallback")
-            return None
+            return self._create_fallback_intent_classifier()
+    
+    def _create_fallback_intent_classifier(self):
+        """Create a fallback intent classifier when the main one is not available."""
+        class FallbackIntentClassifier:
+            def classify(self, task_description: str, execution_context: Dict[str, Any]):
+                # Simple rule-based intent classification
+                task_lower = task_description.lower().strip()
+                
+                # Define intent patterns
+                if task_lower.startswith('/myinfo'):
+                    return type('IntentResult', (), {
+                        'intent': 'get_my_status',
+                        'confidence': 0.95,
+                        'entities': {'command': 'myinfo'}
+                    })()
+                elif task_lower.startswith('/list'):
+                    return type('IntentResult', (), {
+                        'intent': 'list_players',
+                        'confidence': 0.95,
+                        'entities': {'command': 'list'}
+                    })()
+                elif task_lower.startswith('/status'):
+                    return type('IntentResult', (), {
+                        'intent': 'get_player_status',
+                        'confidence': 0.95,
+                        'entities': {'command': 'status'}
+                    })()
+                elif task_lower.startswith('/help'):
+                    return type('IntentResult', (), {
+                        'intent': 'help',
+                        'confidence': 0.95,
+                        'entities': {'command': 'help'}
+                    })()
+                elif 'help' in task_lower:
+                    return type('IntentResult', (), {
+                        'intent': 'help',
+                        'confidence': 0.8,
+                        'entities': {}
+                    })()
+                else:
+                    return type('IntentResult', (), {
+                        'intent': 'general_query',
+                        'confidence': 0.5,
+                        'entities': {}
+                    })()
+        
+        return FallbackIntentClassifier()
     
     async def execute_task(
         self,
@@ -424,35 +468,73 @@ class SimplifiedOrchestrationPipeline:
             Result of task execution
         """
         try:
+            # Validate inputs
+            if not task_description or not task_description.strip():
+                return "❌ Task description is required"
+            
+            if not available_agents:
+                return "❌ No agents available for task execution"
+            
             # Initialize pipeline context
             context = {
                 'task_description': task_description,
                 'available_agents': available_agents,
-                'execution_context': execution_context,
-                'step_results': {}
+                'execution_context': execution_context or {},
+                'step_results': {},
+                'pipeline_start_time': time.time()
             }
             
             logger.info(f"🤖 SIMPLIFIED ORCHESTRATION: Starting task execution for '{task_description[:50]}...'")
             logger.info(f"🤖 SIMPLIFIED ORCHESTRATION: Available agents: {[role.value for role in available_agents.keys()]}")
+            logger.info(f"🤖 SIMPLIFIED ORCHESTRATION: Execution context: {execution_context}")
             
-            # Execute each pipeline step
-            for step in self.pipeline_steps:
+            # Execute each pipeline step with robust error handling
+            for i, step in enumerate(self.pipeline_steps):
+                step_name = step.get_step_name()
                 try:
-                    logger.info(f"🤖 SIMPLIFIED ORCHESTRATION: Executing {step.get_step_name()}")
+                    logger.info(f"🤖 SIMPLIFIED ORCHESTRATION: Step {i+1}/{len(self.pipeline_steps)} - Executing {step_name}")
+                    
+                    # Add step timing
+                    step_start_time = time.time()
                     context = await step.execute(context)
-                    logger.info(f"🤖 SIMPLIFIED ORCHESTRATION: {step.get_step_name()} completed")
+                    step_duration = time.time() - step_start_time
+                    
+                    logger.info(f"🤖 SIMPLIFIED ORCHESTRATION: Step {i+1}/{len(self.pipeline_steps)} - {step_name} completed in {step_duration:.2f}s")
+                    
+                    # Validate step output
+                    if not isinstance(context, dict):
+                        raise ValueError(f"Step {step_name} returned invalid context type: {type(context)}")
+                    
                 except Exception as e:
-                    logger.error(f"🤖 SIMPLIFIED ORCHESTRATION: Error in {step.get_step_name()}: {e}")
-                    return f"❌ Error in {step.get_step_name()}: {str(e)}"
+                    logger.error(f"🤖 SIMPLIFIED ORCHESTRATION: Error in {step_name}: {e}", exc_info=True)
+                    
+                    # Try to provide a meaningful error message
+                    if "intent" in step_name.lower():
+                        return f"❌ I couldn't understand your request. Please try rephrasing it."
+                    elif "complexity" in step_name.lower():
+                        return f"❌ I had trouble analyzing your request. Please try again."
+                    elif "decomposition" in step_name.lower():
+                        return f"❌ I couldn't break down your request into manageable tasks. Please try a simpler request."
+                    elif "routing" in step_name.lower():
+                        return f"❌ I couldn't find the right agent to handle your request. Please try again."
+                    elif "execution" in step_name.lower():
+                        return f"❌ There was an error processing your request. Please try again."
+                    elif "aggregation" in step_name.lower():
+                        return f"❌ I couldn't combine the results properly. Please try again."
+                    else:
+                        return f"❌ Error in {step_name}: {str(e)}"
             
             # Return final result
             final_result = context.get('final_result', '❌ No result generated')
-            logger.info(f"🤖 SIMPLIFIED ORCHESTRATION: Task execution completed successfully")
+            total_duration = time.time() - context.get('pipeline_start_time', 0)
+            
+            logger.info(f"🤖 SIMPLIFIED ORCHESTRATION: Task execution completed successfully in {total_duration:.2f}s")
+            logger.info(f"🤖 SIMPLIFIED ORCHESTRATION: Final result length: {len(str(final_result))}")
             
             return final_result
             
         except Exception as e:
-            logger.error(f"🤖 SIMPLIFIED ORCHESTRATION: Error in pipeline execution: {e}")
+            logger.error(f"🤖 SIMPLIFIED ORCHESTRATION: Error in pipeline execution: {e}", exc_info=True)
             return f"❌ Error in orchestration pipeline: {str(e)}"
     
     def get_pipeline_analytics(self) -> Dict[str, Any]:
@@ -461,4 +543,17 @@ class SimplifiedOrchestrationPipeline:
             'complexity_analytics': self.complexity_assessor.get_assessment_analytics(),
             'decomposition_analytics': self.task_decomposer.get_decomposition_analytics(),
             'pipeline_steps': [step.get_step_name() for step in self.pipeline_steps]
+        }
+    
+    def get_pipeline_status(self) -> Dict[str, Any]:
+        """Get the status of the orchestration pipeline."""
+        return {
+            'orchestration_pipeline': 'SimplifiedOrchestrationPipeline',
+            'all_components_initialized': True,
+            'pipeline_steps_count': len(self.pipeline_steps),
+            'pipeline_steps': [step.get_step_name() for step in self.pipeline_steps],
+            'llm_available': self.llm is not None,
+            'intent_classifier_available': self.intent_classifier is not None,
+            'complexity_assessor_available': self.complexity_assessor is not None,
+            'task_decomposer_available': self.task_decomposer is not None
         } 

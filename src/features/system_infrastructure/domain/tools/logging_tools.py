@@ -1,44 +1,87 @@
-from typing import Type
-from loguru import logger
-from crewai.tools import BaseTool
-from pydantic import BaseModel, Field
+"""
+Logging tools for KICKAI system.
 
-TOOL_REGISTRY = {}
+This module provides tools for logging commands and errors.
+"""
 
-def register_tool_instance(tool_instance):
-    TOOL_REGISTRY[tool_instance.name] = tool_instance
-    return tool_instance
+import logging
+from typing import Optional
+from pydantic import BaseModel
+
+from crewai.tools import tool
+
+logger = logging.getLogger(__name__)
+
 
 class LogCommandInput(BaseModel):
-    command: str = Field(..., description="Command executed")
-    user_id: str = Field(..., description="User ID")
-    team_id: str = Field(..., description="Team ID")
+    """Input model for log_command tool."""
+    command: str
+    user_id: Optional[str] = None
+    team_id: Optional[str] = None
 
-class LogCommandTool(BaseTool):
-    name: str = "log_command"
-    description: str = "Log a command execution."
-    args_schema: Type[BaseModel] = LogCommandInput
-
-    def _run(self, command: str, user_id: str, team_id: str) -> str:
-        logger.info(f"[TOOL] Command executed: {command} by user {user_id} in team {team_id}")
-        return f"Logged command: {command}"
-
-register_tool_instance(LogCommandTool())
 
 class LogErrorInput(BaseModel):
-    error: str = Field(..., description="Error message")
-    context: str = Field(..., description="Error context")
-    team_id: str = Field(..., description="Team ID")
+    """Input model for log_error tool."""
+    error_message: str
+    context: Optional[str] = None
+    team_id: Optional[str] = None
 
-class LogErrorTool(BaseTool):
-    name: str = "log_error"
-    description: str = "Log an error event."
-    args_schema: Type[BaseModel] = LogErrorInput
 
-    def _run(self, error: str, context: str, team_id: str) -> str:
-        logger.error(f"[TOOL] Error: {error} | Context: {context} | Team: {team_id}")
-        return f"Logged error: {error}"
+@tool("log_command")
+def log_command(command: str, user_id: Optional[str] = None, team_id: Optional[str] = None) -> str:
+    """
+    Log a command execution. Requires: command
+    
+    Args:
+        command: The command that was executed
+        user_id: Optional user ID who executed the command
+        team_id: Optional team ID for context
+    
+    Returns:
+        Confirmation message indicating the command was logged
+    """
+    try:
+        context_info = []
+        if user_id:
+            context_info.append(f"user_id={user_id}")
+        if team_id:
+            context_info.append(f"team_id={team_id}")
+        
+        context_str = f" [{', '.join(context_info)}]" if context_info else ""
+        
+        logger.info(f"📝 Command executed: {command}{context_str}")
+        return f"✅ Command logged: {command}"
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to log command: {e}")
+        return f"❌ Failed to log command: {str(e)}"
 
-register_tool_instance(LogErrorTool())
 
-__all__ = ["TOOL_REGISTRY"] 
+@tool("log_error")
+def log_error(error_message: str, context: Optional[str] = None, team_id: Optional[str] = None) -> str:
+    """
+    Log an error message. Requires: error_message
+    
+    Args:
+        error_message: The error message to log
+        context: Optional context information
+        team_id: Optional team ID for context
+    
+    Returns:
+        Confirmation message indicating the error was logged
+    """
+    try:
+        context_info = []
+        if context:
+            context_info.append(f"context={context}")
+        if team_id:
+            context_info.append(f"team_id={team_id}")
+        
+        context_str = f" [{', '.join(context_info)}]" if context_info else ""
+        
+        logger.error(f"❌ Error: {error_message}{context_str}")
+        return f"✅ Error logged: {error_message}"
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to log error: {e}")
+        return f"❌ Failed to log error: {str(e)}" 

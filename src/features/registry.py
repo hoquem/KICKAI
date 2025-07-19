@@ -7,7 +7,8 @@ proper dependency management and avoiding circular imports.
 
 from typing import Dict, Any, Type, Optional, TYPE_CHECKING
 from database.interfaces import DataStoreInterface
-from utils.id_generator import PlayerIDGenerator
+from loguru import logger
+
 
 if TYPE_CHECKING:
     from core.dependency_container import DependencyContainer
@@ -28,19 +29,19 @@ class ServiceFactory:
     def create_base_services(self):
         """Create base services that don't depend on other services."""
         # Create repositories first
-        print("🔍 Creating base services...")
+        logger.info("🔍 Creating base services...")
         from features.team_administration.infrastructure.firebase_team_repository import FirebaseTeamRepository
-        print("🔍 Imported FirebaseTeamRepository")
+        logger.debug("🔍 Imported FirebaseTeamRepository")
         from features.player_registration.infrastructure.firebase_player_repository import FirebasePlayerRepository
-        print("🔍 Imported FirebasePlayerRepository")
+        logger.debug("🔍 Imported FirebasePlayerRepository")
         from features.payment_management.infrastructure.firebase_expense_repository import FirebaseExpenseRepository
-        print("🔍 Imported FirebaseExpenseRepository")
+        logger.debug("🔍 Imported FirebaseExpenseRepository")
         
-        print("🔍 Creating team repository...")
+        logger.debug("🔍 Creating team repository...")
         team_repo = FirebaseTeamRepository(self.database)
-        print("🔍 Creating player repository...")
+        logger.debug("🔍 Creating player repository...")
         player_repo = FirebasePlayerRepository(self.database)
-        print("🔍 Creating expense repository...")
+        logger.debug("🔍 Creating expense repository...")
         expense_repo = FirebaseExpenseRepository(self.database)
         
         # Register repositories
@@ -60,16 +61,16 @@ class ServiceFactory:
     
     def create_payment_services(self):
         """Create payment services that depend on repositories."""
-        print("🔍 Creating payment services...")
+        logger.info("🔍 Creating payment services...")
         from features.payment_management.domain.services.expense_service import ExpenseService
-        print("🔍 Imported ExpenseService")
+        logger.debug("🔍 Imported ExpenseService")
         from features.payment_management.domain.repositories.expense_repository_interface import ExpenseRepositoryInterface
-        print("🔍 Imported ExpenseRepositoryInterface")
+        logger.debug("🔍 Imported ExpenseRepositoryInterface")
         
         expense_repo = self.container.get_service(ExpenseRepositoryInterface)
-        print("🔍 Got expense repository from container")
+        logger.debug("🔍 Got expense repository from container")
         expense_service = ExpenseService(expense_repo)
-        print("🔍 Created ExpenseService")
+        logger.debug("🔍 Created ExpenseService")
         
         self.container.register_service(ExpenseService, expense_service)
         
@@ -79,23 +80,23 @@ class ServiceFactory:
     
     def create_team_services(self):
         """Create team services that depend on repositories and payment services."""
-        print("🔍 Creating team services...")
+        logger.info("🔍 Creating team services...")
         from features.team_administration.domain.services.team_service import TeamService
-        print("🔍 Imported TeamService")
+        logger.debug("🔍 Imported TeamService")
         from features.team_administration.domain.repositories.team_repository_interface import TeamRepositoryInterface
-        print("🔍 Imported TeamRepositoryInterface")
+        logger.debug("🔍 Imported TeamRepositoryInterface")
         from features.team_administration.domain.interfaces.team_service_interface import ITeamService
-        print("🔍 Imported ITeamService")
+        logger.debug("🔍 Imported ITeamService")
         from features.payment_management.domain.services.expense_service import ExpenseService
-        print("🔍 Imported ExpenseService")
+        logger.debug("🔍 Imported ExpenseService")
         
         team_repo = self.container.get_service(TeamRepositoryInterface)
-        print("🔍 Got team repository from container")
+        logger.debug("🔍 Got team repository from container")
         expense_service = self.container.get_service(ExpenseService)
-        print("🔍 Got expense service from container")
+        logger.debug("🔍 Got expense service from container")
         
         team_service = TeamService(team_repo, expense_service)
-        print("🔍 Created TeamService")
+        logger.debug("🔍 Created TeamService")
         
         # Register both the concrete class and the interface
         self.container.register_service(TeamService, team_service)
@@ -107,34 +108,28 @@ class ServiceFactory:
     
     def create_player_registration_services(self):
         """Create player registration services that depend on team services."""
-        print("🔍 Creating player registration services...")
+        logger.info("🔍 Creating player registration services...")
         from features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
-        print("🔍 Imported PlayerRegistrationService")
-        from features.player_registration.domain.services.player_id_service import PlayerIDService
-        print("🔍 Imported PlayerIDService")
+        logger.debug("🔍 Imported PlayerRegistrationService")
         from features.player_registration.domain.services.player_service import PlayerService
-        print("🔍 Imported PlayerService")
+        logger.debug("🔍 Imported PlayerService")
         # TeamMemberService removed - using mock service instead
         from features.player_registration.domain.interfaces.player_service_interface import IPlayerService
-        print("🔍 Imported IPlayerService")
+        logger.debug("🔍 Imported IPlayerService")
         from features.player_registration.domain.repositories.player_repository_interface import PlayerRepositoryInterface
-        print("🔍 Imported PlayerRepositoryInterface")
+        logger.debug("🔍 Imported PlayerRepositoryInterface")
         from features.team_administration.domain.services.team_service import TeamService
-        print("🔍 Imported TeamService")
+        logger.debug("🔍 Imported TeamService")
         
         player_repo = self.container.get_service(PlayerRepositoryInterface)
-        print("🔍 Got player repository from container")
+        logger.debug("🔍 Got player repository from container")
         team_service = self.container.get_service(TeamService)
-        print("🔍 Got team service from container")
+        logger.debug("🔍 Got team service from container")
         
-        player_id_generator = PlayerIDGenerator()
-        print("🔍 Created PlayerIDGenerator")
-        player_id_service = PlayerIDService(player_id_generator)
-        print("🔍 Created PlayerIDService")
         registration_service = PlayerRegistrationService(player_repo)
-        print("🔍 Created PlayerRegistrationService")
+        logger.debug("🔍 Created PlayerRegistrationService")
         player_service = PlayerService(player_repo, team_service)
-        print("🔍 Created PlayerService")
+        logger.debug("🔍 Created PlayerService")
         
         # Create a mock team member repository for now since we don't have a real one
         class MockTeamMemberRepository:
@@ -153,29 +148,27 @@ class ServiceFactory:
         # TeamMemberService removed - using mock service instead
         
         self.container.register_service(PlayerRegistrationService, registration_service)
-        self.container.register_service(PlayerIDService, player_id_service)
         self.container.register_service(PlayerService, player_service)
         self.container.register_service(IPlayerService, player_service)
         # TeamMemberService removed - using mock service instead
         
         return {
             'registration_service': registration_service,
-            'player_id_service': player_id_service,
             'player_service': player_service,
             # 'team_member_service': team_member_service  # Removed - using mock service instead
         }
     
     def create_team_administration_services(self):
         """Create team administration services."""
-        print("🔍 Creating team administration services...")
+        logger.info("🔍 Creating team administration services...")
         from features.team_administration.domain.services.team_administration_service import TeamAdministrationService
-        print("🔍 Imported TeamAdministrationService")
+        logger.debug("🔍 Imported TeamAdministrationService")
         from features.team_administration.domain.repositories.team_repository_interface import TeamRepositoryInterface
-        print("🔍 Imported TeamRepositoryInterface")
+        logger.debug("🔍 Imported TeamRepositoryInterface")
         team_repo = self.container.get_service(TeamRepositoryInterface)
-        print("🔍 Got team repository from container")
+        logger.debug("🔍 Got team repository from container")
         admin_service = TeamAdministrationService(team_repo)
-        print("🔍 Created TeamAdministrationService")
+        logger.debug("🔍 Created TeamAdministrationService")
         self.container.register_service(TeamAdministrationService, admin_service)
         return {
             'admin_service': admin_service
@@ -257,8 +250,10 @@ class ServiceFactory:
         """Create communication services."""
         from features.communication.domain.services.message_service import MessageService
         from features.communication.domain.services.notification_service import NotificationService
+        from features.communication.domain.services.invite_link_service import InviteLinkService
         from features.communication.infrastructure.firebase_message_repository import FirebaseMessageRepository
         from features.communication.infrastructure.firebase_notification_repository import FirebaseNotificationRepository
+        from core.settings import get_settings
         
         # Create services
         message_repository = FirebaseMessageRepository(self.database)
@@ -266,13 +261,18 @@ class ServiceFactory:
         notification_repository = FirebaseNotificationRepository(self.database)
         notification_service = NotificationService(notification_repository)
         
+        # Create invite link service (bot token will be set later from Firestore)
+        invite_link_service = InviteLinkService(self.database)
+        
         # Register with container
         self.container.register_service(MessageService, message_service)
         self.container.register_service(NotificationService, notification_service)
+        self.container.register_service(InviteLinkService, invite_link_service)
         
         return {
             'message_service': message_service,
-            'notification_service': notification_service
+            'notification_service': notification_service,
+            'invite_link_service': invite_link_service
         }
     
     def create_health_monitoring_services(self):

@@ -52,7 +52,7 @@ class ConfigurationCheck(BaseCheck):
             
             # Get actual provider from environment
             import os
-            provider_str = os.getenv('AI_PROVIDER', 'google_gemini')
+            provider_str = os.getenv('AI_PROVIDER', 'gemini')
             
             return CheckResult(
                 name=self.name,

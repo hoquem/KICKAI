@@ -287,41 +287,26 @@ class CommandRegistry:
         
         # Look for command handlers
         for name, obj in inspect.getmembers(module):
-            if inspect.isfunction(obj) and name.startswith('handle_'):
+            # Check for functions that start with 'handle_' and are NOT already decorated
+            if (inspect.isfunction(obj) and name.startswith('handle_') and 
+                not hasattr(obj, '_command_registered')):
+                
                 # Extract command name from function name
                 command_name = name.replace('handle_', '/')
                 if not command_name.startswith('/'):
                     command_name = f"/{command_name}"
                 
-                # Get docstring as description
-                description = obj.__doc__ or f"Handle {command_name} command"
-                
-                # Determine permission level based on function name
-                permission_level = self._determine_permission_level(name, feature_name)
+                # Skip if command is already registered (might be decorated)
+                if command_name in self._commands:
+                    logger.debug(f"Skipping {command_name} - already registered")
+                    continue
                 
                 # Register the command
                 self.register_command(
                     name=command_name,
-                    description=description,
+                    description=f"Handler for {command_name}",
                     handler=obj,
-                    feature=feature_name,
-                    permission_level=permission_level
-                )
-            
-            elif inspect.isclass(obj) and issubclass(obj, CommandHandler):
-                # Handle class-based command handlers
-                command_name = getattr(obj, 'command_name', f"/{obj.__name__.lower()}")
-                description = getattr(obj, 'description', f"Handle {command_name} command")
-                permission_level = getattr(obj, 'permission_level', PermissionLevel.PUBLIC)
-                
-                # Create instance and register
-                handler_instance = obj()
-                self.register_command(
-                    name=command_name,
-                    description=description,
-                    handler=handler_instance.execute,
-                    feature=feature_name,
-                    permission_level=permission_level
+                    feature=feature_name
                 )
     
     def _determine_permission_level(self, function_name: str, feature_name: str) -> PermissionLevel:
@@ -415,7 +400,9 @@ def command(
             pass
     """
     def decorator(func: Callable) -> Callable:
-        register_command(
+        # Register the command in the registry
+        registry = get_command_registry()
+        registry.register_command(
             name=name,
             description=description,
             handler=func,
@@ -424,5 +411,7 @@ def command(
             feature=feature,
             **kwargs
         )
+        # Mark function as registered to avoid duplicate discovery
+        func._command_registered = True
         return func
     return decorator 

@@ -3,27 +3,25 @@
 Team mapping service for KICKAI.
 
 This service handles the mapping between Telegram chat IDs and team IDs,
-with intelligent caching and fallback mechanisms.
+with intelligent fallback mechanisms.
 """
 
 import logging
 from typing import Optional, Dict, Any
-from core.cache import get_cache_manager, CacheKeyBuilder
 
 logger = logging.getLogger(__name__)
 
 
 class TeamMappingService:
     """
-    Service for managing team mappings with caching.
+    Service for managing team mappings.
     
     This service provides a clean interface for resolving team IDs from
-    chat IDs, with intelligent caching and fallback mechanisms.
+    chat IDs, with intelligent fallback mechanisms.
     """
     
     def __init__(self):
         """Initialize the team mapping service."""
-        self.cache_manager = get_cache_manager()
         self._default_team_id = None
         self._chat_mappings: Dict[str, str] = {}
         
@@ -41,19 +39,15 @@ class TeamMappingService:
     def add_chat_mapping(self, chat_id: str, team_id: str) -> None:
         """Add a chat ID to team ID mapping."""
         self._chat_mappings[str(chat_id)] = team_id
-        
-        # Cache the mapping
-        self.cache_manager.set_team_mapping(chat_id, team_id)
-        
         logger.info(f"Added chat mapping: {chat_id} -> {team_id}")
     
     def get_team_id_for_chat(self, chat_id: str) -> Optional[str]:
         """
-        Get team ID for a chat ID with caching.
+        Get team ID for a chat ID.
         
         Resolution order:
         1. In-memory mapping (fastest)
-        2. Cache lookup
+        2. Environment lookup
         3. Default team ID (fallback)
         4. None (if no mapping found)
         """
@@ -64,23 +58,15 @@ class TeamMappingService:
             logger.debug(f"Team ID found in memory: {chat_id} -> {self._chat_mappings[chat_id_str]}")
             return self._chat_mappings[chat_id_str]
         
-        # 2. Check cache
-        cached_team_id = self.cache_manager.get_team_mapping(chat_id_str)
-        if cached_team_id:
-            # Update in-memory mapping for future fast access
-            self._chat_mappings[chat_id_str] = cached_team_id
-            logger.debug(f"Team ID found in cache: {chat_id} -> {cached_team_id}")
-            return cached_team_id
-        
-        # 3. Check if this is a known chat ID from environment
+        # 2. Check if this is a known chat ID from environment
         team_id = self._get_team_id_from_environment(chat_id_str)
         if team_id:
-            # Cache the mapping for future use
-            self.add_chat_mapping(chat_id_str, team_id)
+            # Add to memory mapping for future fast access
+            self._chat_mappings[chat_id_str] = team_id
             logger.info(f"Team ID resolved from environment: {chat_id} -> {team_id}")
             return team_id
         
-        # 4. Use default team ID as fallback
+        # 3. Use default team ID as fallback
         if self._default_team_id:
             logger.warning(f"No team mapping found for chat {chat_id}, using default: {self._default_team_id}")
             return self._default_team_id

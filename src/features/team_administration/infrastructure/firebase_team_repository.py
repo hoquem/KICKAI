@@ -12,7 +12,7 @@ from features.team_administration.domain.repositories.team_repository_interface 
 from features.team_administration.domain.entities.team import Team
 from features.team_administration.domain.entities.team_member import TeamMember
 from database.interfaces import DataStoreInterface
-from core.constants import COLLECTION_TEAMS
+from core.constants import COLLECTION_TEAMS, get_team_members_collection, get_team_players_collection
 
 
 class FirebaseTeamRepository(TeamRepositoryInterface):
@@ -21,14 +21,6 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
     def __init__(self, database: DataStoreInterface):
         self.database = database
         self.collection_name = COLLECTION_TEAMS
-    
-    def _get_team_members_collection(self, team_id: str) -> str:
-        """Get the team members collection name for a specific team."""
-        return f"{team_id}_team_members"
-    
-    def _get_players_collection(self, team_id: str) -> str:
-        """Get the players collection name for a specific team."""
-        return f"{team_id}_players"
     
     async def create_team(self, team: Team) -> Team:
         """Create a new team."""
@@ -169,7 +161,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         
         # Create document in team_members collection
         doc_id = await self.database.create_document(
-            collection=self._get_team_members_collection(team_member.team_id),
+            collection=get_team_members_collection(team_member.team_id),
             document_id=team_member.id,
             data=team_member_data
         )
@@ -184,7 +176,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         """Get all members of a team."""
         try:
             docs = await self.database.query_documents(
-                collection=self._get_team_members_collection(team_id),
+                collection=get_team_members_collection(team_id),
                 filters=[{"field": "team_id", "operator": "==", "value": team_id}]
             )
             
@@ -199,7 +191,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         """Get a team member by Telegram ID."""
         try:
             docs = await self.database.query_documents(
-                collection=self._get_team_members_collection(team_id),
+                collection=get_team_members_collection(team_id),
                 filters=[
                     {"field": "team_id", "operator": "==", "value": team_id},
                     {"field": "telegram_id", "operator": "==", "value": telegram_id}
@@ -220,7 +212,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         team_member_data = team_member.to_dict()
         
         await self.database.update_document(
-            collection=self._get_team_members_collection(team_member.team_id),
+            collection=get_team_members_collection(team_member.team_id),
             document_id=team_member.id,
             data=team_member_data
         )
@@ -231,7 +223,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         """Delete a team member."""
         try:
             await self.database.delete_document(
-                collection=self._get_team_members_collection(team_member_id.split("_")[0]),
+                collection=get_team_members_collection(team_member_id.split("_")[0]),
                 document_id=team_member_id
             )
             
