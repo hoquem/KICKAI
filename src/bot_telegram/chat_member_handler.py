@@ -15,7 +15,8 @@ from telegram.ext import ContextTypes
 
 from core.context_manager import get_context_manager
 from core.enhanced_logging import ErrorCategory, ErrorSeverity
-from features.team_administration.domain.services.chat_role_assignment_service import ChatRoleAssignmentService, ChatType
+from features.team_administration.domain.services.chat_role_assignment_service import ChatRoleAssignmentService
+from enums import ChatType
 from database.firebase_client import FirebaseClient
 from loguru import logger
 

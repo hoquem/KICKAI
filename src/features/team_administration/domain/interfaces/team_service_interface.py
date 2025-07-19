@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
-from features.team_administration.domain.entities.team import Team, TeamStatus, TeamMember
+from features.team_administration.domain.entities.team import Team, TeamStatus
+# TeamMember imported dynamically to avoid circular imports
 
 class ITeamService(ABC):
     @abstractmethod
@@ -28,7 +29,7 @@ class ITeamService(ABC):
         pass
 
     @abstractmethod
-    async def add_team_member(self, team_id: str, user_id: str, role: str = "player", permissions: Optional[List[str]] = None) -> TeamMember:
+    async def add_team_member(self, team_id: str, user_id: str, role: str = "player", permissions: Optional[List[str]] = None):
         pass
 
     @abstractmethod
@@ -36,5 +37,5 @@ class ITeamService(ABC):
         pass
 
     @abstractmethod
-    async def get_team_members(self, team_id: str) -> List[TeamMember]:
+    async def get_team_members(self, team_id: str):
         pass 
