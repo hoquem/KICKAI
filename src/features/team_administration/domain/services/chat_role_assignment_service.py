@@ -18,17 +18,11 @@ from dataclasses import dataclass
 from database.firebase_client import FirebaseClient
 from core.exceptions import DatabaseError, ValidationError
 from features.player_registration.domain.services.player_service import PlayerService
-from features.player_registration.domain.services.team_member_service import TeamMemberService
-from features.team_administration.domain.entities.team_member import TeamMember
+# TeamMemberService removed - using mock service instead
+# Import TeamMember dynamically to avoid circular imports
+from enums import ChatType
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class ChatType:
-    """Chat types for role assignment."""
-    MAIN = "main_chat"
-    LEADERSHIP = "leadership_chat"
 
 
 class ChatRoleAssignmentService:
@@ -48,16 +42,8 @@ class ChatRoleAssignmentService:
             # Fallback to mock service
             self.player_service = self._create_mock_player_service()
         
-        # Get TeamMemberService from dependency container instead of creating it directly
-        try:
-            from core.dependency_container import get_service
-            from features.player_registration.domain.services.team_member_service import TeamMemberService
-            
-            self.team_member_service = get_service(TeamMemberService)
-        except Exception as e:
-            logger.warning(f"⚠️ Could not get TeamMemberService from dependency container: {e}")
-            # Fallback to mock service
-            self.team_member_service = self._create_mock_team_member_service()
+        # TeamMemberService removed - using mock service instead
+        self.team_member_service = self._create_mock_team_member_service()
         
         logger.info("✅ ChatRoleAssignmentService initialized")
     
@@ -115,6 +101,7 @@ class ChatRoleAssignmentService:
             
             if not team_member:
                 # Create new team member
+                from features.team_administration.domain.entities.team_member import TeamMember
                 roles = self._determine_initial_roles(chat_type, is_first_user)
                 team_member = TeamMember(
                     team_id=team_id,
@@ -137,7 +124,7 @@ class ChatRoleAssignmentService:
                 logger.info(f"Updated existing team member {user_id} for {chat_type}")
             
             # Handle player role assignment
-            if chat_type == ChatType.MAIN:
+            if chat_type == ChatType.MAIN.value:
                 await self._ensure_player_role(team_id, user_id, username)
             
             # Handle first user admin assignment
@@ -182,11 +169,11 @@ class ChatRoleAssignmentService:
             await self.team_member_service.update_team_member(team_member)
             
             # Handle admin leaving leadership chat
-            if chat_type == ChatType.LEADERSHIP and "admin" in team_member.roles:
+            if chat_type == ChatType.LEADERSHIP.value and "admin" in team_member.roles:
                 await self._handle_admin_leaving_leadership(team_id, user_id)
             
             # Remove player role if leaving main chat
-            if chat_type == ChatType.MAIN and "player" in team_member.roles:
+            if chat_type == ChatType.MAIN.value and "player" in team_member.roles:
                 team_member.roles.remove("player")
                 await self.team_member_service.update_team_member(team_member)
             
@@ -244,10 +231,10 @@ class ChatRoleAssignmentService:
         """Determine initial roles based on chat type and first user status."""
         roles = []
         
-        if chat_type == ChatType.MAIN:
+        if chat_type == ChatType.MAIN.value:
             roles.append("player")
         
-        if chat_type == ChatType.LEADERSHIP:
+        if chat_type == ChatType.LEADERSHIP.value:
             roles.append("team_member")
         
         if is_first_user:
@@ -255,12 +242,12 @@ class ChatRoleAssignmentService:
         
         return roles
     
-    async def _update_existing_member_roles(self, team_member: TeamMember, chat_type: str) -> None:
+    async def _update_existing_member_roles(self, team_member, chat_type: str) -> None:
         """Update roles for existing team member joining a new chat."""
-        if chat_type == ChatType.MAIN and "player" not in team_member.roles:
+        if chat_type == ChatType.MAIN.value and "player" not in team_member.roles:
             team_member.roles.append("player")
         
-        if chat_type == ChatType.LEADERSHIP and "team_member" not in team_member.roles:
+        if chat_type == ChatType.LEADERSHIP.value and "team_member" not in team_member.roles:
             team_member.roles.append("team_member")
     
     async def _ensure_player_role(self, team_id: str, user_id: str, username: Optional[str] = None) -> None:

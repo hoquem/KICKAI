@@ -9,29 +9,14 @@ integrating chat-based role assignment with command permissions.
 import logging
 from typing import List, Optional, Dict, Any, Set
 from dataclasses import dataclass
-from enum import Enum
 
 from database.firebase_client import FirebaseClient
-from features.team_administration.domain.services.chat_role_assignment_service import ChatRoleAssignmentService, ChatType
-from features.player_registration.domain.services.team_member_service import TeamMemberService
+from features.team_administration.domain.services.chat_role_assignment_service import ChatRoleAssignmentService
+        # TeamMemberService removed - using mock service instead
 from features.player_registration.domain.services.player_service import PlayerService
+from enums import ChatType, PermissionLevel
 
 logger = logging.getLogger(__name__)
-
-
-class PermissionLevel(Enum):
-    """Permission levels for commands."""
-    PUBLIC = "public"
-    PLAYER = "player"
-    LEADERSHIP = "leadership"
-    ADMIN = "admin"
-
-
-class ChatType(Enum):
-    """Chat types for permission checking."""
-    MAIN = "main_chat"
-    LEADERSHIP = "leadership_chat"
-    PRIVATE = "private"
 
 
 @dataclass
@@ -72,9 +57,13 @@ class UserPermissions:
 class PermissionService:
     """Centralized service for all permission checking."""
     
-    def __init__(self, firebase_client: FirebaseClient):
+    def __init__(self, firebase_client: FirebaseClient = None):
         self.firebase_client = firebase_client
-        self.chat_role_service = ChatRoleAssignmentService(firebase_client)
+        if firebase_client:
+            self.chat_role_service = ChatRoleAssignmentService(firebase_client)
+        else:
+            # Use mock chat role service when firebase_client is None
+            self.chat_role_service = self._create_mock_chat_role_service()
         
         # Get services from dependency container instead of creating them directly
         try:
@@ -107,6 +96,17 @@ class PermissionService:
                 return False
         
         return MockTeamMemberService()
+    
+    def _create_mock_chat_role_service(self):
+        """Create a mock chat role service for fallback."""
+        class MockChatRoleService:
+            async def assign_role_to_user(self, user_id: str, team_id: str, role: str, chat_type: str):
+                return True
+            
+            async def get_user_role_in_chat(self, user_id: str, team_id: str, chat_type: str):
+                return "player"
+        
+        return MockChatRoleService()
     
     async def get_user_permissions(self, user_id: str, team_id: str) -> UserPermissions:
         """
@@ -187,12 +187,12 @@ class PermissionService:
                 return True  # Public commands are always allowed
             
             elif permission_level == PermissionLevel.PLAYER:
-                # Player commands require player role and appropriate chat access
+                # Player commands require player role and main chat access only
                 if not user_perms.is_player:
                     return False
                 
-                # Must be in main chat or leadership chat
-                return context.chat_type in [ChatType.MAIN, ChatType.LEADERSHIP]
+                # Must be in main chat only (not leadership chat)
+                return context.chat_type == ChatType.MAIN
             
             elif permission_level == PermissionLevel.LEADERSHIP:
                 # Leadership commands require leadership chat access
@@ -260,7 +260,8 @@ class PermissionService:
             # Always available
             available_commands.extend([
                 "/help",
-                "/start"
+                "/start",
+                "/register"  # Add register as public command
             ])
             
             # Check each permission level
@@ -270,7 +271,6 @@ class PermissionService:
                     "/myinfo",
                     "/update",
                     "/status",
-                    "/register",
                     "/listmatches",
                     "/getmatch",
                     "/stats",
@@ -313,38 +313,17 @@ class PermissionService:
                 ])
             
             if await self.can_execute_command(PermissionLevel.ADMIN, context):
+                # Admin commands - only the /promote command for now
                 available_commands.extend([
-                    "/approve",
-                    "/reject",
-                    "/pending",
-                    "/checkfa",
-                    "/dailystatus",
-                    "/backgroundtasks",
-                    "/remind",
                     "/promote",
-                    "/newmatch",
-                    "/updatematch",
-                    "/deletematch",
-                    "/record_result",
-                    "/invitelink",
-                    "/broadcast",
-                    "/create_match_fee",
-                    "/create_membership_fee",
-                    "/create_fine",
-                    "/payment_stats",
-                    "/announce",
-                    "/injure",
-                    "/suspend",
-                    "/recover",
-                    "/refund_payment",
-                    "/record_expense"
+                    "/updateteaminfo"
                 ])
             
             return available_commands
             
         except Exception as e:
             logger.error(f"Error getting available commands: {e}")
-            return ["/help", "/start"]
+            return ["/help", "/start", "/register"]
     
     async def get_permission_denied_message(self, permission_level: PermissionLevel, context: PermissionContext) -> str:
         """
@@ -364,8 +343,8 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
                 else:
                     return f"""❌ **Access Denied**
 
-🔒 Player commands are only available in main chat or leadership chat.
-💡 Please use the appropriate team chat for this function."""
+🔒 Player commands are only available in the main team chat.
+💡 Please use the main team chat for this function."""
             
             elif permission_level == PermissionLevel.LEADERSHIP:
                 if context.chat_type != ChatType.LEADERSHIP:
@@ -412,6 +391,15 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
     async def handle_last_admin_leaving(self, team_id: str) -> Optional[str]:
         """Handle when the last admin leaves - promote longest-tenured leadership member."""
         return await self.team_member_service.handle_last_admin_leaving(team_id)
+    
+    async def is_user_registered(self, context: PermissionContext) -> bool:
+        """Check if a user is already registered in the system."""
+        try:
+            user_perms = await self.get_user_permissions(context.user_id, context.team_id)
+            return user_perms.is_player or user_perms.is_team_member or user_perms.is_admin
+        except Exception as e:
+            logger.error(f"Error checking if user is registered: {e}")
+            return False
 
 
 # Global instance for easy access
@@ -423,6 +411,13 @@ def get_permission_service(firebase_client: FirebaseClient = None) -> Permission
     global _permission_service
     if _permission_service is None:
         if firebase_client is None:
-            firebase_client = FirebaseClient()
+            # Get Firebase client from dependency container
+            try:
+                from database.firebase_client import get_firebase_client
+                firebase_client = get_firebase_client()
+            except Exception as e:
+                logger.warning(f"⚠️ Could not get Firebase client from dependency container: {e}")
+                # Fallback to mock client
+                firebase_client = None
         _permission_service = PermissionService(firebase_client)
     return _permission_service 

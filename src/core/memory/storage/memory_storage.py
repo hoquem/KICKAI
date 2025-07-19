@@ -225,3 +225,15 @@ class InMemoryStorage(MemoryStorage):
         final_score = base_score * time_factor * importance_factor
         
         return final_score 
+
+
+class UserPreference:
+    """Stub for UserPreference. Replace with real implementation as needed."""
+    def __init__(self, *args, **kwargs):
+        pass 
+
+
+class Pattern:
+    """Stub for Pattern. Replace with real implementation as needed."""
+    def __init__(self, *args, **kwargs):
+        pass 

@@ -222,7 +222,8 @@ class CommandDispatcher:
         """
         try:
             # Create command context
-            from features.shared.application.commands.types import CommandContext, PermissionLevel
+            from features.shared.application.commands.types import CommandContext
+            from enums import PermissionLevel
             
             cmd_context = CommandContext(
                 update=update,

@@ -7,6 +7,7 @@ AdvancedMemorySystem with smaller, focused components following the single respo
 
 from .system import AdvancedMemorySystem, get_memory_system, initialize_memory_system, cleanup_memory_system
 from .storage import MemoryStorage, InMemoryStorage
+from .storage.memory_storage import MemoryItem, MemoryType, MemoryPriority, UserPreference, Pattern
 from .learning import PreferenceLearner, PatternRecognizer
 from .context import ConversationContext, ConversationContextManager
 from .optimization import MemoryCleanup, PerformanceOptimizer
@@ -18,6 +19,9 @@ __all__ = [
     'cleanup_memory_system',
     'MemoryStorage',
     'InMemoryStorage',
+    'MemoryItem',
+    'MemoryType',
+    'MemoryPriority',
     'PreferenceLearner',
     'PatternRecognizer',
     'ConversationContext',
