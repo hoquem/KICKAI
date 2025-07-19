@@ -1,32 +1,58 @@
 """
-Firebase tools for KICKAI (placeholder, not used in production).
+Firebase tools for KICKAI system.
+
+This module provides tools for Firebase/Firestore operations.
 """
 
-from typing import Dict, Type
-from loguru import logger
-from crewai.tools import BaseTool
-from pydantic import BaseModel, Field
+import logging
+from typing import Optional, Dict, Any
+from pydantic import BaseModel
 
-TOOL_REGISTRY = {}
+from crewai.tools import tool
+from database.firebase_client import FirebaseClient
+from core.dependency_container import get_container
 
-def register_tool_instance(tool_instance):
-    TOOL_REGISTRY[tool_instance.name] = tool_instance
-    return tool_instance
+logger = logging.getLogger(__name__)
+
 
 class GetFirebaseDocumentInput(BaseModel):
-    collection: str = Field(..., description="Firebase collection name")
-    doc_id: str = Field(..., description="Document ID")
+    """Input model for get_firebase_document tool."""
+    collection: str
+    document_id: str
+    team_id: Optional[str] = None
 
-class GetFirebaseDocumentTool(BaseTool):
-    name: str = "get_firebase_document"
-    description: str = "Get a document from Firebase (example tool)."
-    args_schema: Type[BaseModel] = GetFirebaseDocumentInput
 
-    def _run(self, collection: str, doc_id: str) -> Dict:
-        logger.info(f"[TOOL] Getting document from collection={collection}, doc_id={doc_id}")
-        # Placeholder logic
-        return {"id": doc_id, "collection": collection, "data": {}}
-
-register_tool_instance(GetFirebaseDocumentTool())
-
-__all__ = ["TOOL_REGISTRY"] 
+@tool("get_firebase_document")
+def get_firebase_document(collection: str, document_id: str, team_id: Optional[str] = None) -> str:
+    """
+    Get a document from Firebase/Firestore. Requires: collection, document_id
+    
+    Args:
+        collection: The Firestore collection name
+        document_id: The document ID to retrieve
+        team_id: Optional team ID for context
+    
+    Returns:
+        The document data as a JSON string or error message
+    """
+    try:
+        container = get_container()
+        firebase_client = container.get_service(FirebaseClient)
+        
+        if not firebase_client:
+            logger.error("❌ FirebaseClient not available")
+            return "❌ Firebase client not available"
+        
+        # Get the document
+        document = firebase_client.get_document(collection, document_id)
+        
+        if document:
+            logger.info(f"✅ Retrieved document {document_id} from collection {collection}")
+            return f"✅ Document retrieved: {document}"
+        else:
+            logger.warning(f"⚠️ Document {document_id} not found in collection {collection}")
+            return f"⚠️ Document {document_id} not found in collection {collection}"
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to get Firebase document: {e}")
+        return f"❌ Failed to get Firebase document: {str(e)}" 

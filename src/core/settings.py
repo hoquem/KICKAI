@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     
     # AI Configuration
     ai_provider: AIProvider = Field(
-        default=AIProvider.GOOGLE_GEMINI,
+        default=AIProvider.GEMINI,
         description="AI provider to use"
     )
     google_api_key: str = Field(
@@ -291,7 +291,7 @@ class Settings(BaseSettings):
             try:
                 return AIProvider(v.lower())
             except ValueError:
-                return AIProvider.GOOGLE_GEMINI
+                return AIProvider.GEMINI
         return v
     
     @property
@@ -316,7 +316,7 @@ class Settings(BaseSettings):
     
     def get_ai_api_key(self) -> str:
         """Get the appropriate API key for the AI provider."""
-        if self.ai_provider == AIProvider.GOOGLE_GEMINI:
+        if self.ai_provider == AIProvider.GEMINI:
             return self.google_api_key
         elif self.ai_provider == AIProvider.OLLAMA:
             # Ollama doesn't use API keys
@@ -332,7 +332,7 @@ class Settings(BaseSettings):
             errors.append("FIREBASE_PROJECT_ID is required")
         
         # AI provider specific requirements
-        if self.ai_provider == AIProvider.GOOGLE_GEMINI and not self.google_api_key:
+        if self.ai_provider == AIProvider.GEMINI and not self.google_api_key:
             errors.append("GOOGLE_API_KEY is required for Gemini")
         elif self.ai_provider == AIProvider.OLLAMA:
             # Ollama doesn't require an API key

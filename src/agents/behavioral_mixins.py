@@ -2,25 +2,26 @@
 """
 Behavioral Mixins for KICKAI Agents
 
-This module provides mixin classes that add specialized functionality
-to agents without duplicating common code. Each mixin focuses on a
-specific behavioral domain.
+This module provides behavioral mixins that can be composed into agents
+to give them specific capabilities and behaviors.
 """
 
-import logging
-from typing import Dict, Any, Optional
+import asyncio
+import re
 from abc import ABC, abstractmethod
-from core.exceptions import KICKAIError, InputValidationError, AuthorizationError, AgentExecutionError
-from core.enhanced_logging import ErrorHandler, create_error_context, ErrorCategory, ErrorSeverity
+from typing import Dict, Any, List, Optional
+from datetime import datetime, timedelta
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from core.constants import get_team_members_collection
+from core.exceptions import KICKAIError, InputValidationError, AuthorizationError, AgentExecutionError
 
 
 class BaseBehavioralMixin(ABC):
     """Base class for all behavioral mixins."""
     
     def __init__(self):
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = logger.bind(mixin_name=self.__class__.__name__)
     
     @abstractmethod
     def get_mixin_name(self) -> str:
@@ -233,7 +234,7 @@ class MessageProcessorMixin(BaseBehavioralMixin):
                 from features.system_infrastructure.domain.services.permission_service import (
                     get_permission_service, PermissionContext
                 )
-                from enums import ChatType
+                from core.enums import ChatType
                 
                 permission_service = get_permission_service()
                 permission_context = PermissionContext(
@@ -278,7 +279,7 @@ class MessageProcessorMixin(BaseBehavioralMixin):
             "👥 PLAYER": ["/list", "/myinfo", "/update", "/status", "/register", "/listmatches", 
                          "/getmatch", "/stats", "/payment_status", "/pending_payments", 
                          "/payment_history", "/payment_help", "/financial_dashboard", "/attend", "/unattend"],
-            "👑 LEADERSHIP": ["/add", "/remove", "/approve", "/reject", "/pending", "/checkfa", 
+            "👑 LEADERSHIP": ["/addplayer", "/addmember", "/remove", "/approve", "/reject", "/pending", "/checkfa", 
                              "/dailystatus", "/background", "/remind", "/newmatch", "/updatematch", 
                              "/deletematch", "/record_result", "/invitelink", "/broadcast", 
                              "/create_match_fee", "/create_membership_fee", "/create_fine", 
@@ -306,7 +307,8 @@ class MessageProcessorMixin(BaseBehavioralMixin):
             "/financial_dashboard": "Your financial overview",
             "/attend": "Confirm match attendance",
             "/unattend": "Cancel match attendance",
-            "/add": "Add new player",
+            "/addplayer": "Add new player with invite link",
+            "/addmember": "Add new team member with invite link",
             "/remove": "Remove player",
             "/approve": "Approve player",
             "/reject": "Reject player",
@@ -366,69 +368,109 @@ class MessageProcessorMixin(BaseBehavioralMixin):
         return help_message
 
     def _get_leadership_help_message(self) -> str:
-        """Get help message for leadership chat."""
-        return """🤖 KICKAI BOT HELP (LEADERSHIP)
-
-📋 AVAILABLE COMMANDS:
-
-🌐 GENERAL:
-• /help - Show this help message
-• /start - Start the bot
-• /register - Register as a new player
-
-👥 PLAYER:
-• /myinfo - Get your player information
-• /list - See all team players
-• /status [phone] - Check player status
-
-👑 LEADERSHIP:
-• /add [name] [phone] [position] - Add new player
-• /remove [phone_or_player_id] - Remove player
-• /approve [player_id] - Approve player
-• /reject [player_id] [reason] - Reject player
-• /pending - Show pending approvals
-• /invitelink [phone_or_player_id] - Generate invitation
-• /stats - Team statistics
-• /checkfa - Check FA registration status
-• /dailystatus - Daily status report
-• /remind [message] - Send reminder to team
-• /broadcast [message] - Broadcast message to team
-
-🔧 ADMIN:
-• /createteam [name] - Create new team
-• /removeteam [team_id] - Remove team
-• /listteams - List all teams
-• /backgroundtasks - Manage background tasks
-
-💡 TIPS:
-• Use natural language: "Add John Smith as midfielder"
-• Type /help [command] for detailed help
-• All admin commands available in leadership chat"""
+        """Get help message for leadership chat using command registry."""
+        try:
+            from core.command_registry import get_command_registry, PermissionLevel
+            
+            registry = get_command_registry()
+            
+            # Get commands by permission level
+            leadership_commands = registry.get_commands_by_permission(PermissionLevel.LEADERSHIP)
+            admin_commands = registry.get_commands_by_permission(PermissionLevel.ADMIN)
+            public_commands = registry.get_commands_by_permission(PermissionLevel.PUBLIC)
+            player_commands = registry.get_commands_by_permission(PermissionLevel.PLAYER)
+            
+            help_parts = ["🤖 KICKAI BOT HELP (LEADERSHIP)", "", "📋 AVAILABLE COMMANDS:", ""]
+            
+            # General commands (public)
+            if public_commands:
+                help_parts.append("🌐 GENERAL:")
+                for cmd in public_commands:
+                    help_parts.append(f"• {cmd.name} - {cmd.description}")
+                help_parts.append("")
+            
+            # Player commands
+            if player_commands:
+                help_parts.append("👥 PLAYER:")
+                for cmd in player_commands:
+                    help_parts.append(f"• {cmd.name} - {cmd.description}")
+                help_parts.append("")
+            
+            # Leadership commands
+            if leadership_commands:
+                help_parts.append("👑 LEADERSHIP:")
+                for cmd in leadership_commands:
+                    help_parts.append(f"• {cmd.name} - {cmd.description}")
+                help_parts.append("")
+            
+            # Admin commands
+            if admin_commands:
+                help_parts.append("🔧 ADMIN:")
+                for cmd in admin_commands:
+                    help_parts.append(f"• {cmd.name} - {cmd.description}")
+                help_parts.append("")
+            
+            help_parts.extend([
+                "💡 TIPS:",
+                "• Use natural language: \"Add John Smith as midfielder\"",
+                "• Type /help [command] for detailed help",
+                "• All admin commands available in leadership chat"
+            ])
+            
+            return "\n".join(help_parts)
+            
+        except Exception as e:
+            logger.error(f"Error generating leadership help: {e}")
+            return "🤖 KICKAI BOT HELP (LEADERSHIP)\n\n📋 Commands are being loaded...\n\n💡 Type /help for assistance."
 
     def _get_main_chat_help_message(self) -> str:
-        """Get help message for main chat."""
-        return """🤖 KICKAI BOT HELP
-
-👋 Welcome to the KICKAI team management system! I'm here to help you with everything team-related.
-
-📋 AVAILABLE COMMANDS:
-
-🌐 GENERAL:
-• /help - Show this help message
-• /start - Start the bot
-• /register - Register as a new player
-
-👥 PLAYER:
-• /myinfo - Get your player information
-• /list - See all team players
-• /status [phone] - Check player status
-
-💡 TIPS:
-• Use natural language: "What's my phone number?" or "How do I register?"
-• Type /help [command] for detailed help
-• I can understand regular questions too - just ask!
-
-🎯 Need something specific? Just ask me in plain English!"""
+        """Get help message for main chat using command registry."""
+        try:
+            from core.command_registry import get_command_registry, PermissionLevel
+            
+            registry = get_command_registry()
+            
+            # Get commands by permission level (main chat shows public and player commands)
+            public_commands = registry.get_commands_by_permission(PermissionLevel.PUBLIC)
+            player_commands = registry.get_commands_by_permission(PermissionLevel.PLAYER)
+            
+            help_parts = [
+                "🤖 KICKAI BOT HELP",
+                "",
+                "👋 Welcome to the KICKAI team management system! I'm here to help you with everything team-related.",
+                "",
+                "📋 AVAILABLE COMMANDS:",
+                ""
+            ]
+            
+            # General commands (public)
+            if public_commands:
+                help_parts.append("🌐 GENERAL:")
+                for cmd in public_commands:
+                    help_parts.append(f"• {cmd.name} - {cmd.description}")
+                help_parts.append("")
+            
+            # Player commands
+            if player_commands:
+                help_parts.append("👥 PLAYER:")
+                for cmd in player_commands:
+                    help_parts.append(f"• {cmd.name} - {cmd.description}")
+                help_parts.append("")
+            
+            help_parts.extend([
+                "💡 TIPS:",
+                "• Use natural language: \"What's my phone number?\" or \"How do I register?\"",
+                "• Type /help [command] for detailed help",
+                "• I can understand regular questions too - just ask!",
+                "",
+                "🎯 Need something specific? Just ask me in plain English!"
+            ])
+            
+            return "\n".join(help_parts)
+            
+        except Exception as e:
+            logger.error(f"Error generating main chat help: {e}")
+            return "🤖 KICKAI BOT HELP\n\n👋 Welcome to the KICKAI team management system!\n\n📋 Commands are being loaded...\n\n💡 Type /help for assistance."
 
 
 class CommandFallbackMixin(BaseBehavioralMixin):
@@ -451,7 +493,6 @@ class CommandFallbackMixin(BaseBehavioralMixin):
     async def process_failed_command(self, failed_command: str, error_message: str, 
                                    user_context: Dict[str, Any]) -> str:
         """Process a failed command and provide helpful suggestions."""
-        error_handler = ErrorHandler()
         try:
             self.logger.info(f"🔧 COMMAND_FALLBACK: Processing failed command: {failed_command}")
             self.logger.info(f"🔧 COMMAND_FALLBACK: Error: {error_message}")
@@ -460,51 +501,19 @@ class CommandFallbackMixin(BaseBehavioralMixin):
             # Analyze the failed command and provide helpful suggestions
             return await self._analyze_failed_command(failed_command, error_message, user_context)
         except (InputValidationError, AuthorizationError) as e:
-            context = create_error_context(
-                operation="process_failed_command",
-                user_id=user_context.get("user_id"),
-                team_id=user_context.get("team_id"),
-                category=ErrorCategory.VALIDATION if isinstance(e, InputValidationError) else ErrorCategory.AUTHORIZATION,
-                severity=ErrorSeverity.MEDIUM,
-                input_parameters=user_context
-            )
-            error_handler.log_error(e, context, user_message=str(e))
+            self.logger.warning(f"🔧 COMMAND_FALLBACK: InputValidationError or AuthorizationError: {e}")
             if isinstance(e, InputValidationError):
                 return f"❌ Input error: {str(e)}\nPlease check your command and try again."
             else:
                 return f"⛔ Permission error: {str(e)}\nYou do not have access to perform this action."
         except AgentExecutionError as e:
-            context = create_error_context(
-                operation="process_failed_command",
-                user_id=user_context.get("user_id"),
-                team_id=user_context.get("team_id"),
-                category=ErrorCategory.BUSINESS_LOGIC,
-                severity=ErrorSeverity.HIGH,
-                input_parameters=user_context
-            )
-            error_handler.log_error(e, context, user_message=str(e))
+            self.logger.warning(f"🔧 COMMAND_FALLBACK: AgentExecutionError: {e}")
             return f"⚠️ Agent error: {str(e)}\nPlease try again later or contact support."
         except KICKAIError as e:
-            context = create_error_context(
-                operation="process_failed_command",
-                user_id=user_context.get("user_id"),
-                team_id=user_context.get("team_id"),
-                category=ErrorCategory.SYSTEM,
-                severity=ErrorSeverity.HIGH,
-                input_parameters=user_context
-            )
-            error_handler.log_error(e, context, user_message=str(e))
+            self.logger.warning(f"🔧 COMMAND_FALLBACK: KICKAIError: {e}")
             return f"❌ System error: {str(e)}\nPlease try again later."
         except Exception as e:
-            context = create_error_context(
-                operation="process_failed_command",
-                user_id=user_context.get("user_id"),
-                team_id=user_context.get("team_id"),
-                category=ErrorCategory.UNKNOWN,
-                severity=ErrorSeverity.CRITICAL,
-                input_parameters=user_context
-            )
-            error_handler.log_error(e, context, user_message="Unexpected error in fallback agent.")
+            self.logger.error(f"🔧 COMMAND_FALLBACK: Unexpected error in fallback agent: {e}", exc_info=True)
             return f"❌ Sorry, I encountered an unexpected error processing your request. Please try again later or contact support."
     
     async def _analyze_failed_command(self, failed_command: str, error_message: str, 
@@ -1090,6 +1099,351 @@ Contact the team admin in the leadership chat."""
             return f"❌ Error processing announcement: {str(e)}"
 
 
+class PlayerAdditionMixin(BaseBehavioralMixin):
+    """
+    Mixin for player addition behaviors.
+    
+    Provides specialized functionality for:
+    - Adding new players to the team
+    - Generating player invite links
+    - Player onboarding coordination
+    """
+    
+    def get_mixin_name(self) -> str:
+        return "player_addition"
+    
+    def get_supported_commands(self) -> list:
+        return ["/addplayer", "/add_player"]
+    
+    async def handle_addplayer_command(self, message_text: str, execution_context: Dict[str, Any]) -> str:
+        """
+        Handle /addplayer command using agent-based processing.
+        
+        Args:
+            message_text: The command text (e.g., "/addplayer John Smith +447123456789 Forward")
+            execution_context: Execution context with user and team info
+            
+        Returns:
+            Formatted response message
+        """
+        try:
+            from features.communication.domain.services.invite_link_service import InviteLinkService
+            from core.dependency_container import get_dependency_container
+            from core.settings import get_settings
+            from utils.phone_utils import is_valid_phone, normalize_phone
+            from utils.id_generator import generate_player_id_from_name
+            from features.player_registration.domain.entities.player import Player
+            from database.firebase_client import get_firebase_client
+            from datetime import datetime
+            
+            # Parse command arguments
+            args = message_text.split()[1:]  # Remove /addplayer
+            
+            if len(args) < 3:
+                return (
+                    "❌ **Missing Information**\n\n"
+                    "Please provide all required information:\n"
+                    "• Name\n"
+                    "• Phone number  \n"
+                    "• Position\n\n"
+                    "**Format:** `/addplayer [name] [phone] [position]`\n\n"
+                    "**Example:** `/addplayer John Smith +447123456789 Forward`\n\n"
+                    "💡 Need help? Contact the team admin."
+                )
+            
+            # Extract parameters - handle names with spaces
+            # Find the phone number (starts with + or 0)
+            phone_index = -1
+            for i, arg in enumerate(args):
+                if arg.startswith('+') or arg.startswith('0'):
+                    phone_index = i
+                    break
+            
+            if phone_index == -1:
+                return (
+                    "❌ **Invalid Phone Number**\n\n"
+                    "Please provide a valid UK phone number:\n"
+                    "• Format: 07123456789 or +447123456789\n"
+                    "• Example: `/addplayer John Smith +447123456789 Forward`"
+                )
+            
+            # Extract name (everything before phone)
+            name = ' '.join(args[:phone_index])
+            phone = args[phone_index]
+            position = ' '.join(args[phone_index + 1:])
+            
+            if not name or not position:
+                return (
+                    "❌ **Missing Information**\n\n"
+                    "Please provide all required information:\n"
+                    "• Name\n"
+                    "• Phone number  \n"
+                    "• Position\n\n"
+                    "**Format:** `/addplayer [name] [phone] [position]`\n\n"
+                    "**Example:** `/addplayer John Smith +447123456789 Forward`\n\n"
+                    "💡 Need help? Contact the team admin."
+                )
+            
+            # Validate phone number
+            if not is_valid_phone(phone):
+                return (
+                    "❌ **Invalid Phone Number**\n\n"
+                    "Please provide a valid UK phone number:\n"
+                    "• Format: 07123456789 or +447123456789\n"
+                    "• Example: `/addplayer John Smith +447123456789 Forward`"
+                )
+            
+            # Get team ID from context
+            team_id = execution_context.get('team_id')
+            if not team_id:
+                return "❌ Error: Team ID not found in context"
+            
+            # Generate player ID
+            player_id = generate_player_id_from_name(name, team_id)
+            
+            # Create player record (pending approval)
+            player = Player(
+                id=player_id,
+                team_id=team_id,
+                name=name,
+                phone=normalize_phone(phone),
+                position=position,
+                status="pending_approval",
+                created_at=datetime.now(),
+                updated_at=datetime.now()
+            )
+            
+            # Save to database
+            firebase_client = get_firebase_client()
+            collection_name = get_team_members_collection(team_id)
+            await firebase_client.create_document(collection_name, player.to_dict(), player_id)
+            
+            # Generate unique invite link using the invite link service
+            container = get_dependency_container()
+            invite_service = container.get_service(InviteLinkService)
+            settings = get_settings()
+            
+            invite_result = await invite_service.create_player_invite_link(
+                team_id=team_id,
+                player_name=name,
+                player_phone=normalize_phone(phone),
+                player_position=position,
+                main_chat_id=settings.telegram_main_chat_id
+            )
+            
+            response = f"""✅ **Player Added Successfully!**
+
+👤 **Player Details:**
+• **Name:** {name}
+• **Phone:** {normalize_phone(phone)}
+• **Position:** {position}
+• **Player ID:** {player_id}
+• **Status:** Pending Approval
+
+🔗 **Unique Invite Link for Main Chat:**
+{invite_result['invite_link']}
+
+📋 **Next Steps:**
+1. Send the invite link to {name}
+2. Ask them to join the main chat
+3. They can then use /register to complete their profile
+4. Use /approve {player_id} to approve them once registered
+
+💡 **Note:** This invite link is unique, expires in 7 days, and can only be used once.
+
+🎯 **Player ID:** {player_id} (save this for approval)"""
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"❌ Error in addplayer command: {e}")
+            return f"❌ Error adding player: {str(e)}"
+
+    async def handle_add_player_command(self, parameters: dict) -> str:
+        """Alias for /addplayer command."""
+        return await self.handle_addplayer_command(parameters)
+
+
+class TeamMemberAdditionMixin(BaseBehavioralMixin):
+    """
+    Mixin for team member addition behaviors.
+    
+    Provides specialized functionality for:
+    - Adding new team members (coaches, managers, etc.)
+    - Generating leadership chat invite links
+    - Team member onboarding coordination
+    """
+    
+    def get_mixin_name(self) -> str:
+        return "team_member_addition"
+    
+    def get_supported_commands(self) -> list:
+        return ["/addmember", "/add_member", "/addteammember"]
+    
+    async def handle_addmember_command(self, message_text: str, execution_context: Dict[str, Any]) -> str:
+        """
+        Handle /addmember command using agent-based processing.
+        
+        Args:
+            message_text: The command text (e.g., "/addmember Sarah Johnson +447987654321 Assistant Coach")
+            execution_context: Execution context with user and team info
+            
+        Returns:
+            Formatted response message
+        """
+        try:
+            from features.communication.domain.services.invite_link_service import InviteLinkService
+            from core.dependency_container import get_dependency_container
+            from core.settings import get_settings
+            from utils.phone_utils import is_valid_phone, normalize_phone
+            from utils.id_generator import generate_team_member_id_from_name
+            from features.team_administration.domain.entities.team_member import TeamMember
+            from database.firebase_client import get_firebase_client
+            from datetime import datetime
+            
+            # Parse command arguments
+            args = message_text.split()[1:]  # Remove /addmember
+            
+            if len(args) < 3:
+                return (
+                    "❌ **Missing Information**\n\n"
+                    "Please provide all required information:\n"
+                    "• Name\n"
+                    "• Phone number  \n"
+                    "• Role\n\n"
+                    "**Format:** `/addmember [name] [phone] [role]`\n\n"
+                    "**Example:** `/addmember Sarah Johnson +447987654321 Assistant Coach`\n\n"
+                    "💡 Need help? Contact the team admin."
+                )
+            
+            # Extract parameters - handle names with spaces
+            # Find the phone number (starts with + or 0)
+            phone_index = -1
+            for i, arg in enumerate(args):
+                if arg.startswith('+') or arg.startswith('0'):
+                    phone_index = i
+                    break
+            
+            if phone_index == -1:
+                return (
+                    "❌ **Invalid Phone Number**\n\n"
+                    "Please provide a valid UK phone number:\n"
+                    "• Format: 07123456789 or +447123456789\n"
+                    "• Example: `/addmember Sarah Johnson +447987654321 Assistant Coach`"
+                )
+            
+            # Extract name (everything before phone)
+            name = ' '.join(args[:phone_index])
+            phone = args[phone_index]
+            role = ' '.join(args[phone_index + 1:])
+            
+            if not name or not role:
+                return (
+                    "❌ **Missing Information**\n\n"
+                    "Please provide all required information:\n"
+                    "• Name\n"
+                    "• Phone number  \n"
+                    "• Role\n\n"
+                    "**Format:** `/addmember [name] [phone] [role]`\n\n"
+                    "**Example:** `/addmember Sarah Johnson +447987654321 Assistant Coach`\n\n"
+                    "💡 Need help? Contact the team admin."
+                )
+            
+            # Validate phone number
+            if not is_valid_phone(phone):
+                return (
+                    "❌ **Invalid Phone Number**\n\n"
+                    "Please provide a valid UK phone number:\n"
+                    "• Format: 07123456789 or +447123456789\n"
+                    "• Example: `/addmember Sarah Johnson +447987654321 Assistant Coach`"
+                )
+            
+            # Validate role
+            valid_roles = ["Coach", "Assistant Coach", "Manager", "Assistant Manager", "Admin", "Coordinator"]
+            if role not in valid_roles:
+                return (
+                    f"❌ **Invalid Role**\n\n"
+                    f"Please provide a valid role:\n"
+                    f"• Valid roles: {', '.join(valid_roles)}\n"
+                    f"• Example: `/addmember Sarah Johnson +447987654321 Assistant Coach`"
+                )
+            
+            # Get team ID from context
+            team_id = execution_context.get('team_id')
+            if not team_id:
+                return "❌ Error: Team ID not found in context"
+            
+            # Generate team member ID
+            member_id = generate_team_member_id_from_name(name, team_id)
+            
+            # Create team member record
+            team_member = TeamMember(
+                id=member_id,
+                team_id=team_id,
+                name=name,
+                phone=normalize_phone(phone),
+                role=role,
+                status="active",
+                created_at=datetime.now(),
+                updated_at=datetime.now()
+            )
+            
+            # Save to database
+            firebase_client = get_firebase_client()
+            collection_name = get_team_members_collection(team_id)
+            await firebase_client.create_document(collection_name, team_member.to_dict(), member_id)
+            
+            # Generate unique invite link using the invite link service
+            container = get_dependency_container()
+            invite_service = container.get_service(InviteLinkService)
+            settings = get_settings()
+            
+            invite_result = await invite_service.create_team_member_invite_link(
+                team_id=team_id,
+                member_name=name,
+                member_phone=normalize_phone(phone),
+                member_role=role,
+                leadership_chat_id=settings.telegram_leadership_chat_id
+            )
+            
+            response = f"""✅ **Team Member Added Successfully!**
+
+👔 **Member Details:**
+• **Name:** {name}
+• **Phone:** {normalize_phone(phone)}
+• **Role:** {role}
+• **Member ID:** {member_id}
+• **Status:** Active
+
+🔗 **Unique Invite Link for Leadership Chat:**
+{invite_result['invite_link']}
+
+📋 **Next Steps:**
+1. Send the invite link to {name}
+2. Ask them to join the leadership chat
+3. They can then access admin commands and team management features
+
+💡 **Note:** This invite link is unique, expires in 7 days, and can only be used once.
+
+🎯 **Member ID:** {member_id}"""
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"❌ Error in addmember command: {e}")
+            return f"❌ Error adding team member: {str(e)}"
+    
+
+    
+    async def handle_add_member_command(self, parameters: dict) -> str:
+        """Alias for /addmember command."""
+        return await self.handle_addmember_command(parameters)
+    
+    async def handle_addteammember_command(self, parameters: dict) -> str:
+        """Alias for /addmember command."""
+        return await self.handle_addmember_command(parameters)
+
+
 # Mixin registry for easy access
 MIXIN_REGISTRY = {
     "player_coordinator": PlayerCoordinatorMixin,
@@ -1102,12 +1456,20 @@ MIXIN_REGISTRY = {
     "availability_management": AvailabilityManagementMixin,
     "squad_selection": SquadSelectionMixin,
     "communication_management": CommunicationManagementMixin,
+    "player_addition": PlayerAdditionMixin,
+    "team_member_addition": TeamMemberAdditionMixin,
 }
 
 
-def get_mixin_for_role(role: str) -> Optional[BaseBehavioralMixin]:
+def get_mixin_for_role(role) -> Optional[BaseBehavioralMixin]:
     """Get the appropriate mixin for a given agent role."""
-    mixin_class = MIXIN_REGISTRY.get(role.lower())
+    # Handle both string and AgentRole enum
+    if hasattr(role, 'value'):
+        role_str = role.value.lower()
+    else:
+        role_str = str(role).lower()
+    
+    mixin_class = MIXIN_REGISTRY.get(role_str)
     if mixin_class:
         return mixin_class()
     return None

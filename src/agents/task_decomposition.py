@@ -14,17 +14,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Any, Optional, Tuple
 
-# Stub classes for compatibility - these should be imported from the new modular structure
-class AgentRole(Enum):
-    """Agent roles for task routing."""
-    MESSAGE_PROCESSOR = "message_processor"
-    TEAM_MANAGER = "team_manager"
-    PLAYER_COORDINATOR = "player_coordinator"
-    FINANCE_MANAGER = "finance_manager"
-    PERFORMANCE_ANALYST = "performance_analyst"
-    LEARNING_AGENT = "learning_agent"
-    ONBOARDING_AGENT = "onboarding_agent"
-    COMMAND_FALLBACK_AGENT = "command_fallback_agent"
+# Import the correct AgentRole enum from the main enums file
+from core.enums import AgentRole
 
 
 class CapabilityType(Enum):
@@ -263,6 +254,8 @@ class AgentRouter:
         primary_capability = capabilities[0] if capabilities else None
         
         if primary_capability == CapabilityType.PLAYER_ONBOARDING:
+            return AgentRole.PLAYER_COORDINATOR
+        elif primary_capability == CapabilityType.PLAYER_STATUS_TRACKING:
             return AgentRole.PLAYER_COORDINATOR
         elif primary_capability == CapabilityType.PAYMENT_PROCESSING:
             return AgentRole.FINANCE_MANAGER

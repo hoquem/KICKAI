@@ -103,9 +103,38 @@ async def run_system_validation():
     try:
         logger.info("🔍 Running system validation...")
         
+        # Load bot configuration from team settings first
+        from core.dependency_container import get_service
+        from features.team_administration.domain.services.team_service import TeamService
+        
+        team_service = get_service(TeamService)
+        team_id = "KTI"
+        
+        # Get team configuration
+        team = await team_service.get_team_by_id(team_id=team_id)
+        if not team:
+            logger.error(f"❌ Team {team_id} not found in database")
+            return False
+        
+        # Extract bot configuration from team settings
+        bot_config = {
+            'bot_token': team.settings.get('bot_token'),
+            'main_chat_id': team.settings.get('main_chat_id'),
+            'leadership_chat_id': team.settings.get('leadership_chat_id'),
+            'team_id': team_id
+        }
+        
+        logger.info(f"🔧 Bot configuration loaded for team {team_id}:")
+        logger.info(f"  - bot_token: {bot_config['bot_token'][:10]}..." if bot_config['bot_token'] else "None")
+        logger.info(f"  - main_chat_id: {bot_config['main_chat_id']}")
+        logger.info(f"  - leadership_chat_id: {bot_config['leadership_chat_id']}")
+        
         # Create validator and run checks
         validator = StartupValidator()
-        context = {"team_id": "KTI"}  # Use the team ID from your configuration
+        context = {
+            "team_id": team_id,
+            "bot_config": bot_config
+        }
         
         report = await validator.validate(context)
         
@@ -117,6 +146,15 @@ async def run_system_validation():
             logger.error("❌ System validation failed! Critical issues found:")
             for failure in report.critical_failures:
                 logger.error(f"   • {failure}")
+            
+            # CRITICAL: Check specifically for LLM failures
+            llm_failures = [check for check in report.checks 
+                           if check.category.value == "LLM" and check.status.value == "FAILED"]
+            if llm_failures:
+                logger.error("🚫 CRITICAL: LLM authentication failed! Bot cannot function without LLM.")
+                logger.error("🚫 Please check your API keys and LLM provider configuration.")
+                logger.error("🚫 Bot will not start until LLM is working.")
+                return False
             
             logger.error("🚫 Cannot start bots due to critical validation failures")
             return False
@@ -262,6 +300,21 @@ async def main():
         await manager.start_all_bots()
         logger.info("🚀 About to send startup messages...")
         await manager.send_startup_messages()
+        
+        # Start LLM health monitoring
+        logger.info("🔍 Starting LLM health monitoring...")
+        from core.llm_health_monitor import start_llm_monitoring
+        
+        # Create shutdown callback for LLM failures
+        async def llm_failure_shutdown():
+            logger.error("🚫 LLM failure detected - initiating graceful shutdown...")
+            await manager.send_shutdown_messages()
+            await manager.stop_all_bots()
+            shutdown_event.set()
+        
+        # Start monitoring in background
+        asyncio.create_task(start_llm_monitoring(llm_failure_shutdown))
+        logger.info("✅ LLM health monitoring started")
         # Remove old single-bot startup logic (no TelegramBotService here)
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
@@ -273,6 +326,11 @@ async def main():
         logger.info(f"📊 Running bots: {list(manager.bots.keys())}")
         await shutdown_event.wait()
         logger.info("🛑 Shutdown signal received, stopping bots...")
+        
+        # Stop LLM health monitoring
+        from core.llm_health_monitor import stop_llm_monitoring
+        await stop_llm_monitoring()
+        
         await manager.send_shutdown_messages()
         await manager.stop_all_bots()
         logger.info("✅ Multi-bot manager shutdown complete")

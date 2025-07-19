@@ -9,7 +9,7 @@ import asyncio
 from typing import Dict, Any, Optional
 from utils.llm_intent import extract_intent
 from utils.async_utils import async_retry, async_timeout, safe_async_call
-from utils.llm_factory import LLMFactory, LLMConfig, LLMProviderError
+from utils.llm_factory import LLMFactory, LLMConfig
 from utils.llm_factory import AIProvider
 from loguru import logger
 

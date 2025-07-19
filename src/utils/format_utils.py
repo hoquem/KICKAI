@@ -65,6 +65,57 @@ class PlayerFormattingService:
         return "\n".join(output)
     
     @staticmethod
+    def format_player_list_for_leadership(players: List[Player], team_name: str = "Team") -> str:
+        """
+        Format a list of players for leadership view - shows all players with detailed status.
+        
+        Args:
+            players: List of Player objects
+            team_name: Name of the team
+            
+        Returns:
+            Formatted string for Telegram display (leadership view)
+        """
+        if not players:
+            return f"📋 {team_name} Players - Leadership View\n\n❌ No players found."
+        
+        # Group players by onboarding status
+        active_players = [p for p in players if p.is_active()]
+        pending_players = [p for p in players if p.is_pending_approval()]
+        inactive_players = [p for p in players if not p.is_active() and not p.is_pending_approval()]
+        
+        # Build the formatted output
+        output = [f"📋 {team_name} Players - Leadership View ({len(players)} total)"]
+        output.append("")  # Empty line
+        
+        # Active players
+        if active_players:
+            output.append("✅ Active Players:")
+            for player in sorted(active_players, key=lambda p: p.name):
+                output.append(f"• {player.player_id} - {player.name} ({player.position}) - {player.phone}")
+            output.append("")  # Empty line
+        
+        # Pending players
+        if pending_players:
+            output.append("⏳ Pending Approval:")
+            for player in sorted(pending_players, key=lambda p: p.name):
+                output.append(f"• {player.player_id} - {player.name} ({player.position}) - {player.phone}")
+            output.append("")  # Empty line
+        
+        # Inactive players
+        if inactive_players:
+            output.append("❌ Inactive Players:")
+            for player in sorted(inactive_players, key=lambda p: p.name):
+                output.append(f"• {player.player_id} - {player.name} ({player.position}) - {player.phone}")
+            output.append("")  # Empty line
+        
+        # Add timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        output.append(f"📅 Last updated: {timestamp}")
+        
+        return "\n".join(output)
+    
+    @staticmethod
     def format_player_status(player: Player, team_name: str = "Team") -> str:
         """
         Format a single player's status in a clean, Telegram-friendly format.

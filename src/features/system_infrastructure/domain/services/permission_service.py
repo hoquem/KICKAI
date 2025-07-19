@@ -14,7 +14,7 @@ from database.firebase_client import FirebaseClient
 from features.team_administration.domain.services.chat_role_assignment_service import ChatRoleAssignmentService
         # TeamMemberService removed - using mock service instead
 from features.player_registration.domain.services.player_service import PlayerService
-from enums import ChatType, PermissionLevel
+from core.enums import ChatType, PermissionLevel
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +309,9 @@ class PermissionService:
                     "/suspend",
                     "/recover",
                     "/refund_payment",
-                    "/record_expense"
+                    "/record_expense",
+                    "/addplayer",
+                    "/addmember"
                 ])
             
             if await self.can_execute_command(PermissionLevel.ADMIN, context):
