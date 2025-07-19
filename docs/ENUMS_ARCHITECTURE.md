@@ -7,9 +7,9 @@ KICKAI uses a **single source of truth** approach for all enums across the syste
 ## Single Source of Truth
 
 ### Location
-- **File**: `src/enums.py`
+- **File**: `src/core/enums.py`
 - **Purpose**: Central repository for all shared enums
-- **Import Pattern**: `from enums import EnumName`
+- **Import Pattern**: `from core.enums import EnumName`
 
 ### Why This Approach?
 
@@ -55,21 +55,21 @@ KICKAI uses a **single source of truth** approach for all enums across the syste
 ### Import Pattern
 ```python
 # ✅ Correct - Import from high-level enums
-from enums import ChatType, PermissionLevel
+from core.enums import ChatType, PermissionLevel
 
 # ❌ Incorrect - Don't import from feature-specific locations
 from features.shared.domain.enums import ChatType  # OLD - REMOVED
 ```
 
 ### Adding New Enums
-1. Add the enum to `src/enums.py`
+1. Add the enum to `src/core/enums.py`
 2. Update this documentation
 3. Update any affected modules to use the new enum
 
 ### Migration from Old Structure
 The old `src/features/shared/domain/enums.py` has been removed. All imports should now use:
 ```python
-from enums import EnumName
+from core.enums import EnumName
 ```
 
 ## Benefits
@@ -96,7 +96,7 @@ from enums import EnumName
 
 ## Migration Checklist
 
-- [x] Created `src/enums.py` with all shared enums
+- [x] Created `src/core/enums.py` with all shared enums
 - [x] Updated `PermissionService` to import from `enums`
 - [x] Updated `ChatRoleAssignmentService` to import from `enums`
 - [x] Updated `PermissionChecker` to import from `enums`
@@ -115,7 +115,7 @@ from enums import EnumName
 
 ## Related Files
 
-- `src/enums.py` - Single source of truth for all enums
+- `src/core/enums.py` - Single source of truth for all enums
 - `src/features/system_infrastructure/domain/services/permission_service.py` - Uses ChatType and PermissionLevel
 - `src/features/team_administration/domain/services/chat_role_assignment_service.py` - Uses ChatType
 - `src/bot_telegram/message_handling/validation/permission_checker.py` - Uses ChatType and PermissionLevel

@@ -1,1 +1,0 @@
-"""Telegram interfaces package for clean architecture.""" 

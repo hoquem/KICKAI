@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from core.enums import AgentRole
 from config.agents import get_agent_config
+from loguru import logger
 
 def analyze_prompt_structure(backstory: str, agent_name: str) -> dict:
     """Analyze the structure and completeness of a prompt."""
@@ -198,8 +199,8 @@ def evaluate_prompt_quality(analysis: dict) -> dict:
 
 def generate_prompt_report():
     """Generate a comprehensive prompt validation report."""
-    print("🔍 COMPREHENSIVE PROMPT VALIDATION")
-    print("="*60)
+    logger.info("🔍 COMPREHENSIVE PROMPT VALIDATION")
+    logger.info("="*60)
     
     new_agents = [
         AgentRole.AVAILABILITY_MANAGER,
@@ -211,11 +212,11 @@ def generate_prompt_report():
     all_evaluations = []
     
     for agent_role in new_agents:
-        print(f"\n📝 Analyzing {agent_role.value}...")
+        logger.info(f"\n📝 Analyzing {agent_role.value}...")
         
         config = get_agent_config(agent_role)
         if not config:
-            print(f"  ❌ No config found for {agent_role.value}")
+            logger.warning(f"  ❌ No config found for {agent_role.value}")
             continue
         
         # Analyze prompt structure
@@ -227,41 +228,41 @@ def generate_prompt_report():
         all_evaluations.append(evaluation)
         
         # Print detailed analysis
-        print(f"  📏 Length: {analysis['total_length']} characters")
-        print(f"  📊 Score: {evaluation['score']}/{evaluation['max_score']} ({evaluation['grade']})")
-        print(f"  🎯 Structure: {evaluation['structure_score']}/30")
-        print(f"  📝 Content: {evaluation['content_score']}/40")
-        print(f"  🎨 Formatting: {evaluation['formatting_score']}/30")
+        logger.info(f"  📏 Length: {analysis['total_length']} characters")
+        logger.info(f"  📊 Score: {evaluation['score']}/{evaluation['max_score']} ({evaluation['grade']})")
+        logger.info(f"  🎯 Structure: {evaluation['structure_score']}/30")
+        logger.info(f"  📝 Content: {evaluation['content_score']}/40")
+        logger.info(f"  🎨 Formatting: {evaluation['formatting_score']}/30")
         
         # Print sections
-        print(f"  📋 Sections:")
+        logger.info(f"  📋 Sections:")
         for section, present in analysis['sections'].items():
             if not section.endswith('_lines'):
                 status = "✅" if present else "❌"
-                print(f"    {status} {section}")
+                logger.info(f"    {status} {section}")
         
         # Print quality indicators
-        print(f"  🎯 Quality Indicators:")
+        logger.info(f"  🎯 Quality Indicators:")
         for indicator, value in analysis['quality_indicators'].items():
-            print(f"    {indicator}: {value}")
+            logger.info(f"    {indicator}: {value}")
         
         # Print feedback
         if evaluation['feedback']:
-            print(f"  💡 Feedback:")
+            logger.info(f"  💡 Feedback:")
             for item in evaluation['feedback']:
-                print(f"    • {item}")
+                logger.info(f"    • {item}")
     
     # Overall summary
-    print("\n" + "="*60)
-    print("📊 OVERALL PROMPT QUALITY SUMMARY")
-    print("="*60)
+    logger.info("\n" + "="*60)
+    logger.info("📊 OVERALL PROMPT QUALITY SUMMARY")
+    logger.info("="*60)
     
     total_score = sum(eval['score'] for eval in all_evaluations)
     max_total = sum(eval['max_score'] for eval in all_evaluations)
     average_score = total_score / len(all_evaluations) if all_evaluations else 0
     
-    print(f"Average Score: {average_score:.1f}/100")
-    print(f"Total Score: {total_score}/{max_total}")
+    logger.info(f"Average Score: {average_score:.1f}/100")
+    logger.info(f"Total Score: {total_score}/{max_total}")
     
     # Grade distribution
     grades = [eval['grade'] for eval in all_evaluations]
@@ -269,10 +270,10 @@ def generate_prompt_report():
     for grade in grades:
         grade_counts[grade] = grade_counts.get(grade, 0) + 1
     
-    print(f"Grade Distribution: {grade_counts}")
+    logger.info(f"Grade Distribution: {grade_counts}")
     
     # Recommendations
-    print(f"\n💡 OVERALL RECOMMENDATIONS:")
+    logger.info(f"\n💡 OVERALL RECOMMENDATIONS:")
     
     all_feedback = []
     for eval in all_evaluations:
@@ -285,34 +286,34 @@ def generate_prompt_report():
     
     for feedback, count in sorted(feedback_counts.items(), key=lambda x: x[1], reverse=True):
         if count > 1:
-            print(f"  • {feedback} (appears in {count} agents)")
+            logger.info(f"  • {feedback} (appears in {count} agents)")
     
     # Overall assessment
     if average_score >= 85:
-        print(f"\n🎉 EXCELLENT: Prompts are well-structured and comprehensive!")
+        logger.info(f"\n🎉 EXCELLENT: Prompts are well-structured and comprehensive!")
     elif average_score >= 70:
-        print(f"\n✅ GOOD: Prompts are solid with room for minor improvements.")
+        logger.info(f"\n✅ GOOD: Prompts are solid with room for minor improvements.")
     elif average_score >= 50:
-        print(f"\n⚠️  FAIR: Prompts need some improvements to be production-ready.")
+        logger.warning(f"\n⚠️  FAIR: Prompts need some improvements to be production-ready.")
     else:
-        print(f"\n❌ POOR: Prompts need significant work before deployment.")
+        logger.error(f"\n❌ POOR: Prompts need significant work before deployment.")
     
     return average_score >= 70
 
 def main():
     """Main validation function."""
-    print("🚀 Starting Comprehensive Prompt Validation...")
-    print(f"⏰ Started at: {datetime.now()}")
+    logger.info("🚀 Starting Comprehensive Prompt Validation...")
+    logger.info(f"⏰ Started at: {datetime.now()}")
     
     success = generate_prompt_report()
     
-    print(f"\n⏰ Completed at: {datetime.now()}")
+    logger.info(f"\n⏰ Completed at: {datetime.now()}")
     
     if success:
-        print("\n🎉 Prompt validation completed successfully!")
+        logger.info("\n🎉 Prompt validation completed successfully!")
         return 0
     else:
-        print("\n❌ Prompt validation indicates areas for improvement.")
+        logger.warning("\n❌ Prompt validation indicates areas for improvement.")
         return 1
 
 if __name__ == "__main__":

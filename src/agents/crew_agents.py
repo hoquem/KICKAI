@@ -18,10 +18,8 @@ from contextlib import contextmanager
 import traceback
 import time
 
-
-
 from crewai import Agent, Crew
-from langchain_core.tools import BaseTool
+from crewai.tools import tool
 
 from core.settings import get_settings
 from core.enums import AgentRole, AIProvider
@@ -32,16 +30,16 @@ from agents.tool_registry import GLOBAL_TOOL_REGISTRY
 from loguru import logger
 
 REQUIRED_TOOLS = [
-    "ListPlayersTool",
-    "RegisterPlayerTool",
-    "ApprovePlayerTool",
-    "GetPlayerInfoTool",
-    "RemovePlayerTool",
-    "SendMessageTool",
-    "SendAnnouncementTool",
-    "SendPollTool",
-    "LogCommandTool",
-    "LogErrorTool",
+    "list_players",
+    "register_player",
+    "approve_player",
+    "get_player_info",
+    "remove_player",
+    "send_message",
+    "send_announcement",
+    "send_poll",
+    "log_command",
+    "log_error",
 ]
 
 def validate_tools():
@@ -51,35 +49,24 @@ def validate_tools():
         raise RuntimeError(f"Startup validation failed: missing tools: {missing}")
     logger.info(f"✅ All required tools present: {REQUIRED_TOOLS}")
 
-def build_tool_registry():
-    # All tools are already instantiated in GLOBAL_TOOL_REGISTRY
-    logger.info(f"Loaded tools: {list(GLOBAL_TOOL_REGISTRY.keys())}")
-    return GLOBAL_TOOL_REGISTRY.copy()
-
-logger = logging.getLogger(__name__)
-
-
 class ConfigurationError(Exception):
     """Raised when there's a configuration error."""
     pass
-
 
 class AgentInitializationError(Exception):
     """Raised when agent initialization fails."""
     pass
 
-
 def log_errors(func):
-    """Decorator to log errors in agent operations."""
+    """Decorator to log errors in tool management."""
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            logger.error(f"Error in {func.__name__}: {e}", exc_info=True)
+            logger.error(f"Error in {func.__name__}: {e}")
             raise
     return wrapper
-
 
 class AgentToolsManager:
     """Manages tool loading and configuration for agents."""
@@ -89,15 +76,15 @@ class AgentToolsManager:
         self.telegram_context = telegram_context
         self._tool_registry = self._build_tool_registry()
     
-    def _build_tool_registry(self) -> Dict[str, BaseTool]:
+    def _build_tool_registry(self) -> Dict[str, Any]:
         logger.debug(f"AgentToolsManager._build_tool_registry called for team {self.team_config.default_team_id}")
         logger.info(f"[TOOL REGISTRY] Starting tool registry build for team {self.team_config.default_team_id}")
-        # All tools are already instantiated in GLOBAL_TOOL_REGISTRY
+        # All function-based tools are already registered in GLOBAL_TOOL_REGISTRY
         logger.info(f"[TOOL REGISTRY] Loaded tools: {list(GLOBAL_TOOL_REGISTRY.keys())}")
         return GLOBAL_TOOL_REGISTRY.copy()
     
     @log_errors
-    def get_tools_for_agent(self, role: AgentRole) -> List[BaseTool]:
+    def get_tools_for_agent(self, role: AgentRole) -> List[Any]:
         """Get tools for a specific agent role."""
         try:
             # Get agent configuration
@@ -128,11 +115,11 @@ class AgentToolsManager:
     def get_tool_info(self, tool_name: str) -> Optional[Dict[str, Any]]:
         """Get information about a specific tool."""
         if tool_name in self._tool_registry:
-            tool = self._tool_registry[tool_name]
+            tool_func = self._tool_registry[tool_name]
             return {
-                'name': tool.name,
-                'description': tool.description,
-                'type': type(tool).__name__
+                'name': tool_name,
+                'description': tool_func.__doc__ or 'No description available',
+                'type': 'function'
             }
         return None
 
@@ -343,7 +330,7 @@ class TeamManagementSystem:
         if not self.agents:
             raise AgentInitializationError("No agents available to create crew")
         
-        crew_agents = [agent.get_crew_agent() for agent in self.agents.values()]
+        crew_agents = [agent.crew_agent for agent in self.agents.values()]
         
         # Create crew with LangChain Gemini LLM
         self.crew = Crew(
@@ -380,6 +367,7 @@ class TeamManagementSystem:
         This method delegates task execution to the dedicated OrchestrationPipeline
         which breaks down the process into separate, swappable components.
         """
+        logger.info(f"🚨 EXECUTE_TASK CALLED: task_description='{task_description}', execution_context={execution_context}")
         try:
             logger.info(f"🤖 TEAM MANAGEMENT: Starting task execution for team {self.team_id}")
             logger.info(f"🤖 TEAM MANAGEMENT: Task description: {task_description}")
@@ -391,15 +379,20 @@ class TeamManagementSystem:
                 tools = agent.get_tools()
                 logger.info(f"🤖 TEAM MANAGEMENT: Agent '{role.value}' has {len(tools)} tools: {[tool.name for tool in tools]}")
             
-            # CRITICAL: Configure tools with execution context before execution
-            if execution_context:
-                self._configure_tools_with_context(execution_context)
-            
             # Initialize orchestration pipeline if not already done
             if not hasattr(self, '_orchestration_pipeline'):
-                from agents.orchestration_pipeline import OrchestrationPipeline
-                self._orchestration_pipeline = OrchestrationPipeline(llm=self.llm)
-                logger.info(f"🤖 ORCHESTRATION: Initialized orchestration pipeline for team {self.team_id}")
+                logger.info(f"🤖 TEAM MANAGEMENT: Creating orchestration pipeline")
+                try:
+                    from agents.simplified_orchestration import SimplifiedOrchestrationPipeline
+                    self._orchestration_pipeline = SimplifiedOrchestrationPipeline(llm=self.llm)
+                    logger.info(f"🤖 ORCHESTRATION: Initialized orchestration pipeline")
+                except Exception as e:
+                    logger.error(f"🤖 TEAM MANAGEMENT: Failed to create orchestration pipeline: {e}", exc_info=True)
+                    # Fallback to basic crew
+                    logger.info(f"🤖 TEAM MANAGEMENT: Falling back to basic crew execution")
+                    return await self._execute_with_basic_crew(task_description, execution_context)
+            else:
+                logger.info(f"🤖 TEAM MANAGEMENT: Using existing orchestration pipeline")
             
             # Enhanced logging for debugging
             is_help_command = task_description.lower().strip() == "/help"
@@ -411,6 +404,7 @@ class TeamManagementSystem:
                 logger.info(f"🔍 MYINFO FLOW STEP 7b: execution_context={execution_context}")
             
             # Execute task through orchestration pipeline
+            logger.info(f"🤖 TEAM MANAGEMENT: Calling orchestration pipeline.execute_task")
             result = await self._orchestration_pipeline.execute_task(
                 task_description=task_description,
                 available_agents=self.agents,
@@ -426,78 +420,32 @@ class TeamManagementSystem:
             
         except Exception as e:
             logger.error(f"🤖 TEAM MANAGEMENT: Error during task execution: {e}", exc_info=True)
+            logger.info(f"🤖 TEAM MANAGEMENT: Falling back to basic crew execution due to error")
+            return await self._execute_with_basic_crew(task_description, execution_context)
+    
+    async def _execute_with_basic_crew(self, task_description: str, execution_context: Dict[str, Any]) -> str:
+        """
+        Fallback method to execute task using basic CrewAI crew.
+        This is used when the orchestration pipeline fails.
+        """
+        try:
+            logger.info(f"🤖 BASIC CREW: Executing task with basic crew")
+            logger.info(f"🤖 BASIC CREW: Task description: {task_description}")
+            logger.info(f"🤖 BASIC CREW: Execution context: {execution_context}")
+            
+            # Use the basic crew that was created in _create_crew
+            if hasattr(self, 'crew') and self.crew:
+                logger.info(f"🤖 BASIC CREW: Using existing crew")
+                result = await self.crew.kickoff({"task": task_description})
+                logger.info(f"🤖 BASIC CREW: Task completed with result: {result}")
+                return result
+            else:
+                logger.error(f"🤖 BASIC CREW: No crew available for fallback")
+                return "❌ Sorry, I'm unable to process your request at the moment."
+                
+        except Exception as e:
+            logger.error(f"🤖 BASIC CREW: Error in fallback execution: {e}", exc_info=True)
             return f"❌ Sorry, I encountered an error processing your request: {str(e)}"
-    
-    def _configure_tools_with_context(self, context: Dict[str, Any]) -> None:
-        """
-        Configure all tools with the execution context.
-        
-        This ensures that tools have access to team_id, user_id, and other
-        context information needed for proper execution.
-        
-        Args:
-            context: Execution context containing team_id, user_id, etc.
-        """
-        try:
-            team_id = context.get('team_id')
-            user_id = context.get('user_id')
-            chat_id = context.get('chat_id')
-            
-            logger.info(f"[TOOL CONFIG] Configuring tools with context: team_id={team_id}, user_id={user_id}, chat_id={chat_id}")
-            
-            # Import the tool configuration function
-            from features.player_registration.domain.tools.player_tools import configure_tool_with_context
-            
-            # Configure each tool with the context
-            for role, agent in self.agents.items():
-                tools = agent.get_tools()
-                for tool in tools:
-                    configure_tool_with_context(tool, context)
-                
-                # Also configure CrewAI agent tools if they exist
-                crew_agent = agent.get_crew_agent()
-                if hasattr(crew_agent, 'tools') and crew_agent.tools:
-                    for tool in crew_agent.tools:
-                        configure_tool_with_context(tool, context)
-                    
-            logger.info(f"[TOOL CONFIG] Successfully configured {len(self.agents)} agents' tools with execution context")
-            
-        except Exception as e:
-            logger.error(f"[TOOL CONFIG] Error configuring tools with context: {e}", exc_info=True)
-            # Don't raise - this is not critical for execution
-    
-    def _configure_single_tool(self, tool: Any, context: Dict[str, Any]) -> None:
-        """
-        Configure a single tool with execution context.
-        
-        Args:
-            tool: The tool to configure
-            context: Execution context
-        """
-        try:
-            # Set team_id on tools that support it
-            if hasattr(tool, 'team_id'):
-                tool.team_id = context.get('team_id')
-                logger.debug(f"[TOOL CONFIG] Set team_id={context.get('team_id')} on tool {getattr(tool, 'name', 'unknown')}")
-            
-            # Set user_id on tools that support it
-            if hasattr(tool, 'user_id'):
-                tool.user_id = context.get('user_id')
-                logger.debug(f"[TOOL CONFIG] Set user_id={context.get('user_id')} on tool {getattr(tool, 'name', 'unknown')}")
-            
-            # Set chat_id on tools that support it
-            if hasattr(tool, 'chat_id'):
-                tool.chat_id = context.get('chat_id')
-                logger.debug(f"[TOOL CONFIG] Set chat_id={context.get('chat_id')} on tool {getattr(tool, 'name', 'unknown')}")
-            
-            # Call custom configuration method if available
-            if hasattr(tool, 'configure_with_context'):
-                tool.configure_with_context(context)
-                logger.debug(f"[TOOL CONFIG] Called configure_with_context on tool {getattr(tool, 'name', 'unknown')}")
-                
-        except Exception as e:
-            logger.warning(f"[TOOL CONFIG] Error configuring tool {getattr(tool, 'name', 'unknown')}: {e}")
-            # Don't raise - continue with other tools
     
     @contextmanager
     def debug_mode(self):
@@ -526,7 +474,7 @@ class TeamManagementSystem:
                 health_status['agents'][role.value] = {
                     'enabled': agent.is_enabled(),
                     'tools_count': len(agent.get_tools()),
-                    'crew_agent_available': agent.get_crew_agent() is not None
+                    'crew_agent_available': agent.crew_agent is not None
                 }
             
             return health_status

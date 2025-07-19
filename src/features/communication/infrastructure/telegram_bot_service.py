@@ -5,7 +5,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from features.communication.domain.interfaces.telegram_bot_service_interface import TelegramBotServiceInterface
 from features.system_infrastructure.domain.services.permission_service import PermissionContext, get_permission_service
-from enums import ChatType
+from core.enums import ChatType
 import re
 
 class TelegramBotService(TelegramBotServiceInterface):
@@ -22,34 +22,79 @@ class TelegramBotService(TelegramBotServiceInterface):
         self._setup_handlers()
 
     def _setup_handlers(self):
-        """Set up message handlers for the Telegram bot."""
+        """Set up message handlers for the Telegram bot using command registry."""
         try:
-            # Command handlers (highest priority)
-            command_handlers = [
-                ("start", self._handle_start_command),
-                ("help", self._handle_help_command),
-                ("register", self._handle_register_command),
-                ("myinfo", self._handle_myinfo_command),
-                ("list", self._handle_list_command),
-                ("status", self._handle_status_command),
-            ]
+            from core.command_registry import get_command_registry
             
-            for command, handler in command_handlers:
-                self.app.add_handler(CommandHandler(command, handler))
+            # Get command registry and discover commands (only once)
+            registry = get_command_registry()
+            if not registry._discovered:
+                registry.auto_discover_commands()
             
-            # Natural language handler (for non-command text messages)
-            self.app.add_handler(MessageHandler(
-                filters.TEXT & ~filters.COMMAND, 
-                self._handle_natural_language_message
-            ))
+            # Get all registered commands
+            all_commands = registry.list_all_commands()
             
-            logger.info(f"✅ Telegram bot handlers set up for team {self.team_id}")
-            logger.info(f"   - Text message handler: ✅")
-            logger.info(f"   - Command handlers: ✅")
+            # Set up command handlers from registry
+            command_handlers = []
+            
+            # Define commands that should use dedicated handlers instead of CrewAI
+            dedicated_handlers = {
+                "/help": self._handle_help_command,
+                "/start": self._handle_start_command,
+                "/register": self._handle_register_command,
+                "/myinfo": self._handle_myinfo_command,
+                "/list": self._handle_list_command,
+                "/status": self._handle_status_command
+            }
+            
+            for cmd_metadata in all_commands:
+                # Check if this command has a dedicated handler
+                if cmd_metadata.name in dedicated_handlers:
+                    # Use the dedicated handler
+                    handler = dedicated_handlers[cmd_metadata.name]
+                    command_handlers.append(CommandHandler(cmd_metadata.name.lstrip('/'), handler))
+                    logger.info(f"✅ Registered dedicated command handler: {cmd_metadata.name}")
+                else:
+                    # Use the generic CrewAI handler
+                    def create_handler(cmd_name):
+                        return lambda update, context: self._handle_registered_command(update, context, cmd_name)
+                    
+                    handler = create_handler(cmd_metadata.name)
+                    command_handlers.append(CommandHandler(cmd_metadata.name.lstrip('/'), handler))
+                    logger.info(f"✅ Registered CrewAI command handler: {cmd_metadata.name}")
+            
+            # Add message handler for natural language processing
+            message_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message)
+            
+            # Add all handlers to the application
+            self.app.add_handlers(command_handlers + [message_handler])
+            
+            logger.info(f"✅ Set up {len(command_handlers)} command handlers and 1 message handler")
             
         except Exception as e:
             logger.error(f"❌ Error setting up handlers: {e}")
-            raise
+            # Fallback to basic handlers
+            self._setup_fallback_handlers()
+    
+    def _setup_fallback_handlers(self):
+        """Set up fallback handlers when command registry fails."""
+        try:
+            # Define basic command handlers
+            handlers = [
+                CommandHandler("start", self._handle_start_command),
+                CommandHandler("help", self._handle_help_command),
+                CommandHandler("register", self._handle_register_command),
+                CommandHandler("myinfo", self._handle_myinfo_command),
+                CommandHandler("list", self._handle_list_command),
+                CommandHandler("status", self._handle_status_command),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message)
+            ]
+            
+            self.app.add_handlers(handlers)
+            logger.info(f"✅ Set up {len(handlers)} fallback handlers")
+            
+        except Exception as e:
+            logger.error(f"❌ Error setting up fallback handlers: {e}")
 
     async def _handle_natural_language_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle natural language messages using CrewAI processing."""
@@ -136,13 +181,46 @@ class TelegramBotService(TelegramBotServiceInterface):
         else:
             return ChatType.PRIVATE
 
+    async def _handle_registered_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE, command_name: str):
+        """Handle registered commands by delegating to CrewAI system."""
+        try:
+            user_id = str(update.effective_user.id)
+            chat_id = str(update.effective_chat.id)
+            chat_type = self._determine_chat_type(chat_id)
+            username = update.effective_user.username or update.effective_user.first_name
+            
+            # Build the full command with arguments
+            args = context.args if context.args else []
+            message_text = f"{command_name} {' '.join(args)}".strip()
+            
+            logger.info(f"📨 Registered command from {username} ({user_id}) in {chat_type.value}: '{message_text}'")
+            
+            # Delegate to CrewAI processing
+            await self._handle_crewai_processing(update, message_text, user_id, chat_id, chat_type, username)
+            
+        except Exception as e:
+            logger.error(f"❌ Error handling registered command {command_name}: {e}")
+            await self._send_error_response(update, "I encountered an error processing your command. Please try again.")
+
     async def _handle_crewai_processing(self, update: Update, message_text: str, 
                                       user_id: str, chat_id: str, chat_type: ChatType, username: str):
         """Handle message processing with CrewAI system."""
         try:
+            # Debug logging
+            logger.info(f"🔍 CREWAI DEBUG: message_text='{message_text}'")
+            logger.info(f"🔍 CREWAI DEBUG: crewai_system available: {self.crewai_system is not None}")
+            logger.info(f"🔍 CREWAI DEBUG: crewai_system type: {type(self.crewai_system).__name__}")
+            logger.info(f"🔍 CREWAI DEBUG: crewai_system has execute_task: {hasattr(self.crewai_system, 'execute_task')}")
+            
             if not self.crewai_system:
                 logger.warning("CrewAI system not available, using fallback")
                 await self._handle_fallback_response(update, message_text)
+                return
+            
+            # Check if message text is empty
+            if not message_text or message_text.strip() == "":
+                logger.error(f"❌ Error in CrewAI processing: Message text is empty")
+                await self._handle_fallback_response(update, "I received an empty message. Please try again.")
                 return
             
             # Create execution context
@@ -155,10 +233,25 @@ class TelegramBotService(TelegramBotServiceInterface):
                 'message_text': message_text
             }
             
+            logger.info(f"🔍 CREWAI DEBUG: About to call execute_task with message_text='{message_text}'")
+            logger.info(f"🔍 CREWAI DEBUG: crewai_system type: {type(self.crewai_system).__name__}")
+            logger.info(f"🔍 CREWAI DEBUG: crewai_system has execute_task: {hasattr(self.crewai_system, 'execute_task')}")
+            logger.info(f"🔍 CREWAI DEBUG: crewai_system methods: {[method for method in dir(self.crewai_system) if not method.startswith('_')]}")
+            logger.info(f"🔍 CREWAI DEBUG: execution_context={execution_context}")
             # Execute with CrewAI
-            result = await self.crewai_system.execute_task(message_text, execution_context)
+            if hasattr(self.crewai_system, 'execute_task'):
+                logger.info(f"🔍 CREWAI DEBUG: Calling execute_task method")
+                result = await self.crewai_system.execute_task(message_text, execution_context)
+            else:
+                logger.error(f"🔍 CREWAI DEBUG: execute_task method not found!")
+                result = "❌ System error: execute_task method not available"
             
-            await update.message.reply_text(result, parse_mode='Markdown')
+            logger.info(f"🔍 CREWAI DEBUG: execute_task returned: '{result[:100]}...'")
+            
+            # Safely escape the result for Telegram Markdown
+            safe_result = self._escape_markdown(result)
+            
+            await update.message.reply_text(safe_result, parse_mode='Markdown')
             logger.info(f"✅ CrewAI processing completed for user {username}")
             
         except Exception as e:
@@ -263,8 +356,12 @@ class TelegramBotService(TelegramBotServiceInterface):
                         return
             
             # User is registered or in leadership chat - process with CrewAI
+            # Pass the full command text including any arguments
+            args = context.args if context.args else []
+            message_text = f"/myinfo {' '.join(args)}".strip()
+            
             await self._handle_crewai_processing(
-                update, "/myinfo", user_id, chat_id, chat_type, username
+                update, message_text, user_id, chat_id, chat_type, username
             )
             
         except Exception as e:
@@ -304,8 +401,12 @@ class TelegramBotService(TelegramBotServiceInterface):
                         return
             
             # User is registered or in leadership chat - process with CrewAI
+            # Pass the full command text including any arguments
+            args = context.args if context.args else []
+            message_text = f"/list {' '.join(args)}".strip()
+            
             await self._handle_crewai_processing(
-                update, "/list", user_id, chat_id, chat_type, username
+                update, message_text, user_id, chat_id, chat_type, username
             )
             
         except Exception as e:
@@ -317,7 +418,6 @@ class TelegramBotService(TelegramBotServiceInterface):
         try:
             user_id = str(update.effective_user.id)
             username = update.effective_user.username or update.effective_user.first_name
-            message_text = update.message.text.strip()
             chat_id = str(update.effective_chat.id)
             chat_type = self._determine_chat_type(chat_id)
             
@@ -346,6 +446,10 @@ class TelegramBotService(TelegramBotServiceInterface):
                         return
             
             # User is registered or in leadership chat - process with CrewAI
+            # Pass the full command text including any arguments
+            args = context.args if context.args else []
+            message_text = f"/status {' '.join(args)}".strip()
+            
             await self._handle_crewai_processing(
                 update, message_text, user_id, chat_id, chat_type, username
             )
@@ -748,6 +852,22 @@ class TelegramBotService(TelegramBotServiceInterface):
         except Exception as e:
             logger.error(f"❌ Error sending message: {e}")
             raise
+
+    def _escape_markdown(self, text: str) -> str:
+        """Escape special characters for Telegram Markdown parsing."""
+        if not text:
+            return text
+        
+        # Characters that need to be escaped in Telegram Markdown
+        escape_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+        
+        escaped_text = text
+        for char in escape_chars:
+            escaped_text = escaped_text.replace(char, f'\\{char}')
+        
+        return escaped_text
+
+
 
     async def stop(self) -> None:
         """Stop the bot."""

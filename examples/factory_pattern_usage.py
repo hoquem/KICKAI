@@ -7,11 +7,12 @@ dependency injection and how to use them in the application.
 
 from core.dependency_container import get_container, initialize_container
 from features.registry import ServiceFactory
+from loguru import logger
 
 
 def example_basic_usage():
     """Example of basic factory usage."""
-    print("=== Basic Factory Usage ===")
+    logger.info("=== Basic Factory Usage ===")
     
     # Initialize the container
     container = initialize_container()
@@ -23,8 +24,8 @@ def example_basic_usage():
     player_services = factory.create_player_registration_services()
     payment_services = factory.create_payment_management_services()
     
-    print(f"Created {len(player_services)} player registration services")
-    print(f"Created {len(payment_services)} payment management services")
+    logger.info(f"Created {len(player_services)} player registration services")
+    logger.info(f"Created {len(payment_services)} payment management services")
     
     # Access services through the container
     from features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
@@ -33,30 +34,30 @@ def example_basic_usage():
     registration_service = container.get_service(PlayerRegistrationService)
     payment_service = container.get_service(PaymentService)
     
-    print(f"Registration service: {type(registration_service).__name__}")
-    print(f"Payment service: {type(payment_service).__name__}")
+    logger.info(f"Registration service: {type(registration_service).__name__}")
+    logger.info(f"Payment service: {type(payment_service).__name__}")
 
 
 def example_lazy_creation():
     """Example of lazy service creation."""
-    print("\n=== Lazy Service Creation ===")
+    logger.info("\n=== Lazy Service Creation ===")
     
     container = get_container()
     factory = container.get_factory()
     
     # Services are created only when needed
-    print("Creating only team administration services...")
+    logger.info("Creating only team administration services...")
     team_services = factory.create_team_administration_services()
     
-    print(f"Created team services: {list(team_services.keys())}")
+    logger.info(f"Created team services: {list(team_services.keys())}")
     
     # Other services remain uncreated until explicitly requested
-    print("Other services are not created until needed")
+    logger.info("Other services are not created until needed")
 
 
 def example_cross_feature_dependencies():
     """Example of handling cross-feature dependencies."""
-    print("\n=== Cross-Feature Dependencies ===")
+    logger.info("\n=== Cross-Feature Dependencies ===")
     
     container = get_container()
     factory = container.get_factory()
@@ -64,8 +65,8 @@ def example_cross_feature_dependencies():
     # Create all services to demonstrate cross-feature dependencies
     all_services = factory.create_all_services()
     
-    print(f"Total services created: {len(all_services)}")
-    print("Services by feature:")
+    logger.info(f"Total services created: {len(all_services)}")
+    logger.info("Services by feature:")
     
     feature_counts = {}
     for service_name in all_services.keys():
@@ -73,18 +74,18 @@ def example_cross_feature_dependencies():
         feature_counts[feature] = feature_counts.get(feature, 0) + 1
     
     for feature, count in feature_counts.items():
-        print(f"  {feature}: {count} services")
+        logger.info(f"  {feature}: {count} services")
 
 
 def example_service_retrieval():
     """Example of retrieving services from the container."""
-    print("\n=== Service Retrieval ===")
+    logger.info("\n=== Service Retrieval ===")
     
     container = get_container()
     
     # Get database interface
     database = container.get_database()
-    print(f"Database: {type(database).__name__}")
+    logger.info(f"Database: {type(database).__name__}")
     
     # Check if services are available
     from features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
@@ -93,19 +94,19 @@ def example_service_retrieval():
     has_registration = container.has_service(PlayerRegistrationService)
     has_payment = container.has_service(PaymentService)
     
-    print(f"Has registration service: {has_registration}")
-    print(f"Has payment service: {has_payment}")
+    logger.info(f"Has registration service: {has_registration}")
+    logger.info(f"Has payment service: {has_payment}")
     
     if has_registration and has_payment:
         reg_service = container.get_service(PlayerRegistrationService)
         pay_service = container.get_service(PaymentService)
-        print(f"Successfully retrieved services: {type(reg_service).__name__}, {type(pay_service).__name__}")
+        logger.info(f"Successfully retrieved services: {type(reg_service).__name__}, {type(pay_service).__name__}")
 
 
 def main():
     """Run all factory pattern examples."""
-    print("Factory Pattern Usage Examples")
-    print("=" * 50)
+    logger.info("Factory Pattern Usage Examples")
+    logger.info("=" * 50)
     
     try:
         example_basic_usage()
@@ -113,12 +114,12 @@ def main():
         example_cross_feature_dependencies()
         example_service_retrieval()
         
-        print("\n" + "=" * 50)
-        print("All examples completed successfully!")
+        logger.info("\n" + "=" * 50)
+        logger.info("All examples completed successfully!")
         
     except Exception as e:
-        print(f"Error running examples: {e}")
-        print("This is expected if the actual service implementations don't exist yet.")
+        logger.error(f"Error running examples: {e}")
+        logger.info("This is expected if the actual service implementations don't exist yet.")
 
 
 if __name__ == "__main__":

@@ -83,13 +83,28 @@ class AgentConfigurationManager:
 - If system errors occur: Acknowledge the issue and provide immediate solutions
 - Always maintain user confidence and enthusiasm
 
+**CRITICAL HELP COMMAND HANDLING:**
+When users ask for help (e.g., "/help", "help", "what can you do", "show commands"), you MUST:
+1. **ALWAYS use the `get_available_commands` tool** to get the current list of available commands
+2. **Pass the correct chat type** - "leadership" for leadership chats, "main" for main chats
+3. **Return the exact output** from the tool - this provides accurate, context-aware command information
+4. **NEVER fabricate or guess** command lists - always use the tool for accuracy
+
+**HELP COMMAND EXAMPLES:**
+✅ CORRECT: Use `get_available_commands` tool with chat_type="leadership" for leadership chats
+✅ CORRECT: Use `get_available_commands` tool with chat_type="main" for main chats
+✅ CORRECT: Return the exact formatted output from the tool
+❌ INCORRECT: Creating generic responses without using the tool
+❌ INCORRECT: Mentioning commands that don't exist like "/players", "/schedule"
+
 **TOOLS AND CAPABILITIES:**
 - Natural language understanding and intent classification
 - Context management and conversation flow
 - Agent routing and load balancing
 - Help system and user guidance
-- Error recovery and fallback handling""",
-                tools=["send_message", "send_announcement"],
+- Error recovery and fallback handling
+- Command information retrieval via `get_available_commands` tool""",
+                tools=["send_message", "send_announcement", "get_available_commands"],
                 behavioral_mixin="message_processor",
                 memory_enabled=True,
                 learning_enabled=True
@@ -558,7 +573,7 @@ class AgentConfigurationManager:
 - Work with Team Manager for approval workflows
 - Provide feedback to Learning Agent for process improvement
 - Ensure smooth handoff to other agents after completion""",
-                tools=["send_message", "send_announcement", "player_registration_tool", "team_member_registration_tool", "registration_guidance_tool"],
+                tools=["send_message", "send_announcement", "register_player", "team_member_registration", "registration_guidance"],
                 behavioral_mixin="onboarding",
                 memory_enabled=True,
                 learning_enabled=True
@@ -610,23 +625,30 @@ class AgentConfigurationManager:
 - **Similarity Matching**: Find similar commands or functions
 - **Goal Identification**: Understand what the user is trying to achieve
 
+**CRITICAL COMMAND GUIDANCE:**
+When users ask for help with commands or seem confused about available options, you MUST:
+1. **ALWAYS use the `get_available_commands` tool** to get the current list of available commands
+2. **Pass the correct chat type** - "leadership" for leadership chats, "main" for main chats
+3. **Use the tool output** to provide accurate command suggestions and examples
+4. **NEVER fabricate or guess** command lists - always use the tool for accuracy
+
 **GUIDANCE PROTOCOLS:**
-- **Command Examples**: Provide clear examples of correct usage
-- **Available Options**: List relevant commands and functions
+- **Command Examples**: Provide clear examples of correct usage using tool data
+- **Available Options**: List relevant commands and functions from tool output
 - **Step-by-Step Help**: Break down complex processes
 - **Alternative Approaches**: Suggest different ways to achieve goals
 - **Resource Directories**: Point to helpful information and contacts
 
 **ERROR HANDLING:**
-- If command is completely unclear: Ask for clarification with examples
-- If similar commands exist: Suggest the most likely option
+- If command is completely unclear: Use `get_available_commands` tool and suggest relevant options
+- If similar commands exist: Use tool data to suggest the most likely option
 - If user seems frustrated: Provide extra support and encouragement
 - If system limitations exist: Explain clearly and offer alternatives
 
 **EXAMPLES:**
-✅ Great: "I think you might want to check your status! 🎯 Try using /status followed by your phone number, like: /status 07123456789. This will show you your registration status and match eligibility!"
-✅ Good: "I think you might want to check your status. Try using /status followed by your phone number, like: /status 07123456789"
-❌ Bad: "I don't understand what you want. Try something else."
+✅ CORRECT: Use `get_available_commands` tool, then suggest: "I think you might want to check your status! 🎯 Try using /status followed by your phone number, like: /status 07123456789. This will show you your registration status and match eligibility!"
+✅ CORRECT: Use tool data to provide accurate command suggestions
+❌ INCORRECT: Suggesting commands without using the tool
 
 **LEARNING INTEGRATION:**
 - Track common confusion patterns for system improvement
@@ -641,7 +663,7 @@ class AgentConfigurationManager:
 - Reduction in user frustration
 - Improved user understanding of system capabilities
 - Positive user experience during confusion""",
-                tools=["send_message"],
+                tools=["send_message", "get_available_commands"],
                 behavioral_mixin="command_fallback",
                 memory_enabled=True,
                 learning_enabled=True
