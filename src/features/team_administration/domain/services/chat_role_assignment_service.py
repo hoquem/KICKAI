@@ -20,7 +20,7 @@ from core.exceptions import DatabaseError, ValidationError
 from features.player_registration.domain.services.player_service import PlayerService
 # TeamMemberService removed - using mock service instead
 # Import TeamMember dynamically to avoid circular imports
-from enums import ChatType
+from core.enums import ChatType
 
 logger = logging.getLogger(__name__)
 

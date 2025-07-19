@@ -10,7 +10,7 @@ class MultiBotManager:
     Loads bot configurations, starts/stops bots, and monitors their status.
     """
     def __init__(self, data_store: Any, team_service: Any):
-        print("DEBUG: MultiBotManager.__init__ called")
+        logger.debug("DEBUG: MultiBotManager.__init__ called")
         self.data_store = data_store
         self.team_service = team_service
         self.bots: Dict[str, Any] = {}
@@ -18,7 +18,7 @@ class MultiBotManager:
         self.crewai_systems: Dict[str, Any] = {}  # Store CrewAI systems for each team
         self._running = False
         self.logger = logging.getLogger(__name__)
-        print("DEBUG: MultiBotManager.__init__ completed")
+        logger.debug("DEBUG: MultiBotManager.__init__ completed")
 
     async def load_bot_configurations(self) -> List[Any]:
         """Load bot configurations from the data store (e.g., Firestore)."""
@@ -116,7 +116,8 @@ class MultiBotManager:
                         token=bot_token, 
                         main_chat_id=main_chat_id, 
                         leadership_chat_id=leadership_chat_id, 
-                        team_id=team_id
+                        team_id=team_id,
+                        crewai_system=crewai_system  # Pass the CrewAI system
                     )
                     self.bots[team_id] = bot_service
                     

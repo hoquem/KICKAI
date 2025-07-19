@@ -1,7 +1,6 @@
 import logging
 from .base_check import BaseCheck
 from ..reporting import CheckResult, CheckStatus, CheckCategory
-from crewai.tools import BaseTool  # <-- Add this import at the top level
 
 class AgentInitializationCheck(BaseCheck):
     """
@@ -19,7 +18,6 @@ class AgentInitializationCheck(BaseCheck):
             from agents.configurable_agent import ConfigurableAgent, AgentCreationContext
             from config.agents import get_enabled_agent_configs, AgentConfig
             from utils.llm_factory import LLMFactory
-            # from crewai.tools import BaseTool  # If tool checks are needed, use this import
 
             # Simulate agent instantiation for all enabled configs
             configs = get_enabled_agent_configs()
