@@ -29,7 +29,7 @@ from .models import (
     BroadcastCommand, PromoteUserCommand, DemoteUserCommand, SystemStatusCommand
 )
 from .validators import CommandValidator
-from .help import HelpGenerator
+# Help generation moved to permission service
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ class ImprovedCommandParser:
     def __init__(self):
         self.app = Typer()
         self.validator = CommandValidator()
-        self.help_generator = HelpGenerator()
+        # Help generation moved to permission service
         self._setup_commands()
         logger.info("ImprovedCommandParser initialized with modular components")
     

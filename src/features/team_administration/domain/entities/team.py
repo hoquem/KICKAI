@@ -10,17 +10,7 @@ class TeamStatus(Enum):
     SUSPENDED = "suspended"
     PENDING = "pending"
 
-@dataclass
-class TeamMember:
-    """Team member entity."""
-    team_id: str
-    user_id: str
-    role: str = "player"
-    permissions: List[str] = field(default_factory=list)
-    telegram_id: Optional[str] = None
-    roles: List[str] = field(default_factory=list)
-    chat_access: Dict[str, bool] = field(default_factory=dict)
-    joined_at: datetime = field(default_factory=datetime.now)
+# TeamMember class moved to separate file: team_member.py
 
 @dataclass
 class Team:

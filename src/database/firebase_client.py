@@ -19,15 +19,25 @@ from google.cloud.firestore import CollectionReference
 from google.cloud.firestore_v1.base_document import DocumentSnapshot
 from google.api_core import exceptions as google_exceptions
 
-from core.logging_config import logger
-from core.settings import get_settings
-from core.constants import FIRESTORE_COLLECTION_PREFIX
-from core.exceptions import (
+from loguru import logger
+# Import settings with fallback
+try:
+    from core.settings import get_settings
+except ImportError:
+    # Fallback for testing
+    def get_settings():
+        class MockSettings:
+            firebase_project_id = "test_project"
+            firebase_credentials_json = None
+            firebase_credentials_path = None
+        return MockSettings()
+from src.core.constants import FIRESTORE_COLLECTION_PREFIX
+from src.core.exceptions import (
     DatabaseError, ConnectionError, NotFoundError, 
     DuplicateError, create_error_context
 )
-from utils.enum_utils import serialize_enums_for_firestore
-from utils.async_utils import async_retry, async_timeout, async_operation_context, safe_async_call
+from src.utils.enum_utils import serialize_enums_for_firestore
+from src.utils.async_utils import async_retry, async_timeout, async_operation_context, safe_async_call
 
 # Get logger for this module - using the imported logger directly
 

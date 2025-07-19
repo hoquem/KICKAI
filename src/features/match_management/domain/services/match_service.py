@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from database.firebase_client import get_firebase_client
 from features.match_management.domain.entities.match import Match, MatchStatus
-from core.exceptions import MatchError, MatchNotFoundError, create_error_context
+from src.core.exceptions import MatchError, MatchNotFoundError, create_error_context
 from features.match_management.domain.interfaces.match_service_interface import IMatchService
 
 logger = logging.getLogger(__name__)

@@ -8,6 +8,33 @@ This module defines the Player entity for the player registration domain.
 from dataclasses import dataclass
 from typing import Optional
 from datetime import datetime
+from enum import Enum
+
+
+class PlayerPosition(Enum):
+    """Player position enumeration."""
+    GOALKEEPER = "goalkeeper"
+    DEFENDER = "defender"
+    MIDFIELDER = "midfielder"
+    FORWARD = "forward"
+    UTILITY = "utility"
+
+
+class PlayerRole(Enum):
+    """Player role enumeration."""
+    PLAYER = "player"
+    CAPTAIN = "captain"
+    VICE_CAPTAIN = "vice_captain"
+    ADMIN = "admin"
+
+
+class OnboardingStatus(Enum):
+    """Player onboarding status enumeration."""
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    ACTIVE = "active"
+    INACTIVE = "inactive"
 
 
 @dataclass

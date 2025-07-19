@@ -157,22 +157,8 @@ class SimplifiedMessageHandler:
     async def _process_help_request(self, message_text: str, user_context: UserContext) -> str:
         """Process a help request."""
         try:
-            from bot_telegram.command_parser import get_improved_parser
-            
-            parser = get_improved_parser()
-            
-            # Try to extract specific help request
-            if "help" in message_text.lower():
-                # Extract potential command name
-                words = message_text.lower().split()
-                for word in words:
-                    if word.startswith('/'):
-                        return parser.get_help_text(word)
-                    elif word in ['add', 'register', 'status', 'list', 'approve', 'reject']:
-                        return parser.get_help_text(f"/{word}")
-            
-            # Return general help
-            return parser.get_help_text()
+            # Help is now handled by the permission service in the Telegram bot service
+            return "💡 Use /help to see available commands for this chat."
             
         except Exception as e:
             logger.error(f"Error processing help request: {e}")
@@ -180,27 +166,13 @@ class SimplifiedMessageHandler:
     
     def get_help_text(self, command_name: str, user_id: str) -> Optional[str]:
         """Get help text for a specific command."""
-        try:
-            from bot_telegram.command_parser import get_improved_parser
-            
-            parser = get_improved_parser()
-            return parser.get_help_text(command_name)
-            
-        except Exception as e:
-            logger.error(f"Error getting help text: {e}")
-            return None
+        # Help is now handled by the permission service
+        return None
     
     def get_feature_help(self, feature: str, user_id: str) -> Optional[str]:
         """Get help text for a specific feature."""
-        try:
-            from bot_telegram.command_parser import get_improved_parser
-            
-            parser = get_improved_parser()
-            return parser.get_feature_help(feature)
-            
-        except Exception as e:
-            logger.error(f"Error getting feature help: {e}")
-            return None
+        # Help is now handled by the permission service
+        return None
 
 
 # Global handler instance

@@ -558,7 +558,7 @@ class AgentConfigurationManager:
 - Work with Team Manager for approval workflows
 - Provide feedback to Learning Agent for process improvement
 - Ensure smooth handoff to other agents after completion""",
-                tools=["send_message", "send_announcement"],
+                tools=["send_message", "send_announcement", "player_registration_tool", "team_member_registration_tool", "registration_guidance_tool"],
                 behavioral_mixin="onboarding",
                 memory_enabled=True,
                 learning_enabled=True

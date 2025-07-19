@@ -222,18 +222,43 @@ class MessageProcessorMixin(BaseBehavioralMixin):
             # Extract context information
             user_id = parameters.get('user_id', 'unknown')
             chat_id = parameters.get('chat_id', 'unknown')
+            team_id = parameters.get('team_id', 'KAI')  # Default team ID
             is_leadership_chat = parameters.get('is_leadership_chat', False)
             user_role = parameters.get('user_role', 'player')
             
-            self.logger.info(f"🔧 MESSAGE_PROCESSOR: Context - user_id={user_id}, chat_id={chat_id}, is_leadership_chat={is_leadership_chat}, user_role={user_role}")
+            self.logger.info(f"🔧 MESSAGE_PROCESSOR: Context - user_id={user_id}, chat_id={chat_id}, team_id={team_id}, is_leadership_chat={is_leadership_chat}, user_role={user_role}")
             
-            # Generate help message based on context
-            if is_leadership_chat:
-                self.logger.info(f"🔧 MESSAGE_PROCESSOR: Generating leadership chat help")
-                help_message = self._get_leadership_help_message()
-            else:
-                self.logger.info(f"🔧 MESSAGE_PROCESSOR: Generating main chat help")
-                help_message = self._get_main_chat_help_message()
+            # Use permission service to get available commands
+            try:
+                from features.system_infrastructure.domain.services.permission_service import (
+                    get_permission_service, PermissionContext
+                )
+                from enums import ChatType
+                
+                permission_service = get_permission_service()
+                permission_context = PermissionContext(
+                    user_id=user_id,
+                    team_id=team_id,
+                    chat_id=chat_id,
+                    chat_type=ChatType.LEADERSHIP if is_leadership_chat else ChatType.MAIN,
+                    username=parameters.get('username', '')
+                )
+                
+                # Get available commands for this user in this context
+                available_commands = await permission_service.get_available_commands(permission_context)
+                
+                self.logger.info(f"🔧 MESSAGE_PROCESSOR: Available commands: {available_commands}")
+                
+                # Generate help message based on available commands
+                help_message = self._generate_contextual_help_message(available_commands, is_leadership_chat, user_role)
+                
+            except Exception as e:
+                self.logger.warning(f"🔧 MESSAGE_PROCESSOR: Could not get permissions, using fallback: {e}")
+                # Fallback to chat-based help
+                if is_leadership_chat:
+                    help_message = self._get_leadership_help_message()
+                else:
+                    help_message = self._get_main_chat_help_message()
             
             self.logger.info(f"🔧 MESSAGE_PROCESSOR: Help message generated, length={len(help_message)}")
             self.logger.info(f"🔧 MESSAGE_PROCESSOR: Returning help message")
@@ -244,6 +269,102 @@ class MessageProcessorMixin(BaseBehavioralMixin):
             self.logger.error(f"Error in _handle_help_command: {e}", exc_info=True)
             return "❌ Sorry, I encountered an error generating help information."
     
+    def _generate_contextual_help_message(self, available_commands: list, is_leadership_chat: bool, user_role: str) -> str:
+        """Generate help message based on available commands and context."""
+        
+        # Define command categories
+        command_categories = {
+            "🌐 GENERAL": ["/help", "/start"],
+            "👥 PLAYER": ["/list", "/myinfo", "/update", "/status", "/register", "/listmatches", 
+                         "/getmatch", "/stats", "/payment_status", "/pending_payments", 
+                         "/payment_history", "/payment_help", "/financial_dashboard", "/attend", "/unattend"],
+            "👑 LEADERSHIP": ["/add", "/remove", "/approve", "/reject", "/pending", "/checkfa", 
+                             "/dailystatus", "/background", "/remind", "/newmatch", "/updatematch", 
+                             "/deletematch", "/record_result", "/invitelink", "/broadcast", 
+                             "/create_match_fee", "/create_membership_fee", "/create_fine", 
+                             "/payment_stats", "/announce", "/injure", "/suspend", "/recover", 
+                             "/refund_payment", "/record_expense"],
+            "🔧 ADMIN": ["/promote"]
+        }
+        
+        # Command descriptions
+        command_descriptions = {
+            "/help": "Show this help message",
+            "/start": "Start the bot",
+            "/register": "Register as a new player",
+            "/list": "See all team players",
+            "/myinfo": "Get your player information",
+            "/status": "Check player status",
+            "/update": "Update your player information",
+            "/listmatches": "List all matches",
+            "/getmatch": "Get match details",
+            "/stats": "Team statistics",
+            "/payment_status": "Your payment status",
+            "/pending_payments": "Your pending payments",
+            "/payment_history": "Your payment history",
+            "/payment_help": "Payment system help",
+            "/financial_dashboard": "Your financial overview",
+            "/attend": "Confirm match attendance",
+            "/unattend": "Cancel match attendance",
+            "/add": "Add new player",
+            "/remove": "Remove player",
+            "/approve": "Approve player",
+            "/reject": "Reject player",
+            "/pending": "Show pending approvals",
+            "/checkfa": "Check FA registration status",
+            "/dailystatus": "Daily status report",
+            "/background": "Background tasks",
+            "/remind": "Send reminder to team",
+            "/broadcast": "Broadcast message to team",
+            "/newmatch": "Create new match",
+            "/updatematch": "Update match",
+            "/deletematch": "Delete match",
+            "/record_result": "Record match result",
+            "/invitelink": "Generate invitation",
+            "/create_match_fee": "Create match fee",
+            "/create_membership_fee": "Create membership fee",
+            "/create_fine": "Create fine",
+            "/payment_stats": "Payment statistics",
+            "/announce": "Send announcement",
+            "/injure": "Mark player injured",
+            "/suspend": "Suspend player",
+            "/recover": "Mark player recovered",
+            "/refund_payment": "Refund payment",
+            "/record_expense": "Record expense",
+            "/promote": "Promote user to admin"
+        }
+        
+        # Build help message
+        chat_type = "LEADERSHIP" if is_leadership_chat else "MAIN"
+        help_message = f"🤖 KICKAI BOT HELP ({chat_type} CHAT)\n\n"
+        help_message += f"👤 Your Role: {user_role.upper()}\n\n"
+        help_message += "📋 AVAILABLE COMMANDS:\n\n"
+        
+        # Add commands by category
+        for category, commands in command_categories.items():
+            category_commands = [cmd for cmd in commands if cmd in available_commands]
+            if category_commands:
+                help_message += f"{category}:\n"
+                for cmd in sorted(category_commands):
+                    desc = command_descriptions.get(cmd, "No description available")
+                    help_message += f"• {cmd} - {desc}\n"
+                help_message += "\n"
+        
+        # Add tips
+        help_message += "💡 TIPS:\n"
+        help_message += "• Use natural language: \"Add John Smith as midfielder\"\n"
+        help_message += "• Type /help [command] for detailed help\n"
+        
+        if is_leadership_chat:
+            help_message += "• Leadership commands available in this chat\n"
+        else:
+            help_message += "• Use leadership chat for admin functions\n"
+        
+        help_message += "• I can understand regular questions too - just ask!\n\n"
+        help_message += "🎯 Need something specific? Just ask me in plain English!"
+        
+        return help_message
+
     def _get_leadership_help_message(self) -> str:
         """Get help message for leadership chat."""
         return """🤖 KICKAI BOT HELP (LEADERSHIP)

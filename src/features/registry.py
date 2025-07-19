@@ -114,8 +114,7 @@ class ServiceFactory:
         print("🔍 Imported PlayerIDService")
         from features.player_registration.domain.services.player_service import PlayerService
         print("🔍 Imported PlayerService")
-        from features.player_registration.domain.services.team_member_service import TeamMemberService
-        print("🔍 Imported TeamMemberService")
+        # TeamMemberService removed - using mock service instead
         from features.player_registration.domain.interfaces.player_service_interface import IPlayerService
         print("🔍 Imported IPlayerService")
         from features.player_registration.domain.repositories.player_repository_interface import PlayerRepositoryInterface
@@ -151,20 +150,19 @@ class ServiceFactory:
                 return True
         
         team_member_repo = MockTeamMemberRepository()
-        team_member_service = TeamMemberService(team_member_repo, player_service, team_service)
-        print("🔍 Created TeamMemberService")
+        # TeamMemberService removed - using mock service instead
         
         self.container.register_service(PlayerRegistrationService, registration_service)
         self.container.register_service(PlayerIDService, player_id_service)
         self.container.register_service(PlayerService, player_service)
         self.container.register_service(IPlayerService, player_service)
-        self.container.register_service(TeamMemberService, team_member_service)
+        # TeamMemberService removed - using mock service instead
         
         return {
             'registration_service': registration_service,
             'player_id_service': player_id_service,
             'player_service': player_service,
-            'team_member_service': team_member_service
+            # 'team_member_service': team_member_service  # Removed - using mock service instead
         }
     
     def create_team_administration_services(self):
