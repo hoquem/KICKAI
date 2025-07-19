@@ -10,6 +10,7 @@ from datetime import datetime
 
 from features.team_administration.domain.repositories.team_repository_interface import TeamRepositoryInterface
 from features.team_administration.domain.entities.team import Team
+from features.team_administration.domain.entities.team_member import TeamMember
 from database.interfaces import DataStoreInterface
 from core.constants import COLLECTION_TEAMS
 
@@ -20,6 +21,14 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
     def __init__(self, database: DataStoreInterface):
         self.database = database
         self.collection_name = COLLECTION_TEAMS
+    
+    def _get_team_members_collection(self, team_id: str) -> str:
+        """Get the team members collection name for a specific team."""
+        return f"{team_id}_team_members"
+    
+    def _get_players_collection(self, team_id: str) -> str:
+        """Get the players collection name for a specific team."""
+        return f"{team_id}_players"
     
     async def create_team(self, team: Team) -> Team:
         """Create a new team."""
@@ -145,6 +154,94 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             logger.error(f"❌ [REPO] Traceback: {traceback.format_exc()}")
             return []
     
+    # Team Member Methods
+    async def create_team_member(self, team_member: TeamMember) -> TeamMember:
+        """Create a new team member."""
+        # Generate a unique ID for the team member
+        from utils.id_generator import generate_team_member_id
+        if not team_member.id:
+            team_member.id = generate_team_member_id(team_member.name)
+        
+        # Set user_id and id to the same value (document ID)
+        team_member.user_id = team_member.id
+        
+        team_member_data = team_member.to_dict()
+        
+        # Create document in team_members collection
+        doc_id = await self.database.create_document(
+            collection=self._get_team_members_collection(team_member.team_id),
+            document_id=team_member.id,
+            data=team_member_data
+        )
+        
+        # Update the team member entity with the generated ID
+        team_member.id = doc_id
+        team_member.user_id = doc_id
+        
+        return team_member
+    
+    async def get_team_members(self, team_id: str) -> List[TeamMember]:
+        """Get all members of a team."""
+        try:
+            docs = await self.database.query_documents(
+                collection=self._get_team_members_collection(team_id),
+                filters=[{"field": "team_id", "operator": "==", "value": team_id}]
+            )
+            
+            return [self._doc_to_team_member(doc) for doc in docs]
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"❌ [REPO] Error getting team members: {e}")
+            return []
+    
+    async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> Optional[TeamMember]:
+        """Get a team member by Telegram ID."""
+        try:
+            docs = await self.database.query_documents(
+                collection=self._get_team_members_collection(team_id),
+                filters=[
+                    {"field": "team_id", "operator": "==", "value": team_id},
+                    {"field": "telegram_id", "operator": "==", "value": telegram_id}
+                ]
+            )
+            
+            if docs:
+                return self._doc_to_team_member(docs[0])
+            return None
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"❌ [REPO] Error getting team member by telegram_id: {e}")
+            return None
+    
+    async def update_team_member(self, team_member: TeamMember) -> TeamMember:
+        """Update a team member."""
+        team_member_data = team_member.to_dict()
+        
+        await self.database.update_document(
+            collection=self._get_team_members_collection(team_member.team_id),
+            document_id=team_member.id,
+            data=team_member_data
+        )
+        
+        return team_member
+    
+    async def delete_team_member(self, team_member_id: str) -> bool:
+        """Delete a team member."""
+        try:
+            await self.database.delete_document(
+                collection=self._get_team_members_collection(team_member_id.split("_")[0]),
+                document_id=team_member_id
+            )
+            
+            return True
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"❌ [REPO] Error deleting team member: {e}")
+            return False
+    
     def _doc_to_team(self, doc: dict) -> Team:
         """Convert a Firestore document to a Team entity."""
         from features.team_administration.domain.entities.team import TeamStatus
@@ -172,4 +269,30 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             bot_token=doc.get("bot_token"),
             main_chat_id=doc.get("main_chat_id"),
             leadership_chat_id=doc.get("leadership_chat_id")
+        )
+    
+    def _doc_to_team_member(self, doc: dict) -> TeamMember:
+        """Convert a Firestore document to a TeamMember entity."""
+        from datetime import datetime
+        
+        # Parse datetime strings back to datetime objects
+        created_at = doc.get("created_at")
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at)
+        
+        joined_at = doc.get("joined_at")
+        if isinstance(joined_at, str):
+            joined_at = datetime.fromisoformat(joined_at)
+        
+        return TeamMember(
+            id=doc.get("id"),
+            user_id=doc.get("user_id", ""),
+            telegram_id=doc.get("telegram_id"),
+            telegram_username=doc.get("telegram_username"),
+            team_id=doc.get("team_id", ""),
+            roles=doc.get("roles", []),
+            permissions=doc.get("permissions", []),
+            chat_access=doc.get("chat_access", {}),
+            created_at=created_at,
+            joined_at=joined_at
         ) 
