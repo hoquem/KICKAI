@@ -109,13 +109,64 @@ class TeamIDGenerator(IDGenerator):
         return self.name_mappings.copy()
 
 
+class TeamMemberIDGenerator(IDGenerator):
+    """Generates human-readable team member IDs."""
+    
+    def generate_team_member_id(self, name: str, existing_ids: Optional[Set[str]] = None) -> str:
+        """Generate a human-readable team member ID."""
+        if not name:
+            return "TMUNK1"
+        
+        # Normalize name
+        normalized = self._normalize_name(name)
+        
+        # Create a unique key for this team member
+        member_key = normalized
+        
+        # Generate base ID: first letter of each word (max 2 words)
+        words = normalized.split()
+        if len(words) >= 2:
+            base_id = f"TM{words[0][0].upper()}{words[1][0].upper()}"
+        else:
+            base_id = f"TM{words[0][:2].upper()}"
+        
+        # Use existing IDs if provided, otherwise use our internal set
+        id_set = existing_ids or self.used_ids
+        
+        # Find the next available ID
+        final_id = self.find_next_available_id(base_id, id_set)
+        
+        # Store mapping
+        self.name_mappings[member_key] = final_id
+        if existing_ids is not None:
+            existing_ids.add(final_id)
+        else:
+            self.used_ids.add(final_id)
+        
+        logger.info(f"Generated team member ID '{final_id}' for '{name}'")
+        return final_id
+
+    def find_next_available_id(self, base_id: str, existing_ids: Set[str]) -> str:
+        """Find the next available team member ID given a base and a set of existing IDs."""
+        # Try base_id, then base_id1, base_id2, ...
+        if base_id not in existing_ids:
+            return base_id
+        for i in range(1, 100):
+            candidate = f"{base_id}{i}"
+            if candidate not in existing_ids:
+                return candidate
+        # Fallback to hash-based suffix
+        hash_suffix = hashlib.md5(base_id.encode()).hexdigest()[:2].upper()
+        return f"{base_id}{hash_suffix}"
+
+
 class PlayerIDGenerator(IDGenerator):
     """Generates human-readable player IDs."""
     
     def generate_player_id(self, first_name: str, last_name: str, existing_ids: Optional[Set[str]] = None) -> str:
         """Generate a human-readable player ID."""
         if not first_name or not last_name:
-            return "UNK1"
+            return "PLUNK1"
         
         # Normalize names
         first_norm = first_name.strip().lower()
@@ -124,8 +175,8 @@ class PlayerIDGenerator(IDGenerator):
         # Create a unique key for this player
         player_key = f"{first_norm} {last_norm}"
         
-        # Generate base ID: first letter of first name + first letter of last name
-        base_id = f"{first_name[0].upper()}{last_name[0].upper()}"
+        # Generate base ID: PL + first letter of first name + first letter of last name
+        base_id = f"PL{first_name[0].upper()}{last_name[0].upper()}"
         
         # Use existing IDs if provided, otherwise use our internal set
         id_set = existing_ids or self.used_ids
@@ -317,7 +368,22 @@ def generate_player_id_from_name(name: str, team_id: str, existing_ids: Optional
 
 def generate_match_id(home_team: str, away_team: str, match_date: str, match_time: str = "") -> str:
     """Generate a match ID."""
-    return id_manager.generate_match_id(home_team, away_team, match_date, match_time)
+    team_generator = TeamIDGenerator()
+    match_generator = MatchIDGenerator(team_generator)
+    return match_generator.generate_match_id(home_team, away_team, match_date, match_time)
+
+
+def generate_team_member_id(name: str, existing_ids: Optional[Set[str]] = None) -> str:
+    """Generate a human-readable team member ID."""
+    generator = TeamMemberIDGenerator()
+    return generator.generate_team_member_id(name, existing_ids)
+
+
+def generate_team_member_id_from_name(name: str, team_id: str, existing_ids: Optional[Set[str]] = None) -> str:
+    """Generate a team member ID from name and team context."""
+    # For now, just use the name-based generation
+    # In the future, we could load existing IDs from the team's collection
+    return generate_team_member_id(name, existing_ids)
 
 
 # Example usage and testing
