@@ -1,190 +1,170 @@
-# KICKAI Command Permission Review
+# Command Permission System Review
 
-This document provides a comprehensive review of all commands in the KICKAI system, showing their chat availability, permission requirements, and special conditions.
+## Overview
 
-## Permission Levels
+The KICKAI bot implements a hierarchical permission system that ensures commands are only available in the appropriate chat context and to users with the correct permissions.
 
-- **PUBLIC**: Available to everyone, no restrictions
-- **PLAYER**: Available to users with player role in main chat or leadership chat
-- **LEADERSHIP**: Available to users with team_member or admin role in leadership chat only
-- **ADMIN**: Available to users with admin role in leadership chat only
+## Permission Hierarchy
 
-## Chat Types
+### 1. Public Commands
+- **Available to**: Everyone
+- **Chat Context**: All chats
+- **Commands**:
+  - `/help` - Show available commands
+  - `/start` - Start the bot
 
-- **Main Chat**: General team communication chat
-- **Leadership Chat**: Administrative and management chat
-- **Both**: Available in both chats (may have different functionality)
+### 2. Player Commands
+- **Available to**: Registered players
+- **Chat Context**: Main team chat only (NOT leadership chat)
+- **Commands**:
+  - `/list` - List all players
+  - `/myinfo` - Show player information
+  - `/update` - Update player information
+  - `/status` - Check player status
+  - `/register` - Register as a player
+  - `/listmatches` - List upcoming matches
+  - `/getmatch` - Get match details
+  - `/stats` - Show player statistics
+  - `/payment_status` - Check payment status
+  - `/pending_payments` - Show pending payments
+  - `/payment_history` - Show payment history
+  - `/payment_help` - Payment help
+  - `/financial_dashboard` - Financial dashboard
+  - `/attend` - Attend a match
+  - `/unattend` - Unattend a match
 
-## Command Review Table
+### 3. Leadership Commands
+- **Available to**: Team members and admins
+- **Chat Context**: Leadership chat only
+- **Commands**:
+  - `/add` - Add a new player
+  - `/remove` - Remove a player
+  - `/approve` - Approve a player
+  - `/reject` - Reject a player
+  - `/pending` - Show pending approvals
+  - `/checkfa` - Check first aid status
+  - `/dailystatus` - Daily status report
+  - `/background` - Background tasks
+  - `/remind` - Send reminders
+  - `/newmatch` - Create a new match
+  - `/updatematch` - Update match details
+  - `/deletematch` - Delete a match
+  - `/record_result` - Record match result
+  - `/invitelink` - Generate invite link
+  - `/broadcast` - Broadcast message
+  - `/create_match_fee` - Create match fee
+  - `/create_membership_fee` - Create membership fee
+  - `/create_fine` - Create fine
+  - `/payment_stats` - Payment statistics
+  - `/announce` - Make announcement
+  - `/injure` - Mark player as injured
+  - `/suspend` - Suspend player
+  - `/recover` - Mark player as recovered
+  - `/refund_payment` - Refund payment
+  - `/record_expense` - Record expense
 
-| Command | Description | Chat Availability | Permission Level | Required Role | Special Conditions | Notes |
-|---------|-------------|-------------------|------------------|---------------|-------------------|-------|
-| **📋 PUBLIC COMMANDS** |
-| `/help` | Show help information | Both | PUBLIC | None | None | Shows commands available to user |
-| `/start` | Start the bot | Both | PUBLIC | None | None | Welcome message and basic info |
-| `/register` | Register as a new player | Both | PUBLIC | None | None | First step for new users |
-| **👥 PLAYER COMMANDS** |
-| `/list` | List all players | Both | PLAYER | player | None | Shows active players in main chat, all players in leadership |
-| `/myinfo` | Get your player information | Both | PLAYER | player | None | Personal player details |
-| `/update` | Update your player information | Both | PLAYER | player | None | Update phone, emergency contact, etc. |
-| `/status` | Check player status | Both | PLAYER | player | None | Check own status or by phone number |
-| `/listmatches` | List all matches/fixtures | Both | PLAYER | player | None | View upcoming and past matches |
-| `/getmatch` | Get details of a specific match | Both | PLAYER | player | None | Detailed match information |
-| `/stats` | Show team statistics | Both | PLAYER | player | None | Team performance metrics |
-| `/payment_status` | Get payment status | Both | PLAYER | player | None | Personal payment information |
-| `/pending_payments` | Get pending payments | Both | PLAYER | player | None | Personal pending payments |
-| `/payment_history` | Get payment history | Both | PLAYER | player | None | Personal payment history |
-| `/payment_help` | Get payment commands help | Both | PLAYER | player | None | Payment system guidance |
-| `/financial_dashboard` | View financial dashboard | Both | PLAYER | player | None | Personal financial overview |
-| `/attend` | Confirm attendance for a match | Both | PLAYER | player | None | Mark attendance for specific match |
-| `/unattend` | Cancel attendance for a match | Both | PLAYER | player | None | Cancel attendance for specific match |
-| **👑 LEADERSHIP COMMANDS** |
-| `/add` | Add a new player | Leadership Only | LEADERSHIP | team_member/admin | None | Create new player record |
-| `/remove` | Remove a player | Leadership Only | LEADERSHIP | team_member/admin | None | Remove player from team |
-| `/approve` | Approve a player | Leadership Only | LEADERSHIP | team_member/admin | None | Approve player for match selection |
-| `/reject` | Reject a player | Leadership Only | LEADERSHIP | team_member/admin | Reason required | Reject player with reason |
-| `/pending` | List players pending approval | Leadership Only | LEADERSHIP | team_member/admin | None | View pending approvals |
-| `/checkfa` | Check FA registration status | Leadership Only | LEADERSHIP | team_member/admin | None | Verify FA registration |
-| `/dailystatus` | Get daily status report | Leadership Only | LEADERSHIP | team_member/admin | None | Team status overview |
-| `/background` | Run background tasks | Leadership Only | LEADERSHIP | team_member/admin | None | Execute maintenance tasks |
-| `/remind` | Send a reminder to team members | Leadership Only | LEADERSHIP | team_member/admin | None | Send team-wide reminders |
-| `/newmatch` | Create a new match/fixture | Leadership Only | LEADERSHIP | team_member/admin | None | Schedule new match |
-| `/updatematch` | Update a match/fixture | Leadership Only | LEADERSHIP | team_member/admin | None | Modify match details |
-| `/deletematch` | Delete a match/fixture | Leadership Only | LEADERSHIP | team_member/admin | None | Remove match from schedule |
-| `/record_result` | Record a match result | Leadership Only | LEADERSHIP | team_member/admin | None | Record match outcome |
-| `/invitelink` | Generate invitation link | Leadership Only | LEADERSHIP | team_member/admin | None | Create player invitations |
-| `/broadcast` | Broadcast message to team | Leadership Only | LEADERSHIP | team_member/admin | None | Send team-wide message |
-| `/create_match_fee` | Create match fee payment | Leadership Only | LEADERSHIP | team_member/admin | None | Set up match fees |
-| `/create_membership_fee` | Create membership fee | Leadership Only | LEADERSHIP | team_member/admin | None | Set up membership fees |
-| `/create_fine` | Create a fine payment | Leadership Only | LEADERSHIP | team_member/admin | None | Issue fines to players |
-| `/payment_stats` | Get payment statistics | Leadership Only | LEADERSHIP | team_member/admin | None | Team payment overview |
-| `/announce` | Send team-wide announcement | Leadership Only | LEADERSHIP | team_member/admin | None | Official team announcements |
-| `/injure` | Mark a player as injured | Leadership Only | LEADERSHIP | team_member/admin | None | Update player injury status |
-| `/suspend` | Mark a player as suspended | Leadership Only | LEADERSHIP | team_member/admin | Reason required | Suspend player with reason |
-| `/recover` | Mark a player as recovered | Leadership Only | LEADERSHIP | team_member/admin | None | Clear injury/suspension status |
-| `/refund_payment` | Refund a payment | Leadership Only | LEADERSHIP | team_member/admin | None | Process payment refunds |
-| `/record_expense` | Record a team expense | Leadership Only | LEADERSHIP | team_member/admin | None | Log team expenses |
-| **🔧 ADMIN COMMANDS** |
-| `/promote` | Promote user to admin | Leadership Only | ADMIN | admin | None | Only admins can promote others |
+### 4. Admin Commands
+- **Available to**: Admins only
+- **Chat Context**: Leadership chat only
+- **Commands**:
+  - `/promote` - Promote team member to admin
+  - `/updateteaminfo` - Update team information
 
-## Special Command Behaviors
+## Chat Context Rules
 
-### Chat-Specific Functionality
+### Main Chat
+- ✅ Public commands
+- ✅ Player commands (for registered players)
+- ❌ Leadership commands
+- ❌ Admin commands
 
-#### Main Chat Commands
-- **Limited Information**: Some commands show limited information in main chat
-- **Read-Only Focus**: Most commands in main chat are for information retrieval
-- **Player Self-Service**: Players can update their own information
+### Leadership Chat
+- ✅ Public commands
+- ❌ Player commands (even for players)
+- ✅ Leadership commands (for team members and admins)
+- ✅ Admin commands (for admins only)
 
-#### Leadership Chat Commands
-- **Full Access**: All commands available with full functionality
-- **Administrative Actions**: Team management and administrative functions
-- **Detailed Information**: Full access to all team data and statistics
+## Permission Checking Logic
 
-### Role-Based Restrictions
+The permission system uses the following logic in `PermissionService.can_execute_command()`:
 
-#### Player Role
-- Can view and update their own information
-- Can view team information (limited in main chat)
-- Can interact with matches (attendance, viewing)
-- Can access payment information (personal only)
+```python
+if permission_level == PermissionLevel.PUBLIC:
+    return True  # Always allowed
 
-#### Team Member Role
-- All player permissions plus:
-- Can manage players (add, remove, approve, reject)
-- Can manage matches (create, update, delete)
-- Can manage payments and expenses
-- Can send announcements and reminders
+elif permission_level == PermissionLevel.PLAYER:
+    if not user_perms.is_player:
+        return False
+    return context.chat_type == ChatType.MAIN  # Main chat only
 
-#### Admin Role
-- All team member permissions plus:
-- Can promote other users to admin
-- Can manage teams at system level
-- Has ultimate authority over team operations
+elif permission_level == PermissionLevel.LEADERSHIP:
+    if context.chat_type != ChatType.LEADERSHIP:
+        return False
+    return user_perms.is_team_member or user_perms.is_admin
 
-## Permission Logic
+elif permission_level == PermissionLevel.ADMIN:
+    if context.chat_type != ChatType.LEADERSHIP:
+        return False
+    return user_perms.is_admin
+```
 
-### Chat-Based Access Control
+## User Roles
 
-1. **Main Chat Access**:
-   - PUBLIC commands: Always available
-   - PLAYER commands: Available to players
-   - LEADERSHIP commands: Not available
-   - ADMIN commands: Not available
+### Player
+- Has `player` role
+- Can access main chat
+- Can use player commands in main chat
 
-2. **Leadership Chat Access**:
-   - PUBLIC commands: Always available
-   - PLAYER commands: Available to players
-   - LEADERSHIP commands: Available to team_member or admin
-   - ADMIN commands: Available to admin only
+### Team Member
+- Has `team_member` role
+- Can access leadership chat
+- Can use leadership commands in leadership chat
+- Can use player commands in main chat
 
-### Role-Based Access Control
+### Admin
+- Has `admin` role
+- Can access leadership chat
+- Can use all commands in leadership chat
+- Can use player commands in main chat
+- Can promote other team members to admin
 
-1. **Player Role**:
-   - Required for PLAYER level commands
-   - Automatically assigned when joining main chat
-   - Can be manually assigned by leadership
+## Backend Operations (Not Available via Commands)
 
-2. **Team Member Role**:
-   - Required for LEADERSHIP level commands
-   - Automatically assigned when joining leadership chat
-   - Can be manually assigned by admin
+The following operations are backend-only and not available as user commands:
+- `/create_team` - Team creation (backend only)
+- `/delete_team` - Team deletion (backend only)
+- `/list_teams` - Team listing (backend only)
 
-3. **Admin Role**:
-   - Required for ADMIN level commands
-   - Automatically assigned to first user
-   - Can be manually assigned by existing admin
-   - Auto-promoted when last admin leaves
+These operations are handled through the admin interface or system initialization.
 
-## Command Categories
+## Help System
 
-### Information Commands
-- Help and guidance: `/help`, `/start`, `/payment_help`
-- Personal information: `/myinfo`, `/status`, `/payment_status`
-- Team information: `/list`, `/stats`, `/listmatches`
-- Administrative information: `/pending`, `/dailystatus`, `/payment_stats`
+The help system (`/help`) dynamically shows available commands based on:
+1. User's permission level
+2. Current chat context
+3. User's roles
 
-### Management Commands
-- Player management: `/add`, `/remove`, `/approve`, `/reject`
-- Match management: `/newmatch`, `/updatematch`, `/deletematch`, `/record_result`
-- Payment management: `/create_match_fee`, `/create_membership_fee`, `/create_fine`, `/refund_payment`
-- Communication: `/broadcast`, `/announce`, `/remind`
+This ensures users only see commands they can actually use in their current context.
 
-### System Commands
-- Team administration: `/create_team`, `/delete_team`, `/list_teams`
-- Maintenance: `/background`, `/checkfa`
-- Player status: `/injure`, `/suspend`, `/recover`
+## Error Messages
 
-## Security Considerations
+When permission is denied, users receive clear error messages explaining:
+- Why the command is not available
+- What chat context is required
+- What permissions are needed
+- How to get the required permissions
 
-### Access Control
-- All commands respect chat-based and role-based permissions
-- No command can be executed without proper authorization
-- Permission checks are performed at multiple levels
+## Testing
 
-### Data Protection
-- Players can only access their own personal information
-- Leadership can access team-wide information
-- Admins have access to system-level information
+The permission system can be tested by:
+1. Running commands in different chat contexts
+2. Testing with different user roles
+3. Verifying help messages show correct commands
+4. Checking error messages for denied permissions
 
-### Audit Trail
-- All command executions are logged
-- Permission denials are tracked
-- User actions are recorded for accountability
+## Implementation Files
 
-## Future Enhancements
-
-### Potential New Commands
-- `/promote` - Promote user to admin (admin only)
-- `/demote` - Demote admin to team member (admin only)
-- `/transfer` - Transfer player between teams (admin only)
-- `/backup` - Create team data backup (admin only)
-- `/restore` - Restore team data from backup (admin only)
-
-### Permission Improvements
-- Time-limited permissions for temporary access
-- Command-specific role requirements
-- Bulk operation permissions
-- Delegated authority system
-
-This command permission review ensures that all users understand their capabilities and limitations within the KICKAI system, promoting secure and appropriate use of the platform. 
+- **Permission Service**: `src/features/system_infrastructure/domain/services/permission_service.py`
+- **Permission Checker**: `src/bot_telegram/message_handling/validation/permission_checker.py`
+- **Shared Enums**: `src/features/shared/domain/enums.py`
+- **Command Validator**: `src/bot_telegram/command_parser/validators/command_validators.py` 

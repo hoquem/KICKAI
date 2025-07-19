@@ -26,8 +26,9 @@ class PermissionChecker:
         """Check chat-based permissions using centralized permission service."""
         try:
             from features.system_infrastructure.domain.services.permission_service import (
-                get_permission_service, PermissionContext, ChatType
+                get_permission_service, PermissionContext
             )
+            from enums import ChatType
             
             permission_service = get_permission_service()
             permission_context = PermissionContext(
@@ -55,8 +56,9 @@ class PermissionChecker:
         """Check command-specific permissions using centralized permission service."""
         try:
             from features.system_infrastructure.domain.services.permission_service import (
-                get_permission_service, PermissionContext, ChatType, PermissionLevel
+                get_permission_service, PermissionContext
             )
+            from enums import ChatType, PermissionLevel
             
             # Map command names to permission levels
             command_permissions = {

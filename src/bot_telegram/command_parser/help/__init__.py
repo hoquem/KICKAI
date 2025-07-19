@@ -1,13 +1,8 @@
 """
-Command Help System
+Help Module
 
-This package contains help text generation and command documentation.
+This module provides help generation functionality for commands.
+Note: Help generation is now handled by the permission service.
 """
 
-from .help_generator import HelpGenerator
-from .command_documentation import CommandDocumentation
-
-__all__ = [
-    'HelpGenerator',
-    'CommandDocumentation'
-] 
+# Help generation moved to permission service for context-aware help 

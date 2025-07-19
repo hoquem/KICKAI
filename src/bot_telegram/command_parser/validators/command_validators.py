@@ -25,12 +25,6 @@ class CommandType(str, Enum):
     LIST = "list"
     HELP = "help"
     
-    # Team Management Commands
-    ADD_TEAM = "addteam"
-    REMOVE_TEAM = "removeteam"
-    LIST_TEAMS = "listteams"
-    UPDATE_TEAM_INFO = "updateteaminfo"
-    
     # Match Commands
     CREATE_MATCH = "creatematch"
     ATTEND_MATCH = "attendmatch"
@@ -50,6 +44,7 @@ class CommandType(str, Enum):
     PROMOTE_USER = "promoteuser"
     DEMOTE_USER = "demoteuser"
     SYSTEM_STATUS = "systemstatus"
+    UPDATE_TEAM_INFO = "updateteaminfo"
 
 
 @dataclass
@@ -88,12 +83,6 @@ class CommandValidator:
             "/list": CommandType.LIST,
             "/help": CommandType.HELP,
             
-            # Team commands
-            "/addteam": CommandType.ADD_TEAM,
-            "/removeteam": CommandType.REMOVE_TEAM,
-            "/listteams": CommandType.LIST_TEAMS,
-            "/updateteaminfo": CommandType.UPDATE_TEAM_INFO,
-            
             # Match commands
             "/creatematch": CommandType.CREATE_MATCH,
             "/attendmatch": CommandType.ATTEND_MATCH,
@@ -113,6 +102,7 @@ class CommandValidator:
             "/promoteuser": CommandType.PROMOTE_USER,
             "/demoteuser": CommandType.DEMOTE_USER,
             "/systemstatus": CommandType.SYSTEM_STATUS,
+            "/updateteaminfo": CommandType.UPDATE_TEAM_INFO,
         }
     
     def validate_command(self, text: str) -> ValidationResult:

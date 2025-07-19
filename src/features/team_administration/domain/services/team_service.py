@@ -9,7 +9,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from dataclasses import dataclass
 
-from ..entities.team import Team, TeamStatus, TeamMember
+from ..entities.team import Team, TeamStatus
 from ..repositories.team_repository_interface import TeamRepositoryInterface
 from features.payment_management.domain.services.expense_service import ExpenseService
 from loguru import logger
@@ -104,8 +104,11 @@ class TeamService:
         return await self.team_repository.delete(team_id)
     
     async def add_team_member(self, team_id: str, user_id: str, role: str = "player", 
-                             permissions: Optional[List[str]] = None) -> TeamMember:
+                             permissions: Optional[List[str]] = None):
         """Add a member to a team."""
+        # Import TeamMember dynamically to avoid circular imports
+        from features.team_administration.domain.entities.team_member import TeamMember
+        
         # This would need to be implemented in the repository
         # For now, return a placeholder TeamMember
         member = TeamMember(
@@ -124,7 +127,9 @@ class TeamService:
         # For now, return True as placeholder
         return True
     
-    async def get_team_members(self, team_id: str) -> List[TeamMember]:
+    async def get_team_members(self, team_id: str):
+        # Import TeamMember dynamically to avoid circular imports
+        from features.team_administration.domain.entities.team_member import TeamMember
         """Get all members of a team."""
         # This would need to be implemented in the repository
         # For now, return empty list as placeholder

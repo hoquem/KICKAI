@@ -19,7 +19,7 @@ from .models import (
     BroadcastCommand, PromoteUserCommand, DemoteUserCommand, SystemStatusCommand
 )
 from .validators import CommandValidator, FieldValidator
-from .help import HelpGenerator, CommandDocumentation
+# Help generation moved to permission service
 
 __all__ = [
     'ImprovedCommandParser',
@@ -56,6 +56,5 @@ __all__ = [
     'SystemStatusCommand',
     'CommandValidator',
     'FieldValidator',
-    'HelpGenerator',
-    'CommandDocumentation'
+    # Help generation moved to permission service
 ] 
