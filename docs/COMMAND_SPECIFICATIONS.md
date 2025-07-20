@@ -90,76 +90,138 @@ This document defines the expected behavior for all KICKAI bot commands across d
 
 ### `/help` Command
 
+#### Implementation Overview
+
+The `/help` command is implemented using a **comprehensive agent-based framework** that provides context-aware help information with proper user validation and registration flows.
+
+**Key Components:**
+- **HelpAssistantAgent**: Specialized agent for help processing
+- **CommandProcessingService**: Centralized command processing with user validation
+- **Help Tools**: 5 specialized tools for different operations
+- **Registry Integration**: Uses agent and tool registries for discovery
+
+#### Architecture Implementation
+
+**1. Help Assistant Agent** (`src/features/shared/domain/agents/help_assistant_agent.py`)
+```python
+@register_agent_decorator(
+    agent_id="help_assistant",
+    agent_type=AgentType.HELP_ASSISTANT,
+    category=AgentCategory.CORE,
+    description="Provides context-aware help information to KICKAI users",
+    tools=[
+        "get_user_status",
+        "get_available_commands", 
+        "format_help_message",
+        "process_user_registration_flow",
+        "get_user_display_info"
+    ],
+    feature_module="shared"
+)
+class HelpAssistantAgent:
+    """Help Assistant Agent for processing help requests."""
+```
+
+**2. Command Processing Service** (`src/features/shared/domain/services/command_processing_service.py`)
+- **UserContext**: Complete user context with all necessary information
+- **CommandResponse**: Standardized response format
+- **User Validation**: Comprehensive validation flows
+- **Registration Handling**: Proper flows for unregistered users
+
+**3. Help Tools** (`src/features/shared/domain/tools/help_tools.py`)
+- **get_user_status**: User status validation
+- **get_available_commands**: Command availability checking
+- **format_help_message**: Context-aware message formatting
+- **process_user_registration_flow**: Registration flow handling
+- **get_user_display_info**: User display information
+
 #### Context-Aware Behavior Design
 
-The `/help` command must be **context-aware** and provide different information based on:
+The `/help` command provides **context-aware** information based on:
 
 1. **Chat Type**: Main chat vs Leadership chat
 2. **User Status**: Player vs Team Member vs Unregistered
 3. **User Permissions**: What commands the user can actually execute
+4. **Registration Flow**: Proper guidance for unregistered users
 
 #### Agent Implementation Strategy
 
-**How Agents Determine Available Commands:**
+**How the Help Assistant Agent Works:**
 
-1. **Command Registry Discovery**: Agents query the centralized command registry
-2. **Permission Filtering**: Filter commands based on user's role and chat type
-3. **Context-Aware Formatting**: Format help text based on user's current state
+1. **User Context Building**: Builds complete user context with permissions and data
+2. **User Status Validation**: Validates user status and handles registration flows
+3. **Command Discovery**: Queries command registry for available commands
+4. **Context-Aware Formatting**: Formats help message based on user context
+5. **Registration Flow Handling**: Provides appropriate guidance for unregistered users
 
-**Agent Prompt Context:**
+**Agent Task Description:**
 ```
 You are a help assistant for the KICKAI football team management system.
 
 CONTEXT:
 - Chat Type: {main_chat|leadership_chat}
-- User Status: {player|team_member|unregistered}
 - User ID: {user_id}
 - Team ID: {team_id}
+- Telegram Username: {telegram_username}
+- Telegram Name: {telegram_name}
 
 AVAILABLE TOOLS:
 - get_user_status: Get current user's player/team member status
 - get_available_commands: Get list of commands available to this user
 - format_help_message: Format help message based on context
+- process_user_registration_flow: Handle user registration flows
+- get_user_display_info: Get user display information for message formatting
 
 TASK:
 1. Determine user's current status using get_user_status
-2. Get available commands for this user using get_available_commands
-3. Format appropriate help message using format_help_message
+2. If user is not registered:
+   - For main_chat: Ask them to contact leadership team to add them as a player
+   - For leadership_chat: 
+     - If first user: Welcome them and ask for admin registration
+     - If not first user: Ask them to provide details for team member registration
+3. If user is registered:
+   - Get available commands using get_available_commands
+   - Get user display info using get_user_display_info
+   - Format appropriate help message using format_help_message
 4. Return contextually appropriate help information
+
+IMPORTANT RULES:
+- Internally refer to users by their telegram ID and player/member ID
+- In messages to users, always refer to them using their telegram name and player/member ID
+- When displaying user's actual name, use their actual name, not telegram name
+- Always validate user status before providing help
+- Provide clear, actionable guidance for unregistered users
+- Format messages with proper Markdown for Telegram
 ```
 
 #### Expected Behavior by Chat Type and User Status
 
 **Main Chat - Unregistered User:**
 ```
-🤖 KICKAI Commands
+👋 Welcome to KICKAI, {telegram_name}!
 
-Welcome! You're not registered yet. Here's what you can do:
+🤔 I don't see you registered as a player yet.
 
-Basic Commands:
-• /help - Show this help message
-• /start - Initialize bot interaction
-• /register - Register as a player (recommended!)
+📞 Please contact a member of the leadership team to add you as a player to this team.
 
-Team Information:
-• /team - View team information
-
-Need to register? Use /register to join the team!
+💡 Once you're registered, you'll be able to use all player commands!
 ```
 
 **Main Chat - Registered Player:**
 ```
 🤖 KICKAI Commands
 
-Player Commands:
-• /help - Show available commands
-• /myinfo - Show your player information
-• /status - Check your player status
-• /list - List active players
-• /team - Team information
+👤 {telegram_name} (ID: {player_id})
 
-Registration:
-• /register - Update your registration (if needed)
+Player Management:
+• /register - Register as a new player
+• /list - List all team players
+• /status - Check player status by phone number
+• /myinfo - Check your player information
+
+General Commands:
+• /help - Show this help message
+• /start - Start the bot
 
 Natural Language:
 You can also ask me questions in natural language!
@@ -169,61 +231,81 @@ You can also ask me questions in natural language!
 ```
 🤖 KICKAI Commands
 
-Team Member Commands:
+👤 {telegram_name} (ID: {member_id})
+
+Note: You're registered as a team member, not a player.
+
+Available Commands:
 • /help - Show available commands
 • /myinfo - Show your team member information
 • /status - Check your team member status
 • /list - List active players
 • /team - Team information
 
-Note: You're registered as a team member, not a player.
 For player registration, contact team leadership.
 
 Natural Language:
 You can also ask me questions in natural language!
 ```
 
-**Leadership Chat - Team Member:**
+**Leadership Chat - First User (Admin Setup):**
+```
+🎉 Welcome to KICKAI, {telegram_name}!
+
+🌟 You're the first team member! Let's get you set up as an admin.
+
+📝 Please provide your details:
+💡 Use: /register [name] [phone] admin
+```
+
+**Leadership Chat - Unregistered User (Not First):**
+```
+👋 Welcome to KICKAI Leadership, {telegram_name}!
+
+🤔 I don't see you registered as a team member yet.
+
+📝 Please provide your details so I can add you to the team members collection.
+
+💡 You can use: /register [name] [phone] [role]
+```
+
+**Leadership Chat - Registered Team Member:**
 ```
 👔 KICKAI Leadership Commands
 
-General Commands:
-• /help - Show available commands
-• /myinfo - Show your team member information
-• /status - Check your team member status
-• /list - List all players and team members
-• /team - Team information
+👤 {telegram_name} (ID: {member_id})
 
 Player Management:
-• /add - Add a new player
-• /approve - Approve player registration
-• /reject - Reject player registration
-• /pending - Show pending registrations
+• /register - Register new player with name, phone, position
+• /add - Add new player to team roster
+• /list - List all players with their status
+• /status - Check player status by phone number
+• /myinfo - Check your admin information
 
 Team Management:
-• /invite - Generate invitation link
-• /announce - Make team announcement
-
-System:
-• /health - System health check
-• /version - Bot version info
+• /help - Show this help message
+• /start - Start the bot
 
 Natural Language:
 You can also ask me questions in natural language!
 ```
 
-**Leadership Chat - Unregistered User:**
+**Specific Command Help** (e.g., `/help register`):
 ```
-❌ Access Denied
+📋 /register Command Help
 
-You are not registered as a team member in this leadership chat.
+Description: Register as a new player or team member
 
-What you can do:
-1. Contact team admin to be added as a team member
-2. Leave this chat if you're here by mistake
-3. Join the main team chat instead
+Usage:
+• /register [name] [phone] [position] - Register as a player
+• /register [name] [phone] admin - Register as admin (leadership only)
 
-Need help? Contact the team administrator.
+Examples:
+• /register John Smith 07123456789 Forward
+• /register Jane Doe 07987654321 admin
+
+Permission Required: PUBLIC
+Available in: Main Chat, Leadership Chat
 ```
 
 #### Command Availability Matrix
@@ -248,45 +330,196 @@ Need help? Contact the team administrator.
 
 #### Implementation Requirements
 
-**Agent Tools Needed:**
+**Agent Tools Implementation:**
 
 1. **`get_user_status` Tool:**
-   - Determines if user is player, team member, or unregistered
-   - Returns user's current status and permissions
+   ```python
+   @tool("get_user_status")
+   def get_user_status_tool(user_id: str, team_id: str, chat_type: str) -> str:
+       """Get current user's player/team member status."""
+       # Returns JSON with user status information
+   ```
 
 2. **`get_available_commands` Tool:**
-   - Queries command registry for available commands
-   - Filters based on chat type and user permissions
-   - Returns list of commands user can execute
+   ```python
+   @tool("get_available_commands")
+   def get_available_commands_tool(chat_type: str, user_id: str, team_id: str) -> str:
+       """Get list of commands available to this user."""
+       # Returns JSON with available commands
+   ```
 
 3. **`format_help_message` Tool:**
-   - Formats help message based on context
-   - Uses templates for different user states
-   - Ensures consistent formatting
+   ```python
+   @tool("format_help_message")
+   def format_help_message_tool(chat_type: str, user_id: str, team_id: str, user_status: str) -> str:
+       """Format help message based on context."""
+       # Returns formatted help message
+   ```
 
-**Command Registry Integration:**
-- Commands must be registered with permission levels
-- Registry must support filtering by chat type and user role
-- Dynamic command discovery for agents
+4. **`process_user_registration_flow` Tool:**
+   ```python
+   @tool("process_user_registration_flow")
+   def process_user_registration_flow_tool(chat_type: str, user_id: str, team_id: str, user_status: str) -> str:
+       """Process user registration flow based on user status and chat type."""
+       # Returns registration flow message
+   ```
+
+5. **`get_user_display_info` Tool:**
+   ```python
+   @tool("get_user_display_info")
+   def get_user_display_info_tool(user_id: str, team_id: str, user_status: str) -> str:
+       """Get user display information for message formatting."""
+       # Returns JSON with user display information
+   ```
+
+**Registry Integration:**
+- **Agent Registry**: HelpAssistantAgent registered with `@register_agent_decorator`
+- **Tool Registry**: All 5 help tools auto-discovered and registered
+- **Command Registry**: Commands registered with permission levels and metadata
+- **Registry Manager**: Coordinates all registries for single source of truth
+
+**User Validation Flows:**
+- **Main Chat**: Unregistered users directed to contact leadership
+- **Leadership Chat**: First user gets admin setup flow
+- **Leadership Chat**: Non-first users get team member registration flow
+- **Registered Users**: Get context-aware help based on their role
 
 **Error Handling:**
-- Graceful handling of unregistered users
-- Clear guidance for access denied scenarios
-- Helpful suggestions for next steps
+- **Graceful degradation**: Fallback messages if tools fail
+- **User-friendly guidance**: Clear next steps for all scenarios
+- **Context preservation**: Maintains user context across operations
+- **Logging**: Comprehensive logging for debugging and monitoring
+
+**Message Formatting:**
+- **Markdown support**: Proper Telegram Markdown formatting
+- **Emoji usage**: Consistent emoji usage for better UX
+- **User personalization**: Uses actual names and IDs
+- **Context awareness**: Different formatting for different chat types
+
+#### Command Handler Implementation
+
+**Help Command Handler** (`src/features/shared/application/commands/help_commands.py`)
+```python
+@command("/help", "Show available commands and help information",
+         command_type=CommandType.SLASH_COMMAND,
+         permission_level=PermissionLevel.PUBLIC,
+         feature="shared",
+         aliases=["/h", "/commands"],
+         examples=["/help", "/help register", "/help add"],
+         help_text="Show available commands. Use /help [command] for detailed help on a specific command.")
+async def handle_help_command(update: Update, context: CallbackContext) -> None:
+    """Handle /help command with context-aware help information using the new framework."""
+    
+    # Extract command parameters
+    command_args = context.args if context.args else []
+    specific_command = command_args[0] if command_args else None
+    
+    # Create help assistant agent
+    help_agent = HelpAssistantAgent()
+    
+    if specific_command:
+        # Get help for specific command
+        response = await help_agent.process_specific_command_help(
+            update.effective_user.id,
+            update.effective_chat.id,
+            specific_command
+        )
+    else:
+        # Get general help
+        response = await help_agent.process_general_help(
+            update.effective_user.id,
+            update.effective_chat.id
+        )
+    
+    # Send response
+    await update.message.reply_text(response, parse_mode='Markdown')
+```
+
+**Key Features:**
+- **Context-aware processing**: Different responses based on chat type and user status
+- **Specific command help**: Support for `/help [command]` syntax
+- **Agent-based processing**: Uses HelpAssistantAgent for all processing
+- **Error handling**: Graceful fallback if agent processing fails
+- **Markdown formatting**: Proper Telegram message formatting
 
 #### Testing Scenarios
 
 **Scenario 1: Unregistered User in Main Chat**
 - **Input**: `/help`
-- **Expected**: Basic commands + registration prompt
+- **Expected**: Welcome message + contact leadership guidance
 - **Collection**: `kickai_KTI_players` (empty)
+- **Agent Flow**: get_user_status → process_user_registration_flow
 
 **Scenario 2: Registered Player in Main Chat**
 - **Input**: `/help`
-- **Expected**: Player-focused commands
+- **Expected**: Player-focused commands with user info
 - **Collection**: `kickai_KTI_players` (user found)
+- **Agent Flow**: get_user_status → get_available_commands → get_user_display_info → format_help_message
 
 **Scenario 3: Team Member in Leadership Chat**
+- **Input**: `/help`
+- **Expected**: Leadership commands with admin info
+- **Collection**: `kickai_KTI_team_members` (user found)
+- **Agent Flow**: get_user_status → get_available_commands → get_user_display_info → format_help_message
+
+**Scenario 4: First User in Leadership Chat**
+- **Input**: `/help`
+- **Expected**: Admin setup flow
+- **Collection**: `kickai_KTI_team_members` (empty)
+- **Agent Flow**: get_user_status → process_user_registration_flow (first user flow)
+
+**Scenario 5: Specific Command Help**
+- **Input**: `/help register`
+- **Expected**: Detailed help for register command
+- **Agent Flow**: get_user_status → get_available_commands → format_help_message (specific command)
+
+#### Registry Framework Integration
+
+**Agent Registry Integration:**
+```python
+# HelpAssistantAgent is registered in the agent registry
+@register_agent_decorator(
+    agent_id="help_assistant",
+    agent_type=AgentType.HELP_ASSISTANT,
+    category=AgentCategory.CORE,
+    description="Provides context-aware help information to KICKAI users",
+    tools=[
+        "get_user_status",
+        "get_available_commands", 
+        "format_help_message",
+        "process_user_registration_flow",
+        "get_user_display_info"
+    ],
+    feature_module="shared"
+)
+```
+
+**Tool Registry Integration:**
+```python
+# All help tools are auto-discovered and registered
+# Tools are categorized by type and feature
+# Legacy compatibility maintained with GLOBAL_TOOL_REGISTRY
+```
+
+**Registry Manager Coordination:**
+```python
+# Registry manager coordinates all registries
+manager = get_registry_manager()
+manager.initialize_registries()
+
+# Health check validates all dependencies
+health = manager.health_check()
+
+# Feature overview shows all help-related components
+help_overview = manager.get_feature_overview("shared")
+```
+
+**Benefits of Registry Framework:**
+- **Single source of truth**: All components registered centrally
+- **Auto-discovery**: No manual registration required
+- **Dependency validation**: Cross-registry dependency checking
+- **Health monitoring**: Comprehensive system health checks
+- **Scalability**: Easy to add new components and features
 - **Input**: `/help`
 - **Expected**: Full leadership commands
 - **Collection**: `kickai_KTI_team_members` (user found)
