@@ -214,23 +214,28 @@ def _format_main_chat_help_from_info(commands_info: Dict[str, Any]) -> str:
          examples=["/help", "/help register", "/help add"],
          help_text="Show available commands. Use /help [command] for detailed help on a specific command.")
 async def handle_help_command(update, context, **kwargs):
-    """Handle /help command with context-aware help information."""
+    """Handle /help command with context-aware help information using the new framework."""
     try:
-        from features.communication.infrastructure.telegram_bot_service import TelegramBotService
-        
-        # Get command registry
-        registry = get_command_registry()
-        
         # Get chat type and user info
         chat_id = str(update.effective_chat.id)
         user_id = str(update.effective_user.id)
-        username = update.effective_user.username or update.effective_user.first_name
+        telegram_username = update.effective_user.username or ""
+        telegram_name = update.effective_user.first_name or "User"
         
         # Determine chat type
         chat_type = _determine_chat_type(chat_id)
+        chat_type_str = "main_chat" if chat_type == ChatType.MAIN else "leadership_chat"
+        
+        # Get team ID (you'll need to implement team mapping logic)
+        team_id = "KTI"  # This should come from team mapping service
         
         # Get command arguments
         args = context.args if context.args else []
+        
+        # Use the new help assistant agent
+        from features.shared.domain.agents.help_assistant_agent import get_help_assistant_agent
+        
+        help_agent = get_help_assistant_agent()
         
         if args:
             # Show help for specific command
@@ -238,16 +243,23 @@ async def handle_help_command(update, context, **kwargs):
             if not command_name.startswith('/'):
                 command_name = f"/{command_name}"
             
-            cmd_metadata = registry.get_command(command_name)
-            if cmd_metadata:
-                help_text = _format_command_help(cmd_metadata, chat_type)
-                await update.message.reply_text(help_text, parse_mode='Markdown')
-            else:
-                await update.message.reply_text(f"❌ Command '{command_name}' not found. Use /help to see available commands.")
+            help_text = await help_agent.process_specific_command_help(
+                command_name, user_id, team_id, chat_type_str
+            )
         else:
             # Show general help
-            help_text = _format_general_help(registry, chat_type)
-            await update.message.reply_text(help_text, parse_mode='Markdown')
+            help_text = await help_agent.process_help_request(
+                user_id, team_id, chat_type_str, telegram_username, telegram_name
+            )
+        
+        await update.message.reply_text(help_text, parse_mode='Markdown')
+        
+    except Exception as e:
+        logger.error(f"❌ Error handling help command: {e}")
+        await update.message.reply_text(
+            "❌ Error processing help request. Please try again.",
+            parse_mode='Markdown'
+        )
             
     except Exception as e:
         logger.error(f"Error in help command: {e}")
