@@ -15,4 +15,5 @@ wheel==0.42.0
 crewai>=0.20.0
 
 # Additional dependencies for compatibility
+psutil==6.1.0
 
