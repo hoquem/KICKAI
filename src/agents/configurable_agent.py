@@ -12,12 +12,12 @@ import traceback
 
 from crewai import Agent
 
-from core.enums import AgentRole
-from core.exceptions import AgentInitializationError, ConfigurationError
-from config.agents import get_agent_config, AgentConfig
-from agents.behavioral_mixins import get_mixin_for_role
-from agents.team_memory import TeamMemory
-from core.error_handling import handle_agent_errors, validate_input
+from ..core.enums import AgentRole
+from ..core.exceptions import AgentInitializationError, ConfigurationError
+from ..config.agents import get_agent_config, AgentConfig
+from .behavioral_mixins import get_mixin_for_role
+from .team_memory import TeamMemory
+from ..core.error_handling import handle_agent_errors, validate_input
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class AgentContext:
     team_id: str
     role: AgentRole
     llm: Any
-    tool_registry: Dict[str, Any]
+    tool_registry: Any  # ToolRegistry object
     team_memory: Optional[TeamMemory] = None
     config: Optional[AgentConfig] = None
 
@@ -46,25 +46,28 @@ class AgentContext:
 class AgentToolsManager:
     """Manages tool assignment for agents."""
     
-    def __init__(self, tool_registry: Dict[str, Any]):
+    def __init__(self, tool_registry: Any):  # ToolRegistry object
         self.tool_registry = tool_registry
-        logger.info(f"🔧 AgentToolsManager initialized with {len(tool_registry)} tools")
+        # Fix: Call len() on the result of get_tool_names(), not on the tool_registry object
+        tool_names = tool_registry.get_tool_names() if hasattr(tool_registry, 'get_tool_names') else []
+        tool_count = len(tool_names)
+        logger.info(f"🔧 AgentToolsManager initialized with {tool_count} tools")
     
     def get_tools_for_role(self, tool_names: List[str]) -> List[Any]:
         """Get tools for a specific role."""
         tools = []
         
         logger.info(f"[AGENT FACTORY] Getting tools for role: {tool_names}")
-        logger.info(f"[AGENT FACTORY] Tool registry keys: {list(self.tool_registry.keys())}")
         
         for tool_name in tool_names:
-            if tool_name in self.tool_registry:
-                tool = self.tool_registry[tool_name]
-                tools.append(tool)
+            # Get the actual tool object from the tool registry
+            tool_metadata = self.tool_registry.get_tool(tool_name)
+            if tool_metadata and tool_metadata.tool_function:
+                # The tool_function is the actual CrewAI tool object
+                tools.append(tool_metadata.tool_function)
                 logger.info(f"[AGENT FACTORY] ✅ Found tool '{tool_name}' for role")
             else:
                 logger.warning(f"[AGENT FACTORY] ❌ Tool '{tool_name}' not found in registry")
-                logger.warning(f"[AGENT FACTORY] ❌ Available tools: {list(self.tool_registry.keys())}")
         
         logger.info(f"[AGENT FACTORY] Returning {len(tools)} tools for role")
         return tools
@@ -122,20 +125,20 @@ class ConfigurableAgent:
             raise AgentInitializationError(f"Failed to create agent for role {self.context.role}: {str(e)}")
     
     def _get_tools_for_role(self, tool_names: List[str]) -> List[Any]:
-        """Get tools for a specific role."""
+        """Get tools for a specific role. Tools are validated at factory level."""
         tools = []
         
         logger.info(f"[AGENT FACTORY] Getting tools for role: {tool_names}")
-        logger.info(f"[AGENT FACTORY] Tool registry keys: {list(self.context.tool_registry.keys())}")
         
         for tool_name in tool_names:
-            if tool_name in self.context.tool_registry:
-                tool = self.context.tool_registry[tool_name]
-                tools.append(tool)
+            # Get the actual tool object from the tool registry
+            tool_metadata = self.context.tool_registry.get_tool(tool_name)
+            if tool_metadata and tool_metadata.tool_function:
+                # The tool_function is the actual CrewAI tool object
+                tools.append(tool_metadata.tool_function)
                 logger.info(f"[AGENT FACTORY] ✅ Found tool '{tool_name}' for role")
             else:
-                logger.warning(f"[AGENT FACTORY] ❌ Tool '{tool_name}' not found in registry")
-                logger.warning(f"[AGENT FACTORY] ❌ Available tools: {list(self.context.tool_registry.keys())}")
+                logger.error(f"[AGENT FACTORY] ❌ Tool '{tool_name}' not found or has no function")
         
         logger.info(f"[AGENT FACTORY] Returning {len(tools)} tools for role")
         return tools
@@ -238,7 +241,7 @@ class ConfigurableAgent:
 class AgentFactory:
     """Factory for creating agents with different configurations."""
     
-    def __init__(self, team_id: str, llm: Any, tool_registry: Dict[str, Any]):
+    def __init__(self, team_id: str, llm: Any, tool_registry: Any):  # tool_registry is ToolRegistry object
         """Initialize the agent factory."""
         self.team_id = team_id
         self.llm = llm
@@ -247,28 +250,66 @@ class AgentFactory:
         
         logger.info(f"🏭 AgentFactory initialized for team: {team_id}")
     
+    def _validate_agent_tools(self, role: AgentRole, required_tools: List[str]) -> None:
+        """Validate that all required tools for an agent are available."""
+        missing_tools = []
+        
+        for tool_name in required_tools:
+            tool_metadata = self.tool_registry.get_tool(tool_name)
+            if not tool_metadata or not tool_metadata.tool_function:
+                missing_tools.append(tool_name)
+        
+        if missing_tools:
+            available_tools = self.tool_registry.get_tool_names()
+            error_msg = (
+                f"Agent '{role.value}' is missing required tools: {missing_tools}. "
+                f"Available tools: {available_tools}"
+            )
+            logger.error(f"❌ {error_msg}")
+            raise AgentInitializationError(error_msg)
+        
+        logger.info(f"✅ All required tools validated for agent '{role.value}': {required_tools}")
+    
     def create_agent(self, role: AgentRole) -> ConfigurableAgent:
-        """Create an agent for a specific role."""
+        """Create an agent for a specific role with tool validation."""
         try:
+            # Get agent configuration
+            config = get_agent_config(role)
+            if not config:
+                raise AgentInitializationError(f"No configuration found for agent role: {role}")
+            
+            if not config.enabled:
+                raise AgentInitializationError(f"Agent role '{role.value}' is disabled")
+            
+            # Validate that all required tools are available
+            self._validate_agent_tools(role, config.tools)
+            
+            # Create agent context
             context = AgentContext(
                 team_id=self.team_id,
                 role=role,
                 llm=self.llm,
                 tool_registry=self.tool_registry,
-                team_memory=self.team_memory
+                team_memory=self.team_memory,
+                config=config
             )
             
+            # Create the agent
             agent = ConfigurableAgent(context)
-            logger.info(f"✅ Created agent for role: {role}")
+            logger.info(f"✅ Created agent for role: {role.value} with {len(config.tools)} tools")
             return agent
             
+        except AgentInitializationError:
+            # Re-raise AgentInitializationError as-is
+            raise
         except Exception as e:
             logger.error(f"❌ Failed to create agent for role {role}: {e}")
             raise AgentInitializationError(f"Failed to create agent for role {role}: {str(e)}")
     
     def create_all_agents(self) -> Dict[AgentRole, ConfigurableAgent]:
-        """Create all enabled agents for the team."""
+        """Create all enabled agents for the team with validation."""
         agents = {}
+        failed_agents = []
         
         try:
             # Get all agent roles
@@ -278,12 +319,20 @@ class AgentFactory:
                     if config and config.enabled:
                         agent = self.create_agent(role)
                         agents[role] = agent
-                        logger.info(f"✅ Created agent for role: {role}")
+                        logger.info(f"✅ Created agent for role: {role.value}")
                     else:
-                        logger.info(f"ℹ️ Skipping disabled agent role: {role}")
+                        logger.info(f"ℹ️ Skipping disabled agent role: {role.value}")
+                except AgentInitializationError as e:
+                    failed_agents.append((role, str(e)))
+                    logger.error(f"❌ Failed to create agent for role: {role.value} - {e}")
                 except Exception as e:
-                    logger.warning(f"❌ Failed to create agent for role: {role}")
-                    logger.warning(f"❌ Error: {e}")
+                    failed_agents.append((role, str(e)))
+                    logger.error(f"❌ Unexpected error creating agent for role: {role.value} - {e}")
+            
+            # Report results
+            if failed_agents:
+                failed_list = [f"{role.value}: {error}" for role, error in failed_agents]
+                logger.warning(f"⚠️ Failed to create {len(failed_agents)} agents: {failed_list}")
             
             logger.info(f"🎉 Created {len(agents)} agents for team {self.team_id}")
             return agents

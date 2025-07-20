@@ -9,71 +9,10 @@ Each feature maintains its own command definitions for clean separation.
 from core.command_registry import command, CommandType, PermissionLevel
 
 
-@command(
-    name="/help",
-    description="Show help information and available commands",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PUBLIC,
-    feature="communication",
-    examples=["/help", "/help addplayer"],
-    parameters={
-        "command": "Specific command to get help for (optional)"
-    },
-    help_text="""
-🤖 **KICKAI Help**
-
-Get help information about available commands and features.
-
-**Usage:**
-• `/help` - Show general help
-• `/help [command]` - Get help for specific command
-
-**Examples:**
-• `/help` - Show all available commands
-• `/help addplayer` - Get detailed help for addplayer command
-
-**What you'll see:**
-• List of available commands for your permission level
-• Command descriptions and usage examples
-• Quick tips and guidance
-
-💡 **Tip:** You can also ask me questions in natural language!
-    """
-)
-async def handle_help_command(update, context, **kwargs):
-    """Handle /help command."""
-    # This will be handled by the agent system
-    return None
 
 
-@command(
-    name="/start",
-    description="Start the bot and show welcome message",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PUBLIC,
-    feature="communication",
-    examples=["/start"],
-    help_text="""
-👋 **Welcome to KICKAI!**
 
-Start the bot and get a welcome message with basic information.
 
-**Usage:**
-`/start`
-
-**What you'll see:**
-• Welcome message
-• Basic bot information
-• Quick start guide
-• Links to help and registration
-
-💡 **New here?** Use `/register` to join the team!
-    """
-)
-async def handle_start_command(update, context, **kwargs):
-    """Handle /start command."""
-    # This will be handled by the agent system
-    return None
 
 
 @command(

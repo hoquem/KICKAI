@@ -6,8 +6,8 @@ This module registers all player registration related commands with the command 
 Each feature maintains its own command definitions for clean separation.
 """
 
-from core.command_registry import command, CommandType, PermissionLevel
-from agents.behavioral_mixins import PlayerAdditionMixin, TeamMemberAdditionMixin
+from src.core.command_registry import command, CommandType, PermissionLevel
+from src.agents.behavioral_mixins import PlayerAdditionMixin, TeamMemberAdditionMixin
 
 
 # Initialize mixins for command handling
@@ -233,106 +233,5 @@ List all players awaiting approval for team participation.
 )
 async def handle_pending_command(update, context, **kwargs):
     """Handle /pending command."""
-    # This will be handled by the agent system
-    return None
-
-
-@command(
-    name="/status",
-    description="Check player status",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PLAYER,
-    feature="player_registration",
-    examples=["/status", "/status 07123456789"],
-    parameters={
-        "phone": "Phone number to check (optional)"
-    },
-    help_text="""
-📊 **Check Player Status**
-
-Check the status of a player in the team.
-
-**Usage:**
-• `/status` - Check your own status
-• `/status [phone]` - Check status of a specific player
-
-**Example:**
-`/status 07123456789`
-
-**What you'll see:**
-• Player registration status
-• Approval status
-• Team membership details
-• Recent activity
-
-💡 **Note:** You can only check your own status or the status of players you have permission to view.
-    """
-)
-async def handle_status_command(update, context, **kwargs):
-    """Handle /status command."""
-    # This will be handled by the agent system
-    return None
-
-
-@command(
-    name="/myinfo",
-    description="Get your player information",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PLAYER,
-    feature="player_registration",
-    examples=["/myinfo"],
-    help_text="""
-👤 **My Player Information**
-
-Get your personal player information and details.
-
-**Usage:**
-`/myinfo`
-
-**What you'll see:**
-• Your player ID
-• Name and contact details
-• Position and playing role
-• Registration date
-• Approval status
-• Team membership details
-• Recent activity and statistics
-
-💡 **Note:** This command shows your personal information only.
-    """
-)
-async def handle_myinfo_command(update, context, **kwargs):
-    """Handle /myinfo command."""
-    # This will be handled by the agent system
-    return None
-
-
-@command(
-    name="/list",
-    description="List all team players",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PLAYER,
-    feature="player_registration",
-    examples=["/list"],
-    help_text="""
-👥 **Team Player List**
-
-List all players in the team.
-
-**Usage:**
-`/list`
-
-**What you'll see:**
-• All registered players
-• Player names and positions
-• Registration status
-• Approval status
-• Contact information (if you have permission)
-
-💡 **Note:** The information shown depends on your permission level.
-    """
-)
-async def handle_list_command(update, context, **kwargs):
-    """Handle /list command."""
     # This will be handled by the agent system
     return None

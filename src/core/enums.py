@@ -48,6 +48,7 @@ class AgentRole(Enum):
     AVAILABILITY_MANAGER = "availability_manager"
     SQUAD_SELECTOR = "squad_selector"
     COMMUNICATION_MANAGER = "communication_manager"
+    HELP_ASSISTANT = "help_assistant"
 
 
 class AIProvider(Enum):

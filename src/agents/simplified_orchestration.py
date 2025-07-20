@@ -13,15 +13,15 @@ from dataclasses import dataclass
 from typing import Dict, List, Any, Optional
 from enum import Enum
 
-from agents.task_decomposition import TaskDecompositionManager
-from agents.complexity_assessor import RequestComplexityAssessor, ComplexityAssessment
-from agents.configurable_agent import ConfigurableAgent
+from src.agents.task_decomposition import TaskDecompositionManager
+from src.agents.complexity_assessor import RequestComplexityAssessor, ComplexityAssessment
+from src.agents.configurable_agent import ConfigurableAgent
 
 logger = logging.getLogger(__name__)
 
 
 # Import the correct AgentRole enum from the main enums file
-from core.enums import AgentRole
+from src.core.enums import AgentRole
 
 
 @dataclass

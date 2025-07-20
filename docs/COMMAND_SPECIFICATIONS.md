@@ -1,1171 +1,774 @@
 # KICKAI Command Specifications
 
-This document defines the expected behavior for all KICKAI bot commands across different scenarios, chat types, and user states.
+**Version:** 3.0  
+**Status:** Production Ready  
+**Last Updated:** December 2024  
+**Architecture:** Agentic Command Processing with CrewAI
+
+This document defines the expected behavior for all KICKAI bot commands across different scenarios, chat types, and user states, using the latest agentic architecture.
 
 ## Table of Contents
 - [Command Overview](#command-overview)
+- [Agentic Architecture](#agentic-architecture)
 - [Chat Types](#chat-types)
 - [User States](#user-states)
 - [Command Specifications](#command-specifications)
-- [Implementation Architecture](#implementation-architecture)
-- [Command Implementation & Processing Flow](#command-implementation--processing-flow)
+- [Command Processing Flow](#command-processing-flow)
 - [Testing Scenarios](#testing-scenarios)
 
 ## Command Overview
 
 ### Core Commands
-| Command | Description | Main Chat | Leadership Chat | Permission Level |
-|---------|-------------|-----------|-----------------|------------------|
-| `/help` | Show available commands | ✅ | ✅ | PUBLIC |
-| `/start` | Initialize bot interaction | ✅ | ✅ | PUBLIC |
-| `/register` | Register as a player | ✅ | ❌ | PUBLIC |
-| `/myinfo` | Show personal information | ✅ | ✅ | PUBLIC |
-| `/status` | Check player/team member status | ✅ | ✅ | PUBLIC |
-| `/list` | List players/team members | ✅ | ✅ | PUBLIC |
+| Command | Description | Main Chat | Leadership Chat | Permission Level | Agent |
+|---------|-------------|-----------|-----------------|------------------|-------|
+| `/help` | Show available commands | ✅ | ✅ | PUBLIC | HelpAssistantAgent |
+| `/start` | Initialize bot interaction | ✅ | ✅ | PUBLIC | MessageProcessorAgent |
+| `/register` | Register as a player | ✅ | ❌ | PUBLIC | PlayerCoordinatorAgent |
+| `/myinfo` | Show personal information | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent |
+| `/status` | Check player/team member status | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent |
+| `/list` | List players/team members | ✅ | ✅ | PUBLIC | TeamManagerAgent |
 
 ### Player Management Commands
-| Command | Description | Main Chat | Leadership Chat | Permission Level |
-|---------|-------------|-----------|-----------------|------------------|
-| `/add` | Add a new player | ❌ | ✅ | LEADERSHIP |
-| `/approve` | Approve player registration | ❌ | ✅ | LEADERSHIP |
-| `/reject` | Reject player registration | ❌ | ✅ | LEADERSHIP |
-| `/pending` | Show pending registrations | ❌ | ✅ | LEADERSHIP |
+| Command | Description | Main Chat | Leadership Chat | Permission Level | Agent |
+|---------|-------------|-----------|-----------------|------------------|-------|
+| `/add` | Add a new player | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
+| `/approve` | Approve player registration | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
+| `/reject` | Reject player registration | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
+| `/pending` | Show pending registrations | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
 
 ### Team Management Commands
-| Command | Description | Main Chat | Leadership Chat | Permission Level |
-|---------|-------------|-----------|-----------------|------------------|
-| `/team` | Team information | ✅ | ✅ | PUBLIC |
-| `/invite` | Generate invitation link | ❌ | ✅ | LEADERSHIP |
-| `/announce` | Make team announcement | ❌ | ✅ | LEADERSHIP |
+| Command | Description | Main Chat | Leadership Chat | Permission Level | Agent |
+|---------|-------------|-----------|-----------------|------------------|-------|
+| `/team` | Team information | ✅ | ✅ | PUBLIC | TeamManagerAgent |
+| `/invite` | Generate invitation link | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
+| `/announce` | Make team announcement | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
 
 ### System Commands
-| Command | Description | Main Chat | Leadership Chat | Permission Level |
-|---------|-------------|-----------|-----------------|------------------|
-| `/health` | System health check | ❌ | ✅ | SYSTEM |
-| `/version` | Bot version info | ✅ | ✅ | PUBLIC |
-| `/config` | Configuration info | ❌ | ✅ | SYSTEM |
+| Command | Description | Main Chat | Leadership Chat | Permission Level | Agent |
+|---------|-------------|-----------|-----------------|------------------|-------|
+| `/health` | System health check | ❌ | ✅ | SYSTEM | SystemInfrastructureAgent |
+| `/version` | Bot version info | ✅ | ✅ | PUBLIC | MessageProcessorAgent |
+| `/config` | Configuration info | ❌ | ✅ | SYSTEM | SystemInfrastructureAgent |
+
+## Agentic Architecture
+
+### Command Processing Overview
+
+The KICKAI system uses an **agentic-first approach** where all commands are processed through specialized CrewAI agents rather than dedicated command handlers.
+
+```mermaid
+graph TD
+    A[User Message] --> B{Message Type}
+    B -->|Slash Command| C[Command Registry]
+    B -->|Natural Language| D[Direct Processing]
+    B -->|Unknown| E[Error Response]
+    
+    C --> F[Build Command String]
+    D --> G[Extract Message Text]
+    
+    F --> H[_handle_crewai_processing]
+    G --> H
+    
+    H --> I[CrewAI System]
+    I --> J[Orchestration Pipeline]
+    J --> K[Intent Classification]
+    K --> L[Complexity Assessment]
+    L --> M[Task Decomposition]
+    M --> N[Agent Routing]
+    N --> O[Task Execution]
+    O --> P[Result Aggregation]
+    P --> Q[User Response]
+```
+
+### Agent Responsibilities
+
+#### 1. **HelpAssistantAgent**
+- **Primary Commands**: `/help`, help-related natural language
+- **Responsibilities**:
+  - Context-aware help information
+  - User status validation
+  - Command availability checking
+  - Registration flow guidance
+- **Tools**: `get_user_status`, `get_available_commands`, `format_help_message`
+
+#### 2. **MessageProcessorAgent**
+- **Primary Commands**: `/start`, `/version`, general natural language
+- **Responsibilities**:
+  - Message parsing and intent classification
+  - Context extraction
+  - Simple query responses
+  - Agent routing for complex requests
+- **Tools**: Intent analysis, context extraction, message routing
+
+#### 3. **PlayerCoordinatorAgent**
+- **Primary Commands**: `/register`, `/myinfo`, `/status`
+- **Responsibilities**:
+  - Player registration and onboarding
+  - Individual player support
+  - Player status tracking
+  - Personal information management
+- **Tools**: Player management, registration, status tracking
+
+#### 4. **TeamManagerAgent**
+- **Primary Commands**: `/list`, `/add`, `/approve`, `/reject`, `/team`, `/invite`, `/announce`
+- **Responsibilities**:
+  - Team administration
+  - Player management
+  - Team coordination
+  - Administrative oversight
+- **Tools**: Team management, player administration, team coordination
+
+#### 5. **SystemInfrastructureAgent**
+- **Primary Commands**: `/health`, `/config`
+- **Responsibilities**:
+  - System health monitoring
+  - Configuration management
+  - System diagnostics
+  - Infrastructure oversight
+- **Tools**: Health monitoring, configuration management, system diagnostics
+
+### Command Registration Pattern
+
+Commands are registered using decorators but delegate to CrewAI agents:
+
+```python
+@command("/help", "Show available commands", feature="shared")
+async def handle_help(update, context, **kwargs):
+    # Command is registered but delegates to HelpAssistantAgent
+    # No direct implementation - handled by CrewAI agent
+    pass
+```
+
+### Natural Language Processing
+
+All natural language queries are processed through the **unified CrewAI pipeline** - the same system that handles slash commands.
+
+#### **Unified Processing Flow**
+
+```python
+# Both slash commands and natural language converge here:
+async def _handle_crewai_processing(self, update, message_text, user_id, chat_id, chat_type, username):
+    # Create execution context
+    execution_context = {
+        'user_id': user_id,
+        'team_id': self.team_id,
+        'chat_id': chat_id,
+        'is_leadership_chat': chat_type == ChatType.LEADERSHIP,
+        'username': username,
+        'message_text': message_text  # ← Only difference between input types!
+    }
+    
+    # Execute with CrewAI ← UNIFIED PROCESSING
+    result = await self.crewai_system.execute_task(message_text, execution_context)
+```
+
+#### **Input Processing Examples**
+
+**Slash Command Path:**
+```python
+# User types: /help
+message_text = "/help"
+
+# User types: /myinfo
+message_text = "/myinfo"
+```
+
+**Natural Language Path:**
+```python
+# User types: "help me"
+message_text = "help me"
+
+# User types: "what's my info"
+message_text = "what's my info"
+```
+
+**Both paths converge to the same processing pipeline!**
+
+### Natural Language Security Implementation
+
+Since both paths use the same processing pipeline, **security is automatically consistent**:
+
+#### **1. Intent Classification**
+```python
+async def _classify_intent(self, message_text: str, user_id: str, chat_type: str) -> Dict[str, Any]:
+    """Classify user intent from natural language."""
+    # Use LLM to determine what the user wants to do
+    # Return structured intent with action, parameters, and confidence
+```
+
+#### **2. Command Mapping**
+```python
+def _map_intent_to_command(self, intent: Dict[str, Any]) -> Optional[str]:
+    """Map natural language intent to equivalent command for permission checking."""
+    intent_action = intent.get('action', '').lower()
+    
+    # Map common natural language patterns to commands
+    mappings = {
+        'help': '/help',
+        'show commands': '/help',
+        'what can you do': '/help',
+        'my info': '/myinfo',
+        'my information': '/myinfo',
+        'player status': '/status',
+        'list players': '/list',
+        'team info': '/team',
+        'add player': '/add',
+        'approve player': '/approve',
+        'system health': '/health',
+        'bot version': '/version'
+    }
+    
+    return mappings.get(intent_action)
+```
+
+#### **3. Permission Validation**
+```python
+async def _check_permission(self, command: str, user_id: str, chat_type: str) -> bool:
+    """Check if user has permission to execute the equivalent command."""
+    # Use the same permission logic as slash commands
+    registry = get_command_registry()
+    command_metadata = registry.get_command(command)
+    
+    if not command_metadata:
+        return False
+    
+    # Apply same permission checking logic
+    user_permission = await self._get_user_permission_level(user_id, chat_type)
+    return user_permission >= command_metadata.permission_level.value
+```
+
+#### **4. Access Control**
+```python
+async def _send_access_denied_message(self, update, command: str):
+    """Send access denied message for natural language requests."""
+    chat_type = self._determine_chat_type(str(update.effective_chat.id))
+    
+    if chat_type == ChatType.MAIN:
+        message = f"""❌ **Access Denied**
+
+🔒 The action you requested requires leadership access.
+💡 Please use the leadership chat for this function."""
+    else:
+        message = f"""❌ **Access Denied**
+
+🔒 You don't have permission to perform this action.
+💡 Contact your team admin for access."""
+    
+    await update.message.reply_text(message, parse_mode='Markdown')
+```
+
+## 🔒 Security & Access Control
+
+### **Unified Security Through Unified Processing**
+
+The KICKAI system implements **comprehensive permission checking** through its unified processing pipeline. Since both slash commands and natural language use the same CrewAI orchestration system, security is automatically consistent.
+
+#### **Security Flow**
+
+```mermaid
+graph TD
+    A[User Input] --> B{Input Type}
+    B -->|Slash Command| C[Command Registry]
+    B -->|Natural Language| D[Direct Processing]
+    
+    C --> E[Build Command String]
+    D --> F[Extract Message Text]
+    
+    E --> G[_handle_crewai_processing]
+    F --> G
+    
+    G --> H[CrewAI System]
+    H --> I[Orchestration Pipeline]
+    I --> J[Intent Classification]
+    J --> K[Permission Check]
+    K -->|Allowed| L[Task Decomposition]
+    K -->|Denied| M[Access Denied]
+    
+    L --> N[Agent Routing]
+    N --> O[Task Execution]
+    O --> P[Result Aggregation]
+    M --> Q[Security Log]
+```
+
+#### **Permission Levels**
+
+| Level | Description | Access |
+|-------|-------------|--------|
+| **PUBLIC** | Available to everyone | Basic commands, help, version |
+| **PLAYER** | Available to registered players | Player-specific commands |
+| **LEADERSHIP** | Available to team leadership | Administrative commands |
+| **ADMIN** | Available to team admins | System configuration |
+| **SYSTEM** | Available to system only | Health checks, diagnostics |
+
+#### **Security Implementation**
+
+**1. Unified Processing Pipeline**
+- Both slash commands and natural language use the same CrewAI system
+- Same permission logic applied to both input types
+- No bypass of permission system through natural language
+
+**2. Intent-to-Command Mapping**
+- Natural language requests are mapped to equivalent commands
+- Same permission logic applied to both input types
+- No bypass of permission system through natural language
+
+**3. Context-Aware Validation**
+- Chat type validation (main vs leadership)
+- User role validation (player vs team member vs admin)
+- Team-based isolation (team_id scoping)
+
+**4. Comprehensive Logging**
+- All permission checks logged for audit
+- Failed attempts tracked for security monitoring
+- User actions traced for accountability
+
+#### **Security Examples**
+
+**Example 1: Unauthorized Leadership Request**
+```
+User (in main chat): "Add a new player to the team"
+System: Maps to /add command
+Permission Check: LEADERSHIP required, user has PLAYER level
+Result: ❌ Access Denied - "This action requires leadership access"
+```
+
+**Example 2: Authorized Player Request**
+```
+User (in main chat): "Show me my player information"
+System: Maps to /myinfo command
+Permission Check: PUBLIC level, user has PLAYER level
+Result: ✅ Access Granted - Player information displayed
+```
+
+**Example 3: Leadership Command in Leadership Chat**
+```
+User (in leadership chat): "Approve player registration"
+System: Maps to /approve command
+Permission Check: LEADERSHIP required, user has LEADERSHIP level
+Result: ✅ Access Granted - Player approval processed
+```
+
+### **Benefits of Unified Security**
+
+1. **🔒 Consistent Protection**: Same security for all input methods
+2. **🔄 Single Security Logic**: No duplication of permission checking
+3. **🧪 Unified Testing**: Security tested once, works everywhere
+4. **🛠️ Maintainable**: Single security pipeline to maintain
+5. **📈 Scalable**: New input methods automatically inherit security
+6. **🎯 No Security Gaps**: Impossible to bypass through different input methods
 
 ## Chat Types
 
-### Main Chat (`-4829855674`)
-- **Purpose**: General team communication
-- **Users**: All registered players and team members
-- **Commands**: Public commands, player-focused features
-- **Context**: `is_leadership_chat: false`
+### Main Chat (`{team_config.main_chat_id}`)
+**Purpose**: General team communication  
+**Users**: All registered players and team members  
+**Commands**: Public commands, player-focused features  
+**Context**: `is_leadership_chat: false`
 
-### Leadership Chat (`-4969733370`)
-- **Purpose**: Administrative and management functions
-- **Users**: Team leaders, administrators, coaches
-- **Commands**: All commands including administrative functions
-- **Context**: `is_leadership_chat: true`
+### Leadership Chat (`{team_config.leadership_chat_id}`)
+**Purpose**: Administrative and management functions  
+**Users**: Team leaders, administrators, coaches  
+**Commands**: All commands including administrative functions  
+**Context**: `is_leadership_chat: true`
 
 ## User States
 
-### 1. First User (Bot Creator)
-- **User ID**: `8148917292` (doods2000)
-- **Status**: Team owner, full permissions
-- **Access**: All chats, all commands
+### First User (First Team Member)
+**Status**: Team owner, full permissions  
+**Access**: All chats, all commands  
+**Note**: This is the first user who registered in the leadership chat and became the first member in the team member collection. This user is not necessarily the bot creator. The User ID and telegram name are only known after they register in the leadership chat.
 
-### 2. Registered Player
-- **Status**: Active player in the system
-- **Access**: Main chat commands, limited leadership chat access
-- **Data**: Player record in Firestore
+**Dynamic Assignment**: The system automatically assigns team owner status to the first user who registers in the leadership chat, regardless of their User ID or telegram name.
 
-### 3. Team Member (Non-Player)
-- **Status**: Team staff, coach, or administrator
-- **Access**: Leadership chat, administrative commands
-- **Data**: Team member record in Firestore
+### Registered Player
+**Status**: Active player in the system  
+**Access**: Main chat commands, limited leadership chat access  
+**Data**: Player record in Firestore
+
+**Design Principle**: Commands have distinct implementations for different chat contexts to maintain clean, predictable behavior.
+
+#### **Command Context Design**
+- **Main Chat Commands**: Implemented specifically for player interactions
+- **Leadership Chat Commands**: Implemented specifically for administrative functions
+- **Same Command Names**: Can exist in both contexts but with different implementations
+- **Clean Architecture**: No conditional logic based on chat context
+
+#### **Example: `/list` Command**
+```python
+# Main Chat Implementation
+@command(name="/list", description="List active players", chat_type="main")
+async def list_players_main(update, context):
+    """List only active players in main chat."""
+    players = await get_active_players()
+    return format_player_list(players, show_status=False)
+
+# Leadership Chat Implementation  
+@command(name="/list", description="List all players with status", chat_type="leadership")
+async def list_players_leadership(update, context):
+    """List all players with detailed status in leadership chat."""
+    players = await get_all_players()
+    return format_player_list(players, show_status=True, show_details=True)
+```
+
+#### **Benefits of This Approach**
+- **🎯 Predictable Behavior**: Same command always behaves the same way in same context
+- **🧹 Clean Code**: No complex conditional logic
+- **📋 Clear Intent**: Each implementation has a single, clear purpose
+- **🛠️ Maintainable**: Easy to modify behavior for specific contexts
+- **🧪 Testable**: Each implementation can be tested independently
+
+### Registered Team Member
+**Status**: Member of the leadership chat with team management responsibilities  
+**Access**: All commands in leadership chat, admin commands based on role  
+**Data**: Team member record in Firestore  
+**Registration**: Must register to provide their details
+
+#### **Dual Role Capability**
+- **Team Member**: Core role as a member of the leadership chat
+- **Player**: Can also be a registered player if added to main chat and completed registration
+- **Role-Based Permissions**: Admin commands only available with admin role
+
+#### **Registration Process**
+```python
+# Team member registration flow
+async def register_team_member(update, context):
+    """Register a new team member with their details."""
+    # Collect team member information
+    # Store in team_members collection
+    # Assign appropriate roles and permissions
+    # Grant access to leadership chat commands
+```
+
+#### **Role-Based Access Control**
+```python
+# Example role checking for admin commands
+@command(name="/approve", description="Approve player registration", chat_type="leadership")
+async def approve_player(update, context):
+    """Approve a player registration (admin only)."""
+    user_roles = await get_user_roles(update.effective_user.id)
+    
+    if "admin" not in user_roles:
+        return "❌ Access Denied: Admin role required for this command."
+    
+    # Proceed with approval logic
+    return await process_player_approval(update, context)
+```
+
+#### **Available Commands**
+- **All Leadership Commands**: Can run any command available in leadership chat
+- **Admin Commands**: Only if they have admin role
+- **Player Commands**: If also registered as a player in main chat
+- **Team Management**: Access to team oversight and coordination features
+
+#### **Example Team Member Response**
+```
+👔 KICKAI Leadership Commands
+
+👤 {telegram_name} (ID: {member_id})
+Role: {role} | Player: {is_player}
+
+Team Management:
+• /register - Register new player with name, phone, position
+• /add - Add new player to team roster
+• /list - List all players with their status
+• /status - Check player status by phone number
+• /myinfo - Check your team member information
+
+Admin Commands (Admin role required):
+• /approve - Approve player registration
+• /reject - Reject player registration
+• /pending - List pending registrations
+• /announce - Send team announcement
+
+Natural Language:
+You can also ask me questions in natural language!
+```
 
 ### 4. Pending Registration
 - **Status**: Registration submitted, awaiting approval
 - **Access**: Limited main chat access
 - **Data**: Pending player record in Firestore
 
-### 5. Unregistered User
-- **Status**: No record in system
-- **Access**: Basic commands only
-- **Data**: No Firestore record
+### Unregistered User
+**Status**: No record in system  
+**Access**: Basic commands only  
+**Data**: No Firestore record  
+**Guidance**: Users are asked to contact a member of the leadership team to be added as a player, or they can leave the chat if they got here by mistake.
 
 ## Command Specifications
 
 ### `/help` Command
 
+#### Agentic Implementation Overview
+
+The `/help` command is implemented using the **HelpAssistantAgent** that provides context-aware help information with proper user validation and registration flows.
+
+**Key Components:**
+- **HelpAssistantAgent**: Specialized agent for help processing
+- **MessageFormattingService**: Centralized message formatting
+- **Command Registry**: Dynamic command discovery
+- **User Context**: Complete user context with permissions
+
+#### Agent Implementation
+
+**HelpAssistantAgent** (`src/features/shared/domain/agents/help_assistant_agent.py`):
+```python
+class HelpAssistantAgent:
+    """Help Assistant Agent for processing help requests."""
+    
+    async def process_help_request(self, user_id: str, team_id: str, chat_type: str, 
+                                 username: str, name: str) -> str:
+        # 1. Get user status
+        user_status = get_user_status_tool(user_id, team_id, chat_type)
+        
+        # 2. Get available commands
+        commands_info = get_available_commands_tool(chat_type, user_id, team_id)
+        
+        # 3. Format response using centralized service
+        formatter = get_message_formatting_service()
+        context = MessageContext(...)
+        return formatter.format_help_message(context, commands_info)
+```
+
 #### Context-Aware Behavior Design
 
-The `/help` command must be **context-aware** and provide different information based on:
+The `/help` command provides **context-aware** information based on:
 
 1. **Chat Type**: Main chat vs Leadership chat
-2. **User Status**: Player vs Team Member vs Unregistered
-3. **User Permissions**: What commands the user can actually execute
-
-#### Agent Implementation Strategy
-
-**How Agents Determine Available Commands:**
-
-1. **Command Registry Discovery**: Agents query the centralized command registry
-2. **Permission Filtering**: Filter commands based on user's role and chat type
-3. **Context-Aware Formatting**: Format help text based on user's current state
-
-**Agent Prompt Context:**
-```
-You are a help assistant for the KICKAI football team management system.
-
-CONTEXT:
-- Chat Type: {main_chat|leadership_chat}
-- User Status: {player|team_member|unregistered}
-- User ID: {user_id}
-- Team ID: {team_id}
-
-AVAILABLE TOOLS:
-- get_user_status: Get current user's player/team member status
-- get_available_commands: Get list of commands available to this user
-- format_help_message: Format help message based on context
-
-TASK:
-1. Determine user's current status using get_user_status
-2. Get available commands for this user using get_available_commands
-3. Format appropriate help message using format_help_message
-4. Return contextually appropriate help information
-```
+2. **User Status**: Registered vs Unregistered
+3. **Chat Context Rules**: 
+   - **Main Chat**: Treat everyone as players (even if they're also team members)
+   - **Leadership Chat**: Treat everyone as team members (even if they're also players)
+4. **Registration Flow**: Proper guidance for unregistered users
 
 #### Expected Behavior by Chat Type and User Status
 
 **Main Chat - Unregistered User:**
 ```
+👋 Welcome to KICKAI, {telegram_name}!
+
+🤔 I don't see you registered as a player yet.
+
+📞 Please contact a member of the leadership team to add you as a player to this team.
+
+💡 Once you're registered, you'll be able to use all player commands!
+```
+
+**Main Chat - Registered User (Treated as Player):**
+```
 🤖 KICKAI Commands
 
-Welcome! You're not registered yet. Here's what you can do:
+👤 {telegram_name} (Player)
 
-Basic Commands:
+Player Management:
+• /register - Register as a new player
+• /list - List all team players
+• /status - Check player status by phone number
+• /myinfo - Check your player information
+
+General Commands:
 • /help - Show this help message
-• /start - Initialize bot interaction
-• /register - Register as a player (recommended!)
-
-Team Information:
-• /team - View team information
-
-Need to register? Use /register to join the team!
-```
-
-**Main Chat - Registered Player:**
-```
-🤖 KICKAI Commands
-
-Player Commands:
-• /help - Show available commands
-• /myinfo - Show your player information
-• /status - Check your player status
-• /list - List active players
-• /team - Team information
-
-Registration:
-• /register - Update your registration (if needed)
+• /start - Start the bot
 
 Natural Language:
 You can also ask me questions in natural language!
 ```
 
-**Main Chat - Team Member (Non-Player):**
+**Leadership Chat - First User (Admin Setup):**
+```
+🎉 Welcome to KICKAI, {telegram_name}!
+
+🌟 You're the first team member! Let's get you set up as an admin.
+
+📝 Please provide your details:
+💡 Use: /register [name] [phone] admin
+```
+
+**Leadership Chat - Unregistered User (Not First):**
+```
+👋 Welcome to KICKAI Leadership, {telegram_name}!
+
+🤔 I don't see you registered as a team member yet.
+
+📝 Please provide your details so I can add you to the team members collection.
+
+💡 You can use: /register [name] [phone] [role]
+```
+
+**Leadership Chat - Registered User (Treated as Team Member):**
 ```
 🤖 KICKAI Commands
 
-Team Member Commands:
-• /help - Show available commands
-• /myinfo - Show your team member information
-• /status - Check your team member status
-• /list - List active players
-• /team - Team information
+👤 {telegram_name} (Team Member)
 
-Note: You're registered as a team member, not a player.
-For player registration, contact team leadership.
-
-Natural Language:
-You can also ask me questions in natural language!
-```
-
-**Leadership Chat - Team Member:**
-```
-👔 KICKAI Leadership Commands
+Leadership Commands:
+• /add - Add a new player
+• /approve - Approve player registration
+• /reject - Reject player registration
+• /pending - Show pending registrations
+• /announce - Make team announcement
 
 General Commands:
 • /help - Show available commands
 • /myinfo - Show your team member information
 • /status - Check your team member status
-• /list - List all players and team members
+• /list - List active players
 • /team - Team information
-
-Player Management:
-• /add - Add a new player
-• /approve - Approve player registration
-• /reject - Reject player registration
-• /pending - Show pending registrations
-
-Team Management:
-• /invite - Generate invitation link
-• /announce - Make team announcement
-
-System:
-• /health - System health check
-• /version - Bot version info
 
 Natural Language:
 You can also ask me questions in natural language!
 ```
 
-**Leadership Chat - Unregistered User:**
-```
-❌ Access Denied
+## 🏗️ Clean Design Principles
 
-You are not registered as a team member in this leadership chat.
+### **Command Context Architecture**
 
-What you can do:
-1. Contact team admin to be added as a team member
-2. Leave this chat if you're here by mistake
-3. Join the main team chat instead
+The KICKAI system follows clean software engineering principles to avoid conditional logic and maintain predictable behavior across different chat contexts.
 
-Need help? Contact the team administrator.
-```
-
-#### Command Availability Matrix
-
-| Command | Main Chat | Leadership Chat | Unregistered | Player | Team Member |
-|---------|-----------|-----------------|--------------|--------|-------------|
-| `/help` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `/start` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `/register` | ✅ | ❌ | ✅ | ✅ | ❌ |
-| `/myinfo` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `/status` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `/list` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `/team` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `/add` | ❌ | ✅ | ❌ | ❌ | ✅ |
-| `/approve` | ❌ | ✅ | ❌ | ❌ | ✅ |
-| `/reject` | ❌ | ✅ | ❌ | ❌ | ✅ |
-| `/pending` | ❌ | ✅ | ❌ | ❌ | ✅ |
-| `/invite` | ❌ | ✅ | ❌ | ❌ | ✅ |
-| `/announce` | ❌ | ✅ | ❌ | ❌ | ✅ |
-| `/health` | ❌ | ✅ | ❌ | ❌ | ✅ |
-| `/version` | ✅ | ✅ | ✅ | ✅ | ✅ |
-
-#### Implementation Requirements
-
-**Agent Tools Needed:**
-
-1. **`get_user_status` Tool:**
-   - Determines if user is player, team member, or unregistered
-   - Returns user's current status and permissions
-
-2. **`get_available_commands` Tool:**
-   - Queries command registry for available commands
-   - Filters based on chat type and user permissions
-   - Returns list of commands user can execute
-
-3. **`format_help_message` Tool:**
-   - Formats help message based on context
-   - Uses templates for different user states
-   - Ensures consistent formatting
-
-**Command Registry Integration:**
-- Commands must be registered with permission levels
-- Registry must support filtering by chat type and user role
-- Dynamic command discovery for agents
-
-**Error Handling:**
-- Graceful handling of unregistered users
-- Clear guidance for access denied scenarios
-- Helpful suggestions for next steps
-
-#### Testing Scenarios
-
-**Scenario 1: Unregistered User in Main Chat**
-- **Input**: `/help`
-- **Expected**: Basic commands + registration prompt
-- **Collection**: `kickai_KTI_players` (empty)
-
-**Scenario 2: Registered Player in Main Chat**
-- **Input**: `/help`
-- **Expected**: Player-focused commands
-- **Collection**: `kickai_KTI_players` (user found)
-
-**Scenario 3: Team Member in Leadership Chat**
-- **Input**: `/help`
-- **Expected**: Full leadership commands
-- **Collection**: `kickai_KTI_team_members` (user found)
-
-**Scenario 4: Unregistered User in Leadership Chat**
-- **Input**: `/help`
-- **Expected**: Access denied message
-- **Collection**: `kickai_KTI_team_members` (empty)
-
-### `/start` Command
-
-#### Expected Behavior
-
-**Main Chat:**
-```
-👋 Welcome to KICKAI for KickAI Testing!
-
-🤖 KICKAI v1.0.0 is your AI-powered football team assistant.
-- Organize matches, manage attendance, and more.
-- Use /help to see what you can do!
-
-Let's kick off a smarter season! ⚽️
-```
-
-**Leadership Chat:**
-```
-👔 KICKAI Leadership for KickAI Testing is now online!
-
-🤖 KICKAI v1.0.0 is ready to assist with team management.
-- Access admin commands and team oversight.
-- Use /help for leadership commands.
-
-Leadership dashboard is active! 🏆
-```
-
-### `/register` Command
-
-#### Expected Behavior
-
-**Main Chat - Unregistered User:**
-```
-📝 Player Registration
-
-To register as a player, please provide:
-• Your full name
-• Phone number (format: 07XXXXXXXXX)
-• Preferred position (Forward, Midfielder, Defender, Goalkeeper)
-• FA eligibility (yes/no)
-
-Example: /register John Smith 07123456789 Forward yes
-
-Your registration will be reviewed by team leadership.
-```
-
-**Main Chat - Already Registered:**
-```
-❌ You are already registered as a player.
-
-Use /myinfo to view your current information.
-Use /status to check your player status.
-```
-
-**Leadership Chat:**
-```
-❌ Registration is only available in the main team chat.
-
-Please use the main chat for player registration.
-```
-
-### `/myinfo` Command
-
-#### Expected Behavior by User State
-
-**First User - Main Chat:**
-```
-👤 Player Information
-
-Name: doods2000
-Player ID: DO001
-Status: Active
-Position: Not specified
-Phone: Not specified
-Team: KickAI Testing
-Registration Date: 2025-07-13
-
-Use /status to check your current status.
-```
-
-**First User - Leadership Chat:**
-```
-👔 Team Member Information
-
-Name: doods2000
-Role: Team Owner
-Status: Active
-Team: KickAI Testing
-Member Since: 2025-07-13
-
-Administrative Access: Full
-```
-
-**Registered Player - Main Chat:**
-```
-👤 Player Information
-
-Name: [Player Name]
-Player ID: [Player ID]
-Status: Active
-Position: [Position]
-Phone: [Phone Number]
-Team: KickAI Testing
-Registration Date: [Date]
-
-Use /status to check your current status.
-```
-
-**Unregistered User - Main Chat:**
-```
-❌ You are not registered as a player.
-
-Use /register to create your player account.
-Use /help to see available commands.
-```
-
-### `/status` Command
-
-#### Expected Behavior by User State
-
-**Registered Player - Main Chat:**
-```
-📊 Player Status
-
-Name: [Player Name]
-Player ID: [Player ID]
-Status: Active
-Position: [Position]
-Phone: [Phone Number]
-Team: KickAI Testing
-Registration Date: [Date]
-
-Recent Activity: [Last match/activity]
-```
-
-**Registered Player - Leadership Chat:**
-```
-📊 Team Member Status
-
-Name: [Player Name]
-Role: Player
-Status: Active
-Team: KickAI Testing
-Member Since: [Date]
-
-Player Details:
-• Player ID: [Player ID]
-• Position: [Position]
-• Phone: [Phone Number]
-```
-
-**Unregistered User - Main Chat:**
-```
-❌ You are not registered as a player.
-
-Use /register to create your player account.
-```
-
-**Unregistered User - Leadership Chat:**
-```
-❌ You are not registered as a team member.
-
-Contact team leadership for access.
-```
-
-### `/list` Command
-
-#### Expected Behavior by Chat Type
-
-**Main Chat:**
-```
-📋 Active Players
-
-• DO001 - doods2000 (Not specified)
-• [Player ID] - [Name] ([Position])
-
-Total: [X] active players
-
-Use /status [player_id] to check specific player status.
-```
-
-**Leadership Chat:**
-```
-📋 All Players and Team Members
-
-Active Players:
-• DO001 - doods2000 (Not specified) - 07XXXXXXXXX
-• [Player ID] - [Name] ([Position]) - [Phone]
-
-Pending Registrations:
-• [Player ID] - [Name] ([Position]) - Awaiting approval
-
-Team Members:
-• [Member ID] - [Name] ([Role]) - [Phone]
-
-Total: [X] players, [Y] team members, [Z] pending
-```
-
-### `/add` Command
-
-#### Expected Behavior
-
-**Main Chat:**
-```
-❌ This command is only available in the leadership chat.
-
-Contact team leadership to add new players.
-```
-
-**Leadership Chat - Valid Input:**
-```
-✅ Player Added Successfully
-
-Name: John Smith
-Player ID: JS001
-Position: Forward
-Phone: 07123456789
-Status: Active
-Team: KickAI Testing
-
-The player has been added to the team roster.
-```
-
-**Leadership Chat - Invalid Input:**
-```
-❌ Invalid input format.
-
-Usage: /add [name] [phone] [position] [fa_eligible]
-
-Example: /add John Smith 07123456789 Forward true
-```
-
-### `/approve` Command
-
-#### Expected Behavior
-
-**Main Chat:**
-```
-❌ This command is only available in the leadership chat.
-
-Contact team leadership for player approval.
-```
-
-**Leadership Chat - Valid Player ID:**
-```
-✅ Player Approved
-
-Player ID: JS001
-Name: John Smith
-Status: Active → Approved
-
-The player can now participate in team activities.
-```
-
-**Leadership Chat - Invalid Player ID:**
-```
-❌ Player not found.
-
-Use /pending to see players awaiting approval.
-Use /list to see all players.
-```
-
-### `/pending` Command
-
-#### Expected Behavior
-
-**Main Chat:**
-```
-❌ This command is only available in the leadership chat.
-
-Contact team leadership to view pending registrations.
-```
-
-**Leadership Chat - With Pending Players:**
-```
-⏳ Pending Registrations
-
-• JS001 - John Smith (Forward) - 07123456789
-• AB002 - Alice Brown (Midfielder) - 07987654321
-
-Total: 2 pending registrations
-
-Use /approve [player_id] to approve
-Use /reject [player_id] [reason] to reject
-```
-
-**Leadership Chat - No Pending Players:**
-```
-✅ No pending registrations
-
-All player registrations have been processed.
-```
-
-### `/team` Command
-
-#### Expected Behavior
-
-**Main Chat:**
-```
-🏆 Team Information
-
-Team: KickAI Testing
-League: Test League - Division 1
-Home Pitch: Test Stadium
-Division: Division 1
-
-Current Squad: [X] players
-Team Status: Active
-
-Use /list to see all players.
-```
-
-**Leadership Chat:**
-```
-🏆 Team Information
-
-Team: KickAI Testing
-League: Test League - Division 1
-Home Pitch: Test Stadium
-Division: Division 1
-
-Current Squad: [X] players
-Team Members: [Y] staff
-Team Status: Active
-
-Budget: £[Amount]
-Payment Status: [Enabled/Disabled]
-
-Use /list to see all players and team members.
-```
-
-### `/invite` Command
-
-#### Expected Behavior
-
-**Main Chat:**
-```
-❌ This command is only available in the leadership chat.
-
-Contact team leadership to generate invitations.
-```
-
-**Leadership Chat:**
-```
-🔗 Team Invitation Link
-
-Invitation Link: https://t.me/KickAITesting_bot?start=invite_[code]
-
-This link can be shared with potential new players.
-The link expires in 24 hours.
-
-Use /add to directly add players to the team.
-```
-
-### `/health` Command
-
-#### Expected Behavior
-
-**Main Chat:**
-```
-❌ This command is only available in the leadership chat.
-
-Contact team leadership for system status.
-```
-
-**Leadership Chat:**
-```
-🏥 System Health Check
-
-Bot Status: ✅ Online
-Database: ✅ Connected
-LLM Service: ✅ Available
-CrewAI Agents: ✅ Active
-
-Active Agents: 11/11
-Last Health Check: [Timestamp]
-
-System is healthy and operational.
-```
-
-### `/version` Command
-
-#### Expected Behavior
-
-**All Chats:**
-```
-📦 KICKAI Version Information
-
-Version: v1.0.0
-Build Date: 2025-07-19
-Python Version: 3.11.13
-CrewAI Version: [Version]
-Telegram Bot API: [Version]
-
-For support, contact team leadership.
-```
-
-## Implementation Architecture
-
-### 🏗️ **System Architecture Principles**
-
-#### **1. Single Source of Truth**
-- **Command Definitions**: All commands must be defined in their respective feature modules under `src/features/*/application/commands/`
-- **Command Registry**: Centralized command discovery and metadata management in `src/core/command_registry.py`
-- **Team Configuration**: Team IDs and settings retrieved from Firestore, never hardcoded
-- **User Data**: All user information retrieved from Firestore collections, no local caching
-
-#### **2. Modular Feature-Based Implementation**
-```
-src/features/
-├── player_registration/
-│   ├── application/commands/     # Command handlers
-│   ├── domain/tools/            # Business logic tools
-│   ├── infrastructure/          # Data access layer
-│   └── tests/                   # Feature-specific tests
-├── team_administration/
-├── communication/
-└── shared/                      # Cross-cutting concerns
-```
-
-**Architecture Rules:**
-- ✅ Commands defined in feature modules
-- ✅ Business logic in domain tools
-- ✅ Data access in infrastructure layer
-- ❌ No cross-feature dependencies
-- ❌ No hardcoded values in any layer
-
-#### **3. Command Registry System**
-```python
-# Command registration in feature modules
-@command("/help", "Show available commands", 
-         permission_level=PermissionLevel.PUBLIC,
-         feature="shared",
-         examples=["/help", "/help register"])
-
-# Auto-discovery by command registry
-registry.auto_discover_commands()  # Scans all feature modules
-```
-
-**Registry Responsibilities:**
-- **Command Discovery**: Automatically find commands in feature modules
-- **Permission Management**: Track command access levels
-- **Metadata Storage**: Store descriptions, examples, feature associations
-- **Context Filtering**: Filter commands by chat type and user permissions
-
-#### **4. No Hardcoding Policy**
-**❌ FORBIDDEN:**
-```python
-# WRONG - Hardcoded team ID
-team_id = "KTI"
-
-# WRONG - Hardcoded command list
-commands = ["/help", "/start", "/register"]
-
-# WRONG - Hardcoded chat IDs
-main_chat = "-4829855674"
-```
-
-**✅ REQUIRED:**
-```python
-# RIGHT - Dynamic team ID from context
-team_id = execution_context.get("team_id")
-
-# RIGHT - Commands from registry
-commands = registry.list_all_commands()
-
-# RIGHT - Chat IDs from configuration
-main_chat = team_config.main_chat_id
-```
-
-### 🤖 **Agent Configuration & Prompts**
-
-#### **Agent Prompt Structure**
-Each CrewAI agent must receive the following context and instructions:
+#### **1. Context-Specific Implementations**
+Instead of using conditional logic within a single command handler, the system uses separate implementations for different contexts:
 
 ```python
-AGENT_PROMPT_TEMPLATE = """
-You are a {role} agent for the KICKAI football team management system.
-
-## SYSTEM CONTEXT
-- Team ID: {team_id} (retrieved from Firestore)
-- Chat Type: {chat_type} (main_chat or leadership_chat)
-- User ID: {user_id}
-- User Role: {user_role}
-
-## ARCHITECTURE RULES
-1. SINGLE SOURCE OF TRUTH: All data comes from Firestore collections
-2. NO HARDCODING: Never use hardcoded team IDs, chat IDs, or user data
-3. CONTEXT-AWARE: Responses must adapt to chat type and user permissions
-4. MODULAR DESIGN: Use tools from the appropriate feature modules
-
-## AVAILABLE TOOLS
-{available_tools}
-
-## COMMAND PROCESSING RULES
-1. Always check user permissions before executing commands
-2. Use context variables for team_id, chat_type, user_id
-3. Return responses in the exact format specified in the command specifications
-4. Handle errors gracefully with clear, helpful messages
-
-## RESPONSE FORMATTING
-- Use Markdown formatting
-- Include appropriate emojis
-- Keep responses concise but informative
-- Provide clear next steps when applicable
-
-## ERROR HANDLING
-- Permission denied: "❌ You don't have permission to use this command."
-- Invalid input: "❌ Invalid input format. Usage: /command [parameters]"
-- System error: "❌ An error occurred. Please try again or contact support."
-
-## COMMAND SPECIFICATIONS
-{command_specifications}
-
-Your task: {task_description}
-"""
-```
-
-#### **Context Variables for Agents**
-```python
-execution_context = {
-    "user_id": "8148917292",
-    "team_id": "KTI",  # From Firestore, not hardcoded
-    "chat_id": "-4829855674",
-    "is_leadership_chat": False,
-    "username": "doods2000",
-    "message_text": "/list",
-    "user_role": "player",  # player, team_member, admin
-    "permission_level": "PUBLIC"  # PUBLIC, LEADERSHIP, SYSTEM
-}
-```
-
-#### **Tool Configuration**
-```python
-# Tools must implement configure_with_context
-class GetAllPlayersTool(BaseTool):
-    def configure_with_context(self, context: Dict[str, Any]):
-        self.team_id = context.get("team_id")
-        self.is_leadership_chat = context.get("is_leadership_chat")
-        self.user_id = context.get("user_id")
+# ❌ Avoid: Conditional logic in single handler
+@command("/list")
+async def handle_list(update, context):
+    chat_type = get_chat_type(update.effective_chat.id)
     
-    def _run(self, **kwargs):
-        # Use self.team_id from context, not hardcoded
-        players = await self.player_repository.get_players_by_team(self.team_id)
-        return self.format_response(players, self.is_leadership_chat)
+    if chat_type == "main":
+        # Main chat logic
+        players = await get_active_players()
+        return format_simple_list(players)
+    elif chat_type == "leadership":
+        # Leadership chat logic
+        players = await get_all_players()
+        return format_detailed_list(players)
+    else:
+        # Error handling
+        return "Invalid chat type"
 ```
 
-### 🔧 **Implementation Guidelines**
-
-#### **1. Command Handler Implementation**
 ```python
-# In src/features/shared/application/commands/help_commands.py
-@command("/help", "Show available commands", 
-         permission_level=PermissionLevel.PUBLIC,
-         feature="shared")
-async def handle_help_command(update, context):
-    """Handle /help command with context-aware responses."""
+# ✅ Prefer: Separate implementations for each context
+@command(name="/list", description="List active players", chat_type="main")
+async def list_players_main(update, context):
+    """List only active players in main chat."""
+    players = await get_active_players()
+    return format_player_list(players, show_status=False)
+
+@command(name="/list", description="List all players with status", chat_type="leadership")
+async def list_players_leadership(update, context):
+    """List all players with detailed status in leadership chat."""
+    players = await get_all_players()
+    return format_player_list(players, show_status=True, show_details=True)
+```
+
+#### **2. Command Registration with Context**
+Commands are registered with explicit context information:
+
+```python
+# Command registry supports context-aware registration
+registry.register_command(
+    name="/list",
+    description="List players",
+    handler=list_players_main,
+    chat_type="main",
+    permission_level=PermissionLevel.PLAYER
+)
+
+registry.register_command(
+    name="/list", 
+    description="List all players with status",
+    handler=list_players_leadership,
+    chat_type="leadership",
+    permission_level=PermissionLevel.LEADERSHIP
+)
+```
+
+#### **3. Context-Aware Routing**
+The system routes commands to the appropriate implementation based on context:
+
+```python
+async def route_command(self, command_name: str, chat_type: str, update, context):
+    """Route command to context-specific implementation."""
+    # Find the appropriate handler for this command and context
+    handler = self.registry.get_command_handler(command_name, chat_type)
     
-    # Get context from execution environment
-    execution_context = {
-        "user_id": str(update.effective_user.id),
-        "team_id": context.get("team_id"),  # From Firestore
-        "chat_id": str(update.effective_chat.id),
-        "is_leadership_chat": context.get("is_leadership_chat"),
-        "username": update.effective_user.username
-    }
-    
-    # Delegate to CrewAI agent with proper context
-    return await crewai_system.execute_task(
-        message_text="/help",
-        execution_context=execution_context
+    if handler:
+        return await handler(update, context)
+    else:
+        return await self.fallback_handler(update, context)
+```
+
+#### **4. Benefits of This Approach**
+
+**🎯 Predictable Behavior**
+- Same command always behaves the same way in the same context
+- No hidden conditional logic that could change behavior unexpectedly
+
+**🧹 Clean Code**
+- Each implementation has a single responsibility
+- Easy to understand and maintain
+- No complex if/else chains
+
+**📋 Clear Intent**
+- Each implementation clearly states its purpose
+- Self-documenting code through function names and docstrings
+
+**🛠️ Maintainable**
+- Easy to modify behavior for specific contexts
+- Changes to one context don't affect others
+- Clear separation of concerns
+
+**🧪 Testable**
+- Each implementation can be tested independently
+- No need to test complex conditional logic
+- Clear test scenarios for each context
+
+**📈 Scalable**
+- Easy to add new contexts (e.g., private chat, group chat)
+- New commands can follow the same pattern
+- Consistent architecture across the system
+
+#### **5. Implementation Examples**
+
+**Example: `/help` Command**
+```python
+@command(name="/help", description="Show help", chat_type="main")
+async def help_main(update, context):
+    """Show player-focused help in main chat."""
+    return format_help_message(
+        context=context,
+        show_player_commands=True,
+        show_admin_commands=False,
+        show_registration_help=True
+    )
+
+@command(name="/help", description="Show admin help", chat_type="leadership")
+async def help_leadership(update, context):
+    """Show admin-focused help in leadership chat."""
+    return format_help_message(
+        context=context,
+        show_player_commands=True,
+        show_admin_commands=True,
+        show_registration_help=False
     )
 ```
 
-#### **2. Tool Implementation**
+**Example: `/status` Command**
 ```python
-# In src/features/player_registration/domain/tools/player_tools.py
-class GetMyStatusTool(BaseTool):
-    name = "get_my_status"
-    description = "Get the current user's player/team member status"
-    
-    def configure_with_context(self, context: Dict[str, Any]):
-        """Configure tool with execution context."""
-        self.team_id = context.get("team_id")
-        self.user_id = context.get("user_id")
-        self.is_leadership_chat = context.get("is_leadership_chat")
-        
-        if not self.team_id:
-            raise ValueError("Team ID is required from context")
-    
-    async def _run(self, **kwargs):
-        """Execute tool with context-aware logic."""
-        try:
-            if self.is_leadership_chat:
-                # Get team member info
-                member = await self.team_member_repository.get_by_user_id(
-                    self.user_id, self.team_id
-                )
-                return self.format_team_member_status(member)
-            else:
-                # Get player info
-                player = await self.player_repository.get_by_user_id(
-                    self.user_id, self.team_id
-                )
-                return self.format_player_status(player)
-        except Exception as e:
-            logger.error(f"Error in GetMyStatusTool: {e}")
-            return "❌ Unable to retrieve your status. Please try again."
+@command(name="/status", description="Check player status", chat_type="main")
+async def status_main(update, context):
+    """Check own status in main chat."""
+    user_id = update.effective_user.id
+    player = await get_player_by_user_id(user_id)
+    return format_player_status(player, show_details=False)
+
+@command(name="/status", description="Check any player status", chat_type="leadership")
+async def status_leadership(update, context):
+    """Check any player's status in leadership chat."""
+    phone = context.args[0] if context.args else None
+    player = await get_player_by_phone(phone)
+    return format_player_status(player, show_details=True)
 ```
 
-#### **3. Data Access Layer**
-```python
-# In src/features/player_registration/infrastructure/firebase_player_repository.py
-class FirebasePlayerRepository(PlayerRepositoryInterface):
-    def __init__(self, firebase_client):
-        self.firebase_client = firebase_client
-        self.collection_name = "kickai_players"  # Single source of truth
-    
-    async def get_by_user_id(self, user_id: str, team_id: str) -> Optional[Player]:
-        """Get player by user ID and team ID."""
-        try:
-            # Query by user_id and team_id (no hardcoding)
-            query = self.firebase_client.collection(self.collection_name)
-            query = query.where("user_id", "==", user_id)
-            query = query.where("team_id", "==", team_id)
-            
-            docs = await query.get()
-            if docs:
-                return Player.from_dict(docs[0].to_dict())
-            return None
-        except Exception as e:
-            logger.error(f"Error retrieving player: {e}")
-            raise PlayerRepositoryError(f"Failed to retrieve player: {e}")
-```
-
-### 📚 **Documentation Requirements**
-
-#### **Code Documentation**
-```python
-"""
-Command Handler: /help
-
-Purpose: Show available commands based on chat type and user permissions
-Architecture: Uses command registry for single source of truth
-Context: Requires team_id, chat_type, user_permissions
-Tools: Uses help formatting tools from shared module
-Response: Context-aware command list with proper formatting
-
-Specification Reference: docs/COMMAND_SPECIFICATIONS.md#help-command
-"""
-```
-
-#### **Agent Documentation**
-```python
-"""
-Agent: Player Coordinator
-
-Role: Handle player-related commands and queries
-Context Required: team_id, user_id, chat_type, permission_level
-Tools: GetMyStatusTool, GetPlayerStatusTool, GetAllPlayersTool
-Architecture: Uses modular feature-based design
-Data Source: kickai_players Firestore collection
-
-Specification Reference: docs/COMMAND_SPECIFICATIONS.md#implementation-architecture
-"""
-```
-
-This implementation architecture ensures:
-- **Single source of truth** for all command definitions and data
-- **Modular, feature-based** implementation without cross-dependencies
-- **No hardcoding** of team IDs, chat IDs, or user data
-- **Context-aware** responses based on chat type and user permissions
-- **Proper error handling** with clear, helpful messages
-- **Consistent formatting** across all commands and responses
-
-## Command Implementation & Processing Flow
-
-### 🏗️ **Command Implementation Guidelines**
-
-#### **1. Command Definition Pattern**
-All commands must follow this implementation pattern:
-
-```python
-@command("/command_name", "Command description", 
-         permission_level=PermissionLevel.PUBLIC,
-         feature="feature_name",
-         examples=["/command_name", "/command_name param"])
-def handle_command_name(update, context):
-    """Handle /command_name command."""
-    # Implementation here
-    pass
-```
-
-#### **2. Tool Implementation Pattern**
-All tools must implement context configuration:
-
-```python
-class MyTool(BaseTool):
-    def __init__(self):
-        super().__init__(name="my_tool", description="Tool description")
-        # Don't set _context during initialization
-        # It will be set during execution via configure_with_context
-    
-    def configure_with_context(self, context: Dict[str, Any]):
-        """Configure tool with execution context."""
-        self._context = context
-    
-    def _run(self, *args, **kwargs) -> str:
-        """Tool execution using context."""
-        team_id = self._context.get('team_id')
-        user_id = self._context.get('user_id')
-        # Use context for proper execution
-        return "Tool result"
-```
-
-#### **3. Agent Configuration Pattern**
-Agents must properly configure tools with context:
-
-```python
-def _configure_tools_with_context(self, context: Dict[str, Any]) -> None:
-    """Configure all tools with execution context."""
-    for tool in self.tools:
-        if hasattr(tool, 'configure_with_context'):
-            tool.configure_with_context(context)
-```
-
-### 🔄 **Command Processing Flow**
-
-#### **Sequence Diagram**
-```
-User → Telegram Bot → Command Handler → CrewAI System → Agent → Tool → Response
-  ↓         ↓              ↓              ↓           ↓      ↓       ↓
-Context   Context      Context        Context     Context  Context  Context
-```
-
-#### **Object Interaction Diagram**
-```
-┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌─────────────┐
-│   User      │    │ Telegram Bot │    │ CrewAI      │    │   Tool      │
-│             │    │              │    │ System      │    │             │
-└─────────────┘    └──────────────┘    └─────────────┘    └─────────────┘
-       │                   │                   │                   │
-       │ Command           │                   │                   │
-       │──────────────────▶│                   │                   │
-       │                   │                   │                   │
-       │                   │ Create Context    │                   │
-       │                   │──────────────────▶│                   │
-       │                   │                   │                   │
-       │                   │                   │ Configure Tools   │
-       │                   │                   │──────────────────▶│
-       │                   │                   │                   │
-       │                   │                   │ Execute Task      │
-       │                   │                   │──────────────────▶│
-       │                   │                   │                   │
-       │                   │                   │                   │ Return Result
-       │                   │                   │◀──────────────────│
-       │                   │                   │                   │
-       │                   │◀──────────────────│                   │
-       │                   │                   │                   │
-       │◀──────────────────│                   │                   │
-       │                   │                   │                   │
-```
-
-### 🚫 **Common Anti-Patterns to Avoid**
-
-#### **1. Hardcoded Command Definitions**
-❌ **WRONG**: Hardcoding command definitions in utility files
-```python
-# src/utils/id_processor.py - WRONG!
-self.command_patterns = {
-    '/approve': {'description': 'Approve player', ...},
-    '/register': {'description': 'Register player', ...},
-    # ... more hardcoded commands
-}
-```
-
-✅ **CORRECT**: Define commands in feature modules
-```python
-# src/features/player_registration/application/commands/player_commands.py - CORRECT!
-@command("/approve", "Approve a player registration")
-def handle_approve_command(update, context):
-    # Implementation here
-    pass
-```
-
-#### **2. Missing Context Configuration**
-❌ **WRONG**: Tools not receiving execution context
-```python
-class MyTool(BaseTool):
-    def _run(self, *args, **kwargs) -> str:
-        # No access to team_id, user_id, etc.
-        return "Result without context"
-```
-
-✅ **CORRECT**: Tools properly configured with context
-```python
-class MyTool(BaseTool):
-    def configure_with_context(self, context: Dict[str, Any]):
-        self._context = context
-    
-    def _run(self, *args, **kwargs) -> str:
-        team_id = self._context.get('team_id')
-        user_id = self._context.get('user_id')
-        return f"Result for team {team_id}, user {user_id}"
-```
-
-#### **3. Direct Command Handlers**
-❌ **WRONG**: Implementing direct handlers in bot code
-```python
-# In telegram_bot_service.py - WRONG!
-def _handle_help_command(self, update, context):
-    # Direct implementation bypassing CrewAI
-    return "Help information"
-```
-
-✅ **CORRECT**: Delegate to CrewAI agents
-```python
-# In telegram_bot_service.py - CORRECT!
-def _handle_registered_command(self, update, context):
-    # Delegate to CrewAI for processing
-    return await self._handle_crewai_processing(update, context)
-```
-
-### 🔧 **Context Flow Implementation**
-
-#### **1. Context Creation**
-```python
-def _create_execution_context(self, update, context) -> Dict[str, Any]:
-    """Create execution context for CrewAI processing."""
-    return {
-        'user_id': str(update.effective_user.id),
-        'team_id': self._get_team_id_from_firestore(),  # Dynamic, not hardcoded
-        'chat_id': str(update.effective_chat.id),
-        'is_leadership_chat': self._is_leadership_chat(update.effective_chat.id),
-        'username': update.effective_user.username,
-        'message_text': update.message.text
-    }
-```
-
-#### **2. Context Propagation**
-```python
-def _configure_tools_with_context(self, context: Dict[str, Any]) -> None:
-    """Configure all tools with execution context."""
-    for agent in self.agents.values():
-        for tool in agent.get_tools():
-            if hasattr(tool, 'configure_with_context'):
-                tool.configure_with_context(context)
-```
-
-#### **3. Context Usage in Tools**
-```python
-def _run(self, *args, **kwargs) -> str:
-    """Tool execution using context."""
-    if not hasattr(self, '_context'):
-        return "❌ Error: Tool not properly configured with context"
-    
-    team_id = self._context.get('team_id')
-    user_id = self._context.get('user_id')
-    is_leadership_chat = self._context.get('is_leadership_chat', False)
-    
-    # Use context for proper execution
-    return f"Result for team {team_id}, user {user_id}"
-```
-
-### 📋 **Implementation Checklist**
-
-- [ ] **Commands defined in feature modules** (not utility files)
-- [ ] **Tools implement `configure_with_context`** method
-- [ ] **Agents configure tools with context** before execution
-- [ ] **No hardcoded team IDs** - read from Firestore
-- [ ] **Context-aware responses** based on chat type
-- [ ] **Proper error handling** with context information
-- [ ] **Single source of truth** for all command definitions
-- [ ] **CrewAI agents handle processing** (not direct handlers) 
+This clean design approach ensures the system is maintainable, testable, and follows software engineering best practices! 🚀

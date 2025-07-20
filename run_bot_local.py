@@ -4,6 +4,7 @@ KICKAI Bot Startup Script - Local Development
 
 A clean, robust bot startup script for local development without health check server.
 Uses multi-bot manager to load bot configurations from Firestore.
+Includes process management to prevent multiple bot instances.
 """
 
 import asyncio
@@ -12,8 +13,10 @@ import os
 import signal
 import sys
 import time
+import psutil
+import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 try:
     from dotenv import load_dotenv
@@ -44,15 +47,234 @@ from features.communication.domain.interfaces.telegram_bot_service_interface imp
 # Global state
 multi_bot_manager: Optional[MultiBotManager] = None
 shutdown_event = asyncio.Event()
+BOT_PROCESS_NAME = "run_bot_local.py"
+LOCK_FILE_PATH = Path("bot.lock")
+
+
+def find_existing_bot_processes() -> List[psutil.Process]:
+    """
+    Find existing bot processes that might conflict with this startup.
+    
+    Returns:
+        List of psutil.Process objects for existing bot processes
+    """
+    existing_processes = []
+    current_pid = os.getpid()
+    
+    try:
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                # Skip the current process
+                if proc.pid == current_pid:
+                    continue
+                
+                # Check if this is a Python process running our bot script
+                if proc.info['name'] and 'python' in proc.info['name'].lower():
+                    cmdline = proc.info['cmdline']
+                    if cmdline and any(BOT_PROCESS_NAME in arg for arg in cmdline):
+                        existing_processes.append(proc)
+                        logger.info(f"🔍 Found existing bot process: PID {proc.pid}")
+                
+                # Also check for processes with similar names that might be bot instances
+                elif proc.info['name'] and 'kickai' in proc.info['name'].lower():
+                    existing_processes.append(proc)
+                    logger.info(f"🔍 Found potential KICKAI process: PID {proc.pid}")
+                    
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+                
+    except Exception as e:
+        logger.warning(f"⚠️ Error scanning for existing processes: {e}")
+    
+    return existing_processes
+
+
+def kill_process_gracefully(process: psutil.Process, timeout: int = 10) -> bool:
+    """
+    Kill a process gracefully, with fallback to force kill.
+    
+    Args:
+        process: psutil.Process to kill
+        timeout: Seconds to wait for graceful shutdown
+        
+    Returns:
+        True if process was killed successfully
+    """
+    try:
+        pid = process.pid
+        logger.info(f"🛑 Attempting to kill process {pid} gracefully...")
+        
+        # Try graceful termination first
+        process.terminate()
+        
+        # Wait for graceful shutdown
+        try:
+            process.wait(timeout=timeout)
+            logger.info(f"✅ Process {pid} terminated gracefully")
+            return True
+        except psutil.TimeoutExpired:
+            logger.warning(f"⚠️ Process {pid} didn't terminate gracefully, forcing kill...")
+            
+            # Force kill if graceful termination failed
+            try:
+                process.kill()
+                process.wait(timeout=5)
+                logger.info(f"✅ Process {pid} force killed")
+                return True
+            except (psutil.TimeoutExpired, psutil.NoSuchProcess):
+                logger.error(f"❌ Failed to force kill process {pid}")
+                return False
+                
+    except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+        logger.info(f"ℹ️ Process {process.pid} already terminated: {e}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Error killing process {process.pid}: {e}")
+        return False
+
+
+def cleanup_existing_bot_instances() -> bool:
+    """
+    Find and kill existing bot instances to prevent conflicts.
+    
+    Returns:
+        True if cleanup was successful or no conflicts found
+    """
+    logger.info("🔍 Checking for existing bot instances...")
+    
+    existing_processes = find_existing_bot_processes()
+    
+    if not existing_processes:
+        logger.info("✅ No existing bot instances found")
+        return True
+    
+    logger.warning(f"⚠️ Found {len(existing_processes)} existing bot process(es)")
+    
+    # Kill all existing processes
+    success_count = 0
+    for proc in existing_processes:
+        if kill_process_gracefully(proc):
+            success_count += 1
+    
+    if success_count == len(existing_processes):
+        logger.info(f"✅ Successfully cleaned up {success_count} existing bot process(es)")
+        return True
+    else:
+        logger.error(f"❌ Failed to clean up {len(existing_processes) - success_count} process(es)")
+        return False
+
+
+def create_lock_file() -> bool:
+    """
+    Create a lock file to indicate this bot instance is running.
+    
+    Returns:
+        True if lock file was created successfully
+    """
+    try:
+        # Write current PID to lock file
+        with open(LOCK_FILE_PATH, 'w') as f:
+            f.write(str(os.getpid()))
+        logger.info(f"🔒 Created lock file: {LOCK_FILE_PATH}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Failed to create lock file: {e}")
+        return False
+
+
+def remove_lock_file():
+    """Remove the lock file when shutting down."""
+    try:
+        if LOCK_FILE_PATH.exists():
+            LOCK_FILE_PATH.unlink()
+            logger.info(f"🔓 Removed lock file: {LOCK_FILE_PATH}")
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to remove lock file: {e}")
+
+
+def check_lock_file() -> bool:
+    """
+    Check if a lock file exists and if the process is still running.
+    
+    Returns:
+        True if lock file exists and process is running
+    """
+    if not LOCK_FILE_PATH.exists():
+        return False
+    
+    try:
+        with open(LOCK_FILE_PATH, 'r') as f:
+            pid_str = f.read().strip()
+            pid = int(pid_str)
+        
+        # Check if process is still running
+        if psutil.pid_exists(pid):
+            logger.warning(f"⚠️ Found existing lock file with running process PID {pid}")
+            return True
+        else:
+            logger.info(f"ℹ️ Found stale lock file with non-existent process PID {pid}")
+            remove_lock_file()
+            return False
+            
+    except (ValueError, FileNotFoundError) as e:
+        logger.warning(f"⚠️ Invalid lock file: {e}")
+        remove_lock_file()
+        return False
 
 
 def setup_logging():
-    """Configure logging for the application."""
-    # Get settings for logging configuration
-    settings = get_settings()
-    log_file_path = settings.log_file_path if settings.log_file_path else "logs/kickai.log"
+    """Configure logging for local development with console and file output."""
+    from loguru import logger
+    import sys
+    import os
     
-    # Remove the call to LoggingConfig.configure_logging
+    # Remove any existing handlers to avoid duplicates
+    logger.remove()
+    
+    # Ensure logs directory exists
+    log_dir = "logs"
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+        logger.info(f"📁 Created logs directory: {log_dir}")
+    
+    # Add console handler with colored output for local development
+    logger.add(
+        sys.stdout,
+        level="INFO",
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        enqueue=True,
+        backtrace=True,
+        diagnose=True,
+        colorize=True
+    )
+    
+    # Add file handler for persistent logging
+    log_file_path = "logs/kickai.log"
+    logger.add(
+        log_file_path,
+        level="DEBUG",  # More detailed logging to file
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        rotation="10 MB",
+        retention="7 days",
+        enqueue=True,
+        backtrace=True,
+        diagnose=True,
+        compression="zip"
+    )
+    
+    # Add error handler to stderr for critical errors
+    logger.add(
+        sys.stderr,
+        level="ERROR",
+        format="<red>{time:YYYY-MM-DD HH:mm:ss}</red> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        enqueue=True,
+        colorize=True
+    )
+    
+    logger.info("📝 Logging configured for local development")
+    logger.info(f"📄 Console output: INFO level and above")
+    logger.info(f"📁 File output: {log_file_path} (DEBUG level and above)")
+    logger.info(f"🔄 Log rotation: 10 MB, retention: 7 days")
 
 
 def setup_environment():
@@ -270,7 +492,7 @@ def flush_and_close_loggers():
 
 
 async def main():
-    """Main async entry point with clean shutdown."""
+    """Main async entry point with clean shutdown and process management."""
     global multi_bot_manager
     shutdown_event = asyncio.Event()
 
@@ -280,6 +502,26 @@ async def main():
 
     try:
         logger.info("🎯 KICKAI Multi-Bot Manager Starting (Local Mode)...")
+        logger.info(f"🔧 Process ID: {os.getpid()}")
+        logger.info(f"🔧 PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
+        
+        # Set PYTHONPATH to src if not already set
+        if not os.environ.get('PYTHONPATH'):
+            os.environ['PYTHONPATH'] = 'src'
+            logger.info("🔧 Set PYTHONPATH to 'src'")
+        
+        # Check for existing bot instances and clean them up
+        if check_lock_file():
+            logger.warning("⚠️ Found existing bot lock file")
+            if not cleanup_existing_bot_instances():
+                logger.error("❌ Failed to clean up existing bot instances. Exiting.")
+                return
+        
+        # Create lock file to prevent other instances
+        if not create_lock_file():
+            logger.error("❌ Failed to create lock file. Exiting.")
+            return
+        
         logger.info("🔍 About to import dependency container...")
         from core.dependency_container import initialize_container
         logger.info("🔍 About to initialize container...")
@@ -290,11 +532,13 @@ async def main():
         validation_passed = await run_system_validation()
         if not validation_passed:
             logger.error("❌ System validation failed. Exiting.")
+            remove_lock_file()
             return
         logger.info("🔍 About to create multi bot manager...")
         manager = await create_multi_bot_manager()
         if not manager:
             logger.error("❌ No bot configurations available in teams collection. Exiting.")
+            remove_lock_file()
             return
         logger.info("🚀 About to start all bots...")
         await manager.start_all_bots()
@@ -310,11 +554,13 @@ async def main():
             logger.error("🚫 LLM failure detected - initiating graceful shutdown...")
             await manager.send_shutdown_messages()
             await manager.stop_all_bots()
+            remove_lock_file()
             shutdown_event.set()
         
         # Start monitoring in background
         asyncio.create_task(start_llm_monitoring(llm_failure_shutdown))
         logger.info("✅ LLM health monitoring started")
+        
         # Remove old single-bot startup logic (no TelegramBotService here)
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
@@ -322,8 +568,11 @@ async def main():
                 loop.add_signal_handler(sig, _signal_handler)
             except NotImplementedError:
                 signal.signal(sig, lambda s, f: asyncio.create_task(shutdown_event.set()))
+        
         logger.info("🤖 Multi-bot manager is running. Press Ctrl+C to exit.")
         logger.info(f"📊 Running bots: {list(manager.bots.keys())}")
+        logger.info(f"🔒 Lock file: {LOCK_FILE_PATH}")
+        
         await shutdown_event.wait()
         logger.info("🛑 Shutdown signal received, stopping bots...")
         
@@ -333,11 +582,13 @@ async def main():
         
         await manager.send_shutdown_messages()
         await manager.stop_all_bots()
+        remove_lock_file()
         logger.info("✅ Multi-bot manager shutdown complete")
         flush_and_close_loggers()
         sys.exit(0)
     except Exception as e:
         logger.error(f"❌ Fatal error in main: {e}", exc_info=True)
+        remove_lock_file()
         raise
 
 

@@ -13,18 +13,11 @@ from .registration_tools import (
 )
 
 from .player_tools import (
-    register_player as register_player_tool,
     approve_player,
-    get_player_info,
-    list_players,
-    remove_player,
     get_my_status,
     get_player_status,
     get_all_players,
-    get_match,
-    get_user_status,
-    get_available_commands,
-    format_help_message
+    get_match
 )
 
 __all__ = [
@@ -33,17 +26,13 @@ __all__ = [
     "team_member_registration", 
     "registration_guidance",
     
-    # Player management tools
-    "register_player_tool",
+    # Player management tools (only the ones actually used by agents)
     "approve_player",
-    "get_player_info",
-    "list_players",
-    "remove_player",
     "get_my_status",
-    "get_player_status",
+    "get_player_status", 
     "get_all_players",
-    "get_match",
-    "get_user_status",
-    "get_available_commands",
-    "format_help_message"
-] 
+    "get_match"
+]
+
+# Note: Removed unused tools: remove_player, get_player_info, list_players
+# These tools are not assigned to any agents in the configuration 

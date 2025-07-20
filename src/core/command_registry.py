@@ -104,7 +104,19 @@ class CommandRegistry:
             help_text: Detailed help text
         """
         if name in self._commands:
-            logger.warning(f"Command '{name}' already registered, overwriting")
+            existing_cmd = self._commands[name]
+            # Check if this is the same registration (same handler, feature, and description)
+            if (existing_cmd.handler == handler and 
+                existing_cmd.feature == feature and 
+                existing_cmd.description == description):
+                # Same registration, skip silently
+                return
+            elif existing_cmd.feature == feature:
+                # Same feature registering the same command again, skip silently
+                return
+            else:
+                # Different registration, log warning but allow overwrite
+                logger.warning(f"Command '{name}' already registered by {existing_cmd.feature}, overwriting with {feature}")
         
         metadata = CommandMetadata(
             name=name,
@@ -236,8 +248,10 @@ class CommandRegistry:
         in the application/commands directories.
         """
         if self._discovered:
-            logger.info("Commands already discovered, skipping auto-discovery")
+            logger.debug("Commands already discovered, skipping auto-discovery")
             return
+        
+        logger.info("🔍 Starting command auto-discovery...")
         
         src_path = Path(src_path)
         features_path = src_path / "features"
