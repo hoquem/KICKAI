@@ -9,8 +9,8 @@ from typing import Optional, Dict, Any
 from pydantic import BaseModel
 
 from crewai.tools import tool
-from features.team_administration.domain.services.team_service import TeamService
-from core.dependency_container import get_container
+from src.features.team_administration.domain.services.team_service import TeamService
+from src.core.dependency_container import get_container
 
 logger = logging.getLogger(__name__)
 

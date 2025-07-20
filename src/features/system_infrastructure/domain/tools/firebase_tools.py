@@ -9,8 +9,8 @@ from typing import Optional, Dict, Any
 from pydantic import BaseModel
 
 from crewai.tools import tool
-from database.firebase_client import FirebaseClient
-from core.dependency_container import get_container
+from src.database.firebase_client import FirebaseClient
+from src.core.dependency_container import get_container
 
 logger = logging.getLogger(__name__)
 

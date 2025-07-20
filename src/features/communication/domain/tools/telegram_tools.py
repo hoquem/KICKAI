@@ -9,8 +9,8 @@ from typing import Optional
 from pydantic import BaseModel
 
 from crewai.tools import tool
-from features.communication.infrastructure.telegram_bot_service import TelegramBotService
-from core.dependency_container import get_container
+from src.features.communication.infrastructure.telegram_bot_service import TelegramBotService
+from src.core.dependency_container import get_container
 
 logger = logging.getLogger(__name__)
 

@@ -24,11 +24,13 @@ class TelegramBotService(TelegramBotServiceInterface):
     def _setup_handlers(self):
         """Set up message handlers for the Telegram bot using command registry."""
         try:
-            from core.command_registry import get_command_registry
+            from src.core.command_registry import get_command_registry
             
-            # Get command registry and discover commands (only once)
+            # Get command registry (auto-discovery should be done during initialization)
             registry = get_command_registry()
+            # Ensure commands are discovered if not already done
             if not registry._discovered:
+                logger.info("🔍 Auto-discovering commands in telegram bot service...")
                 registry.auto_discover_commands()
             
             # Get all registered commands
@@ -37,15 +39,9 @@ class TelegramBotService(TelegramBotServiceInterface):
             # Set up command handlers from registry
             command_handlers = []
             
-            # Define commands that should use dedicated handlers instead of CrewAI
-            dedicated_handlers = {
-                "/help": self._handle_help_command,
-                "/start": self._handle_start_command,
-                "/register": self._handle_register_command,
-                "/myinfo": self._handle_myinfo_command,
-                "/list": self._handle_list_command,
-                "/status": self._handle_status_command
-            }
+            # ALL commands use CrewAI agents - no dedicated handlers
+            # This ensures single source of truth and consistent processing
+            dedicated_handlers = {}
             
             for cmd_metadata in all_commands:
                 # Check if this command has a dedicated handler
@@ -79,14 +75,8 @@ class TelegramBotService(TelegramBotServiceInterface):
     def _setup_fallback_handlers(self):
         """Set up fallback handlers when command registry fails."""
         try:
-            # Define basic command handlers
+            # All commands now use CrewAI agents - minimal fallback
             handlers = [
-                CommandHandler("start", self._handle_start_command),
-                CommandHandler("help", self._handle_help_command),
-                CommandHandler("register", self._handle_register_command),
-                CommandHandler("myinfo", self._handle_myinfo_command),
-                CommandHandler("list", self._handle_list_command),
-                CommandHandler("status", self._handle_status_command),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message)
             ]
             
@@ -113,34 +103,8 @@ class TelegramBotService(TelegramBotServiceInterface):
             message_lower = message_text.lower()
             if "help" in message_lower:
                 logger.info(f"📨 Help keyword detected in natural language: '{message_text}'")
-                # Use the same help logic as the /help command
-                if chat_type == ChatType.LEADERSHIP:
-                    help_message = (
-                        "👔 *KICKAI Leadership Commands*\n\n"
-                        "*Player Management:*\n"
-                        "• /register [name] [phone] [position] - Register new player\n"
-                        "• /list - List all players with status\n"
-                        "• /status [phone] - Check player status\n\n"
-                        "*Team Management:*\n"
-                        "• /myinfo - Check your admin info\n\n"
-                        "*Natural Language:*\n"
-                        "You can also ask me questions in natural language!"
-                    )
-                else:
-                    help_message = (
-                        "🤖 *KICKAI Commands*\n\n"
-                        "*Player Commands:*\n"
-                        "• /start - Welcome message\n"
-                        "• /help - Show this help\n"
-                        "• /register - Register as a player\n"
-                        "• /myinfo - Check your information\n"
-                        "• /list - List team members\n"
-                        "• /status [phone] - Check player status\n\n"
-                        "*Natural Language:*\n"
-                        "You can also ask me questions in natural language!"
-                    )
-                
-                await update.message.reply_text(help_message, parse_mode='Markdown')
+                # Delegate to CrewAI processing for help requests
+                await self._handle_crewai_processing(update, message_text, user_id, chat_id, chat_type, username)
                 return
             
             # Check if user is registered (only for main chat)
@@ -323,236 +287,23 @@ class TelegramBotService(TelegramBotServiceInterface):
         except Exception as e:
             logger.error(f"❌ Error sending error response: {e}")
 
-    async def _handle_myinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /myinfo command."""
-        try:
-            user_id = str(update.effective_user.id)
-            username = update.effective_user.username or update.effective_user.first_name
-            chat_id = str(update.effective_chat.id)
-            chat_type = self._determine_chat_type(chat_id)
-            
-            logger.info(f"✅ MyInfo command handled for user {user_id} in {chat_type.value}")
-            
-            # Check if user is registered (only for main chat)
-            if chat_type == ChatType.MAIN:
-                is_registered = await self._check_user_registration(user_id)
-                if not is_registered:
-                    # User not registered - show leadership contact message
-                    await self._show_leadership_contact_message(update, username)
-                    return
-            elif chat_type == ChatType.LEADERSHIP:
-                # Check if this is the first user in leadership chat
-                is_first_user = await self._check_if_first_user()
-                if is_first_user:
-                    # First user - show registration message
-                    await self._show_first_user_registration_message(update, username)
-                    return
-                else:
-                    # Check if user is registered as team member
-                    is_registered = await self._check_user_registration(user_id)
-                    if not is_registered:
-                        # User not registered - show first user message
-                        await self._show_first_user_registration_message(update, username)
-                        return
-            
-            # User is registered or in leadership chat - process with CrewAI
-            # Pass the full command text including any arguments
-            args = context.args if context.args else []
-            message_text = f"/myinfo {' '.join(args)}".strip()
-            
-            await self._handle_crewai_processing(
-                update, message_text, user_id, chat_id, chat_type, username
-            )
-            
-        except Exception as e:
-            logger.error(f"❌ Error handling myinfo command: {e}")
-            await self._send_error_response(update, "I encountered an error processing your request.")
+    # Note: All dedicated command handlers have been removed
+    # All commands now use CrewAI agents for consistent processing
 
-    async def _handle_list_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /list command."""
-        try:
-            user_id = str(update.effective_user.id)
-            username = update.effective_user.username or update.effective_user.first_name
-            chat_id = str(update.effective_chat.id)
-            chat_type = self._determine_chat_type(chat_id)
-            
-            logger.info(f"✅ List command handled for user {user_id} in {chat_type.value}")
-            
-            # Check if user is registered (only for main chat)
-            if chat_type == ChatType.MAIN:
-                is_registered = await self._check_user_registration(user_id)
-                if not is_registered:
-                    # User not registered - show leadership contact message
-                    await self._show_leadership_contact_message(update, username)
-                    return
-            elif chat_type == ChatType.LEADERSHIP:
-                # Check if this is the first user in leadership chat
-                is_first_user = await self._check_if_first_user()
-                if is_first_user:
-                    # First user - show registration message
-                    await self._show_first_user_registration_message(update, username)
-                    return
-                else:
-                    # Check if user is registered as team member
-                    is_registered = await self._check_user_registration(user_id)
-                    if not is_registered:
-                        # User not registered - show first user message
-                        await self._show_first_user_registration_message(update, username)
-                        return
-            
-            # User is registered or in leadership chat - process with CrewAI
-            # Pass the full command text including any arguments
-            args = context.args if context.args else []
-            message_text = f"/list {' '.join(args)}".strip()
-            
-            await self._handle_crewai_processing(
-                update, message_text, user_id, chat_id, chat_type, username
-            )
-            
-        except Exception as e:
-            logger.error(f"❌ Error handling list command: {e}")
-            await self._send_error_response(update, "I encountered an error processing your request.")
+    # Note: All dedicated command handlers have been removed
+    # All commands now use CrewAI agents for consistent processing
 
-    async def _handle_status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /status command."""
-        try:
-            user_id = str(update.effective_user.id)
-            username = update.effective_user.username or update.effective_user.first_name
-            chat_id = str(update.effective_chat.id)
-            chat_type = self._determine_chat_type(chat_id)
-            
-            logger.info(f"✅ Status command handled for user {user_id} in {chat_type.value}")
-            
-            # Check if user is registered (only for main chat)
-            if chat_type == ChatType.MAIN:
-                is_registered = await self._check_user_registration(user_id)
-                if not is_registered:
-                    # User not registered - show leadership contact message
-                    await self._show_leadership_contact_message(update, username)
-                    return
-            elif chat_type == ChatType.LEADERSHIP:
-                # Check if this is the first user in leadership chat
-                is_first_user = await self._check_if_first_user()
-                if is_first_user:
-                    # First user - show registration message
-                    await self._show_first_user_registration_message(update, username)
-                    return
-                else:
-                    # Check if user is registered as team member
-                    is_registered = await self._check_user_registration(user_id)
-                    if not is_registered:
-                        # User not registered - show first user message
-                        await self._show_first_user_registration_message(update, username)
-                        return
-            
-            # User is registered or in leadership chat - process with CrewAI
-            # Pass the full command text including any arguments
-            args = context.args if context.args else []
-            message_text = f"/status {' '.join(args)}".strip()
-            
-            await self._handle_crewai_processing(
-                update, message_text, user_id, chat_id, chat_type, username
-            )
-            
-        except Exception as e:
-            logger.error(f"❌ Error handling status command: {e}")
-            await self._send_error_response(update, "I encountered an error processing your request.")
+    # Note: All dedicated command handlers have been removed
+    # All commands now use CrewAI agents for consistent processing
 
-    async def _handle_start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /start command."""
-        try:
-            user_id = str(update.effective_user.id)
-            username = update.effective_user.username or update.effective_user.first_name
-            
-            logger.info(f"✅ Start command handled for user {user_id}")
-            
-            welcome_message = (
-                f"👋 Welcome to *KICKAI* for *{self.team_id}*!\n\n"
-                f"🤖 I'm your AI-powered football team assistant.\n"
-                f"• Organize matches, manage attendance, and more.\n"
-                f"• Use /help to see what you can do!\n\n"
-                f"Let's kick off a smarter season! ⚽️"
-            )
-            
-            await update.message.reply_text(welcome_message, parse_mode='Markdown')
-            
-        except Exception as e:
-            logger.error(f"❌ Error handling start command: {e}")
-            await self._send_error_response(update, "I encountered an error processing your request.")
+    # Note: All dedicated command handlers have been removed
+    # All commands now use CrewAI agents for consistent processing
 
-    async def _handle_help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /help command."""
-        try:
-            user_id = str(update.effective_user.id)
-            username = update.effective_user.username or update.effective_user.first_name
-            chat_id = str(update.effective_chat.id)
-            chat_type = self._determine_chat_type(chat_id)
-            
-            logger.info(f"✅ Help command handled for user {user_id} in {chat_type.value}")
-            
-            if chat_type == ChatType.LEADERSHIP:
-                help_message = (
-                    "👔 *KICKAI Leadership Commands*\n\n"
-                    "*Player Management:*\n"
-                    "• /register [name] [phone] [position] - Register new player\n"
-                    "• /list - List all players with status\n"
-                    "• /status [phone] - Check player status\n\n"
-                    "*Team Management:*\n"
-                    "• /myinfo - Check your admin info\n\n"
-                    "*Natural Language:*\n"
-                    "You can also ask me questions in natural language!"
-                )
-            else:
-                help_message = (
-                    "🤖 *KICKAI Commands*\n\n"
-                    "*Player Commands:*\n"
-                    "• /start - Welcome message\n"
-                    "• /help - Show this help\n"
-                    "• /register - Register as a player\n"
-                    "• /myinfo - Check your information\n"
-                    "• /list - List team members\n"
-                    "• /status [phone] - Check player status\n\n"
-                    "*Natural Language:*\n"
-                    "You can also ask me questions in natural language!"
-                )
-            
-            await update.message.reply_text(help_message, parse_mode='Markdown')
-            
-        except Exception as e:
-            logger.error(f"❌ Error handling help command: {e}")
-            await self._send_error_response(update, "I encountered an error processing your request.")
+    # Note: /help command is now handled by CrewAI system via HelpAssistantAgent
+    # The dedicated handler has been removed to ensure all help requests go through the agent system
 
-    async def _handle_register_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /register command."""
-        try:
-            user_id = str(update.effective_user.id)
-            username = update.effective_user.username or update.effective_user.first_name
-            chat_id = str(update.effective_chat.id)
-            chat_type = self._determine_chat_type(chat_id)
-            
-            logger.info(f"✅ Register command handled for user {user_id} in {chat_type.value}")
-            
-            # Handle registration based on chat type
-            if chat_type == ChatType.MAIN:
-                await self._handle_main_chat_registration(update, user_id, username)
-            elif chat_type == ChatType.LEADERSHIP:
-                # Check if this is the first user in leadership chat
-                is_first_user = await self._check_if_first_user()
-                if is_first_user:
-                    # Handle first user registration directly
-                    await self._handle_first_user_registration(update, user_id, username)
-                else:
-                    # For subsequent users, use CrewAI for admin registration
-                    await self._handle_crewai_processing(
-                        update, "/register", user_id, chat_id, chat_type, username
-                    )
-            else:
-                # Private chat - provide guidance
-                await self._handle_private_registration(update, username)
-            
-        except Exception as e:
-            logger.error(f"❌ Error handling register command: {e}")
-            await self._send_error_response(update, "I encountered an error processing your request.")
+    # Note: All dedicated command handlers have been removed
+    # All commands now use CrewAI agents for consistent processing
 
     async def _handle_first_user_registration(self, update: Update, user_id: str, username: str):
         """Handle first user registration in leadership chat."""
@@ -828,8 +579,12 @@ class TelegramBotService(TelegramBotServiceInterface):
             await self._send_error_response(update, "I encountered an error providing registration guidance.")
 
     def _get_crewai_system(self):
-        """Get the CrewAI system instance."""
-        return self.crewai_system
+        """Get the CrewAI system for processing."""
+        if self.crewai_system:
+            return self.crewai_system
+        # Use the new YAML-based crew
+        from crew import get_kickai_crew
+        return get_kickai_crew()
 
     async def start_polling(self) -> None:
         """Start the bot polling."""
@@ -854,12 +609,30 @@ class TelegramBotService(TelegramBotServiceInterface):
             raise
 
     def _escape_markdown(self, text: str) -> str:
-        """Escape special characters for Telegram Markdown parsing."""
+        """Escape special characters for Telegram MarkdownV2 parsing."""
         if not text:
             return text
         
-        # Characters that need to be escaped in Telegram Markdown
-        escape_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+        import re
+        
+        # For Telegram MarkdownV2, we need to be more careful about escaping
+        # The key is to preserve intentional markdown while escaping problematic characters
+        
+        # First, let's handle the text in a way that preserves formatting
+        # Convert common markdown patterns to Telegram MarkdownV2 format
+        
+        # Convert **bold** to __bold__ (Telegram MarkdownV2 uses double underscores)
+        text = re.sub(r'\*\*(.*?)\*\*', r'__\1__', text)
+        
+        # Convert *italic* to _italic_ (but be careful not to break existing patterns)
+        # Only convert single asterisks that aren't part of bold patterns
+        text = re.sub(r'(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)', r'_\1_', text)
+        
+        # Now we need to escape characters that are not part of markdown formatting
+        # Characters to escape: [ ] ( ) ~ ` > # + = | { } . !
+        # Characters to preserve: _ * (for markdown), - (for lists), / (for commands)
+        
+        escape_chars = ['[', ']', '(', ')', '~', '`', '>', '#', '+', '=', '|', '{', '}', '.', '!']
         
         escaped_text = text
         for char in escape_chars:
