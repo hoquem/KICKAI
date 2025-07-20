@@ -12,6 +12,9 @@ from crewai import Agent, Task, Crew
 from crewai.tools import Tool
 
 from core.enums import ChatType
+from core.agent_registry import (
+    AgentType, AgentCategory, register_agent_decorator, get_agent_registry
+)
 from features.shared.domain.tools.help_tools import (
     get_user_status_tool,
     get_available_commands_tool,
@@ -21,6 +24,24 @@ from features.shared.domain.tools.help_tools import (
 )
 
 
+@register_agent_decorator(
+    agent_id="help_assistant",
+    agent_type=AgentType.HELP_ASSISTANT,
+    category=AgentCategory.CORE,
+    description="Provides context-aware help information to KICKAI users with proper user validation and registration flows",
+    version="1.0.0",
+    enabled=True,
+    dependencies=["permission_service", "player_service", "team_service"],
+    tools=[
+        "get_user_status",
+        "get_available_commands", 
+        "format_help_message",
+        "process_user_registration_flow",
+        "get_user_display_info"
+    ],
+    feature_module="shared",
+    tags=["help", "assistance", "user-validation", "registration"]
+)
 class HelpAssistantAgent:
     """
     Help Assistant Agent for processing help requests.
