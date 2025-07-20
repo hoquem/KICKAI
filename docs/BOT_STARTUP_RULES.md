@@ -11,6 +11,7 @@
    - Prevent multiple bot conflicts
 4. **Always use `.env` file** for local development
 5. **Never modify `.env` directly** without explicit confirmation
+6. **Always log to both console and `logs/kickai.log`** for local development
 
 ## 🔧 Implementation Details
 
@@ -40,7 +41,7 @@
 1. **Environment Setup**
    - Set `PYTHONPATH=src` if not already set
    - Load `.env` file
-   - Initialize logging
+   - Initialize logging (console + file)
 
 2. **Process Cleanup**
    - Check for existing lock file
@@ -116,6 +117,9 @@ python run_bot_local.py
 - `🔒 Created lock file: bot.lock`
 - `🔧 Process ID: {pid}`
 - `🔧 PYTHONPATH: {path}`
+- `📝 Logging configured for local development`
+- `📄 Console output: INFO level and above`
+- `📁 File output: logs/kickai.log (DEBUG level and above)`
 
 ### **Status Indicators**
 - `✅` Success operations
