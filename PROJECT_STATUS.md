@@ -30,6 +30,16 @@
 
 ## 🚀 Recent Enhancements (July 19-20, 2025)
 
+### ✅ Process Management & Bot Startup Rules (July 20, 2025)
+- **Process Detection**: Implemented automatic detection of existing bot instances
+- **Graceful Termination**: Added graceful process shutdown with fallback to force kill
+- **Lock File Mechanism**: Created `bot.lock` file to prevent multiple bot instances
+- **Conflict Prevention**: Eliminates "Conflict: terminated by other getUpdates request" errors
+- **PYTHONPATH Management**: Automatic setting of `PYTHONPATH=src` if not already set
+- **Startup Script**: Created `start_bot.sh` convenience script following ground rules
+- **Comprehensive Testing**: Added `test_process_management.py` for process management validation
+- **Documentation**: Created `BOT_STARTUP_RULES.md` with detailed implementation guide
+
 ### ✅ Agentic Help Command System
 - **Command Information Tool**: Created `get_available_commands_tool` for context-aware command listing
 - **Agent Prompt Enhancement**: Updated message processor and command fallback agents to use the command tool
