@@ -16,6 +16,7 @@ from features.team_administration.domain.tools import team_management_tools
 from features.player_registration.domain.tools import registration_tools
 from features.player_registration.domain.tools import player_tools
 from features.shared.application.commands import help_commands
+from features.shared.domain.tools import help_tools
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,8 @@ def _build_tool_registry() -> Dict[str, Any]:
         team_management_tools,
         registration_tools,
         player_tools,
-        help_commands
+        help_commands,
+        help_tools
     ]
     
     for module in tool_modules:
