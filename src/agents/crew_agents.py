@@ -21,33 +21,13 @@ import time
 from crewai import Agent, Crew
 from crewai.tools import tool
 
-from core.settings import get_settings
-from core.enums import AgentRole, AIProvider
-from config.agents import get_agent_config, get_enabled_agent_configs
-from agents.configurable_agent import ConfigurableAgent, AgentFactory
-from utils.llm_factory import LLMFactory, LLMConfig, LLMProviderError
-from agents.tool_registry import GLOBAL_TOOL_REGISTRY
+from src.core.settings import get_settings
+from src.core.enums import AgentRole, AIProvider
+from src.config.agents import get_agent_config, get_enabled_agent_configs
+from src.agents.configurable_agent import ConfigurableAgent, AgentFactory
+from src.utils.llm_factory import LLMFactory, LLMConfig, LLMProviderError
+from src.agents.tool_registry import get_tool_registry, get_tool_names
 from loguru import logger
-
-REQUIRED_TOOLS = [
-    "list_players",
-    "register_player",
-    "approve_player",
-    "get_player_info",
-    "remove_player",
-    "send_message",
-    "send_announcement",
-    "send_poll",
-    "log_command",
-    "log_error",
-]
-
-def validate_tools():
-    missing = [tool for tool in REQUIRED_TOOLS if tool not in GLOBAL_TOOL_REGISTRY]
-    if missing:
-        logger.error(f"❌ Missing required tools: {missing}")
-        raise RuntimeError(f"Startup validation failed: missing tools: {missing}")
-    logger.info(f"✅ All required tools present: {REQUIRED_TOOLS}")
 
 class ConfigurationError(Exception):
     """Raised when there's a configuration error."""
@@ -69,23 +49,32 @@ def log_errors(func):
     return wrapper
 
 class AgentToolsManager:
-    """Manages tool loading and configuration for agents."""
+    """Manages tool loading and configuration for agents using agent-specific tool lists."""
     
     def __init__(self, team_config, telegram_context=None):
         self.team_config = team_config
         self.telegram_context = telegram_context
-        self._tool_registry = self._build_tool_registry()
+        self._tool_registry = get_tool_registry()
+        self._build_tool_registry()
     
     def _build_tool_registry(self) -> Dict[str, Any]:
         logger.debug(f"AgentToolsManager._build_tool_registry called for team {self.team_config.default_team_id}")
         logger.info(f"[TOOL REGISTRY] Starting tool registry build for team {self.team_config.default_team_id}")
-        # All function-based tools are already registered in GLOBAL_TOOL_REGISTRY
-        logger.info(f"[TOOL REGISTRY] Loaded tools: {list(GLOBAL_TOOL_REGISTRY.keys())}")
-        return GLOBAL_TOOL_REGISTRY.copy()
+        
+        # Ensure tools are discovered
+        if not self._tool_registry._discovered:
+            self._tool_registry.auto_discover_tools()
+        
+        # Get all available tools
+        available_tools = self._tool_registry.get_tool_names()
+        logger.info(f"[TOOL REGISTRY] Loaded tools: {available_tools}")
+        
+        # Return tool functions mapping for backward compatibility
+        return self._tool_registry.get_tool_functions()
     
     @log_errors
     def get_tools_for_agent(self, role: AgentRole) -> List[Any]:
-        """Get tools for a specific agent role."""
+        """Get tools for a specific agent role using agent-specific configuration."""
         try:
             # Get agent configuration
             config = get_agent_config(role)
@@ -93,13 +82,15 @@ class AgentToolsManager:
                 logger.warning(f"No configuration found for role {role}")
                 return []
             
-            # Get tools based on configuration
+            # Get tools based on agent-specific configuration
             tools = []
             for tool_name in config.tools:
-                if tool_name in self._tool_registry:
-                    tools.append(self._tool_registry[tool_name])
+                tool_func = self._tool_registry.get_tool_function(tool_name)
+                if tool_func:
+                    tools.append(tool_func)
+                    logger.info(f"[AGENT TOOLS] ✅ Found tool '{tool_name}' for {role.value}")
                 else:
-                    logger.warning(f"Tool {tool_name} not found in registry for role {role}")
+                    logger.warning(f"[AGENT TOOLS] ❌ Tool '{tool_name}' not found for {role.value}")
             
             logger.info(f"🔧 Loading {len(tools)} tools for {role.value}")
             return tools
@@ -110,16 +101,18 @@ class AgentToolsManager:
     
     def get_available_tools(self) -> List[str]:
         """Get list of available tool names."""
-        return list(self._tool_registry.keys())
+        return self._tool_registry.get_tool_names()
     
     def get_tool_info(self, tool_name: str) -> Optional[Dict[str, Any]]:
         """Get information about a specific tool."""
-        if tool_name in self._tool_registry:
-            tool_func = self._tool_registry[tool_name]
+        tool = self._tool_registry.get_tool(tool_name)
+        if tool:
             return {
-                'name': tool_name,
-                'description': tool_func.__doc__ or 'No description available',
-                'type': 'function'
+                'name': tool.name,
+                'description': tool.description,
+                'type': tool.tool_type.value,
+                'category': tool.category.value,
+                'feature': tool.feature_module
             }
         return None
 
@@ -306,11 +299,11 @@ class TeamManagementSystem:
             # Create tools manager
             tools_manager = AgentToolsManager(self.team_config, telegram_context=None)
             
-            # Create agent factory
+            # Create agent factory with the actual tool registry object
             agent_factory = AgentFactory(
                 team_id=self.team_id,
                 llm=self.llm,
-                tool_registry={name: tool for name, tool in tools_manager._tool_registry.items()}
+                tool_registry=tools_manager._tool_registry  # Pass the actual ToolRegistry object
             )
             
             # Create all enabled agents
@@ -436,7 +429,7 @@ class TeamManagementSystem:
             # Use the basic crew that was created in _create_crew
             if hasattr(self, 'crew') and self.crew:
                 logger.info(f"🤖 BASIC CREW: Using existing crew")
-                result = await self.crew.kickoff({"task": task_description})
+                result = await self.crew.kickoff({"name": task_description})
                 logger.info(f"🤖 BASIC CREW: Task completed with result: {result}")
                 return result
             else:

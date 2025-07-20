@@ -9,7 +9,7 @@ It follows the feature-based architecture and uses specific tools for operations
 from typing import Dict, Any, Optional
 from loguru import logger
 from crewai import Agent, Task, Crew
-from crewai.tools import Tool
+# Tool is not needed for this agent
 
 from core.enums import ChatType
 from core.agent_registry import (
@@ -72,7 +72,16 @@ class HelpAssistantAgent:
             goal="Provide context-aware help information to KICKAI users",
             backstory="""You are a helpful assistant for the KICKAI football team management system. 
             You provide accurate, context-aware help information based on the user's status and chat type.
-            You always validate user status before providing help and guide users through proper registration flows.""",
+            You always validate user status before providing help and guide users through proper registration flows.
+            
+            CRITICAL RULES:
+            1. ALWAYS use the get_user_status tool first to validate user status
+            2. ALWAYS use the format_help_message tool to format responses
+            3. NEVER fabricate user information or command lists
+            4. ALWAYS provide proper registration guidance for unregistered users
+            5. Use the exact message formats specified in the documentation
+            6. Address users by their telegram name in responses
+            7. Provide clear, actionable guidance for all user states""",
             verbose=True,
             allow_delegation=False,
             tools=self.tools
@@ -107,7 +116,7 @@ class HelpAssistantAgent:
                     user_id, team_id, chat_type, telegram_username, telegram_name
                 ),
                 agent=agent,
-                expected_output="A complete, context-aware help response for the user"
+                expected_output="A complete, context-aware help response for the user following the exact message formats from the specification"
             )
             
             # Create and run the crew
@@ -118,7 +127,7 @@ class HelpAssistantAgent:
             )
             
             # Execute the task
-            result = crew.kickoff()
+            result = await crew.kickoff()
             
             logger.info(f"✅ Help request processed for user {user_id} in {chat_type}")
             return str(result)
@@ -151,30 +160,43 @@ CONTEXT:
 AVAILABLE TOOLS:
 - get_user_status: Get current user's player/team member status
 - get_available_commands: Get list of commands available to this user
-- format_help_message: Format help message based on context
+- format_help_message: Format help message based on context and user status
 - process_user_registration_flow: Handle user registration flows
 - get_user_display_info: Get user display information for message formatting
 
 TASK:
-1. Determine user's current status using get_user_status
-2. If user is not registered:
-   - For main_chat: Ask them to contact leadership team to add them as a player
-   - For leadership_chat: 
-     - If first user: Welcome them and ask for admin registration
-     - If not first user: Ask them to provide details for team member registration
-3. If user is registered:
-   - Get available commands using get_available_commands
-   - Get user display info using get_user_display_info
-   - Format appropriate help message using format_help_message
-4. Return contextually appropriate help information
+1. Use get_user_status to determine the user's current status
+2. Use format_help_message to generate the appropriate help response
+3. The format_help_message tool will automatically:
+   - Check if user is registered
+   - Format the appropriate message based on chat type and user status
+
+CHAT CONTEXT RULES:
+- MAIN CHAT: Treat everyone as players (even if they're also team members)
+- LEADERSHIP CHAT: Treat everyone as team members (even if they're also players)
+- This ensures clean separation and avoids confusion between contexts
+
+MANDATORY PROCESS:
+1. Call get_user_status with user_id={user_id}, team_id={team_id}, chat_type="{chat_type}"
+2. Call format_help_message with the user_status result and telegram_name="{telegram_name}"
+3. Return the exact output from format_help_message
+
+MESSAGE FORMATS (from specification):
+- Main Chat - Unregistered: Welcome message asking to contact leadership
+- Main Chat - Registered: Player commands list (treat as player regardless of other registrations)
+- Leadership Chat - First User: Admin setup message
+- Leadership Chat - Unregistered: Team member registration message
+- Leadership Chat - Registered: Team member commands list (treat as team member regardless of other registrations)
 
 IMPORTANT RULES:
 - Internally refer to users by their telegram ID and player/member ID
-- In messages to users, always refer to them using their telegram name and player/member ID
+- In messages to users, always refer to them using their telegram name
 - When displaying user's actual name, use their actual name, not telegram name
 - Always validate user status before providing help
 - Provide clear, actionable guidance for unregistered users
 - Format messages with proper Markdown for Telegram
+- Use the exact message formats specified in the documentation
+- Main chat context = player context, Leadership chat context = team member context
 
 EXPECTED OUTPUT:
 A complete, context-aware help response that:
@@ -183,8 +205,9 @@ A complete, context-aware help response that:
 - Shows available commands if user is registered
 - Uses proper formatting and emojis
 - Follows the established message formatting guidelines
+- Respects the chat context (player vs team member)
 """
-    
+
     async def process_specific_command_help(self,
                                           command_name: str,
                                           user_id: str,
@@ -223,7 +246,7 @@ A complete, context-aware help response that:
             )
             
             # Execute the task
-            result = crew.kickoff()
+            result = await crew.kickoff()
             
             logger.info(f"✅ Specific command help processed for {command_name} - user {user_id}")
             return str(result)
@@ -250,41 +273,36 @@ CONTEXT:
 AVAILABLE TOOLS:
 - get_user_status: Get current user's player/team member status
 - get_available_commands: Get list of commands available to this user
-- format_help_message: Format help message based on context
-- process_user_registration_flow: Handle user registration flows
-- get_user_display_info: Get user display information for message formatting
+- get_user_display_info: Get user display information
 
 TASK:
-1. Determine user's current status using get_user_status
-2. Check if user has access to the {command_name} command
-3. If user is not registered or doesn't have access:
-   - Provide appropriate registration guidance
-   - Explain why they can't use this command
-4. If user has access:
-   - Provide detailed help for the {command_name} command
-   - Include usage examples and syntax
-   - Explain what the command does
-   - Mention any permissions or requirements
-5. Return comprehensive help for the specific command
+1. Use get_user_status to check if the user has permission to use this command
+2. Use get_available_commands to get detailed command information
+3. Provide specific help for the {command_name} command including:
+   - Command description and purpose
+   - Usage syntax and examples
+   - Permission requirements
+   - Available in which chat types
+   - Related commands
 
-IMPORTANT RULES:
-- Always validate user permissions before providing command help
-- Provide clear examples and syntax
-- Explain any prerequisites or requirements
-- Use proper Markdown formatting
-- Include relevant emojis for better readability
+MANDATORY PROCESS:
+1. Call get_user_status with user_id={user_id}, team_id={team_id}, chat_type="{chat_type}"
+2. Call get_available_commands with chat_type="{chat_type}", user_id={user_id}, team_id={team_id}
+3. Find the {command_name} command in the available commands
+4. Provide detailed help information for that specific command
 
 EXPECTED OUTPUT:
-Detailed help information for the {command_name} command that includes:
-- Command description and purpose
-- Usage syntax and examples
+Detailed help information for {command_name} including:
+- Command description
+- Usage syntax
+- Examples
 - Permission requirements
-- Any prerequisites or setup needed
-- Common use cases
-- Troubleshooting tips if applicable
+- Chat type availability
+- Related commands
 """
 
 
+# Factory function to get help assistant agent instance
 def get_help_assistant_agent() -> HelpAssistantAgent:
     """Get the help assistant agent instance."""
     return HelpAssistantAgent() 

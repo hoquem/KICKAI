@@ -11,6 +11,7 @@ from typing import Dict, List, Any, Optional, Type, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from loguru import logger
 
@@ -72,7 +73,8 @@ class ToolRegistry:
     Centralized tool registry for the KICKAI system.
     
     This registry provides:
-    - Tool registration and discovery
+    - Fully automatic tool discovery from feature modules
+    - Single source of truth for all tools
     - Factory pattern for tool creation
     - Dependency management
     - Permission-based access control
@@ -111,19 +113,19 @@ class ToolRegistry:
             tool_id: Unique identifier for the tool
             tool_type: Type of tool
             category: Category of tool
-            name: Display name
-            description: Tool description
+            name: Display name of the tool
+            description: Description of the tool
             version: Tool version
-            enabled: Whether tool is enabled
-            dependencies: List of dependencies
-            required_permissions: Required permissions
+            enabled: Whether the tool is enabled
+            dependencies: List of tool dependencies
+            required_permissions: Required permissions to use the tool
             tool_function: The actual tool function
-            feature_module: Feature module name
+            feature_module: Feature module this tool belongs to
             tags: Tags for categorization
             aliases: Alternative names
         """
         if tool_id in self._tools:
-            logger.warning(f"Tool '{tool_id}' already registered, overwriting")
+            logger.warning(f"Tool {tool_id} already registered, updating metadata")
         
         metadata = ToolMetadata(
             tool_id=tool_id,
@@ -135,51 +137,47 @@ class ToolRegistry:
             enabled=enabled,
             dependencies=dependencies or [],
             required_permissions=required_permissions or [],
-            tool_function=tool_function,
             feature_module=feature_module,
-            tags=tags or []
+            tags=tags or [],
+            tool_function=tool_function
         )
         
         self._tools[tool_id] = metadata
         
-        # Register aliases
-        if aliases:
-            for alias in aliases:
-                if alias in self._tool_aliases:
-                    logger.warning(f"Alias '{alias}' already registered for '{self._tool_aliases[alias]}', overwriting with '{tool_id}'")
-                self._tool_aliases[alias] = tool_id
-        
-        # Group by feature
+        # Track feature tools
         if feature_module not in self._feature_tools:
             self._feature_tools[feature_module] = []
         self._feature_tools[feature_module].append(tool_id)
         
-        logger.info(f"🔧 Registered tool: {tool_id} ({feature_module})")
+        # Register aliases
+        if aliases:
+            for alias in aliases:
+                self._tool_aliases[alias] = tool_id
+        
+        logger.debug(f"✅ Registered tool: {tool_id} ({feature_module})")
     
     def register_factory(self, tool_id: str, factory: ToolFactory) -> None:
-        """Register a factory for tool creation."""
+        """Register a tool factory."""
         self._factories[tool_id] = factory
-        logger.info(f"🏭 Registered factory for tool: {tool_id}")
+        logger.debug(f"✅ Registered factory for tool: {tool_id}")
     
     def get_tool(self, tool_id: str) -> Optional[ToolMetadata]:
-        """Get tool metadata by ID or alias."""
-        # Check direct ID
+        """Get tool metadata by ID."""
+        # Check direct match first
         if tool_id in self._tools:
             return self._tools[tool_id]
         
         # Check aliases
         if tool_id in self._tool_aliases:
-            alias_target = self._tool_aliases[tool_id]
-            return self._tools.get(alias_target)
+            actual_id = self._tool_aliases[tool_id]
+            return self._tools.get(actual_id)
         
         return None
     
     def get_tool_function(self, tool_id: str) -> Optional[Callable]:
-        """Get the actual tool function."""
-        metadata = self.get_tool(tool_id)
-        if metadata and metadata.tool_function:
-            return metadata.tool_function
-        return None
+        """Get the actual tool function by ID."""
+        tool = self.get_tool(tool_id)
+        return tool.tool_function if tool else None
     
     def get_factory(self, tool_id: str) -> Optional[ToolFactory]:
         """Get tool factory by ID."""
@@ -187,23 +185,16 @@ class ToolRegistry:
     
     def create_tool(self, tool_id: str, **kwargs) -> Any:
         """Create a tool instance using its factory."""
-        tool_metadata = self.get_tool(tool_id)
-        if not tool_metadata:
-            raise ValueError(f"Tool '{tool_id}' not found in registry")
-        
-        if not tool_metadata.enabled:
-            raise ValueError(f"Tool '{tool_id}' is disabled")
-        
-        # Try factory first
         factory = self.get_factory(tool_id)
         if factory:
             return factory.create_tool(**kwargs)
         
-        # Try tool function
-        if tool_metadata.tool_function:
-            return tool_metadata.tool_function
+        # Fallback to direct function if no factory
+        tool_func = self.get_tool_function(tool_id)
+        if tool_func:
+            return tool_func
         
-        raise ValueError(f"No factory or function available for tool '{tool_id}'")
+        raise ValueError(f"No factory or function found for tool: {tool_id}")
     
     def get_tools_by_feature(self, feature_module: str) -> List[ToolMetadata]:
         """Get all tools for a specific feature."""
@@ -224,20 +215,23 @@ class ToolRegistry:
     
     def get_tools_with_permission(self, permission: str) -> List[ToolMetadata]:
         """Get all tools that require a specific permission."""
-        return [tool for tool in self._tools.values() if permission in tool.required_permissions]
+        return [
+            tool for tool in self._tools.values()
+            if permission in tool.required_permissions
+        ]
     
     def auto_discover_tools(self, src_path: str = "src") -> None:
         """
         Automatically discover and register tools from feature modules.
         
         This method scans the features directory and looks for tool definitions
-        in the domain/tools directories.
+        in the domain/tools directories. This is the ONLY mechanism for tool registration.
         """
         if self._discovered:
             logger.info("Tools already discovered, skipping auto-discovery")
             return
         
-        from pathlib import Path
+        logger.info("🔍 Starting automatic tool discovery...")
         
         src_path = Path(src_path)
         features_path = src_path / "features"
@@ -245,6 +239,8 @@ class ToolRegistry:
         if not features_path.exists():
             logger.warning(f"Features path not found: {features_path}")
             return
+        
+        discovered_count = 0
         
         for feature_dir in features_path.iterdir():
             if not feature_dir.is_dir() or feature_dir.name.startswith('_'):
@@ -257,40 +253,66 @@ class ToolRegistry:
                 continue
             
             logger.info(f"🔍 Discovering tools for feature: {feature_name}")
-            self._discover_tools_from_path(tools_path, feature_name)
+            count = self._discover_tools_from_path(tools_path, feature_name)
+            discovered_count += count
         
         self._discovered = True
-        logger.info(f"✅ Auto-discovery complete. Registered {len(self._tools)} tools")
+        logger.info(f"✅ Auto-discovery complete. Registered {discovered_count} tools from {len(self._feature_tools)} features")
     
-    def _discover_tools_from_path(self, tools_path: Path, feature_name: str) -> None:
-        """Discover tools from a specific path."""
+    def _discover_tools_from_path(self, tools_path: Path, feature_name: str) -> int:
+        """Discover tools from a specific path. Returns count of discovered tools."""
+        discovered_count = 0
+        
         for py_file in tools_path.glob("*.py"):
             if py_file.name.startswith('_') or py_file.name == "__init__.py":
                 continue
             
             try:
-                self._discover_tools_from_file(py_file, feature_name)
+                count = self._discover_tools_from_file(py_file, feature_name)
+                discovered_count += count
             except Exception as e:
                 logger.error(f"Error discovering tools from {py_file}: {e}")
+        
+        return discovered_count
     
-    def _discover_tools_from_file(self, file_path: Path, feature_name: str) -> None:
-        """Discover tools from a specific file."""
+    def _discover_tools_from_file(self, file_path: Path, feature_name: str) -> int:
+        """Discover tools from a specific file. Returns count of discovered tools."""
         import importlib.util
+        import sys
+        import os
+        
+        # Set PYTHONPATH to include src directory
+        src_path = file_path.parent.parent.parent.parent  # Go up to src directory
+        if str(src_path) not in sys.path:
+            sys.path.insert(0, str(src_path))
+        
+        # Also set PYTHONPATH environment variable
+        current_pythonpath = os.environ.get('PYTHONPATH', '')
+        if str(src_path) not in current_pythonpath:
+            new_pythonpath = f"{src_path}:{current_pythonpath}" if current_pythonpath else str(src_path)
+            os.environ['PYTHONPATH'] = new_pythonpath
         
         spec = importlib.util.spec_from_file_location(feature_name, file_path)
         if not spec or not spec.loader:
-            return
+            return 0
         
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         
-        # Look for tool functions decorated with @tool
+        discovered_count = 0
+        
+        # Look for tool functions in the module
         for attr_name in dir(module):
             attr = getattr(module, attr_name)
             
             # Check if it's a CrewAI tool (has name and description attributes)
             if hasattr(attr, 'name') and hasattr(attr, 'description'):
+                # Register the tool properly using the metadata system
                 self._register_discovered_tool(attr, feature_name, file_path)
+                discovered_count += 1
+                logger.debug(f"🔧 Discovered tool: {attr.name} from {feature_name}")
+        
+        return discovered_count
     
     def _register_discovered_tool(self, tool_func: Callable, feature_name: str, file_path: Path) -> None:
         """Register a discovered tool."""
@@ -326,26 +348,26 @@ class ToolRegistry:
             return ToolType.LOGGING
         elif any(keyword in tool_lower for keyword in ['firebase', 'firestore']):
             return ToolType.FIREBASE
-        elif any(keyword in tool_lower for keyword in ['help', 'assist']):
+        elif any(keyword in tool_lower for keyword in ['help', 'format', 'available']):
             return ToolType.HELP
-        elif any(keyword in tool_lower for keyword in ['system', 'config']):
+        elif any(keyword in tool_lower for keyword in ['system', 'health', 'config']):
             return ToolType.SYSTEM
         else:
             return ToolType.CUSTOM
     
     def _determine_tool_category(self, feature_name: str) -> ToolCategory:
         """Determine tool category based on feature name."""
-        if feature_name in ['shared', 'system_infrastructure']:
+        if feature_name in ['shared', 'core']:
             return ToolCategory.CORE
-        elif feature_name in ['player_registration', 'team_administration', 'match_management']:
-            return ToolCategory.FEATURE
-        else:
+        elif feature_name in ['utils', 'helpers']:
             return ToolCategory.UTILITY
+        else:
+            return ToolCategory.FEATURE
     
     def get_tool_statistics(self) -> Dict[str, Any]:
         """Get statistics about registered tools."""
         total_tools = len(self._tools)
-        total_enabled = len(self.get_enabled_tools())
+        total_aliases = len(self._tool_aliases)
         
         tools_by_type = {}
         for tool_type in ToolType:
@@ -357,16 +379,16 @@ class ToolRegistry:
         
         tools_by_feature = {}
         for feature in self._feature_tools:
-            tools_by_feature[feature] = len(self.get_tools_by_feature(feature))
+            tools_by_feature[feature] = len(self._feature_tools[feature])
         
         return {
-            'total_tools': total_tools,
-            'enabled_tools': total_enabled,
-            'disabled_tools': total_tools - total_enabled,
-            'tools_by_type': tools_by_type,
-            'tools_by_category': tools_by_category,
-            'tools_by_feature': tools_by_feature,
-            'features_with_tools': list(self._feature_tools.keys())
+            "total_tools": total_tools,
+            "total_aliases": total_aliases,
+            "tools_by_type": tools_by_type,
+            "tools_by_category": tools_by_category,
+            "tools_by_feature": tools_by_feature,
+            "features": list(self._feature_tools.keys()),
+            "discovered": self._discovered
         }
     
     def list_all_tools(self) -> List[ToolMetadata]:
@@ -374,17 +396,30 @@ class ToolRegistry:
         return list(self._tools.values())
     
     def search_tools(self, query: str) -> List[ToolMetadata]:
-        """Search tools by name, description, or tags."""
+        """Search tools by name, description, or feature."""
         query_lower = query.lower()
         results = []
         
         for tool in self._tools.values():
             if (query_lower in tool.name.lower() or
                 query_lower in tool.description.lower() or
+                query_lower in tool.feature_module.lower() or
                 any(query_lower in tag.lower() for tag in tool.tags)):
                 results.append(tool)
         
         return results
+    
+    def get_tool_names(self) -> List[str]:
+        """Get list of all registered tool names."""
+        return list(self._tools.keys())
+    
+    def get_tool_functions(self) -> Dict[str, Callable]:
+        """Get dictionary of tool ID to function mapping."""
+        return {
+            tool_id: tool.tool_function
+            for tool_id, tool in self._tools.items()
+            if tool.tool_function
+        }
 
 
 # Global tool registry instance
@@ -399,45 +434,25 @@ def get_tool_registry() -> ToolRegistry:
     return _tool_registry
 
 
-# Legacy compatibility - maintain the old interface
-GLOBAL_TOOL_REGISTRY: Dict[str, Any] = {}
-
-def _build_legacy_tool_registry() -> Dict[str, Any]:
-    """Build the legacy tool registry for backward compatibility."""
+def get_tool(tool_name: str) -> Optional[Callable]:
+    """Get a tool function by name from the registry."""
     registry = get_tool_registry()
-    legacy_registry = {}
-    
-    for tool_metadata in registry.list_all_tools():
-        if tool_metadata.tool_function:
-            legacy_registry[tool_metadata.tool_id] = tool_metadata.tool_function
-    
-    return legacy_registry
+    if not registry._discovered:
+        registry.auto_discover_tools()
+    return registry.get_tool_function(tool_name)
 
-# Build legacy registry
-GLOBAL_TOOL_REGISTRY = _build_legacy_tool_registry()
-
-def get_tool(tool_name: str) -> Any:
-    """Get a tool by name from the registry (legacy interface)."""
-    return GLOBAL_TOOL_REGISTRY.get(tool_name)
 
 def get_tool_names() -> List[str]:
-    """Get a list of all registered tool names (legacy interface)."""
-    return list(GLOBAL_TOOL_REGISTRY.keys())
+    """Get a list of all registered tool names."""
+    registry = get_tool_registry()
+    if not registry._discovered:
+        registry.auto_discover_tools()
+    return registry.get_tool_names()
 
-def get_tools_for_roles(role_tool_names: List[str]) -> List[Any]:
-    """Get tools for specific roles (legacy interface)."""
-    tools = []
-    
-    for tool_name in role_tool_names:
-        tool_obj = get_tool(tool_name)
-        if tool_obj:
-            tools.append(tool_obj)
-            logger.info(f"✅ Found tool '{tool_name}' for role")
-        else:
-            logger.warning(f"❌ Tool '{tool_name}' not found in registry")
-    
-    return tools
 
-def get_all_tools() -> List[Any]:
-    """Get all registered tools (legacy interface)."""
-    return list(GLOBAL_TOOL_REGISTRY.values()) 
+def get_all_tools() -> List[Callable]:
+    """Get all tool functions from the registry."""
+    registry = get_tool_registry()
+    if not registry._discovered:
+        registry.auto_discover_tools()
+    return list(registry.get_tool_functions().values()) 

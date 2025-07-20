@@ -9,8 +9,8 @@ from typing import Optional
 from pydantic import BaseModel
 
 from crewai.tools import tool
-from features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
-from core.dependency_container import get_container
+from src.features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
+from src.core.dependency_container import get_container
 
 logger = logging.getLogger(__name__)
 

@@ -48,7 +48,7 @@ class MultiBotManager:
             logger.info(f"🤖 Initializing CrewAI agents for team: {team_id}")
             
             # Import the TeamManagementSystem
-            from agents.crew_agents import TeamManagementSystem
+            from src.agents.crew_agents import TeamManagementSystem
             
             logger.info(f"🔍 About to create TeamManagementSystem for team: {team_id}")
             # Create the CrewAI system (constructor handles all initialization)

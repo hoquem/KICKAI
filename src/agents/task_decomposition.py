@@ -192,7 +192,8 @@ class CapabilityIdentifier:
             CapabilityType.BASIC_ANALYTICS: ['performance', 'analyze', 'stats', 'data', 'metrics'],
             CapabilityType.STRATEGIC_PLANNING: ['plan', 'strategy', 'match', 'fixture', 'tactical'],
             CapabilityType.MESSAGE_COMPOSITION: ['send', 'message', 'notify', 'announce', 'broadcast'],
-            CapabilityType.STRATEGIC_DECISION_MAKING: ['decide', 'choose', 'select', 'decision']
+            CapabilityType.STRATEGIC_DECISION_MAKING: ['decide', 'choose', 'select', 'decision'],
+            CapabilityType.NATURAL_LANGUAGE_UNDERSTANDING: ['help', 'what', 'how', 'why', 'understand', 'interpret', 'parse', 'guide', 'assist']
         }
         
         self.secondary_mappings = {
@@ -263,6 +264,9 @@ class AgentRouter:
             return AgentRole.TEAM_MANAGER
         elif primary_capability == CapabilityType.BASIC_ANALYTICS:
             return AgentRole.PERFORMANCE_ANALYST
+        elif primary_capability == CapabilityType.NATURAL_LANGUAGE_UNDERSTANDING:
+            # Route help and guidance requests to HELP_ASSISTANT
+            return AgentRole.HELP_ASSISTANT
         else:
             return AgentRole.MESSAGE_PROCESSOR
 
@@ -332,6 +336,13 @@ You are an expert task decomposer for the KICKAI football team management system
    - Helpful guidance and alternative solutions
    - Intent recognition from unclear requests
    - User experience maintenance
+
+9. **HELP_ASSISTANT**: 
+   - Context-aware help and guidance
+   - User status-based assistance
+   - Command explanation and usage
+   - Registration flow guidance
+   - Chat context-specific support
 
 **DECOMPOSITION GUIDELINES:**
 
@@ -418,6 +429,23 @@ Example 2 - Complex Request: "I want to register a new player and set up their p
     ],
     "complexity": "MODERATE",
     "reasoning": "Two sequential subtasks: registration first, then payment setup with dependency"
+}}
+
+Example 3 - Help Request: "/help"
+{{
+    "subtasks": [
+        {{
+            "description": "Provide context-aware help based on user status and chat type",
+            "agent_role": "HELP_ASSISTANT",
+            "capabilities_required": ["natural_language_understanding", "context_management"],
+            "parameters": {{"help_type": "general"}},
+            "dependencies": [],
+            "estimated_duration": 15,
+            "priority": 5
+        }}
+    ],
+    "complexity": "SIMPLE",
+    "reasoning": "Single subtask handled by Help Assistant who specializes in context-aware help and guidance"
 }}
 
 Now decompose the user request above following these guidelines and examples.
