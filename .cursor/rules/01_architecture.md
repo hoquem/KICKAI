@@ -1,39 +1,119 @@
-# Core Architecture: Clean, Modular, and Testable
+# Architecture Rules
 
-**These rules are non-negotiable and apply to all new code and refactors.**
+## Core Principles
 
-- **Keep Code Complexity Low**: Prioritize simplicity, readability, and maintainability. Avoid clever hacks, deep inheritance, and over-engineering. Code should be easy to reason about and fix.
-- **Feature Modularity**: All new features must be modularized. Use a feature-first structure (e.g., `src/features/feature_name/`) and avoid monolithic or tangled code. Each feature should encapsulate its own domain, application, and infrastructure logic.
-- **Dependency Injection (DI) & Container**: All dependencies (services, repositories, agents, etc.) must be injected via a DI container. No direct instantiation or singleton patterns. This is critical for decoupling, testability, and maintainability.
-- **Clean Architecture Dependency Rules**: Dependencies must only point inwards. Presentation → Application → Domain. Infrastructure implements interfaces defined in Application/Domain. No domain code should ever import from another layer.
-- **Service Interfaces**: All services must implement interfaces defined in `src/services/interfaces/`. This enables DI, easy testing, contract enforcement, and maintainability.
-- **Testable, Clean Code**: All code must be easily testable. Avoid tight coupling, global state, and hidden dependencies. Use composition over inheritance. Write code that is easy to mock and verify in tests.
-- **Code Reviews**: All code reviews must check for architectural violations, complexity creep, and testability issues.
+### Clean Architecture
+- Follow Clean Architecture principles with clear layer separation
+- Presentation → Application → Domain → Infrastructure
+- No circular dependencies
+- Domain layer has no external dependencies
 
----
+### Feature-First Modular Design
+- Organize code by business features, not technical layers
+- Each feature is self-contained with its own domain, application, and infrastructure
+- Shared code goes in `src/features/shared/`
+- Core system code goes in `src/core/`
 
-# (Original content follows)
+### Dependency Injection
+- Use dependency injection container for service resolution
+- Services are registered in the container and resolved at runtime
+- Avoid direct instantiation of services in business logic
 
-This project's long-term health depends on strict adherence to these architectural principles.
+### Async-First Design
+- Prefer async/await patterns for I/O operations
+- Use async services and repositories
+- Handle async operations properly with proper error handling
 
-- **Clean Architecture**: The code must be physically and logically separated into four layers: `domain`, `application`, `infrastructure`, and `presentation`.
-  - **Dependency Rule**: Dependencies must *only* point inwards. `presentation` -> `application` -> `domain`. The `infrastructure` layer implements interfaces defined in the `application` and `domain` layers. No `domain` code should ever import from another layer.
+### Type Safety
+- Use type hints throughout the codebase
+- Use Pydantic models for data validation
+- Prefer dataclasses for simple data structures
 
-- **SOLID Principles**: All code must adhere to SOLID principles, with a strong emphasis on the **Single Responsibility Principle (SRP)**. Every class, every function serves one purpose.
+## Agentic Architecture
 
-- **Dependency Injection (DI)**: All dependencies (repositories, services, agents) **must** be managed by a DI container (`dependency-injector` library). They will be injected into use cases and handlers from a central container in `src/core/container.py`. This is critical for decoupling and testability.
+### CrewAI Integration
+- All user interactions processed through CrewAI agents
+- No dedicated command handlers - commands delegate to agents
+- Agents are specialized for specific domains (player management, team management, etc.)
+- Use the 8-agent CrewAI system as defined in the architecture
 
-- **Service Interfaces**: All services must implement interfaces defined in `src/services/interfaces/`. This enables:
-  - **Dependency Injection**: Services depend on interfaces, not concrete implementations
-  - **Easy Testing**: Mock implementations for predictable test behavior
-  - **Contract Enforcement**: Clear contracts that all implementations must follow
-  - **Code Maintainability**: Easy to swap implementations and add new features
+### Tool Management
+- Tools are independent functions with @tool decorator
+- Tools must not call other tools or services (see CrewAI best practices)
+- Tools are discovered automatically from feature directories
+- Tools are assigned to agents based on role configuration
 
-- **Design Patterns**:
-  - **Repository Pattern**: Abstract data access interfaces will be defined in the `domain` layer. Concrete implementations (e.g., for a JSON file, a database) will live in the `infrastructure` layer.
-  - **Command Pattern**: User actions, whether from a `/command` or natural language, should be translated into command objects that the `application` layer processes.
-  - **Strategy Pattern**: Used for permission strategies and configuration sources
-  - **Factory Pattern**: Used for agent creation and configuration object creation
-  - **Observer Pattern**: Used for configuration change notifications and command logging
-  - **Chain of Responsibility**: Used for configuration validation and command processing
-  - **Builder Pattern**: Used for complex configuration object construction
+## Database Design
+
+### Firestore Collections
+- Use `kickai_` prefix for all collections
+- Collections: `kickai_teams`, `kickai_players`, `kickai_matches`, etc.
+- Follow Firestore best practices for data modeling
+
+### Repository Pattern
+- Each feature has its own repository interface and implementation
+- Repositories handle data access and persistence
+- Use async patterns for database operations
+
+## Testing Strategy
+
+### Test Pyramid
+- Unit tests for business logic
+- Integration tests for service interactions
+- E2E tests for complete user workflows
+
+### Test Data
+- Use separate test environment (.env.test)
+- Use real Firestore for E2E tests
+- Mock external services in unit tests
+
+## Error Handling
+
+### Exception Strategy
+- Use custom exceptions for business logic errors
+- Log all exceptions with proper context
+- Return meaningful error messages to users
+- Handle async exceptions properly
+
+## Logging
+
+### Logging Strategy
+- Use structured logging with loguru
+- Log at appropriate levels (DEBUG, INFO, WARNING, ERROR)
+- Include context in log messages
+- Use consistent log format
+
+## Security
+
+### Access Control
+- Implement role-based access control
+- Validate user permissions for all operations
+- Use team context for multi-tenant isolation
+- Sanitize all user inputs
+
+## Performance
+
+### Optimization
+- Use async operations for I/O
+- Implement caching where appropriate
+- Optimize database queries
+- Monitor performance metrics
+
+## Documentation
+
+### Code Documentation
+- Document all public APIs
+- Use docstrings for complex functions
+- Keep documentation up to date
+- Use type hints for better documentation
+
+## Critical CrewAI Requirements
+
+**IMPORTANT**: For CrewAI integration, see `.cursor/rules/13_crewai_best_practices.md` for critical rules that must be followed:
+
+- Tool independence (tools cannot call other tools or services)
+- Absolute imports with PYTHONPATH=src
+- Proper tool discovery and registration patterns
+- Common error solutions and debugging procedures
+
+**These CrewAI rules are CRITICAL for system stability and must be followed strictly.**

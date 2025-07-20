@@ -13,7 +13,7 @@ from typing import Callable, Any, Optional, Dict, Type, Union
 from contextlib import contextmanager
 from dataclasses import dataclass
 
-from core.exceptions import (
+from .exceptions import (
     KICKAIError, AgentError, AgentExecutionError, ToolExecutionError,
     OrchestrationError, IntentClassificationError, TaskDecompositionError,
     AgentRoutingError, TaskExecutionError, ResultAggregationError,
@@ -287,7 +287,7 @@ def validate_input(
     Raises:
         InputValidationError: If validation fails
     """
-    from core.exceptions import InputValidationError
+    from .exceptions import InputValidationError
     
     # Check if required field is present
     if required and value is None:

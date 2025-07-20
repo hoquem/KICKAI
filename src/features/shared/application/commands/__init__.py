@@ -1,19 +1,13 @@
+#!/usr/bin/env python3
 """
 Shared Commands Module
 
-This module provides command handlers that are shared across multiple features.
+This module contains commands that are shared across multiple features.
 """
 
-from .help_commands import (
-    handle_help_command,
-    handle_list_command,
-    handle_status_command,
-    handle_myinfo_command
-)
+# Import shared commands that exist
+from .base_command import *
+from .types import *
 
-__all__ = [
-    "handle_help_command",
-    "handle_list_command", 
-    "handle_status_command",
-    "handle_myinfo_command"
-] 
+# Note: Help commands are now handled by the CrewAI system via the HELP_ASSISTANT agent
+# This ensures consistent, context-aware help across all chat types and user states 

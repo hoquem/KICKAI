@@ -282,13 +282,24 @@ class CommandProcessingService:
         )
     
     async def _process_help_command(self, user_context: UserContext, **kwargs) -> CommandResponse:
-        """Process the help command with context-aware information."""
+        """Process the help command using the new HelpAssistantAgent."""
         try:
-            # Get available commands for this user
-            commands_info = await self._get_available_commands_for_user(user_context)
+            from features.shared.domain.agents.help_assistant_agent import get_help_assistant_agent
             
-            # Format help message
-            help_message = self._format_help_message(user_context, commands_info)
+            # Get help assistant agent instance
+            help_assistant = get_help_assistant_agent()
+            
+            # Determine chat type string
+            chat_type = "leadership_chat" if user_context.chat_type == ChatType.LEADERSHIP else "main_chat"
+            
+            # Process help request using HelpAssistantAgent
+            help_message = await help_assistant.process_help_request(
+                user_id=user_context.user_id,
+                team_id=user_context.team_id,
+                chat_type=chat_type,
+                telegram_username=user_context.telegram_username,
+                telegram_name=user_context.telegram_name
+            )
             
             return CommandResponse(
                 message=help_message,
@@ -322,107 +333,7 @@ class CommandProcessingService:
                 'features': {}
             }
     
-    def _format_help_message(self, user_context: UserContext, commands_info: Dict[str, Any]) -> str:
-        """Format help message based on user context and available commands."""
-        try:
-            if user_context.chat_type == ChatType.LEADERSHIP:
-                return self._format_leadership_help(user_context, commands_info)
-            else:
-                return self._format_main_chat_help(user_context, commands_info)
-                
-        except Exception as e:
-            logger.error(f"❌ Error formatting help message: {e}")
-            return "❌ Error formatting help message."
-    
-    def _format_leadership_help(self, user_context: UserContext, commands_info: Dict[str, Any]) -> str:
-        """Format help for leadership chat."""
-        help_text = [f"👔 *KICKAI Leadership Commands*\n"]
-        
-        # Add user context
-        if user_context.team_member_data:
-            member_id = user_context.team_member_data.get('id', 'Unknown')
-            help_text.append(f"👤 *{user_context.telegram_name}* (ID: {member_id})\n")
-        
-        features = commands_info.get('features', {})
-        
-        # Organize commands by category
-        player_commands = []
-        team_commands = []
-        general_commands = []
-        
-        for feature, cmds in features.items():
-            for cmd in cmds:
-                cmd_name = cmd['name']
-                cmd_desc = cmd['description']
-                
-                if any(keyword in cmd_name.lower() for keyword in ['register', 'add', 'list', 'status', 'player']):
-                    player_commands.append(f"• {cmd_name} - {cmd_desc}")
-                elif any(keyword in cmd_name.lower() for keyword in ['team', 'myinfo', 'admin']):
-                    team_commands.append(f"• {cmd_name} - {cmd_desc}")
-                else:
-                    general_commands.append(f"• {cmd_name} - {cmd_desc}")
-        
-        # Add sections
-        if player_commands:
-            help_text.append("*Player Management:*")
-            help_text.extend(sorted(player_commands))
-            help_text.append("")
-        
-        if team_commands:
-            help_text.append("*Team Management:*")
-            help_text.extend(sorted(team_commands))
-            help_text.append("")
-        
-        if general_commands:
-            help_text.append("*General Commands:*")
-            help_text.extend(sorted(general_commands))
-            help_text.append("")
-        
-        help_text.append("*Natural Language:*")
-        help_text.append("You can also ask me questions in natural language!")
-        
-        return "\n".join(help_text)
-    
-    def _format_main_chat_help(self, user_context: UserContext, commands_info: Dict[str, Any]) -> str:
-        """Format help for main chat."""
-        help_text = [f"🤖 *KICKAI Commands*\n"]
-        
-        # Add user context
-        if user_context.player_data:
-            player_id = user_context.player_data.get('id', 'Unknown')
-            help_text.append(f"👤 *{user_context.telegram_name}* (ID: {player_id})\n")
-        
-        features = commands_info.get('features', {})
-        
-        # Organize commands
-        player_commands = []
-        general_commands = []
-        
-        for feature, cmds in features.items():
-            for cmd in cmds:
-                cmd_name = cmd['name']
-                cmd_desc = cmd['description']
-                
-                if any(keyword in cmd_name.lower() for keyword in ['register', 'add', 'list', 'status', 'player']):
-                    player_commands.append(f"• {cmd_name} - {cmd_desc}")
-                else:
-                    general_commands.append(f"• {cmd_name} - {cmd_desc}")
-        
-        # Add sections
-        if player_commands:
-            help_text.append("*Player Management:*")
-            help_text.extend(sorted(player_commands))
-            help_text.append("")
-        
-        if general_commands:
-            help_text.append("*General Commands:*")
-            help_text.extend(sorted(general_commands))
-            help_text.append("")
-        
-        help_text.append("*Natural Language:*")
-        help_text.append("You can also ask me questions in natural language!")
-        
-        return "\n".join(help_text)
+    # Note: Old help formatting methods removed - now using HelpAssistantAgent
     
     async def _process_myinfo_command(self, user_context: UserContext, **kwargs) -> CommandResponse:
         """Process the myinfo command."""
