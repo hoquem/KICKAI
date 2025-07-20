@@ -40,6 +40,7 @@ fi
 
 echo "🤖 Starting bot with process management..."
 echo "💡 Press Ctrl+C to stop the bot"
+echo "📝 Logs will be written to both console and logs/kickai.log"
 echo ""
 
 # Start the bot

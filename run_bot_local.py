@@ -223,12 +223,58 @@ def check_lock_file() -> bool:
 
 
 def setup_logging():
-    """Configure logging for the application."""
-    # Get settings for logging configuration
-    settings = get_settings()
-    log_file_path = settings.log_file_path if settings.log_file_path else "logs/kickai.log"
+    """Configure logging for local development with console and file output."""
+    from loguru import logger
+    import sys
+    import os
     
-    # Remove the call to LoggingConfig.configure_logging
+    # Remove any existing handlers to avoid duplicates
+    logger.remove()
+    
+    # Ensure logs directory exists
+    log_dir = "logs"
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+        logger.info(f"📁 Created logs directory: {log_dir}")
+    
+    # Add console handler with colored output for local development
+    logger.add(
+        sys.stdout,
+        level="INFO",
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        enqueue=True,
+        backtrace=True,
+        diagnose=True,
+        colorize=True
+    )
+    
+    # Add file handler for persistent logging
+    log_file_path = "logs/kickai.log"
+    logger.add(
+        log_file_path,
+        level="DEBUG",  # More detailed logging to file
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        rotation="10 MB",
+        retention="7 days",
+        enqueue=True,
+        backtrace=True,
+        diagnose=True,
+        compression="zip"
+    )
+    
+    # Add error handler to stderr for critical errors
+    logger.add(
+        sys.stderr,
+        level="ERROR",
+        format="<red>{time:YYYY-MM-DD HH:mm:ss}</red> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        enqueue=True,
+        colorize=True
+    )
+    
+    logger.info("📝 Logging configured for local development")
+    logger.info(f"📄 Console output: INFO level and above")
+    logger.info(f"📁 File output: {log_file_path} (DEBUG level and above)")
+    logger.info(f"🔄 Log rotation: 10 MB, retention: 7 days")
 
 
 def setup_environment():
