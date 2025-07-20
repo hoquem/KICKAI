@@ -36,8 +36,10 @@
 - **Lock File Mechanism**: Created `bot.lock` file to prevent multiple bot instances
 - **Conflict Prevention**: Eliminates "Conflict: terminated by other getUpdates request" errors
 - **PYTHONPATH Management**: Automatic setting of `PYTHONPATH=src` if not already set
+- **Dual Logging System**: Configured logging to both console and `logs/kickai.log` for local development
+- **Log Rotation**: Implemented 10 MB rotation and 7-day retention with compression
 - **Startup Script**: Created `start_bot.sh` convenience script following ground rules
-- **Comprehensive Testing**: Added `test_process_management.py` for process management validation
+- **Comprehensive Testing**: Added `test_process_management.py` and `test_logging_config.py` for validation
 - **Documentation**: Created `BOT_STARTUP_RULES.md` with detailed implementation guide
 
 ### ✅ Agentic Help Command System
