@@ -380,6 +380,61 @@ Result: ✅ Access Granted - Player approval processed
 
 **Dynamic Assignment**: The system automatically assigns team owner status to the first user who registers in the leadership chat, regardless of their User ID or telegram name.
 
+#### **First User Flow Processing**
+
+**Trigger**: Any command typed by the first user in leadership chat (slash commands or natural language)
+**Detection**: Check if no team members exist in the system (`len(team_members) == 0`)
+**Response**: Show comprehensive admin setup message with registration instructions
+**Blocking**: Prevent normal command processing until registration is complete
+**Assignment**: Automatically assign admin role after successful registration
+
+#### **Implementation Flow**
+```python
+# 1. User types any command in leadership chat
+# 2. System checks if this is the first user
+is_first_user = await self._check_if_first_user()
+
+# 3. If first user, show registration message and block processing
+if is_first_user:
+    await self._show_first_user_registration_message(update, username)
+    return  # Block normal command processing
+
+# 4. After registration, user becomes admin with full access
+```
+
+#### **First User Response Message**
+```
+🎉 Welcome to KICKAI, {username}!
+
+🌟 You are the first user in this leadership chat!
+
+👑 You will be set up as the team administrator with full access to:
+• Player management and registration
+• Team configuration and settings
+• Match scheduling and management
+• Financial oversight and reporting
+
+📝 To complete your setup, please provide your details:
+
+Use the command:
+/register [Your Full Name] [Your Phone Number] [Your Role]
+
+Example:
+/register John Smith +1234567890 Team Manager
+
+💡 Your role can be:
+• Team Manager, Coach, Assistant Coach
+• Club Administrator, Treasurer
+• Volunteer Coordinator, etc.
+
+🚀 Once registered, you can:
+• Add other team members and players
+• Generate invite links for chats
+• Manage the entire team system
+
+Ready to get started? Use the /register command above!
+```
+
 ### Registered Player
 **Status**: Active player in the system  
 **Access**: Main chat commands, limited leadership chat access  

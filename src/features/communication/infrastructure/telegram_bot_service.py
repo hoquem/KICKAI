@@ -119,6 +119,7 @@ class TelegramBotService(TelegramBotServiceInterface):
                 is_first_user = await self._check_if_first_user()
                 if is_first_user:
                     # First user - show registration message
+                    logger.info(f"🎉 First user detected in leadership chat (natural language): {username}")
                     await self._show_first_user_registration_message(update, username)
                     return
                 else:
@@ -126,6 +127,7 @@ class TelegramBotService(TelegramBotServiceInterface):
                     is_registered = await self._check_user_registration(user_id)
                     if not is_registered:
                         # User not registered - show first user message
+                        logger.info(f"👤 Unregistered user in leadership chat: {username}")
                         await self._show_first_user_registration_message(update, username)
                         return
             
@@ -158,6 +160,14 @@ class TelegramBotService(TelegramBotServiceInterface):
             message_text = f"{command_name} {' '.join(args)}".strip()
             
             logger.info(f"📨 Registered command from {username} ({user_id}) in {chat_type.value}: '{message_text}'")
+            
+            # Check if this is the first user in leadership chat (for any command)
+            if chat_type == ChatType.LEADERSHIP:
+                is_first_user = await self._check_if_first_user()
+                if is_first_user:
+                    logger.info(f"🎉 First user detected in leadership chat: {username}")
+                    await self._show_first_user_registration_message(update, username)
+                    return  # Block normal command processing
             
             # Delegate to CrewAI processing
             await self._handle_crewai_processing(update, message_text, user_id, chat_id, chat_type, username)
