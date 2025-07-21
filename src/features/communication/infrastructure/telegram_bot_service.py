@@ -128,7 +128,7 @@ class TelegramBotService(TelegramBotServiceInterface):
                     if not is_registered:
                         # User not registered - show first user message
                         logger.info(f"👤 Unregistered user in leadership chat: {username}")
-                        await self._show_first_user_registration_message(update, username)
+                        await self._show_leadership_unregistered_message(update, username)
                         return
             
             # User is registered or in leadership chat - process with CrewAI
@@ -483,8 +483,11 @@ class TelegramBotService(TelegramBotServiceInterface):
     async def _show_first_user_registration_message(self, update: Update, username: str):
         """Show message for first user registration in leadership chat."""
         try:
+            from core.constants import BOT_VERSION
+            
             message = (
-                f"🎉 *Welcome to KICKAI, {username}!*\n\n"
+                f"🎉 *Welcome to KICKAI for {self.team_id}, {username}!*\n\n"
+                f"🤖 *KICKAI v{BOT_VERSION}* - Your AI-powered football team assistant\n\n"
                 f"🌟 **You are the first user in this leadership chat!**\n\n"
                 f"👑 **You will be set up as the team administrator** with full access to:\n"
                 f"• Player management and registration\n"
@@ -516,8 +519,11 @@ class TelegramBotService(TelegramBotServiceInterface):
     async def _show_registered_user_info(self, update: Update, user_id: str, username: str):
         """Show registered user information and offer to update."""
         try:
+            from core.constants import BOT_VERSION
+            
             message = (
-                f"👋 *Welcome back, {username}!*\n\n"
+                f"👋 *Welcome back to KICKAI for {self.team_id}, {username}!*\n\n"
+                f"🤖 *KICKAI v{BOT_VERSION}* - Your AI-powered football team assistant\n\n"
                 f"✅ You are already registered as a player in the team.\n\n"
                 f"📋 *Your Information:*\n"
                 f"• **User ID:** {user_id}\n"
@@ -541,8 +547,11 @@ class TelegramBotService(TelegramBotServiceInterface):
     async def _show_leadership_contact_message(self, update: Update, username: str):
         """Show message directing user to contact team leadership."""
         try:
+            from core.constants import BOT_VERSION
+            
             message = (
-                f"👋 *Welcome, {username}!*\n\n"
+                f"👋 *Welcome to KICKAI for {self.team_id}, {username}!*\n\n"
+                f"🤖 *KICKAI v{BOT_VERSION}* - Your AI-powered football team assistant\n\n"
                 f"🎯 *To join the team as a player:*\n\n"
                 f"📞 **Contact Team Leadership**\n"
                 f"You need to be added as a player by someone in the team's leadership.\n\n"
@@ -563,13 +572,47 @@ class TelegramBotService(TelegramBotServiceInterface):
             logger.error(f"❌ Error showing leadership contact message: {e}")
             await self._send_error_response(update, "I encountered an error processing your request.")
 
+    async def _show_leadership_unregistered_message(self, update: Update, username: str):
+        """Show message for unregistered users in leadership chat (not first user)."""
+        try:
+            from core.constants import BOT_VERSION
+            
+            message = (
+                f"👋 *Welcome to KICKAI Leadership for {self.team_id}, {username}!*\n\n"
+                f"🤖 *KICKAI v{BOT_VERSION}* - Your AI-powered football team assistant\n\n"
+                f"🤔 I don't see you registered as a team member yet.\n\n"
+                f"📝 **Please provide your details** so I can add you to the team members collection.\n\n"
+                f"💡 **You can use:**\n"
+                f"`/register [name] [phone] [role]`\n\n"
+                f"**Example:**\n"
+                f"`/register John Smith +1234567890 Assistant Coach`\n\n"
+                f"🎯 **Your role can be:**\n"
+                f"• Team Manager, Coach, Assistant Coach\n"
+                f"• Club Administrator, Treasurer\n"
+                f"• Volunteer Coordinator, etc.\n\n"
+                f"🚀 **Once registered, you can:**\n"
+                f"• Add other team members and players\n"
+                f"• Generate invite links for chats\n"
+                f"• Manage the team system\n\n"
+                f"Ready to get started? Use the /register command above!"
+            )
+            
+            await update.message.reply_text(message, parse_mode='Markdown')
+            
+        except Exception as e:
+            logger.error(f"❌ Error showing leadership unregistered message: {e}")
+            await self._send_error_response(update, "I encountered an error processing your request.")
+
     async def _handle_private_registration(self, update: Update, username: str):
         """Handle registration in private chat - provide guidance."""
         try:
+            from core.constants import BOT_VERSION
+            
             message = (
                 f"👋 *Hi {username}!*\n\n"
-                f"🤖 *Registration Guidance*\n\n"
-                f"📋 *To join the team:*\n\n"
+                f"🤖 *KICKAI v{BOT_VERSION}* for {self.team_id} - Your AI-powered football team assistant\n\n"
+                f"📋 *Registration Guidance*\n\n"
+                f"🎯 *To join the team:*\n\n"
                 f"🎯 *Player Registration* (Main Chat):\n"
                 f"• Join the main team chat\n"
                 f"• Use /register to start the process\n"
