@@ -32,10 +32,8 @@ COLLECTIONS_TO_CLEAN = [
     'kickai_teams', 
     'kickai_team_members',
     'kickai_matches',
-    'kickai_bot_mappings',
     'kickai_payments',
     'kickai_daily_status',
-    'kickai_fixtures',
     'kickai_expenses',
     'kickai_reminders',
     'kickai_onboarding'
@@ -46,7 +44,6 @@ TEST_PLAYER_IDS = ['JS', 'SJ', 'MW', 'ED', 'AB', 'LT', 'DC']
 TEST_TEAM_IDS = ['KAI']
 TEST_MATCH_IDS = ['MATCH001', 'MATCH002']
 TEST_PAYMENT_IDS = ['PAY001', 'PAY002']
-TEST_BOT_MAPPING_IDS = ['BOT001']
 TEST_TEAM_MEMBER_IDS = [
     'TM_JS', 'TM_SJ', 'TM_MW', 'TM_ED', 'TM_AB', 'TM_LT', 'TM_DC',
     'TM_LEADER_admin_user', 'TM_LEADER_team_secretary'
@@ -120,8 +117,7 @@ async def clean_all_test_data():
             ('kickai_teams', TEST_TEAM_IDS),
             ('kickai_team_members', TEST_TEAM_MEMBER_IDS),
             ('kickai_matches', TEST_MATCH_IDS),
-            ('kickai_payments', TEST_PAYMENT_IDS),
-            ('kickai_bot_mappings', TEST_BOT_MAPPING_IDS)
+            ('kickai_payments', TEST_PAYMENT_IDS)
         ]
         
         for collection_name, specific_ids in specific_cleanups:
@@ -131,7 +127,6 @@ async def clean_all_test_data():
         # Clean other collections completely
         other_collections = [
             'kickai_daily_status',
-            'kickai_fixtures', 
             'kickai_expenses',
             'kickai_reminders',
             'kickai_onboarding'

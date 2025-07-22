@@ -308,8 +308,7 @@ KICKAI/
 │   │   ├── configurable_agent.py # Base agent class
 │   │   └── behavioral_mixins.py  # Agent behavior patterns
 │   ├── core/                     # Core utilities
-│   │   ├── command_registry.py   # Command registration
-│   │   └── base_tool.py          # Base tool class
+│   │   └── command_registry.py   # Command registration
 │   ├── database/                 # Data layer
 │   └── utils/                    # Utilities
 ├── tests/                        # Test suite

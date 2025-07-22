@@ -57,7 +57,7 @@ Expense Breakdown:"""
             return message
         except Exception as e:
             logger.error(f"Error generating financial summary for team {self.team_id}: {e}")
-            return f"❌ Error generating financial summary: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
     async def send_financial_report(self) -> bool:
         try:
             bot_token = self.settings.telegram_bot_token

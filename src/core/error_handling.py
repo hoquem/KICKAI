@@ -376,5 +376,4 @@ async def safe_execute_async(
         return default_return
 
 
-# Import asyncio for async function detection
-import asyncio 
+ 

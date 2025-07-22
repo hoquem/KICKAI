@@ -223,7 +223,7 @@ def check_lock_file() -> bool:
 
 
 def setup_logging():
-    """Configure logging for local development with console and file output."""
+    """Configure logging for local development with console output redirected to file."""
     from loguru import logger
     import sys
     import os
@@ -235,9 +235,9 @@ def setup_logging():
     log_dir = "logs"
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-        logger.info(f"📁 Created logs directory: {log_dir}")
     
     # Add console handler with colored output for local development
+    # This will be the primary logging destination
     logger.add(
         sys.stdout,
         level="INFO",
@@ -246,20 +246,6 @@ def setup_logging():
         backtrace=True,
         diagnose=True,
         colorize=True
-    )
-    
-    # Add file handler for persistent logging
-    log_file_path = "logs/kickai.log"
-    logger.add(
-        log_file_path,
-        level="DEBUG",  # More detailed logging to file
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-        rotation="10 MB",
-        retention="7 days",
-        enqueue=True,
-        backtrace=True,
-        diagnose=True,
-        compression="zip"
     )
     
     # Add error handler to stderr for critical errors
@@ -272,9 +258,9 @@ def setup_logging():
     )
     
     logger.info("📝 Logging configured for local development")
-    logger.info(f"📄 Console output: INFO level and above")
-    logger.info(f"📁 File output: {log_file_path} (DEBUG level and above)")
-    logger.info(f"🔄 Log rotation: 10 MB, retention: 7 days")
+    logger.info("📄 Console output: INFO level and above")
+    logger.info("📁 Console output will be redirected to logs/kickai.log")
+    logger.info("🔄 To view logs in real-time: tail -f logs/kickai.log")
 
 
 def setup_environment():
@@ -298,6 +284,10 @@ def setup_environment():
         # Configure logging
         setup_logging()
         logger.info("✅ Configuration loaded successfully and logging configured")
+        
+        # Set up CrewAI logging to redirect to loguru
+        from utils.crewai_logging import setup_crewai_logging
+        setup_crewai_logging("DEBUG")  # Enable debug logging for CrewAI
         
         # Check if mock services are enabled
         use_mock_datastore = os.getenv('USE_MOCK_DATASTORE', 'false').lower() == 'true'
@@ -338,11 +328,11 @@ async def run_system_validation():
             logger.error(f"❌ Team {team_id} not found in database")
             return False
         
-        # Extract bot configuration from team settings
+        # Extract bot configuration from team explicit fields (single source of truth)
         bot_config = {
-            'bot_token': team.settings.get('bot_token'),
-            'main_chat_id': team.settings.get('main_chat_id'),
-            'leadership_chat_id': team.settings.get('leadership_chat_id'),
+            'bot_token': team.bot_token,
+            'main_chat_id': team.main_chat_id,
+            'leadership_chat_id': team.leadership_chat_id,
             'team_id': team_id
         }
         
@@ -352,16 +342,38 @@ async def run_system_validation():
         logger.info(f"  - leadership_chat_id: {bot_config['leadership_chat_id']}")
         
         # Create validator and run checks
-        validator = StartupValidator()
+        logger.info("🔧 Creating startup validator...")
+        try:
+            validator = StartupValidator()
+            logger.info("🔧 Startup validator created successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to create startup validator: {e}")
+            import traceback
+            logger.error(f"❌ Validator creation traceback: {traceback.format_exc()}")
+            return False
         context = {
             "team_id": team_id,
-            "bot_config": bot_config
+            "bot_config": bot_config,
+            "src_path": "src"  # Add src_path for tool registration check
         }
         
-        report = await validator.validate(context)
+        logger.info("🔧 Running validation checks...")
+        try:
+            logger.info("🔧 About to call validator.validate()...")
+            report = await validator.validate(context)
+            logger.info("🔧 Validation checks completed")
+        except Exception as e:
+            logger.error(f"❌ Validation execution failed: {e}")
+            import traceback
+            logger.error(f"❌ Validation execution traceback: {traceback.format_exc()}")
+            return False
         
         # Print validation report
-        validator.print_report(report)
+        try:
+            validator.print_report(report)
+        except Exception as e:
+            logger.error(f"❌ Failed to print validation report: {e}")
+            # Still continue with validation logic
         
         # Check if system is healthy
         if not report.is_healthy():
@@ -526,12 +538,26 @@ async def main():
         from core.dependency_container import initialize_container
         logger.info("🔍 About to initialize container...")
         initialize_container()
+        
+        # Initialize command registry early to ensure all commands are registered
+        logger.info("🔍 About to initialize command registry...")
+        from core.command_registry_initializer import initialize_command_registry
+        command_registry = initialize_command_registry()
+        logger.info("✅ Command registry initialized successfully")
+        
         logger.info("🔍 About to setup environment...")
         config = setup_environment()
         logger.info("🔍 About to run system validation...")
-        validation_passed = await run_system_validation()
-        if not validation_passed:
-            logger.error("❌ System validation failed. Exiting.")
+        try:
+            validation_passed = await run_system_validation()
+            if not validation_passed:
+                logger.error("❌ System validation failed. Exiting.")
+                remove_lock_file()
+                return
+        except Exception as e:
+            logger.error(f"❌ System validation failed with exception: {e}")
+            import traceback
+            logger.error(f"❌ Validation traceback: {traceback.format_exc()}")
             remove_lock_file()
             return
         logger.info("🔍 About to create multi bot manager...")
@@ -595,7 +621,37 @@ async def main():
 def main_sync():
     """Synchronous entry point."""
     try:
-        asyncio.run(main())
+        # Redirect console output to log file for local development
+        import sys
+        import os
+        
+        # Ensure logs directory exists
+        log_dir = "logs"
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        
+        # Redirect stdout and stderr to log file
+        log_file_path = "logs/kickai.log"
+        
+        # Open log file in append mode
+        log_file = open(log_file_path, 'a', buffering=1)  # Line buffered
+        
+        # Save original stdout and stderr
+        original_stdout = sys.stdout
+        original_stderr = sys.stderr
+        
+        # Redirect stdout and stderr to log file
+        sys.stdout = log_file
+        sys.stderr = log_file
+        
+        try:
+            asyncio.run(main())
+        finally:
+            # Restore original stdout and stderr
+            sys.stdout = original_stdout
+            sys.stderr = original_stderr
+            log_file.close()
+            
     except KeyboardInterrupt:
         logger.info("🛑 Keyboard interrupt received")
     except Exception as e:

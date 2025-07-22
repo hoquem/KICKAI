@@ -171,7 +171,13 @@ class FirebaseClient:
     
     def _get_collection(self, collection_name: str) -> CollectionReference:
         """Get a collection reference with proper prefixing."""
-        full_name = f"{FIRESTORE_COLLECTION_PREFIX}_{collection_name}"
+        # Check if collection name already has the prefix
+        if collection_name.startswith(f"{FIRESTORE_COLLECTION_PREFIX}_"):
+            # Already prefixed, use as-is
+            full_name = collection_name
+        else:
+            # Not prefixed, add the prefix
+            full_name = f"{FIRESTORE_COLLECTION_PREFIX}_{collection_name}"
         return self.client.collection(full_name)
     
     def _handle_firebase_error(self, error: Exception, operation: str, **context) -> None:

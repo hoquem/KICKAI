@@ -15,7 +15,7 @@ class AgentInitializationCheck(BaseCheck):
         logger = logging.getLogger(__name__)
         try:
             # Attempt to import agent factory and config
-            from agents.configurable_agent import ConfigurableAgent, AgentCreationContext
+            from agents.configurable_agent import ConfigurableAgent, AgentContext
             from config.agents import get_enabled_agent_configs, AgentConfig
             from utils.llm_factory import LLMFactory
 
@@ -26,15 +26,33 @@ class AgentInitializationCheck(BaseCheck):
                 try:
                     # Create a dummy LLM using environment-based configuration
                     dummy_llm = LLMFactory.create_from_environment()
-                    dummy_tools = []  # Could be extended to real tool checks
-                    agent_context = AgentCreationContext(
+                    
+                    # Create a mock tool registry
+                    class MockToolRegistry:
+                        def get_tool(self, name):
+                            return None
+                        def get_tool_names(self):
+                            return []
+                    
+                    dummy_tools = MockToolRegistry()
+                    
+                    # Create a mock team memory
+                    class MockTeamMemory:
+                        def get_memory(self):
+                            return None
+                        def store_conversation(self, *args, **kwargs):
+                            pass
+                    
+                    agent_context = AgentContext(
+                        role=role,
                         team_id="TEST",
                         llm=dummy_llm,
-                        tools=dummy_tools,
+                        tool_registry=dummy_tools,
                         config=config,
-                        team_memory=None
+                        team_memory=MockTeamMemory()
                     )
                     agent = ConfigurableAgent(agent_context)
+                    logger.info(f"✅ Agent {role} initialized successfully")
                 except Exception as e:
                     logger.error(f"Agent initialization failed for role {role}: {e}")
                     errors.append(f"{role}: {e}")

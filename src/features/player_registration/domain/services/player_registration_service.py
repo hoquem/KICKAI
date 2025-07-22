@@ -8,7 +8,7 @@ This module provides the business logic for player registration operations.
 from typing import List, Optional
 from datetime import datetime
 
-from features.player_registration.domain.repositories.player_repository_interface import (
+from src.features.player_registration.domain.repositories.player_repository_interface import (
     PlayerRepositoryInterface,
     Player
 )

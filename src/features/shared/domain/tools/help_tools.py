@@ -8,7 +8,7 @@ from crewai.tools import tool
 from loguru import logger
 
 from src.core.enums import PermissionLevel, ChatType
-from src.core.command_registry import get_command_registry
+from src.core.command_registry_initializer import get_initialized_command_registry
 
 
 def _determine_user_permissions(user_status: str, chat_type: str) -> List[PermissionLevel]:
@@ -99,7 +99,6 @@ def get_available_commands(user_id: str, chat_type: str, team_id: Optional[str] 
         elif chat_type.lower() == "leadership_chat":
             commands = {
                 "Player Management": [
-                    ("/register", "Register a new player"),
                     ("/approve", "Approve a player for matches"),
                     ("/reject", "Reject a player application"),
                     ("/pending", "List players awaiting approval")
@@ -120,18 +119,18 @@ def get_available_commands(user_id: str, chat_type: str, team_id: Optional[str] 
                 ]
             }
         
-        # Format the response with clean markdown for Telegram
+        # Format the response with plain text and emojis
         chat_display = "Main Chat" if chat_type.lower() == "main_chat" else "Leadership Chat"
         result = f"📋 Available Commands for {chat_display}:\n\n"
         
         for category, cmd_list in commands.items():
-            result += f"*{category}:*\n"
+            result += f"{category}:\n"
             for cmd_name, cmd_desc in cmd_list:
-                # Use clean formatting that will work with Telegram MarkdownV2
-                result += f"• `{cmd_name}` - {cmd_desc}\n"
+                # Use plain text formatting
+                result += f"• {cmd_name} - {cmd_desc}\n"
             result += "\n"
         
-        result += "💡 Use `/help [command]` for detailed help on any command."
+        result += "💡 Use /help [command] for detailed help on any command."
         
         logger.info(f"✅ Successfully retrieved commands for user {user_id} in {chat_type}")
         return result
@@ -156,18 +155,18 @@ def format_help_message(commands_text: str, user_context: str = "") -> str:
     """
     try:
         # Add header
-        header = "🤖 *KICKAI Help System*\n\n"
+        header = "🤖 KICKAI Help System\n\n"
         
         # Add user context if provided
         context_section = ""
         if user_context:
-            context_section = f"**Your Context:** {user_context}\n\n"
+            context_section = f"Your Context: {user_context}\n\n"
         
         # Add the commands
         commands_section = commands_text
         
         # Add footer
-        footer = "\n---\n💡 *Need more help?*\n• Type `/help [command]` for detailed help\n• Contact team admin for support"
+        footer = "\n---\n💡 Need more help?\n• Type /help [command] for detailed help\n• Contact team admin for support"
         
         # Combine all sections
         formatted_message = header + context_section + commands_section + footer

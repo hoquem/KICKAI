@@ -116,6 +116,7 @@ class TeamService:
             user_id=user_id,
             name=name,
             phone=phone,
+            telegram_id=user_id,  # Set telegram_id to user_id for telegram users
             roles=[role],  # Convert single role to list
             permissions=permissions or [],
             joined_at=datetime.now()

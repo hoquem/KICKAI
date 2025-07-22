@@ -4,12 +4,9 @@ Attendance Management Commands
 This module contains commands for attendance management.
 """
 
-from .mark_attendance_command import MarkAttendanceCommand
-from .list_attendance_command import ListAttendanceCommand
-from .attendance_report_command import AttendanceReportCommand
+# Import the actual command module that exists
+from . import attendance_commands
 
 __all__ = [
-    'MarkAttendanceCommand',
-    'ListAttendanceCommand',
-    'AttendanceReportCommand'
+    'attendance_commands'
 ]

@@ -1,6 +1,6 @@
 # Command Chat Differences
 
-This document details the clean design approach for command behavior differences between main chat and leadership chat, using separate implementations rather than conditional logic.
+This document details the clean design approach for command behavior differences between main chat and leadership chat, using separate implementations rather than conditional logic. All messages use plain text with emojis for maximum reliability.
 
 ## Overview
 

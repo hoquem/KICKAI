@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
-from features.communication.domain.entities.message import Message
-from features.communication.domain.repositories.message_repository_interface import MessageRepositoryInterface
+from src.features.communication.domain.entities.message import Message
+from src.features.communication.domain.repositories.message_repository_interface import MessageRepositoryInterface
 from datetime import datetime
 import uuid
 

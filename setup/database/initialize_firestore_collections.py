@@ -28,10 +28,8 @@ EXPECTED_COLLECTIONS = {
     'kickai_teams': 'Team documents for E2E testing', 
     'kickai_team_members': 'Team member documents for E2E testing',
     'kickai_matches': 'Match documents for E2E testing',
-    'kickai_bot_mappings': 'Bot mapping documents for E2E testing',
     'kickai_payments': 'Payment documents for E2E testing',
-    'kickai_daily_status': 'Daily status documents for E2E testing',
-    'kickai_fixtures': 'Fixture documents for FA registration testing'
+    'kickai_daily_status': 'Daily status documents for E2E testing'
 }
 
 def initialize_collections():

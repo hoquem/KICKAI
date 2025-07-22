@@ -138,10 +138,10 @@ class IntentClassifier:
     def _classify_command(self, text: str) -> IntentResult:
         """Classify slash commands using the command registry as single source of truth."""
         try:
-            from core.command_registry import get_command_registry
+            from core.command_registry_initializer import get_initialized_command_registry
             
             # Get command from registry
-            registry = get_command_registry()
+            registry = get_initialized_command_registry()
             command_metadata = registry.get_command(text)
             
             if command_metadata:

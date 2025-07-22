@@ -25,18 +25,14 @@ dependencies = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.1",
     "pytest-mock>=3.12.0",
-    "black>=23.0.0",
-    "isort>=5.12.0",
-    "flake8>=6.0.0",
+    "ruff>=0.1.0",
     "mypy>=1.5.0",
     "pre-commit>=3.3.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "black>=23.0.0",
-    "isort>=5.12.0",
-    "flake8>=6.0.0",
+    "ruff>=0.1.0",
     "mypy>=1.5.0",
     "pre-commit>=3.3.0",
     "pytest>=7.4.0",
@@ -153,12 +149,11 @@ layers = [
 ]
 
 # Define layer dependencies
-layer_dependencies = {
-    "infrastructure": [],
-    "domain": ["infrastructure"],
-    "application": ["domain", "infrastructure"],
-    "presentation": ["application", "domain"],
-}
+[tool.archlint.layer_dependencies]
+infrastructure = []
+domain = ["infrastructure"]
+application = ["domain", "infrastructure"]
+presentation = ["application", "domain"]
 
 # Forbidden cross-layer imports
 forbidden_imports = [
@@ -189,4 +184,65 @@ max_import_complexity = 10
 
 # Circular import detection
 detect_circular_imports = true
-max_circular_import_depth = 3 
+max_circular_import_depth = 3
+
+# Ruff configuration
+[tool.ruff]
+# Same as flake8's max-line-length
+line-length = 100
+
+# Target Python 3.11+
+target-version = "py311"
+
+# Exclude directories (equivalent to flake8's exclude)
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".pytest_cache",
+    "build",
+    "dist",
+    "*.egg-info",
+    "migrations",
+    "node_modules",
+]
+
+# Linting configuration
+[tool.ruff.lint]
+# Enable flake8-style rules and additional checks
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "RUF", # Ruff-specific rules
+    "T20", # flake8-print
+]
+
+# Ignore specific rules (equivalent to flake8's extend-ignore)
+ignore = [
+    "E203",  # whitespace before ':'
+    "E501",  # line too long (handled by line-length)
+]
+
+# Per-file ignores (equivalent to flake8's per-file-ignores)
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+"tests/**" = ["F401"]     # Allow unused imports in test files
+"src/features/*/__init__.py" = ["F401"]  # Allow unused imports in feature modules
+
+# Import sorting configuration (replaces isort)
+[tool.ruff.lint.isort]
+known-first-party = ["src", "features", "core", "utils", "agents", "database"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+# Format configuration (replaces black)
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto" 

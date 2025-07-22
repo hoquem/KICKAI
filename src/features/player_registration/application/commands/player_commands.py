@@ -7,20 +7,20 @@ Each feature maintains its own command definitions for clean separation.
 """
 
 from src.core.command_registry import command, CommandType, PermissionLevel
-from src.agents.behavioral_mixins import PlayerAdditionMixin, TeamMemberAdditionMixin
+from src.core.enums import ChatType
 
 
-# Initialize mixins for command handling
-player_addition_mixin = PlayerAdditionMixin()
-team_member_addition_mixin = TeamMemberAdditionMixin()
-
+# ============================================================================
+# MAIN CHAT COMMANDS - For Player Registration
+# ============================================================================
 
 @command(
     name="/register",
-    description="Register as a new player",
+    description="Register as a new player (Main Chat)",
     command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.PUBLIC,
     feature="player_registration",
+    chat_type=ChatType.MAIN,
     examples=["/register", "/register John Smith +447123456789 Forward"],
     parameters={
         "name": "Player's full name",
@@ -28,31 +28,42 @@ team_member_addition_mixin = TeamMemberAdditionMixin()
         "position": "Playing position (e.g., Forward, Midfielder, Defender, Goalkeeper)"
     },
     help_text="""
-📝 **Player Registration**
+📝 Player Registration (Main Chat)
 
 Register yourself as a new player in the team.
 
-**Usage:**
-• `/register` - Start registration process
-• `/register [name] [phone] [position]` - Register with details
+Usage:
+• /register - Start registration process
+• /register [name] [phone] [position] - Register with details
 
-**Example:**
-`/register John Smith +447123456789 Forward`
+Example:
+/register John Smith +447123456789 Forward
 
-**What happens:**
+What happens:
 1. Your details are recorded in the team database
 2. You'll receive a welcome message
 3. Team leadership will be notified for approval
 4. You can start using player commands once approved
 
-💡 **Need help?** Contact the team admin in the leadership chat.
+💡 Need help? Contact the team admin in the leadership chat.
     """
 )
-async def handle_register_command(update, context, **kwargs):
-    """Handle /register command."""
+async def handle_register_player_main_chat(update, context, **kwargs):
+    """Handle /register command in main chat - for player registration."""
     # This will be handled by the agent system
     return None
 
+
+# ============================================================================
+# LEADERSHIP CHAT COMMANDS - For Team Member Registration
+# ============================================================================
+
+
+
+
+# ============================================================================
+# SHARED LEADERSHIP COMMANDS
+# ============================================================================
 
 @command(
     name="/addplayer",
@@ -67,25 +78,25 @@ async def handle_register_command(update, context, **kwargs):
         "position": "Playing position (e.g., Forward, Midfielder, Defender, Goalkeeper)"
     },
     help_text="""
-👤 **Add Player (Leadership Only)**
+👤 Add Player (Leadership Only)
 
 Add a new player to the team and generate a unique invite link.
 
-**Usage:**
-`/addplayer [name] [phone] [position]`
+Usage:
+/addplayer [name] [phone] [position]
 
-**Example:**
-`/addplayer John Smith +447123456789 Forward`
+Example:
+/addplayer John Smith +447123456789 Forward
 
-**What happens:**
+What happens:
 1. Player record is created in the database
 2. Unique Telegram invite link is generated
 3. Link is sent to you to share with the player
 4. Player can join the main chat using the link
 
-🔒 **Security:** Links are one-time use and expire automatically.
+🔒 Security: Links are one-time use and expire automatically.
 
-💡 **Note:** This command is only available in the leadership chat.
+💡 Note: This command is only available in the leadership chat.
     """
 )
 async def handle_addplayer_command(update, context, **kwargs):
@@ -107,25 +118,25 @@ async def handle_addplayer_command(update, context, **kwargs):
         "role": "Team role (e.g., Coach, Manager, Assistant)"
     },
     help_text="""
-👔 **Add Team Member (Leadership Only)**
+👔 Add Team Member (Leadership Only)
 
 Add a new team member (coach, manager, etc.) and generate a unique invite link.
 
-**Usage:**
-`/addmember [name] [phone] [role]`
+Usage:
+/addmember [name] [phone] [role]
 
-**Example:**
-`/addmember John Smith +447123456789 Coach`
+Example:
+/addmember John Smith +447123456789 Coach
 
-**What happens:**
+What happens:
 1. Team member record is created in the database
 2. Unique Telegram invite link is generated
 3. Link is sent to you to share with the member
 4. Member can join the leadership chat using the link
 
-🔒 **Security:** Links are one-time use and expire automatically.
+🔒 Security: Links are one-time use and expire automatically.
 
-💡 **Note:** This command is only available in the leadership chat.
+💡 Note: This command is only available in the leadership chat.
     """
 )
 async def handle_addmember_command(update, context, **kwargs):
@@ -145,23 +156,23 @@ async def handle_addmember_command(update, context, **kwargs):
         "player_id": "Player ID to approve"
     },
     help_text="""
-✅ **Approve Player (Leadership Only)**
+✅ Approve Player (Leadership Only)
 
 Approve a player for team participation and match selection.
 
-**Usage:**
-`/approve [player_id]`
+Usage:
+/approve [player_id]
 
-**Example:**
-`/approve MH123`
+Example:
+/approve MH123
 
-**What happens:**
+What happens:
 1. Player status is updated to 'approved'
 2. Player can now participate in matches
 3. Player receives notification of approval
 4. Player appears in squad selection lists
 
-💡 **Note:** This command is only available in the leadership chat.
+💡 Note: This command is only available in the leadership chat.
     """
 )
 async def handle_approve_command(update, context, **kwargs):
@@ -182,23 +193,23 @@ async def handle_approve_command(update, context, **kwargs):
         "reason": "Reason for rejection (optional)"
     },
     help_text="""
-❌ **Reject Player (Leadership Only)**
+❌ Reject Player (Leadership Only)
 
 Reject a player with an optional reason.
 
-**Usage:**
-`/reject [player_id] [reason]`
+Usage:
+/reject [player_id] [reason]
 
-**Example:**
-`/reject MH123 Insufficient experience`
+Example:
+/reject MH123 Insufficient experience
 
-**What happens:**
+What happens:
 1. Player status is updated to 'rejected'
 2. Player receives notification with reason
 3. Player can reapply if circumstances change
 4. Reason is recorded for future reference
 
-💡 **Note:** This command is only available in the leadership chat.
+💡 Note: This command is only available in the leadership chat.
     """
 )
 async def handle_reject_command(update, context, **kwargs):
@@ -215,20 +226,20 @@ async def handle_reject_command(update, context, **kwargs):
     feature="player_registration",
     examples=["/pending"],
     help_text="""
-📋 **Pending Approvals (Leadership Only)**
+📋 Pending Approvals (Leadership Only)
 
 List all players awaiting approval for team participation.
 
-**Usage:**
-`/pending`
+Usage:
+/pending
 
-**What you'll see:**
+What you'll see:
 • List of players awaiting approval
 • Registration date and time
 • Player details (name, phone, position)
 • Quick approve/reject options
 
-💡 **Note:** This command is only available in the leadership chat.
+💡 Note: This command is only available in the leadership chat.
     """
 )
 async def handle_pending_command(update, context, **kwargs):
