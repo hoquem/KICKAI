@@ -16,7 +16,7 @@ from typing import Dict, Type, Optional, Any
 from enum import Enum
 
 # Import the correct AIProvider enum from core.enums
-from src.core.enums import AIProvider
+from core.enums import AIProvider
 
 logger = logging.getLogger(__name__)
 

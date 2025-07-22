@@ -161,15 +161,15 @@ class ValidationReport:
         
         # Overall status
         status_emoji = "✅" if self.is_healthy() else "❌"
-        markdown += f"{status_emoji} **Overall Status:** {self.overall_status.value}\n\n"
+        markdown += f"{status_emoji} Overall Status: {self.overall_status.value}\n\n"
         
         # Statistics
         markdown += "## Statistics\n\n"
-        markdown += f"- **Total Checks:** {self.get_total_count()}\n"
-        markdown += f"- **Passed:** {self.get_passed_count()}\n"
-        markdown += f"- **Failed:** {self.get_failure_count()}\n"
-        markdown += f"- **Warnings:** {self.get_warning_count()}\n"
-        markdown += f"- **Success Rate:** {self.get_success_rate():.1f}%\n\n"
+        markdown += f"- Total Checks: {self.get_total_count()}\n"
+        markdown += f"- Passed: {self.get_passed_count()}\n"
+        markdown += f"- Failed: {self.get_failure_count()}\n"
+        markdown += f"- Warnings: {self.get_warning_count()}\n"
+        markdown += f"- Success Rate: {self.get_success_rate():.1f}%\n\n"
         
         # Summary by category
         markdown += "## Summary by Category\n\n"
@@ -216,15 +216,15 @@ class ValidationReport:
             
             duration_str = f" ({check.duration_ms:.1f}ms)" if check.duration_ms else ""
             markdown += f"### {status_emoji} {check.category.value}: {check.name}{duration_str}\n\n"
-            markdown += f"**Message:** {check.message}\n\n"
+            markdown += f"Message: {check.message}\n\n"
             
             if check.details:
-                markdown += "**Details:**\n"
+                markdown += "Details:\n"
                 for key, value in check.details.items():
                     markdown += f"- {key}: {value}\n"
                 markdown += "\n"
             
             if check.error:
-                markdown += f"**Error:** {str(check.error)}\n\n"
+                markdown += f"Error: {str(check.error)}\n\n"
         
         return markdown 

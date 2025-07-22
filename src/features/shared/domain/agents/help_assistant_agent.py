@@ -134,7 +134,7 @@ class HelpAssistantAgent:
             
         except Exception as e:
             logger.error(f"❌ Error processing help request: {e}")
-            return f"❌ Error processing help request: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
     
     def _create_help_task_description(self,
                                     user_id: str,
@@ -253,7 +253,7 @@ A complete, context-aware help response that:
             
         except Exception as e:
             logger.error(f"❌ Error processing specific command help: {e}")
-            return f"❌ Error processing help for {command_name}: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
     
     def _create_specific_command_task_description(self,
                                                 command_name: str,

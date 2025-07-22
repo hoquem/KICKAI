@@ -46,7 +46,7 @@ def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
             ],
             'update_profile': [
                 r'\b(update|change|modify|edit)\b.*\b(phone|number|position|role|info|information|profile)\b',
-                r'\b(my|me)\b.*\b(phone|number|position|role|info|information)\b.*\b(is|are)\b',
+                r'\b(my|me)\b.\b(phone|number|position|role|info|information)\b.\b(is|are)\b',
                 r'\b(change|update|modify)\b.*\b(my|me)\b'
             ],
             'get_team_info': [

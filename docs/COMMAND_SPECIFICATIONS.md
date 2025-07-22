@@ -1,9 +1,9 @@
 # KICKAI Command Specifications
 
-**Version:** 3.0  
+**Version:** 4.0  
 **Status:** Production Ready  
-**Last Updated:** December 2024  
-**Architecture:** Agentic Command Processing with CrewAI
+**Last Updated:** July 2025  
+**Architecture:** Plain Text with Emojis - Simple and Reliable
 
 This document defines the expected behavior for all KICKAI bot commands across different scenarios, chat types, and user states, using the latest agentic architecture.
 
@@ -23,7 +23,7 @@ This document defines the expected behavior for all KICKAI bot commands across d
 |---------|-------------|-----------|-----------------|------------------|-------|
 | `/help` | Show available commands | ✅ | ✅ | PUBLIC | HelpAssistantAgent |
 | `/start` | Initialize bot interaction | ✅ | ✅ | PUBLIC | MessageProcessorAgent |
-| `/register` | Register as a player | ✅ | ❌ | PUBLIC | PlayerCoordinatorAgent |
+| `/register` | Register as a new player | ✅ | ❌ | PUBLIC | PlayerCoordinatorAgent |
 | `/myinfo` | Show personal information | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent |
 | `/status` | Check player/team member status | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent |
 | `/list` | List players/team members | ✅ | ✅ | PUBLIC | TeamManagerAgent |
@@ -244,17 +244,17 @@ async def _send_access_denied_message(self, update, command: str):
     chat_type = self._determine_chat_type(str(update.effective_chat.id))
     
     if chat_type == ChatType.MAIN:
-        message = f"""❌ **Access Denied**
+        message = f"""❌ Access Denied
 
 🔒 The action you requested requires leadership access.
 💡 Please use the leadership chat for this function."""
     else:
-        message = f"""❌ **Access Denied**
+        message = f"""❌ Access Denied
 
 🔒 You don't have permission to perform this action.
 💡 Contact your team admin for access."""
     
-    await update.message.reply_text(message, parse_mode='Markdown')
+    await update.message.reply_text(message)
 ```
 
 ## 🔒 Security & Access Control
@@ -373,56 +373,81 @@ Result: ✅ Access Granted - Player approval processed
 
 ## User States
 
-### First User (First Team Member)
-**Status**: Team owner, full permissions  
-**Access**: All chats, all commands  
-**Note**: This is the first user who registered in the leadership chat and became the first member in the team member collection. This user is not necessarily the bot creator. The User ID and telegram name are only known after they register in the leadership chat.
+### Unregistered User
+**Status**: User not registered in the system  
+**Access**: Limited access - can only use `/register` command  
+**Data**: No record in Firestore  
+**Registration**: Must register to gain access
 
-**Dynamic Assignment**: The system automatically assigns team owner status to the first user who registers in the leadership chat, regardless of their User ID or telegram name.
+**Note**: Users who are not registered in the system can only use the `/register` command. All other commands will show a message asking them to contact an admin to be registered.
 
-#### **First User Flow Processing**
+#### **Unregistered User Flow Processing**
 
-**Trigger**: Any command typed by the first user in leadership chat (slash commands or natural language)
-**Detection**: Check if no team members exist in the system (`len(team_members) == 0`)
-**Response**: Show comprehensive admin setup message with registration instructions
-**Blocking**: Prevent normal command processing until registration is complete
-**Assignment**: Automatically assign admin role after successful registration
+**Trigger**: Any command typed by an unregistered user (except `/register`)
+
+**Behavior**: 
+- Show message explaining they need to be registered
+- Block all commands except `/register`
+- Guide them to contact an admin
 
 #### **Implementation Flow**
 ```python
-# 1. User types any command in leadership chat
-# 2. System checks if this is the first user
-is_first_user = await self._check_if_first_user()
+# 1. User types any command
+# 2. System checks if user is registered
+is_registered = await self._check_user_registration(user_id)
 
-# 3. If first user, show registration message and block processing
-if is_first_user:
-    await self._show_first_user_registration_message(update, username)
+# 3. If not registered and NOT /register command, show message and block processing
+if not is_registered and command != "/register":
+    await self._show_unregistered_user_message(update, username, chat_type)
     return  # Block normal command processing
 
-# 4. After registration, user becomes admin with full access
+# 4. If not registered and IS /register command, allow normal processing
+# 5. After registration, user gains appropriate access based on chat type
 ```
 
-#### **First User Response Message**
+#### **Unregistered User Response Message**
+
+**Main Chat:**
 ```
-🎉 Welcome to KICKAI, {username}!
+👋 Welcome to KICKAI for {team_id}, {username}!
 
-🌟 You are the first user in this leadership chat!
+🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant
 
-👑 You will be set up as the team administrator with full access to:
-• Player management and registration
-• Team configuration and settings
-• Match scheduling and management
-• Financial oversight and reporting
+🎯 To join the team as a player:
 
-📝 To complete your setup, please provide your details:
+📞 Contact Team Leadership
+You need to be added as a player by someone in the team's leadership.
 
-Use the command:
-/register [Your Full Name] [Your Phone Number] [Your Role]
+💬 What to do:
+1. Reach out to someone in the team's leadership chat
+2. Ask them to add you as a player using the `/add` command
+3. They'll send you an invite link to join the main chat
+4. Once added, you can register with your full details
+
+❓ Got here by mistake?
+If you're not interested in joining the team, you can leave this chat.
+
+🤖 Need help?
+Use /help to see available commands or ask me questions!
+```
+
+**Leadership Chat:**
+```
+👋 Welcome to KICKAI Leadership for {team_id}, {username}!
+
+🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant
+
+🤔 I don't see you registered as a team member yet.
+
+📝 Please provide your details so I can add you to the team members collection.
+
+💡 You can use:
+/register [name] [phone] [role]
 
 Example:
-/register John Smith +1234567890 Team Manager
+/register John Smith +1234567890 Assistant Coach
 
-💡 Your role can be:
+🎯 Your role can be:
 • Team Manager, Coach, Assistant Coach
 • Club Administrator, Treasurer
 • Volunteer Coordinator, etc.
@@ -430,7 +455,7 @@ Example:
 🚀 Once registered, you can:
 • Add other team members and players
 • Generate invite links for chats
-• Manage the entire team system
+• Manage the team system
 
 Ready to get started? Use the /register command above!
 ```
@@ -552,6 +577,67 @@ You can also ask me questions in natural language!
 
 ## Command Specifications
 
+### `/register` Command
+
+#### Agentic Implementation Overview
+
+The `/register` command is implemented using the **PlayerCoordinatorAgent** that handles player and team member registration.
+
+**Key Components:**
+- **PlayerCoordinatorAgent**: Specialized agent for registration processing
+- **User Flow Detection**: Unregistered user detection
+- **Registration Service**: Handles both player and team member registration
+- **Role Assignment**: Standard role assignment based on registration type
+
+#### Special Command Handling
+
+**Unregistered User Scenario**: When an unregistered user uses the `/register` command, it should be allowed to proceed normally, bypassing the standard unregistered user blocking logic.
+
+**Implementation Logic:**
+```python
+# In user flow detection
+async def determine_user_flow(self, user_id: str, chat_type: str, command: str) -> UserFlow:
+    # Check if user is registered
+    is_registered = await self._check_user_registration(user_id)
+    if not is_registered:
+        # Special case: Allow /register command for unregistered users
+        if command == "/register":
+            return UserFlow.REGISTERED_USER  # Allow registration to proceed
+        else:
+            return UserFlow.UNREGISTERED_USER  # Show registration guidance
+    
+    # Regular user flow detection
+    return UserFlow.REGISTERED_USER
+```
+
+#### Expected Behavior by Chat Type and User Status
+
+**Main Chat - Unregistered User (`/register` command):**
+```
+✅ Command processed normally
+📝 Registration proceeds for player registration
+👤 User added as player with specified position
+🎯 Example: /register John Smith +447123456789 Forward
+💡 Note: This command bypasses the unregistered user flow and proceeds directly to registration
+```
+
+**Leadership Chat - Unregistered User (other commands):**
+```
+👋 Welcome to KICKAI Leadership for {team_id}, {username}!
+🤔 I don't see you registered as a team member yet.
+📝 Please provide your details so I can add you to the team members collection.
+💡 Use: /register [name] [phone] [role]
+```
+
+**Leadership Chat - Unregistered User (`/register` command):**
+```
+✅ Command processed normally
+📝 Registration proceeds for team member registration
+👤 User added as team member with specified role
+🎯 Example: /register John Smith +447123456789 Manager
+💡 Note: This command bypasses the unregistered user flow and proceeds directly to registration
+```
+
 ### `/help` Command
 
 #### Agentic Implementation Overview
@@ -629,14 +715,15 @@ Natural Language:
 You can also ask me questions in natural language!
 ```
 
-**Leadership Chat - First User (Admin Setup):**
+**Leadership Chat - Unregistered User:**
 ```
-🎉 Welcome to KICKAI, {telegram_name}!
+👋 Welcome to KICKAI Leadership, {telegram_name}!
 
-🌟 You're the first team member! Let's get you set up as an admin.
+🤔 I don't see you registered as a team member yet.
 
-📝 Please provide your details:
-💡 Use: /register [name] [phone] admin
+📝 Please provide your details so I can add you to the team members collection.
+
+💡 You can use: /register [name] [phone] [role]
 ```
 
 **Leadership Chat - Unregistered User (Not First):**

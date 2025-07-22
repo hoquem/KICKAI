@@ -6,7 +6,7 @@ This module registers all communication related commands with the command regist
 Each feature maintains its own command definitions for clean separation.
 """
 
-from core.command_registry import command, CommandType, PermissionLevel
+from src.core.command_registry import command, CommandType, PermissionLevel
 
 
 
@@ -26,23 +26,23 @@ from core.command_registry import command, CommandType, PermissionLevel
         "message": "Announcement message to send to the team"
     },
     help_text="""
-📢 **Team Announcement (Leadership Only)**
+📢 Team Announcement (Leadership Only)
 
 Make an important announcement to all team members.
 
-**Usage:**
-`/announce [message]`
+Usage:
+/announce [message]
 
-**Example:**
-`/announce Important match this weekend!`
+Example:
+/announce Important match this weekend!
 
-**What happens:**
+What happens:
 1. Announcement is sent to the main team chat
 2. All team members are notified
 3. Message is formatted for clarity
 4. Announcement is logged for record keeping
 
-💡 **Note:** This command is only available in the leadership chat.
+💡 Note: This command is only available in the leadership chat.
     """
 )
 async def handle_announce_command(update, context, **kwargs):
@@ -62,23 +62,23 @@ async def handle_announce_command(update, context, **kwargs):
         "message": "Reminder message to send"
     },
     help_text="""
-⏰ **Send Reminder (Leadership Only)**
+⏰ Send Reminder (Leadership Only)
 
 Send a reminder message to team members.
 
-**Usage:**
-`/remind [message]`
+Usage:
+/remind [message]
 
-**Example:**
-`/remind Don't forget training tomorrow at 7pm`
+Example:
+/remind Don't forget training tomorrow at 7pm
 
-**What happens:**
+What happens:
 1. Reminder is sent to the main team chat
 2. Team members receive notification
 3. Message is clearly marked as a reminder
 4. Reminder is logged for tracking
 
-💡 **Note:** This command is only available in the leadership chat.
+💡 Note: This command is only available in the leadership chat.
     """
 )
 async def handle_remind_command(update, context, **kwargs):
@@ -98,23 +98,23 @@ async def handle_remind_command(update, context, **kwargs):
         "message": "Message to broadcast to all chats"
     },
     help_text="""
-📡 **Broadcast Message (Leadership Only)**
+📡 Broadcast Message (Leadership Only)
 
 Send a message to all team chats (main and leadership).
 
-**Usage:**
-`/broadcast [message]`
+Usage:
+/broadcast [message]
 
-**Example:**
-`/broadcast Team meeting tonight at 8pm`
+Example:
+/broadcast Team meeting tonight at 8pm
 
-**What happens:**
+What happens:
 1. Message is sent to main team chat
 2. Message is sent to leadership chat
 3. All team members receive the message
 4. Broadcast is logged for record keeping
 
-💡 **Note:** This command is only available in the leadership chat.
+💡 Note: This command is only available in the leadership chat.
     """
 )
 async def handle_broadcast_command(update, context, **kwargs):

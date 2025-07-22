@@ -12,12 +12,12 @@ import traceback
 
 from crewai import Agent
 
-from ..core.enums import AgentRole
-from ..core.exceptions import AgentInitializationError, ConfigurationError
-from ..config.agents import get_agent_config, AgentConfig
+from core.enums import AgentRole
+from core.exceptions import AgentInitializationError, ConfigurationError
+from config.agents import get_agent_config, AgentConfig
 from .behavioral_mixins import get_mixin_for_role
 from .team_memory import TeamMemory
-from ..core.error_handling import handle_agent_errors, validate_input
+from core.error_handling import handle_agent_errors, validate_input
 
 
 logger = logging.getLogger(__name__)
@@ -33,14 +33,13 @@ class LoggingCrewAIAgent(Agent):
 
 @dataclass
 class AgentContext:
-    """Context for agent creation and configuration."""
-    
-    team_id: str
+    """Context for creating configurable agents."""
     role: AgentRole
+    team_id: str
     llm: Any
-    tool_registry: Any  # ToolRegistry object
-    team_memory: Optional[TeamMemory] = None
+    tool_registry: Any
     config: Optional[AgentConfig] = None
+    team_memory: Optional[Any] = None  # Add team memory for context persistence
 
 
 class AgentToolsManager:
@@ -85,9 +84,17 @@ class ConfigurableAgent:
         logger.info(f"🤖 ConfigurableAgent created for role: {context.role}")
     
     def _create_crew_agent(self) -> Agent:
-        """Create the underlying CrewAI agent."""
+        """Create the underlying CrewAI agent with native memory."""
         try:
             config = self.context.config or get_agent_config(self.context.role)
+            
+            # Debug logging to see what we're getting
+            logger.info(f"[AGENT DEBUG] Context config type: {type(self.context.config)}")
+            logger.info(f"[AGENT DEBUG] Context config: {self.context.config}")
+            logger.info(f"[AGENT DEBUG] Context team_memory type: {type(self.context.team_memory)}")
+            logger.info(f"[AGENT DEBUG] Context team_memory: {self.context.team_memory}")
+            logger.info(f"[AGENT DEBUG] Config type: {type(config)}")
+            logger.info(f"[AGENT DEBUG] Config: {config}")
             
             if not config or not config.enabled:
                 raise ConfigurationError(f"Agent configuration not found or disabled for role: {self.context.role}")
@@ -230,12 +237,29 @@ class ConfigurableAgent:
             )
             
             # Execute the crew (kickoff is not async)
+            logger.info(f"🚀 [AGENT] Starting execution with agent {self.role}")
+            logger.info(f"📋 [AGENT] Task: {task}")
+            logger.info(f"🔧 [AGENT] Available tools: {[tool.name for tool in self._crew_agent.tools]}")
+            
             result = crew.kickoff()
-            return result
+            
+            logger.info(f"✅ [AGENT] Execution completed for {self.role}")
+            
+            # Handle CrewOutput object properly
+            if hasattr(result, 'raw'):
+                # CrewOutput object - extract the raw output
+                result_str = str(result.raw) if result.raw else str(result)
+            else:
+                # Regular string or other type
+                result_str = str(result)
+            
+            logger.debug(f"📄 [AGENT] Result: {result_str[:200]}{'...' if len(result_str) > 200 else ''}")
+            
+            return result_str
             
         except Exception as e:
             logger.error(f"❌ Error executing task with agent {self.role}: {e}")
-            return f"❌ Error executing task: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
 
 
 class AgentFactory:

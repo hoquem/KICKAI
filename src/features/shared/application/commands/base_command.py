@@ -73,7 +73,7 @@ class Command(ABC):
     
     def get_help_text(self) -> str:
         """Get help text for this command."""
-        return f"**{self.name}** - {self.description}\nPermission: {self.permission_level.value}"
+        return f"{self.name} - {self.description}\nPermission: {self.permission_level.value}"
 
 
 class SimpleCommand(Command):

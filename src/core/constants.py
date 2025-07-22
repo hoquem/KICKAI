@@ -20,7 +20,6 @@ COLLECTION_TEAM_MEMBERS = "team_members"
 COLLECTION_MATCHES = "matches"
 COLLECTION_PAYMENTS = "payments"
 COLLECTION_DAILY_STATUS = "daily_status"
-COLLECTION_FIXTURES = "fixtures"
 COLLECTION_MESSAGES = "messages"
 COLLECTION_HEALTH_CHECKS = "health_checks"
 COLLECTION_ATTENDANCE = "attendance"
@@ -68,5 +67,4 @@ FIRESTORE_COLLECTIONS = {
     "matches": get_collection_name(COLLECTION_MATCHES),
     "payments": get_collection_name(COLLECTION_PAYMENTS),
     "daily_status": get_collection_name(COLLECTION_DAILY_STATUS),
-    "fixtures": get_collection_name(COLLECTION_FIXTURES),
 } 

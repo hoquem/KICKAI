@@ -121,6 +121,7 @@ agents:
       - get_all_players
       - approve_player
       - send_message
+      - Parse Registration Command
 
   - name: onboarding_agent
     role: >
@@ -159,6 +160,7 @@ agents:
       - team_member_registration
       - registration_guidance
       - send_message
+      - Parse Registration Command
 
   # Team Management Agents
   - name: team_administrator

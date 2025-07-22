@@ -13,7 +13,8 @@ from .checks import (
     ConfigurationCheck,
     LLMProviderCheck,
     AgentInitializationCheck,
-    TelegramAdminCheck
+    TelegramAdminCheck,
+    ToolRegistrationCheck
 )
 from .reporting import ValidationReport, CheckResult, CheckStatus, CheckCategory
 
@@ -40,7 +41,8 @@ class StartupValidator:
             ConfigurationCheck(),
             LLMProviderCheck(),
             TelegramAdminCheck(),
-            # AgentInitializationCheck()  # Temporarily disabled for testing
+            ToolRegistrationCheck(),  # Check tool registration before agent initialization
+            AgentInitializationCheck()  # Enabled to catch agent initialization failures
         ]
     
     def add_check(self, check: Any) -> None:
@@ -64,7 +66,8 @@ class StartupValidator:
         if context is None:
             context = {}
         
-        logger.info(f"Starting validation with {len(self.checks)} checks")
+        logger.info(f"🔧 Starting validation with {len(self.checks)} checks")
+        logger.info(f"🔧 Checks to run: {[check.name for check in self.checks]}")
         
         report = ValidationReport(overall_status=CheckStatus.PASSED)
         
@@ -103,12 +106,14 @@ class StartupValidator:
     async def _execute_check(self, check: Any, context: Dict[str, Any]) -> CheckResult:
         """Execute a single health check."""
         try:
-            logger.debug(f"Executing check: {check.name}")
+            logger.info(f"🔧 Executing check: {check.name}")
             result = await check.execute(context)
-            logger.debug(f"Check {check.name} completed: {result.status.value}")
+            logger.info(f"🔧 Check {check.name} completed: {result.status.value}")
             return result
         except Exception as e:
-            logger.error(f"Error executing check {check.name}: {e}")
+            logger.error(f"❌ Error executing check {check.name}: {e}")
+            import traceback
+            logger.error(f"❌ Check {check.name} traceback: {traceback.format_exc()}")
             return CheckResult(
                 name=check.name,
                 category=check.category,

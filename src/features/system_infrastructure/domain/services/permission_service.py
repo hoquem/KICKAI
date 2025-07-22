@@ -260,8 +260,7 @@ class PermissionService:
             # Always available
             available_commands.extend([
                 "/help",
-                "/start",
-                "/register"  # Add register as public command
+                "/start"
             ])
             
             # Check each permission level
@@ -325,7 +324,7 @@ class PermissionService:
             
         except Exception as e:
             logger.error(f"Error getting available commands: {e}")
-            return ["/help", "/start", "/register"]
+            return ["/help", "/start"]
     
     async def get_permission_denied_message(self, permission_level: PermissionLevel, context: PermissionContext) -> str:
         """
@@ -336,26 +335,26 @@ class PermissionService:
             
             if permission_level == PermissionLevel.PLAYER:
                 if not user_perms.is_player:
-                    return f"""❌ **Access Denied**
+                    return f"""❌ Access Denied
 
 🔒 This command requires player access.
 💡 Contact your team admin for access.
 
 Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
                 else:
-                    return f"""❌ **Access Denied**
+                    return f"""❌ Access Denied
 
 🔒 Player commands are only available in the main team chat.
 💡 Please use the main team chat for this function."""
             
             elif permission_level == PermissionLevel.LEADERSHIP:
                 if context.chat_type != ChatType.LEADERSHIP:
-                    return f"""❌ **Access Denied**
+                    return f"""❌ Access Denied
 
 🔒 Leadership commands are only available in the leadership chat.
 💡 Please use the leadership chat for this function."""
                 else:
-                    return f"""❌ **Access Denied**
+                    return f"""❌ Access Denied
 
 🔒 This command requires leadership access.
 💡 Contact your team admin for access.
@@ -364,12 +363,12 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
             
             elif permission_level == PermissionLevel.ADMIN:
                 if context.chat_type != ChatType.LEADERSHIP:
-                    return f"""❌ **Access Denied**
+                    return f"""❌ Access Denied
 
 🔒 Admin commands are only available in the leadership chat.
 💡 Please use the leadership chat for this function."""
                 else:
-                    return f"""❌ **Access Denied**
+                    return f"""❌ Access Denied
 
 🔒 This command requires admin access.
 💡 Contact your team admin for access.

@@ -99,7 +99,9 @@ class ServiceFactory:
         logger.debug("🔍 Created TeamService")
         
         # Register both the concrete class and the interface
+        logger.debug("🔍 Registering TeamService...")
         self.container.register_service(TeamService, team_service)
+        logger.debug("🔍 Registering ITeamService...")
         self.container.register_service(ITeamService, team_service)
         
         return {
@@ -147,8 +149,11 @@ class ServiceFactory:
         team_member_repo = MockTeamMemberRepository()
         # TeamMemberService removed - using mock service instead
         
+        logger.debug("🔍 Registering PlayerRegistrationService...")
         self.container.register_service(PlayerRegistrationService, registration_service)
+        logger.debug("🔍 Registering PlayerService...")
         self.container.register_service(PlayerService, player_service)
+        logger.debug("🔍 Registering IPlayerService...")
         self.container.register_service(IPlayerService, player_service)
         # TeamMemberService removed - using mock service instead
         

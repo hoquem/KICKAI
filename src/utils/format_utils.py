@@ -144,12 +144,12 @@ class PlayerFormattingService:
         output = [
             f"👤 Player Status - {team_name}",
             "",
-            f"**Name:** {player.name}",
-            f"**ID:** {player.player_id}",
-            f"**Phone:** {player.phone}",
-            f"**Position:** {player.position}",
-            f"**Status:** {status_icon} {status_text}",
-            f"**Registration:** {player.registration_date.strftime('%Y-%m-%d') if player.registration_date else 'N/A'}",
+            f"Name: {player.name}",
+            f"ID: {player.player_id}",
+            f"Phone: {player.phone}",
+            f"Position: {player.position}",
+            f"Status: {status_icon} {status_text}",
+            f"Registration: {player.registration_date.strftime('%Y-%m-%d') if player.registration_date else 'N/A'}",
             "",
             f"📅 Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
         ]
