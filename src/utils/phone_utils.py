@@ -6,14 +6,12 @@ This module provides phone number normalization and validation using the
 phonenumbers library (Google's libphonenumber port).
 """
 
+
 import phonenumbers
-from typing import Optional, List
-import logging
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
-def normalize_phone(phone: str, region: str = "GB") -> Optional[str]:
+def normalize_phone(phone: str, region: str = "GB") -> str | None:
     """
     Normalize a phone number to E.164 format.
     
@@ -26,22 +24,22 @@ def normalize_phone(phone: str, region: str = "GB") -> Optional[str]:
     """
     if not phone or not phone.strip():
         return None
-    
+
     try:
         # Parse the phone number
         number = phonenumbers.parse(phone.strip(), region)
-        
+
         # Check if it's a valid number
         if not phonenumbers.is_valid_number(number):
             logger.warning(f"Invalid phone number: {phone}")
             return None
-        
+
         # Format to E.164 (international format with +)
         normalized = phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.E164)
-        
+
         logger.debug(f"Normalized phone {phone} -> {normalized}")
         return normalized
-        
+
     except phonenumbers.NumberParseException as e:
         logger.warning(f"Could not parse phone number {phone}: {e}")
         return None
@@ -50,7 +48,7 @@ def normalize_phone(phone: str, region: str = "GB") -> Optional[str]:
         return None
 
 
-def get_phone_variants(phone: str, region: str = "GB") -> List[str]:
+def get_phone_variants(phone: str, region: str = "GB") -> list[str]:
     """
     Get all possible variants of a phone number for matching.
     
@@ -62,26 +60,26 @@ def get_phone_variants(phone: str, region: str = "GB") -> List[str]:
         List of phone number variants including the normalized version
     """
     variants = set()
-    
+
     # Add the original phone number (cleaned)
     if phone:
         variants.add(phone.strip())
-    
+
     # Add the normalized version
     normalized = normalize_phone(phone, region)
     if normalized:
         variants.add(normalized)
-    
+
     # For UK numbers, also add common local formats
     if region == "GB" and normalized and normalized.startswith("+44"):
         # Remove +44 and add 0 prefix
         local_format = "0" + normalized[3:]
         variants.add(local_format)
-        
+
         # Also add without leading 0 (some systems might store this way)
         no_zero = normalized[3:]
         variants.add(no_zero)
-    
+
     return list(variants)
 
 
@@ -99,7 +97,7 @@ def is_valid_phone(phone: str, region: str = "GB") -> bool:
     return normalize_phone(phone, region) is not None
 
 
-def format_phone_display(phone: str, region: str = "GB") -> Optional[str]:
+def format_phone_display(phone: str, region: str = "GB") -> str | None:
     """
     Format a phone number for display (national format).
     
@@ -112,16 +110,16 @@ def format_phone_display(phone: str, region: str = "GB") -> Optional[str]:
     """
     if not phone or not phone.strip():
         return None
-    
+
     try:
         number = phonenumbers.parse(phone.strip(), region)
-        
+
         if not phonenumbers.is_valid_number(number):
             return None
-        
+
         # Format to national format (e.g., "07871 521 581" for UK)
         return phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.NATIONAL)
-        
+
     except phonenumbers.NumberParseException:
         return None
     except Exception as e:
@@ -129,7 +127,7 @@ def format_phone_display(phone: str, region: str = "GB") -> Optional[str]:
         return None
 
 
-def get_phone_info(phone: str, region: str = "GB") -> Optional[dict]:
+def get_phone_info(phone: str, region: str = "GB") -> dict | None:
     """
     Get detailed information about a phone number.
     
@@ -142,13 +140,13 @@ def get_phone_info(phone: str, region: str = "GB") -> Optional[dict]:
     """
     if not phone or not phone.strip():
         return None
-    
+
     try:
         number = phonenumbers.parse(phone.strip(), region)
-        
+
         if not phonenumbers.is_valid_number(number):
             return None
-        
+
         return {
             "e164": phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.E164),
             "national": phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.NATIONAL),
@@ -159,9 +157,9 @@ def get_phone_info(phone: str, region: str = "GB") -> Optional[dict]:
             "is_possible": phonenumbers.is_possible_number(number),
             "number_type": phonenumbers.number_type(number),
         }
-        
+
     except phonenumbers.NumberParseException:
         return None
     except Exception as e:
         logger.error(f"Error getting phone info for {phone}: {e}")
-        return None 
+        return None

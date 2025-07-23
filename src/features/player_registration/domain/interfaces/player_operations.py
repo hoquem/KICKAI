@@ -5,8 +5,8 @@ Defines the contract for player-related operations in the clean architecture.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
 from dataclasses import dataclass
+
 
 @dataclass
 class PlayerInfo:
@@ -16,7 +16,7 @@ class PlayerInfo:
     position: str
     status: str
     team_id: str
-    telegram_id: Optional[str] = None
+    telegram_id: str | None = None
     is_approved: bool = False
     is_injured: bool = False
     is_suspended: bool = False
@@ -26,13 +26,13 @@ class IPlayerOperations(ABC):
     async def get_player_info(self, user_id: str, team_id: str) -> tuple[bool, str]:
         pass
     @abstractmethod
-    async def get_player_by_phone(self, phone: str, team_id: str) -> Optional[PlayerInfo]:
+    async def get_player_by_phone(self, phone: str, team_id: str) -> PlayerInfo | None:
         pass
     @abstractmethod
     async def list_players(self, team_id: str, is_leadership_chat: bool = False) -> str:
         pass
     @abstractmethod
-    async def register_player(self, user_id: str, team_id: str, player_id: Optional[str] = None) -> tuple[bool, str]:
+    async def register_player(self, user_id: str, team_id: str, player_id: str | None = None) -> tuple[bool, str]:
         pass
     @abstractmethod
     async def add_player(self, name: str, phone: str, position: str, team_id: str) -> tuple[bool, str]:
@@ -63,4 +63,4 @@ class IPlayerOperations(ABC):
         pass
     @abstractmethod
     async def recover_player(self, player_id: str, team_id: str) -> tuple[bool, str]:
-        pass 
+        pass

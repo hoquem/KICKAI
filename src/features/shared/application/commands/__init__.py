@@ -1,18 +1,14 @@
+#!/usr/bin/env python3
 """
-Shared Commands Package
+Shared Commands Module
 
-This package provides shared command infrastructure for the KICKAI system.
+This module contains commands that are shared across multiple features.
 """
 
-from .base_command import Command, SimpleCommand, CommandContext, CommandResult, PermissionLevel
-from .types import CommandType, CommandMetadata
+# Import shared commands that exist
+from .base_command import *
+from .help_commands import *  # Import help commands to register /help
+from .types import *
 
-__all__ = [
-    "Command",
-    "SimpleCommand", 
-    "CommandContext",
-    "CommandResult",
-    "PermissionLevel",
-    "CommandType",
-    "CommandMetadata"
-] 
+# Note: Help commands are now handled by the CrewAI system via the HELP_ASSISTANT agent
+# This ensures consistent, context-aware help across all chat types and user states

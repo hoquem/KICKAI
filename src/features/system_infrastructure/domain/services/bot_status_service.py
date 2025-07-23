@@ -1,6 +1,6 @@
 import logging
-from typing import Dict, Any, Optional
 from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +10,7 @@ class BotStatusService:
         self.last_health_check = None
         self.status = "running"
         logger.info("✅ BotStatusService initialized")
-    def get_bot_status(self) -> Dict[str, Any]:
+    def get_bot_status(self) -> dict[str, Any]:
         try:
             uptime = datetime.now() - self.start_time
             return {
@@ -28,7 +28,7 @@ class BotStatusService:
                 "error": str(e),
                 "timestamp": datetime.now().isoformat()
             }
-    async def perform_health_check(self) -> Dict[str, Any]:
+    async def perform_health_check(self) -> dict[str, Any]:
         try:
             self.last_health_check = datetime.now()
             health_status = {
@@ -68,7 +68,7 @@ class BotStatusService:
     def get_uptime(self) -> str:
         uptime = datetime.now() - self.start_time
         return str(uptime).split('.')[0]
-    def get_main_chat_features(self) -> Dict[str, Any]:
+    def get_main_chat_features(self) -> dict[str, Any]:
         try:
             return {
                 "features": {
@@ -111,7 +111,7 @@ class BotStatusService:
                 "error": str(e),
                 "timestamp": datetime.now().isoformat()
             }
-    def get_leadership_chat_features(self) -> Dict[str, Any]:
+    def get_leadership_chat_features(self) -> dict[str, Any]:
         try:
             return {
                 "Commands": {
@@ -121,7 +121,7 @@ class BotStatusService:
                 },
                 "Permissions": {
                     "admin_only": ["/add", "/remove", "/admin"],
-                    "leadership": ["/approve", "/reject", "/team", "/match"],
+                    "leadership": ["/approve", "/reject", "/addplayer", "/addmember", "/list"],
                     "description": "Permission levels for different commands"
                 },
                 "status": "active",
@@ -134,7 +134,7 @@ class BotStatusService:
                 "error": str(e),
                 "timestamp": datetime.now().isoformat()
             }
-    def get_version_info(self) -> Dict[str, Any]:
+    def get_version_info(self) -> dict[str, Any]:
         try:
             return {
                 "version": "1.0.0",
@@ -148,4 +148,4 @@ class BotStatusService:
                 "version": "unknown",
                 "error": str(e),
                 "timestamp": datetime.now().isoformat()
-            } 
+            }

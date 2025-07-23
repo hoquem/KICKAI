@@ -4,14 +4,9 @@ Team Administration Commands
 This module contains commands for team administration.
 """
 
-from .add_team_command import AddTeamCommand
-from .remove_team_command import RemoveTeamCommand
-from .list_teams_command import ListTeamsCommand
-from .update_team_info_command import UpdateTeamInfoCommand
+# Import the actual command module that exists
+from . import team_commands
 
 __all__ = [
-    'AddTeamCommand',
-    'RemoveTeamCommand',
-    'ListTeamsCommand',
-    'UpdateTeamInfoCommand'
+    'team_commands'
 ]

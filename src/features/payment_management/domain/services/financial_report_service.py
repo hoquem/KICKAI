@@ -1,13 +1,13 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
 
-from features.payment_management.domain.interfaces.payment_service_interface import IPaymentService
-from features.payment_management.domain.interfaces.expense_service_interface import IExpenseService
-from features.team_administration.domain.interfaces.team_service_interface import ITeamService
-from core.settings import get_settings
 import requests
+
+from core.settings import get_settings
+from features.payment_management.domain.interfaces.expense_service_interface import IExpenseService
+from features.payment_management.domain.interfaces.payment_service_interface import IPaymentService
+from features.team_administration.domain.interfaces.team_service_interface import ITeamService
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ Expense Breakdown:"""
             return message
         except Exception as e:
             logger.error(f"Error generating financial summary for team {self.team_id}: {e}")
-            return f"❌ Error generating financial summary: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
     async def send_financial_report(self) -> bool:
         try:
             bot_token = self.settings.telegram_bot_token
@@ -141,4 +141,4 @@ Expense Breakdown:"""
                 await self.send_financial_report()
             except Exception as e:
                 logger.error(f"❌ Error in financial report task for team {self.team_id}: {e}")
-                await asyncio.sleep(3600) 
+                await asyncio.sleep(3600)

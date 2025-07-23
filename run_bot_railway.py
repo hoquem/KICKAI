@@ -6,7 +6,6 @@ A clean, robust bot startup script for Railway deployment with health check serv
 """
 
 import asyncio
-import logging
 import os
 import signal
 import sys
@@ -29,9 +28,7 @@ from core.dependency_container import get_service, get_singleton, ensure_contain
 from features.team_administration.domain.interfaces.team_service_interface import ITeamService
 from features.player_registration.domain.interfaces.player_service_interface import IPlayerService
 from core.startup_validator import StartupValidator
-
-# Configure logging
-logger = logging.getLogger(__name__)
+from core.logging_config import logger
 
 # Global state
 multi_bot_manager: Optional[MultiBotManager] = None
@@ -39,21 +36,12 @@ shutdown_event = asyncio.Event()
 
 
 def setup_logging():
-    """Configure logging for the application."""
-    from core.logging_config import configure_logging
-    
-    # Get settings for logging configuration
-    settings = get_settings()
-    log_file_path = settings.log_file_path if settings.log_file_path else "logs/kickai.log"
-    
-    configure_logging(
-        log_level=settings.log_level,
-        log_format=settings.log_format,
-        log_file=log_file_path,
-        max_file_size=settings.log_max_file_size,
-        backup_count=settings.log_backup_count,
-        include_context=True
-    )
+    """Configure logging for Railway deployment - console only."""
+    # Loguru is already configured in core.logging_config to log to console
+    # Railway will capture console output for log aggregation
+    logger.info("📝 Logging configured for Railway deployment")
+    logger.info("📄 Console output: INFO level and above")
+    logger.info("🔄 Railway will capture console logs for monitoring")
 
 
 def setup_environment():
@@ -78,6 +66,10 @@ def setup_environment():
         # Configure logging
         setup_logging()
         logger.info("✅ Configuration loaded successfully and logging configured")
+        
+        # Set up CrewAI logging to redirect to loguru
+        from utils.crewai_logging import setup_crewai_logging
+        setup_crewai_logging("INFO")  # Use INFO level for Railway
         
         # Initialize Firebase
         initialize_firebase_client(config)
@@ -202,21 +194,9 @@ def start_health_check_server():
 
 
 def flush_and_close_loggers():
-    import logging
-    root_logger = logging.getLogger()
-    for handler in root_logger.handlers:
-        try:
-            handler.flush()
-        except BrokenPipeError:
-            pass
-        except Exception:
-            pass
-        try:
-            handler.close()
-        except BrokenPipeError:
-            pass
-        except Exception:
-            pass
+    """Flush and close all loggers."""
+    # Loguru handles cleanup automatically
+    logger.info("📝 Logging cleanup completed")
 
 async def main():
     """Main async entry point with clean shutdown."""
@@ -263,7 +243,7 @@ async def main():
                 signal.signal(sig, lambda s, f: asyncio.create_task(shutdown_event.set()))
         
         logger.info("🤖 Multi-bot manager is running. Press Ctrl+C to exit.")
-        logger.info(f"📊 Running bots: {list(manager.bot_apps.keys())}")
+        logger.info(f"📊 Running bots: {list(manager.bots.keys())}")
         
         # Wait for shutdown signal
         await shutdown_event.wait()

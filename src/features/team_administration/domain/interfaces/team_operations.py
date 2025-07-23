@@ -5,20 +5,20 @@ Defines the contract for team-related operations in the clean architecture.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
 from dataclasses import dataclass
+
 
 @dataclass
 class TeamInfo:
     id: str
     name: str
-    description: Optional[str]
+    description: str | None
     status: str
     created_at: str
 
 class ITeamOperations(ABC):
     @abstractmethod
-    async def create_team(self, name: str, description: Optional[str] = None) -> tuple[bool, str]:
+    async def create_team(self, name: str, description: str | None = None) -> tuple[bool, str]:
         pass
     @abstractmethod
     async def delete_team(self, team_id: str) -> tuple[bool, str]:
@@ -28,4 +28,4 @@ class ITeamOperations(ABC):
         pass
     @abstractmethod
     async def get_team_stats(self, team_id: str) -> str:
-        pass 
+        pass

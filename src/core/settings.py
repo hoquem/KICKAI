@@ -6,13 +6,13 @@ the complex improved_config_system.py and all scattered configuration access.
 """
 
 import os
-from typing import Optional, Dict, Any, List
+from enum import Enum
 from pathlib import Path
+
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from enum import Enum
 
-from core.enums import AIProvider
+from .enums import AIProvider
 
 
 class Environment(str, Enum):
@@ -24,30 +24,31 @@ class Environment(str, Enum):
 
 class Settings(BaseSettings):
     """Main application settings using Pydantic Settings."""
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore"
     )
-    
+
     # Environment
     environment: Environment = Field(
         default=Environment.DEVELOPMENT,
         description="Application environment"
     )
-    
+
     # Database Configuration
     firebase_project_id: str = Field(
         default="",
         description="Firebase project ID"
     )
-    firebase_credentials_path: Optional[str] = Field(
+    firebase_credentials_path: str | None = Field(
         default=None,
+        alias="FIREBASE_CREDENTIALS_FILE",
         description="Path to Firebase credentials file"
     )
-    firebase_credentials_json: Optional[str] = Field(
+    firebase_credentials_json: str | None = Field(
         default=None,
         description="Firebase credentials as JSON string"
     )
@@ -59,17 +60,17 @@ class Settings(BaseSettings):
         default=30,
         description="Firebase timeout in seconds"
     )
-    
+
     # AI Configuration
     ai_provider: AIProvider = Field(
-        default=AIProvider.GOOGLE_GEMINI,
+        default=AIProvider.GEMINI,
         description="AI provider to use"
     )
     google_api_key: str = Field(
         default="",
         description="Google API key for Gemini"
     )
-    openai_api_key: Optional[str] = Field(
+    openai_api_key: str | None = Field(
         default=None,
         description="OpenAI API key"
     )
@@ -93,13 +94,13 @@ class Settings(BaseSettings):
         default=5,
         description="AI max retries"
     )
-    
+
     # Telegram Configuration
     telegram_bot_token: str = Field(
         default="",
         description="Telegram bot token"
     )
-    telegram_bot_username: Optional[str] = Field(
+    telegram_bot_username: str | None = Field(
         default=None,
         description="Telegram bot username"
     )
@@ -111,7 +112,7 @@ class Settings(BaseSettings):
         default="",
         description="Leadership chat ID"
     )
-    telegram_webhook_url: Optional[str] = Field(
+    telegram_webhook_url: str | None = Field(
         default=None,
         description="Telegram webhook URL"
     )
@@ -123,13 +124,13 @@ class Settings(BaseSettings):
         default=30,
         description="Telegram timeout in seconds"
     )
-    
+
     # Team Configuration
     default_team_id: str = Field(
         default="KAI",
         description="Default team ID"
     )
-    
+
     # Payment Configuration
     collectiv_api_key: str = Field(
         default="",
@@ -143,7 +144,7 @@ class Settings(BaseSettings):
         default=False,
         description="Enable payment system"
     )
-    
+
     # Logging Configuration
     log_level: str = Field(
         default="INFO",
@@ -153,7 +154,7 @@ class Settings(BaseSettings):
         default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         description="Log format"
     )
-    log_file_path: Optional[str] = Field(
+    log_file_path: str | None = Field(
         default=None,
         description="Log file path"
     )
@@ -165,7 +166,7 @@ class Settings(BaseSettings):
         default=5,
         description="Number of log backups"
     )
-    
+
     # Performance Configuration
     cache_ttl_seconds: int = Field(
         default=300,
@@ -187,7 +188,7 @@ class Settings(BaseSettings):
         default=1.0,
         description="Retry delay in seconds"
     )
-    
+
     # Security Configuration
     jwt_secret: str = Field(
         default="default-secret-change-in-production",
@@ -205,7 +206,7 @@ class Settings(BaseSettings):
         default=8,
         description="Minimum password length"
     )
-    
+
     # Advanced Memory Configuration
     enable_advanced_memory: bool = Field(
         default=True,
@@ -239,7 +240,7 @@ class Settings(BaseSettings):
         default=24,
         description="Memory cleanup interval in hours"
     )
-    
+
     # Development Configuration
     debug: bool = Field(
         default=False,
@@ -249,31 +250,31 @@ class Settings(BaseSettings):
         default=False,
         description="Enable verbose logging"
     )
-    
+
     # Test Configuration
     test_mode: bool = Field(
         default=False,
         description="Enable test mode"
     )
-    admin_session_string: Optional[str] = Field(
+    admin_session_string: str | None = Field(
         default=None,
         description="Admin session string for testing"
     )
-    player_session_string: Optional[str] = Field(
+    player_session_string: str | None = Field(
         default=None,
         description="Player session string for testing"
     )
-    
+
     @validator("environment", pre=True)
     def detect_environment(cls, v):
         """Auto-detect environment if not specified."""
         if v is not None:
             return v
-        
+
         # Check for test environment
         if os.getenv("PYTEST_CURRENT_TEST") or os.getenv("E2E_TESTING"):
             return Environment.TESTING
-        
+
         # Check for production environment
         if os.getenv("RAILWAY_ENVIRONMENT"):
             railway_service = os.getenv("RAILWAY_SERVICE_NAME", "").lower()
@@ -281,9 +282,9 @@ class Settings(BaseSettings):
                 return Environment.PRODUCTION
             elif "testing" in railway_service or "test" in railway_service:
                 return Environment.TESTING
-        
+
         return Environment.DEVELOPMENT
-    
+
     @validator("ai_provider", pre=True)
     def validate_ai_provider(cls, v):
         """Validate AI provider."""
@@ -291,63 +292,63 @@ class Settings(BaseSettings):
             try:
                 return AIProvider(v.lower())
             except ValueError:
-                return AIProvider.GOOGLE_GEMINI
+                return AIProvider.GEMINI
         return v
-    
+
     @property
     def is_development(self) -> bool:
         """Check if running in development mode."""
         return self.environment == Environment.DEVELOPMENT
-    
+
     @property
     def is_production(self) -> bool:
         """Check if running in production mode."""
         return self.environment == Environment.PRODUCTION
-    
+
     @property
     def is_testing(self) -> bool:
         """Check if running in testing mode."""
         return self.environment == Environment.TESTING
-    
+
     @property
     def is_debug_enabled(self) -> bool:
         """Check if debug mode is enabled."""
         return self.debug or self.is_development
-    
+
     def get_ai_api_key(self) -> str:
         """Get the appropriate API key for the AI provider."""
-        if self.ai_provider == AIProvider.GOOGLE_GEMINI:
+        if self.ai_provider == AIProvider.GEMINI:
             return self.google_api_key
         elif self.ai_provider == AIProvider.OLLAMA:
             # Ollama doesn't use API keys
             return ""
         return ""
-    
-    def validate_required_fields(self) -> List[str]:
+
+    def validate_required_fields(self) -> list[str]:
         """Validate required fields and return list of errors."""
         errors = []
-        
+
         # Required for all environments
         if not self.firebase_project_id:
             errors.append("FIREBASE_PROJECT_ID is required")
-        
+
         # AI provider specific requirements
-        if self.ai_provider == AIProvider.GOOGLE_GEMINI and not self.google_api_key:
+        if self.ai_provider == AIProvider.GEMINI and not self.google_api_key:
             errors.append("GOOGLE_API_KEY is required for Gemini")
         elif self.ai_provider == AIProvider.OLLAMA:
             # Ollama doesn't require an API key
             pass
-        
+
         # Production requirements
         if self.is_production:
             if self.jwt_secret == "default-secret-change-in-production":
                 errors.append("JWT_SECRET must be changed in production")
-        
+
         return errors
 
 
 # Global settings instance
-_settings: Optional[Settings] = None
+_settings: Settings | None = None
 
 
 def get_settings() -> Settings:
@@ -358,17 +359,17 @@ def get_settings() -> Settings:
     return _settings
 
 
-def initialize_settings(env_file: Optional[str] = None) -> Settings:
+def initialize_settings(env_file: str | None = None) -> Settings:
     """Initialize settings with optional custom env file."""
     global _settings
-    
+
     if env_file and Path(env_file).exists():
         # Load custom env file
         _settings = Settings(_env_file=env_file)
     else:
         # Use default settings
         _settings = Settings()
-    
+
     return _settings
 
 
@@ -387,4 +388,4 @@ def get_config() -> Settings:
 
 def get_bot_config() -> Settings:
     """Alias for get_settings() for backward compatibility."""
-    return get_settings() 
+    return get_settings()

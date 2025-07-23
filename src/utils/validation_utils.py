@@ -7,12 +7,13 @@ used throughout the KICKAI system. This ensures a single source of truth for
 validation rules and simplifies updates.
 """
 
+import logging
 import re
 from datetime import datetime
-from typing import Optional, List, Dict, Any
-import logging
+from decimal import Decimal
+from typing import Any
 
-from utils.phone_utils import is_valid_phone, normalize_phone
+from src.utils.phone_utils import is_valid_phone
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ def validate_phone(phone: str, region: str = "GB") -> bool:
     return is_valid_phone(phone, region)
 
 
-def validate_phone_with_error(phone: str, region: str = "GB") -> tuple[bool, Optional[str]]:
+def validate_phone_with_error(phone: str, region: str = "GB") -> tuple[bool, str | None]:
     """
     Validate phone number and return error message if invalid.
     
@@ -48,10 +49,10 @@ def validate_phone_with_error(phone: str, region: str = "GB") -> tuple[bool, Opt
     """
     if not phone or not phone.strip():
         return False, "Phone number cannot be empty"
-    
+
     if not is_valid_phone(phone, region):
         return False, "Invalid phone number format. Must be a valid UK phone number (e.g., 07123456789, +447123456789)"
-    
+
     return True, None
 
 
@@ -71,12 +72,12 @@ def validate_email(email: str) -> bool:
     """
     if not email or not email.strip():
         return False
-    
+
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return bool(re.match(email_pattern, email.strip()))
 
 
-def validate_email_with_error(email: str) -> tuple[bool, Optional[str]]:
+def validate_email_with_error(email: str) -> tuple[bool, str | None]:
     """
     Validate email format and return error message if invalid.
     
@@ -88,10 +89,10 @@ def validate_email_with_error(email: str) -> tuple[bool, Optional[str]]:
     """
     if not email or not email.strip():
         return False, "Email address cannot be empty"
-    
+
     if not validate_email(email):
         return False, "Invalid email format"
-    
+
     return True, None
 
 
@@ -113,12 +114,12 @@ def validate_name(name: str, min_length: int = 2, max_length: int = 100) -> bool
     """
     if not name or not name.strip():
         return False
-    
+
     name_length = len(name.strip())
     return min_length <= name_length <= max_length
 
 
-def validate_name_with_error(name: str, min_length: int = 2, max_length: int = 100) -> tuple[bool, Optional[str]]:
+def validate_name_with_error(name: str, min_length: int = 2, max_length: int = 100) -> tuple[bool, str | None]:
     """
     Validate name format and return error message if invalid.
     
@@ -132,14 +133,14 @@ def validate_name_with_error(name: str, min_length: int = 2, max_length: int = 1
     """
     if not name or not name.strip():
         return False, "Name cannot be empty"
-    
+
     name_length = len(name.strip())
     if name_length < min_length:
         return False, f"Name must be at least {min_length} characters long"
-    
+
     if name_length > max_length:
         return False, f"Name cannot exceed {max_length} characters"
-    
+
     return True, None
 
 
@@ -158,7 +159,7 @@ def validate_team_name(name: str, min_length: int = 3, max_length: int = 100) ->
     return validate_name(name, min_length, max_length)
 
 
-def validate_team_name_with_error(name: str, min_length: int = 3, max_length: int = 100) -> tuple[bool, Optional[str]]:
+def validate_team_name_with_error(name: str, min_length: int = 3, max_length: int = 100) -> tuple[bool, str | None]:
     """
     Validate team name format and return error message if invalid.
     
@@ -172,14 +173,14 @@ def validate_team_name_with_error(name: str, min_length: int = 3, max_length: in
     """
     if not name or not name.strip():
         return False, "Team name cannot be empty"
-    
+
     name_length = len(name.strip())
     if name_length < min_length:
         return False, f"Team name must be at least {min_length} characters long"
-    
+
     if name_length > max_length:
         return False, f"Team name cannot exceed {max_length} characters"
-    
+
     return True, None
 
 
@@ -201,22 +202,22 @@ def validate_date_of_birth(dob: str) -> bool:
         # Check format
         if not re.match(r'^\d{2}/\d{2}/\d{4}$', dob):
             return False
-        
+
         # Parse date
         day, month, year = map(int, dob.split('/'))
         datetime(year, month, day)  # This will raise ValueError if invalid
-        
+
         # Check reasonable range (e.g., 16-80 years old)
         current_year = datetime.now().year
         if year < current_year - 80 or year > current_year - 16:
             return False
-        
+
         return True
     except (ValueError, TypeError):
         return False
 
 
-def validate_date_of_birth_with_error(dob: str) -> tuple[bool, Optional[str]]:
+def validate_date_of_birth_with_error(dob: str) -> tuple[bool, str | None]:
     """
     Validate date of birth format and return error message if invalid.
     
@@ -228,10 +229,10 @@ def validate_date_of_birth_with_error(dob: str) -> tuple[bool, Optional[str]]:
     """
     if not dob or not dob.strip():
         return False, "Date of birth cannot be empty"
-    
+
     if not validate_date_of_birth(dob):
         return False, "Invalid date of birth format. Use DD/MM/YYYY format and ensure age is between 16-80 years"
-    
+
     return True, None
 
 
@@ -288,21 +289,21 @@ def validate_emergency_contact(contact: str) -> bool:
     """
     if not contact or not contact.strip():
         return False
-    
+
     # Expected format: "Name, Phone"
     parts = contact.split(',')
     if len(parts) != 2:
         return False
-    
+
     name, phone = parts[0].strip(), parts[1].strip()
     if not name or not phone:
         return False
-    
+
     # Validate phone number
     return validate_phone(phone)
 
 
-def validate_emergency_contact_with_error(contact: str) -> tuple[bool, Optional[str]]:
+def validate_emergency_contact_with_error(contact: str) -> tuple[bool, str | None]:
     """
     Validate emergency contact format and return error message if invalid.
     
@@ -314,24 +315,24 @@ def validate_emergency_contact_with_error(contact: str) -> tuple[bool, Optional[
     """
     if not contact or not contact.strip():
         return False, "Emergency contact cannot be empty"
-    
+
     # Expected format: "Name, Phone"
     parts = contact.split(',')
     if len(parts) != 2:
         return False, "Emergency contact must be in format: 'Name, Phone'"
-    
+
     name, phone = parts[0].strip(), parts[1].strip()
     if not name:
         return False, "Emergency contact name cannot be empty"
-    
+
     if not phone:
         return False, "Emergency contact phone cannot be empty"
-    
+
     # Validate phone number
     is_valid, error_msg = validate_phone_with_error(phone)
     if not is_valid:
         return False, f"Emergency contact phone: {error_msg}"
-    
+
     return True, None
 
 
@@ -353,14 +354,14 @@ def validate_id_format(id_str: str, prefix: str = "", min_length: int = 3) -> bo
     """
     if not id_str or not id_str.strip():
         return False
-    
+
     if prefix and not id_str.startswith(prefix):
         return False
-    
+
     return len(id_str.strip()) >= min_length
 
 
-def validate_id_format_with_error(id_str: str, prefix: str = "", min_length: int = 3) -> tuple[bool, Optional[str]]:
+def validate_id_format_with_error(id_str: str, prefix: str = "", min_length: int = 3) -> tuple[bool, str | None]:
     """
     Validate ID format and return error message if invalid.
     
@@ -374,13 +375,13 @@ def validate_id_format_with_error(id_str: str, prefix: str = "", min_length: int
     """
     if not id_str or not id_str.strip():
         return False, "ID cannot be empty"
-    
+
     if prefix and not id_str.startswith(prefix):
         return False, f"ID must start with '{prefix}'"
-    
+
     if len(id_str.strip()) < min_length:
         return False, f"ID must be at least {min_length} characters long"
-    
+
     return True, None
 
 
@@ -401,7 +402,7 @@ def validate_team_id(team_id: str) -> bool:
     return validate_id_format(team_id, min_length=1)
 
 
-def validate_team_id_with_error(team_id: str) -> tuple[bool, Optional[str]]:
+def validate_team_id_with_error(team_id: str) -> tuple[bool, str | None]:
     """
     Validate team ID format and return error message if invalid.
     
@@ -413,7 +414,7 @@ def validate_team_id_with_error(team_id: str) -> tuple[bool, Optional[str]]:
     """
     if not team_id or not team_id.strip():
         return False, "Team ID cannot be empty"
-    
+
     return True, None
 
 
@@ -421,7 +422,7 @@ def validate_team_id_with_error(team_id: str) -> tuple[bool, Optional[str]]:
 # PLAYER DATA VALIDATION
 # ============================================================================
 
-def validate_player_data(name: str, phone: str, email: Optional[str] = None, team_id: str = "") -> tuple[bool, List[str]]:
+def validate_player_data(name: str, phone: str, team_id: str, email: str | None = None) -> tuple[bool, list[str]]:
     """
     Validate complete player data.
     
@@ -435,28 +436,28 @@ def validate_player_data(name: str, phone: str, email: Optional[str] = None, tea
         Tuple of (is_valid, list_of_errors)
     """
     errors = []
-    
+
     # Validate name
     is_valid, error_msg = validate_name_with_error(name)
     if not is_valid:
         errors.append(f"Name: {error_msg}")
-    
+
     # Validate phone
     is_valid, error_msg = validate_phone_with_error(phone)
     if not is_valid:
         errors.append(f"Phone: {error_msg}")
-    
+
     # Validate email (if provided)
     if email:
         is_valid, error_msg = validate_email_with_error(email)
         if not is_valid:
             errors.append(f"Email: {error_msg}")
-    
+
     # Validate team ID
     is_valid, error_msg = validate_team_id_with_error(team_id)
     if not is_valid:
         errors.append(f"Team ID: {error_msg}")
-    
+
     return len(errors) == 0, errors
 
 
@@ -464,7 +465,7 @@ def validate_player_data(name: str, phone: str, email: Optional[str] = None, tea
 # TEAM DATA VALIDATION
 # ============================================================================
 
-def validate_team_data(name: str, description: Optional[str] = None) -> tuple[bool, List[str]]:
+def validate_team_data(name: str, description: str | None = None) -> tuple[bool, list[str]]:
     """
     Validate complete team data.
     
@@ -476,16 +477,16 @@ def validate_team_data(name: str, description: Optional[str] = None) -> tuple[bo
         Tuple of (is_valid, list_of_errors)
     """
     errors = []
-    
+
     # Validate team name
     is_valid, error_msg = validate_team_name_with_error(name)
     if not is_valid:
         errors.append(f"Team name: {error_msg}")
-    
+
     # Validate description (if provided)
     if description and len(description.strip()) > 500:
         errors.append("Team description cannot exceed 500 characters")
-    
+
     return len(errors) == 0, errors
 
 
@@ -506,7 +507,7 @@ def sanitize_string(value: str) -> str:
     return value.strip() if value else ""
 
 
-def validate_required_field(value: str, field_name: str) -> tuple[bool, Optional[str]]:
+def validate_required_field(value: str, field_name: str) -> tuple[bool, str | None]:
     """
     Validate that a required field is not empty.
     
@@ -519,11 +520,11 @@ def validate_required_field(value: str, field_name: str) -> tuple[bool, Optional
     """
     if not value or not value.strip():
         return False, f"{field_name} cannot be empty"
-    
+
     return True, None
 
 
-def validate_field_length(value: str, field_name: str, min_length: int = 1, max_length: int = 1000) -> tuple[bool, Optional[str]]:
+def validate_field_length(value: str, field_name: str, min_length: int = 1, max_length: int = 1000) -> tuple[bool, str | None]:
     """
     Validate field length constraints.
     
@@ -538,12 +539,40 @@ def validate_field_length(value: str, field_name: str, min_length: int = 1, max_
     """
     if not value:
         return True, None  # Empty values are handled by required field validation
-    
+
     length = len(value.strip())
     if length < min_length:
         return False, f"{field_name} must be at least {min_length} characters long"
-    
+
     if length > max_length:
         return False, f"{field_name} cannot exceed {max_length} characters"
-    
-    return True, None 
+
+    return True, None
+
+
+def validate_payment_details(payment_data: dict[str, Any]) -> None:
+    """
+    Validate payment details dict. Raises ValueError if invalid.
+    Required fields: payer_id, payee_id, amount, currency, payment_date
+    """
+    required_fields = ["payer_id", "payee_id", "amount", "currency", "payment_date"]
+    for field in required_fields:
+        if field not in payment_data:
+            raise ValueError(f"Missing required payment field: {field}")
+
+    if not isinstance(payment_data["payer_id"], str) or not payment_data["payer_id"].strip():
+        raise ValueError("payer_id must be a non-empty string")
+    if not isinstance(payment_data["payee_id"], str) or not payment_data["payee_id"].strip():
+        raise ValueError("payee_id must be a non-empty string")
+    try:
+        amount = Decimal(str(payment_data["amount"]))
+        if amount <= 0:
+            raise ValueError
+    except Exception:
+        raise ValueError("amount must be a positive decimal number")
+    if not isinstance(payment_data["currency"], str) or not payment_data["currency"].strip():
+        raise ValueError("currency must be a non-empty string")
+    try:
+        datetime.fromisoformat(payment_data["payment_date"])
+    except Exception:
+        raise ValueError("payment_date must be a valid ISO format datetime string")

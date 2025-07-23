@@ -6,26 +6,29 @@ This module provides configuration validation health checks.
 
 import asyncio
 import logging
-from typing import Dict, Any
+from typing import Any
 
-from .base_check import HealthCheck, CheckResult, CheckCategory, CheckStatus
 from core.settings import get_settings
+
+from ..reporting import CheckCategory, CheckResult, CheckStatus
+from .base_check import BaseCheck
 
 logger = logging.getLogger(__name__)
 
 
-class ConfigurationCheck(HealthCheck):
+class ConfigurationCheck(BaseCheck):
     """Check configuration loading and validation."""
-    
-    def __init__(self):
-        super().__init__("Configuration Loading", CheckCategory.CONFIGURATION, critical=True)
-    
-    async def execute(self, context: Dict[str, Any]) -> CheckResult:
+
+    name = "Configuration Loading"
+    category = CheckCategory.CONFIGURATION
+    description = "Validates that all required configuration is loaded and accessible"
+
+    async def execute(self, context: dict[str, Any] = None) -> CheckResult:
         start_time = asyncio.get_event_loop().time()
-        
+
         try:
             config = get_settings()
-            
+
             # Validate essential configuration
             required_fields = [
                 'ai_provider', 'google_api_key', 'ai_model_name', 'ai_max_retries'
@@ -34,10 +37,10 @@ class ConfigurationCheck(HealthCheck):
             for field in required_fields:
                 if not hasattr(config, field) or getattr(config, field) is None:
                     missing_fields.append(field)
-            
+
             if not config.default_team_id:
                 missing_fields.append('default_team_id')
-            
+
             if missing_fields:
                 return CheckResult(
                     name=self.name,
@@ -47,11 +50,11 @@ class ConfigurationCheck(HealthCheck):
                     details={'missing_fields': missing_fields},
                     duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
                 )
-            
+
             # Get actual provider from environment
             import os
-            provider_str = os.getenv('AI_PROVIDER', 'google_gemini')
-            
+            provider_str = os.getenv('AI_PROVIDER', 'gemini')
+
             return CheckResult(
                 name=self.name,
                 category=self.category,
@@ -68,4 +71,4 @@ class ConfigurationCheck(HealthCheck):
                 message=f"Exception during configuration check: {e}",
                 details={'exception': str(e)},
                 duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
-            ) 
+            )

@@ -1,6 +1,6 @@
-from enum import Enum
 from dataclasses import dataclass
-from typing import Optional
+from enum import Enum
+
 
 class ExpenseCategory(Enum):
     PITCH_FEES = "pitch_fees"
@@ -12,14 +12,14 @@ class ExpenseCategory(Enum):
 
 @dataclass
 class Expense:
-    id: Optional[str]
     team_id: str
     amount: float
     category: ExpenseCategory
-    description: Optional[str] = None
-    receipt_url: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    id: str | None = None
+    description: str | None = None
+    receipt_url: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
     @staticmethod
     def from_dict(data: dict) -> "Expense":
@@ -44,4 +44,4 @@ class Expense:
             "receipt_url": self.receipt_url,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
-        } 
+        }

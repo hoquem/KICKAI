@@ -4,12 +4,9 @@ System Infrastructure Commands
 This module contains commands for system infrastructure management.
 """
 
-from .system_status_command import SystemStatusCommand
-from .health_check_command import HealthCheckCommand
-from .permission_check_command import PermissionCheckCommand
+# Import the actual command module that exists
+from . import system_commands
 
 __all__ = [
-    'SystemStatusCommand',
-    'HealthCheckCommand',
-    'PermissionCheckCommand'
-] 
+    'system_commands'
+]
