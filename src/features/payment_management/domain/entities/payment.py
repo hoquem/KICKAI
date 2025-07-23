@@ -1,6 +1,6 @@
-from enum import Enum
 from dataclasses import dataclass
-from typing import Optional
+from enum import Enum
+
 
 class PaymentType(Enum):
     MANUAL = "manual"
@@ -15,16 +15,16 @@ class PaymentStatus(Enum):
 
 @dataclass
 class Payment:
-    id: Optional[str]
     player_id: str
-    team_id: Optional[str]
     amount: float
     type: PaymentType
     status: PaymentStatus
-    description: Optional[str] = None
-    related_entity_id: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    id: str | None = None
+    team_id: str | None = None
+    description: str | None = None
+    related_entity_id: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
     @staticmethod
     def from_dict(data: dict) -> "Payment":
@@ -53,4 +53,4 @@ class Payment:
             "related_entity_id": self.related_entity_id,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
-        } 
+        }

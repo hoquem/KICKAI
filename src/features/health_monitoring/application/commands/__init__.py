@@ -4,10 +4,9 @@ Health Monitoring Commands
 This module contains commands for health monitoring.
 """
 
-from .health_check_command import HealthCheckCommand
-from .system_status_command import SystemStatusCommand
+# Import the actual command module that exists
+from . import health_commands
 
 __all__ = [
-    'HealthCheckCommand',
-    'SystemStatusCommand'
-] 
+    'health_commands'
+]

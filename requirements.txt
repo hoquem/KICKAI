@@ -1,5 +1,5 @@
 # Ultra-minimal requirements for Railway - only essential packages
-python-telegram-bot==20.7
+python-telegram-bot==22.2
 python-dotenv==1.0.0
 Flask==3.0.0
 firebase-admin==6.4.0
@@ -11,14 +11,9 @@ phonenumbers==8.13.31
 setuptools==69.0.3
 wheel==0.42.0
 
-# AI and LangChain dependencies - CURRENT WORKING VERSIONS
-
-crewai==0.5.0
-google-generativeai==0.8.5
-
-# HTTP and utilities - COMPATIBLE VERSIONS
-
-
+# AI dependencies
+crewai>=0.20.0
 
 # Additional dependencies for compatibility
+psutil==6.1.0
 

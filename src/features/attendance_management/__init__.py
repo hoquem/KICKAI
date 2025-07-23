@@ -5,13 +5,12 @@ This module provides attendance management functionality including
 attendance tracking, reporting, and analytics.
 """
 
-import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
-def initialize_attendance_management(config: Dict[str, Any]) -> None:
+def initialize_attendance_management(config: dict[str, Any]) -> None:
     """Initialize the attendance management feature."""
     logger.info("Initializing attendance management feature")
     # Feature initialization logic would go here

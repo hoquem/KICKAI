@@ -6,10 +6,10 @@ for proper serialization when saving to Firestore.
 """
 
 from enum import Enum
-from typing import Any, Dict
+from typing import Any
 
 
-def serialize_enums_for_firestore(data: Dict[str, Any]) -> Dict[str, Any]:
+def serialize_enums_for_firestore(data: dict[str, Any]) -> dict[str, Any]:
     """
     Convert enum values to their string representations for Firestore serialization.
     
@@ -20,7 +20,7 @@ def serialize_enums_for_firestore(data: Dict[str, Any]) -> Dict[str, Any]:
         Dictionary with enum values converted to strings
     """
     serialized_data = {}
-    
+
     for key, value in data.items():
         if isinstance(value, Enum):
             serialized_data[key] = value.value
@@ -35,7 +35,7 @@ def serialize_enums_for_firestore(data: Dict[str, Any]) -> Dict[str, Any]:
             ]
         else:
             serialized_data[key] = value
-    
+
     return serialized_data
 
 
@@ -51,4 +51,4 @@ def serialize_enum_value(value: Any) -> Any:
     """
     if isinstance(value, Enum):
         return value.value
-    return value 
+    return value

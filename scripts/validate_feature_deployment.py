@@ -25,10 +25,8 @@ from typing import List, Dict, Any, Optional
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from core.logging_config import configure_logging, get_logger
 from core.settings import get_settings
-
-logger = get_logger(__name__)
+from loguru import logger
 
 class FeatureDeploymentValidator:
     """Validates feature deployment and functionality."""
@@ -348,7 +346,7 @@ def main():
     args = parser.parse_args()
     
     # Configure logging
-    configure_logging()
+    # Remove the import and call to configure_logging
     
     validator = FeatureDeploymentValidator()
     

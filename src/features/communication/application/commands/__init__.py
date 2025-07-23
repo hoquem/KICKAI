@@ -4,10 +4,9 @@ Communication Commands
 This module contains commands for communication features.
 """
 
-from .broadcast_command import BroadcastCommand
-from .announce_command import AnnounceCommand
+# Import the actual command module that exists
+from . import communication_commands
 
 __all__ = [
-    'BroadcastCommand',
-    'AnnounceCommand'
-] 
+    'communication_commands'
+]

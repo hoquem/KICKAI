@@ -14,69 +14,67 @@ Features:
 - No predefined lists required
 """
 
-import re
-import logging
 import hashlib
-from datetime import datetime
-from typing import Dict, Set, Optional
+import re
 from dataclasses import dataclass
+from datetime import datetime
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 @dataclass
 class IDGenerator:
     """Base ID generator with common functionality."""
-    
+
     def __post_init__(self):
-        self.used_ids: Set[str] = set()
-        self.name_mappings: Dict[str, str] = {}
-    
+        self.used_ids: set[str] = set()
+        self.name_mappings: dict[str, str] = {}
+
     def _normalize_name(self, name: str) -> str:
         """Normalize a name for consistent processing."""
         if not name:
             return ""
-        
+
         # Convert to lowercase and remove extra spaces
         normalized = re.sub(r'\s+', ' ', name.lower().strip())
-        
+
         # Remove common words that don't add meaning
         common_words = ['the', 'fc', 'football', 'club', 'united', 'city', 'town', 'athletic', 'athletics']
         words = normalized.split()
         filtered_words = [word for word in words if word not in common_words]
-        
+
         return ' '.join(filtered_words)
-    
+
     def _generate_base_id(self, name: str, max_length: int = 3) -> str:
         """Generate a base ID from a name."""
         normalized = self._normalize_name(name)
-        
+
         if not normalized:
             return "UNK"
-        
+
         # Split into words
         words = normalized.split()
-        
+
         if len(words) >= 2:
             # Use first letter of each word
             base_id = ''.join(word[0].upper() for word in words[:max_length])
         else:
             # For single words, use first few letters
             base_id = normalized[:max_length].upper()
-        
+
         return base_id
-    
-    def _resolve_collision(self, base_id: str, existing_ids: Set[str]) -> str:
+
+    def _resolve_collision(self, base_id: str, existing_ids: set[str]) -> str:
         """Resolve ID collision by adding a number suffix."""
         if base_id not in existing_ids:
             return base_id
-        
+
         # Try adding numbers 1-99
         for i in range(1, 100):
             candidate = f"{base_id}{i}"
             if candidate not in existing_ids:
                 return candidate
-        
+
         # If all numbers are taken, use hash-based suffix
         hash_suffix = hashlib.md5(base_id.encode()).hexdigest()[:2].upper()
         return f"{base_id}{hash_suffix}"
@@ -84,68 +82,119 @@ class IDGenerator:
 
 class TeamIDGenerator(IDGenerator):
     """Generates human-readable team IDs."""
-    
+
     def generate_team_id(self, team_name: str) -> str:
         """Generate a human-readable team ID for a team name."""
         normalized = self._normalize_name(team_name)
-        
+
         # Check if we already have a mapping for this team
         if normalized in self.name_mappings:
             return self.name_mappings[normalized]
-        
+
         # Generate base ID (3 characters)
         base_id = self._generate_base_id(team_name, max_length=3)
-        
+
         # Resolve any collisions
         final_id = self._resolve_collision(base_id, self.used_ids)
-        
+
         # Store the mapping and mark as used
         self.name_mappings[normalized] = final_id
         self.used_ids.add(final_id)
-        
+
         logger.info(f"Generated team ID '{final_id}' for '{team_name}' (normalized: '{normalized}')")
         return final_id
-    
-    def get_known_teams(self) -> Dict[str, str]:
+
+    def get_known_teams(self) -> dict[str, str]:
         """Get all known team name to ID mappings."""
         return self.name_mappings.copy()
 
 
+class TeamMemberIDGenerator(IDGenerator):
+    """Generates human-readable team member IDs."""
+
+    def generate_team_member_id(self, name: str, existing_ids: set[str] | None = None) -> str:
+        """Generate a human-readable team member ID."""
+        if not name:
+            return "TMUNK1"
+
+        # Normalize name
+        normalized = self._normalize_name(name)
+
+        # Create a unique key for this team member
+        member_key = normalized
+
+        # Generate base ID: first letter of each word (max 2 words)
+        words = normalized.split()
+        if len(words) >= 2:
+            base_id = f"TM{words[0][0].upper()}{words[1][0].upper()}"
+        else:
+            base_id = f"TM{words[0][:2].upper()}"
+
+        # Use existing IDs if provided, otherwise use our internal set
+        id_set = existing_ids or self.used_ids
+
+        # Find the next available ID
+        final_id = self.find_next_available_id(base_id, id_set)
+
+        # Store mapping
+        self.name_mappings[member_key] = final_id
+        if existing_ids is not None:
+            existing_ids.add(final_id)
+        else:
+            self.used_ids.add(final_id)
+
+        logger.info(f"Generated team member ID '{final_id}' for '{name}'")
+        return final_id
+
+    def find_next_available_id(self, base_id: str, existing_ids: set[str]) -> str:
+        """Find the next available team member ID given a base and a set of existing IDs."""
+        # Try base_id, then base_id1, base_id2, ...
+        if base_id not in existing_ids:
+            return base_id
+        for i in range(1, 100):
+            candidate = f"{base_id}{i}"
+            if candidate not in existing_ids:
+                return candidate
+        # Fallback to hash-based suffix
+        hash_suffix = hashlib.md5(base_id.encode()).hexdigest()[:2].upper()
+        return f"{base_id}{hash_suffix}"
+
+
 class PlayerIDGenerator(IDGenerator):
     """Generates human-readable player IDs."""
-    
-    def generate_player_id(self, first_name: str, last_name: str, existing_ids: Optional[Set[str]] = None) -> str:
+
+    def generate_player_id(self, first_name: str, last_name: str, existing_ids: set[str] | None = None) -> str:
         """Generate a human-readable player ID."""
         if not first_name or not last_name:
-            return "UNK1"
-        
+            return "PLUNK1"
+
         # Normalize names
         first_norm = first_name.strip().lower()
         last_norm = last_name.strip().lower()
-        
+
         # Create a unique key for this player
         player_key = f"{first_norm} {last_norm}"
-        
-        # Generate base ID: first letter of first name + first letter of last name
-        base_id = f"{first_name[0].upper()}{last_name[0].upper()}"
-        
+
+        # Generate base ID: PL + first letter of first name + first letter of last name
+        base_id = f"PL{first_name[0].upper()}{last_name[0].upper()}"
+
         # Use existing IDs if provided, otherwise use our internal set
         id_set = existing_ids or self.used_ids
-        
+
         # Find the next available ID
         final_id = self.find_next_available_id(base_id, id_set)
-        
+
         # Store mapping
         self.name_mappings[player_key] = final_id
         if existing_ids is not None:
             existing_ids.add(final_id)
         else:
             self.used_ids.add(final_id)
-        
+
         logger.info(f"Generated player ID '{final_id}' for '{first_name} {last_name}'")
         return final_id
 
-    def find_next_available_id(self, base_id: str, existing_ids: Set[str]) -> str:
+    def find_next_available_id(self, base_id: str, existing_ids: set[str]) -> str:
         """Find the next available player ID given a base and a set of existing IDs."""
         # Try base_id, then base_id1, base_id2, ...
         if base_id not in existing_ids:
@@ -161,55 +210,55 @@ class PlayerIDGenerator(IDGenerator):
 
 class MatchIDGenerator(IDGenerator):
     """Generates human-readable match IDs."""
-    
+
     def __init__(self, team_id_generator: TeamIDGenerator):
         super().__init__()
         self.team_id_generator = team_id_generator
-    
-    def generate_match_id(self, home_team: str, away_team: str, match_date: str, 
+
+    def generate_match_id(self, home_team: str, away_team: str, match_date: str,
                          match_time: str = "") -> str:
         """Generate a human-readable match ID."""
         # Get team IDs
         home_id = self.team_id_generator.generate_team_id(home_team)
         away_id = self.team_id_generator.generate_team_id(away_team)
-        
+
         # Parse date and time
         date_code = self._parse_date_time(match_date, match_time)
-        
+
         # Create base match ID
         base_id = f"{home_id}{away_id}{date_code}"
-        
+
         # Resolve collision
         final_id = self._resolve_collision(base_id, self.used_ids)
         self.used_ids.add(final_id)
-        
+
         logger.info(f"Generated match ID '{final_id}' for {home_team} vs {away_team} on {match_date}")
         return final_id
-    
+
     def _parse_date_time(self, date_str: str, time_str: str = "") -> str:
         """Parse date and time into a compact format (DDMM)."""
         try:
             # Clean the date string
             cleaned_date = re.sub(r'\b(against|vs|v|on|at|home|away)\b', '', date_str, flags=re.IGNORECASE).strip()
-            
+
             # Try different date formats
             date_formats = [
                 '%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%d/%m/%y', '%d-%m-%y',
                 '%B %d, %Y', '%d %B %Y', '%B %d %Y', '%d %B, %Y',
                 '%d/%m/%Y', '%d-%m-%Y'  # Common UK formats
             ]
-            
+
             for fmt in date_formats:
                 try:
                     parsed_date = datetime.strptime(cleaned_date, fmt)
                     return parsed_date.strftime('%d%m')  # DDMM format
                 except ValueError:
                     continue
-            
+
             # If no format works, try to extract day and month from text
             day_match = re.search(r'\b(\d{1,2})\b', cleaned_date)
             month_match = re.search(r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b', cleaned_date, re.IGNORECASE)
-            
+
             if day_match and month_match:
                 day = day_match.group(1).zfill(2)
                 month_map = {
@@ -219,9 +268,9 @@ class MatchIDGenerator(IDGenerator):
                 }
                 month = month_map.get(month_match.group(1).lower(), '01')
                 return f"{day}{month}"
-            
+
             return '0101'  # Default fallback
-            
+
         except Exception as e:
             logger.error(f"Date parsing error: {e}")
             return '0101'  # Default fallback
@@ -229,15 +278,15 @@ class MatchIDGenerator(IDGenerator):
 
 class IDManager:
     """Main ID manager that coordinates all ID generators."""
-    
+
     def __init__(self):
         self.team_generator = TeamIDGenerator()
         self.player_generator = PlayerIDGenerator()
         self.match_generator = MatchIDGenerator(self.team_generator)
-        
+
         # Load existing IDs from storage (to be implemented)
         self._load_existing_ids()
-    
+
     def _load_existing_ids(self):
         """Load existing IDs from storage to avoid collisions."""
         try:
@@ -246,23 +295,23 @@ class IDManager:
             logger.info("ID Manager initialized with empty ID sets")
         except Exception as e:
             logger.warning(f"Failed to load existing IDs: {e}")
-    
+
     def generate_team_id(self, team_name: str) -> str:
         """Generate a team ID."""
         return self.team_generator.generate_team_id(team_name)
-    
-    def generate_player_id(self, first_name: str, last_name: str, existing_ids: Optional[Set[str]] = None) -> str:
+
+    def generate_player_id(self, first_name: str, last_name: str, existing_ids: set[str] | None = None) -> str:
         """Generate a player ID."""
         return self.player_generator.generate_player_id(first_name, last_name, existing_ids)
-    
+
     def generate_match_id(self, home_team: str, away_team: str, match_date: str, match_time: str = "") -> str:
         """Generate a match ID."""
         return self.match_generator.generate_match_id(home_team, away_team, match_date, match_time)
-    
-    def get_known_teams(self) -> Dict[str, str]:
+
+    def get_known_teams(self) -> dict[str, str]:
         """Get all known team mappings."""
         return self.team_generator.get_known_teams()
-    
+
     def clear_all(self):
         """Clear all stored IDs (useful for testing)."""
         self.team_generator.used_ids.clear()
@@ -283,12 +332,12 @@ def generate_team_id(team_name: str) -> str:
     return id_manager.generate_team_id(team_name)
 
 
-def generate_player_id(first_name: str, last_name: str, existing_ids: Optional[Set[str]] = None) -> str:
+def generate_player_id(first_name: str, last_name: str, existing_ids: set[str] | None = None) -> str:
     """Generate a player ID."""
     return id_manager.generate_player_id(first_name, last_name, existing_ids)
 
 
-def generate_player_id_from_name(name: str, team_id: str = "", existing_ids: Optional[Set[str]] = None) -> str:
+def generate_player_id_from_name(name: str, team_id: str, existing_ids: set[str] | None = None) -> str:
     """Generate a player ID from a full name, always appending '1' for the first instance."""
     # Split the name into first and last name
     name_parts = name.strip().split()
@@ -299,7 +348,7 @@ def generate_player_id_from_name(name: str, team_id: str = "", existing_ids: Opt
         # If only one name, use it for both
         first_name = name_parts[0] if name_parts else "Unknown"
         last_name = first_name
-    
+
     base_id = f"{first_name[0].upper()}{last_name[0].upper()}"
     # Always start with '1' appended
     candidate = f"{base_id}1"
@@ -319,7 +368,22 @@ def generate_player_id_from_name(name: str, team_id: str = "", existing_ids: Opt
 
 def generate_match_id(home_team: str, away_team: str, match_date: str, match_time: str = "") -> str:
     """Generate a match ID."""
-    return id_manager.generate_match_id(home_team, away_team, match_date, match_time)
+    team_generator = TeamIDGenerator()
+    match_generator = MatchIDGenerator(team_generator)
+    return match_generator.generate_match_id(home_team, away_team, match_date, match_time)
+
+
+def generate_team_member_id(name: str, existing_ids: set[str] | None = None) -> str:
+    """Generate a human-readable team member ID."""
+    generator = TeamMemberIDGenerator()
+    return generator.generate_team_member_id(name, existing_ids)
+
+
+def generate_team_member_id_from_name(name: str, team_id: str, existing_ids: set[str] | None = None) -> str:
+    """Generate a team member ID from name and team context."""
+    # For now, just use the name-based generation
+    # In the future, we could load existing IDs from the team's collection
+    return generate_team_member_id(name, existing_ids)
 
 
 # Example usage and testing
@@ -327,7 +391,7 @@ if __name__ == "__main__":
     # Test team ID generation
     logger.info("🧪 Testing ID Generation")
     logger.info("=" * 50)
-    
+
     teams = [
         "Team",
         "Liverpool",
@@ -338,12 +402,12 @@ if __name__ == "__main__":
         "Manchester City",
         "Everton"
     ]
-    
+
     logger.info("Team IDs:")
     for team in teams:
         team_id = generate_team_id(team)
         logger.info(f"  {team} -> {team_id}")
-    
+
     logger.info("\nPlayer IDs:")
     players = [
         ("John", "Smith"),
@@ -352,21 +416,21 @@ if __name__ == "__main__":
         ("James", "Brown"),
         ("Robert", "Jones")
     ]
-    
+
     existing_player_ids = set()
     for first, last in players:
         player_id = generate_player_id(first, last, existing_player_ids)
         logger.info(f"  {first} {last} -> {player_id}")
-    
+
     logger.info("\nMatch IDs:")
     matches = [
         ("Team", "Liverpool", "01/07/2025", "10:30"),
         ("Manchester United", "Arsenal", "15/07/2025", "14:00"),
         ("Chelsea", "Tottenham Hotspur", "22/07/2025", "16:30")
     ]
-    
+
     for home, away, date, time in matches:
         match_id = generate_match_id(home, away, date, time)
         logger.info(f"  {home} vs {away} on {date} @ {time} -> {match_id}")
-    
-    logger.info(f"\nKnown teams: {id_manager.get_known_teams()}") 
+
+    logger.info(f"\nKnown teams: {id_manager.get_known_teams()}")

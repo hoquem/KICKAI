@@ -15,39 +15,28 @@ maintainability and testability.
 
 # Import from the new modular structure
 from .startup_validation import (
-    StartupValidator,
-    run_startup_validation,
-    ValidationReport,
+    CheckCategory,
     CheckResult,
     CheckStatus,
-    CheckCategory
+    StartupValidator,
+    ValidationReport,
+    run_startup_validation,
 )
-
 from .startup_validation.checks import (
+    AgentInitializationCheck,
     ConfigurationCheck,
     LLMProviderCheck,
-    AgentInitializationCheck,
-    ToolConfigurationCheck,
-    DatabaseConnectivityCheck,
-    TeamMappingCheck,
-    CrewValidationCheck,
-    TelegramBotCheck
 )
 
 # Re-export for backward compatibility
 __all__ = [
-    'StartupValidator',
-    'run_startup_validation',
-    'ValidationReport',
+    'AgentInitializationCheck',
+    'CheckCategory',
     'CheckResult',
     'CheckStatus',
-    'CheckCategory',
     'ConfigurationCheck',
     'LLMProviderCheck',
-    'AgentInitializationCheck',
-    'ToolConfigurationCheck',
-    'DatabaseConnectivityCheck',
-    'TeamMappingCheck',
-    'CrewValidationCheck',
-    'TelegramBotCheck'
-] 
+    'StartupValidator',
+    'ValidationReport',
+    'run_startup_validation'
+]
