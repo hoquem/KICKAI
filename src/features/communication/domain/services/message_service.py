@@ -1,8 +1,11 @@
-from typing import List, Optional, Dict, Any
-from src.features.communication.domain.entities.message import Message
-from src.features.communication.domain.repositories.message_repository_interface import MessageRepositoryInterface
 from datetime import datetime
-import uuid
+from typing import Any
+
+from src.features.communication.domain.entities.message import Message
+from src.features.communication.domain.repositories.message_repository_interface import (
+    MessageRepositoryInterface,
+)
+
 
 class MessageService:
     """Service for handling messages in the communication domain."""
@@ -14,8 +17,8 @@ class MessageService:
         sender_id: str,
         recipient_id: str,
         content: str,
-        conversation_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        conversation_id: str | None = None,
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """Send a message and return the message ID."""
         if not conversation_id:
@@ -37,7 +40,7 @@ class MessageService:
         self,
         conversation_id: str,
         limit: int = 50
-    ) -> List[Message]:
+    ) -> list[Message]:
         """Fetch messages for a conversation."""
         raw_messages = await self._repo.get_by_conversation(conversation_id, limit)
-        return [Message(**msg) for msg in raw_messages] 
+        return [Message(**msg) for msg in raw_messages]

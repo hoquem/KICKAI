@@ -5,7 +5,7 @@ Defines the contract for payment-related operations in the clean architecture.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
+
 
 class IPaymentOperations(ABC):
     @abstractmethod
@@ -40,4 +40,4 @@ class IPaymentOperations(ABC):
         pass
     @abstractmethod
     async def record_expense(self, amount: float, description: str, category: str, team_id: str) -> tuple[bool, str]:
-        pass 
+        pass

@@ -6,9 +6,8 @@ This module registers all attendance management related commands with the comman
 Each feature maintains its own command definitions for clean separation.
 """
 
-from src.core.command_registry import command, CommandType, PermissionLevel
+from src.core.command_registry import CommandType, PermissionLevel, command
 from src.core.enums import ChatType
-
 
 # ============================================================================
 # ATTENDANCE MANAGEMENT COMMANDS
@@ -188,4 +187,4 @@ Alert types:
 async def handle_attendancealerts_command(update, context, **kwargs):
     """Handle /attendancealerts command."""
     # This will be handled by the agent system
-    return None 
+    return None

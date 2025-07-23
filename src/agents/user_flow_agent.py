@@ -6,14 +6,14 @@ This agent handles all user flow management including first user registration,
 unregistered user guidance, and user status determination.
 """
 
-import logging
-from typing import Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+
 from loguru import logger
 
-from core.enums import ChatType
-from core.constants import BOT_VERSION
+from src.core.constants import BOT_VERSION
+from src.core.enums import ChatType
 
 
 class UserFlowDecision(Enum):
@@ -39,7 +39,7 @@ class AgentResponse:
     """Agent response structure."""
     message: str
     success: bool = True
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class UserFlowAgent:
@@ -52,7 +52,7 @@ class UserFlowAgent:
     - User status determination
     - Welcome message formatting
     """
-    
+
     def __init__(self, team_id: str, **kwargs):
         self.team_id = team_id
         self.role = "User Flow Manager"
@@ -60,28 +60,28 @@ class UserFlowAgent:
         self.backstory = """You are a User Flow Manager for KICKAI, responsible for determining 
         the appropriate user experience based on user status and context. You handle first user 
         registration, unregistered user guidance, and ensure smooth user onboarding."""
-        
+
         logger.info(f"🤖 UserFlowAgent initialized for team {team_id}")
-    
+
     async def determine_user_flow(self, user_id: str, chat_type: ChatType, command: str = None) -> UserFlowDecision:
         """Determine the appropriate user flow based on user status and context."""
         try:
-            # Check user registration status
-            is_registered = await self._check_user_registration(user_id)
+            # Check user registration status based on CHAT CONTEXT
+            is_registered = await self._check_user_registration_context_aware(user_id, chat_type)
             if not is_registered:
-                logger.info(f"🔍 User flow: Unregistered user detected for {user_id}")
+                logger.info(f"🔍 User flow: Unregistered user detected for {user_id} in {chat_type.value} chat")
                 return UserFlowDecision.UNREGISTERED_USER
-            
+
             # Regular registered user
-            logger.info(f"🔍 User flow: Registered user detected for {user_id}")
+            logger.info(f"🔍 User flow: Registered user detected for {user_id} in {chat_type.value} chat")
             return UserFlowDecision.REGISTERED_USER
-            
+
         except Exception as e:
             logger.error(f"User flow determination failed: {e}")
             return UserFlowDecision.UNREGISTERED_USER
-    
 
-    
+
+
     async def handle_unregistered_user_flow(self, message: TelegramMessage) -> AgentResponse:
         """Handle unregistered user guidance flow."""
         try:
@@ -96,7 +96,7 @@ class UserFlowAgent:
                 success=False,
                 error=str(e)
             )
-    
+
     async def handle_registered_user_flow(self, message: TelegramMessage) -> AgentResponse:
         """Handle registered user flow."""
         try:
@@ -111,7 +111,7 @@ class UserFlowAgent:
                 success=False,
                 error=str(e)
             )
-    
+
     # Tool methods for CrewAI integration
     def _check_user_registration_tool(self, user_id: str, team_id: str = None) -> str:
         """Tool: Check if user is registered in the system."""
@@ -120,8 +120,8 @@ class UserFlowAgent:
             # For now, return a simple response
             return f"User {user_id} registration status check completed"
         except Exception as e:
-            return f"Error checking user registration: {str(e)}"
-    
+            return f"Error checking user registration: {e!s}"
+
 
 
             message = (
@@ -149,7 +149,7 @@ class UserFlowAgent:
                 f"Ready to get started? Use the /register command above!"
             )
 
-    
+
     def _format_unregistered_user_message_tool(self, chat_type: str, team_id: str, username: str) -> str:
         """Tool: Format unregistered user message based on chat type."""
         try:
@@ -212,8 +212,8 @@ class UserFlowAgent:
                 )
             return message
         except Exception as e:
-            return f"Error formatting unregistered user message: {str(e)}"
-    
+            return f"Error formatting unregistered user message: {e!s}"
+
     def _format_registered_user_message_tool(self, user_id: str, team_id: str, username: str) -> str:
         """Tool: Format registered user message."""
         try:
@@ -235,8 +235,8 @@ class UserFlowAgent:
             )
             return message
         except Exception as e:
-            return f"Error formatting registered user message: {str(e)}"
-    
+            return f"Error formatting registered user message: {e!s}"
+
     def _determine_user_flow_tool(self, user_id: str, chat_type: str, team_id: str = None) -> str:
         """Tool: Determine user flow based on user status and context."""
         try:
@@ -244,39 +244,39 @@ class UserFlowAgent:
             # The actual logic is in the async methods
             return f"User flow determination completed for user {user_id} in {chat_type} chat"
         except Exception as e:
-            return f"Error determining user flow: {str(e)}"
-    
+            return f"Error determining user flow: {e!s}"
+
     # Service access helpers with proper error handling and lazy initialization
     async def _get_player_service(self):
         """Get PlayerService with proper error handling."""
         try:
-            from core.dependency_container import get_container
-            from features.player_registration.domain.services.player_service import PlayerService
-            
+            from src.core.dependency_container import get_container
+            from src.features.player_registration.domain.services.player_service import PlayerService
+
             # Get the already-initialized container
             container = get_container()
-            
+
             # Try to get service directly - don't check has_service as it can return False during initialization
             try:
                 return container.get_service(PlayerService)
             except RuntimeError as e:
                 logger.debug(f"PlayerService not available in container: {e}")
                 return None
-                
+
         except Exception as e:
             logger.debug(f"PlayerService not available: {e}")
             return None
-    
+
     async def _get_team_service(self):
         """Get TeamService with proper error handling."""
         try:
-            from core.dependency_container import get_container
-            from features.team_administration.domain.services.team_service import TeamService
-            
+            from src.core.dependency_container import get_container
+            from src.features.team_administration.domain.services.team_service import TeamService
+
             # Get the already-initialized container
             container = get_container()
             logger.info(f"🔍 [SERVICE_CHECK] Got container: {container}")
-            
+
             # Try to get service directly - don't check has_service as it can return False during initialization
             try:
                 service = container.get_service(TeamService)
@@ -285,7 +285,7 @@ class UserFlowAgent:
             except RuntimeError as e:
                 logger.error(f"❌ [SERVICE_CHECK] TeamService not available in container: {e}")
                 return None
-                
+
         except Exception as e:
             logger.error(f"❌ [SERVICE_CHECK] TeamService not available: {e}")
             import traceback
@@ -299,12 +299,12 @@ class UserFlowAgent:
             # Get services with proper error handling
             player_service = await self._get_player_service()
             team_service = await self._get_team_service()
-            
+
             # If services are not available, assume unregistered (graceful degradation)
             if not player_service and not team_service:
                 logger.warning(f"⚠️ Services not available for user registration check, assuming unregistered for user {user_id}")
                 return False
-            
+
             # Check if user exists as a player
             if player_service:
                 try:
@@ -314,7 +314,7 @@ class UserFlowAgent:
                         return True
                 except Exception as e:
                     logger.debug(f"User {user_id} not found as player: {e}")
-            
+
             # Check if user exists as a team member
             if team_service:
                 try:
@@ -331,20 +331,72 @@ class UserFlowAgent:
                     logger.error(f"❌ Exception in team member check: {e}")
                     import traceback
                     logger.error(f"❌ Traceback: {traceback.format_exc()}")
-            
+
             logger.info(f"❌ User {user_id} not registered in the system")
             return False
-            
+
         except Exception as e:
             logger.warning(f"⚠️ Error checking user registration, assuming unregistered: {e}")
             return False
-    
 
-    
+    async def _check_user_registration_context_aware(self, user_id: str, chat_type: ChatType) -> bool:
+        """Check if user is registered in the system based on chat context."""
+        try:
+            # Get services with proper error handling
+            player_service = await self._get_player_service()
+            team_service = await self._get_team_service()
+
+            # If services are not available, assume unregistered (graceful degradation)
+            if not player_service and not team_service:
+                logger.warning(f"⚠️ Services not available for user registration check, assuming unregistered for user {user_id}")
+                return False
+
+            # Check registration based on CHAT CONTEXT
+            if chat_type == ChatType.MAIN:
+                # In main chat, only players are considered registered
+                if player_service:
+                    try:
+                        player = await player_service.get_player_by_telegram_id(user_id, self.team_id)
+                        if player:
+                            logger.info(f"✅ User {user_id} found as registered player in main chat")
+                            return True
+                    except Exception as e:
+                        logger.debug(f"User {user_id} not found as player: {e}")
+                
+                logger.info(f"❌ User {user_id} not registered as player in main chat")
+                return False
+                
+            elif chat_type == ChatType.LEADERSHIP:
+                # In leadership chat, only team members are considered registered
+                if team_service:
+                    try:
+                        logger.info(f"🔍 [USER_REG_CHECK] Looking for team member with telegram_id={user_id}, team_id={self.team_id}")
+                        team_member = await team_service.get_team_member_by_telegram_id(self.team_id, user_id)
+                        if team_member:
+                            logger.info(f"✅ User {user_id} found as team member in leadership chat: {team_member.user_id} with role {team_member.role}")
+                            return True
+                    except Exception as e:
+                        logger.error(f"❌ Exception in team member check: {e}")
+                        import traceback
+                        logger.error(f"❌ Traceback: {traceback.format_exc()}")
+                
+                logger.info(f"❌ User {user_id} not registered as team member in leadership chat")
+                return False
+            else:
+                # Unknown chat type, assume unregistered
+                logger.warning(f"⚠️ Unknown chat type {chat_type}, assuming unregistered for user {user_id}")
+                return False
+
+        except Exception as e:
+            logger.warning(f"⚠️ Error checking user registration, assuming unregistered: {e}")
+            return False
+
+
+
     async def _format_unregistered_user_message(self, chat_type: ChatType, team_id: str, username: str) -> str:
         """Format unregistered user message based on chat type."""
         return self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
-    
+
     async def _format_registered_user_message(self, user_id: str, team_id: str, username: str) -> str:
         """Format registered user message."""
-        return self._format_registered_user_message_tool(user_id, team_id, username) 
+        return self._format_registered_user_message_tool(user_id, team_id, username)

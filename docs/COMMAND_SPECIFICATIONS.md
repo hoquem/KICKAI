@@ -577,6 +577,121 @@ You can also ask me questions in natural language!
 
 ## Command Specifications
 
+### `/start` Command
+
+#### Agentic Implementation Overview
+
+The `/start` command is implemented using the **MessageProcessorAgent** that handles welcome messages and user initialization.
+
+**Key Components:**
+- **MessageProcessorAgent**: Specialized agent for start command processing
+- **User Flow Detection**: Unregistered user detection
+- **Welcome Message Service**: Handles context-aware welcome messages
+- **User Session Setup**: Initializes user session and context
+
+#### Expected Behavior by Chat Type and User Status
+
+**Main Chat - Unregistered User (`/start` command):**
+```
+👋 Welcome to KICKAI for {team_id}, {username}!
+
+🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant
+
+🎯 To join the team as a player:
+
+📞 Contact Team Leadership
+You need to be added as a player by someone in the team's leadership.
+
+💬 What to do:
+1. Reach out to someone in the team's leadership chat
+2. Ask them to add you as a player using the `/add` command
+3. They'll send you an invite link to join the main chat
+4. Once added, you can register with your full details
+
+❓ Got here by mistake?
+If you're not interested in joining the team, you can leave this chat.
+
+🤖 Need help?
+Use /help to see available commands or ask me questions!
+```
+
+**Main Chat - Registered User (`/start` command):**
+```
+👋 Welcome back to KICKAI for {team_id}, {username}!
+
+🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant
+
+✅ You are already registered as a player in the team.
+
+📋 Your Information:
+• User ID: {user_id}
+• Username: {username}
+• Status: Active Player
+
+💡 Need to update your information?
+Contact the team leadership to make any changes.
+
+🎯 What you can do:
+• Use /myinfo to check your details
+• Use /list to see team members
+• Use /status to check your availability
+• Ask me questions in natural language!
+```
+
+**Leadership Chat - Unregistered User (`/start` command):**
+```
+👋 Welcome to KICKAI Leadership for {team_id}, {username}!
+
+🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant
+
+🤔 I don't see you registered as a team member yet.
+
+📝 Please provide your details so I can add you to the team members collection.
+
+💡 You can use:
+/register [name] [phone] [role]
+
+Example:
+/register John Smith +1234567890 Assistant Coach
+
+🎯 Your role can be:
+• Team Manager, Coach, Assistant Coach
+• Club Administrator, Treasurer
+• Volunteer Coordinator, etc.
+
+🚀 Once registered, you can:
+• Add other team members and players
+• Generate invite links for chats
+• Manage the team system
+
+Ready to get started? Use the /register command above!
+```
+
+**Leadership Chat - Registered User (`/start` command):**
+```
+👋 Welcome back to KICKAI Leadership for {team_id}, {username}!
+
+🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant
+
+✅ You are already registered as a team member.
+
+📋 Your Information:
+• User ID: {user_id}
+• Username: {username}
+• Role: {role}
+• Status: Active Team Member
+
+💡 Need to update your information?
+Contact the team administrator to make any changes.
+
+🎯 What you can do:
+• Use /myinfo to check your details
+• Use /list to see all team members and players
+• Use /add to add new players
+• Use /approve to approve registrations
+• Ask me questions in natural language!
+```
+
 ### `/register` Command
 
 #### Agentic Implementation Overview

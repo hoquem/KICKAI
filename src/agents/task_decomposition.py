@@ -6,13 +6,11 @@ This module breaks down the complex DynamicTaskDecomposer into smaller, focused 
 following the single responsibility principle and making the code more maintainable.
 """
 
-import logging
 import json
-from abc import ABC, abstractmethod
+import logging
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any
 
 # Import the correct AgentRole enum from the main enums file
 from core.enums import AgentRole
@@ -48,8 +46,8 @@ class TaskContext:
     task_id: str
     user_id: str
     team_id: str
-    parameters: Dict[str, Any]
-    metadata: Dict[str, Any]
+    parameters: dict[str, Any]
+    metadata: dict[str, Any]
 
 
 @dataclass
@@ -58,9 +56,9 @@ class Subtask:
     task_id: str
     description: str
     agent_role: AgentRole
-    capabilities_required: List[CapabilityType]
-    parameters: Dict[str, Any] = None
-    dependencies: List[str] = None
+    capabilities_required: list[CapabilityType]
+    parameters: dict[str, Any] = None
+    dependencies: list[str] = None
     estimated_duration: int = 60
     priority: int = 1
 
@@ -80,18 +78,18 @@ class TaskTemplate:
     """Template for common task types."""
     name: str
     description: str
-    capabilities: List[CapabilityType]
+    capabilities: list[CapabilityType]
     agent_role: AgentRole
     estimated_duration: int
 
 
 class TaskTemplateLoader:
     """Loads and manages task templates."""
-    
+
     def __init__(self):
         self.templates = self._load_templates()
-    
-    def _load_templates(self) -> Dict[str, TaskTemplate]:
+
+    def _load_templates(self) -> dict[str, TaskTemplate]:
         """Load task templates for common operations."""
         return {
             'player_registration': TaskTemplate(
@@ -137,51 +135,51 @@ class TaskTemplateLoader:
                 estimated_duration=180
             )
         }
-    
-    def get_template(self, template_name: str) -> Optional[TaskTemplate]:
+
+    def get_template(self, template_name: str) -> TaskTemplate | None:
         """Get a task template by name."""
         return self.templates.get(template_name)
-    
-    def get_all_templates(self) -> Dict[str, TaskTemplate]:
+
+    def get_all_templates(self) -> dict[str, TaskTemplate]:
         """Get all task templates."""
         return self.templates.copy()
 
 
 class ComplexityAnalyzer:
     """Analyzes task complexity using simple heuristics."""
-    
+
     def __init__(self):
         self.multi_step_indicators = ['and', 'then', 'also', 'additionally', 'furthermore']
         self.coordination_indicators = ['coordinate', 'organize', 'manage', 'plan']
         self.analysis_indicators = ['analyze', 'review', 'assess', 'evaluate', 'report']
         self.simple_indicators = ['check', 'get', 'show', 'display', 'status']
-    
+
     def analyze_complexity(self, task: str, context: TaskContext) -> TaskComplexity:
         """Analyze the complexity of a task based on content and context."""
         task_lower = task.lower()
-        
+
         # Check for multi-step operations
         if any(indicator in task_lower for indicator in self.multi_step_indicators):
             return TaskComplexity.COMPLEX
-        
+
         # Check for coordination requirements
         if any(indicator in task_lower for indicator in self.coordination_indicators):
             return TaskComplexity.MODERATE
-        
+
         # Check for analysis tasks
         if any(indicator in task_lower for indicator in self.analysis_indicators):
             return TaskComplexity.MODERATE
-        
+
         # Check for simple operations
         if any(indicator in task_lower for indicator in self.simple_indicators):
             return TaskComplexity.SIMPLE
-        
+
         return TaskComplexity.MODERATE
 
 
 class CapabilityIdentifier:
     """Identifies required capabilities based on task content."""
-    
+
     def __init__(self):
         self.primary_mappings = {
             CapabilityType.PLAYER_ONBOARDING: ['player', 'registration', 'register', 'onboard'],
@@ -195,7 +193,7 @@ class CapabilityIdentifier:
             CapabilityType.STRATEGIC_DECISION_MAKING: ['decide', 'choose', 'select', 'decision'],
             CapabilityType.NATURAL_LANGUAGE_UNDERSTANDING: ['help', 'what', 'how', 'why', 'understand', 'interpret', 'parse', 'guide', 'assist']
         }
-        
+
         self.secondary_mappings = {
             CapabilityType.NATURAL_LANGUAGE_UNDERSTANDING: ['what', 'how', 'why', 'understand', 'interpret', 'parse'],
             CapabilityType.MULTI_AGENT_COORDINATION: ['coordinate', 'organize', 'manage', 'arrange'],
@@ -203,57 +201,57 @@ class CapabilityIdentifier:
             CapabilityType.DATA_RETRIEVAL: ['get', 'fetch', 'retrieve', 'query'],
             CapabilityType.ROUTING: ['route', 'direct', 'forward', 'send to']
         }
-    
-    def identify_capabilities(self, task: str) -> List[CapabilityType]:
+
+    def identify_capabilities(self, task: str) -> list[CapabilityType]:
         """Identify required capabilities based on task content with intelligent prioritization."""
         required_capabilities = []
         task_lower = task.lower()
-        
+
         # Check primary capabilities first
         for capability, keywords in self.primary_mappings.items():
             if any(keyword in task_lower for keyword in keywords):
                 required_capabilities.append(capability)
                 break  # Only take the first primary capability match
-        
+
         # Check secondary capabilities (limit to 1-2)
         secondary_caps = []
         for capability, keywords in self.secondary_mappings.items():
             if any(keyword in task_lower for keyword in keywords):
                 secondary_caps.append(capability)
-        
+
         # Add up to 2 secondary capabilities
         required_capabilities.extend(secondary_caps[:2])
-        
+
         # Ensure we don't have too many capabilities (max 3 total)
         required_capabilities = required_capabilities[:3]
-        
+
         # If no capabilities identified, add a default
         if not required_capabilities:
             if 'status' in task_lower or 'info' in task_lower:
                 required_capabilities.append(CapabilityType.PLAYER_STATUS_TRACKING)
             else:
                 required_capabilities.append(CapabilityType.NATURAL_LANGUAGE_UNDERSTANDING)
-        
+
         logger.debug(f"Identified capabilities for '{task}': {[cap.value for cap in required_capabilities]}")
         return required_capabilities
 
 
 class AgentRouter:
     """Routes tasks to the most appropriate agent based on capabilities."""
-    
+
     def __init__(self):
         pass
-    
-    def find_best_agent(self, capabilities: List[CapabilityType]) -> AgentRole:
+
+    def find_best_agent(self, capabilities: list[CapabilityType]) -> AgentRole:
         """Find the best agent for the given capabilities."""
         if not capabilities:
             logger.warning("No capabilities provided, defaulting to MESSAGE_PROCESSOR.")
             return AgentRole.MESSAGE_PROCESSOR
-        
+
         # Simplified agent routing - capability matrix moved to modular structure
         # Default routing based on primary capability
         primary_capability = capabilities[0] if capabilities else None
-        
+
         if primary_capability == CapabilityType.PLAYER_ONBOARDING:
             return AgentRole.PLAYER_COORDINATOR
         elif primary_capability == CapabilityType.PLAYER_STATUS_TRACKING:
@@ -273,10 +271,10 @@ class AgentRouter:
 
 class LLMDecomposer:
     """Handles LLM-based task decomposition."""
-    
+
     def __init__(self, llm):
         self.llm = llm
-    
+
     def _create_decomposition_prompt(self, task: str, context: TaskContext) -> str:
         """Create a structured prompt for LLM-based task decomposition."""
         return f"""
@@ -450,27 +448,27 @@ Example 3 - Help Request: "/help"
 
 Now decompose the user request above following these guidelines and examples.
 """
-    
-    def decompose_with_llm(self, task: str, context: TaskContext) -> List[Subtask]:
+
+    def decompose_with_llm(self, task: str, context: TaskContext) -> list[Subtask]:
         """Decompose complex tasks using LLM."""
         if not self.llm:
             raise ValueError("LLM not available for decomposition")
-        
+
         try:
             prompt = self._create_decomposition_prompt(task, context)
             response = self.llm.invoke(prompt)
-            
+
             try:
                 data = json.loads(response.content)
                 subtasks = []
-                
+
                 for i, subtask_data in enumerate(data.get('subtasks', [])):
                     agent_role_str = subtask_data.get('agent_role', 'MESSAGE_PROCESSOR')
                     try:
                         agent_role = AgentRole(agent_role_str.lower())
                     except ValueError:
                         agent_role = AgentRole.MESSAGE_PROCESSOR
-                    
+
                     capabilities = []
                     for cap_str in subtask_data.get('capabilities_required', []):
                         try:
@@ -478,7 +476,7 @@ Now decompose the user request above following these guidelines and examples.
                             capabilities.append(capability)
                         except ValueError:
                             continue
-                    
+
                     subtask = Subtask(
                         task_id=f"{context.task_id}_subtask_{i+1}",
                         description=subtask_data.get('description', task),
@@ -490,13 +488,13 @@ Now decompose the user request above following these guidelines and examples.
                         priority=subtask_data.get('priority', 1)
                     )
                     subtasks.append(subtask)
-                
+
                 return subtasks
-                
+
             except json.JSONDecodeError:
                 logger.warning(f"Invalid JSON response from LLM: {response}")
                 raise ValueError("Invalid JSON response from LLM")
-                
+
         except Exception as e:
             logger.error(f"Error in LLM decomposition: {e}")
             raise
@@ -504,17 +502,17 @@ Now decompose the user request above following these guidelines and examples.
 
 class SimpleTaskDecomposer:
     """Simple rule-based task decomposition."""
-    
+
     def __init__(self):
         self.complexity_analyzer = ComplexityAnalyzer()
         self.capability_identifier = CapabilityIdentifier()
         self.agent_router = AgentRouter()
-    
-    def decompose_simple_task(self, task: str, context: TaskContext) -> List[Subtask]:
+
+    def decompose_simple_task(self, task: str, context: TaskContext) -> list[Subtask]:
         """Decompose a simple task into a single subtask."""
         required_capabilities = self.capability_identifier.identify_capabilities(task)
         agent_role = self.agent_router.find_best_agent(required_capabilities)
-        
+
         subtask = Subtask(
             task_id=f"{context.task_id}_subtask_1",
             description=task,
@@ -524,13 +522,13 @@ class SimpleTaskDecomposer:
             estimated_duration=30
         )
         return [subtask]
-    
-    def decompose_moderate_task(self, task: str, context: TaskContext) -> List[Subtask]:
+
+    def decompose_moderate_task(self, task: str, context: TaskContext) -> list[Subtask]:
         """Decompose a moderate task into multiple subtasks for the same agent."""
         required_capabilities = self.capability_identifier.identify_capabilities(task)
         agent_role = self.agent_router.find_best_agent(required_capabilities)
         subtasks = []
-        
+
         # Split by capability if multiple capabilities required
         for i, capability in enumerate(required_capabilities):
             subtask = Subtask(
@@ -542,13 +540,13 @@ class SimpleTaskDecomposer:
                 estimated_duration=45
             )
             subtasks.append(subtask)
-        
+
         return subtasks
 
 
 class TaskDecompositionManager:
     """Main task decomposition manager that orchestrates the decomposition process."""
-    
+
     def __init__(self, llm=None):
         self.llm = llm
         self.template_loader = TaskTemplateLoader()
@@ -558,13 +556,13 @@ class TaskDecompositionManager:
         self.simple_decomposer = SimpleTaskDecomposer()
         self.llm_decomposer = LLMDecomposer(llm) if llm else None
         self.decomposition_history = []
-        
+
         logger.info("TaskDecompositionManager initialized")
-    
-    def decompose(self, task: str, context: TaskContext, _recursion_depth: int = 0) -> List[Subtask]:
+
+    def decompose(self, task: str, context: TaskContext, _recursion_depth: int = 0) -> list[Subtask]:
         """Decompose a task into subtasks using rule-based approach, with recursion protection."""
         MAX_RECURSION_DEPTH = 3
-        
+
         if _recursion_depth > MAX_RECURSION_DEPTH:
             logger.error(f"Max recursion depth reached in TaskDecompositionManager.decompose for task: {task}")
             # Fallback: return a single subtask
@@ -577,15 +575,15 @@ class TaskDecompositionManager:
                 parameters=context.parameters,
                 estimated_duration=60
             )]
-        
+
         complexity = self.complexity_analyzer.analyze_complexity(task, context)
-        
+
         if complexity == TaskComplexity.SIMPLE:
             return self.simple_decomposer.decompose_simple_task(task, context)
-        
+
         elif complexity == TaskComplexity.MODERATE:
             return self.simple_decomposer.decompose_moderate_task(task, context)
-        
+
         else:
             # Complex tasks - use LLM if available
             if self.llm_decomposer:
@@ -596,26 +594,26 @@ class TaskDecompositionManager:
                     return self.simple_decomposer.decompose_simple_task(task, context)
             else:
                 return self.simple_decomposer.decompose_simple_task(task, context)
-    
-    def get_decomposition_analytics(self) -> Dict[str, Any]:
+
+    def get_decomposition_analytics(self) -> dict[str, Any]:
         """Get analytics about task decomposition."""
         if not self.decomposition_history:
             return {}
-        
+
         total_decompositions = len(self.decomposition_history)
         complexity_counts = {}
         avg_subtasks = 0
-        
+
         for entry in self.decomposition_history:
             complexity = entry.get('complexity', 'UNKNOWN')
             complexity_counts[complexity] = complexity_counts.get(complexity, 0) + 1
             avg_subtasks += entry.get('subtasks_count', 0)
-        
+
         avg_subtasks = avg_subtasks / total_decompositions if total_decompositions > 0 else 0
-        
+
         return {
             'total_decompositions': total_decompositions,
             'complexity_distribution': complexity_counts,
             'average_subtasks_per_decomposition': avg_subtasks,
             'recent_decompositions': self.decomposition_history[-10:]  # Last 10
-        } 
+        }

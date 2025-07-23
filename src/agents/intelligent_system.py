@@ -7,8 +7,8 @@ This module provides intent classification and intelligent routing for the CrewA
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, List
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -31,19 +31,19 @@ class IntentResult:
     """Result of intent classification."""
     intent: IntentType
     confidence: float  # 0.0 to 1.0
-    entities: Dict[str, Any]
+    entities: dict[str, Any]
     reasoning: str
 
 
 class IntentClassifier:
     """Simple rule-based intent classifier."""
-    
+
     def __init__(self, llm=None):
         self.llm = llm
         self.intent_patterns = self._build_intent_patterns()
         logger.info("IntentClassifier initialized")
-    
-    def _build_intent_patterns(self) -> Dict[IntentType, List[str]]:
+
+    def _build_intent_patterns(self) -> dict[IntentType, list[str]]:
         """Build patterns for intent classification."""
         return {
             IntentType.PLAYER_REGISTRATION: [
@@ -79,8 +79,8 @@ class IntentClassifier:
                 "good evening", "greetings"
             ]
         }
-    
-    def classify(self, text: str, context: Dict[str, Any] = None) -> IntentResult:
+
+    def classify(self, text: str, context: dict[str, Any] = None) -> IntentResult:
         """
         Classify the intent of a text message.
         
@@ -93,16 +93,16 @@ class IntentClassifier:
         """
         try:
             text_lower = text.lower().strip()
-            
+
             # Check for exact command matches first
             if text_lower.startswith('/'):
                 return self._classify_command(text_lower)
-            
+
             # Check for pattern matches
             best_intent = IntentType.UNKNOWN
             best_confidence = 0.0
             best_reasoning = "No patterns matched"
-            
+
             for intent_type, patterns in self.intent_patterns.items():
                 for pattern in patterns:
                     if pattern in text_lower:
@@ -111,39 +111,39 @@ class IntentClassifier:
                             best_confidence = confidence
                             best_intent = intent_type
                             best_reasoning = f"Matched pattern: '{pattern}'"
-            
+
             # Extract entities based on intent
             entities = self._extract_entities(text_lower, best_intent, context)
-            
+
             # Boost confidence for certain patterns
             if best_intent != IntentType.UNKNOWN:
                 best_confidence = min(1.0, best_confidence + 0.3)  # Boost confidence
-            
+
             return IntentResult(
                 intent=best_intent,
                 confidence=best_confidence,
                 entities=entities,
                 reasoning=best_reasoning
             )
-            
+
         except Exception as e:
             logger.error(f"Error in intent classification: {e}")
             return IntentResult(
                 intent=IntentType.UNKNOWN,
                 confidence=0.0,
                 entities={},
-                reasoning=f"Error during classification: {str(e)}"
+                reasoning=f"Error during classification: {e!s}"
             )
-    
+
     def _classify_command(self, text: str) -> IntentResult:
         """Classify slash commands using the command registry as single source of truth."""
         try:
             from core.command_registry_initializer import get_initialized_command_registry
-            
+
             # Get command from registry
             registry = get_initialized_command_registry()
             command_metadata = registry.get_command(text)
-            
+
             if command_metadata:
                 # Map command type to intent type
                 intent_mapping = {
@@ -154,9 +154,9 @@ class IntentClassifier:
                     'attendance_management': IntentType.ATTENDANCE_MANAGEMENT,
                     'communication': IntentType.HELP_REQUEST,  # Help/start commands
                 }
-                
+
                 intent_type = intent_mapping.get(command_metadata.feature, IntentType.INFORMATION_QUERY)
-                
+
                 return IntentResult(
                     intent=intent_type,
                     confidence=1.0,
@@ -167,7 +167,7 @@ class IntentClassifier:
                     },
                     reasoning=f"Command from registry: {command_metadata.name}"
                 )
-            
+
             # Fallback for unregistered commands
             return IntentResult(
                 intent=IntentType.UNKNOWN,
@@ -175,20 +175,20 @@ class IntentClassifier:
                 entities={'command_name': text, 'feature': 'unknown', 'permission_level': 'public'},
                 reasoning="Command not found in registry"
             )
-            
+
         except Exception as e:
             logger.error(f"Error classifying command {text}: {e}")
             return IntentResult(
                 intent=IntentType.UNKNOWN,
                 confidence=0.0,
                 entities={'command_name': text, 'feature': 'unknown', 'permission_level': 'public'},
-                reasoning=f"Error during command classification: {str(e)}"
+                reasoning=f"Error during command classification: {e!s}"
             )
-    
-    def _extract_entities(self, text: str, intent: IntentType, context: Dict[str, Any] = None) -> Dict[str, Any]:
+
+    def _extract_entities(self, text: str, intent: IntentType, context: dict[str, Any] = None) -> dict[str, Any]:
         """Extract entities from text based on intent."""
         entities = {}
-        
+
         if intent == IntentType.PLAYER_REGISTRATION:
             # Extract name, phone, position from text
             words = text.split()
@@ -202,7 +202,7 @@ class IntentClassifier:
                     if i < len(words) - 1:
                         entities['position'] = ' '.join(words[i+1:])
                     break
-        
+
         elif intent == IntentType.TEAM_MANAGEMENT:
             # Extract role, name, phone
             words = text.split()
@@ -214,9 +214,9 @@ class IntentClassifier:
                     if i < len(words) - 1:
                         entities['role'] = ' '.join(words[i+1:])
                     break
-        
+
         # Add context entities
         if context:
             entities.update(context)
-        
-        return entities 
+
+        return entities

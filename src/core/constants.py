@@ -8,10 +8,8 @@ inconsistencies and maintenance issues.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Tuple, Dict, Any, FrozenSet
-from enum import Enum
-from core.enums import ChatType, PermissionLevel
 
+from core.enums import ChatType, PermissionLevel
 
 # =============================================================================
 # SYSTEM CONSTANTS
@@ -19,6 +17,15 @@ from core.enums import ChatType, PermissionLevel
 
 BOT_VERSION = "2.0.0"
 
+# =============================================================================
+# FIRESTORE CONSTANTS
+# =============================================================================
+
+FIRESTORE_COLLECTION_PREFIX = "kickai"
+
+def get_team_members_collection(team_id: str) -> str:
+    """Get the collection name for team members."""
+    return f"{FIRESTORE_COLLECTION_PREFIX}_{team_id}_team_members"
 
 # =============================================================================
 # COMMAND CONSTANTS
@@ -30,10 +37,10 @@ class CommandDefinition:
     name: str
     description: str
     permission_level: PermissionLevel
-    chat_types: FrozenSet[ChatType]
-    examples: Tuple[str, ...] = field(default_factory=tuple)
+    chat_types: frozenset[ChatType]
+    examples: tuple[str, ...] = field(default_factory=tuple)
     feature: str = "shared"
-    
+
     def __post_init__(self):
         # Ensure name starts with /
         if not self.name.startswith('/'):
@@ -510,13 +517,13 @@ for cmd in ALL_COMMANDS:
     if cmd.feature not in COMMANDS_BY_FEATURE:
         COMMANDS_BY_FEATURE[cmd.feature] = set()
     COMMANDS_BY_FEATURE[cmd.feature].add(cmd)
-    
+
     # By chat type
     for chat_type in cmd.chat_types:
         if chat_type not in COMMANDS_BY_CHAT_TYPE:
             COMMANDS_BY_CHAT_TYPE[chat_type] = set()
         COMMANDS_BY_CHAT_TYPE[chat_type].add(cmd)
-    
+
     # By permission level
     if cmd.permission_level not in COMMANDS_BY_PERMISSION:
         COMMANDS_BY_PERMISSION[cmd.permission_level] = set()
@@ -542,15 +549,15 @@ CHAT_TYPE_DESCRIPTIONS = {
 # UTILITY FUNCTIONS
 # =============================================================================
 
-def get_commands_for_chat_type(chat_type: ChatType) -> List[CommandDefinition]:
+def get_commands_for_chat_type(chat_type: ChatType) -> list[CommandDefinition]:
     """Get all commands available for a specific chat type."""
     return sorted(COMMANDS_BY_CHAT_TYPE.get(chat_type, []), key=lambda x: x.name)
 
-def get_commands_for_permission_level(permission_level: PermissionLevel) -> List[CommandDefinition]:
+def get_commands_for_permission_level(permission_level: PermissionLevel) -> list[CommandDefinition]:
     """Get all commands available for a specific permission level."""
     return sorted(COMMANDS_BY_PERMISSION.get(permission_level, []), key=lambda x: x.name)
 
-def get_commands_for_feature(feature: str) -> List[CommandDefinition]:
+def get_commands_for_feature(feature: str) -> list[CommandDefinition]:
     """Get all commands for a specific feature."""
     return sorted(COMMANDS_BY_FEATURE.get(feature, []), key=lambda x: x.name)
 
@@ -579,7 +586,7 @@ def get_chat_type_description(chat_type: ChatType) -> str:
 def normalize_chat_type(chat_type: str) -> ChatType:
     """Normalize chat type string to enum."""
     chat_type_lower = chat_type.lower()
-    
+
     if chat_type_lower in ["main_chat", "main"]:
         return ChatType.MAIN
     elif chat_type_lower in ["leadership_chat", "leadership"]:
@@ -588,4 +595,4 @@ def normalize_chat_type(chat_type: str) -> ChatType:
         return ChatType.PRIVATE
     else:
         # Default to main chat for unknown types
-        return ChatType.MAIN 
+        return ChatType.MAIN
