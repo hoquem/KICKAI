@@ -15,6 +15,7 @@ from core.enums import ChatType
 from agents.user_flow_agent import UserFlowAgent, TelegramMessage, AgentResponse, UserFlowDecision
 from agents.crew_agents import TeamManagementSystem
 from agents.crew_lifecycle_manager import get_crew_lifecycle_manager
+from core.context_types import StandardizedContext, create_context_from_telegram_message, enhance_context_with_user_data
 
 
 @dataclass
@@ -147,17 +148,23 @@ Example:
             AgentResponse with the processed result
         """
         try:
-            # Create execution context for CrewAI system
-            execution_context = {
-                'user_id': message.user_id,
-                'team_id': message.team_id,
-                'chat_id': message.chat_id,
-                'chat_type': message.chat_type.value,
+            # Create standardized context for CrewAI system
+            standardized_context = create_context_from_telegram_message(
+                user_id=message.user_id,
+                team_id=message.team_id,
+                chat_id=message.chat_id,
+                chat_type=message.chat_type,
+                message_text=message.text,
+                username=message.username,
+                telegram_name=message.username  # Use username as telegram_name for now
+            )
+            
+            # Convert to execution context for backward compatibility
+            execution_context = standardized_context.to_dict()
+            execution_context.update({
                 'is_leadership_chat': message.chat_type == ChatType.LEADERSHIP,
                 'is_main_chat': message.chat_type == ChatType.MAIN,
-                'username': message.username,
-                'message_text': message.text
-            }
+            })
             
             # Use CrewAI system for registered users
             if self.crewai_system:

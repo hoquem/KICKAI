@@ -13,7 +13,7 @@ from features.player_registration.domain.repositories.player_repository_interfac
     Player
 )
 from database.interfaces import DataStoreInterface
-from core.constants import COLLECTION_PLAYERS
+from core.firestore_constants import COLLECTION_PLAYERS
 
 
 class FirebasePlayerRepository(PlayerRepositoryInterface):

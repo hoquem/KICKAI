@@ -9,28 +9,12 @@ import logging
 import inspect
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Dict, List, Optional, Callable, Any, Type
 from pathlib import Path
 
+from core.enums import CommandType, PermissionLevel
+
 logger = logging.getLogger(__name__)
-
-
-class CommandType(Enum):
-    """Types of commands supported by the system."""
-    SLASH_COMMAND = "slash_command"
-    NATURAL_LANGUAGE = "natural_language"
-    ADMIN_COMMAND = "admin_command"
-    SYSTEM_COMMAND = "system_command"
-
-
-class PermissionLevel(Enum):
-    """Permission levels for commands."""
-    PUBLIC = "public"
-    PLAYER = "player"
-    LEADERSHIP = "leadership"
-    ADMIN = "admin"
-    SYSTEM = "system"
 
 
 @dataclass

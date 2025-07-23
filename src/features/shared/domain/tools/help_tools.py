@@ -1,180 +1,268 @@
 #!/usr/bin/env python3
 """
-Help tools for the KICKAI system.
+Help Tools for KICKAI
+
+This module provides tools for generating help responses and command information.
 """
 
-from typing import Optional, List
-from crewai.tools import tool
-from loguru import logger
+import logging
+from typing import Dict, Any, List, Tuple
+from crewai import Agent, Task, Crew, Process
+from crewai.tools import BaseTool
 
-from src.core.enums import PermissionLevel, ChatType
-from src.core.command_registry_initializer import get_initialized_command_registry
+from core.constants import (
+    get_commands_for_chat_type,
+    get_command_by_name,
+    normalize_chat_type,
+    get_chat_type_display_name,
+    ChatType
+)
+from core.enums import ChatType as ChatTypeEnum
+
+logger = logging.getLogger(__name__)
 
 
-def _determine_user_permissions(user_status: str, chat_type: str) -> List[PermissionLevel]:
+class GenerateHelpResponseTool(BaseTool):
+    """Tool to generate comprehensive help responses based on chat type and user context."""
+    
+    name: str = "FINAL_HELP_RESPONSE"
+    description: str = """
+    Generate a comprehensive help response for users based on their chat type and context.
+    
+    This tool should be used when users ask for help, show commands, or need guidance.
+    The response should be tailored to the specific chat type (main chat vs leadership chat)
+    and include all relevant commands with descriptions.
     """
-    Determine user permissions based on status and chat type.
     
-    Args:
-        user_status: The user's status (e.g., 'player', 'leadership', 'admin')
-        chat_type: The chat type (e.g., 'main_chat', 'leadership_chat')
+    def __init__(self):
+        super().__init__()
     
-    Returns:
-        List of permission levels the user has
-    """
-    permissions = [PermissionLevel.PUBLIC]  # Everyone has public permissions
-    
-    # Add permissions based on user status
-    if user_status in ['player', 'active', 'approved']:
-        permissions.append(PermissionLevel.PLAYER)
-    elif user_status in ['leadership', 'admin', 'manager']:
-        permissions.append(PermissionLevel.LEADERSHIP)
-        permissions.append(PermissionLevel.PLAYER)
-    elif user_status == 'admin':
-        permissions.extend([PermissionLevel.ADMIN, PermissionLevel.LEADERSHIP, PermissionLevel.PLAYER])
-    
-    # Add permissions based on chat type
-    if chat_type == ChatType.LEADERSHIP.value:
-        permissions.append(PermissionLevel.LEADERSHIP)
-    
-    return list(set(permissions))  # Remove duplicates
-
-
-@tool("get_user_status")
-def get_user_status_tool(user_id: str, team_id: Optional[str] = None) -> str:
-    """
-    Get the status of a user in the system. Requires: user_id
-    
-    Args:
-        user_id: The user ID to check
-        team_id: Optional team ID for context
-    
-    Returns:
-        User status (registered, unregistered, admin, etc.)
-    """
-    try:
-        # Simple status check - in a real implementation, this would query the database
-        # For now, return a basic status based on user_id format
-        if user_id and len(user_id) > 0:
-            # This is a simplified version - in practice, you'd query the database
-            # For now, assume all users with valid IDs are registered
-            logger.info(f"ℹ️ Checking status for user {user_id}")
-            return "registered"
-        else:
-            logger.info(f"ℹ️ User {user_id} not found, returning 'unregistered'")
-            return "unregistered"
+    def _run(self, context: Dict[str, Any]) -> str:
+        """
+        Generate help response based on context.
+        
+        Args:
+            context: Dictionary containing:
+                - chat_type: Chat type (string or enum)
+                - user_id: User ID
+                - team_id: Team ID
+                - username: Username (optional)
+                - message_text: Original message (optional)
+        
+        Returns:
+            Formatted help response string
+        """
+        try:
+            # Extract context
+            chat_type = context.get('chat_type', 'main')
+            user_id = context.get('user_id', 'Unknown')
+            username = context.get('username', 'Unknown')
             
-    except Exception as e:
-        logger.error(f"❌ Failed to get user status for {user_id}: {e}")
-        return "unknown"
+            logger.info(f"🔧 [TOOL DEBUG] Generating help for chat_type: {chat_type}, user: {user_id}")
+            
+            # Normalize chat type to enum
+            chat_type_enum = normalize_chat_type(chat_type)
+            
+            # Get commands for this chat type
+            commands = get_commands_for_chat_type(chat_type_enum)
+            
+            # Generate help message
+            help_message = self._format_help_message(chat_type_enum, commands, username)
+            
+            logger.info(f"🔧 [TOOL DEBUG] Final response preview: {help_message[:100]}...")
+            
+            return help_message
+            
+        except Exception as e:
+            logger.error(f"Error generating help response: {e}", exc_info=True)
+            return f"❌ Error generating help: {str(e)}"
+    
+    def _format_help_message(self, chat_type: ChatTypeEnum, commands: List, username: str) -> str:
+        """Format the help message with commands organized by category."""
+        try:
+            # Get chat type display name
+            chat_display_name = get_chat_type_display_name(chat_type)
+            
+            # Start building the message
+            message_parts = [
+                f"🤖 KICKAI Help System",
+                f"Your Context: {chat_display_name.upper()} (User: {username})",
+                f"📋 Available Commands for {chat_display_name}:",
+                ""
+            ]
+            
+            # Group commands by feature/category
+            command_categories = self._group_commands_by_category(commands)
+            
+            # Add each category
+            for category, category_commands in command_categories.items():
+                if category_commands:
+                    message_parts.append(f"{category}:")
+                    for cmd in category_commands:
+                        message_parts.append(f"• {cmd.name} - {cmd.description}")
+                    message_parts.append("")
+            
+            # Add footer
+            message_parts.extend([
+                "💡 Use /help [command] for detailed help on any command.",
+                "---",
+                "💡 Need more help?",
+                "• Type /help [command] for detailed help",
+                "• Contact team admin for support"
+            ])
+            
+            return "\n".join(message_parts)
+            
+        except Exception as e:
+            logger.error(f"Error formatting help message: {e}", exc_info=True)
+            return f"❌ Error formatting help message: {str(e)}"
+    
+    def _group_commands_by_category(self, commands: List) -> Dict[str, List]:
+        """Group commands by their feature/category."""
+        categories = {
+            "Player Commands": [],
+            "Leadership Commands": [],
+            "Match Management": [],
+            "Attendance": [],
+            "Payments": [],
+            "Communication": [],
+            "Team Administration": [],
+            "System": [],
+            "Health & Monitoring": []
+        }
+        
+        # Map features to display categories
+        feature_to_category = {
+            "player_registration": "Player Commands",
+            "match_management": "Match Management",
+            "attendance_management": "Attendance",
+            "payment_management": "Payments",
+            "communication": "Communication",
+            "team_administration": "Team Administration",
+            "health_monitoring": "Health & Monitoring",
+            "system_infrastructure": "System",
+            "shared": "System"
+        }
+        
+        for cmd in commands:
+            category = feature_to_category.get(cmd.feature, "System")
+            categories[category].append(cmd)
+        
+        # Remove empty categories
+        return {k: v for k, v in categories.items() if v}
 
 
-@tool("get_available_commands")
-def get_available_commands(user_id: str, chat_type: str, team_id: Optional[str] = None) -> str:
-    """
-    Get available commands based on user status and chat type. Requires: user_id, chat_type
+class GetAvailableCommandsTool(BaseTool):
+    """Tool to get available commands for a specific chat type."""
+    
+    name: str = "get_available_commands"
+    description: str = """
+    Get all available commands for a specific chat type.
     
     Args:
-        user_id: The user ID to get commands for
-        chat_type: The chat type (main_chat or leadership_chat)
-        team_id: Optional team ID for context
+        chat_type: The chat type (main_chat, leadership_chat, or private)
     
     Returns:
-        List of available commands for the user
+        List of available commands with descriptions
     """
-    try:
-        # Simple command mapping based on chat type - no service dependencies
-        if chat_type.lower() == "main_chat":
-            commands = {
-                "Player Management": [
-                    ("/register", "Register as a new player"),
-                    ("/myinfo", "View your player information"),
-                    ("/status", "Check your current status")
-                ],
-                "Team Information": [
-                    ("/list", "List all active players"),
-                    ("/help", "Show available commands")
-                ]
-            }
-        elif chat_type.lower() == "leadership_chat":
-            commands = {
-                "Player Management": [
-                    ("/approve", "Approve a player for matches"),
-                    ("/reject", "Reject a player application"),
-                    ("/pending", "List players awaiting approval")
-                ],
-                "Team Administration": [
-                    ("/list", "List all players with status"),
-                    ("/addplayer", "Add a player directly"),
-                    ("/addmember", "Add a team member")
-                ],
-                "Help": [
-                    ("/help", "Show leadership commands")
-                ]
-            }
-        else:
-            commands = {
-                "General": [
-                    ("/help", "Show available commands")
-                ]
-            }
+    
+    def __init__(self):
+        super().__init__()
+    
+    def _run(self, chat_type: str) -> str:
+        """
+        Get available commands for chat type.
         
-        # Format the response with plain text and emojis
-        chat_display = "Main Chat" if chat_type.lower() == "main_chat" else "Leadership Chat"
-        result = f"📋 Available Commands for {chat_display}:\n\n"
+        Args:
+            chat_type: Chat type string
         
-        for category, cmd_list in commands.items():
-            result += f"{category}:\n"
-            for cmd_name, cmd_desc in cmd_list:
-                # Use plain text formatting
-                result += f"• {cmd_name} - {cmd_desc}\n"
-            result += "\n"
-        
-        result += "💡 Use /help [command] for detailed help on any command."
-        
-        logger.info(f"✅ Successfully retrieved commands for user {user_id} in {chat_type}")
-        return result
-        
-    except Exception as e:
-        error_msg = f"Failed to get available commands: {str(e)}"
-        logger.error(f"❌ {error_msg}")
-        return f"❌ {error_msg}"
+        Returns:
+            Formatted string with available commands
+        """
+        try:
+            # Normalize chat type
+            chat_type_enum = normalize_chat_type(chat_type)
+            
+            # Get commands
+            commands = get_commands_for_chat_type(chat_type_enum)
+            
+            # Format response
+            if not commands:
+                return f"No commands available for chat type: {chat_type}"
+            
+            response_parts = [f"Available commands for {get_chat_type_display_name(chat_type_enum)}:"]
+            
+            for cmd in commands:
+                response_parts.append(f"• {cmd.name} - {cmd.description}")
+            
+            return "\n".join(response_parts)
+            
+        except Exception as e:
+            logger.error(f"Error getting available commands: {e}", exc_info=True)
+            return f"❌ Error getting commands: {str(e)}"
 
 
-@tool("format_help_message")
-def format_help_message(commands_text: str, user_context: str = "") -> str:
-    """
-    Format a help message with proper styling and context. Requires: commands_text
+class GetCommandHelpTool(BaseTool):
+    """Tool to get detailed help for a specific command."""
+    
+    name: str = "get_command_help"
+    description: str = """
+    Get detailed help for a specific command.
     
     Args:
-        commands_text: The raw commands text to format
-        user_context: Optional user context to include
+        command_name: The command name (e.g., /register, /help)
+        chat_type: The chat type context
     
     Returns:
-        Formatted help message
+        Detailed help information for the command
     """
-    try:
-        # Add header
-        header = "🤖 KICKAI Help System\n\n"
+    
+    def __init__(self):
+        super().__init__()
+    
+    def _run(self, command_name: str, chat_type: str = "main") -> str:
+        """
+        Get detailed help for a command.
         
-        # Add user context if provided
-        context_section = ""
-        if user_context:
-            context_section = f"Your Context: {user_context}\n\n"
+        Args:
+            command_name: Command name
+            chat_type: Chat type context
         
-        # Add the commands
-        commands_section = commands_text
-        
-        # Add footer
-        footer = "\n---\n💡 Need more help?\n• Type /help [command] for detailed help\n• Contact team admin for support"
-        
-        # Combine all sections
-        formatted_message = header + context_section + commands_section + footer
-        
-        logger.info("✅ Successfully formatted help message")
-        return formatted_message
-        
-    except Exception as e:
-        error_msg = f"Failed to format help message: {str(e)}"
-        logger.error(f"❌ {error_msg}")
-        return f"❌ {error_msg}" 
+        Returns:
+            Detailed help string
+        """
+        try:
+            # Get command definition
+            cmd = get_command_by_name(command_name)
+            
+            if not cmd:
+                return f"❌ Command '{command_name}' not found."
+            
+            # Check if command is available in this chat type
+            chat_type_enum = normalize_chat_type(chat_type)
+            if chat_type_enum not in cmd.chat_types:
+                return f"❌ Command '{command_name}' is not available in {get_chat_type_display_name(chat_type_enum)}."
+            
+            # Build detailed help
+            help_parts = [
+                f"📖 Help for {cmd.name}",
+                f"Description: {cmd.description}",
+                f"Permission Level: {cmd.permission_level.value}",
+                f"Available in: {', '.join(get_chat_type_display_name(ct) for ct in cmd.chat_types)}",
+                f"Feature: {cmd.feature}",
+                ""
+            ]
+            
+            if cmd.examples:
+                help_parts.append("Examples:")
+                for example in cmd.examples:
+                    help_parts.append(f"• {example}")
+                help_parts.append("")
+            
+            help_parts.append("💡 Use this command in the appropriate chat type.")
+            
+            return "\n".join(help_parts)
+            
+        except Exception as e:
+            logger.error(f"Error getting command help: {e}", exc_info=True)
+            return f"❌ Error getting command help: {str(e)}" 

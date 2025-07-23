@@ -11,14 +11,21 @@ KICKAI is an AI-powered football team management system built with **agentic cle
 
 ## 🏗️ Core Architecture Principles
 
-### 1. **True Agentic-First Design**
+### 1. **Centralized Constants & Enums Management**
+- **Single Source of Truth**: All constants centralized in `src/core/constants.py` and `src/core/firestore_constants.py`
+- **Immutable Dataclasses**: Command definitions use `@dataclass(frozen=True)` for type safety
+- **Enum Completeness**: All enum values defined before use to prevent runtime errors
+- **Import Path Standardization**: Consistent import paths with `PYTHONPATH=src`
+- **No Hardcoding**: Zero hardcoded strings in business logic
+
+### 2. **True Agentic-First Design**
 - **CrewAI Agents**: ALL user interactions processed through specialized AI agents
 - **No Direct Processing**: Infrastructure layer contains NO business logic
 - **Agentic Message Router**: Centralized routing through agentic system
 - **User Flow Agent**: Dedicated agent for first user and unregistered user flows
 - **Single Source of Truth**: Centralized command registry and agent orchestration
 
-### 2. **Clean Architecture Layers**
+### 3. **Clean Architecture Layers**
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Presentation Layer                        │
@@ -44,7 +51,7 @@ KICKAI is an AI-powered football team management system built with **agentic cle
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 3. **Feature-First Modular Structure**
+### 4. **Feature-First Modular Structure**
 ```
 src/features/
 ├── player_registration/     # Player onboarding and registration
@@ -57,7 +64,7 @@ src/features/
 └── system_infrastructure/  # Core system services
 ```
 
-### 4. **Dependency Rules**
+### 5. **Dependency Rules**
 - **Presentation → Application → Domain → Infrastructure** ✅
 - **Infrastructure → Domain** ❌
 - **Domain → Application** ❌
@@ -1505,9 +1512,74 @@ graph TB
 - Machine learning integration
 - Predictive analytics 
 
+## 🛠️ Development Workflow & Critical Rules
+
+### **1. Bot Startup Sequence**
+```bash
+# ✅ CORRECT - Always use PYTHONPATH
+source venv/bin/activate
+PYTHONPATH=src python run_bot_local.py
+
+# ❌ WRONG - Missing PYTHONPATH causes import errors
+source venv/bin/activate && python run_bot_local.py
+```
+
+### **2. Constants & Enums Usage**
+```python
+# ✅ CORRECT - Use centralized constants
+from core.constants import BOT_VERSION, get_command_by_name
+from core.firestore_constants import get_team_members_collection
+
+# ❌ WRONG - Never hardcode
+BOT_VERSION = "2.0.0"  # Hardcoded
+team_collection = "kickai_team_members"  # Hardcoded
+```
+
+### **3. Import Path Standards**
+```python
+# ✅ CORRECT - Within src directory
+from core.constants import BOT_VERSION
+from agents.behavioral_mixins import get_mixin_for_role
+
+# ❌ WRONG - Don't use src prefix within src
+from src.core.constants import BOT_VERSION
+```
+
+### **4. Enum Completeness**
+```python
+# ✅ CORRECT - Use defined enum values
+command_type=CommandType.SLASH_COMMAND
+chat_type=ChatType.LEADERSHIP
+
+# ❌ WRONG - Don't use undefined enum values
+command_type=CommandType.UNDEFINED_VALUE
+```
+
+### **5. Troubleshooting Commands**
+```bash
+# Clear Python cache when import issues occur
+find . -name "*.pyc" -delete && find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+
+# Test critical imports individually
+source venv/bin/activate && PYTHONPATH=src python -c "from core.constants import BOT_VERSION"
+
+# Check bot process status
+ps aux | grep python | grep run_bot_local
+
+# Debug startup issues
+source venv/bin/activate && PYTHONPATH=src python run_bot_local.py 2>&1 | head -50
+```
+
+### **6. Emergency Procedures**
+1. **Bot Crashes**: `pkill -f run_bot_local.py && source venv/bin/activate && PYTHONPATH=src python run_bot_local.py`
+2. **Import Issues**: Clear cache and restart
+3. **Database Issues**: Check Firebase credentials and connectivity
+4. **Telegram Issues**: Verify bot token and chat IDs
+
 ## 📚 References
 
 - [CrewAI Documentation](https://docs.crewai.com/)
 - [CrewAI Tool Best Practices](https://docs.crewai.com/how-to/use-tools/)
 - [Python Import System](https://docs.python.org/3/reference/import.html)
-- [Clean Architecture Principles](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) 
+- [Clean Architecture Principles](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
+- [Lessons Learned: Import Fixes](docs/LESSONS_LEARNED_IMPORT_FIXES.md) 

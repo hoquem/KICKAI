@@ -21,13 +21,13 @@ import time
 from crewai import Agent, Crew
 from crewai.tools import tool
 
-from src.core.settings import get_settings
-from src.core.enums import AgentRole, AIProvider
-from src.config.agents import get_agent_config, get_enabled_agent_configs
-from src.agents.configurable_agent import ConfigurableAgent, AgentContext
-from src.agents.entity_specific_agents import EntitySpecificAgentManager, create_entity_specific_agent, EntityType
-from src.utils.llm_factory import LLMFactory, LLMConfig, LLMProviderError
-from src.agents.tool_registry import get_tool_registry, get_tool_names
+from core.settings import get_settings
+from core.enums import AgentRole, AIProvider
+from config.agents import get_agent_config, get_enabled_agent_configs
+from agents.configurable_agent import ConfigurableAgent, AgentContext
+from agents.entity_specific_agents import EntitySpecificAgentManager, create_entity_specific_agent, EntityType
+from utils.llm_factory import LLMFactory, LLMConfig, LLMProviderError
+from agents.tool_registry import get_tool_registry, get_tool_names
 
 from loguru import logger
 
@@ -233,10 +233,15 @@ class TeamManagementSystem:
             if not crew_agents:
                 raise AgentInitializationError("No agents available for crew creation")
             
+            # Get verbose setting from environment
+            from src.core.settings import get_settings
+            settings = get_settings()
+            verbose_mode = settings.verbose_logging or settings.is_development
+            
             self.crew = Crew(
                 agents=crew_agents,
                 tasks=[],
-                verbose=True,
+                verbose=verbose_mode,  # Use environment-based verbose setting
                 memory=True  # Enable memory for the crew
             )
             

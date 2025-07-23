@@ -18,6 +18,7 @@ from config.agents import get_agent_config, AgentConfig
 from .behavioral_mixins import get_mixin_for_role
 from .team_memory import TeamMemory
 from core.error_handling import handle_agent_errors, validate_input
+from core.context_types import StandardizedContext
 
 
 logger = logging.getLogger(__name__)
@@ -105,6 +106,11 @@ class ConfigurableAgent:
             # Get behavioral mixin if available
             mixin = get_mixin_for_role(self.context.role)
             
+            # Get verbose setting from environment
+            from src.core.settings import get_settings
+            settings = get_settings()
+            verbose_mode = settings.verbose_logging or settings.is_development
+            
             # Build agent parameters
             agent_params = {
                 "role": config.role.value,
@@ -112,7 +118,7 @@ class ConfigurableAgent:
                 "backstory": config.backstory,
                 "tools": tools,
                 "llm": self.context.llm,
-                "verbose": True,
+                "verbose": verbose_mode,  # Use environment-based verbose setting
                 "allow_delegation": config.allow_delegation,
                 "max_iter": config.max_iterations
             }
@@ -136,6 +142,11 @@ class ConfigurableAgent:
         tools = []
         
         logger.info(f"[AGENT FACTORY] Getting tools for role: {tool_names}")
+        
+        # Ensure tool discovery has happened
+        if hasattr(self.context.tool_registry, '_discovered') and not self.context.tool_registry._discovered:
+            logger.info(f"[AGENT FACTORY] Tool registry not discovered, running auto-discovery...")
+            self.context.tool_registry.auto_discover_tools('src')
         
         for tool_name in tool_names:
             # Get the actual tool object from the tool registry
@@ -218,9 +229,12 @@ class ConfigurableAgent:
             # Create a simple task for the CrewAI agent
             from crewai import Task
             
-            # Create a task with the description
+            # Enhance task description with execution context
+            enhanced_task = self._enhance_task_with_context(task, context)
+            
+            # Create a task with the enhanced description
             crew_task = Task(
-                description=task,
+                description=enhanced_task,
                 agent=self._crew_agent,
                 expected_output="A clear and helpful response to the user's request"
             )
@@ -230,16 +244,29 @@ class ConfigurableAgent:
             # by creating a simple crew with just this agent and task
             from crewai import Crew
             
+            # Get verbose setting from environment
+            from src.core.settings import get_settings
+            settings = get_settings()
+            verbose_mode = settings.verbose_logging or settings.is_development
+            
             crew = Crew(
                 agents=[self._crew_agent],
                 tasks=[crew_task],
-                verbose=True
+                verbose=verbose_mode  # Use environment-based verbose setting
             )
             
             # Execute the crew (kickoff is not async)
             logger.info(f"🚀 [AGENT] Starting execution with agent {self.role}")
             logger.info(f"📋 [AGENT] Task: {task}")
             logger.info(f"🔧 [AGENT] Available tools: {[tool.name for tool in self._crew_agent.tools]}")
+            
+            # Enhanced logging for help commands
+            is_help_command = task.lower().strip() == "/help" or "help" in task.lower()
+            if is_help_command:
+                logger.info(f"🔍 [HELP DEBUG] About to execute help command with agent {self.role}")
+                logger.info(f"🔍 [HELP DEBUG] Task description: '{task}'")
+                logger.info(f"🔍 [HELP DEBUG] Context: {context}")
+                logger.info(f"🔍 [HELP DEBUG] Agent tools: {[tool.name for tool in self._crew_agent.tools]}")
             
             result = crew.kickoff()
             
@@ -253,6 +280,15 @@ class ConfigurableAgent:
                 # Regular string or other type
                 result_str = str(result)
             
+            # Enhanced logging for help commands
+            if is_help_command:
+                logger.info(f"🔍 [HELP DEBUG] Agent execution completed")
+                logger.info(f"🔍 [HELP DEBUG] Raw result type: {type(result)}")
+                logger.info(f"🔍 [HELP DEBUG] Raw result: {result}")
+                logger.info(f"🔍 [HELP DEBUG] Final result string: {result_str}")
+                logger.info(f"🔍 [HELP DEBUG] Final result length: {len(result_str)}")
+                logger.info(f"🔍 [HELP DEBUG] Final result preview: {result_str[:200]}{'...' if len(result_str) > 200 else ''}")
+            
             logger.debug(f"📄 [AGENT] Result: {result_str[:200]}{'...' if len(result_str) > 200 else ''}")
             
             return result_str
@@ -260,6 +296,71 @@ class ConfigurableAgent:
         except Exception as e:
             logger.error(f"❌ Error executing task with agent {self.role}: {e}")
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
+
+    def _enhance_task_with_context(self, task: str, context: Dict[str, Any]) -> str:
+        """Enhance task description with execution context."""
+        if not context:
+            return task
+        
+        # Try to create standardized context if possible
+        try:
+            if isinstance(context, StandardizedContext):
+                standardized_context = context
+            else:
+                # Convert dict to standardized context
+                standardized_context = StandardizedContext.from_dict(context)
+            
+            # Create enhanced context section with standardized context
+            context_section = f"""
+EXECUTION CONTEXT:
+- User ID: {standardized_context.user_id}
+- Team ID: {standardized_context.team_id}
+- Chat Type: {standardized_context.chat_type}
+- Username: {standardized_context.username}
+- Telegram Name: {standardized_context.telegram_name}
+- Is Registered: {standardized_context.is_registered}
+- Is Player: {standardized_context.is_player}
+- Is Team Member: {standardized_context.is_team_member}
+- Message Text: {standardized_context.message_text}
+
+ORIGINAL TASK:
+{task}
+
+IMPORTANT: Use the actual values from the execution context above when calling tools.
+Do NOT use placeholder values like "current_user" or "123".
+
+TOOL USAGE:
+- get_user_status: Use context.user_id and context.team_id
+- get_available_commands: Use context.user_id, context.chat_type, and context.team_id
+- format_help_message: Use context for user information
+- All other tools: Use context for user and team information
+"""
+            
+        except Exception as e:
+            # Fallback to original method if standardization fails
+            logger.warning(f"⚠️ Failed to create standardized context: {e}, using fallback")
+            user_id = context.get('user_id', 'unknown')
+            team_id = context.get('team_id', 'unknown')
+            chat_type = context.get('chat_type', 'unknown')
+            username = context.get('username', '')
+            telegram_name = context.get('telegram_name', '')
+            
+            context_section = f"""
+EXECUTION CONTEXT:
+- User ID: {user_id}
+- Team ID: {team_id}
+- Chat Type: {chat_type}
+- Username: {username}
+- Telegram Name: {telegram_name}
+
+ORIGINAL TASK:
+{task}
+
+IMPORTANT: Use the actual values from the execution context above when calling tools.
+Do NOT use placeholder values like "current_user" or "123".
+"""
+        
+        return context_section
 
 
 class AgentFactory:

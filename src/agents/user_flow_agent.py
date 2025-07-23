@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from enum import Enum
 from loguru import logger
 
-from src.core.enums import ChatType
-from src.core.constants import BOT_VERSION
+from core.enums import ChatType
+from core.constants import BOT_VERSION
 
 
 class UserFlowDecision(Enum):

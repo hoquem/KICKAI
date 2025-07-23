@@ -47,13 +47,13 @@ async def compare_firestore_connections():
         logger.info(f"   Available collections: {collections}")
         
         # Test kickai_teams collection
-        from core.constants import get_collection_name, COLLECTION_TEAMS
+        from core.firestore_constants import get_collection_name, COLLECTION_TEAMS
         teams_collection = get_collection_name(COLLECTION_TEAMS)
         results = await client.query_documents(teams_collection, [])
         logger.info(f"   {teams_collection}: {len(results)} documents")
         
         # Test kickai_KTI_team_members collection
-        from core.constants import get_team_members_collection
+        from core.firestore_constants import get_team_members_collection
         team_members_collection = get_team_members_collection("KTI")
         results = await client.query_documents(team_members_collection, [])
         logger.info(f"   {team_members_collection}: {len(results)} documents")
@@ -89,13 +89,13 @@ async def compare_firestore_connections():
         logger.info(f"   Available collections: {collections}")
         
         # Test kickai_teams collection
-        from core.constants import get_collection_name, COLLECTION_TEAMS
+        from core.firestore_constants import get_collection_name, COLLECTION_TEAMS
         teams_collection = get_collection_name(COLLECTION_TEAMS)
         results = await client.query_documents(teams_collection, [])
         logger.info(f"   {teams_collection}: {len(results)} documents")
         
         # Test kickai_KTI_team_members collection
-        from core.constants import get_team_members_collection
+        from core.firestore_constants import get_team_members_collection
         team_members_collection = get_team_members_collection("KTI")
         results = await client.query_documents(team_members_collection, [])
         logger.info(f"   {team_members_collection}: {len(results)} documents")

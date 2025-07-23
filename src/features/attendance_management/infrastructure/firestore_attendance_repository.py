@@ -1,5 +1,5 @@
 from features.attendance_management.domain.repositories.attendance_repository_interface import AttendanceRepositoryInterface
-from core.constants import COLLECTION_ATTENDANCE
+from core.firestore_constants import COLLECTION_ATTENDANCE
 # from features.attendance_management.domain.entities.attendance import Attendance  # Uncomment and implement Attendance entity as needed
 
 class FirestoreAttendanceRepository(AttendanceRepositoryInterface):
