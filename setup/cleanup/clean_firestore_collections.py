@@ -31,10 +31,8 @@ EXPECTED_COLLECTIONS = {
     'kickai_teams': 'Team documents for E2E testing', 
     'kickai_team_members': 'Team member documents for E2E testing',
     'kickai_matches': 'Match documents for E2E testing',
-    'kickai_bot_mappings': 'Bot mapping documents for E2E testing',
     'kickai_payments': 'Payment documents for E2E testing',
-    'kickai_daily_status': 'Daily status documents for E2E testing',
-    'kickai_fixtures': 'Fixture documents for FA registration testing'
+    'kickai_daily_status': 'Daily status documents for E2E testing'
 }
 
 def list_current_collections():
@@ -101,7 +99,7 @@ def clean_e2e_collections():
     current_collections = list_current_collections()
     legacy_collections = [
         'players', 'teams', 'team_members', 'matches', 
-        'bot_mappings', 'payments', 'daily_status', 'fixtures'
+        'payments', 'daily_status'
     ]
     
     for legacy_name in legacy_collections:
@@ -128,7 +126,7 @@ def validate_collection_consistency():
     # Check for legacy collections
     legacy_collections = [
         'players', 'teams', 'team_members', 'matches', 
-        'bot_mappings', 'payments', 'daily_status', 'fixtures'
+        'payments', 'daily_status'
     ]
     
     for legacy_name in legacy_collections:

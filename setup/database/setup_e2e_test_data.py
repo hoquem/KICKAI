@@ -256,17 +256,7 @@ def create_test_payments() -> List[Dict[str, Any]]:
         }
     ]
 
-def create_bot_mapping() -> Dict[str, Any]:
-    """Create bot mapping data."""
-    return {
-        "id": "BOT001",
-        "team_name": TEAM_NAME,
-        "bot_username": BOT_USERNAME,
-        "chat_id": MAIN_CHAT_ID,
-        "bot_token": BOT_TOKEN,
-        "created_at": datetime.now(),
-        "updated_at": datetime.now()
-    }
+
 
 async def setup_test_data():
     """Set up all test data in Firestore."""
@@ -283,14 +273,7 @@ async def setup_test_data():
         team_ref.set(team_data)
         logger.info(f"  ✅ Created team: {TEAM_NAME}")
         
-        # 2. Create bot mapping
-        logger.info("🤖 Creating bot mapping...")
-        bot_data = create_bot_mapping()
-        bot_ref = db.collection('kickai_bot_mappings').document(bot_data['id'])
-        bot_ref.set(bot_data)
-        logger.info(f"  ✅ Created bot mapping: {BOT_USERNAME}")
-        
-        # 3. Create players
+        # 2. Create players
         logger.info("👥 Creating test players...")
         for player_data in TEST_PLAYERS:
             player_id = player_data['player_id']
@@ -324,7 +307,7 @@ async def setup_test_data():
             player_ref.set(firestore_data)
             logger.info(f"  ✅ Created player: {player_data['name']} ({player_id})")
         
-        # 4. Create team members
+        # 3. Create team members
         logger.info("👤 Creating team members...")
         for player_data in TEST_PLAYERS:
             member_id = f"TM_{player_data['player_id']}"
@@ -358,7 +341,7 @@ async def setup_test_data():
             member_ref.set(member_data)
             logger.info(f"  ✅ Created team member: {player_data['name']} ({roles})")
         
-        # 5. Create leadership members (non-players)
+        # 4. Create leadership members (non-players)
         logger.info("👑 Creating leadership members...")
         for leader_data in LEADERSHIP_MEMBERS:
             member_id = f"TM_LEADER_{leader_data['telegram_username']}"
@@ -384,14 +367,14 @@ async def setup_test_data():
             member_ref.set(member_data)
             logger.info(f"  ✅ Created leadership member: {leader_data['name']} ({leader_data['role'].value})")
         
-        # 6. Create test matches
+        # 5. Create test matches
         logger.info("⚽ Creating test matches...")
         for match_data in create_test_matches():
             match_ref = db.collection('kickai_matches').document(match_data['id'])
             match_ref.set(match_data)
             logger.info(f"  ✅ Created match: {match_data['opponent']} ({match_data['id']})")
         
-        # 7. Create test payments
+        # 6. Create test payments
         logger.info("💰 Creating test payments...")
         for payment_data in create_test_payments():
             payment_ref = db.collection('kickai_payments').document(payment_data['id'])

@@ -40,7 +40,7 @@ class RegistrationGuidanceInput(BaseModel):
 @tool("register_player")
 def register_player(player_name: str, phone_number: str, position: str, team_id: Optional[str] = None) -> str:
     """
-    Register a new player. Requires: player_name, phone_number, position
+    Register a new player in the main chat. Requires: player_name, phone_number, position
     
     Args:
         player_name: The name of the player to register
@@ -74,16 +74,16 @@ def register_player(player_name: str, phone_number: str, position: str, team_id:
         return f"❌ Failed to register player: {str(e)}"
 
 
-@tool("team_member_registration")
-def team_member_registration(player_name: str, phone_number: str, position: str, team_id: str) -> str:
+@tool("register_team_member")
+def register_team_member(player_name: str, phone_number: str, role: str, team_id: Optional[str] = None) -> str:
     """
-    Register a new team member. Requires: player_name, phone_number, position, team_id
+    Register a new team member in the leadership chat. Requires: player_name, phone_number, role
     
     Args:
-        player_name: The name of the player to register
-        phone_number: The player's phone number
-        position: The player's position
-        team_id: The team ID to register the player for
+        player_name: The name of the team member to register
+        phone_number: The team member's phone number
+        role: The team member's role (e.g., Coach, Manager, Assistant)
+        team_id: Optional team ID for context
     
     Returns:
         Confirmation message indicating success or failure
@@ -96,10 +96,67 @@ def team_member_registration(player_name: str, phone_number: str, position: str,
             logger.error("❌ PlayerRegistrationService not available")
             return "❌ Registration service not available"
         
-        # Register the team member
-        player = registration_service.register_team_member(player_name, phone_number, position, team_id)
+        # Register the team member (using the same service but with role instead of position)
+        player = registration_service.register_player(player_name, phone_number, role, team_id)
         
         if player:
+            logger.info(f"✅ Team member registered: {player_name} ({role})")
+            return f"✅ Team member registered successfully: {player_name} ({role})"
+        else:
+            logger.error(f"❌ Failed to register team member: {player_name}")
+            return f"❌ Failed to register team member: {player_name}"
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to register team member: {e}")
+        return f"❌ Failed to register team member: {str(e)}"
+
+
+@tool("team_member_registration")
+def team_member_registration(player_name: str, phone_number: str, position: str, team_id: str, user_id: str = None) -> str:
+    """
+    Register a new team member. Requires: player_name, phone_number, position, team_id
+    
+    Args:
+        player_name: The name of the player to register
+        phone_number: The player's phone number
+        position: The player's position (will be used as role for team member)
+        team_id: The team ID to register the player for
+        user_id: Optional user ID (telegram_id), defaults to phone_number if not provided
+    
+    Returns:
+        Confirmation message indicating success or failure
+    """
+    try:
+        container = get_container()
+        from features.team_administration.domain.services.team_service import TeamService
+        team_service = container.get_service(TeamService)
+        
+        if not team_service:
+            logger.error("❌ TeamService not available")
+            return "❌ Team service not available"
+        
+        # Use user_id if provided, otherwise use phone_number as fallback
+        actual_user_id = user_id if user_id else phone_number
+        
+        # Register the team member using TeamService (run async operation synchronously)
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        team_member = loop.run_until_complete(
+            team_service.add_team_member(
+                team_id=team_id,
+                user_id=actual_user_id,
+                role=position,  # Use position as role
+                name=player_name,
+                phone=phone_number
+            )
+        )
+        
+        if team_member:
             logger.info(f"✅ Team member registered: {player_name} for team {team_id}")
             return f"✅ Team member registered successfully: {player_name} for team {team_id}"
         else:

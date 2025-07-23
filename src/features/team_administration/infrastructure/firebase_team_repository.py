@@ -12,7 +12,7 @@ from features.team_administration.domain.repositories.team_repository_interface 
 from features.team_administration.domain.entities.team import Team
 from features.team_administration.domain.entities.team_member import TeamMember
 from database.interfaces import DataStoreInterface
-from core.constants import COLLECTION_TEAMS, get_team_members_collection, get_team_players_collection
+from core.firestore_constants import COLLECTION_TEAMS, get_team_members_collection, get_team_players_collection
 
 
 class FirebaseTeamRepository(TeamRepositoryInterface):
@@ -149,13 +149,13 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
     # Team Member Methods
     async def create_team_member(self, team_member: TeamMember) -> TeamMember:
         """Create a new team member."""
-        # Generate a unique ID for the team member
+        # Generate a unique ID for the team member if not provided
         from utils.id_generator import generate_team_member_id
         if not team_member.id:
             team_member.id = generate_team_member_id(team_member.name)
         
-        # Set user_id and id to the same value (document ID)
-        team_member.user_id = team_member.id
+        # Preserve the original user_id (should be telegram_id or unique user identifier)
+        # Don't override user_id with the document ID
         
         team_member_data = team_member.to_dict()
         
@@ -166,9 +166,8 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             data=team_member_data
         )
         
-        # Update the team member entity with the generated ID
+        # Update only the document ID, preserve user_id
         team_member.id = doc_id
-        team_member.user_id = doc_id
         
         return team_member
     
@@ -246,7 +245,11 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             except ValueError:
                 status = TeamStatus.ACTIVE  # Default fallback
         
-        return Team(
+        # Get settings (will be cleaned by Team.__post_init__)
+        settings = doc.get("settings", {})
+        
+        # Create team entity - the __post_init__ will handle bot config consistency
+        team = Team(
             id=doc.get("id"),
             name=doc.get("name"),
             description=doc.get("description"),
@@ -254,7 +257,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             created_by=doc.get("created_by", "system"),
             created_at=doc.get("created_at"),
             updated_at=doc.get("updated_at"),
-            settings=doc.get("settings", {}),
+            settings=settings,
             fa_team_url=doc.get("fa_team_url"),
             fa_fixtures_url=doc.get("fa_fixtures_url"),
             bot_id=doc.get("bot_id"),
@@ -262,6 +265,8 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             main_chat_id=doc.get("main_chat_id"),
             leadership_chat_id=doc.get("leadership_chat_id")
         )
+        
+        return team
     
     def _doc_to_team_member(self, doc: dict) -> TeamMember:
         """Convert a Firestore document to a TeamMember entity."""
@@ -272,19 +277,26 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         if isinstance(created_at, str):
             created_at = datetime.fromisoformat(created_at)
         
-        joined_at = doc.get("joined_at")
-        if isinstance(joined_at, str):
-            joined_at = datetime.fromisoformat(joined_at)
+        updated_at = doc.get("updated_at")
+        if isinstance(updated_at, str):
+            updated_at = datetime.fromisoformat(updated_at)
         
         return TeamMember(
-            id=doc.get("id"),
             user_id=doc.get("user_id", ""),
-            telegram_id=doc.get("telegram_id"),
-            telegram_username=doc.get("telegram_username"),
             team_id=doc.get("team_id", ""),
-            roles=doc.get("roles", []),
-            permissions=doc.get("permissions", []),
-            chat_access=doc.get("chat_access", {}),
+            telegram_id=doc.get("telegram_id"),
+            first_name=doc.get("first_name"),
+            last_name=doc.get("last_name"),
+            full_name=doc.get("full_name"),
+            username=doc.get("username"),
+            role=doc.get("role", "Team Member"),
+            is_admin=doc.get("is_admin", False),
+            status=doc.get("status", "active"),
+            phone_number=doc.get("phone_number"),
+            email=doc.get("email"),
+            emergency_contact=doc.get("emergency_contact"),
             created_at=created_at,
-            joined_at=joined_at
+            updated_at=updated_at,
+            source=doc.get("source"),
+            sync_version=doc.get("sync_version")
         ) 

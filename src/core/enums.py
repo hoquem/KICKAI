@@ -27,6 +27,8 @@ class PermissionLevel(Enum):
 
 class CommandType(Enum):
     """Types of commands supported by the system."""
+    SLASH_COMMAND = "slash_command"
+    NATURAL_LANGUAGE = "natural_language"
     PLAYER_MANAGEMENT = "player_management"
     MATCH_MANAGEMENT = "match_management"
     PAYMENT_MANAGEMENT = "payment_management"

@@ -13,7 +13,7 @@ from features.payment_management.domain.repositories.expense_repository_interfac
     Expense
 )
 from database.interfaces import DataStoreInterface
-from core.constants import COLLECTION_PAYMENTS
+from core.firestore_constants import COLLECTION_PAYMENTS
 
 
 class FirebaseExpenseRepository(ExpenseRepositoryInterface):

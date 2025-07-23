@@ -1,21 +1,21 @@
 # Message Formatting Framework & Agent Communication Patterns
 
-**Version:** 4.0  
+**Version:** 5.0  
 **Status:** Production Ready  
-**Last Updated:** December 2024  
-**Architecture:** Unified Processing with CrewAI Orchestration
+**Last Updated:** July 2025  
+**Architecture:** Plain Text with Emojis - Simple and Reliable
 
 ## Overview
 
-This document outlines the centralized message formatting framework and design patterns for consistent bot responses in the KICKAI system, using the latest unified processing architecture with CrewAI orchestration.
+This document outlines the centralized message formatting framework and design patterns for consistent bot responses in the KICKAI system, using plain text with emojis for maximum reliability and simplicity.
 
 ## Architecture Principles
 
-### 1. **Unified Processing Pipeline**
-- **All messages** go through the same CrewAI orchestration pipeline
-- **Context-aware formatting** based on chat type and user role
-- **Consistent styling** across all bot responses
-- **Dynamic command discovery** from command registry
+### 1. **Plain Text with Emojis**
+- **No Markdown or HTML formatting** - eliminates parsing errors
+- **Emojis for visual appeal** - maintains user engagement
+- **Universal compatibility** - works across all platforms
+- **Simple and reliable** - no format conversion needed
 
 ### 2. **Context-Aware Formatting**
 - **Chat type awareness** (main vs leadership)
@@ -163,28 +163,28 @@ async def list_players_leadership(update, context):
 ## Message Formatting Standards
 
 ### 1. **Emoji Usage**
-- **✅ Success**: `✅ **Success**: message`
-- **❌ Error**: `❌ **Error**: message`
-- **ℹ️ Info**: `ℹ️ **Info**: message`
-- **👤 User**: `👤 **User Information**`
-- **👔 Leadership**: `👔 **Leadership Commands**`
-- **🤖 Bot**: `🤖 **KICKAI Commands**`
-- **📋 Lists**: `📋 **Team Players**`
-- **👥 Members**: `👥 **Team Members**`
-- **🎉 Welcome**: `🎉 **Welcome to KICKAI**`
-- **📞 Contact**: `📞 **Contact Information**`
+- **✅ Success**: `✅ Success: message`
+- **❌ Error**: `❌ Error: message`
+- **ℹ️ Info**: `ℹ️ Info: message`
+- **👤 User**: `👤 User Information`
+- **👔 Leadership**: `👔 Leadership Commands`
+- **🤖 Bot**: `🤖 KICKAI Commands`
+- **📋 Lists**: `📋 Team Players`
+- **👥 Members**: `👥 Team Members`
+- **🎉 Welcome**: `🎉 Welcome to KICKAI`
+- **📞 Contact**: `📞 Contact Information`
 
-### 2. **Markdown Formatting**
-- **Bold headers**: `**Header**`
-- **Code commands**: `` `/command` ``
-- **Lists**: `• Item` or `* Item`
-- **Sections**: `**Section Name:**`
+### 2. **Plain Text Formatting**
+- **Headers**: `Header` (no bold formatting)
+- **Commands**: `/command` (no backticks)
+- **Lists**: `• Item` or `- Item`
+- **Sections**: `Section Name:`
 
 ### 3. **Chat Type Specific Formatting**
 
 #### Leadership Chat
 ```
-👔 **KICKAI Leadership Commands**
+👔 KICKAI Leadership Commands
 
 👤 {telegram_name} (ID: {member_id})
 Role: {role} | Player: {is_player}
@@ -208,7 +208,7 @@ You can also ask me questions in natural language!
 
 #### Main Chat
 ```
-🤖 **KICKAI Commands**
+🤖 KICKAI Commands
 
 👤 {telegram_name} (ID: {player_id})
 
@@ -219,7 +219,7 @@ General Commands:
 Player Commands:
 • /register - Register as a new player
 
-Leadership Commands** (available in leadership chat):
+Leadership Commands (available in leadership chat):
 • /add - Add a new player with invite link
 • /approve - Approve a player for team participation
 

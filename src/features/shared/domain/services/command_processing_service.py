@@ -34,7 +34,6 @@ class UserContext:
     is_registered: bool = False
     is_player: bool = False
     is_team_member: bool = False
-    is_first_user: bool = False
 
 
 @dataclass
@@ -171,8 +170,7 @@ class CommandProcessingService:
                 team_member_data=team_member_data,
                 is_registered=user_permissions.is_player or user_permissions.is_team_member,
                 is_player=user_permissions.is_player,
-                is_team_member=user_permissions.is_team_member,
-                is_first_user=user_permissions.is_first_user
+                is_team_member=user_permissions.is_team_member
             )
             
         except Exception as e:
@@ -187,8 +185,7 @@ class CommandProcessingService:
                 telegram_name=telegram_name,
                 is_registered=False,
                 is_player=False,
-                is_team_member=False,
-                is_first_user=False
+                is_team_member=False
             )
     
     async def _validate_user_status(self, user_context: UserContext, command_name: str) -> CommandResponse:
@@ -198,7 +195,6 @@ class CommandProcessingService:
         This implements the user validation rules:
         - Main chat: Must be a player
         - Leadership chat: Must be a team member
-        - First user flow: Special handling for first team member
         """
         try:
             # Check if user is registered
@@ -212,21 +208,13 @@ class CommandProcessingService:
                         action_type="player_registration"
                     )
                 elif user_context.chat_type == ChatType.LEADERSHIP:
-                    # Leadership chat: Check if this is the first user
-                    if user_context.is_first_user:
-                        return CommandResponse(
-                            message=self._format_first_user_welcome_message(user_context),
-                            success=False,
-                            requires_action=True,
-                            action_type="first_user_registration"
-                        )
-                    else:
-                        return CommandResponse(
-                            message=self._format_team_member_registration_message(user_context),
-                            success=False,
-                            requires_action=True,
-                            action_type="team_member_registration"
-                        )
+                    # Leadership chat: Team member registration
+                    return CommandResponse(
+                        message=self._format_team_member_registration_message(user_context),
+                        success=False,
+                        requires_action=True,
+                        action_type="team_member_registration"
+                    )
             
             # User is registered, check chat-specific requirements
             if user_context.chat_type == ChatType.MAIN and not user_context.is_player:
@@ -269,17 +257,10 @@ class CommandProcessingService:
             f"👋 Welcome to KICKAI Leadership, {user_context.telegram_name}!\n\n"
             f"🤔 I don't see you registered as a team member yet.\n\n"
             f"📝 Please provide your details so I can add you to the team members collection.\n\n"
-            f"💡 You can use: /register [name] [phone] [role]"
+            f"💡 They can use: /addmember [name] [phone] [role]"
         )
     
-    def _format_first_user_welcome_message(self, user_context: UserContext) -> str:
-        """Format welcome message for the first team member."""
-        return (
-            f"🎉 Welcome to KICKAI, {user_context.telegram_name}!\n\n"
-            f"🌟 You're the first team member! Let's get you set up as an admin.\n\n"
-            f"📝 Please provide your details:\n"
-            f"💡 Use: /register [name] [phone] admin"
-        )
+
     
     async def _process_help_command(self, user_context: UserContext, **kwargs) -> CommandResponse:
         """Process the help command using the new HelpAssistantAgent."""
@@ -289,17 +270,19 @@ class CommandProcessingService:
             # Get help assistant agent instance
             help_assistant = get_help_assistant_agent()
             
-            # Determine chat type string
-            chat_type = "leadership_chat" if user_context.chat_type == ChatType.LEADERSHIP else "main_chat"
+            # Use the normalized chat type from constants
+            from core.constants import normalize_chat_type
+            chat_type_enum = normalize_chat_type(str(user_context.chat_type))
+            chat_type = chat_type_enum.value
             
             # Process help request using HelpAssistantAgent
-            help_message = await help_assistant.process_help_request(
-                user_id=user_context.user_id,
-                team_id=user_context.team_id,
-                chat_type=chat_type,
-                telegram_username=user_context.telegram_username,
-                telegram_name=user_context.telegram_name
-            )
+            help_message = await help_assistant.process_help_request({
+                'user_id': user_context.user_id,
+                'team_id': user_context.team_id,
+                'chat_type': chat_type,
+                'username': user_context.telegram_username or user_context.telegram_name,
+                'message_text': 'help request'
+            })
             
             return CommandResponse(
                 message=help_message,
@@ -364,12 +347,12 @@ class CommandProcessingService:
         position = player_data.get('position', 'Unknown')
         
         message = (
-            f"👤 *Player Information*\n\n"
-            f"*Name:* {name}\n"
-            f"*Player ID:* {player_id}\n"
-            f"*Phone:* {phone}\n"
-            f"*Position:* {position}\n"
-            f"*Status:* Active"
+            f"👤 Player Information\n\n"
+            f"Name: {name}\n"
+            f"Player ID: {player_id}\n"
+            f"Phone: {phone}\n"
+            f"Position: {position}\n"
+            f"Status: Active"
         )
         
         return CommandResponse(message=message, success=True)
@@ -385,12 +368,12 @@ class CommandProcessingService:
         roles_text = ", ".join(roles) if roles else "No roles assigned"
         
         message = (
-            f"👔 *Team Member Information*\n\n"
-            f"*Name:* {name}\n"
-            f"*Member ID:* {member_id}\n"
-            f"*Phone:* {phone}\n"
-            f"*Roles:* {roles_text}\n"
-            f"*Status:* Active"
+            f"👔 Team Member Information\n\n"
+            f"Name: {name}\n"
+            f"Member ID: {member_id}\n"
+            f"Phone: {phone}\n"
+            f"Roles: {roles_text}\n"
+            f"Status: Active"
         )
         
         return CommandResponse(message=message, success=True)

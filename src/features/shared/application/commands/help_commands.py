@@ -19,26 +19,26 @@ from src.core.command_registry import command, CommandType, PermissionLevel
         "command": "Optional command name for detailed help (e.g., /help /register)"
     },
     help_text="""
-📚 **Help System**
+📚 Help System
 
 Get help information about available commands.
 
-**Usage:**
-• `/help` - Show all available commands for your role
-• `/help [command]` - Get detailed help for a specific command
+Usage:
+• /help - Show all available commands for your role
+• /help [command] - Get detailed help for a specific command
 
-**Examples:**
-• `/help` - List all commands you can use
-• `/help /register` - Get detailed help for registration
-• `/help /announce` - Get help for announcements (leadership only)
+Examples:
+• /help - List all commands you can use
+• /help /register - Get detailed help for registration
+• /help /announce - Get help for announcements (leadership only)
 
-**What you'll see:**
+What you'll see:
 • Commands available in your current chat
 • Permission requirements for each command
 • Usage examples and parameters
 • Detailed explanations
 
-💡 **Tip:** Commands shown depend on your role and current chat type.
+💡 Tip: Commands shown depend on your role and current chat type.
     """
 )
 async def handle_help_command(update, context, **kwargs):

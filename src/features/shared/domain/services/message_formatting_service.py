@@ -57,22 +57,22 @@ class MessageFormattingService:
     
     def format_error_message(self, error: str, context: Optional[MessageContext] = None) -> str:
         """Format error message with consistent styling."""
-        return f"❌ **Error**: {error}\n\nPlease try again or contact support if the issue persists."
+        return f"❌ Error: {error}\n\nPlease try again or contact support if the issue persists."
     
     def format_success_message(self, message: str, context: Optional[MessageContext] = None) -> str:
         """Format success message with consistent styling."""
-        return f"✅ **Success**: {message}"
+        return f"✅ Success: {message}"
     
     def format_info_message(self, message: str, context: Optional[MessageContext] = None) -> str:
         """Format informational message with consistent styling."""
-        return f"ℹ️ **Info**: {message}"
+        return f"ℹ️ Info: {message}"
     
     def format_player_list(self, players: List[Dict[str, Any]], context: MessageContext) -> str:
         """Format player list with consistent styling."""
         if not players:
-            return "📋 **No players found**"
+            return "📋 No players found"
         
-        lines = ["📋 **Team Players**\n"]
+        lines = ["📋 Team Players\n"]
         
         for player in players:
             status_emoji = "🟢" if player.get("is_active", True) else "🔴"
@@ -80,7 +80,7 @@ class MessageFormattingService:
             position = player.get("position", "Unknown")
             phone = player.get("phone", "No phone")
             
-            lines.append(f"{status_emoji} **{name}** ({position})")
+            lines.append(f"{status_emoji} {name} ({position})")
             lines.append(f"   📱 {phone}")
             lines.append("")
         
@@ -89,16 +89,16 @@ class MessageFormattingService:
     def format_team_member_list(self, members: List[Dict[str, Any]], context: MessageContext) -> str:
         """Format team member list with consistent styling."""
         if not members:
-            return "👥 **No team members found**"
+            return "👥 No team members found"
         
-        lines = ["👥 **Team Members**\n"]
+        lines = ["👥 Team Members\n"]
         
         for member in members:
             role_emoji = "👑" if member.get("is_admin", False) else "👤"
             name = member.get("name", "Unknown")
             role = member.get("role", "Member")
             
-            lines.append(f"{role_emoji} **{name}** - {role}")
+            lines.append(f"{role_emoji} {name} - {role}")
             lines.append("")
         
         return "\n".join(lines)
@@ -110,47 +110,47 @@ class MessageFormattingService:
         elif context.is_team_member:
             return self._format_team_member_info(user_data)
         else:
-            return "👤 **User Information**\n\nYou are not registered yet. Use `/register` to get started!"
+            return "👤 User Information\n\nYou are not registered yet. Contact team leadership to be added to the team."
     
     def _format_leadership_help(self, commands_info: Dict[str, Any]) -> str:
         """Format help message for leadership chat."""
-        lines = ["👔 **KICKAI Leadership Commands**\n"]
+        lines = ["👔 KICKAI Leadership Commands\n"]
         
         # Shared Commands
-        lines.append("**Shared Commands:**")
+        lines.append("Shared Commands:")
         for cmd in commands_info.get("features", {}).get("shared", []):
-            lines.append(f"• `{cmd['name']}` - {cmd['description']}")
+            lines.append(f"• {cmd['name']} - {cmd['description']}")
         
         # Player Registration Commands
-        lines.append("\n**Player Management:**")
+        lines.append("\nPlayer Management:")
         for cmd in commands_info.get("features", {}).get("player_registration", []):
-            lines.append(f"• `{cmd['name']}` - {cmd['description']}")
+            lines.append(f"• {cmd['name']} - {cmd['description']}")
         
         # Communication Commands
-        lines.append("\n**Communication:**")
+        lines.append("\nCommunication:")
         for cmd in commands_info.get("features", {}).get("communication", []):
-            lines.append(f"• `{cmd['name']}` - {cmd['description']}")
+            lines.append(f"• {cmd['name']} - {cmd['description']}")
         
-        lines.append("\n💡 Use `/help [command]` for detailed information on specific commands.")
+        lines.append("\n💡 Use /help [command] for detailed information on specific commands.")
         
         return "\n".join(lines)
     
     def _format_main_chat_help(self, commands_info: Dict[str, Any]) -> str:
         """Format help message for main chat."""
-        lines = ["🤖 **KICKAI Commands**\n"]
+        lines = ["🤖 KICKAI Commands\n"]
         
         # General Commands
-        lines.append("**General Commands:**")
+        lines.append("General Commands:")
         for cmd in commands_info.get("features", {}).get("shared", []):
-            lines.append(f"• `{cmd['name']}` - {cmd['description']}")
+            lines.append(f"• {cmd['name']} - {cmd['description']}")
         
         # Player Commands
-        lines.append("\n**Player Commands:**")
+        lines.append("\nPlayer Commands:")
         for cmd in commands_info.get("features", {}).get("player_registration", []):
-            lines.append(f"• `{cmd['name']}` - {cmd['description']}")
+            lines.append(f"• {cmd['name']} - {cmd['description']}")
         
         # Leadership Commands (for reference)
-        lines.append("\n**Leadership Commands** (available in leadership chat):")
+        lines.append("\nLeadership Commands (available in leadership chat):")
         leadership_commands = [
             ("/addplayer", "Add a new player with invite link"),
             ("/addmember", "Add a new team member with invite link"),
@@ -162,33 +162,33 @@ class MessageFormattingService:
             ("/broadcast", "Broadcast message to all team chats")
         ]
         for cmd_name, cmd_desc in leadership_commands:
-            lines.append(f"• `{cmd_name}` - {cmd_desc}")
+            lines.append(f"• {cmd_name} - {cmd_desc}")
         
-        lines.append("\n💡 Use `/help [command]` for detailed help on specific commands.")
+        lines.append("\n💡 Use /help [command] for detailed help on specific commands.")
         
         return "\n".join(lines)
     
     def _format_leadership_welcome(self, context: MessageContext) -> str:
         """Format welcome message for leadership chat."""
         return (
-            f"👔 **Welcome to KICKAI Leadership!**\n\n"
+            f"👔 Welcome to KICKAI Leadership!\n\n"
             f"🤖 I'm your AI-powered team management assistant.\n"
             f"• Manage players and team operations\n"
             f"• Send announcements and reminders\n"
             f"• Monitor team performance\n\n"
-            f"Use `/help` to see all available commands.\n"
+            f"Use /help to see all available commands.\n"
             f"Let's build a winning team! 🏆"
         )
     
     def _format_main_chat_welcome(self, context: MessageContext) -> str:
         """Format welcome message for main chat."""
         return (
-            f"🤖 **Welcome to KICKAI!**\n\n"
+            f"🤖 Welcome to KICKAI!\n\n"
             f"I'm your AI-powered football team assistant.\n"
             f"• Register as a player\n"
             f"• Check team information\n"
             f"• Stay updated on matches\n\n"
-            f"Use `/help` to see what you can do!\n"
+            f"Use /help to see what you can do!\n"
             f"Let's kick off a smarter season! ⚽️"
         )
     
@@ -203,12 +203,12 @@ class MessageFormattingService:
         status_text = "Active" if is_active else "Inactive"
         
         return (
-            f"👤 **Player Information**\n\n"
-            f"**Name:** {name}\n"
-            f"**Position:** {position}\n"
-            f"**Phone:** {phone}\n"
-            f"**Status:** {status_emoji} {status_text}\n\n"
-            f"Use `/help` to see available commands!"
+            f"👤 Player Information\n\n"
+            f"Name: {name}\n"
+            f"Position: {position}\n"
+            f"Phone: {phone}\n"
+            f"Status: {status_emoji} {status_text}\n\n"
+            f"Use /help to see available commands!"
         )
     
     def _format_team_member_info(self, member_data: Dict[str, Any]) -> str:
@@ -220,11 +220,11 @@ class MessageFormattingService:
         role_emoji = "👑" if is_admin else "👤"
         
         return (
-            f"👔 **Team Member Information**\n\n"
-            f"**Name:** {name}\n"
-            f"**Role:** {role_emoji} {role}\n"
-            f"**Admin:** {'Yes' if is_admin else 'No'}\n\n"
-            f"Use `/help` to see leadership commands!"
+            f"👔 Team Member Information\n\n"
+            f"Name: {name}\n"
+            f"Role: {role_emoji} {role}\n"
+            f"Admin: {'Yes' if is_admin else 'No'}\n\n"
+            f"Use /help to see leadership commands!"
         )
 
 

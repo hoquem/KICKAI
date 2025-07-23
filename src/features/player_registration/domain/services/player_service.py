@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from ..entities.player import Player
 from ..repositories.player_repository_interface import PlayerRepositoryInterface
-from features.team_administration.domain.services.team_service import TeamService
+from src.features.team_administration.domain.services.team_service import TeamService
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,36 @@ class PlayerService:
     async def get_player_by_phone(self, *, phone: str, team_id: str) -> Optional[Player]:
         """Get a player by phone number."""
         return await self.player_repository.get_player_by_phone(phone, team_id)
+    
+    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[Player]:
+        """Get a player by Telegram ID."""
+        try:
+            # Use the database client directly since repository might not have this method
+            from core.dependency_container import get_container
+            container = get_container()
+            database = container.get_database()
+            
+            # Call the firebase client method directly
+            player_data = await database.get_player_by_telegram_id(telegram_id, team_id)
+            if player_data:
+                # Convert to Player entity
+                from ..entities.player import Player
+                from datetime import datetime
+                
+                return Player(
+                    id=player_data.get("id", ""),
+                    name=player_data.get("name", ""),
+                    phone=player_data.get("phone", ""),
+                    position=player_data.get("position", ""),
+                    team_id=player_data.get("team_id", ""),
+                    status=player_data.get("status", "pending"),
+                    created_at=datetime.fromisoformat(player_data["created_at"]) if player_data.get("created_at") else None,
+                    updated_at=datetime.fromisoformat(player_data["updated_at"]) if player_data.get("updated_at") else None
+                )
+            return None
+        except Exception as e:
+            logger.error(f"Error getting player by telegram_id {telegram_id}: {e}")
+            return None
     
     async def get_players_by_team(self, *, team_id: str, status: Optional[str] = None) -> List[Player]:
         """Get players for a team, optionally filtered by status."""

@@ -307,7 +307,7 @@ class AgentRegistry:
             name=agent_class.__name__,
             description=agent_class.__doc__ or f"Agent for {feature_name}",
             feature_module=feature_name,
-            factory_function=lambda **kwargs: agent_class(**kwargs)
+            factory_function=lambda kwargs: agent_class(kwargs)
         )
     
     def _determine_agent_type(self, class_name: str) -> AgentType:
@@ -447,7 +447,7 @@ def register_agent_decorator(
             dependencies=dependencies,
             tools=tools,
             config_schema=config_schema,
-            factory_function=lambda **kwargs: cls(**kwargs),
+            factory_function=lambda kwargs: cls(kwargs),
             feature_module=feature_module,
             tags=tags,
             aliases=aliases
