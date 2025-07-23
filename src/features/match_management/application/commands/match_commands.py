@@ -6,9 +6,8 @@ This module registers all match management related commands with the command reg
 Each feature maintains its own command definitions for clean separation.
 """
 
-from src.core.command_registry import command, CommandType, PermissionLevel
+from src.core.command_registry import CommandType, PermissionLevel, command
 from src.core.enums import ChatType
-
 
 # ============================================================================
 # MATCH MANAGEMENT COMMANDS
@@ -197,4 +196,4 @@ Available fields:
 async def handle_updatematch_command(update, context, **kwargs):
     """Handle /updatematch command."""
     # This will be handled by the agent system
-    return None 
+    return None

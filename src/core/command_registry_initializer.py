@@ -7,9 +7,6 @@ ensuring all commands are properly registered before the registry is used.
 This eliminates the initialization order problem with the global singleton pattern.
 """
 
-import logging
-from typing import Optional
-from pathlib import Path
 
 from src.core.command_registry import CommandRegistry
 from src.core.logging_config import logger
@@ -22,11 +19,11 @@ class CommandRegistryInitializer:
     This class ensures that all commands are properly registered before
     the registry is used by any other components.
     """
-    
+
     def __init__(self):
-        self.registry: Optional[CommandRegistry] = None
+        self.registry: CommandRegistry | None = None
         self._initialized = False
-    
+
     def initialize(self) -> CommandRegistry:
         """
         Initialize the command registry with all commands.
@@ -42,62 +39,62 @@ class CommandRegistryInitializer:
         """
         if self._initialized and self.registry:
             return self.registry
-        
+
         logger.info("🔧 Initializing command registry...")
-        
+
         # Create new registry instance
         self.registry = CommandRegistry()
-        
+
         # Manually import all command modules to ensure @command decorators are executed
         self._import_command_modules()
-        
+
         # Copy commands from global registry to initialized registry
         self._copy_commands_from_global_registry()
-        
+
         # Perform auto-discovery as backup (disabled for now to avoid conflicts)
         # logger.info("🔍 Performing command auto-discovery...")
         # self.registry.auto_discover_commands()
-        
+
         # Log statistics
         stats = self.registry.get_command_statistics()
         logger.info(f"✅ Command registry initialized with {stats['total_commands']} commands")
         logger.info(f"📊 Commands by feature: {stats['commands_by_feature']}")
-        
+
         self._initialized = True
         return self.registry
-    
+
     def _import_command_modules(self):
         """Manually import all command modules to ensure @command decorators are executed."""
         command_modules = [
             # Player registration commands
             "src.features.player_registration.application.commands.player_commands",
-            
+
             # Team administration commands
             "src.features.team_administration.application.commands.team_commands",
-            
+
             # Match management commands
             "src.features.match_management.application.commands.match_commands",
-            
+
             # Attendance management commands
             "src.features.attendance_management.application.commands.attendance_commands",
-            
+
             # Payment management commands
             "src.features.payment_management.application.commands.payment_commands",
-            
+
             # Communication commands
             "src.features.communication.application.commands.communication_commands",
-            
+
             # Health monitoring commands
             "src.features.health_monitoring.application.commands.health_commands",
-            
+
             # System infrastructure commands
             "src.features.system_infrastructure.application.commands.system_commands",
-            
+
             # Shared commands
             "src.features.shared.application.commands.shared_commands",
             "src.features.shared.application.commands.help_commands",
         ]
-        
+
         for module_name in command_modules:
             try:
                 logger.debug(f"🔍 Importing command module: {module_name}")
@@ -107,30 +104,30 @@ class CommandRegistryInitializer:
                 logger.warning(f"⚠️ Failed to import command module {module_name}: {e}")
             except Exception as e:
                 logger.error(f"❌ Error importing command module {module_name}: {e}")
-    
+
     def _copy_commands_from_global_registry(self):
         """Copy commands from the global registry to the initialized registry."""
         try:
             from src.core.command_registry import get_command_registry
             global_registry = get_command_registry()
-            
+
             # Copy all commands from global registry
             for cmd_name, cmd_metadata in global_registry._commands.items():
                 if cmd_name not in self.registry._commands:
                     self.registry._commands[cmd_name] = cmd_metadata
-                    
+
                     # Copy to feature commands
                     if cmd_metadata.feature not in self.registry._feature_commands:
                         self.registry._feature_commands[cmd_metadata.feature] = []
                     self.registry._feature_commands[cmd_metadata.feature].append(cmd_name)
-                    
+
                     logger.debug(f"📋 Copied command: {cmd_name} ({cmd_metadata.feature})")
-            
+
             # Copy aliases
             for alias, target in global_registry._command_aliases.items():
                 if alias not in self.registry._command_aliases:
                     self.registry._command_aliases[alias] = target
-            
+
             # Copy chat-specific commands
             if hasattr(global_registry, '_chat_specific_commands'):
                 for cmd_name, chat_commands in global_registry._chat_specific_commands.items():
@@ -139,13 +136,13 @@ class CommandRegistryInitializer:
                     for chat_type, cmd_metadata in chat_commands.items():
                         self.registry._chat_specific_commands[cmd_name][chat_type] = cmd_metadata
                         logger.debug(f"📋 Copied chat-specific command: {cmd_name} for {chat_type}")
-            
+
             logger.info(f"📋 Copied {len(global_registry._commands)} commands from global registry")
-            
+
         except Exception as e:
             logger.error(f"❌ Error copying commands from global registry: {e}")
-    
-    def get_registry(self) -> Optional[CommandRegistry]:
+
+    def get_registry(self) -> CommandRegistry | None:
         """Get the initialized registry instance."""
         if not self._initialized:
             raise RuntimeError("Command registry not initialized. Call initialize() first.")
@@ -182,4 +179,4 @@ def get_initialized_command_registry() -> CommandRegistry:
     Raises:
         RuntimeError: If the registry hasn't been initialized
     """
-    return _command_registry_initializer.get_registry() 
+    return _command_registry_initializer.get_registry()

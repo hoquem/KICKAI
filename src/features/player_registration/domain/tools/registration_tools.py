@@ -5,12 +5,14 @@ This module provides tools for player registration and team member management.
 """
 
 import logging
-from typing import Optional
-from pydantic import BaseModel
 
 from crewai.tools import tool
-from src.features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
+from pydantic import BaseModel
+
 from src.core.dependency_container import get_container
+from src.features.player_registration.domain.services.player_registration_service import (
+    PlayerRegistrationService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +22,7 @@ class RegisterPlayerInput(BaseModel):
     player_name: str
     phone_number: str
     position: str
-    team_id: Optional[str] = None
+    team_id: str | None = None
 
 
 class TeamMemberRegistrationInput(BaseModel):
@@ -34,11 +36,11 @@ class TeamMemberRegistrationInput(BaseModel):
 class RegistrationGuidanceInput(BaseModel):
     """Input model for registration_guidance tool."""
     user_id: str
-    team_id: Optional[str] = None
+    team_id: str | None = None
 
 
 @tool("register_player")
-def register_player(player_name: str, phone_number: str, position: str, team_id: Optional[str] = None) -> str:
+def register_player(player_name: str, phone_number: str, position: str, team_id: str | None = None) -> str:
     """
     Register a new player in the main chat. Requires: player_name, phone_number, position
     
@@ -54,28 +56,28 @@ def register_player(player_name: str, phone_number: str, position: str, team_id:
     try:
         container = get_container()
         registration_service = container.get_service(PlayerRegistrationService)
-        
+
         if not registration_service:
             logger.error("❌ PlayerRegistrationService not available")
             return "❌ Registration service not available"
-        
+
         # Register the player
         player = registration_service.register_player(player_name, phone_number, position, team_id)
-        
+
         if player:
             logger.info(f"✅ Player registered: {player_name} ({position})")
             return f"✅ Player registered successfully: {player_name} ({position})"
         else:
             logger.error(f"❌ Failed to register player: {player_name}")
             return f"❌ Failed to register player: {player_name}"
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to register player: {e}")
-        return f"❌ Failed to register player: {str(e)}"
+        return f"❌ Failed to register player: {e!s}"
 
 
 @tool("register_team_member")
-def register_team_member(player_name: str, phone_number: str, role: str, team_id: Optional[str] = None) -> str:
+def register_team_member(player_name: str, phone_number: str, role: str, team_id: str | None = None) -> str:
     """
     Register a new team member in the leadership chat. Requires: player_name, phone_number, role
     
@@ -91,24 +93,24 @@ def register_team_member(player_name: str, phone_number: str, role: str, team_id
     try:
         container = get_container()
         registration_service = container.get_service(PlayerRegistrationService)
-        
+
         if not registration_service:
             logger.error("❌ PlayerRegistrationService not available")
             return "❌ Registration service not available"
-        
+
         # Register the team member (using the same service but with role instead of position)
         player = registration_service.register_player(player_name, phone_number, role, team_id)
-        
+
         if player:
             logger.info(f"✅ Team member registered: {player_name} ({role})")
             return f"✅ Team member registered successfully: {player_name} ({role})"
         else:
             logger.error(f"❌ Failed to register team member: {player_name}")
             return f"❌ Failed to register team member: {player_name}"
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to register team member: {e}")
-        return f"❌ Failed to register team member: {str(e)}"
+        return f"❌ Failed to register team member: {e!s}"
 
 
 @tool("team_member_registration")
@@ -128,16 +130,16 @@ def team_member_registration(player_name: str, phone_number: str, position: str,
     """
     try:
         container = get_container()
-        from features.team_administration.domain.services.team_service import TeamService
+        from src.features.team_administration.domain.services.team_service import TeamService
         team_service = container.get_service(TeamService)
-        
+
         if not team_service:
             logger.error("❌ TeamService not available")
             return "❌ Team service not available"
-        
+
         # Use user_id if provided, otherwise use phone_number as fallback
         actual_user_id = user_id if user_id else phone_number
-        
+
         # Register the team member using TeamService (run async operation synchronously)
         import asyncio
         try:
@@ -145,7 +147,7 @@ def team_member_registration(player_name: str, phone_number: str, position: str,
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        
+
         team_member = loop.run_until_complete(
             team_service.add_team_member(
                 team_id=team_id,
@@ -155,21 +157,21 @@ def team_member_registration(player_name: str, phone_number: str, position: str,
                 phone=phone_number
             )
         )
-        
+
         if team_member:
             logger.info(f"✅ Team member registered: {player_name} for team {team_id}")
             return f"✅ Team member registered successfully: {player_name} for team {team_id}"
         else:
             logger.error(f"❌ Failed to register team member: {player_name}")
             return f"❌ Failed to register team member: {player_name}"
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to register team member: {e}")
-        return f"❌ Failed to register team member: {str(e)}"
+        return f"❌ Failed to register team member: {e!s}"
 
 
 @tool("registration_guidance")
-def registration_guidance(user_id: str, team_id: Optional[str] = None) -> str:
+def registration_guidance(user_id: str, team_id: str | None = None) -> str:
     """
     Provide registration guidance to a user. Requires: user_id
     
@@ -183,17 +185,17 @@ def registration_guidance(user_id: str, team_id: Optional[str] = None) -> str:
     try:
         container = get_container()
         registration_service = container.get_service(PlayerRegistrationService)
-        
+
         if not registration_service:
             logger.error("❌ PlayerRegistrationService not available")
             return "❌ Registration service not available"
-        
+
         # Get registration guidance
         guidance = registration_service.get_registration_guidance(user_id, team_id)
-        
+
         logger.info(f"✅ Registration guidance provided to user {user_id}")
         return guidance
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to provide registration guidance: {e}")
-        return f"❌ Failed to provide registration guidance: {str(e)}" 
+        return f"❌ Failed to provide registration guidance: {e!s}"

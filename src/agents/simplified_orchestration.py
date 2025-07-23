@@ -7,17 +7,15 @@ modular components and follows the pipeline pattern for better separation of con
 """
 
 import logging
-import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, List, Any, Optional
-from enum import Enum
+from typing import Any
 
+from src.agents.complexity_assessor import RequestComplexityAssessor
+from src.agents.entity_specific_agents import (
+    EntitySpecificAgentManager,
+)
 from src.agents.task_decomposition import TaskDecompositionManager
-from src.agents.complexity_assessor import RequestComplexityAssessor, ComplexityAssessment
-from src.agents.configurable_agent import ConfigurableAgent
-from src.agents.entity_specific_agents import EntitySpecificAgentManager, EntityValidationResult, EntityOperationContext
-from src.agents.tool_registry import EntityType
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +30,8 @@ class TaskContext:
     task_id: str
     user_id: str
     team_id: str
-    parameters: Dict[str, Any]
-    metadata: Dict[str, Any]
+    parameters: dict[str, Any]
+    metadata: dict[str, Any]
 
 
 @dataclass
@@ -42,7 +40,7 @@ class Subtask:
     task_id: str
     description: str
     agent_role: AgentRole
-    capabilities_required: List
+    capabilities_required: list
     estimated_duration: int
 
 
@@ -58,19 +56,22 @@ class OrchestrationStep:
 
 class PipelineStep(ABC):
     """Abstract base class for pipeline steps."""
-    
+
     @abstractmethod
-    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         """Execute the pipeline step."""
         pass
-    
+
     @abstractmethod
     def get_step_name(self) -> str:
         """Get the name of this pipeline step."""
         pass
 
 
-from src.features.player_registration.domain.state_machine import RegistrationStateMachine, RegistrationState
+from src.features.player_registration.domain.state_machine import (
+    RegistrationState,
+    RegistrationStateMachine,
+)
 
 
 class IntentClassificationStep(PipelineStep):
@@ -83,7 +84,7 @@ class IntentClassificationStep(PipelineStep):
     def get_step_name(self) -> str:
         return "Intent Classification"
 
-    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         """Execute intent classification."""
         task_description = context.get('task_description')
         execution_context = context.get('execution_context', {})
@@ -111,7 +112,7 @@ class IntentClassificationStep(PipelineStep):
         try:
             intent_result = self.intent_classifier.classify(task_description, execution_context)
             logger.info(f"🔍 Intent classification result: {intent_result.intent} (confidence: {intent_result.confidence})")
-            
+
             return {
                 **context,
                 'intent_result': intent_result,
@@ -150,26 +151,26 @@ class EntityValidationStep(PipelineStep):
     def get_step_name(self) -> str:
         return "Entity Validation"
 
-    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         """Execute entity validation."""
         task_description = context.get('task_description')
         execution_context = context.get('execution_context', {})
         intent_result = context.get('intent_result')
-        
+
         try:
             # Extract parameters from execution context
             parameters = execution_context.get('parameters', {})
-            
+
             # Validate the operation
             validation_result = self.entity_manager.validator.validate_operation(
                 task_description, parameters
             )
-            
+
             logger.info(f"🔍 Entity validation result: {validation_result.entity_type} (valid: {validation_result.is_valid})")
-            
+
             if not validation_result.is_valid:
                 logger.warning(f"⚠️ Entity validation failed: {validation_result.error_message}")
-            
+
             return {
                 **context,
                 'entity_validation_result': validation_result,
@@ -190,7 +191,7 @@ class EntityValidationStep(PipelineStep):
                 'entity_validation_result': type('EntityValidationResult', (), {
                     'is_valid': False,
                     'entity_type': None,
-                    'error_message': f"Entity validation error: {str(e)}",
+                    'error_message': f"Entity validation error: {e!s}",
                     'suggested_agent': None
                 })(),
                 'step_results': {
@@ -211,7 +212,7 @@ class ComplexityAssessmentStep(PipelineStep):
     def get_step_name(self) -> str:
         return "Complexity Assessment"
 
-    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         """Execute complexity assessment."""
         task_description = context.get('task_description')
         execution_context = context.get('execution_context', {})
@@ -227,9 +228,9 @@ class ComplexityAssessmentStep(PipelineStep):
                 context=execution_context,
                 user_id=execution_context.get('user_id')
             )
-            
+
             logger.info(f"🔍 Complexity assessment: {complexity_result.complexity_level} (score: {complexity_result.score})")
-            
+
             return {
                 **context,
                 'complexity_result': complexity_result,
@@ -249,7 +250,7 @@ class ComplexityAssessmentStep(PipelineStep):
                 'complexity_result': type('ComplexityAssessment', (), {
                     'complexity_level': 'medium',
                     'score': 0.5,
-                    'reasoning': f"Complexity assessment error: {str(e)}"
+                    'reasoning': f"Complexity assessment error: {e!s}"
                 })(),
                 'step_results': {
                     'complexity_assessment': {
@@ -269,7 +270,7 @@ class TaskDecompositionStep(PipelineStep):
     def get_step_name(self) -> str:
         return "Task Decomposition"
 
-    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         """Execute task decomposition."""
         task_description = context.get('task_description')
         execution_context = context.get('execution_context', {})
@@ -287,7 +288,7 @@ class TaskDecompositionStep(PipelineStep):
             else:
                 subtasks = []
                 logger.info("🔍 Task is simple, no decomposition needed")
-            
+
             return {
                 **context,
                 'subtasks': subtasks,
@@ -322,7 +323,7 @@ class EntityAwareAgentRoutingStep(PipelineStep):
     def get_step_name(self) -> str:
         return "Entity-Aware Agent Routing"
 
-    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         """Execute entity-aware agent routing."""
         task_description = context.get('task_description')
         execution_context = context.get('execution_context', {})
@@ -333,15 +334,15 @@ class EntityAwareAgentRoutingStep(PipelineStep):
         try:
             # Extract parameters for routing
             parameters = execution_context.get('parameters', {})
-            
+
             # Route operation to appropriate agent
             selected_agent_role = self.entity_manager.route_operation_to_agent(
                 task_description, parameters, available_agents
             )
-            
+
             if selected_agent_role:
                 logger.info(f"🔍 Routed to agent: {selected_agent_role.value}")
-                
+
                 # Create entity operation context
                 entity_context = self.entity_manager.create_entity_operation_context(
                     task_description,
@@ -349,7 +350,7 @@ class EntityAwareAgentRoutingStep(PipelineStep):
                     "unknown_tool",  # Will be determined by agent
                     parameters
                 )
-                
+
                 return {
                     **context,
                     'selected_agent_role': selected_agent_role,
@@ -397,7 +398,7 @@ class TaskExecutionStep(PipelineStep):
     def get_step_name(self) -> str:
         return "Task Execution"
 
-    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         """Execute the task."""
         selected_agent_role = context.get('selected_agent_role')
         available_agents = context.get('available_agents', {})
@@ -408,25 +409,25 @@ class TaskExecutionStep(PipelineStep):
         try:
             if selected_agent_role and selected_agent_role in available_agents:
                 agent = available_agents[selected_agent_role]
-                
+
                 # Validate agent can handle this entity type
                 if entity_operation_context:
                     entity_manager = EntitySpecificAgentManager(agent.context.tool_registry)
                     can_handle = entity_manager.validate_agent_entity_access(
                         selected_agent_role, entity_operation_context.entity_type
                     )
-                    
+
                     if not can_handle:
                         logger.warning(f"⚠️ Agent {selected_agent_role.value} cannot handle entity type {entity_operation_context.entity_type.value}")
                         # Fallback to message processor
                         if AgentRole.MESSAGE_PROCESSOR in available_agents:
                             agent = available_agents[AgentRole.MESSAGE_PROCESSOR]
                             logger.info("🔄 Fallback to Message Processor")
-                
+
                 # Execute the task
                 logger.info(f"🚀 Executing task with agent: {selected_agent_role.value}")
                 result = await agent.execute(task_description, execution_context)
-                
+
                 return {
                     **context,
                     'execution_result': result,
@@ -454,7 +455,7 @@ class TaskExecutionStep(PipelineStep):
             logger.error(f"❌ Task execution failed: {e}")
             return {
                 **context,
-                'execution_result': f"Sorry, I encountered an error while processing your request: {str(e)}",
+                'execution_result': f"Sorry, I encountered an error while processing your request: {e!s}",
                 'step_results': {
                     'task_execution': {
                         'status': 'failed',
@@ -470,7 +471,7 @@ class ResultAggregationStep(PipelineStep):
     def get_step_name(self) -> str:
         return "Result Aggregation"
 
-    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         """Execute result aggregation."""
         execution_result = context.get('execution_result')
         step_results = context.get('step_results', {})
@@ -492,9 +493,9 @@ class ResultAggregationStep(PipelineStep):
                 },
                 'step_details': step_results
             }
-            
+
             logger.info(f"✅ Pipeline completed successfully. Final result length: {len(str(execution_result))}")
-            
+
             return {
                 **context,
                 'aggregated_result': aggregated_result,
@@ -511,7 +512,7 @@ class ResultAggregationStep(PipelineStep):
                 **context,
                 'aggregated_result': {
                     'final_result': execution_result,
-                    'error': f"Result aggregation failed: {str(e)}"
+                    'error': f"Result aggregation failed: {e!s}"
                 },
                 'step_results': {
                     'result_aggregation': {
@@ -535,7 +536,7 @@ class SimplifiedOrchestrationPipeline:
     6. Task Execution
     7. Result Aggregation
     """
-    
+
     def __init__(self, llm=None):
         self.llm = llm
         self.steps = []
@@ -545,16 +546,16 @@ class SimplifiedOrchestrationPipeline:
             'failed_executions': 0,
             'average_execution_time': 0.0
         }
-        
+
         # Initialize components
         self._create_intent_classifier()
         self._create_entity_manager()
         self._create_complexity_assessor()
         self._create_task_decomposer()
-        
+
         # Build pipeline
         self._build_pipeline()
-        
+
         logger.info("🚀 SimplifiedOrchestrationPipeline initialized with entity-specific validation")
 
     def _create_intent_classifier(self):
@@ -564,10 +565,10 @@ class SimplifiedOrchestrationPipeline:
     def _create_fallback_intent_classifier(self):
         """Create a fallback intent classifier."""
         class FallbackIntentClassifier:
-            def classify(self, task_description: str, execution_context: Dict[str, Any]):
+            def classify(self, task_description: str, execution_context: dict[str, Any]):
                 # Simple rule-based intent classification
                 task_lower = task_description.lower()
-                
+
                 if any(word in task_lower for word in ['help', 'what', 'how', 'command']):
                     return type('IntentResult', (), {
                         'intent': 'help_request',
@@ -598,7 +599,7 @@ class SimplifiedOrchestrationPipeline:
                         'confidence': 0.5,
                         'entities': {}
                     })()
-        
+
         return FallbackIntentClassifier()
 
     def _create_entity_manager(self):
@@ -626,18 +627,18 @@ class SimplifiedOrchestrationPipeline:
             TaskExecutionStep(),
             ResultAggregationStep()
         ]
-        
+
         logger.info(f"🔧 Built pipeline with {len(self.steps)} steps")
-    
-    def get_pipeline_analytics(self) -> Dict[str, Any]:
+
+    def get_pipeline_analytics(self) -> dict[str, Any]:
         """Get analytics about pipeline execution."""
         return {
             'complexity_analytics': self.complexity_assessor.get_assessment_analytics(),
             'decomposition_analytics': self.task_decomposer.get_decomposition_analytics(),
             'pipeline_steps': [step.get_step_name() for step in self.steps]
         }
-    
-    def get_pipeline_status(self) -> Dict[str, Any]:
+
+    def get_pipeline_status(self) -> dict[str, Any]:
         """Get the status of the orchestration pipeline."""
         return {
             'orchestration_pipeline': 'SimplifiedOrchestrationPipeline',
@@ -649,8 +650,8 @@ class SimplifiedOrchestrationPipeline:
             'complexity_assessor_available': self.complexity_assessor is not None,
             'task_decomposer_available': self.task_decomposer is not None
         }
-    
-    async def execute_task(self, task_description: str, execution_context: Dict[str, Any], available_agents: Dict[str, Any] = None) -> str:
+
+    async def execute_task(self, task_description: str, execution_context: dict[str, Any], available_agents: dict[str, Any] = None) -> str:
         """
         Execute a task through the orchestration pipeline.
         
@@ -664,7 +665,7 @@ class SimplifiedOrchestrationPipeline:
         """
         try:
             logger.info(f"🚀 [ORCHESTRATION] Starting task execution: {task_description[:50]}...")
-            
+
             # Initialize context
             context = {
                 'task_description': task_description,
@@ -675,13 +676,13 @@ class SimplifiedOrchestrationPipeline:
                 'result': None,
                 'error': None
             }
-            
+
             # Execute each pipeline step
             for i, step in enumerate(self.steps):
                 try:
                     logger.info(f"🔧 [ORCHESTRATION] Executing step {i+1}/{len(self.steps)}: {step.get_step_name()}")
                     context['current_step'] = i + 1
-                    
+
                     # Execute the step
                     step_result = await step.execute(context)
                     context.update(step_result)
@@ -690,9 +691,9 @@ class SimplifiedOrchestrationPipeline:
                         'status': 'completed',
                         'result': step_result
                     })
-                    
+
                     logger.info(f"✅ [ORCHESTRATION] Step {step.get_step_name()} completed")
-                    
+
                 except Exception as e:
                     logger.error(f"❌ [ORCHESTRATION] Step {step.get_step_name()} failed: {e}")
                     context['error'] = str(e)
@@ -702,7 +703,7 @@ class SimplifiedOrchestrationPipeline:
                         'error': str(e)
                     })
                     break
-            
+
             # Update analytics
             self.pipeline_analytics['total_executions'] += 1
             if context.get('error'):
@@ -711,11 +712,11 @@ class SimplifiedOrchestrationPipeline:
                 return f"❌ Sorry, I encountered an error while processing your request: {context['error']}"
             else:
                 self.pipeline_analytics['successful_executions'] += 1
-                
+
                 # Extract the final result from the aggregated result
                 aggregated_result = context.get('aggregated_result', {})
                 final_result = aggregated_result.get('final_result')
-                
+
                 if final_result is None:
                     # Fallback: check if we have an execution result directly
                     execution_result = context.get('execution_result')
@@ -723,11 +724,11 @@ class SimplifiedOrchestrationPipeline:
                         final_result = execution_result
                     else:
                         final_result = "❌ Sorry, I'm unable to process your request at the moment. Please try again."
-                
-                logger.info(f"✅ [ORCHESTRATION] Pipeline execution completed successfully")
+
+                logger.info("✅ [ORCHESTRATION] Pipeline execution completed successfully")
                 return final_result
-                
+
         except Exception as e:
             logger.error(f"❌ [ORCHESTRATION] Pipeline execution failed: {e}")
             self.pipeline_analytics['failed_executions'] += 1
-            return f"❌ Sorry, I encountered an error while processing your request: {str(e)}" 
+            return f"❌ Sorry, I encountered an error while processing your request: {e!s}"

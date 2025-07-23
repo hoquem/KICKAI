@@ -6,8 +6,8 @@ information about team interactions and context, using only CrewAI's native memo
 """
 
 import logging
-from typing import Any, Optional, Dict, List
 from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -16,15 +16,15 @@ class TeamMemory:
     CrewAI-only team memory implementation.
     Provides conversation history and user-specific memory without LangChain dependencies.
     """
-    
+
     def __init__(self, team_id: str):
         self.team_id = team_id
-        self._memory_store: Dict[str, Any] = {}
-        self._conversation_history: List[Dict[str, Any]] = []
-        self._user_memories: Dict[str, Dict[str, Any]] = {}
+        self._memory_store: dict[str, Any] = {}
+        self._conversation_history: list[dict[str, Any]] = []
+        self._user_memories: dict[str, dict[str, Any]] = {}
         logger.info(f"Initialized CrewAI-only team memory for {team_id}")
 
-    def get_memory(self, user_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_memory(self, user_id: str | None = None) -> dict[str, Any]:
         """
         Get memory for a specific user or team-wide memory.
         
@@ -49,8 +49,8 @@ class TeamMemory:
                 "last_interaction": None
             }
 
-    def add_conversation(self, user_id: str, input_text: str, output_text: str, 
-                        context: Optional[Dict[str, Any]] = None):
+    def add_conversation(self, user_id: str, input_text: str, output_text: str,
+                        context: dict[str, Any] | None = None):
         """
         Add a conversation exchange to memory.
         
@@ -61,7 +61,7 @@ class TeamMemory:
             context: Optional context information
         """
         timestamp = datetime.utcnow()
-        
+
         # Add to team-wide conversation history
         conversation_entry = {
             "user_id": user_id,
@@ -71,7 +71,7 @@ class TeamMemory:
             "context": context or {}
         }
         self._conversation_history.append(conversation_entry)
-        
+
         # Add to user-specific memory
         if user_id not in self._user_memories:
             self._user_memories[user_id] = {
@@ -79,14 +79,14 @@ class TeamMemory:
                 "context": {},
                 "last_interaction": None
             }
-        
+
         self._user_memories[user_id]["chat_history"].append(conversation_entry)
         self._user_memories[user_id]["last_interaction"] = timestamp
-        
+
         # Update context
         if context:
             self._user_memories[user_id]["context"].update(context)
-        
+
         logger.debug(f"Added conversation to memory for user {user_id}")
 
     def store_conversation(self, user_id: str, message: str, response: str, agent_role: str = None):
@@ -102,8 +102,8 @@ class TeamMemory:
         context = {"agent_role": agent_role} if agent_role else None
         self.add_conversation(user_id, message, response, context)
 
-    def get_conversation_history(self, user_id: Optional[str] = None, 
-                                limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_conversation_history(self, user_id: str | None = None,
+                                limit: int | None = None) -> list[dict[str, Any]]:
         """
         Get conversation history for a user or team.
         
@@ -118,13 +118,13 @@ class TeamMemory:
             history = self._user_memories.get(user_id, {}).get("chat_history", [])
         else:
             history = self._conversation_history
-        
+
         if limit:
             history = history[-limit:]
-        
+
         return history
 
-    def clear_memory(self, user_id: Optional[str] = None):
+    def clear_memory(self, user_id: str | None = None):
         """
         Clear memory for a specific user or all memory.
         
@@ -141,7 +141,7 @@ class TeamMemory:
             self._user_memories.clear()
             logger.info(f"Cleared all team memory for {self.team_id}")
 
-    def get_memory_summary(self) -> Dict[str, Any]:
+    def get_memory_summary(self) -> dict[str, Any]:
         """
         Get a summary of memory usage.
         
@@ -155,8 +155,8 @@ class TeamMemory:
             "memory_store_size": len(self._memory_store),
             "last_interaction": max([m.get("last_interaction") for m in self._user_memories.values()] + [None]) if self._user_memories else None
         }
-    
-    def get_user_memory_context(self, user_id: str) -> Dict[str, Any]:
+
+    def get_user_memory_context(self, user_id: str) -> dict[str, Any]:
         """
         Get user-specific memory context for agents.
         
@@ -169,7 +169,7 @@ class TeamMemory:
         if user_id in self._user_memories:
             memory_data = self._user_memories[user_id]
             conversations = memory_data.get("chat_history", [])
-            
+
             # Format for CrewAI memory context
             return {
                 'chat_history': conversations[-10:],  # Last 10 conversations
@@ -184,4 +184,4 @@ class TeamMemory:
             'team_id': self.team_id,
             'conversation_count': 0,
             'context': {}
-        } 
+        }

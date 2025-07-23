@@ -236,4 +236,4 @@ class ApplicationState(Enum):
     RUNNING = "running"
     STOPPING = "stopping"
     STOPPED = "stopped"
-    ERROR = "error" 
+    ERROR = "error"

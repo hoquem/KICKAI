@@ -6,13 +6,13 @@ without creating circular dependencies between services.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
+
 
 class IPlayerLookup(ABC):
     """Interface for player lookup operations."""
-    
+
     @abstractmethod
-    async def get_player_team_id(self, player_id: str) -> Optional[str]:
+    async def get_player_team_id(self, player_id: str) -> str | None:
         """
         Get the team ID for a player.
         
@@ -23,7 +23,7 @@ class IPlayerLookup(ABC):
             The team ID if found, None otherwise
         """
         pass
-    
+
     @abstractmethod
     async def player_exists(self, player_id: str) -> bool:
         """
@@ -35,4 +35,4 @@ class IPlayerLookup(ABC):
         Returns:
             True if player exists, False otherwise
         """
-        pass 
+        pass

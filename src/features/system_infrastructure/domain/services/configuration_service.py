@@ -4,4 +4,4 @@ class ConfigurationService:
 
     async def get_config(self, key: str):
         # TODO: Implement configuration retrieval logic
-        return None 
+        return None

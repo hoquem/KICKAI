@@ -6,9 +6,7 @@ This module registers shared/common commands that are available across all featu
 These commands provide basic functionality that doesn't belong to a specific feature.
 """
 
-from src.core.command_registry import command, CommandType, PermissionLevel
-from src.core.enums import ChatType
-
+from src.core.command_registry import CommandType, PermissionLevel, command
 
 # ============================================================================
 # SHARED COMMANDS
@@ -236,4 +234,4 @@ What you'll see:
 async def handle_version_command(update, context, **kwargs):
     """Handle /version command."""
     # This will be handled by the agent system
-    return None 
+    return None

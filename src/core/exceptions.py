@@ -5,28 +5,28 @@ This module defines a comprehensive exception hierarchy for the KICKAI system,
 providing proper error categorization and context for different types of failures.
 """
 
-from typing import Optional, Dict, Any
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
 class ErrorContext:
     """Context information for errors."""
     operation: str
-    entity_id: Optional[str] = None
-    user_id: Optional[str] = None
-    team_id: Optional[str] = None
-    additional_info: Optional[Dict[str, Any]] = None
+    entity_id: str | None = None
+    user_id: str | None = None
+    team_id: str | None = None
+    additional_info: dict[str, Any] | None = None
 
 
 class KICKAIError(Exception):
     """Base exception for all KICKAI errors."""
-    
-    def __init__(self, message: str, context: Optional[ErrorContext] = None):
+
+    def __init__(self, message: str, context: ErrorContext | None = None):
         super().__init__(message)
         self.message = message
         self.context = context or ErrorContext("unknown")
-    
+
     def __str__(self) -> str:
         context_str = f" [{self.context.operation}]" if self.context else ""
         return f"{self.__class__.__name__}: {self.message}{context_str}"
@@ -503,23 +503,23 @@ def format_error_message(error: Exception, include_context: bool = True) -> str:
     if isinstance(error, KICKAIError) and include_context and error.context:
         context = error.context
         parts = [f"{error.__class__.__name__}: {error.message}"]
-        
+
         if context.operation != "unknown":
             parts.append(f"Operation: {context.operation}")
-        
+
         if context.entity_id:
             parts.append(f"Entity: {context.entity_id}")
-        
+
         if context.user_id:
             parts.append(f"User: {context.user_id}")
-        
+
         if context.team_id:
             parts.append(f"Team: {context.team_id}")
-        
+
         if context.additional_info:
             for key, value in context.additional_info.items():
                 parts.append(f"{key}: {value}")
-        
+
         return " | ".join(parts)
     else:
-        return str(error) 
+        return str(error)

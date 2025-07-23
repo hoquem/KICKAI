@@ -6,9 +6,8 @@ This module registers all system infrastructure related commands with the comman
 Each feature maintains its own command definitions for clean separation.
 """
 
-from src.core.command_registry import command, CommandType, PermissionLevel
+from src.core.command_registry import CommandType, PermissionLevel, command
 from src.core.enums import ChatType
-
 
 # ============================================================================
 # SYSTEM INFRASTRUCTURE COMMANDS
@@ -202,4 +201,4 @@ Diagnostic areas:
 async def handle_diagnostics_command(update, context, **kwargs):
     """Handle /diagnostics command."""
     # This will be handled by the agent system
-    return None 
+    return None

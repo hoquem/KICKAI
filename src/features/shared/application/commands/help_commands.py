@@ -5,7 +5,7 @@ Help Commands
 This module registers help-related commands with the command registry.
 """
 
-from src.core.command_registry import command, CommandType, PermissionLevel
+from src.core.command_registry import CommandType, PermissionLevel, command
 
 
 @command(
@@ -44,4 +44,4 @@ What you'll see:
 async def handle_help_command(update, context, **kwargs):
     """Handle /help command."""
     # This will be handled by the agent system
-    return None 
+    return None

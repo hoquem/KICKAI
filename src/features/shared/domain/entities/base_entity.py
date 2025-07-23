@@ -3,16 +3,16 @@ BaseEntity for domain models.
 
 Provides common fields and logic for all domain entities.
 """
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Optional
 import uuid
+from dataclasses import dataclass
+from datetime import datetime
+
 
 @dataclass
 class BaseEntity:
-    id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     def __post_init__(self):
         if not self.id:
@@ -24,4 +24,4 @@ class BaseEntity:
 
     def touch(self):
         """Update the updated_at timestamp."""
-        self.updated_at = datetime.now() 
+        self.updated_at = datetime.now()

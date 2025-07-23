@@ -5,11 +5,12 @@ This module provides team administration functionality including
 team management, member management, and role assignment.
 """
 
+from typing import Any, Dict
+
 from loguru import logger
-from typing import Dict, Any
 
 
-def initialize_team_administration(config: Dict[str, Any]) -> None:
+def initialize_team_administration(config: dict[str, Any]) -> None:
     """Initialize the team administration feature."""
     logger.info("Initializing team administration feature")
     # Feature initialization logic would go here

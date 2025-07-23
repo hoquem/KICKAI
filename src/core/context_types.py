@@ -7,9 +7,9 @@ context passing across the entire system to agents and tools.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 from src.core.enums import ChatType, PermissionLevel
 
@@ -48,33 +48,33 @@ class StandardizedContext:
     message_text: str
     username: str
     telegram_name: str
-    
+
     # Optional fields (populated when available)
-    user_permissions: Optional[UserPermissions] = None
-    player_data: Optional[Dict[str, Any]] = None
-    team_member_data: Optional[Dict[str, Any]] = None
+    user_permissions: UserPermissions | None = None
+    player_data: dict[str, Any] | None = None
+    team_member_data: dict[str, Any] | None = None
     is_registered: bool = False
     is_player: bool = False
     is_team_member: bool = False
-    
+
     # Context metadata
     source: ContextSource = ContextSource.TELEGRAM_MESSAGE
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     def __post_init__(self):
         """Post-initialization validation and setup."""
         # Ensure chat_type is a string
         if isinstance(self.chat_type, ChatType):
             self.chat_type = self.chat_type.value
-        
+
         # Set boolean flags based on user_permissions if available
         if self.user_permissions:
             self.is_player = self.user_permissions.is_player
             self.is_team_member = self.user_permissions.is_team_member
             self.is_registered = self.is_player or self.is_team_member
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert context to dictionary for serialization."""
         return {
             'user_id': self.user_id,
@@ -91,29 +91,38 @@ class StandardizedContext:
             'timestamp': self.timestamp,
             'metadata': self.metadata
         }
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'StandardizedContext':
-        """Create context from dictionary with default values for missing fields."""
-        # Provide default values for required fields that might be missing
+    def from_dict(cls, data: dict[str, Any]) -> 'StandardizedContext':
+        """Create context from dictionary with validation of critical fields."""
+        # Validate that critical fields are present
+        required_fields = ['user_id', 'team_id', 'chat_id', 'chat_type', 'message_text', 'username']
+        missing_fields = [field for field in required_fields if field not in data or not data[field]]
+        
+        if missing_fields:
+            raise ValueError(f"Missing required fields for StandardizedContext: {missing_fields}")
+        
+        # For user registration status, require explicit values (no defaults)
+        if 'is_registered' not in data:
+            raise ValueError("is_registered field is required and must be explicitly set")
+        if 'is_player' not in data:
+            raise ValueError("is_player field is required and must be explicitly set")
+        if 'is_team_member' not in data:
+            raise ValueError("is_team_member field is required and must be explicitly set")
+        
+        # Only provide defaults for non-critical fields
         defaults = {
-            'chat_id': data.get('chat_id', 'unknown'),
-            'message_text': data.get('message_text', ''),
-            'username': data.get('username', ''),
             'telegram_name': data.get('telegram_name', ''),
-            'is_registered': data.get('is_registered', False),
-            'is_player': data.get('is_player', False),
-            'is_team_member': data.get('is_team_member', False),
             'source': ContextSource(data.get('source', ContextSource.TELEGRAM_MESSAGE.value)),
             'timestamp': data.get('timestamp', datetime.now().isoformat()),
             'metadata': data.get('metadata', {})
         }
-        
+
         # Merge provided data with defaults
         merged_data = {**defaults, **data}
-        
+
         return cls(**merged_data)
-    
+
     def get_user_display_name(self) -> str:
         """Get the best available user display name."""
         if self.telegram_name:
@@ -122,21 +131,21 @@ class StandardizedContext:
             return self.username
         else:
             return f"User {self.user_id}"
-    
+
     def is_leadership_chat(self) -> bool:
         """Check if this is a leadership chat."""
         return self.chat_type.lower() == 'leadership_chat'
-    
+
     def is_main_chat(self) -> bool:
         """Check if this is a main chat."""
         return self.chat_type.lower() == 'main_chat'
-    
+
     def has_permission(self, permission: PermissionLevel) -> bool:
         """Check if user has a specific permission."""
         if not self.user_permissions:
             return False
         return permission in self.user_permissions.permissions
-    
+
     def get_context_summary(self) -> str:
         """Get a human-readable context summary."""
         return (
@@ -198,19 +207,19 @@ def create_context_from_command(
 
 def enhance_context_with_user_data(
     context: StandardizedContext,
-    user_permissions: Optional[UserPermissions] = None,
-    player_data: Optional[Dict[str, Any]] = None,
-    team_member_data: Optional[Dict[str, Any]] = None
+    user_permissions: UserPermissions | None = None,
+    player_data: dict[str, Any] | None = None,
+    team_member_data: dict[str, Any] | None = None
 ) -> StandardizedContext:
     """Enhance context with additional user data."""
     context.user_permissions = user_permissions
     context.player_data = player_data
     context.team_member_data = team_member_data
-    
+
     # Update boolean flags
     if user_permissions:
         context.is_player = user_permissions.is_player
         context.is_team_member = user_permissions.is_team_member
         context.is_registered = context.is_player or context.is_team_member
-    
-    return context 
+
+    return context

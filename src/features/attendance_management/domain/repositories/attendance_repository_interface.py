@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+
 # from features.attendance_management.domain.entities.attendance import Attendance  # Uncomment and implement Attendance entity as needed
 
 class AttendanceRepositoryInterface(ABC):
@@ -21,4 +21,4 @@ class AttendanceRepositoryInterface(ABC):
 
     @abstractmethod
     async def delete(self, attendance_id: str) -> None:
-        pass 
+        pass

@@ -8,12 +8,11 @@ This follows the single source of truth principle - all ID processing logic shou
 go through this service to ensure consistency across the entire system.
 """
 
-import re
 import logging
-from typing import Dict, Any, Optional, List, Tuple, Union
+import re
 from dataclasses import dataclass
-from enum import Enum
 from datetime import datetime
+from enum import Enum
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ class ProcessedID:
     normalized_value: str
     is_valid: bool
     confidence: float  # 0.0 to 1.0
-    validation_errors: List[str]
+    validation_errors: list[str]
     extracted_from: str  # Source text where ID was found
     extraction_method: str  # Method used to extract the ID
 
@@ -46,7 +45,7 @@ class ProcessedID:
 @dataclass
 class EntityExtractionResult:
     """Result of entity extraction from text."""
-    entities: Dict[str, ProcessedID]
+    entities: dict[str, ProcessedID]
     extraction_method: str
     confidence: float
     source_text: str
@@ -63,7 +62,7 @@ class IDProcessor:
     - ID format conversion
     - Entity extraction for commands
     """
-    
+
     def __init__(self):
         # Define ID patterns and validation rules
         self.id_patterns = {
@@ -110,18 +109,18 @@ class IDProcessor:
                 'normalization': lambda x: x.upper().strip()
             }
         }
-        
+
         # NOTE: Command definitions have been removed from this file to maintain
         # single source of truth. Commands should be defined in their respective
         # feature modules under src/features/*/application/commands/
-        
+
         logger.info("IDProcessor initialized with ID patterns and validation rules")
-    
+
     def _normalize_phone_number(self, phone: str) -> str:
         """Normalize phone number to standard format."""
         # Remove all non-digit characters except +
         cleaned = re.sub(r'[^\d\+]', '', phone)
-        
+
         # Handle UK numbers
         if cleaned.startswith('0'):
             cleaned = '+44' + cleaned[1:]
@@ -129,10 +128,10 @@ class IDProcessor:
             cleaned = '+' + cleaned
         elif not cleaned.startswith('+'):
             cleaned = '+44' + cleaned
-            
+
         return cleaned
-    
-    def extract_entities_from_text(self, text: str, expected_entities: Optional[List[IDType]] = None) -> EntityExtractionResult:
+
+    def extract_entities_from_text(self, text: str, expected_entities: list[IDType] | None = None) -> EntityExtractionResult:
         """
         Extract entities from text using pattern matching.
         
@@ -145,26 +144,26 @@ class IDProcessor:
         """
         start_time = datetime.now()
         entities = {}
-        
+
         # Determine which entity types to extract
         entity_types = expected_entities if expected_entities else list(IDType)
-        
+
         for entity_type in entity_types:
             if entity_type not in self.id_patterns:
                 continue
-                
+
             pattern = self.id_patterns[entity_type]['pattern']
             matches = re.finditer(pattern, text, re.IGNORECASE)
-            
+
             for match in matches:
                 value = match.group()
                 processed_id = self._process_id(value, entity_type, text)
-                
+
                 if processed_id.is_valid:
                     entities[entity_type.value] = processed_id
-        
+
         processing_time = (datetime.now() - start_time).total_seconds() * 1000
-        
+
         return EntityExtractionResult(
             entities=entities,
             extraction_method="pattern_matching",
@@ -172,7 +171,7 @@ class IDProcessor:
             source_text=text,
             processing_time_ms=processing_time
         )
-    
+
     def extract_entities_from_command(self, command_text: str, command_name: str) -> EntityExtractionResult:
         """
         Extract entities from a command text.
@@ -194,7 +193,7 @@ class IDProcessor:
                 source_text=command_text,
                 processing_time_ms=0.0
             )
-        
+
         # Extract entities from command parameters
         entities = {}
         for part in parts[1:]:  # Skip command name
@@ -205,7 +204,7 @@ class IDProcessor:
                     if processed_id.is_valid:
                         entities[entity_type.value] = processed_id
                         break
-        
+
         return EntityExtractionResult(
             entities=entities,
             extraction_method="command_parsing",
@@ -213,7 +212,7 @@ class IDProcessor:
             source_text=command_text,
             processing_time_ms=0.0
         )
-    
+
     def _process_id(self, value: str, id_type: IDType, source_text: str) -> ProcessedID:
         """
         Process a single ID value.
@@ -237,28 +236,28 @@ class IDProcessor:
                 extracted_from=source_text,
                 extraction_method="unknown"
             )
-        
+
         config = self.id_patterns[id_type]
         validation_errors = []
-        
+
         # Apply validation rules
         for rule in config['validation_rules']:
             try:
                 if not rule(value):
                     validation_errors.append(f"Failed validation rule: {rule.__name__ if hasattr(rule, '__name__') else 'unknown'}")
             except Exception as e:
-                validation_errors.append(f"Validation error: {str(e)}")
-        
+                validation_errors.append(f"Validation error: {e!s}")
+
         # Normalize the value
         try:
             normalized_value = config['normalization'](value)
         except Exception as e:
             normalized_value = value
-            validation_errors.append(f"Normalization error: {str(e)}")
-        
+            validation_errors.append(f"Normalization error: {e!s}")
+
         is_valid = len(validation_errors) == 0
         confidence = 1.0 if is_valid else max(0.0, 1.0 - len(validation_errors) * 0.2)
-        
+
         return ProcessedID(
             id_type=id_type,
             original_value=value,
@@ -269,8 +268,8 @@ class IDProcessor:
             extracted_from=source_text,
             extraction_method="pattern_matching"
         )
-    
-    def validate_id(self, value: str, id_type: IDType) -> Tuple[bool, List[str]]:
+
+    def validate_id(self, value: str, id_type: IDType) -> tuple[bool, list[str]]:
         """
         Validate an ID value.
         
@@ -283,7 +282,7 @@ class IDProcessor:
         """
         processed_id = self._process_id(value, id_type, "")
         return processed_id.is_valid, processed_id.validation_errors
-    
+
     def normalize_id(self, value: str, id_type: IDType) -> str:
         """
         Normalize an ID value.
@@ -297,8 +296,8 @@ class IDProcessor:
         """
         processed_id = self._process_id(value, id_type, "")
         return processed_id.normalized_value
-    
-    def get_entity_value(self, entities: Dict[str, ProcessedID], entity_name: str) -> Optional[str]:
+
+    def get_entity_value(self, entities: dict[str, ProcessedID], entity_name: str) -> str | None:
         """
         Get the normalized value of an entity.
         
@@ -315,7 +314,7 @@ class IDProcessor:
 
 
 # Global instance
-_id_processor: Optional[IDProcessor] = None
+_id_processor: IDProcessor | None = None
 
 def get_id_processor() -> IDProcessor:
     """Get the global ID processor instance."""
@@ -325,7 +324,7 @@ def get_id_processor() -> IDProcessor:
     return _id_processor
 
 # Convenience functions
-def extract_entities_from_text(text: str, expected_entities: Optional[List[IDType]] = None) -> EntityExtractionResult:
+def extract_entities_from_text(text: str, expected_entities: list[IDType] | None = None) -> EntityExtractionResult:
     """Extract entities from text."""
     return get_id_processor().extract_entities_from_text(text, expected_entities)
 
@@ -333,10 +332,10 @@ def extract_entities_from_command(command_text: str, command_name: str) -> Entit
     """Extract entities from command text."""
     return get_id_processor().extract_entities_from_command(command_text, command_name)
 
-def validate_id(value: str, id_type: IDType) -> Tuple[bool, List[str]]:
+def validate_id(value: str, id_type: IDType) -> tuple[bool, list[str]]:
     """Validate an ID value."""
     return get_id_processor().validate_id(value, id_type)
 
 def normalize_id(value: str, id_type: IDType) -> str:
     """Normalize an ID value."""
-    return get_id_processor().normalize_id(value, id_type) 
+    return get_id_processor().normalize_id(value, id_type)

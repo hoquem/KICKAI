@@ -5,11 +5,12 @@ This module provides player registration functionality including
 player onboarding, validation, and management.
 """
 
+from typing import Any, Dict
+
 from loguru import logger
-from typing import Dict, Any
 
 
-def initialize_player_registration(config: Dict[str, Any]) -> None:
+def initialize_player_registration(config: dict[str, Any]) -> None:
     """Initialize the player registration feature."""
     logger.info("Initializing player registration feature")
     # Feature initialization logic would go here
