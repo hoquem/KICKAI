@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
 from features.health_monitoring.domain.repositories.health_check_repository_interface import HealthCheckRepositoryInterface
-from core.constants import COLLECTION_HEALTH_CHECKS
+from core.firestore_constants import COLLECTION_HEALTH_CHECKS
 
 class FirebaseHealthCheckRepository(HealthCheckRepositoryInterface):
     def __init__(self, firebase_client):

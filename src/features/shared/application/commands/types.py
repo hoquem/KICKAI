@@ -5,27 +5,11 @@ This module provides type definitions and enums for the command system.
 """
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Optional, Dict, Any
 from telegram import Update
 from telegram.ext import ContextTypes
 
-
-class PermissionLevel(Enum):
-    """Permission levels for commands."""
-    PUBLIC = "public"
-    PLAYER = "player"
-    LEADERSHIP = "leadership"
-    ADMIN = "admin"
-    SYSTEM = "system"
-
-
-class CommandType(Enum):
-    """Types of commands supported by the system."""
-    SLASH_COMMAND = "slash_command"
-    NATURAL_LANGUAGE = "natural_language"
-    ADMIN_COMMAND = "admin_command"
-    SYSTEM_COMMAND = "system_command"
+from core.enums import PermissionLevel, CommandType
 
 
 @dataclass

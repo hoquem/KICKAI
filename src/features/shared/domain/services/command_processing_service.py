@@ -270,17 +270,19 @@ class CommandProcessingService:
             # Get help assistant agent instance
             help_assistant = get_help_assistant_agent()
             
-            # Determine chat type string
-            chat_type = "leadership_chat" if user_context.chat_type == ChatType.LEADERSHIP else "main_chat"
+            # Use the normalized chat type from constants
+            from core.constants import normalize_chat_type
+            chat_type_enum = normalize_chat_type(str(user_context.chat_type))
+            chat_type = chat_type_enum.value
             
             # Process help request using HelpAssistantAgent
-            help_message = await help_assistant.process_help_request(
-                user_id=user_context.user_id,
-                team_id=user_context.team_id,
-                chat_type=chat_type,
-                telegram_username=user_context.telegram_username,
-                telegram_name=user_context.telegram_name
-            )
+            help_message = await help_assistant.process_help_request({
+                'user_id': user_context.user_id,
+                'team_id': user_context.team_id,
+                'chat_type': chat_type,
+                'username': user_context.telegram_username or user_context.telegram_name,
+                'message_text': 'help request'
+            })
             
             return CommandResponse(
                 message=help_message,

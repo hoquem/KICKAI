@@ -64,7 +64,7 @@ class TeamMemory:
 ```python
 self.crew = Crew(
     agents=crew_agents,
-    verbose=False,
+    verbose=True,  # Enable CrewAI's built-in verbose mode for execution flow visualization
     memory=True,  # Enable CrewAI's built-in memory
     llm=self.llm
 )

@@ -31,7 +31,7 @@ except ImportError:
             firebase_credentials_json = None
             firebase_credentials_path = None
         return MockSettings()
-from core.constants import (
+from core.firestore_constants import (
     FIRESTORE_COLLECTION_PREFIX, 
     get_team_members_collection,
     get_team_players_collection,

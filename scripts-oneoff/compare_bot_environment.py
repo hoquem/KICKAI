@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from database.firebase_client import get_firebase_client
-from core.constants import get_team_members_collection, get_collection_name, COLLECTION_TEAMS
+from core.firestore_constants import get_team_members_collection, get_collection_name, COLLECTION_TEAMS
 from loguru import logger
 
 async def compare_environments():

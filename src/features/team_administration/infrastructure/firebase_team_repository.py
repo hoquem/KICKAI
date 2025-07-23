@@ -12,7 +12,7 @@ from features.team_administration.domain.repositories.team_repository_interface 
 from features.team_administration.domain.entities.team import Team
 from features.team_administration.domain.entities.team_member import TeamMember
 from database.interfaces import DataStoreInterface
-from core.constants import COLLECTION_TEAMS, get_team_members_collection, get_team_players_collection
+from core.firestore_constants import COLLECTION_TEAMS, get_team_members_collection, get_team_players_collection
 
 
 class FirebaseTeamRepository(TeamRepositoryInterface):

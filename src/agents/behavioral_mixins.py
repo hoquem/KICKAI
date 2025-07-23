@@ -13,7 +13,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from loguru import logger
 
-from core.constants import get_team_members_collection
+from core.firestore_constants import get_team_members_collection
 from core.exceptions import KICKAIError, InputValidationError, AuthorizationError, AgentExecutionError
 
 
