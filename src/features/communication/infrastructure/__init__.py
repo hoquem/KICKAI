@@ -1,1 +1,1 @@
-from .telegram_bot_service import TelegramBotService 
+from .telegram_bot_service import TelegramBotService

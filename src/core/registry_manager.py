@@ -6,17 +6,16 @@ This module provides a centralized manager for all system registries.
 It follows the single source of truth principle and ensures clean, loosely coupled architecture.
 """
 
-import logging
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from loguru import logger
 
-from core.command_registry_initializer import get_initialized_command_registry
+from agents.tool_registry import ToolRegistry, get_tool_registry
+from core.agent_registry import AgentRegistry, get_agent_registry
 from core.command_registry import CommandRegistry
-from core.agent_registry import get_agent_registry, AgentRegistry
-from agents.tool_registry import get_tool_registry, ToolRegistry
+from core.command_registry_initializer import get_initialized_command_registry
 
 
 class RegistryType(Enum):
@@ -35,7 +34,7 @@ class RegistryInfo:
     description: str
     total_items: int
     enabled_items: int
-    features: List[str]
+    features: list[str]
     last_updated: str
 
 
@@ -50,14 +49,14 @@ class RegistryManager:
     - Dependency management between registries
     - Clean, loosely coupled architecture
     """
-    
+
     def __init__(self):
         """Initialize the registry manager."""
-        self._registries: Dict[RegistryType, Any] = {}
+        self._registries: dict[RegistryType, Any] = {}
         self._initialized = False
-        
+
         logger.info("🔧 RegistryManager initialized")
-    
+
     def initialize_registries(self, src_path: str = "src") -> None:
         """
         Initialize all registries with auto-discovery.
@@ -68,54 +67,54 @@ class RegistryManager:
         if self._initialized:
             logger.info("Registries already initialized, skipping")
             return
-        
+
         try:
             # Initialize command registry
             command_registry = get_initialized_command_registry()
             self._registries[RegistryType.COMMAND] = command_registry
-            
+
             # Initialize tool registry
             tool_registry = get_tool_registry()
             tool_registry.auto_discover_tools(src_path)
             self._registries[RegistryType.TOOL] = tool_registry
-            
+
             # Initialize agent registry
             agent_registry = get_agent_registry()
             agent_registry.auto_discover_agents(src_path)
             self._registries[RegistryType.AGENT] = agent_registry
-            
+
             self._initialized = True
             logger.info("✅ All registries initialized successfully")
-            
+
         except Exception as e:
             logger.error(f"❌ Error initializing registries: {e}")
             raise
-    
+
     def get_registry(self, registry_type: RegistryType) -> Any:
         """Get a specific registry by type."""
         if not self._initialized:
             self.initialize_registries()
-        
+
         return self._registries.get(registry_type)
-    
+
     def get_command_registry(self) -> CommandRegistry:
         """Get the command registry."""
         return self.get_registry(RegistryType.COMMAND)
-    
+
     def get_agent_registry(self) -> AgentRegistry:
         """Get the agent registry."""
         return self.get_registry(RegistryType.AGENT)
-    
+
     def get_tool_registry(self) -> ToolRegistry:
         """Get the tool registry."""
         return self.get_registry(RegistryType.TOOL)
-    
-    def get_registry_info(self, registry_type: RegistryType) -> Optional[RegistryInfo]:
+
+    def get_registry_info(self, registry_type: RegistryType) -> RegistryInfo | None:
         """Get information about a specific registry."""
         registry = self.get_registry(registry_type)
         if not registry:
             return None
-        
+
         if registry_type == RegistryType.COMMAND:
             stats = registry.get_command_statistics()
             return RegistryInfo(
@@ -127,7 +126,7 @@ class RegistryManager:
                 features=list(stats.get('commands_by_feature', {}).keys()),
                 last_updated="Now"
             )
-        
+
         elif registry_type == RegistryType.AGENT:
             stats = registry.get_agent_statistics()
             return RegistryInfo(
@@ -139,7 +138,7 @@ class RegistryManager:
                 features=stats.get('features_with_agents', []),
                 last_updated="Now"
             )
-        
+
         elif registry_type == RegistryType.TOOL:
             stats = registry.get_tool_statistics()
             return RegistryInfo(
@@ -151,30 +150,30 @@ class RegistryManager:
                 features=stats.get('features_with_tools', []),
                 last_updated="Now"
             )
-        
+
         return None
-    
-    def get_all_registry_info(self) -> List[RegistryInfo]:
+
+    def get_all_registry_info(self) -> list[RegistryInfo]:
         """Get information about all registries."""
         info_list = []
-        
+
         for registry_type in RegistryType:
             info = self.get_registry_info(registry_type)
             if info:
                 info_list.append(info)
-        
+
         return info_list
-    
-    def get_system_statistics(self) -> Dict[str, Any]:
+
+    def get_system_statistics(self) -> dict[str, Any]:
         """Get comprehensive system statistics."""
         if not self._initialized:
             self.initialize_registries()
-        
+
         stats = {
             'total_registries': len(self._registries),
             'registries': {}
         }
-        
+
         for registry_type, registry in self._registries.items():
             if registry_type == RegistryType.COMMAND:
                 stats['registries']['commands'] = registry.get_command_statistics()
@@ -182,10 +181,10 @@ class RegistryManager:
                 stats['registries']['agents'] = registry.get_agent_statistics()
             elif registry_type == RegistryType.TOOL:
                 stats['registries']['tools'] = registry.get_tool_statistics()
-        
+
         return stats
-    
-    def validate_registry_dependencies(self) -> Dict[str, List[str]]:
+
+    def validate_registry_dependencies(self) -> dict[str, list[str]]:
         """
         Validate dependencies between registries.
         
@@ -197,12 +196,12 @@ class RegistryManager:
             'warnings': [],
             'success': []
         }
-        
+
         try:
             # Validate agent-tool dependencies
             agent_registry = self.get_agent_registry()
             tool_registry = self.get_tool_registry()
-            
+
             if agent_registry and tool_registry:
                 for agent in agent_registry.list_all_agents():
                     for tool_name in agent.tools:
@@ -219,7 +218,7 @@ class RegistryManager:
                             validation_results['success'].append(
                                 f"Agent '{agent.agent_id}' tool dependency '{tool_name}' validated"
                             )
-            
+
             # Validate command-agent dependencies
             command_registry = self.get_command_registry()
             if command_registry and agent_registry:
@@ -227,13 +226,13 @@ class RegistryManager:
                     # Check if command has associated agent handlers
                     # This would depend on your command implementation
                     pass
-            
+
         except Exception as e:
-            validation_results['errors'].append(f"Validation error: {str(e)}")
-        
+            validation_results['errors'].append(f"Validation error: {e!s}")
+
         return validation_results
-    
-    def search_across_registries(self, query: str) -> Dict[str, List[Any]]:
+
+    def search_across_registries(self, query: str) -> dict[str, list[Any]]:
         """
         Search across all registries for a query.
         
@@ -248,26 +247,26 @@ class RegistryManager:
             'agents': [],
             'tools': []
         }
-        
+
         # Search commands
         command_registry = self.get_command_registry()
         if command_registry:
             # Note: Command registry doesn't have search yet, but we can implement it
             pass
-        
+
         # Search agents
         agent_registry = self.get_agent_registry()
         if agent_registry:
             results['agents'] = agent_registry.search_agents(query)
-        
+
         # Search tools
         tool_registry = self.get_tool_registry()
         if tool_registry:
             results['tools'] = tool_registry.search_tools(query)
-        
+
         return results
-    
-    def get_feature_overview(self, feature_name: str) -> Dict[str, Any]:
+
+    def get_feature_overview(self, feature_name: str) -> dict[str, Any]:
         """
         Get comprehensive overview of a specific feature.
         
@@ -284,35 +283,35 @@ class RegistryManager:
             'tools': [],
             'total_items': 0
         }
-        
+
         # Get commands for feature
         command_registry = self.get_command_registry()
         if command_registry:
             commands = command_registry.get_commands_by_feature(feature_name)
             overview['commands'] = [cmd.name for cmd in commands]
-        
+
         # Get agents for feature
         agent_registry = self.get_agent_registry()
         if agent_registry:
             agents = agent_registry.get_agents_by_feature(feature_name)
             overview['agents'] = [agent.agent_id for agent in agents]
-        
+
         # Get tools for feature
         tool_registry = self.get_tool_registry()
         if tool_registry:
             tools = tool_registry.get_tools_by_feature(feature_name)
             overview['tools'] = [tool.tool_id for tool in tools]
-        
+
         # Calculate total
         overview['total_items'] = (
-            len(overview['commands']) + 
-            len(overview['agents']) + 
+            len(overview['commands']) +
+            len(overview['agents']) +
             len(overview['tools'])
         )
-        
+
         return overview
-    
-    def health_check(self) -> Dict[str, Any]:
+
+    def health_check(self) -> dict[str, Any]:
         """
         Perform comprehensive health check on all registries.
         
@@ -325,7 +324,7 @@ class RegistryManager:
             'issues': [],
             'recommendations': []
         }
-        
+
         try:
             # Check each registry
             for registry_type in RegistryType:
@@ -344,30 +343,30 @@ class RegistryManager:
                         'enabled_items': 0
                     }
                     health_results['issues'].append(f"Registry {registry_type.value} not found")
-            
+
             # Validate dependencies
             validation_results = self.validate_registry_dependencies()
             if validation_results['errors']:
                 health_results['status'] = 'unhealthy'
                 health_results['issues'].extend(validation_results['errors'])
-            
+
             if validation_results['warnings']:
                 health_results['recommendations'].extend(validation_results['warnings'])
-            
+
             # Check for empty registries
             for registry_type, info in health_results['registries'].items():
                 if info['total_items'] == 0:
                     health_results['recommendations'].append(
                         f"Registry {registry_type} is empty - consider adding items"
                     )
-            
+
         except Exception as e:
             health_results['status'] = 'error'
-            health_results['issues'].append(f"Health check error: {str(e)}")
-        
+            health_results['issues'].append(f"Health check error: {e!s}")
+
         return health_results
-    
-    def export_registry_data(self, registry_type: Optional[RegistryType] = None) -> Dict[str, Any]:
+
+    def export_registry_data(self, registry_type: RegistryType | None = None) -> dict[str, Any]:
         """
         Export registry data for backup or analysis.
         
@@ -382,7 +381,7 @@ class RegistryManager:
             'version': '1.0.0',
             'data': {}
         }
-        
+
         if registry_type:
             registry = self.get_registry(registry_type)
             if registry:
@@ -422,12 +421,12 @@ class RegistryManager:
             # Export all registries
             for reg_type in RegistryType:
                 export_data['data'][reg_type.value] = self.export_registry_data(reg_type)['data']
-        
+
         return export_data
 
 
 # Global registry manager instance
-_registry_manager: Optional[RegistryManager] = None
+_registry_manager: RegistryManager | None = None
 
 
 def get_registry_manager() -> RegistryManager:
@@ -444,13 +443,13 @@ def initialize_system_registries(src_path: str = "src") -> None:
     manager.initialize_registries(src_path)
 
 
-def get_system_statistics() -> Dict[str, Any]:
+def get_system_statistics() -> dict[str, Any]:
     """Get comprehensive system statistics."""
     manager = get_registry_manager()
     return manager.get_system_statistics()
 
 
-def health_check_registries() -> Dict[str, Any]:
+def health_check_registries() -> dict[str, Any]:
     """Perform health check on all registries."""
     manager = get_registry_manager()
-    return manager.health_check() 
+    return manager.health_check()

@@ -8,9 +8,9 @@ A person can be both a Player and a Team Member, linked by user_id.
 """
 
 from dataclasses import dataclass
-from typing import Optional
 from datetime import datetime
 from enum import Enum
+
 from utils.user_id_generator import generate_user_id
 
 
@@ -51,71 +51,71 @@ class Player:
     # Core identification fields
     user_id: str = ""  # Generated from telegram_id using generate_user_id()
     team_id: str = ""
-    telegram_id: Optional[str] = None
-    player_id: Optional[str] = None  # Team-specific player identifier (e.g., "KTI_MH_001")
-    
+    telegram_id: str | None = None
+    player_id: str | None = None  # Team-specific player identifier (e.g., "KTI_MH_001")
+
     # Personal information
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    full_name: Optional[str] = None
-    username: Optional[str] = None
-    
+    first_name: str | None = None
+    last_name: str | None = None
+    full_name: str | None = None
+    username: str | None = None
+
     # Football-specific information
-    position: Optional[str] = None  # e.g., "Midfielder", "Forward"
-    preferred_foot: Optional[str] = None  # "left", "right", "both"
-    jersey_number: Optional[str] = None
-    
+    position: str | None = None  # e.g., "Midfielder", "Forward"
+    preferred_foot: str | None = None  # "left", "right", "both"
+    jersey_number: str | None = None
+
     # Contact and personal information
-    phone_number: Optional[str] = None
-    email: Optional[str] = None
-    date_of_birth: Optional[str] = None
-    emergency_contact: Optional[str] = None
-    medical_notes: Optional[str] = None
-    
+    phone_number: str | None = None
+    email: str | None = None
+    date_of_birth: str | None = None
+    emergency_contact: str | None = None
+    medical_notes: str | None = None
+
     # Status and approval
     status: str = "pending"  # pending, approved, rejected, active, inactive
-    
+
     # Timestamps
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
     # Metadata
-    source: Optional[str] = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
-    sync_version: Optional[str] = None
-    
+    source: str | None = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
+    sync_version: str | None = None
+
     def __post_init__(self):
         """Validate and set defaults after initialization."""
         self._validate()
         self._set_defaults()
-    
+
     def _validate(self):
         """Validate player data."""
         if not self.team_id:
             raise ValueError("Team ID cannot be empty")
         if not self.user_id:
             raise ValueError("User ID cannot be empty")
-        
+
         # Validate status
         valid_statuses = ["pending", "approved", "rejected", "active", "inactive"]
         if self.status not in valid_statuses:
             raise ValueError(f"Invalid status: {self.status}. Must be one of {valid_statuses}")
-        
+
         # Validate user_id format
         if not self.user_id.startswith("user_"):
             raise ValueError(f"Invalid user_id format: {self.user_id}. Must start with 'user_'")
-        
+
         # Validate position if provided
         if self.position:
             valid_positions = [pos.value for pos in PlayerPosition]
             if self.position.lower() not in valid_positions:
                 raise ValueError(f"Invalid position: {self.position}. Must be one of {valid_positions}")
-        
+
         # Validate preferred foot if provided
         if self.preferred_foot:
             valid_feet = [foot.value for foot in PreferredFoot]
             if self.preferred_foot.lower() not in valid_feet:
                 raise ValueError(f"Invalid preferred foot: {self.preferred_foot}. Must be one of {valid_feet}")
-    
+
     def _set_defaults(self):
         """Set default values if not provided."""
         if self.created_at is None:
@@ -126,7 +126,7 @@ class Player:
             self.source = "manual_entry"
         if self.sync_version is None:
             self.sync_version = "1.0"
-    
+
     @classmethod
     def create_from_telegram(cls, team_id: str, telegram_id: int,
                            first_name: str = None, last_name: str = None,
@@ -146,7 +146,7 @@ class Player:
             A new Player instance
         """
         user_id = generate_user_id(telegram_id)
-        
+
         # Build full name
         full_name = ""
         if first_name and last_name:
@@ -157,7 +157,7 @@ class Player:
             full_name = last_name
         else:
             full_name = f"User {telegram_id}"
-        
+
         return cls(
             user_id=user_id,
             team_id=team_id,
@@ -169,7 +169,7 @@ class Player:
             phone_number=phone_number,
             source="telegram_sync"
         )
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary for storage."""
         return {
@@ -195,7 +195,7 @@ class Player:
             'source': self.source,
             'sync_version': self.sync_version
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> 'Player':
         """Create from dictionary."""
@@ -222,39 +222,39 @@ class Player:
             source=data.get('source'),
             sync_version=data.get('sync_version')
         )
-    
+
     def approve(self):
         """Approve the player."""
         self.status = "approved"
         self.updated_at = datetime.utcnow()
-    
+
     def reject(self):
         """Reject the player."""
         self.status = "rejected"
         self.updated_at = datetime.utcnow()
-    
+
     def activate(self):
         """Activate the player."""
         self.status = "active"
         self.updated_at = datetime.utcnow()
-    
+
     def deactivate(self):
         """Deactivate the player."""
         self.status = "inactive"
         self.updated_at = datetime.utcnow()
-    
+
     def is_approved(self) -> bool:
         """Check if player is approved."""
         return self.status == "approved"
-    
+
     def is_active(self) -> bool:
         """Check if player is active."""
         return self.status == "active"
-    
+
     def is_pending(self) -> bool:
         """Check if player is pending."""
         return self.status == "pending"
-    
+
     def get_display_name(self) -> str:
         """Get display name for the player."""
         if self.full_name:
@@ -269,13 +269,13 @@ class Player:
             return f"User {self.telegram_id}"
         else:
             return f"User {self.user_id}"
-    
+
     def get_position_display(self) -> str:
         """Get formatted position display."""
         if self.position:
             return self.position.title()
         return "Not specified"
-    
+
     def update_football_info(self, position: str = None, preferred_foot: str = None,
                            jersey_number: str = None):
         """Update football-specific information."""
@@ -285,9 +285,9 @@ class Player:
             self.preferred_foot = preferred_foot
         if jersey_number is not None:
             self.jersey_number = jersey_number
-        
+
         self.updated_at = datetime.utcnow()
-    
+
     def update_personal_info(self, phone_number: str = None, email: str = None,
                            date_of_birth: str = None, emergency_contact: str = None,
                            medical_notes: str = None):
@@ -302,5 +302,5 @@ class Player:
             self.emergency_contact = emergency_contact
         if medical_notes is not None:
             self.medical_notes = medical_notes
-        
-        self.updated_at = datetime.utcnow() 
+
+        self.updated_at = datetime.utcnow()

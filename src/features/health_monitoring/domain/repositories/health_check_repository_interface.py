@@ -1,20 +1,20 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+from typing import Any
+
 
 class HealthCheckRepositoryInterface(ABC):
     @abstractmethod
-    async def save(self, health_check: Dict[str, Any]) -> str:
+    async def save(self, health_check: dict[str, Any]) -> str:
         pass
 
     @abstractmethod
-    async def get_by_id(self, check_id: str) -> Optional[Dict[str, Any]]:
+    async def get_by_id(self, check_id: str) -> dict[str, Any] | None:
         pass
 
     @abstractmethod
-    async def list_all(self, limit: int = 100) -> List[Dict[str, Any]]:
+    async def list_all(self, limit: int = 100) -> list[dict[str, Any]]:
         pass
 
     @abstractmethod
-    async def update(self, check_id: str, updates: Dict[str, Any]) -> bool:
-        pass 
+    async def update(self, check_id: str, updates: dict[str, Any]) -> bool:
+        pass

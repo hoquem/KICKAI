@@ -6,9 +6,8 @@ This module registers all player registration related commands with the command 
 Each feature maintains its own command definitions for clean separation.
 """
 
-from src.core.command_registry import command, CommandType, PermissionLevel
+from src.core.command_registry import CommandType, PermissionLevel, command
 from src.core.enums import ChatType
-
 
 # ============================================================================
 # MAIN CHAT COMMANDS - For Player Registration

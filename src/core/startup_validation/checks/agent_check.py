@@ -1,6 +1,8 @@
 import logging
+
+from ..reporting import CheckCategory, CheckResult, CheckStatus
 from .base_check import BaseCheck
-from ..reporting import CheckResult, CheckStatus, CheckCategory
+
 
 class AgentInitializationCheck(BaseCheck):
     """
@@ -15,8 +17,8 @@ class AgentInitializationCheck(BaseCheck):
         logger = logging.getLogger(__name__)
         try:
             # Attempt to import agent factory and config
-            from agents.configurable_agent import ConfigurableAgent, AgentContext
-            from config.agents import get_enabled_agent_configs, AgentConfig
+            from agents.configurable_agent import AgentContext, ConfigurableAgent
+            from config.agents import get_enabled_agent_configs
             from utils.llm_factory import LLMFactory
 
             # Simulate agent instantiation for all enabled configs
@@ -26,23 +28,23 @@ class AgentInitializationCheck(BaseCheck):
                 try:
                     # Create a dummy LLM using environment-based configuration
                     dummy_llm = LLMFactory.create_from_environment()
-                    
+
                     # Create a mock tool registry
                     class MockToolRegistry:
                         def get_tool(self, name):
                             return None
                         def get_tool_names(self):
                             return []
-                    
+
                     dummy_tools = MockToolRegistry()
-                    
+
                     # Create a mock team memory
                     class MockTeamMemory:
                         def get_memory(self):
                             return None
                         def store_conversation(self, *args, **kwargs):
                             pass
-                    
+
                     agent_context = AgentContext(
                         role=role,
                         team_id="TEST",
@@ -78,4 +80,4 @@ class AgentInitializationCheck(BaseCheck):
                 category=self.category,
                 message=f"AgentInitializationCheck failed: {e}",
                 details={"error": str(e)}
-            ) 
+            )

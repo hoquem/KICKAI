@@ -6,12 +6,10 @@ and tool mappings. This allows for easy agent management and modification
 without writing new classes.
 """
 
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
-from enum import Enum
 
-from core.enums import AgentRole
 from core.entity_types import EntityType
+from core.enums import AgentRole
 
 
 @dataclass
@@ -20,17 +18,17 @@ class AgentConfig:
     role: AgentRole
     goal: str
     backstory: str
-    tools: List[str] = field(default_factory=list)
+    tools: list[str] = field(default_factory=list)
     enabled: bool = True
     max_iterations: int = 10
     allow_delegation: bool = True
     verbose: bool = True
-    custom_tools: List[str] = field(default_factory=list)
-    behavioral_mixin: Optional[str] = None
+    custom_tools: list[str] = field(default_factory=list)
+    behavioral_mixin: str | None = None
     memory_enabled: bool = True
     learning_enabled: bool = True
-    entity_types: List[EntityType] = field(default_factory=list)
-    primary_entity_type: Optional[EntityType] = None
+    entity_types: list[EntityType] = field(default_factory=list)
+    primary_entity_type: EntityType | None = None
 
 
 class AgentConfigurationManager:
@@ -39,7 +37,7 @@ class AgentConfigurationManager:
     def __init__(self):
         self._configs = self._initialize_configs()
 
-    def _initialize_configs(self) -> Dict[AgentRole, AgentConfig]:
+    def _initialize_configs(self) -> dict[AgentRole, AgentConfig]:
         """Initialize all agent configurations."""
         return {
             AgentRole.MESSAGE_PROCESSOR: AgentConfig(
@@ -97,15 +95,20 @@ CRITICAL HELP COMMAND HANDLING:
 When users ask for help (e.g., "/help", "help", "what can you do", "show commands"), you MUST:
 1. ALWAYS use the get_available_commands tool to get the current list of available commands
 2. Pass the correct chat type - "leadership_chat" for leadership chats, "main_chat" for main chats
-3. Return the exact output from the tool - this provides accurate, context-aware command information
-4. NEVER fabricate or guess command lists
+3. ALWAYS pass user registration status from execution context:
+   - is_registered: Whether user is registered in system
+   - is_player: Whether user is a registered player
+   - is_team_member: Whether user is a team member
+4. Return the exact output from the tool - this provides accurate, context-aware command information
+5. NEVER fabricate or guess command lists
 
 HELP COMMAND EXAMPLES:
-✅ CORRECT: Use get_available_commands tool with chat_type="leadership_chat" for leadership chats
-✅ CORRECT: Use get_available_commands tool with chat_type="main_chat" for main chats
+✅ CORRECT: Use get_available_commands tool with chat_type="leadership_chat", is_registered=True, is_player=False, is_team_member=True for leadership chats
+✅ CORRECT: Use get_available_commands tool with chat_type="main_chat", is_registered=False, is_player=False, is_team_member=False for unregistered users in main chat
 ✅ CORRECT: Return the exact formatted output from the tool
 ❌ INCORRECT: Creating generic responses without using the tool
 ❌ INCORRECT: Mentioning commands that don't exist like "/players", "/schedule"
+❌ INCORRECT: Not passing user registration status parameters
 
 TOOLS AND CAPABILITIES:
 - Natural language understanding and intent classification
@@ -114,7 +117,7 @@ TOOLS AND CAPABILITIES:
 - Help system and user guidance
 - Error recovery and fallback handling
 - Command information retrieval via get_available_commands tool""",
-                tools=["send_message", "send_announcement", "get_available_commands"],
+                tools=["send_message", "send_announcement", "get_available_commands", "get_my_status", "get_my_team_member_status", "get_all_players", "get_team_members", "list_team_members_and_players"],
                 behavioral_mixin="message_processor",
                 memory_enabled=True,
                 learning_enabled=True,
@@ -699,8 +702,12 @@ CRITICAL COMMAND GUIDANCE:
 When users ask for help with commands or seem confused about available options, you MUST:
 1. ALWAYS use the get_available_commands tool to get the current list of available commands
 2. Pass the correct chat type - "leadership_chat" for leadership chats, "main_chat" for main chats
-3. Use the tool output to provide accurate command suggestions and examples
-4. NEVER fabricate or guess command lists - always use the tool for accuracy
+3. ALWAYS pass user registration status from execution context:
+   - is_registered: Whether user is registered in system
+   - is_player: Whether user is a registered player
+   - is_team_member: Whether user is a team member
+4. Use the tool output to provide accurate command suggestions and examples
+5. NEVER fabricate or guess command lists - always use the tool for accuracy
 
 GUIDANCE PROTOCOLS:
 - Command Examples: Provide clear examples of correct usage using tool data
@@ -1201,15 +1208,15 @@ INTEGRATION POINTS:
             )
         }
 
-    def get_agent_config(self, role: AgentRole) -> Optional[AgentConfig]:
+    def get_agent_config(self, role: AgentRole) -> AgentConfig | None:
         """Get configuration for a specific agent role."""
         return self._configs.get(role)
 
-    def get_all_configs(self) -> Dict[AgentRole, AgentConfig]:
+    def get_all_configs(self) -> dict[AgentRole, AgentConfig]:
         """Get all agent configurations."""
         return self._configs.copy()
 
-    def get_enabled_configs(self) -> Dict[AgentRole, AgentConfig]:
+    def get_enabled_configs(self) -> dict[AgentRole, AgentConfig]:
         """Get only enabled agent configurations."""
         return {role: config for role, config in self._configs.items() if config.enabled}
 
@@ -1226,7 +1233,7 @@ INTEGRATION POINTS:
         if role in self._configs:
             del self._configs[role]
 
-    def get_agent_tools(self, role: AgentRole) -> List[str]:
+    def get_agent_tools(self, role: AgentRole) -> list[str]:
         """Get tools for a specific agent role."""
         config = self._configs.get(role)
         return config.tools if config else []
@@ -1254,16 +1261,16 @@ def get_agent_config_manager() -> AgentConfigurationManager:
     return _agent_config_manager
 
 
-def get_agent_config(role: AgentRole) -> Optional[AgentConfig]:
+def get_agent_config(role: AgentRole) -> AgentConfig | None:
     """Get configuration for a specific agent role."""
     return get_agent_config_manager().get_agent_config(role)
 
 
-def get_all_agent_configs() -> Dict[AgentRole, AgentConfig]:
+def get_all_agent_configs() -> dict[AgentRole, AgentConfig]:
     """Get all agent configurations."""
     return get_agent_config_manager().get_all_configs()
 
 
-def get_enabled_agent_configs() -> Dict[AgentRole, AgentConfig]:
+def get_enabled_agent_configs() -> dict[AgentRole, AgentConfig]:
     """Get only enabled agent configurations."""
     return get_agent_config_manager().get_enabled_configs()

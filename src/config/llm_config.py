@@ -6,13 +6,13 @@ This module provides LLM configuration and factory functions for the
 YAML-based CrewAI configuration approach.
 """
 
-import os
-from typing import Optional, Any
+from typing import Any
+
 from loguru import logger
 
-from src.utils.llm_factory import LLMFactory, LLMConfig
 from src.core.enums import AIProvider
 from src.core.settings import get_settings
+from src.utils.llm_factory import LLMConfig, LLMFactory
 
 
 def get_llm_config() -> Any:
@@ -25,7 +25,7 @@ def get_llm_config() -> Any:
     try:
         # Get settings
         settings = get_settings()
-        
+
         # Create LLM configuration
         llm_config = LLMConfig(
             provider=settings.ai_provider,
@@ -35,16 +35,16 @@ def get_llm_config() -> Any:
             timeout_seconds=settings.ai_timeout,
             max_retries=settings.ai_max_retries
         )
-        
+
         # Create LLM instance
         llm = LLMFactory.create_llm(llm_config)
-        
+
         logger.info(f"✅ LLM configured successfully: {settings.ai_provider.value} - {settings.ai_model_name}")
         return llm
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to configure LLM: {e}")
-        
+
         # Fallback to mock LLM for development
         logger.info("🔄 Falling back to mock LLM for development")
         mock_config = LLMConfig(
@@ -80,14 +80,14 @@ def validate_llm_config() -> bool:
     """
     try:
         llm = get_llm_config()
-        
+
         # Test the LLM with a simple prompt
         test_prompt = "Hello, this is a test message."
         response = llm.invoke([{"role": "user", "content": test_prompt}])
-        
+
         logger.info(f"✅ LLM validation successful: {response}")
         return True
-        
+
     except Exception as e:
         logger.error(f"❌ LLM validation failed: {e}")
         return False
@@ -106,4 +106,4 @@ def get_global_llm() -> Any:
     global _global_llm
     if _global_llm is None:
         _global_llm = get_llm_config()
-    return _global_llm 
+    return _global_llm

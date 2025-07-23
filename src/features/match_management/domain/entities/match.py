@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+
 
 @dataclass
 class Match:
@@ -7,10 +7,10 @@ class Match:
     team_id: str
     opponent: str
     date: str  # ISO format string
-    location: Optional[str] = None
+    location: str | None = None
     status: str = "scheduled"
-    home_away: Optional[str] = None
-    competition: Optional[str] = None
-    score: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None 
+    home_away: str | None = None
+    competition: str | None = None
+    score: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None

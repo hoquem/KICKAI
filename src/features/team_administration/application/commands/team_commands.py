@@ -6,9 +6,8 @@ This module registers all team administration related commands with the command 
 Each feature maintains its own command definitions for clean separation.
 """
 
-from src.core.command_registry import command, CommandType, PermissionLevel
+from src.core.command_registry import CommandType, PermissionLevel, command
 from src.core.enums import ChatType
-
 
 # ============================================================================
 # TEAM MANAGEMENT COMMANDS
@@ -151,4 +150,4 @@ What you'll see:
 async def handle_listmembers_command(update, context, **kwargs):
     """Handle /listmembers command."""
     # This will be handled by the agent system
-    return None 
+    return None

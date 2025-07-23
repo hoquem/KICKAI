@@ -1,12 +1,13 @@
-import os
-from typing import Union, Optional
 from loguru import logger
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
-from src.features.communication.domain.interfaces.telegram_bot_service_interface import TelegramBotServiceInterface
-from src.features.system_infrastructure.domain.services.permission_service import PermissionContext, get_permission_service
-from core.enums import ChatType
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+
 from agents.agentic_message_router import AgenticMessageRouter
+from core.enums import ChatType
+from src.features.communication.domain.interfaces.telegram_bot_service_interface import (
+    TelegramBotServiceInterface,
+)
+
 
 class TelegramBotService(TelegramBotServiceInterface):
     def __init__(self, token: str, team_id: str, main_chat_id: str = None, leadership_chat_id: str = None, crewai_system = None):
@@ -15,15 +16,15 @@ class TelegramBotService(TelegramBotServiceInterface):
         self.main_chat_id = main_chat_id
         self.leadership_chat_id = leadership_chat_id
         self.crewai_system = crewai_system
-        
+
         if not self.token:
             raise ValueError("TelegramBotService: token must be provided explicitly (not from env)")
-        
+
         # Initialize the agentic message router
         self.agentic_router = AgenticMessageRouter(team_id=team_id, crewai_system=crewai_system)
         if main_chat_id and leadership_chat_id:
             self.agentic_router.set_chat_ids(main_chat_id, leadership_chat_id)
-        
+
         self.app = Application.builder().token(self.token).build()
         self._running = False
         self._setup_handlers()
@@ -32,43 +33,43 @@ class TelegramBotService(TelegramBotServiceInterface):
         """Set up message handlers for the Telegram bot using command registry."""
         try:
             from core.command_registry_initializer import get_initialized_command_registry
-            
+
             # Get the properly initialized command registry
             registry = get_initialized_command_registry()
-            
+
             # Get all registered commands
             all_commands = registry.list_all_commands()
-            
+
             # Set up command handlers from registry with chat-type awareness
             command_handlers = []
-            
+
             # ALL commands use agentic routing - no dedicated handlers
             # This ensures single source of truth and consistent processing
             for cmd_metadata in all_commands:
                 # Use the generic agentic handler for all commands
                 def create_handler(cmd_name):
                     return lambda update, context: self._handle_registered_command(update, context, cmd_name)
-                
+
                 handler = create_handler(cmd_metadata.name)
                 command_handlers.append(CommandHandler(cmd_metadata.name.lstrip('/'), handler))
                 logger.info(f"✅ Registered agentic command handler: {cmd_metadata.name}")
-            
+
             # Add message handler for natural language processing
             message_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message)
-            
+
             # Add debug handler to log all updates
             debug_handler = MessageHandler(filters.ALL, self._debug_handler)
-            
+
             # Add all handlers to the application
             self.app.add_handlers(command_handlers + [message_handler, debug_handler])
-            
+
             logger.info(f"✅ Set up {len(command_handlers)} agentic command handlers and 1 message handler")
-            
+
         except Exception as e:
             logger.error(f"❌ Error setting up handlers: {e}")
             # Fallback to basic handlers
             self._setup_fallback_handlers()
-    
+
     def _setup_fallback_handlers(self):
         """Set up fallback handlers when command registry fails."""
         try:
@@ -76,10 +77,10 @@ class TelegramBotService(TelegramBotServiceInterface):
             handlers = [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message)
             ]
-            
+
             self.app.add_handlers(handlers)
             logger.info(f"✅ Set up {len(handlers)} fallback handlers")
-            
+
         except Exception as e:
             logger.error(f"❌ Error setting up fallback handlers: {e}")
 
@@ -88,13 +89,13 @@ class TelegramBotService(TelegramBotServiceInterface):
         try:
             # Convert to domain message
             message = self.agentic_router.convert_telegram_update_to_message(update)
-            
+
             # Route through agentic system (NO direct processing)
             response = await self.agentic_router.route_message(message)
-            
+
             # Send response
             await self._send_response(update, response)
-            
+
         except Exception as e:
             logger.error(f"Error in agentic message handling: {e}")
             await self._send_error_response(update, "I encountered an error processing your message.")
@@ -113,13 +114,13 @@ class TelegramBotService(TelegramBotServiceInterface):
         try:
             # Convert to domain message
             message = self.agentic_router.convert_telegram_update_to_message(update, command_name)
-            
+
             # Route through agentic system (NO direct processing)
             response = await self.agentic_router.route_command(command_name, message)
-            
+
             # Send response
             await self._send_response(update, response)
-            
+
         except Exception as e:
             logger.error(f"Error in agentic command handling: {e}")
             await self._send_error_response(update, "I encountered an error processing your command.")
@@ -135,21 +136,21 @@ class TelegramBotService(TelegramBotServiceInterface):
                 # String response
                 message_text = str(response)
                 success = True
-            
+
             if not success:
                 await self._send_error_response(update, message_text)
                 return
-            
+
             # Check if message is already properly formatted (from agents)
             # Agent messages are already safely formatted for Telegram
             is_agent_message = self._is_agent_formatted_message(message_text)
             logger.debug(f"🔍 Is agent message: {is_agent_message} | Message preview: {message_text[:50]}...")
-            
+
             # Send as plain text - no Markdown or HTML formatting
             logger.debug("✅ Sending message as plain text")
             await update.message.reply_text(message_text)
-            logger.info(f"✅ Agentic response sent successfully")
-            
+            logger.info("✅ Agentic response sent successfully")
+
         except Exception as e:
             logger.error(f"❌ Error sending response: {e}")
             await self._send_error_response(update, "I encountered an error sending the response.")
@@ -169,12 +170,12 @@ class TelegramBotService(TelegramBotServiceInterface):
             logger.info("Starting Telegram bot polling...")
             await self.app.initialize()
             await self.app.start()
-            
+
             # Add debug logging for polling setup
             logger.info(f"🔍 Bot token: {self.token[:10]}...")
             logger.info(f"🔍 Main chat ID: {self.main_chat_id}")
             logger.info(f"🔍 Leadership chat ID: {self.leadership_chat_id}")
-            
+
             # Start polling with basic parameters
             await self.app.updater.start_polling(
                 poll_interval=1.0,  # Poll every second
@@ -183,14 +184,14 @@ class TelegramBotService(TelegramBotServiceInterface):
             )
             self._running = True
             logger.info("Telegram bot polling started.")
-            
+
             # Test bot connection
             try:
                 me = await self.app.bot.get_me()
                 logger.info(f"✅ Bot connected successfully: @{me.username} (ID: {me.id})")
             except Exception as e:
                 logger.error(f"❌ Bot connection test failed: {e}")
-                
+
         except Exception as e:
             logger.error(f"❌ Error starting bot polling: {e}")
             raise
@@ -201,7 +202,7 @@ class TelegramBotService(TelegramBotServiceInterface):
             # Get the update type instead of message type
             update_type = type(update).__name__
             logger.info(f"🔍 DEBUG: Received update - Type: {update_type}")
-            
+
             if update.effective_message:
                 message_type = type(update.effective_message).__name__
                 logger.info(f"🔍 DEBUG: Message Type: {message_type}")
@@ -211,7 +212,7 @@ class TelegramBotService(TelegramBotServiceInterface):
         except Exception as e:
             logger.error(f"❌ Error in debug handler: {e}")
 
-    async def send_message(self, chat_id: Union[int, str], text: str, **kwargs):
+    async def send_message(self, chat_id: int | str, text: str, **kwargs):
         """Send a message to a specific chat."""
         try:
             logger.info(f"Sending message to chat_id={chat_id}: {text}")
@@ -237,4 +238,4 @@ class TelegramBotService(TelegramBotServiceInterface):
             logger.info("Telegram bot stopped.")
         except Exception as e:
             logger.error(f"❌ Error stopping bot: {e}")
-            raise 
+            raise

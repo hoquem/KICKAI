@@ -6,9 +6,8 @@ This module registers all health monitoring related commands with the command re
 Each feature maintains its own command definitions for clean separation.
 """
 
-from src.core.command_registry import command, CommandType, PermissionLevel
+from src.core.command_registry import CommandType, PermissionLevel, command
 from src.core.enums import ChatType
-
 
 # ============================================================================
 # HEALTH MONITORING COMMANDS
@@ -197,4 +196,4 @@ Alert types:
 async def handle_alerts_command(update, context, **kwargs):
     """Handle /alerts command."""
     # This will be handled by the agent system
-    return None 
+    return None

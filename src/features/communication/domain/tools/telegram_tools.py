@@ -5,12 +5,12 @@ This module provides tools for Telegram-specific operations.
 """
 
 import logging
-from typing import Optional
-from pydantic import BaseModel
 
 from crewai.tools import tool
-from src.features.communication.infrastructure.telegram_bot_service import TelegramBotService
+from pydantic import BaseModel
+
 from src.core.dependency_container import get_container
+from src.features.communication.infrastructure.telegram_bot_service import TelegramBotService
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +19,11 @@ class SendTelegramMessageInput(BaseModel):
     """Input model for send_telegram_message tool."""
     chat_id: str
     text: str
-    team_id: Optional[str] = None
+    team_id: str | None = None
 
 
 @tool("send_telegram_message")
-def send_telegram_message(chat_id: str, text: str, team_id: Optional[str] = None) -> str:
+def send_telegram_message(chat_id: str, text: str, team_id: str | None = None) -> str:
     """
     Send a message to a Telegram chat using the Telegram bot service. Requires: chat_id, text
     
@@ -38,16 +38,16 @@ def send_telegram_message(chat_id: str, text: str, team_id: Optional[str] = None
     try:
         container = get_container()
         telegram_service = container.get_service(TelegramBotService)
-        
+
         if not telegram_service:
             logger.error("❌ TelegramBotService not available")
             return "❌ Telegram service not available"
-        
+
         # Send the message
         telegram_service.send_message(chat_id, text)
         logger.info(f"✅ Telegram message sent to chat {chat_id}")
         return f"✅ Telegram message sent to chat {chat_id}"
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to send Telegram message: {e}")
-        return f"❌ Failed to send Telegram message: {str(e)}" 
+        return f"❌ Failed to send Telegram message: {e!s}"

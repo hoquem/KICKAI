@@ -1,10 +1,11 @@
 
 import re
-from typing import Dict, Optional
+
 from crewai.tools import tool
 
+
 @tool("Parse Registration Command")
-def parse_registration_command(command: str) -> Optional[Dict[str, str]]:
+def parse_registration_command(command: str) -> dict[str, str] | None:
     """
     Parses the /register command to extract the user's name, phone number, and role.
     This tool is essential for the player registration process and should be used by the Registration Agent.

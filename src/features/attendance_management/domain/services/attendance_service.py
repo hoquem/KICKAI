@@ -1,5 +1,7 @@
-from typing import List, Optional
-from features.attendance_management.domain.repositories.attendance_repository_interface import AttendanceRepositoryInterface
+from features.attendance_management.domain.repositories.attendance_repository_interface import (
+    AttendanceRepositoryInterface,
+)
+
 # from features.attendance_management.domain.entities.attendance import Attendance  # Uncomment and implement Attendance entity as needed
 
 class AttendanceService:
@@ -19,4 +21,4 @@ class AttendanceService:
         return await self.attendance_repository.update(attendance)
 
     async def delete_attendance(self, attendance_id: str) -> None:
-        await self.attendance_repository.delete(attendance_id) 
+        await self.attendance_repository.delete(attendance_id)

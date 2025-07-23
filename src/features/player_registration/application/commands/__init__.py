@@ -6,10 +6,9 @@ Commands are registered using @command decorators in individual files.
 """
 
 # Import command modules to ensure decorators are executed
-from . import player_commands
-from . import check_fa_command
+from . import check_fa_command, player_commands
 
 __all__ = [
-    "player_commands",
-    "check_fa_command"
+    "check_fa_command",
+    "player_commands"
 ]

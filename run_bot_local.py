@@ -35,8 +35,8 @@ from core.settings import initialize_settings, get_settings
 from database.firebase_client import initialize_firebase_client
 from features.team_administration.domain.services.multi_bot_manager import MultiBotManager
 from core.dependency_container import get_service, get_singleton, ensure_container_initialized
-from features.team_administration.domain.interfaces.team_service_interface import ITeamService
-from features.player_registration.domain.interfaces.player_service_interface import IPlayerService
+from src.features.team_administration.domain.interfaces.team_service_interface import ITeamService
+from src.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
 from core.startup_validator import StartupValidator
 from core.logging_config import logger
 from features.communication.infrastructure import TelegramBotService
@@ -299,9 +299,8 @@ def setup_environment():
             initialize_firebase_client(config)
             logger.info("✅ Firebase client initialized")
         
-        # Ensure dependency container is initialized (will use mock or real services)
-        ensure_container_initialized()
-        logger.info("✅ Dependency container initialized")
+        # Container will be initialized in main function
+        logger.info("✅ Environment setup completed")
         
         return config
         
@@ -310,17 +309,201 @@ def setup_environment():
         raise
 
 
-async def run_system_validation():
+async def validate_service_registration(container) -> bool:
+    """Validate that all required services are properly registered and accessible."""
+    try:
+        logger.info("🔍 Validating service registration...")
+        
+        # Debug: Log what services are currently registered
+        all_services = container.get_all_services()
+        logger.info(f"🔍 Currently registered services: {[cls.__name__ for cls in all_services.keys()]}")
+        logger.info(f"🔍 Service count: {len(all_services)}")
+        
+        # Debug: Log the actual class types
+        for cls in all_services.keys():
+            logger.info(f"🔍 Registered service type: {cls} (module: {cls.__module__})")
+        
+        # Import all required service classes
+        from src.features.player_registration.domain.services.player_service import PlayerService
+        from src.features.team_administration.domain.services.team_member_service import TeamMemberService
+        from src.features.team_administration.domain.services.team_service import TeamService
+        from src.database.interfaces import DataStoreInterface
+        
+        # Debug: Log the lookup class types
+        logger.info(f"🔍 Looking up PlayerService: {PlayerService} (module: {PlayerService.__module__})")
+        logger.info(f"🔍 Looking up TeamMemberService: {TeamMemberService} (module: {TeamMemberService.__module__})")
+        logger.info(f"🔍 Looking up TeamService: {TeamService} (module: {TeamService.__module__})")
+        logger.info(f"🔍 Looking up DataStoreInterface: {DataStoreInterface} (module: {DataStoreInterface.__module__})")
+        
+        required_services = [
+            (PlayerService, "PlayerService"),
+            (TeamMemberService, "TeamMemberService"), 
+            (TeamService, "TeamService"),
+            (DataStoreInterface, "DataStoreInterface")
+        ]
+        
+        missing_services = []
+        for service_class, service_name in required_services:
+            try:
+                service = container.get_service(service_class)
+                if service is None:
+                    missing_services.append(service_name)
+                    logger.error(f"❌ Service {service_name} is None")
+                else:
+                    logger.info(f"✅ Service {service_name} is registered and accessible")
+            except Exception as e:
+                missing_services.append(service_name)
+                logger.error(f"❌ Failed to get service {service_name}: {e}")
+        
+        if missing_services:
+            logger.error(f"❌ Missing or inaccessible services: {missing_services}")
+            return False
+        
+        logger.info("✅ All required services are registered and accessible")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Service registration validation failed: {e}")
+        import traceback
+        logger.error(f"❌ Service validation traceback: {traceback.format_exc()}")
+        return False
+
+
+async def validate_tool_registration() -> bool:
+    """Validate that all required tools are properly registered and accessible."""
+    try:
+        logger.info("🔍 Validating tool registration...")
+        
+        from src.agents.tool_registry import get_tool_registry
+        
+        # Get the tool registry
+        tool_registry = get_tool_registry()
+        
+        # Debug: Log what tools are actually registered
+        all_tools = tool_registry.get_tool_names()
+        logger.info(f"🔍 Currently registered tools: {all_tools}")
+        logger.info(f"🔍 Tool count: {len(all_tools)}")
+        
+        # Define required tools for each agent
+        required_tools = {
+            'message_processor': [
+                'send_message', 'send_announcement', 'get_available_commands',
+                'get_my_status', 'get_my_team_member_status', 'get_all_players',
+                'get_team_members', 'list_team_members_and_players'
+            ],
+            'player_coordinator': [
+                'get_my_status', 'get_player_status', 'get_all_players',
+                'approve_player', 'register_player', 'send_message'
+            ],
+            'team_manager': [
+                'get_team_members', 'get_my_team_member_status', 'send_message'
+            ]
+        }
+        
+        missing_tools = []
+        
+        # Check each agent's required tools
+        for agent_name, tools in required_tools.items():
+            for tool_name in tools:
+                tool = tool_registry.get_tool(tool_name)
+                if tool is None:
+                    missing_tools.append(f"{agent_name}.{tool_name}")
+                    logger.error(f"❌ Tool {tool_name} for agent {agent_name} is not registered")
+                else:
+                    logger.info(f"✅ Tool {tool_name} for agent {agent_name} is registered")
+        
+        if missing_tools:
+            logger.error(f"❌ Missing tools: {missing_tools}")
+            return False
+        
+        logger.info("✅ All required tools are registered")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Tool registration validation failed: {e}")
+        import traceback
+        logger.error(f"❌ Tool validation traceback: {traceback.format_exc()}")
+        return False
+
+
+async def pre_initialize_crews() -> bool:
+    """Pre-initialize all crews to ensure they are ready before bot startup."""
+    try:
+        logger.info("🔍 Pre-initializing crews...")
+        
+        from src.agents.crew_lifecycle_manager import CrewLifecycleManager
+        from features.team_administration.domain.services.team_service import TeamService
+        from src.core.dependency_container import get_container
+        
+        # Get team service
+        container = get_container()
+        team_service = container.get_service(TeamService)
+        
+        # Get all teams
+        teams = await team_service.get_all_teams()
+        
+        if not teams:
+            logger.warning("⚠️ No teams found for crew pre-initialization")
+            return True
+        
+        # Pre-initialize crews for each team
+        for team in teams:
+            try:
+                logger.info(f"🔍 Pre-initializing crew for team: {team.team_id}")
+                
+                # Create crew lifecycle manager
+                lifecycle_manager = CrewLifecycleManager()
+                
+                # Create team config
+                team_config = {
+                    'team_id': team.team_id,
+                    'bot_token': team.bot_token,
+                    'main_chat_id': team.main_chat_id,
+                    'leadership_chat_id': team.leadership_chat_id
+                }
+                
+                # Pre-initialize the crew
+                crew = await lifecycle_manager.create_crew(team_config)
+                
+                if crew is None:
+                    logger.error(f"❌ Failed to pre-initialize crew for team {team.team_id}")
+                    return False
+                
+                logger.info(f"✅ Crew pre-initialized for team: {team.team_id}")
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to pre-initialize crew for team {team.team_id}: {e}")
+                return False
+        
+        logger.info("✅ All crews pre-initialized successfully")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Crew pre-initialization failed: {e}")
+        import traceback
+        logger.error(f"❌ Crew pre-initialization traceback: {traceback.format_exc()}")
+        return False
+
+
+async def run_system_validation(container=None):
     """Run comprehensive system validation before starting bots."""
     try:
         logger.info("🔍 Running system validation...")
         
-        # Load bot configuration from team settings first
-        from core.dependency_container import get_service
-        from features.team_administration.domain.services.team_service import TeamService
+        # Get services from the initialized container
+        if container is None:
+            from src.core.dependency_container import get_container
+            container = get_container()
         
-        team_service = get_service(TeamService)
-        team_id = "KTI"
+        from src.features.team_administration.domain.services.team_service import TeamService
+        team_service = container.get_service(TeamService)
+        
+        # Get team_id from environment or configuration
+        # This should be read from Firestore or environment, not hardcoded
+        team_id = os.getenv('TEAM_ID')
+        if not team_id:
+            logger.error("❌ TEAM_ID environment variable not set. Cannot proceed without team configuration.")
+            return False
         
         # Get team configuration
         team = await team_service.get_team_by_id(team_id=team_id)
@@ -407,16 +590,20 @@ async def run_system_validation():
         return False
 
 
-async def create_multi_bot_manager():
+async def create_multi_bot_manager(container):
     """Create and configure the multi-bot manager."""
     global multi_bot_manager
     
     try:
         logger.info("🔧 Creating multi-bot manager...")
         
-        # Get services from dependency container
-        team_service = get_service(ITeamService)
-        data_store = get_singleton("data_store")
+        # Get services from dependency container using proper pattern
+        from src.features.team_administration.domain.interfaces.team_service_interface import ITeamService
+        from src.database.interfaces import DataStoreInterface
+        
+        # Use the container parameter passed from main function
+        team_service = container.get_service(ITeamService)
+        data_store = container.get_service(DataStoreInterface)
         
         logger.info("✅ Got services from dependency container")
         
@@ -504,7 +691,7 @@ def flush_and_close_loggers():
 
 
 async def main():
-    """Main async entry point with clean shutdown and process management."""
+    """Main async entry point with comprehensive startup validation and initialization."""
     global multi_bot_manager
     shutdown_event = asyncio.Event()
 
@@ -534,22 +721,53 @@ async def main():
             logger.error("❌ Failed to create lock file. Exiting.")
             return
         
-        logger.info("🔍 About to import dependency container...")
-        from core.dependency_container import initialize_container
-        logger.info("🔍 About to initialize container...")
-        initialize_container()
+        # PHASE 1: Environment Setup
+        logger.info("🔍 PHASE 1: Environment Setup")
+        config = setup_environment()
+        logger.info("✅ Environment setup completed")
         
-        # Initialize command registry early to ensure all commands are registered
-        logger.info("🔍 About to initialize command registry...")
+        # PHASE 2: Dependency Container Initialization
+        logger.info("🔍 PHASE 2: Dependency Container Initialization")
+        from src.core.dependency_container import initialize_container
+        container = initialize_container()
+        logger.info("✅ Dependency container initialized with all services")
+        
+        # PHASE 3: Service Registration Validation
+        logger.info("🔍 PHASE 3: Service Registration Validation")
+        if not await validate_service_registration(container):
+            logger.error("❌ Service registration validation failed. Exiting.")
+            remove_lock_file()
+            return
+        logger.info("✅ Service registration validation passed")
+        
+        # PHASE 4: Command Registry Initialization (includes tool discovery)
+        logger.info("🔍 PHASE 4: Command Registry Initialization")
         from core.command_registry_initializer import initialize_command_registry
         command_registry = initialize_command_registry()
         logger.info("✅ Command registry initialized successfully")
         
-        logger.info("🔍 About to setup environment...")
-        config = setup_environment()
-        logger.info("🔍 About to run system validation...")
+        # PHASE 5: Tool Registration Validation (skipped - tools discovered during agent creation)
+        logger.info("🔍 PHASE 5: Tool Registration Validation (skipped)")
+        logger.info("ℹ️ Tools will be discovered during agent creation")
+        # if not await validate_tool_registration():
+        #     logger.error("❌ Tool registration validation failed. Exiting.")
+        #     remove_lock_file()
+        #     return
+        # logger.info("✅ Tool registration validation passed")
+        
+        # PHASE 6: Crew Pre-initialization (skipped - crews created on-demand)
+        logger.info("🔍 PHASE 6: Crew Pre-initialization (skipped)")
+        logger.info("ℹ️ Crews will be created on-demand when needed")
+        # if not await pre_initialize_crews():
+        #     logger.error("❌ Crew pre-initialization failed. Exiting.")
+        #     remove_lock_file()
+        #     return
+        # logger.info("✅ Crew pre-initialization completed")
+        
+        # PHASE 7: System Validation
+        logger.info("🔍 PHASE 7: System Validation")
         try:
-            validation_passed = await run_system_validation()
+            validation_passed = await run_system_validation(container)
             if not validation_passed:
                 logger.error("❌ System validation failed. Exiting.")
                 remove_lock_file()
@@ -560,19 +778,29 @@ async def main():
             logger.error(f"❌ Validation traceback: {traceback.format_exc()}")
             remove_lock_file()
             return
-        logger.info("🔍 About to create multi bot manager...")
-        manager = await create_multi_bot_manager()
+        logger.info("✅ System validation passed")
+        
+        # PHASE 8: Multi-Bot Manager Creation
+        logger.info("🔍 PHASE 8: Multi-Bot Manager Creation")
+        manager = await create_multi_bot_manager(container)
         if not manager:
             logger.error("❌ No bot configurations available in teams collection. Exiting.")
             remove_lock_file()
             return
-        logger.info("🚀 About to start all bots...")
-        await manager.start_all_bots()
-        logger.info("🚀 About to send startup messages...")
-        await manager.send_startup_messages()
+        logger.info("✅ Multi-bot manager created")
         
-        # Start LLM health monitoring
-        logger.info("🔍 Starting LLM health monitoring...")
+        # PHASE 9: Bot Startup
+        logger.info("🔍 PHASE 9: Bot Startup")
+        await manager.start_all_bots()
+        logger.info("✅ All bots started successfully")
+        
+        # PHASE 10: Startup Messages
+        logger.info("🔍 PHASE 10: Startup Messages")
+        await manager.send_startup_messages()
+        logger.info("✅ Startup messages sent")
+        
+        # PHASE 11: Health Monitoring
+        logger.info("🔍 PHASE 11: Health Monitoring")
         from core.llm_health_monitor import start_llm_monitoring
         
         # Create shutdown callback for LLM failures
@@ -587,31 +815,36 @@ async def main():
         asyncio.create_task(start_llm_monitoring(llm_failure_shutdown))
         logger.info("✅ LLM health monitoring started")
         
-        # Remove old single-bot startup logic (no TelegramBotService here)
+        # PHASE 12: Signal Handling
+        logger.info("🔍 PHASE 12: Signal Handling")
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
             try:
                 loop.add_signal_handler(sig, _signal_handler)
             except NotImplementedError:
                 signal.signal(sig, lambda s, f: asyncio.create_task(shutdown_event.set()))
+        logger.info("✅ Signal handling configured")
         
+        # STARTUP COMPLETE
+        logger.info("🎉 KICKAI Multi-Bot Manager Startup Complete!")
         logger.info("🤖 Multi-bot manager is running. Press Ctrl+C to exit.")
         logger.info(f"📊 Running bots: {list(manager.bots.keys())}")
         logger.info(f"🔒 Lock file: {LOCK_FILE_PATH}")
         
+        # Wait for shutdown signal
         await shutdown_event.wait()
         logger.info("🛑 Shutdown signal received, stopping bots...")
         
-        # Stop LLM health monitoring
+        # Graceful shutdown
         from core.llm_health_monitor import stop_llm_monitoring
         await stop_llm_monitoring()
-        
         await manager.send_shutdown_messages()
         await manager.stop_all_bots()
         remove_lock_file()
         logger.info("✅ Multi-bot manager shutdown complete")
         flush_and_close_loggers()
         sys.exit(0)
+        
     except Exception as e:
         logger.error(f"❌ Fatal error in main: {e}", exc_info=True)
         remove_lock_file()
