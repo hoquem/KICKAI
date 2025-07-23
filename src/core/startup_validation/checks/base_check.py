@@ -6,9 +6,9 @@ This module provides the base class for all health checks.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any
 
-from ..reporting import CheckResult, CheckStatus, CheckCategory
+from ..reporting import CheckCategory, CheckResult
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +20,13 @@ class BaseCheck(ABC):
     All health checks should inherit from this class and implement
     the execute method.
     """
-    
+
     name: str
     category: CheckCategory
     description: str
-    
+
     @abstractmethod
-    async def execute(self, context: Optional[Dict[str, Any]] = None) -> CheckResult:
+    async def execute(self, context: dict[str, Any] | None = None) -> CheckResult:
         """
         Execute the health check.
         
@@ -37,9 +37,9 @@ class BaseCheck(ABC):
             CheckResult with the check status and details
         """
         pass
-    
+
     def __str__(self) -> str:
         return f"{self.name} ({self.category.value})"
-    
+
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}: {self.name}>" 
+        return f"<{self.__class__.__name__}: {self.name}>"

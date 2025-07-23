@@ -14,4 +14,4 @@ class EntityType(Enum):
     PLAYER = "player"
     TEAM_MEMBER = "team_member"
     BOTH = "both"  # Tool can operate on both players and team members
-    NEITHER = "neither"  # Tool doesn't operate on specific entities (e.g., communication tools) 
+    NEITHER = "neither"  # Tool doesn't operate on specific entities (e.g., communication tools)

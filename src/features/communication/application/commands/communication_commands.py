@@ -6,13 +6,7 @@ This module registers all communication related commands with the command regist
 Each feature maintains its own command definitions for clean separation.
 """
 
-from src.core.command_registry import command, CommandType, PermissionLevel
-
-
-
-
-
-
+from src.core.command_registry import CommandType, PermissionLevel, command
 
 
 @command(
@@ -120,4 +114,4 @@ What happens:
 async def handle_broadcast_command(update, context, **kwargs):
     """Handle /broadcast command."""
     # This will be handled by the agent system
-    return None 
+    return None

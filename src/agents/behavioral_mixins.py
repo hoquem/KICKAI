@@ -6,28 +6,31 @@ This module provides behavioral mixins that can be composed into agents
 to give them specific capabilities and behaviors.
 """
 
-import asyncio
-import re
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from typing import Any
+
 from loguru import logger
 
-from core.firestore_constants import get_team_members_collection
-from core.exceptions import KICKAIError, InputValidationError, AuthorizationError, AgentExecutionError
+from core.exceptions import (
+    AgentExecutionError,
+    AuthorizationError,
+    InputValidationError,
+    KICKAIError,
+)
+from src.core.constants import get_team_members_collection
 
 
 class BaseBehavioralMixin(ABC):
     """Base class for all behavioral mixins."""
-    
+
     def __init__(self):
         self.logger = logger.bind(mixin_name=self.__class__.__name__)
-    
+
     @abstractmethod
     def get_mixin_name(self) -> str:
         """Get the name of this mixin."""
         pass
-    
+
     @abstractmethod
     def get_supported_commands(self) -> list:
         """Get list of commands this mixin supports."""
@@ -45,78 +48,78 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
     - Player approval workflows
     - Player registration handling
     """
-    
+
     def get_mixin_name(self) -> str:
         return "player_coordinator"
-    
+
     def get_supported_commands(self) -> list:
         return ["/status", "/myinfo", "/list", "/approve"]
-    
+
     async def handle_status_command(self, parameters: dict) -> str:
         """Handle /status command (async)."""
         try:
             user_id = parameters.get('user_id', 'unknown')
             team_id = parameters.get('team_id', 'unknown')
-            
+
             self.logger.info(f"🔍 PLAYER_COORDINATOR: Getting status for user_id={user_id}, team_id={team_id}")
-            
+
             # Check if user_id is a test/unknown value
             if user_id in ['unknown', 'test_user', 'unknown_user']:
-                self.logger.info(f"🔍 PLAYER_COORDINATOR: Test user detected, providing registration guidance")
+                self.logger.info("🔍 PLAYER_COORDINATOR: Test user detected, providing registration guidance")
                 return self._get_player_not_found_message(user_id, team_id, "status")
-            
+
             # Let the agent use the get_my_status tool instead of providing fallback
-            self.logger.info(f"🔍 PLAYER_COORDINATOR: Delegating to agent tools for status request")
+            self.logger.info("🔍 PLAYER_COORDINATOR: Delegating to agent tools for status request")
             return None  # Return None to let the agent handle this with tools
-            
+
         except Exception as e:
             self.logger.error(f"Error in _handle_status_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
-    
+
     async def handle_myinfo_command(self, parameters: dict) -> str:
         """Handle /myinfo command (async)."""
         try:
             user_id = parameters.get('user_id', 'unknown')
             team_id = parameters.get('team_id', 'unknown')
-            
+
             self.logger.info(f"🔍 PLAYER_COORDINATOR: Getting myinfo for user_id={user_id}, team_id={team_id}")
-            
+
             # Check if user_id is a test/unknown value
             if user_id in ['unknown', 'test_user', 'unknown_user']:
-                self.logger.info(f"🔍 PLAYER_COORDINATOR: Test user detected, providing registration guidance")
+                self.logger.info("🔍 PLAYER_COORDINATOR: Test user detected, providing registration guidance")
                 return self._get_player_not_found_message(user_id, team_id, "myinfo")
-            
+
             # Let the agent use the get_my_status tool instead of providing fallback
-            self.logger.info(f"🔍 PLAYER_COORDINATOR: Delegating to agent tools for myinfo request")
+            self.logger.info("🔍 PLAYER_COORDINATOR: Delegating to agent tools for myinfo request")
             return None  # Return None to let the agent handle this with tools
-            
+
         except Exception as e:
             self.logger.error(f"Error in _handle_myinfo_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
-    
+
     async def handle_list_command(self, parameters: dict) -> str:
         """Handle /list command (async)."""
         try:
             team_id = parameters.get('team_id', 'unknown')
-            
+
             self.logger.info(f"🔍 PLAYER_COORDINATOR: Getting all players for team_id={team_id}")
-            
+
             # Let the agent use the get_all_players tool instead of providing fallback
-            self.logger.info(f"🔍 PLAYER_COORDINATOR: Delegating to agent tools for list request")
+            self.logger.info("🔍 PLAYER_COORDINATOR: Delegating to agent tools for list request")
             return None  # Return None to let the agent handle this with tools
-            
+
         except Exception as e:
             self.logger.error(f"Error in _handle_list_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
-    
+
     async def handle_approve_command(self, parameters: dict) -> str:
         """Handle /approve command (async)."""
         try:
             team_id = parameters.get('team_id', 'unknown')
             player_id = parameters.get('player_id', 'unknown')
-            
+
             self.logger.info(f"🔍 PLAYER_COORDINATOR: Approving player_id={player_id} for team_id={team_id}")
-            
+
             # For now, return a basic approval message
             return f"""✅ Player Approval
 
@@ -126,17 +129,17 @@ The player can now participate in team activities and matches.
 
 💬 Need Help?
 Contact the team admin in the leadership chat."""
-            
+
         except Exception as e:
             self.logger.error(f"Error in _handle_approve_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
-    
 
-    
+
+
     def _get_player_not_found_message(self, user_id: str, team_id: str, command_type: str) -> str:
         """Get a friendly and helpful message when a player is not found."""
         command_name = command_type.replace("_", " ").title()
-        
+
         if command_type in ["status", "myinfo"]:
             return f"""👋 Welcome to KICKAI! 
 
@@ -189,13 +192,13 @@ class MessageProcessorMixin(BaseBehavioralMixin):
     - Context management
     - User interface interactions
     """
-    
+
     def get_mixin_name(self) -> str:
         return "message_processor"
-    
+
     def get_supported_commands(self) -> list:
         return []  # Help commands are now handled by dedicated HelpAssistantAgent
-    
+
     # Note: Help message generation has been moved to dedicated HelpAssistantAgent
     # This ensures proper user validation and context-aware responses
 
@@ -210,46 +213,46 @@ class CommandFallbackMixin(BaseBehavioralMixin):
     - Command suggestions
     - Error recovery
     """
-    
+
     def get_mixin_name(self) -> str:
         return "command_fallback"
-    
+
     def get_supported_commands(self) -> list:
         return []  # This mixin handles failed commands, not specific commands
-    
-    async def process_failed_command(self, failed_command: str, error_message: str, 
-                                   user_context: Dict[str, Any]) -> str:
+
+    async def process_failed_command(self, failed_command: str, error_message: str,
+                                   user_context: dict[str, Any]) -> str:
         """Process a failed command and provide helpful suggestions."""
         try:
             self.logger.info(f"🔧 COMMAND_FALLBACK: Processing failed command: {failed_command}")
             self.logger.info(f"🔧 COMMAND_FALLBACK: Error: {error_message}")
             self.logger.info(f"🔧 COMMAND_FALLBACK: Context: {user_context}")
-            
+
             # Analyze the failed command and provide helpful suggestions
             return await self._analyze_failed_command(failed_command, error_message, user_context)
         except (InputValidationError, AuthorizationError) as e:
             self.logger.warning(f"🔧 COMMAND_FALLBACK: InputValidationError or AuthorizationError: {e}")
             if isinstance(e, InputValidationError):
-                return f"❌ Input error: {str(e)}\nPlease check your command and try again."
+                return f"❌ Input error: {e!s}\nPlease check your command and try again."
             else:
-                return f"⛔ Permission error: {str(e)}\nYou do not have access to perform this action."
+                return f"⛔ Permission error: {e!s}\nYou do not have access to perform this action."
         except AgentExecutionError as e:
             self.logger.warning(f"🔧 COMMAND_FALLBACK: AgentExecutionError: {e}")
-            return f"⚠️ Agent error: {str(e)}\nPlease try again later or contact support."
+            return f"⚠️ Agent error: {e!s}\nPlease try again later or contact support."
         except KICKAIError as e:
             self.logger.warning(f"🔧 COMMAND_FALLBACK: KICKAIError: {e}")
-            return f"❌ System error: {str(e)}\nPlease try again later."
+            return f"❌ System error: {e!s}\nPlease try again later."
         except Exception as e:
             self.logger.error(f"🔧 COMMAND_FALLBACK: Unexpected error in fallback agent: {e}", exc_info=True)
-            return f"❌ Sorry, I encountered an unexpected error processing your request. Please try again later or contact support."
-    
-    async def _analyze_failed_command(self, failed_command: str, error_message: str, 
-                                    user_context: Dict[str, Any]) -> str:
+            return "❌ Sorry, I encountered an unexpected error processing your request. Please try again later or contact support."
+
+    async def _analyze_failed_command(self, failed_command: str, error_message: str,
+                                    user_context: dict[str, Any]) -> str:
         """Analyze a failed command and provide helpful suggestions."""
         try:
             # Simple command analysis
             command_lower = failed_command.lower().strip()
-            
+
             # Check for common command patterns
             if any(word in command_lower for word in ['add', 'register', 'join']):
                 return """👋 Registration Help
@@ -265,7 +268,7 @@ It looks like you want to register or add someone to the team!
 🎯 To join the team, contact team leadership to be added as a player.
 
 Need help? Just ask me or contact the team admin."""
-            
+
             elif any(word in command_lower for word in ['status', 'info', 'details']):
                 return """📊 Status Help
 
@@ -281,7 +284,7 @@ It looks like you want to check player status or information!
 🎯 Want to check your own info? Just type /myinfo and I'll show you your details!
 
 Need help? Just ask me or contact the team admin."""
-            
+
             elif any(word in command_lower for word in ['approve', 'accept', 'ok']):
                 return """✅ Approval Help
 
@@ -295,7 +298,7 @@ It looks like you want to approve a player!
 🎯 This command is for team leadership only. If you need to approve someone, make sure you're in the leadership chat!
 
 Need help? Just ask me or contact the team admin."""
-            
+
             else:
                 return f"""🤖 I'm Not Sure What You Mean
 
@@ -313,7 +316,7 @@ I couldn't understand: "{failed_command}"
 • "How do I join the team?"
 
 Need help? Just ask me or contact the team admin!"""
-            
+
         except Exception as e:
             self.logger.error(f"Error in _analyze_failed_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
@@ -329,21 +332,21 @@ class FinancialManagementMixin(BaseBehavioralMixin):
     - Budget management
     - Expense tracking
     """
-    
+
     def get_mixin_name(self) -> str:
         return "financial_management"
-    
+
     def get_supported_commands(self) -> list:
         return ["/payment", "/expense", "/budget", "/financial_report"]
-    
+
     async def handle_payment_command(self, parameters: dict) -> str:
         """Handle payment-related commands."""
         try:
             payment_type = parameters.get('payment_type', 'unknown')
             amount = parameters.get('amount', 0)
-            
+
             self.logger.info(f"💰 FINANCIAL_MANAGER: Processing payment - type={payment_type}, amount={amount}")
-            
+
             return f"""💰 Payment Processing
 
 Payment of £{amount} for {payment_type} has been processed.
@@ -352,19 +355,19 @@ Your payment will be confirmed shortly.
 
 💬 Need Help?
 Contact the team admin in the leadership chat."""
-            
+
         except Exception as e:
             self.logger.error(f"Error in handle_payment_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
-    
+
     async def handle_expense_command(self, parameters: dict) -> str:
         """Handle expense-related commands."""
         try:
             expense_type = parameters.get('expense_type', 'unknown')
             amount = parameters.get('amount', 0)
-            
+
             self.logger.info(f"💰 FINANCIAL_MANAGER: Processing expense - type={expense_type}, amount={amount}")
-            
+
             return f"""📊 Expense Recorded
 
 Expense of £{amount} for {expense_type} has been recorded.
@@ -373,7 +376,7 @@ This will be reflected in the next financial report.
 
 💬 Need Help?
 Contact the team admin in the leadership chat."""
-            
+
         except Exception as e:
             self.logger.error(f"Error in handle_expense_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
@@ -389,20 +392,20 @@ class PerformanceAnalysisMixin(BaseBehavioralMixin):
     - Trend identification
     - Performance reporting
     """
-    
+
     def get_mixin_name(self) -> str:
         return "performance_analysis"
-    
+
     def get_supported_commands(self) -> list:
         return ["/stats", "/performance", "/analysis", "/trends"]
-    
+
     async def handle_stats_command(self, parameters: dict) -> str:
         """Handle statistics commands."""
         try:
             stat_type = parameters.get('stat_type', 'general')
-            
+
             self.logger.info(f"📊 PERFORMANCE_ANALYST: Generating stats - type={stat_type}")
-            
+
             return f"""📊 Team Statistics
 
 Here are the current team statistics for {stat_type}:
@@ -426,7 +429,7 @@ Here are the current team statistics for {stat_type}:
 
 💬 Need Help?
 Contact the team admin in the leadership chat."""
-            
+
         except Exception as e:
             self.logger.error(f"Error in handle_stats_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
@@ -442,20 +445,20 @@ class LearningOptimizationMixin(BaseBehavioralMixin):
     - Pattern recognition
     - Performance improvement
     """
-    
+
     def get_mixin_name(self) -> str:
         return "learning_optimization"
-    
+
     def get_supported_commands(self) -> list:
         return ["/learn", "/optimize", "/patterns"]
-    
+
     async def handle_learn_command(self, parameters: dict) -> str:
         """Handle learning commands."""
         try:
             learning_type = parameters.get('learning_type', 'interaction')
-            
+
             self.logger.info(f"🧠 LEARNING_AGENT: Processing learning - type={learning_type}")
-            
+
             return f"""🧠 Learning Update
 
 The system has learned from recent interactions.
@@ -468,7 +471,7 @@ The system will now provide better responses based on this learning.
 
 💬 Need Help?
 Contact the team admin in the leadership chat."""
-            
+
         except Exception as e:
             self.logger.error(f"Error in handle_learn_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
@@ -484,21 +487,21 @@ class OnboardingMixin(BaseBehavioralMixin):
     - Progress tracking
     - Onboarding assistance
     """
-    
+
     def get_mixin_name(self) -> str:
         return "onboarding"
-    
+
     def get_supported_commands(self) -> list:
         return ["/onboard", "/progress", "/complete_registration"]
-    
+
     async def handle_onboard_command(self, parameters: dict) -> str:
         """Handle onboarding commands."""
         try:
             step = parameters.get('step', 'start')
             user_id = parameters.get('user_id', 'unknown')
-            
+
             self.logger.info(f"📝 ONBOARDING_AGENT: Processing onboarding - step={step}, user_id={user_id}")
-            
+
             if step == 'start':
                 return """📝 Welcome to KICKAI!
 
@@ -516,7 +519,7 @@ Example: "John Doe, 07123456789, my husband"
 
 💬 Need Help?
 Contact the team admin in the leadership chat."""
-            
+
             elif step == 'emergency_contact':
                 return """✅ Emergency Contact Saved!
 
@@ -534,7 +537,7 @@ Example: "15/03/1990"
 
 💬 Need Help?
 Contact the team admin in the leadership chat."""
-            
+
             else:
                 return """📝 Onboarding Progress
 
@@ -542,7 +545,7 @@ Your onboarding is in progress. Please continue with the next step.
 
 💬 Need Help?
 Contact the team admin in the leadership chat."""
-            
+
         except Exception as e:
             self.logger.error(f"Error in handle_onboard_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
@@ -559,21 +562,21 @@ class AvailabilityManagementMixin(BaseBehavioralMixin):
     - Change management
     - Availability reporting
     """
-    
+
     def get_mixin_name(self) -> str:
         return "availability_management"
-    
+
     def get_supported_commands(self) -> list:
         return ["/availability", "/check_availability", "/send_availability_request", "/availability_report"]
-    
+
     async def handle_availability_command(self, parameters: dict) -> str:
         """Handle availability commands."""
         try:
             match_id = parameters.get('match_id', 'unknown')
             action = parameters.get('action', 'check')
-            
+
             self.logger.info(f"📋 AVAILABILITY_MANAGER: Processing availability - action={action}, match_id={match_id}")
-            
+
             if action == 'request':
                 return """🏆 AVAILABILITY REQUEST: Sunday vs Arsenal
 
@@ -590,7 +593,7 @@ Kit: Red shirts, black shorts
 Deadline: Friday 6pm ⏰
 
 Please respond to this poll to confirm your availability!"""
-            
+
             elif action == 'check':
                 return """📊 AVAILABILITY STATUS
 
@@ -605,7 +608,7 @@ Squad Status: ✅ SUFFICIENT (10 confirmed)
 Minimum Required: 11 players
 
 Deadline: Friday 6pm ⏰"""
-            
+
             elif action == 'report':
                 return """📈 AVAILABILITY REPORT
 
@@ -620,7 +623,7 @@ Recommendations:
 • Send reminder to non-responders
 • Consider squad size for next match
 • Plan for potential shortages"""
-            
+
             else:
                 return """📋 Availability Management
 
@@ -631,7 +634,7 @@ I can help you with:
 • Handle availability changes
 
 Use: /availability [action] [match_id]"""
-            
+
         except Exception as e:
             self.logger.error(f"Error in handle_availability_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
@@ -648,21 +651,21 @@ class SquadSelectionMixin(BaseBehavioralMixin):
     - Tactical planning
     - Squad announcements
     """
-    
+
     def get_mixin_name(self) -> str:
         return "squad_selection"
-    
+
     def get_supported_commands(self) -> list:
         return ["/squad", "/select_squad", "/squad_analysis", "/announce_squad"]
-    
+
     async def handle_squad_command(self, parameters: dict) -> str:
         """Handle squad selection commands."""
         try:
             match_id = parameters.get('match_id', 'unknown')
             action = parameters.get('action', 'select')
-            
+
             self.logger.info(f"⚽ SQUAD_SELECTOR: Processing squad - action={action}, match_id={match_id}")
-            
+
             if action == 'select':
                 return """🏆 SUNDAY SQUAD vs Arsenal (Home)
 
@@ -679,7 +682,7 @@ Meet: 1:15pm at ground
 Kit: Red shirts, black shorts
 
 Good luck team! 💪"""
-            
+
             elif action == 'analyze':
                 return """📊 SQUAD ANALYSIS
 
@@ -705,7 +708,7 @@ Areas of Concern:
 • No backup goalkeeper
 
 Recommendation: ✅ SQUAD READY"""
-            
+
             elif action == 'announce':
                 return """📢 SQUAD ANNOUNCEMENT
 
@@ -724,7 +727,7 @@ Meet: 1:15pm at ground
 Kit: Red shirts, black shorts
 
 Good luck team! 💪⚽"""
-            
+
             else:
                 return """⚽ Squad Selection
 
@@ -735,7 +738,7 @@ I can help you with:
 • Provide tactical recommendations
 
 Use: /squad [action] [match_id]"""
-            
+
         except Exception as e:
             self.logger.error(f"Error in handle_squad_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
@@ -752,21 +755,21 @@ class CommunicationManagementMixin(BaseBehavioralMixin):
     - Emergency communications
     - Team announcements
     """
-    
+
     def get_mixin_name(self) -> str:
         return "communication_management"
-    
+
     def get_supported_commands(self) -> list:
         return ["/announce", "/remind", "/notify", "/emergency", "/schedule_message"]
-    
+
     async def handle_announce_command(self, parameters: dict) -> str:
         """Handle announcement commands."""
         try:
             message_type = parameters.get('type', 'general')
             content = parameters.get('content', '')
-            
+
             self.logger.info(f"📢 COMMUNICATION_MANAGER: Processing announcement - type={message_type}")
-            
+
             if message_type == 'match_reminder':
                 return """🏆 MATCH REMINDER: Sunday vs Arsenal
 
@@ -779,7 +782,7 @@ class CommunicationManagementMixin(BaseBehavioralMixin):
 Please confirm availability by Friday 6pm!
 
 Good luck team! 💪⚽"""
-            
+
             elif message_type == 'squad_announcement':
                 return """📢 SQUAD ANNOUNCEMENT
 
@@ -798,7 +801,7 @@ Meet: 1:15pm at ground
 Kit: Red shirts, black shorts
 
 Good luck team! 💪"""
-            
+
             elif message_type == 'emergency':
                 return """🚨 EMERGENCY ANNOUNCEMENT
 
@@ -811,7 +814,7 @@ New date will be announced soon.
 Please check for updates.
 
 Sorry for the inconvenience!"""
-            
+
             else:
                 return f"""📢 ANNOUNCEMENT
 
@@ -819,7 +822,7 @@ Sorry for the inconvenience!"""
 
 💬 Need Help?
 Contact the team admin in the leadership chat."""
-            
+
         except Exception as e:
             self.logger.error(f"Error in handle_announce_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
@@ -834,14 +837,14 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
     - Generating player invite links
     - Player onboarding coordination
     """
-    
+
     def get_mixin_name(self) -> str:
         return "player_addition"
-    
+
     def get_supported_commands(self) -> list:
         return ["/addplayer", "/add_player"]
-    
-    async def handle_addplayer_command(self, message_text: str, execution_context: Dict[str, Any]) -> str:
+
+    async def handle_addplayer_command(self, message_text: str, execution_context: dict[str, Any]) -> str:
         """
         Handle /addplayer command using agent-based processing.
         
@@ -853,18 +856,19 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
             Formatted response message
         """
         try:
-            from features.communication.domain.services.invite_link_service import InviteLinkService
+            from datetime import datetime
+
             from core.dependency_container import get_dependency_container
             from core.settings import get_settings
-            from utils.phone_utils import is_valid_phone, normalize_phone
-            from utils.id_generator import generate_player_id_from_name
-            from features.player_registration.domain.entities.player import Player
             from database.firebase_client import get_firebase_client
-            from datetime import datetime
-            
+            from features.communication.domain.services.invite_link_service import InviteLinkService
+            from features.player_registration.domain.entities.player import Player
+            from utils.id_generator import generate_player_id_from_name
+            from utils.phone_utils import is_valid_phone, normalize_phone
+
             # Parse command arguments
             args = message_text.split()[1:]  # Remove /addplayer
-            
+
             if len(args) < 3:
                 return (
                     "❌ Missing Information\n\n"
@@ -876,7 +880,7 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
                     "Example: /addplayer John Smith +447123456789 Forward\n\n"
                     "💡 Need help? Contact the team admin."
                 )
-            
+
             # Extract parameters - handle names with spaces
             # Find the phone number (starts with + or 0)
             phone_index = -1
@@ -884,7 +888,7 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
                 if arg.startswith('+') or arg.startswith('0'):
                     phone_index = i
                     break
-            
+
             if phone_index == -1:
                 return (
                     "❌ Invalid Phone Number\n\n"
@@ -892,12 +896,12 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
                     "• Format: 07123456789 or +447123456789\n"
                     "• Example: /addplayer John Smith +447123456789 Forward"
                 )
-            
+
             # Extract name (everything before phone)
             name = ' '.join(args[:phone_index])
             phone = args[phone_index]
             position = ' '.join(args[phone_index + 1:])
-            
+
             if not name or not position:
                 return (
                     "❌ Missing Information\n\n"
@@ -909,7 +913,7 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
                     "Example: /addplayer John Smith +447123456789 Forward\n\n"
                     "💡 Need help? Contact the team admin."
                 )
-            
+
             # Validate phone number
             if not is_valid_phone(phone):
                 return (
@@ -918,15 +922,15 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
                     "• Format: 07123456789 or +447123456789\n"
                     "• Example: /addplayer John Smith +447123456789 Forward"
                 )
-            
+
             # Get team ID from context
             team_id = execution_context.get('team_id')
             if not team_id:
                 return "❌ Error: Team ID not found in context"
-            
+
             # Generate player ID
             player_id = generate_player_id_from_name(name, team_id)
-            
+
             # Create player record (pending approval)
             player = Player(
                 id=player_id,
@@ -938,17 +942,17 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
                 created_at=datetime.now(),
                 updated_at=datetime.now()
             )
-            
+
             # Save to database
             firebase_client = get_firebase_client()
             collection_name = get_team_members_collection(team_id)
             await firebase_client.create_document(collection_name, player.to_dict(), player_id)
-            
+
             # Generate unique invite link using the invite link service
             container = get_dependency_container()
             invite_service = container.get_service(InviteLinkService)
             settings = get_settings()
-            
+
             invite_result = await invite_service.create_player_invite_link(
                 team_id=team_id,
                 player_name=name,
@@ -956,7 +960,7 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
                 player_position=position,
                 main_chat_id=settings.telegram_main_chat_id
             )
-            
+
             response = f"""✅ Player Added Successfully!
 
 👤 Player Details:
@@ -978,9 +982,9 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
 💡 Note: This invite link is unique, expires in 7 days, and can only be used once.
 
 🎯 Player ID: {player_id} (save this for approval)"""
-            
+
             return response
-            
+
         except Exception as e:
             logger.error(f"❌ Error in addplayer command: {e}")
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
@@ -999,14 +1003,14 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
     - Generating leadership chat invite links
     - Team member onboarding coordination
     """
-    
+
     def get_mixin_name(self) -> str:
         return "team_member_addition"
-    
+
     def get_supported_commands(self) -> list:
         return ["/addmember", "/add_member", "/addteammember"]
-    
-    async def handle_addmember_command(self, message_text: str, execution_context: Dict[str, Any]) -> str:
+
+    async def handle_addmember_command(self, message_text: str, execution_context: dict[str, Any]) -> str:
         """
         Handle /addmember command using agent-based processing.
         
@@ -1018,18 +1022,19 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
             Formatted response message
         """
         try:
-            from features.communication.domain.services.invite_link_service import InviteLinkService
+            from datetime import datetime
+
             from core.dependency_container import get_dependency_container
             from core.settings import get_settings
-            from utils.phone_utils import is_valid_phone, normalize_phone
-            from utils.id_generator import generate_team_member_id_from_name
-            from features.team_administration.domain.entities.team_member import TeamMember
             from database.firebase_client import get_firebase_client
-            from datetime import datetime
-            
+            from features.communication.domain.services.invite_link_service import InviteLinkService
+            from features.team_administration.domain.entities.team_member import TeamMember
+            from utils.id_generator import generate_team_member_id_from_name
+            from utils.phone_utils import is_valid_phone, normalize_phone
+
             # Parse command arguments
             args = message_text.split()[1:]  # Remove /addmember
-            
+
             if len(args) < 3:
                 return (
                     "❌ Missing Information\n\n"
@@ -1041,7 +1046,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                     "Example: /addmember Sarah Johnson +447987654321 Assistant Coach\n\n"
                     "💡 Need help? Contact the team admin."
                 )
-            
+
             # Extract parameters - handle names with spaces
             # Find the phone number (starts with + or 0)
             phone_index = -1
@@ -1049,7 +1054,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                 if arg.startswith('+') or arg.startswith('0'):
                     phone_index = i
                     break
-            
+
             if phone_index == -1:
                 return (
                     "❌ Invalid Phone Number\n\n"
@@ -1057,12 +1062,12 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                     "• Format: 07123456789 or +447123456789\n"
                     "• Example: /addmember Sarah Johnson +447987654321 Assistant Coach"
                 )
-            
+
             # Extract name (everything before phone)
             name = ' '.join(args[:phone_index])
             phone = args[phone_index]
             role = ' '.join(args[phone_index + 1:])
-            
+
             if not name or not role:
                 return (
                     "❌ Missing Information\n\n"
@@ -1074,7 +1079,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                     "Example: /addmember Sarah Johnson +447987654321 Assistant Coach\n\n"
                     "💡 Need help? Contact the team admin."
                 )
-            
+
             # Validate phone number
             if not is_valid_phone(phone):
                 return (
@@ -1083,7 +1088,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                     "• Format: 07123456789 or +447123456789\n"
                     "• Example: /addmember Sarah Johnson +447987654321 Assistant Coach"
                 )
-            
+
             # Validate role
             valid_roles = ["Coach", "Assistant Coach", "Manager", "Assistant Manager", "Admin", "Coordinator"]
             if role not in valid_roles:
@@ -1093,15 +1098,15 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                     f"• Valid roles: {', '.join(valid_roles)}\n"
                     f"• Example: /addmember Sarah Johnson +447987654321 Assistant Coach"
                 )
-            
+
             # Get team ID from context
             team_id = execution_context.get('team_id')
             if not team_id:
                 return "❌ Error: Team ID not found in context"
-            
+
             # Generate team member ID
             member_id = generate_team_member_id_from_name(name, team_id)
-            
+
             # Create team member record
             team_member = TeamMember(
                 id=member_id,
@@ -1113,17 +1118,17 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                 created_at=datetime.now(),
                 updated_at=datetime.now()
             )
-            
+
             # Save to database
             firebase_client = get_firebase_client()
             collection_name = get_team_members_collection(team_id)
             await firebase_client.create_document(collection_name, team_member.to_dict(), member_id)
-            
+
             # Generate unique invite link using the invite link service
             container = get_dependency_container()
             invite_service = container.get_service(InviteLinkService)
             settings = get_settings()
-            
+
             invite_result = await invite_service.create_team_member_invite_link(
                 team_id=team_id,
                 member_name=name,
@@ -1131,7 +1136,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                 member_role=role,
                 leadership_chat_id=settings.telegram_leadership_chat_id
             )
-            
+
             response = f"""✅ Team Member Added Successfully!
 
 👔 Member Details:
@@ -1152,19 +1157,19 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
 💡 Note: This invite link is unique, expires in 7 days, and can only be used once.
 
 🎯 Member ID: {member_id}"""
-            
+
             return response
-            
+
         except Exception as e:
             logger.error(f"❌ Error in addmember command: {e}")
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
-    
 
-    
+
+
     async def handle_add_member_command(self, parameters: dict) -> str:
         """Alias for /addmember command."""
         return await self.handle_addmember_command(parameters)
-    
+
     async def handle_addteammember_command(self, parameters: dict) -> str:
         """Alias for /addmember command."""
         return await self.handle_addmember_command(parameters)
@@ -1187,14 +1192,14 @@ MIXIN_REGISTRY = {
 }
 
 
-def get_mixin_for_role(role) -> Optional[BaseBehavioralMixin]:
+def get_mixin_for_role(role) -> BaseBehavioralMixin | None:
     """Get the appropriate mixin for a given agent role."""
     # Handle both string and AgentRole enum
     if hasattr(role, 'value'):
         role_str = role.value.lower()
     else:
         role_str = str(role).lower()
-    
+
     mixin_class = MIXIN_REGISTRY.get(role_str)
     if mixin_class:
         return mixin_class()
@@ -1203,4 +1208,4 @@ def get_mixin_for_role(role) -> Optional[BaseBehavioralMixin]:
 
 def get_available_mixins() -> list:
     """Get list of all available mixins."""
-    return list(MIXIN_REGISTRY.keys()) 
+    return list(MIXIN_REGISTRY.keys())

@@ -6,9 +6,8 @@ This module registers all payment management related commands with the command r
 Each feature maintains its own command definitions for clean separation.
 """
 
-from src.core.command_registry import command, CommandType, PermissionLevel
+from src.core.command_registry import CommandType, PermissionLevel, command
 from src.core.enums import ChatType
-
 
 # ============================================================================
 # PAYMENT MANAGEMENT COMMANDS
@@ -192,4 +191,4 @@ What you'll get:
 async def handle_paymentexport_command(update, context, **kwargs):
     """Handle /paymentexport command."""
     # This will be handled by the agent system
-    return None 
+    return None

@@ -1,5 +1,8 @@
-from features.attendance_management.domain.repositories.attendance_repository_interface import AttendanceRepositoryInterface
 from core.firestore_constants import COLLECTION_ATTENDANCE
+from features.attendance_management.domain.repositories.attendance_repository_interface import (
+    AttendanceRepositoryInterface,
+)
+
 # from features.attendance_management.domain.entities.attendance import Attendance  # Uncomment and implement Attendance entity as needed
 
 class FirestoreAttendanceRepository(AttendanceRepositoryInterface):
@@ -27,4 +30,4 @@ class FirestoreAttendanceRepository(AttendanceRepositoryInterface):
         return attendance
 
     async def delete(self, attendance_id: str) -> None:
-        await self.firebase_client.delete_document(self.collection_name, attendance_id) 
+        await self.firebase_client.delete_document(self.collection_name, attendance_id)

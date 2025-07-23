@@ -1,6 +1,7 @@
 
 from enum import Enum, auto
 
+
 class RegistrationState(Enum):
     START = auto()
     AWAITING_CONFIRMATION = auto()

@@ -6,11 +6,12 @@ in the KICKAI system.
 """
 
 import re
-from typing import Dict, Any
+from typing import Any
+
 from loguru import logger
 
 
-def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
+def extract_intent(message: str, context: str = "") -> dict[str, Any]:
     """
     Extract intent and entities from a natural language message.
     
@@ -24,7 +25,7 @@ def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
     try:
         # Convert to lowercase for easier matching
         message_lower = message.lower().strip()
-        
+
         # Define intent patterns
         intent_patterns = {
             'get_player_info': [
@@ -65,7 +66,7 @@ def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
                 r'\b(team|overall|summary)\b.*\b(stats|statistics|info|information)\b'
             ]
         }
-        
+
         # Check each intent pattern
         for intent, patterns in intent_patterns.items():
             for pattern in patterns:
@@ -77,14 +78,14 @@ def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
                         'entities': entities,
                         'confidence': 0.8
                     }
-        
+
         # Default to unknown intent
         return {
             'intent': 'unknown',
             'entities': {},
             'confidence': 0.0
         }
-        
+
     except Exception as e:
         logger.error(f"Error extracting intent: {e}")
         return {
@@ -94,7 +95,7 @@ def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
         }
 
 
-def extract_entities(message: str, intent: str) -> Dict[str, Any]:
+def extract_entities(message: str, intent: str) -> dict[str, Any]:
     """
     Extract entities from the message based on the detected intent.
     
@@ -106,7 +107,7 @@ def extract_entities(message: str, intent: str) -> Dict[str, Any]:
         Dictionary of extracted entities
     """
     entities = {}
-    
+
     try:
         if intent == 'get_player_info':
             # Extract specific info type requested
@@ -122,7 +123,7 @@ def extract_entities(message: str, intent: str) -> Dict[str, Any]:
                 entities['info_type'] = 'status'
             else:
                 entities['info_type'] = 'all'
-                
+
         elif intent == 'update_profile':
             # Extract what needs to be updated
             if re.search(r'\b(phone|number)\b', message):
@@ -135,7 +136,7 @@ def extract_entities(message: str, intent: str) -> Dict[str, Any]:
                 entities['update_type'] = 'date_of_birth'
             else:
                 entities['update_type'] = 'general'
-                
+
         elif intent == 'filter_players':
             # Extract position filter
             positions = ['goalkeeper', 'defender', 'midfielder', 'forward', 'striker', 'utility']
@@ -143,7 +144,7 @@ def extract_entities(message: str, intent: str) -> Dict[str, Any]:
                 if pos in message:
                     entities['position'] = pos
                     break
-                    
+
             # Extract status filter
             if re.search(r'\b(fa|registered)\b', message):
                 entities['fa_status'] = 'registered'
@@ -153,14 +154,14 @@ def extract_entities(message: str, intent: str) -> Dict[str, Any]:
                 entities['status'] = 'active'
             elif re.search(r'\b(pending)\b', message):
                 entities['status'] = 'pending'
-                
+
     except Exception as e:
         logger.error(f"Error extracting entities: {e}")
-    
+
     return entities
 
 
-def extract_intent_sync(message: str, context: str = "") -> Dict[str, Any]:
+def extract_intent_sync(message: str, context: str = "") -> dict[str, Any]:
     """
     Synchronous version of extract_intent for backward compatibility.
     
@@ -177,4 +178,4 @@ def extract_intent_sync(message: str, context: str = "") -> Dict[str, Any]:
 class LLMIntent:
     """Stub for LLMIntent. Replace with actual implementation if needed."""
     def __init__(self, *args, **kwargs):
-        pass 
+        pass

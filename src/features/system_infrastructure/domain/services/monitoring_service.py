@@ -1,8 +1,11 @@
 import logging
-from typing import Dict, Any, Optional
 from datetime import datetime
+from typing import Any
+
 from database.interfaces import DataStoreInterface
-from features.system_infrastructure.domain.interfaces.bot_status_service_interface import IBotStatusService
+from features.system_infrastructure.domain.interfaces.bot_status_service_interface import (
+    IBotStatusService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +16,7 @@ class MonitoringService:
         self.start_time = datetime.now()
         self.health_checks = {}
         logger.info("✅ MonitoringService initialized")
-    async def perform_system_health_check(self) -> Dict[str, Any]:
+    async def perform_system_health_check(self) -> dict[str, Any]:
         try:
             health_status = {
                 "status": "healthy",
@@ -57,7 +60,7 @@ class MonitoringService:
                 "error": str(e),
                 "timestamp": datetime.now().isoformat()
             }
-    async def get_system_metrics(self) -> Dict[str, Any]:
+    async def get_system_metrics(self) -> dict[str, Any]:
         try:
             metrics = {
                 "timestamp": datetime.now().isoformat(),
@@ -67,11 +70,11 @@ class MonitoringService:
             try:
                 metrics["services"]["player_service"] = "healthy"
             except Exception as e:
-                metrics["services"]["player_service"] = f"unhealthy: {str(e)}"
+                metrics["services"]["player_service"] = f"unhealthy: {e!s}"
             try:
                 metrics["services"]["team_service"] = "healthy"
             except Exception as e:
-                metrics["services"]["team_service"] = f"unhealthy: {str(e)}"
+                metrics["services"]["team_service"] = f"unhealthy: {e!s}"
             return metrics
         except Exception as e:
             logger.error(f"❌ Error getting system metrics: {e}")
@@ -87,7 +90,7 @@ class MonitoringService:
             logger.warning(log_message)
         else:
             logger.info(log_message)
-    async def check_service_dependencies(self) -> Dict[str, bool]:
+    async def check_service_dependencies(self) -> dict[str, bool]:
         dependencies = {}
         try:
             await self.data_store.health_check()
@@ -99,4 +102,4 @@ class MonitoringService:
             dependencies["bot_status_service"] = True
         except Exception:
             dependencies["bot_status_service"] = False
-        return dependencies 
+        return dependencies

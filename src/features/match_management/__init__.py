@@ -5,11 +5,12 @@ This module provides match management functionality including match creation,
 scheduling, result recording, and attendance tracking.
 """
 
+from typing import Any, Dict
+
 from loguru import logger
-from typing import Dict, Any
 
 
-def initialize_match_management(config: Dict[str, Any]) -> None:
+def initialize_match_management(config: dict[str, Any]) -> None:
     """Initialize the match management feature."""
     logger.info("Initializing match management feature")
     # Feature initialization logic would go here

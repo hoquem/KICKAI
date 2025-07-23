@@ -1,9 +1,17 @@
 import logging
 import os
-from typing import Any, Dict, List, Optional
-from src.features.communication.infrastructure import TelegramBotService
+from typing import Any
+import asyncio
+
 from loguru import logger
-from src.agents.crew_lifecycle_manager import get_crew_lifecycle_manager, initialize_crew_lifecycle_manager, shutdown_crew_lifecycle_manager
+
+from src.agents.crew_lifecycle_manager import (
+    get_crew_lifecycle_manager,
+    initialize_crew_lifecycle_manager,
+    shutdown_crew_lifecycle_manager,
+)
+from src.features.communication.infrastructure import TelegramBotService
+
 
 class MultiBotManager:
     """
@@ -14,28 +22,28 @@ class MultiBotManager:
         logger.debug("DEBUG: MultiBotManager.__init__ called")
         self.data_store = data_store
         self.team_service = team_service
-        self.bots: Dict[str, Any] = {}
-        self.bot_configs: List[Dict[str, Any]] = []
-        self.crewai_systems: Dict[str, Any] = {}  # Store CrewAI systems for each team
+        self.bots: dict[str, Any] = {}
+        self.bot_configs: list[dict[str, Any]] = []
+        self.crewai_systems: dict[str, Any] = {}  # Store CrewAI systems for each team
         self.crew_lifecycle_manager = get_crew_lifecycle_manager()
         self._running = False
         self.logger = logging.getLogger(__name__)
         logger.debug("DEBUG: MultiBotManager.__init__ completed")
 
-    async def load_bot_configurations(self) -> List[Any]:
+    async def load_bot_configurations(self) -> list[Any]:
         """Load bot configurations from the data store (e.g., Firestore)."""
         try:
             self.logger.info("🔍 Loading bot configurations from data store...")
             teams = await self.team_service.get_all_teams()
             self.logger.info(f"📊 Found {len(teams)} teams in database")
-            
+
             # Debug: Print each team's bot configuration
             for i, team in enumerate(teams):
                 self.logger.info(f"Team {i+1}: {team.name} (ID: {getattr(team, 'id', 'None')})")
                 self.logger.info(f"  - bot_token: {getattr(team, 'bot_token', 'None')}")
                 self.logger.info(f"  - main_chat_id: {getattr(team, 'main_chat_id', 'None')}")
                 self.logger.info(f"  - leadership_chat_id: {getattr(team, 'leadership_chat_id', 'None')}")
-            
+
             # Use explicit fields for bot config (single source of truth)
             self.bot_configs = [team for team in teams if getattr(team, 'bot_token', None)]
             self.logger.info(f"📊 Loaded {len(self.bot_configs)} bot configurations from teams collection")
@@ -48,91 +56,98 @@ class MultiBotManager:
         """Initialize CrewAI agents for a specific team using the lifecycle manager."""
         try:
             logger.info(f"🤖 Initializing CrewAI agents for team: {team_id}")
+
+            # Use the crew lifecycle manager to get or create the crew
+            from src.agents.crew_lifecycle_manager import get_crew_lifecycle_manager
             
-            # Use the crew lifecycle manager to get or create crew
-            crewai_system = await self.crew_lifecycle_manager.get_or_create_crew(team_id)
+            lifecycle_manager = get_crew_lifecycle_manager()
+            crew = await lifecycle_manager.get_or_create_crew(team_id)
             
-            logger.info(f"✅ CrewAI agents initialized for team: {team_id}")
-            logger.info(f"📊 Active agents: {list(crewai_system.agents.keys())}")
+            if crew is None:
+                logger.error(f"❌ Failed to create crew for team {team_id}")
+                return None
             
-            return crewai_system
+            logger.info(f"✅ CrewAI agents initialized successfully for team: {team_id}")
+            return crew
             
         except Exception as e:
             logger.error(f"❌ Failed to initialize CrewAI agents for team {team_id}: {e}")
-            raise
+            import traceback
+            logger.error(f"❌ CrewAI initialization traceback: {traceback.format_exc()}")
+            return None
 
     async def start_all_bots(self) -> None:
         """Start all bots based on loaded configurations."""
         logger.info("🔍 start_all_bots called")
-        
+
         # Initialize the crew lifecycle manager
         await initialize_crew_lifecycle_manager()
-        
+
         if not self.bot_configs:
             logger.info("🔍 Loading bot configurations...")
             await self.load_bot_configurations()
         logger.info("🚀 Starting all bots...")
-        
+
         for team in self.bot_configs:
             team_id = getattr(team, 'team_id', None) or getattr(team, 'id', None)
             settings = getattr(team, 'settings', {})
-            
+
             # ALWAYS read bot configuration from team explicit fields first (single source of truth)
             bot_token = getattr(team, 'bot_token', None)
             main_chat_id = getattr(team, 'main_chat_id', None)
             leadership_chat_id = getattr(team, 'leadership_chat_id', None)
-            
+
             # Only use environment variables as fallback if team explicit fields are missing
             if not bot_token:
                 bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
                 logger.warning(f"⚠️ No bot_token in team explicit fields for {team_id}, using environment variable")
-            
+
             if not main_chat_id:
                 main_chat_id = os.getenv('TELEGRAM_MAIN_CHAT_ID')
                 logger.warning(f"⚠️ No main_chat_id in team explicit fields for {team_id}, using environment variable")
-            
+
             if not leadership_chat_id:
                 leadership_chat_id = os.getenv('TELEGRAM_LEADERSHIP_CHAT_ID')
                 logger.warning(f"⚠️ No leadership_chat_id in team explicit fields for {team_id}, using environment variable")
-            
+
             # Log the configuration being used
             logger.info(f"🔧 Bot configuration for team: {team_id}")
             logger.info(f"  - bot_token: {bot_token[:10]}..." if bot_token else "None")
             logger.info(f"  - main_chat_id: {main_chat_id}")
             logger.info(f"  - leadership_chat_id: {leadership_chat_id}")
             logger.info(f"  - source: {'team_explicit_fields' if getattr(team, 'bot_token', None) else 'environment_variables'}")
-            
+
             name = getattr(team, 'name', team_id)
-            
+
             if team_id and bot_token:
                 try:
                     # Initialize CrewAI agents first
                     logger.info(f"🤖 Starting CrewAI agents for team: {name}")
                     crewai_system = await self.initialize_crewai_agents(team_id, team)
                     self.crewai_systems[team_id] = crewai_system
-                    
+
                     # Then initialize Telegram bot service
                     bot_service = TelegramBotService(
-                        token=bot_token, 
-                        main_chat_id=main_chat_id, 
-                        leadership_chat_id=leadership_chat_id, 
+                        token=bot_token,
+                        main_chat_id=main_chat_id,
+                        leadership_chat_id=leadership_chat_id,
                         team_id=team_id,
                         crewai_system=crewai_system  # Pass the CrewAI system
                     )
                     self.bots[team_id] = bot_service
-                    
+
                     # Start the bot polling
                     logger.info(f"🚀 Starting Telegram bot polling for team: {name}")
                     await bot_service.start_polling()
-                    
+
                     logger.info(f"✅ Created TelegramBotService for team: {name}")
                     logger.info(f"✅ CrewAI system ready for team: {name}")
                     logger.info(f"✅ Telegram bot polling started for team: {name}")
-                    
+
                 except Exception as e:
                     logger.error(f"❌ Failed to start bot for team {name}: {e}")
                     continue
-        
+
         self._running = True
         logger.info(f"🎉 Started {len(self.bots)} bots successfully")
         logger.info(f"🤖 CrewAI agents initialized for {len(self.crewai_systems)} teams")
@@ -140,7 +155,7 @@ class MultiBotManager:
     async def stop_all_bots(self) -> None:
         """Stop all running bots."""
         self.logger.info("🛑 Stopping all bots...")
-        
+
         # Stop CrewAI systems
         for team_id, crewai_system in self.crewai_systems.items():
             try:
@@ -148,7 +163,7 @@ class MultiBotManager:
                 self.logger.info(f"✅ CrewAI system stopped for team: {team_id}")
             except Exception as e:
                 self.logger.error(f"❌ Error stopping CrewAI system for team {team_id}: {e}")
-        
+
         # Stop Telegram bots
         for team_id, bot in self.bots.items():
             try:
@@ -157,38 +172,38 @@ class MultiBotManager:
                 self.logger.info(f"✅ Bot stopped for team: {team_id}")
             except Exception as e:
                 self.logger.error(f"❌ Error stopping bot for team {team_id}: {e}")
-        
+
         self.bots.clear()
         self.crewai_systems.clear()
         self._running = False
-        
+
         # Shutdown the crew lifecycle manager
         await shutdown_crew_lifecycle_manager()
-        
+
         self.logger.info("🎉 All bots and CrewAI systems stopped successfully")
 
     async def send_startup_messages(self):
         """Send a startup message to each team's main chat."""
         from core.constants import BOT_VERSION
-        
+
         for team in self.bot_configs:
             team_id = getattr(team, 'team_id', None) or getattr(team, 'id', None)
             team_name = getattr(team, 'name', 'your team')
             settings = getattr(team, 'settings', {})
-            
+
             # ALWAYS read bot configuration from team explicit fields first (single source of truth)
             main_chat_id = getattr(team, 'main_chat_id', None)
             leadership_chat_id = getattr(team, 'leadership_chat_id', None)
-            
+
             # Only use environment variables as fallback if team explicit fields are missing
             if not main_chat_id:
                 main_chat_id = os.getenv('TELEGRAM_MAIN_CHAT_ID')
                 logger.warning(f"⚠️ No main_chat_id in team explicit fields for {team_id}, using environment variable")
-            
+
             if not leadership_chat_id:
                 leadership_chat_id = os.getenv('TELEGRAM_LEADERSHIP_CHAT_ID')
                 logger.warning(f"⚠️ No leadership_chat_id in team explicit fields for {team_id}, using environment variable")
-            
+
             # Compose the welcome message
             message = (
                 f"👋 Welcome to *KICKAI* for *{team_name}*!\n"
@@ -199,7 +214,7 @@ class MultiBotManager:
                 f"\n"
                 f"Let's kick off a smarter season! ⚽️"
             )
-            
+
             # Send to main chat if available
             if main_chat_id and team_id in self.bots:
                 try:
@@ -213,7 +228,7 @@ class MultiBotManager:
                     logger.error(f"❌ Failed to send startup message to main chat for team {team_name}: {e}")
             else:
                 logger.warning(f"⚠️ No main chat ID or bot available for team {team_name}")
-            
+
             # Send to leadership chat if available
             if leadership_chat_id and team_id in self.bots:
                 try:
@@ -241,26 +256,26 @@ class MultiBotManager:
             team_id = getattr(team, 'team_id', None) or getattr(team, 'id', None)
             team_name = getattr(team, 'name', 'your team')
             settings = getattr(team, 'settings', {})
-            
+
             # ALWAYS read bot configuration from team explicit fields first (single source of truth)
             main_chat_id = getattr(team, 'main_chat_id', None)
             leadership_chat_id = getattr(team, 'leadership_chat_id', None)
-            
+
             # Only use environment variables as fallback if team explicit fields are missing
             if not main_chat_id:
                 main_chat_id = os.getenv('TELEGRAM_MAIN_CHAT_ID')
                 logger.warning(f"⚠️ No main_chat_id in team explicit fields for {team_id}, using environment variable")
-            
+
             if not leadership_chat_id:
                 leadership_chat_id = os.getenv('TELEGRAM_LEADERSHIP_CHAT_ID')
                 logger.warning(f"⚠️ No leadership_chat_id in team explicit fields for {team_id}, using environment variable")
-            
+
             # Compose the shutdown message
             message = (
                 f"🛑 KICKAI for {team_name} is shutting down.\n"
                 f"See you next time! 👋"
             )
-            
+
             # Send to main chat if available
             if main_chat_id and team_id in self.bots:
                 try:
@@ -272,7 +287,7 @@ class MultiBotManager:
                     logger.info(f"✅ Shutdown message sent to main chat {main_chat_id} for team {team_name}")
                 except Exception as e:
                     logger.error(f"❌ Failed to send shutdown message to main chat for team {team_name}: {e}")
-            
+
             # Send to leadership chat if available
             if leadership_chat_id and team_id in self.bots:
                 try:
@@ -293,21 +308,21 @@ class MultiBotManager:
         """Return True if bots are running."""
         return self._running
 
-    def get_bot(self, team_id: str) -> Optional[Any]:
+    def get_bot(self, team_id: str) -> Any | None:
         """Get the bot instance for a given team ID."""
         return self.bots.get(team_id)
-    
-    def get_crewai_system(self, team_id: str) -> Optional[Any]:
+
+    def get_crewai_system(self, team_id: str) -> Any | None:
         """Get the CrewAI system for a given team ID."""
         return self.crewai_systems.get(team_id)
-    
-    async def get_crew_metrics(self, team_id: str = None) -> Dict[str, Any]:
+
+    async def get_crew_metrics(self, team_id: str = None) -> dict[str, Any]:
         """Get crew metrics for a specific team or all teams."""
         if team_id:
             return await self.crew_lifecycle_manager.get_crew_metrics(team_id)
         else:
             return await self.crew_lifecycle_manager.get_all_crew_metrics()
-    
-    async def get_crew_health_status(self) -> Dict[str, Any]:
+
+    async def get_crew_health_status(self) -> dict[str, Any]:
         """Get health status of all crews."""
-        return await self.crew_lifecycle_manager.health_check() 
+        return await self.crew_lifecycle_manager.health_check()

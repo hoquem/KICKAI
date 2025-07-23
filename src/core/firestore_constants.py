@@ -8,8 +8,8 @@ This module contains Firestore-specific constants and collection naming utilitie
 # Firestore Collection Prefix
 FIRESTORE_COLLECTION_PREFIX = "kickai"
 
-# Team ID
-DEFAULT_TEAM_ID = "KAI"
+# Team ID - Should be read from Firestore, not hardcoded
+# DEFAULT_TEAM_ID = "KTI"  # REMOVED: Team ID should come from context
 
 # Bot Version
 BOT_VERSION = "1.0.0"
@@ -68,4 +68,4 @@ FIRESTORE_COLLECTIONS = {
     "matches": get_collection_name(COLLECTION_MATCHES),
     "payments": get_collection_name(COLLECTION_PAYMENTS),
     "daily_status": get_collection_name(COLLECTION_DAILY_STATUS),
-} 
+}

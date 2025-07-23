@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+
 
 class IFinancialReportService(ABC):
     @abstractmethod
@@ -10,4 +10,4 @@ class IFinancialReportService(ABC):
         pass
     @abstractmethod
     async def schedule_financial_report_task(self) -> None:
-        pass 
+        pass
