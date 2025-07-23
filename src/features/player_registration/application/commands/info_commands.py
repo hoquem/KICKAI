@@ -6,7 +6,7 @@ This module registers all information query related commands with the command re
 Each feature maintains its own command definitions for clean separation.
 """
 
-from core.command_registry import command, CommandType, PermissionLevel
+from src.core.command_registry import command, CommandType, PermissionLevel
 
 
 @command(
@@ -17,21 +17,21 @@ from core.command_registry import command, CommandType, PermissionLevel
     feature="player_registration",
     examples=["/myinfo"],
     help_text="""
-👤 **My Information**
+👤 My Information
 
 Get your personal player information and current status.
 
-**Usage:**
-`/myinfo`
+Usage:
+/myinfo
 
-**What you'll see:**
+What you'll see:
 • Your player details (name, phone, position)
 • Current registration status
 • Team membership information
 • Recent activity summary
 • Contact information
 
-💡 **Need to update your info?** Contact the team admin.
+💡 Need to update your info? Contact the team admin.
     """
 )
 async def handle_myinfo_command(update, context, **kwargs):
@@ -48,21 +48,21 @@ async def handle_myinfo_command(update, context, **kwargs):
     feature="player_registration",
     examples=["/list"],
     help_text="""
-📋 **Team Players List**
+📋 Team Players List
 
 View all registered team players and their current status.
 
-**Usage:**
-`/list`
+Usage:
+/list
 
-**What you'll see:**
+What you'll see:
 • List of all team players
 • Player names and positions
 • Current status (active, pending, inactive)
 • Contact information (if you have permission)
 • Quick player count summary
 
-💡 **Note:** In leadership chat, you'll see all players. In main chat, only active players are shown.
+💡 Note: In leadership chat, you'll see all players. In main chat, only active players are shown.
     """
 )
 async def handle_list_command(update, context, **kwargs):
@@ -82,24 +82,24 @@ async def handle_list_command(update, context, **kwargs):
         "phone": "Phone number to check status for"
     },
     help_text="""
-📊 **Player Status Check**
+📊 Player Status Check
 
 Check the status of a specific player by their phone number.
 
-**Usage:**
-`/status [phone]`
+Usage:
+/status [phone]
 
-**Example:**
-`/status +447123456789`
+Example:
+/status +447123456789
 
-**What you'll see:**
+What you'll see:
 • Player name and position
 • Current registration status
 • Team membership details
 • Last activity information
 • Contact details (if you have permission)
 
-💡 **Tip:** You can also check your own status with `/myinfo`
+💡 Tip: You can also check your own status with /myinfo
     """
 )
 async def handle_status_command(update, context, **kwargs):
@@ -116,14 +116,14 @@ async def handle_status_command(update, context, **kwargs):
     feature="player_registration",
     examples=["/stats"],
     help_text="""
-📈 **Team Statistics**
+📈 Team Statistics
 
 View comprehensive team statistics and performance data.
 
-**Usage:**
-`/stats`
+Usage:
+/stats
 
-**What you'll see:**
+What you'll see:
 • Total team members count
 • Active vs inactive players
 • Position distribution
@@ -131,7 +131,7 @@ View comprehensive team statistics and performance data.
 • Team activity summary
 • Performance metrics
 
-💡 **Leadership:** You'll see additional admin statistics.
+💡 Leadership: You'll see additional admin statistics.
     """
 )
 async def handle_stats_command(update, context, **kwargs):
@@ -148,14 +148,14 @@ async def handle_stats_command(update, context, **kwargs):
     feature="player_registration",
     examples=["/performance"],
     help_text="""
-📊 **Performance Analytics**
+📊 Performance Analytics
 
 View detailed performance analytics and trends.
 
-**Usage:**
-`/performance`
+Usage:
+/performance
 
-**What you'll see:**
+What you'll see:
 • Individual player performance metrics
 • Team performance trends
 • Attendance statistics
@@ -163,7 +163,7 @@ View detailed performance analytics and trends.
 • Performance comparisons
 • Improvement suggestions
 
-💡 **Leadership:** You'll see comprehensive team analytics.
+💡 Leadership: You'll see comprehensive team analytics.
     """
 )
 async def handle_performance_command(update, context, **kwargs):

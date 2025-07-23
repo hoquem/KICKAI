@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from crewai.tools import tool
 from src.features.communication.domain.services.message_service import MessageService
 from src.core.dependency_container import get_container
+from src.core.context_types import StandardizedContext
 
 logger = logging.getLogger(__name__)
 
@@ -39,26 +40,34 @@ class SendPollInput(BaseModel):
 
 
 @tool("send_message")
-def send_message(chat_id: str, text: str, team_id: Optional[str] = None) -> str:
+def send_message(context: dict, text: str) -> str:
     """
-    Send a message to a Telegram chat. Requires: chat_id, text
+    Send a message to a Telegram chat. Requires: context and text
     
     Args:
-        chat_id: The Telegram chat ID to send the message to
+        context: Dictionary containing chat information (will be converted to StandardizedContext)
         text: The message text to send
-        team_id: Optional team ID for context
     
     Returns:
         Confirmation message indicating success or failure
     """
     try:
+        # Convert dictionary to StandardizedContext
+        if isinstance(context, dict):
+            standardized_context = StandardizedContext.from_dict(context)
+        else:
+            standardized_context = context
+        
+        chat_id = standardized_context.chat_id
+        team_id = standardized_context.team_id
+        
         # For now, return a success message since we can't access the Telegram service directly
         # The actual message sending will be handled by the orchestration pipeline
-        logger.info(f"✅ Message prepared for chat {chat_id}: {text[:50]}...")
+        logger.info(f"✅ Message prepared for chat {chat_id} (team: {team_id}): {text[:50]}...")
         return f"✅ Message prepared for chat {chat_id}: {text}"
         
     except Exception as e:
-        logger.error(f"❌ Failed to prepare message: {e}")
+        logger.error(f"❌ Failed to prepare message for chat {context.get('chat_id', 'unknown')}: {e}")
         return f"❌ Failed to prepare message: {str(e)}"
 
 

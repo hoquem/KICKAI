@@ -13,7 +13,8 @@ from enum import Enum
 
 from loguru import logger
 
-from core.command_registry import get_command_registry, CommandRegistry
+from core.command_registry_initializer import get_initialized_command_registry
+from core.command_registry import CommandRegistry
 from core.agent_registry import get_agent_registry, AgentRegistry
 from agents.tool_registry import get_tool_registry, ToolRegistry
 
@@ -70,8 +71,7 @@ class RegistryManager:
         
         try:
             # Initialize command registry
-            command_registry = get_command_registry()
-            command_registry.auto_discover_commands(src_path)
+            command_registry = get_initialized_command_registry()
             self._registries[RegistryType.COMMAND] = command_registry
             
             # Initialize tool registry

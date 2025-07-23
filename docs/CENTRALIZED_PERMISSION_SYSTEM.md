@@ -1,6 +1,6 @@
 # Centralized Permission System
 
-This document describes the centralized permission system that provides a single source of truth for all permission checks in the KICKAI unified processing architecture.
+This document describes the centralized permission system that provides a single source of truth for all permission checks in the KICKAI unified processing architecture. All permission messages use plain text with emojis for maximum reliability.
 
 ## Overview
 

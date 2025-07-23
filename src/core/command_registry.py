@@ -9,28 +9,12 @@ import logging
 import inspect
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Dict, List, Optional, Callable, Any, Type
 from pathlib import Path
 
+from core.enums import CommandType, PermissionLevel
+
 logger = logging.getLogger(__name__)
-
-
-class CommandType(Enum):
-    """Types of commands supported by the system."""
-    SLASH_COMMAND = "slash_command"
-    NATURAL_LANGUAGE = "natural_language"
-    ADMIN_COMMAND = "admin_command"
-    SYSTEM_COMMAND = "system_command"
-
-
-class PermissionLevel(Enum):
-    """Permission levels for commands."""
-    PUBLIC = "public"
-    PLAYER = "player"
-    LEADERSHIP = "leadership"
-    ADMIN = "admin"
-    SYSTEM = "system"
 
 
 @dataclass
@@ -46,6 +30,7 @@ class CommandMetadata:
     examples: List[str] = field(default_factory=list)
     parameters: Dict[str, str] = field(default_factory=dict)
     help_text: Optional[str] = None
+    chat_type: Optional[str] = None  # ChatType.MAIN, ChatType.LEADERSHIP, or None for all
 
 
 class CommandHandler(ABC):
@@ -75,6 +60,9 @@ class CommandRegistry:
         self._feature_commands: Dict[str, List[str]] = {}
         self._discovered = False
     
+        # Support for chat-specific commands with same name
+        self._chat_specific_commands: Dict[str, Dict[str, CommandMetadata]] = {}
+    
     def register_command(
         self,
         name: str,
@@ -86,7 +74,8 @@ class CommandRegistry:
         aliases: Optional[List[str]] = None,
         examples: Optional[List[str]] = None,
         parameters: Optional[Dict[str, str]] = None,
-        help_text: Optional[str] = None
+        help_text: Optional[str] = None,
+        chat_type: Optional[str] = None
     ) -> None:
         """
         Register a command with the registry.
@@ -103,20 +92,68 @@ class CommandRegistry:
             parameters: Parameter descriptions
             help_text: Detailed help text
         """
-        if name in self._commands:
-            existing_cmd = self._commands[name]
-            # Check if this is the same registration (same handler, feature, and description)
-            if (existing_cmd.handler == handler and 
-                existing_cmd.feature == feature and 
-                existing_cmd.description == description):
-                # Same registration, skip silently
-                return
-            elif existing_cmd.feature == feature:
-                # Same feature registering the same command again, skip silently
-                return
+        # Handle chat-specific commands
+        if chat_type:
+            # This is a chat-specific command
+            if name not in self._chat_specific_commands:
+                self._chat_specific_commands[name] = {}
+            
+            # Check if this chat type is already registered for this command
+            if chat_type in self._chat_specific_commands[name]:
+                existing_cmd = self._chat_specific_commands[name][chat_type]
+                # Check if this is the same registration
+                if (existing_cmd.handler == handler and 
+                    existing_cmd.feature == feature and 
+                    existing_cmd.description == description):
+                    # Same registration, skip silently
+                    return
+                else:
+                    # Different registration, log warning but allow overwrite
+                    logger.warning(f"Command '{name}' for chat type '{chat_type}' already registered by {existing_cmd.feature}, overwriting with {feature}")
+            
+            metadata = CommandMetadata(
+                name=name,
+                description=description,
+                command_type=command_type,
+                permission_level=permission_level,
+                feature=feature,
+                handler=handler,
+                aliases=aliases or [],
+                examples=examples or [],
+                parameters=parameters or {},
+                help_text=help_text,
+                chat_type=chat_type
+            )
+            
+            self._chat_specific_commands[name][chat_type] = metadata
+            
+            # Also store in main commands dict for backward compatibility
+            # Use the first chat-specific command as the "default"
+            if name not in self._commands:
+                self._commands[name] = metadata
             else:
-                # Different registration, log warning but allow overwrite
-                logger.warning(f"Command '{name}' already registered by {existing_cmd.feature}, overwriting with {feature}")
+                # If we already have a universal command, keep it
+                # Only overwrite if the existing command is also chat-specific
+                existing_cmd = self._commands[name]
+                if existing_cmd.chat_type:
+                    # Both are chat-specific, use the new one as default
+                    self._commands[name] = metadata
+        else:
+            # This is a universal command (no chat_type specified)
+            if name in self._commands:
+                existing_cmd = self._commands[name]
+                # Check if this is the same registration (same handler, feature, and description)
+                if (existing_cmd.handler == handler and 
+                    existing_cmd.feature == feature and 
+                    existing_cmd.description == description):
+                    # Same registration, skip silently
+                    return
+                elif existing_cmd.feature == feature:
+                    # Same feature registering the same command again, skip silently
+                    return
+                else:
+                    # Different registration, log warning but allow overwrite
+                    logger.warning(f"Command '{name}' already registered by {existing_cmd.feature}, overwriting with {feature}")
         
         metadata = CommandMetadata(
             name=name,
@@ -128,7 +165,8 @@ class CommandRegistry:
             aliases=aliases or [],
             examples=examples or [],
             parameters=parameters or {},
-            help_text=help_text
+            help_text=help_text,
+            chat_type=chat_type
         )
         
         self._commands[name] = metadata
@@ -178,6 +216,56 @@ class CommandRegistry:
             if cmd.command_type == command_type
         ]
     
+    def get_commands_by_chat_type(self, chat_type: str) -> List[CommandMetadata]:
+        """Get all commands available in a specific chat type."""
+        commands = []
+        
+        # Add universal commands (no chat_type specified)
+        for cmd in self._commands.values():
+            if cmd.chat_type is None or cmd.chat_type == chat_type:
+                commands.append(cmd)
+        
+        # Add chat-specific commands for this chat type
+        for command_name, chat_commands in self._chat_specific_commands.items():
+            if chat_type in chat_commands:
+                commands.append(chat_commands[chat_type])
+        
+        return commands
+    
+    def get_command_for_chat(self, name: str, chat_type: str) -> Optional[CommandMetadata]:
+        """Get a specific command for a chat type, considering chat-specific and universal commands."""
+        # First check for chat-specific command
+        if name in self._chat_specific_commands:
+            # Convert string chat_type to enum for comparison
+            from src.core.enums import ChatType
+            chat_type_enum = None
+            if chat_type == 'main_chat':
+                chat_type_enum = ChatType.MAIN
+            elif chat_type == 'leadership_chat':
+                chat_type_enum = ChatType.LEADERSHIP
+            
+            if chat_type_enum and chat_type_enum in self._chat_specific_commands[name]:
+                return self._chat_specific_commands[name][chat_type_enum]
+        
+        # Then check for universal command (no chat_type specified)
+        if name in self._commands:
+            cmd = self._commands[name]
+            # Return if command is universal (no chat_type) or matches the chat type
+            if cmd.chat_type is None:
+                return cmd
+            # Convert string chat_type to enum for comparison
+            from src.core.enums import ChatType
+            chat_type_enum = None
+            if chat_type == 'main_chat':
+                chat_type_enum = ChatType.MAIN
+            elif chat_type == 'leadership_chat':
+                chat_type_enum = ChatType.LEADERSHIP
+            
+            if chat_type_enum and cmd.chat_type == chat_type_enum:
+                return cmd
+        
+        return None
+    
     def list_all_commands(self) -> List[CommandMetadata]:
         """Get all registered commands."""
         return list(self._commands.values())
@@ -202,26 +290,26 @@ class CommandRegistry:
         if not cmd:
             return None
         
-        help_parts = [f"📖 **{cmd.name}** - {cmd.description}"]
+        help_parts = [f"📖 {cmd.name} - {cmd.description}"]
         
         if cmd.help_text:
             help_parts.append(f"\n{cmd.help_text}")
         
         if cmd.parameters:
-            help_parts.append("\n**Parameters:**")
+            help_parts.append("\nParameters:")
             for param, desc in cmd.parameters.items():
-                help_parts.append(f"• `{param}`: {desc}")
+                help_parts.append(f"• {param}: {desc}")
         
         if cmd.examples:
-            help_parts.append("\n**Examples:**")
+            help_parts.append("\nExamples:")
             for example in cmd.examples:
-                help_parts.append(f"• `{example}`")
+                help_parts.append(f"• {example}")
         
         if cmd.aliases:
-            help_parts.append(f"\n**Aliases:** {', '.join(cmd.aliases)}")
+            help_parts.append(f"\nAliases: {', '.join(cmd.aliases)}")
         
-        help_parts.append(f"\n**Permission:** {cmd.permission_level.value}")
-        help_parts.append(f"**Feature:** {cmd.feature}")
+        help_parts.append(f"\nPermission: {cmd.permission_level.value}")
+        help_parts.append(f"Feature: {cmd.feature}")
         
         return "\n".join(help_parts)
     
@@ -231,10 +319,10 @@ class CommandRegistry:
         if not commands:
             return None
         
-        help_parts = [f"📚 **{feature.replace('_', ' ').title()} Commands**"]
+        help_parts = [f"📚 {feature.replace('_', ' ').title()} Commands"]
         
         for cmd in sorted(commands, key=lambda x: x.name):
-            help_parts.append(f"\n• `{cmd.name}` - {cmd.description}")
+            help_parts.append(f"\n• {cmd.name} - {cmd.description}")
             if cmd.aliases:
                 help_parts.append(f"  Aliases: {', '.join(cmd.aliases)}")
         
@@ -373,12 +461,17 @@ class CommandRegistry:
         }
 
 
-# Global command registry instance
+# Global command registry instance (DEPRECATED - use CommandRegistryInitializer instead)
 _command_registry: Optional[CommandRegistry] = None
 
 
 def get_command_registry() -> CommandRegistry:
-    """Get the global command registry instance."""
+    """
+    Get the global command registry instance.
+    
+    DEPRECATED: Use get_initialized_command_registry() from command_registry_initializer.py instead.
+    This function is kept for backward compatibility but will be removed in a future version.
+    """
     global _command_registry
     if _command_registry is None:
         _command_registry = CommandRegistry()
@@ -391,7 +484,11 @@ def register_command(
     handler: Callable,
     **kwargs
 ) -> None:
-    """Convenience function to register a command."""
+    """
+    Convenience function to register a command.
+    
+    DEPRECATED: Use the @command decorator instead.
+    """
     registry = get_command_registry()
     registry.register_command(name, description, handler, **kwargs)
 
@@ -402,10 +499,14 @@ def command(
     command_type: CommandType = CommandType.SLASH_COMMAND,
     permission_level: PermissionLevel = PermissionLevel.PUBLIC,
     feature: str = "unknown",
+    chat_type: Optional[str] = None,
     **kwargs
 ):
     """
     Decorator to register a command handler.
+    
+    This decorator registers commands with the global registry during import.
+    The CommandRegistryInitializer will then copy these commands to the initialized registry.
     
     Usage:
         @command("/add", "Add a new player", feature="player_registration")
@@ -414,8 +515,9 @@ def command(
             pass
     """
     def decorator(func: Callable) -> Callable:
-        # Register the command in the registry
+        # Always use the global registry during import
         registry = get_command_registry()
+        
         registry.register_command(
             name=name,
             description=description,
@@ -423,6 +525,7 @@ def command(
             command_type=command_type,
             permission_level=permission_level,
             feature=feature,
+            chat_type=chat_type,
             **kwargs
         )
         # Mark function as registered to avoid duplicate discovery

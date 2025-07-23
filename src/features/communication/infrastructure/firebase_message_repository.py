@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from features.communication.domain.repositories.message_repository_interface import MessageRepositoryInterface
 from features.communication.domain.entities.message import Message
-from core.constants import COLLECTION_MESSAGES
+from core.firestore_constants import COLLECTION_MESSAGES
 
 class FirebaseMessageRepository(MessageRepositoryInterface):
     """Repository for managing messages in Firebase/Firestore."""

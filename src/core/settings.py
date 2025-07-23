@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     )
     firebase_credentials_path: Optional[str] = Field(
         default=None,
+        alias="FIREBASE_CREDENTIALS_FILE",
         description="Path to Firebase credentials file"
     )
     firebase_credentials_json: Optional[str] = Field(

@@ -255,77 +255,32 @@ class PermissionService:
         This is used by the help system to show appropriate commands.
         """
         try:
+            # Use centralized constants for command lists
+            from core.constants import get_commands_for_permission_level
+            
             available_commands = []
             
-            # Always available
-            available_commands.extend([
-                "/help",
-                "/start",
-                "/register"  # Add register as public command
-            ])
+            # Get commands by permission level
+            public_commands = get_commands_for_permission_level(PermissionLevel.PUBLIC)
+            available_commands.extend([cmd.name for cmd in public_commands])
             
-            # Check each permission level
             if await self.can_execute_command(PermissionLevel.PLAYER, context):
-                available_commands.extend([
-                    "/list",
-                    "/myinfo",
-                    "/update",
-                    "/status",
-                    "/listmatches",
-                    "/getmatch",
-                    "/stats",
-                    "/payment_status",
-                    "/pending_payments",
-                    "/payment_history",
-                    "/payment_help",
-                    "/financial_dashboard",
-                    "/attend",
-                    "/unattend"
-                ])
+                player_commands = get_commands_for_permission_level(PermissionLevel.PLAYER)
+                available_commands.extend([cmd.name for cmd in player_commands])
             
             if await self.can_execute_command(PermissionLevel.LEADERSHIP, context):
-                available_commands.extend([
-                    "/add",
-                    "/remove",
-                    "/approve",
-                    "/reject",
-                    "/pending",
-                    "/checkfa",
-                    "/dailystatus",
-                    "/background",
-                    "/remind",
-                    "/newmatch",
-                    "/updatematch",
-                    "/deletematch",
-                    "/record_result",
-                    "/invitelink",
-                    "/broadcast",
-                    "/create_match_fee",
-                    "/create_membership_fee",
-                    "/create_fine",
-                    "/payment_stats",
-                    "/announce",
-                    "/injure",
-                    "/suspend",
-                    "/recover",
-                    "/refund_payment",
-                    "/record_expense",
-                    "/addplayer",
-                    "/addmember"
-                ])
+                leadership_commands = get_commands_for_permission_level(PermissionLevel.LEADERSHIP)
+                available_commands.extend([cmd.name for cmd in leadership_commands])
             
             if await self.can_execute_command(PermissionLevel.ADMIN, context):
-                # Admin commands - only the /promote command for now
-                available_commands.extend([
-                    "/promote",
-                    "/updateteaminfo"
-                ])
+                admin_commands = get_commands_for_permission_level(PermissionLevel.ADMIN)
+                available_commands.extend([cmd.name for cmd in admin_commands])
             
             return available_commands
             
         except Exception as e:
             logger.error(f"Error getting available commands: {e}")
-            return ["/help", "/start", "/register"]
+            return ["/help", "/start"]
     
     async def get_permission_denied_message(self, permission_level: PermissionLevel, context: PermissionContext) -> str:
         """
@@ -336,26 +291,26 @@ class PermissionService:
             
             if permission_level == PermissionLevel.PLAYER:
                 if not user_perms.is_player:
-                    return f"""❌ **Access Denied**
+                    return f"""❌ Access Denied
 
 🔒 This command requires player access.
 💡 Contact your team admin for access.
 
 Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
                 else:
-                    return f"""❌ **Access Denied**
+                    return f"""❌ Access Denied
 
 🔒 Player commands are only available in the main team chat.
 💡 Please use the main team chat for this function."""
             
             elif permission_level == PermissionLevel.LEADERSHIP:
                 if context.chat_type != ChatType.LEADERSHIP:
-                    return f"""❌ **Access Denied**
+                    return f"""❌ Access Denied
 
 🔒 Leadership commands are only available in the leadership chat.
 💡 Please use the leadership chat for this function."""
                 else:
-                    return f"""❌ **Access Denied**
+                    return f"""❌ Access Denied
 
 🔒 This command requires leadership access.
 💡 Contact your team admin for access.
@@ -364,12 +319,12 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
             
             elif permission_level == PermissionLevel.ADMIN:
                 if context.chat_type != ChatType.LEADERSHIP:
-                    return f"""❌ **Access Denied**
+                    return f"""❌ Access Denied
 
 🔒 Admin commands are only available in the leadership chat.
 💡 Please use the leadership chat for this function."""
                 else:
-                    return f"""❌ **Access Denied**
+                    return f"""❌ Access Denied
 
 🔒 This command requires admin access.
 💡 Contact your team admin for access.

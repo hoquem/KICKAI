@@ -13,8 +13,8 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from loguru import logger
 
-from ..core.constants import get_team_members_collection
-from ..core.exceptions import KICKAIError, InputValidationError, AuthorizationError, AgentExecutionError
+from core.firestore_constants import get_team_members_collection
+from core.exceptions import KICKAIError, InputValidationError, AuthorizationError, AgentExecutionError
 
 
 class BaseBehavioralMixin(ABC):
@@ -50,7 +50,7 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
         return "player_coordinator"
     
     def get_supported_commands(self) -> list:
-        return ["/status", "/myinfo", "/list", "/approve", "/register"]
+        return ["/status", "/myinfo", "/list", "/approve"]
     
     async def handle_status_command(self, parameters: dict) -> str:
         """Handle /status command (async)."""
@@ -71,7 +71,7 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
             
         except Exception as e:
             self.logger.error(f"Error in _handle_status_command: {e}", exc_info=True)
-            return f"❌ Error getting player status: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
     
     async def handle_myinfo_command(self, parameters: dict) -> str:
         """Handle /myinfo command (async)."""
@@ -92,7 +92,7 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
             
         except Exception as e:
             self.logger.error(f"Error in _handle_myinfo_command: {e}", exc_info=True)
-            return f"❌ Error getting player information: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
     
     async def handle_list_command(self, parameters: dict) -> str:
         """Handle /list command (async)."""
@@ -107,7 +107,7 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
             
         except Exception as e:
             self.logger.error(f"Error in _handle_list_command: {e}", exc_info=True)
-            return f"❌ Error getting player list: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
     
     async def handle_approve_command(self, parameters: dict) -> str:
         """Handle /approve command (async)."""
@@ -129,32 +129,9 @@ Contact the team admin in the leadership chat."""
             
         except Exception as e:
             self.logger.error(f"Error in _handle_approve_command: {e}", exc_info=True)
-            return f"❌ Error approving player: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
     
-    async def handle_register_command(self, parameters: dict) -> str:
-        """Handle /register command (async)."""
-        try:
-            user_id = parameters.get('user_id', 'unknown')
-            team_id = parameters.get('team_id', 'unknown')
-            
-            self.logger.info(f"🔍 PLAYER_COORDINATOR: Registering user_id={user_id} for team_id={team_id}")
-            
-            # For now, return a basic registration message
-            return f"""📝 Player Registration
 
-Welcome to the team! Your registration has been received.
-
-Please complete your onboarding by providing:
-1. Emergency contact details
-2. Date of birth
-3. FA registration information
-
-💬 Need Help?
-Contact the team admin in the leadership chat."""
-            
-        except Exception as e:
-            self.logger.error(f"Error in _handle_register_command: {e}", exc_info=True)
-            return f"❌ Error registering player: {str(e)}"
     
     def _get_player_not_found_message(self, user_id: str, team_id: str, command_type: str) -> str:
         """Get a friendly and helpful message when a player is not found."""
@@ -165,10 +142,14 @@ Contact the team admin in the leadership chat."""
 
 I don't see your registration in our system yet. No worries - let's get you set up to join the team! 
 
-📝 To register, use: /register
-💡 Or ask me: "How do I register?"
+📞 Contact Team Leadership
+You need to be added as a player by someone in the team's leadership.
 
-I'll guide you through the simple registration process step by step. It only takes a minute! 🚀
+💡 What to do:
+1. Reach out to someone in the team's leadership chat
+2. Ask them to add you as a player using the /addplayer command
+3. They'll send you an invite link to join the main chat
+4. Once added, you can register with your full details
 
 Need help? Just ask or contact the team admin.
 
@@ -181,13 +162,13 @@ Need help? Just ask or contact the team admin.
 I couldn't find your information in our system.
 
 This could be because:
-• You haven't registered yet
+• You haven't been added to the team yet
 • Your registration is still pending
 • There's a mismatch in your details
 
 💡 What to do:
-1. If you haven't registered: Use /register to start
-2. If you have registered: Contact the team admin
+1. If you haven't been added: Contact team leadership to be added
+2. If you have been added: Contact the team admin
 3. Check your details: Make sure your information is correct
 
 🔧 Need Help?
@@ -276,12 +257,12 @@ class CommandFallbackMixin(BaseBehavioralMixin):
 It looks like you want to register or add someone to the team! 
 
 📝 Here's how to do it:
-• /register - Register yourself as a new player
-• /add [name] [phone] [position] - Add a new player (leadership only)
+• /addplayer [name] [phone] [position] - Add a new player (leadership only)
+• /addmember [name] [phone] [role] - Add a team member (leadership only)
 
-💡 Example: /add John Smith 07123456789 midfielder
+💡 Example: /addplayer John Smith 07123456789 midfielder
 
-🎯 Want to register yourself? Just type /register and I'll guide you through it step by step!
+🎯 To join the team, contact team leadership to be added as a player.
 
 Need help? Just ask me or contact the team admin."""
             
@@ -322,21 +303,20 @@ I couldn't understand: "{failed_command}"
 
 💡 Here are some common things you might want to do:
 • /help - Show all available commands
-• /register - Register as a new player
 • /myinfo - Get your player information
 • /list - See all team players
 • /status [phone] - Check player status
 
 🎯 You can also just ask me in plain English! Try:
-• "How do I register?"
 • "What's my status?"
 • "Show me all players"
+• "How do I join the team?"
 
 Need help? Just ask me or contact the team admin!"""
             
         except Exception as e:
             self.logger.error(f"Error in _analyze_failed_command: {e}", exc_info=True)
-            return f"❌ Error processing failed command: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
 
 
 class FinancialManagementMixin(BaseBehavioralMixin):
@@ -375,7 +355,7 @@ Contact the team admin in the leadership chat."""
             
         except Exception as e:
             self.logger.error(f"Error in handle_payment_command: {e}", exc_info=True)
-            return f"❌ Error processing payment: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
     
     async def handle_expense_command(self, parameters: dict) -> str:
         """Handle expense-related commands."""
@@ -396,7 +376,7 @@ Contact the team admin in the leadership chat."""
             
         except Exception as e:
             self.logger.error(f"Error in handle_expense_command: {e}", exc_info=True)
-            return f"❌ Error recording expense: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
 
 
 class PerformanceAnalysisMixin(BaseBehavioralMixin):
@@ -449,7 +429,7 @@ Contact the team admin in the leadership chat."""
             
         except Exception as e:
             self.logger.error(f"Error in handle_stats_command: {e}", exc_info=True)
-            return f"❌ Error generating statistics: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
 
 
 class LearningOptimizationMixin(BaseBehavioralMixin):
@@ -491,7 +471,7 @@ Contact the team admin in the leadership chat."""
             
         except Exception as e:
             self.logger.error(f"Error in handle_learn_command: {e}", exc_info=True)
-            return f"❌ Error processing learning: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
 
 
 class OnboardingMixin(BaseBehavioralMixin):
@@ -565,7 +545,7 @@ Contact the team admin in the leadership chat."""
             
         except Exception as e:
             self.logger.error(f"Error in handle_onboard_command: {e}", exc_info=True)
-            return f"❌ Error processing onboarding: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
 
 
 class AvailabilityManagementMixin(BaseBehavioralMixin):
@@ -654,7 +634,7 @@ Use: /availability [action] [match_id]"""
             
         except Exception as e:
             self.logger.error(f"Error in handle_availability_command: {e}", exc_info=True)
-            return f"❌ Error processing availability: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
 
 
 class SquadSelectionMixin(BaseBehavioralMixin):
@@ -758,7 +738,7 @@ Use: /squad [action] [match_id]"""
             
         except Exception as e:
             self.logger.error(f"Error in handle_squad_command: {e}", exc_info=True)
-            return f"❌ Error processing squad selection: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
 
 
 class CommunicationManagementMixin(BaseBehavioralMixin):
@@ -842,7 +822,7 @@ Contact the team admin in the leadership chat."""
             
         except Exception as e:
             self.logger.error(f"Error in handle_announce_command: {e}", exc_info=True)
-            return f"❌ Error processing announcement: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
 
 
 class PlayerAdditionMixin(BaseBehavioralMixin):
@@ -887,13 +867,13 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
             
             if len(args) < 3:
                 return (
-                    "❌ **Missing Information**\n\n"
+                    "❌ Missing Information\n\n"
                     "Please provide all required information:\n"
                     "• Name\n"
                     "• Phone number  \n"
                     "• Position\n\n"
-                    "**Format:** `/addplayer [name] [phone] [position]`\n\n"
-                    "**Example:** `/addplayer John Smith +447123456789 Forward`\n\n"
+                    "Format: /addplayer [name] [phone] [position]\n\n"
+                    "Example: /addplayer John Smith +447123456789 Forward\n\n"
                     "💡 Need help? Contact the team admin."
                 )
             
@@ -907,10 +887,10 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
             
             if phone_index == -1:
                 return (
-                    "❌ **Invalid Phone Number**\n\n"
+                    "❌ Invalid Phone Number\n\n"
                     "Please provide a valid UK phone number:\n"
                     "• Format: 07123456789 or +447123456789\n"
-                    "• Example: `/addplayer John Smith +447123456789 Forward`"
+                    "• Example: /addplayer John Smith +447123456789 Forward"
                 )
             
             # Extract name (everything before phone)
@@ -920,23 +900,23 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
             
             if not name or not position:
                 return (
-                    "❌ **Missing Information**\n\n"
+                    "❌ Missing Information\n\n"
                     "Please provide all required information:\n"
                     "• Name\n"
                     "• Phone number  \n"
                     "• Position\n\n"
-                    "**Format:** `/addplayer [name] [phone] [position]`\n\n"
-                    "**Example:** `/addplayer John Smith +447123456789 Forward`\n\n"
+                    "Format: /addplayer [name] [phone] [position]\n\n"
+                    "Example: /addplayer John Smith +447123456789 Forward\n\n"
                     "💡 Need help? Contact the team admin."
                 )
             
             # Validate phone number
             if not is_valid_phone(phone):
                 return (
-                    "❌ **Invalid Phone Number**\n\n"
+                    "❌ Invalid Phone Number\n\n"
                     "Please provide a valid UK phone number:\n"
                     "• Format: 07123456789 or +447123456789\n"
-                    "• Example: `/addplayer John Smith +447123456789 Forward`"
+                    "• Example: /addplayer John Smith +447123456789 Forward"
                 )
             
             # Get team ID from context
@@ -977,33 +957,33 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
                 main_chat_id=settings.telegram_main_chat_id
             )
             
-            response = f"""✅ **Player Added Successfully!**
+            response = f"""✅ Player Added Successfully!
 
-👤 **Player Details:**
-• **Name:** {name}
-• **Phone:** {normalize_phone(phone)}
-• **Position:** {position}
-• **Player ID:** {player_id}
-• **Status:** Pending Approval
+👤 Player Details:
+• Name: {name}
+• Phone: {normalize_phone(phone)}
+• Position: {position}
+• Player ID: {player_id}
+• Status: Pending Approval
 
-🔗 **Unique Invite Link for Main Chat:**
+🔗 Unique Invite Link for Main Chat:
 {invite_result['invite_link']}
 
-📋 **Next Steps:**
+📋 Next Steps:
 1. Send the invite link to {name}
 2. Ask them to join the main chat
 3. They can then use /register to complete their profile
 4. Use /approve {player_id} to approve them once registered
 
-💡 **Note:** This invite link is unique, expires in 7 days, and can only be used once.
+💡 Note: This invite link is unique, expires in 7 days, and can only be used once.
 
-🎯 **Player ID:** {player_id} (save this for approval)"""
+🎯 Player ID: {player_id} (save this for approval)"""
             
             return response
             
         except Exception as e:
             logger.error(f"❌ Error in addplayer command: {e}")
-            return f"❌ Error adding player: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
 
     async def handle_add_player_command(self, parameters: dict) -> str:
         """Alias for /addplayer command."""
@@ -1052,13 +1032,13 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
             
             if len(args) < 3:
                 return (
-                    "❌ **Missing Information**\n\n"
+                    "❌ Missing Information\n\n"
                     "Please provide all required information:\n"
                     "• Name\n"
                     "• Phone number  \n"
                     "• Role\n\n"
-                    "**Format:** `/addmember [name] [phone] [role]`\n\n"
-                    "**Example:** `/addmember Sarah Johnson +447987654321 Assistant Coach`\n\n"
+                    "Format: /addmember [name] [phone] [role]\n\n"
+                    "Example: /addmember Sarah Johnson +447987654321 Assistant Coach\n\n"
                     "💡 Need help? Contact the team admin."
                 )
             
@@ -1072,10 +1052,10 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
             
             if phone_index == -1:
                 return (
-                    "❌ **Invalid Phone Number**\n\n"
+                    "❌ Invalid Phone Number\n\n"
                     "Please provide a valid UK phone number:\n"
                     "• Format: 07123456789 or +447123456789\n"
-                    "• Example: `/addmember Sarah Johnson +447987654321 Assistant Coach`"
+                    "• Example: /addmember Sarah Johnson +447987654321 Assistant Coach"
                 )
             
             # Extract name (everything before phone)
@@ -1085,33 +1065,33 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
             
             if not name or not role:
                 return (
-                    "❌ **Missing Information**\n\n"
+                    "❌ Missing Information\n\n"
                     "Please provide all required information:\n"
                     "• Name\n"
                     "• Phone number  \n"
                     "• Role\n\n"
-                    "**Format:** `/addmember [name] [phone] [role]`\n\n"
-                    "**Example:** `/addmember Sarah Johnson +447987654321 Assistant Coach`\n\n"
+                    "Format: /addmember [name] [phone] [role]\n\n"
+                    "Example: /addmember Sarah Johnson +447987654321 Assistant Coach\n\n"
                     "💡 Need help? Contact the team admin."
                 )
             
             # Validate phone number
             if not is_valid_phone(phone):
                 return (
-                    "❌ **Invalid Phone Number**\n\n"
+                    "❌ Invalid Phone Number\n\n"
                     "Please provide a valid UK phone number:\n"
                     "• Format: 07123456789 or +447123456789\n"
-                    "• Example: `/addmember Sarah Johnson +447987654321 Assistant Coach`"
+                    "• Example: /addmember Sarah Johnson +447987654321 Assistant Coach"
                 )
             
             # Validate role
             valid_roles = ["Coach", "Assistant Coach", "Manager", "Assistant Manager", "Admin", "Coordinator"]
             if role not in valid_roles:
                 return (
-                    f"❌ **Invalid Role**\n\n"
+                    f"❌ Invalid Role\n\n"
                     f"Please provide a valid role:\n"
                     f"• Valid roles: {', '.join(valid_roles)}\n"
-                    f"• Example: `/addmember Sarah Johnson +447987654321 Assistant Coach`"
+                    f"• Example: /addmember Sarah Johnson +447987654321 Assistant Coach"
                 )
             
             # Get team ID from context
@@ -1152,32 +1132,32 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                 leadership_chat_id=settings.telegram_leadership_chat_id
             )
             
-            response = f"""✅ **Team Member Added Successfully!**
+            response = f"""✅ Team Member Added Successfully!
 
-👔 **Member Details:**
-• **Name:** {name}
-• **Phone:** {normalize_phone(phone)}
-• **Role:** {role}
-• **Member ID:** {member_id}
-• **Status:** Active
+👔 Member Details:
+• Name: {name}
+• Phone: {normalize_phone(phone)}
+• Role: {role}
+• Member ID: {member_id}
+• Status: Active
 
-🔗 **Unique Invite Link for Leadership Chat:**
+🔗 Unique Invite Link for Leadership Chat:
 {invite_result['invite_link']}
 
-📋 **Next Steps:**
+📋 Next Steps:
 1. Send the invite link to {name}
 2. Ask them to join the leadership chat
 3. They can then access admin commands and team management features
 
-💡 **Note:** This invite link is unique, expires in 7 days, and can only be used once.
+💡 Note: This invite link is unique, expires in 7 days, and can only be used once.
 
-🎯 **Member ID:** {member_id}"""
+🎯 Member ID: {member_id}"""
             
             return response
             
         except Exception as e:
             logger.error(f"❌ Error in addmember command: {e}")
-            return f"❌ Error adding team member: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
     
 
     

@@ -132,17 +132,10 @@ python crew.py
 ```
 
 ### Step 4: Update Main Entry Point
-The new `main.py` uses the YAML-based crew:
-
-```python
-from crew import get_kickai_crew
-
-# Initialize YAML-based crew
-self.crew = get_kickai_crew()
-```
+**Note: The old YAML-based crew system has been removed. The system now uses the modern TeamManagementSystem approach.**
 
 ### Step 5: Verify Functionality
-1. Start the bot: `python main.py`
+1. Start the bot: `python run_bot_local.py`
 2. Test commands in Telegram
 3. Verify all functionality works as expected
 
@@ -150,20 +143,20 @@ self.crew = get_kickai_crew()
 
 ### Test Individual Components:
 ```bash
-# Test YAML loading
-python -c "from crew import get_kickai_crew; crew = get_kickai_crew(); print('✅ YAML crew loaded successfully')"
+# Test TeamManagementSystem
+python -c "from src.agents.crew_agents import TeamManagementSystem; system = TeamManagementSystem('KTI'); print('✅ TeamManagementSystem loaded successfully')"
 
 # Test agent creation
-python -c "from crew import get_kickai_crew; crew = get_kickai_crew(); print(f'✅ Created {len(crew.agents)} agents')"
+python -c "from src.agents.crew_agents import TeamManagementSystem; system = TeamManagementSystem('KTI'); print(f'✅ Created {len(system.agents)} agents')"
 
-# Test task creation
-python -c "from crew import get_kickai_crew; crew = get_kickai_crew(); print(f'✅ Created {len(crew.tasks)} tasks')"
+# Test tool discovery
+python -c "from src.agents.tool_registry import get_tool_registry; registry = get_tool_registry(); registry.auto_discover_tools(); print(f'✅ Found {len(registry.get_tool_names())} tools')"
 ```
 
 ### Test Full System:
 ```bash
 # Start the bot
-python main.py
+python run_bot_local.py
 
 # Test in Telegram:
 # - /help command
@@ -228,10 +221,10 @@ If you encounter issues during migration:
 
 Once you've completed the migration:
 
-- ✅ YAML configuration is active
-- ✅ All agents and tasks are defined in YAML
-- ✅ System is using the new crew.py
-- ✅ Main entry point is updated
+- ✅ Modern TeamManagementSystem is active
+- ✅ All agents are defined in YAML configuration
+- ✅ System is using the new agentic architecture
+- ✅ Main entry point is updated to use run_bot_local.py
 - ✅ All functionality is verified
 
 The KICKAI system is now using the modern YAML-based CrewAI configuration approach! 🚀 

@@ -14,6 +14,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from loguru import logger
+from core.entity_types import EntityType
 
 
 class ToolType(Enum):
@@ -52,6 +53,8 @@ class ToolMetadata:
     feature_module: str = "unknown"
     tags: List[str] = field(default_factory=list)
     tool_function: Optional[Callable] = None
+    entity_types: List[EntityType] = field(default_factory=lambda: [EntityType.NEITHER])
+    access_control: Dict[str, List[str]] = field(default_factory=dict)  # agent_role -> allowed_entity_types
 
 
 class ToolFactory(ABC):
@@ -79,6 +82,7 @@ class ToolRegistry:
     - Dependency management
     - Permission-based access control
     - Feature-based organization
+    - Entity-specific access control
     """
     
     def __init__(self):
@@ -86,6 +90,7 @@ class ToolRegistry:
         self._factories: Dict[str, ToolFactory] = {}
         self._tool_aliases: Dict[str, str] = {}
         self._feature_tools: Dict[str, List[str]] = {}
+        self._entity_tools: Dict[EntityType, List[str]] = {entity_type: [] for entity_type in EntityType}
         self._discovered = False
         
         logger.info("🔧 ToolRegistry initialized")
@@ -104,66 +109,63 @@ class ToolRegistry:
         tool_function: Optional[Callable] = None,
         feature_module: str = "unknown",
         tags: Optional[List[str]] = None,
-        aliases: Optional[List[str]] = None
+        aliases: Optional[List[str]] = None,
+        entity_types: Optional[List[EntityType]] = None,
+        access_control: Optional[Dict[str, List[str]]] = None
     ) -> None:
-        """
-        Register a tool with the registry.
-        
-        Args:
-            tool_id: Unique identifier for the tool
-            tool_type: Type of tool
-            category: Category of tool
-            name: Display name of the tool
-            description: Description of the tool
-            version: Tool version
-            enabled: Whether the tool is enabled
-            dependencies: List of tool dependencies
-            required_permissions: Required permissions to use the tool
-            tool_function: The actual tool function
-            feature_module: Feature module this tool belongs to
-            tags: Tags for categorization
-            aliases: Alternative names
-        """
-        if tool_id in self._tools:
-            logger.warning(f"Tool {tool_id} already registered, updating metadata")
-        
-        metadata = ToolMetadata(
-            tool_id=tool_id,
-            tool_type=tool_type,
-            category=category,
-            name=name,
-            description=description,
-            version=version,
-            enabled=enabled,
-            dependencies=dependencies or [],
-            required_permissions=required_permissions or [],
-            feature_module=feature_module,
-            tags=tags or [],
-            tool_function=tool_function
-        )
-        
-        self._tools[tool_id] = metadata
-        
-        # Track feature tools
-        if feature_module not in self._feature_tools:
-            self._feature_tools[feature_module] = []
-        self._feature_tools[feature_module].append(tool_id)
-        
-        # Register aliases
-        if aliases:
-            for alias in aliases:
-                self._tool_aliases[alias] = tool_id
-        
-        logger.debug(f"✅ Registered tool: {tool_id} ({feature_module})")
+        """Register a tool with the registry."""
+        try:
+            # Create tool metadata
+            metadata = ToolMetadata(
+                tool_id=tool_id,
+                tool_type=tool_type,
+                category=category,
+                name=name,
+                description=description,
+                version=version,
+                enabled=enabled,
+                dependencies=dependencies or [],
+                required_permissions=required_permissions or [],
+                tool_function=tool_function,
+                feature_module=feature_module,
+                tags=tags or [],
+                entity_types=entity_types or [EntityType.NEITHER],
+                access_control=access_control or {}
+            )
+            
+            # Register the tool
+            self._tools[tool_id] = metadata
+            
+            # Register aliases
+            if aliases:
+                for alias in aliases:
+                    self._tool_aliases[alias] = tool_id
+            
+            # Register with feature
+            if feature_module not in self._feature_tools:
+                self._feature_tools[feature_module] = []
+            self._feature_tools[feature_module].append(tool_id)
+            
+            # Register with entity types
+            for entity_type in metadata.entity_types:
+                if entity_type not in self._entity_tools:
+                    self._entity_tools[entity_type] = []
+                self._entity_tools[entity_type].append(tool_id)
+            
+            logger.info(f"🔧 Registered tool: {tool_id} (entity_types: {[et.value for et in entity_types or [EntityType.NEITHER]]})")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to register tool {tool_id}: {e}")
+            raise
     
     def register_factory(self, tool_id: str, factory: ToolFactory) -> None:
         """Register a tool factory."""
         self._factories[tool_id] = factory
-        logger.debug(f"✅ Registered factory for tool: {tool_id}")
+        logger.info(f"🔧 Registered factory for tool: {tool_id}")
     
     def get_tool(self, tool_id: str) -> Optional[ToolMetadata]:
         """Get tool metadata by ID."""
-        # Check direct match first
+        # Check direct match
         if tool_id in self._tools:
             return self._tools[tool_id]
         
@@ -175,7 +177,7 @@ class ToolRegistry:
         return None
     
     def get_tool_function(self, tool_id: str) -> Optional[Callable]:
-        """Get the actual tool function by ID."""
+        """Get tool function by ID."""
         tool = self.get_tool(tool_id)
         return tool.tool_function if tool else None
     
@@ -188,16 +190,12 @@ class ToolRegistry:
         factory = self.get_factory(tool_id)
         if factory:
             return factory.create_tool(**kwargs)
-        
-        # Fallback to direct function if no factory
-        tool_func = self.get_tool_function(tool_id)
-        if tool_func:
-            return tool_func
-        
-        raise ValueError(f"No factory or function found for tool: {tool_id}")
+        else:
+            logger.warning(f"No factory found for tool: {tool_id}")
+            return None
     
     def get_tools_by_feature(self, feature_module: str) -> List[ToolMetadata]:
-        """Get all tools for a specific feature."""
+        """Get all tools for a specific feature module."""
         tool_ids = self._feature_tools.get(feature_module, [])
         return [self._tools[tool_id] for tool_id in tool_ids if tool_id in self._tools]
     
@@ -206,8 +204,13 @@ class ToolRegistry:
         return [tool for tool in self._tools.values() if tool.tool_type == tool_type]
     
     def get_tools_by_category(self, category: ToolCategory) -> List[ToolMetadata]:
-        """Get all tools in a specific category."""
+        """Get all tools of a specific category."""
         return [tool for tool in self._tools.values() if tool.category == category]
+    
+    def get_tools_by_entity_type(self, entity_type: EntityType) -> List[ToolMetadata]:
+        """Get all tools that operate on a specific entity type."""
+        tool_ids = self._entity_tools.get(entity_type, [])
+        return [self._tools[tool_id] for tool_id in tool_ids if tool_id in self._tools]
     
     def get_enabled_tools(self) -> List[ToolMetadata]:
         """Get all enabled tools."""
@@ -215,10 +218,42 @@ class ToolRegistry:
     
     def get_tools_with_permission(self, permission: str) -> List[ToolMetadata]:
         """Get all tools that require a specific permission."""
-        return [
-            tool for tool in self._tools.values()
-            if permission in tool.required_permissions
-        ]
+        return [tool for tool in self._tools.values() if permission in tool.required_permissions]
+    
+    def get_tools_for_agent(self, agent_role: str, entity_type: Optional[EntityType] = None) -> List[ToolMetadata]:
+        """Get tools available for a specific agent role and entity type."""
+        available_tools = []
+        
+        for tool in self._tools.values():
+            if not tool.enabled:
+                continue
+            
+            # Check if agent has access to this tool
+            if agent_role in tool.access_control:
+                allowed_entity_types = tool.access_control[agent_role]
+                if entity_type is None or entity_type.value in allowed_entity_types:
+                    available_tools.append(tool)
+            else:
+                # If no access control specified, allow access
+                available_tools.append(tool)
+        
+        return available_tools
+    
+    def validate_tool_access(self, tool_id: str, agent_role: str, entity_type: Optional[EntityType] = None) -> bool:
+        """Validate if an agent can access a specific tool for a given entity type."""
+        tool = self.get_tool(tool_id)
+        if not tool or not tool.enabled:
+            return False
+        
+        # Check access control
+        if agent_role in tool.access_control:
+            allowed_entity_types = tool.access_control[agent_role]
+            if entity_type is None or entity_type.value in allowed_entity_types:
+                return True
+            return False
+        
+        # If no access control specified, allow access
+        return True
     
     def auto_discover_tools(self, src_path: str = "src") -> None:
         """
@@ -322,6 +357,12 @@ class ToolRegistry:
         tool_type = self._determine_tool_type(tool_func.name)
         category = self._determine_tool_category(feature_name)
         
+        # Determine entity types based on function name
+        entity_types = self._determine_entity_types(tool_func.name)
+        
+        # Determine access control based on function name
+        access_control = self._determine_access_control(tool_func.name)
+        
         self.register_tool(
             tool_id=tool_id,
             tool_type=tool_type,
@@ -329,7 +370,9 @@ class ToolRegistry:
             name=tool_func.name,
             description=tool_func.description,
             feature_module=feature_name,
-            tool_function=tool_func
+            tool_function=tool_func,
+            entity_types=entity_types,
+            access_control=access_control
         )
     
     def _determine_tool_type(self, tool_name: str) -> ToolType:
@@ -364,6 +407,37 @@ class ToolRegistry:
         else:
             return ToolCategory.FEATURE
     
+    def _determine_entity_types(self, tool_name: str) -> List[EntityType]:
+        """Determine entity types based on tool name."""
+        tool_lower = tool_name.lower()
+        
+        if any(keyword in tool_lower for keyword in ['player', 'register', 'approve', 'remove']):
+            return [EntityType.PLAYER]
+        elif any(keyword in tool_lower for keyword in ['team', 'member', 'admin', 'remove']):
+            return [EntityType.TEAM_MEMBER]
+        elif any(keyword in tool_lower for keyword in ['both', 'both_players', 'both_members']):
+            return [EntityType.BOTH]
+        else:
+            return [EntityType.NEITHER]
+    
+    def _determine_access_control(self, tool_name: str) -> Dict[str, List[str]]:
+        """Determine access control based on tool name."""
+        tool_lower = tool_name.lower()
+        
+        # Default access control
+        access_control: Dict[str, List[str]] = {}
+        
+        if any(keyword in tool_lower for keyword in ['admin', 'manage', 'control']):
+            access_control['admin'] = ['both'] # Admins can access everything
+        elif any(keyword in tool_lower for keyword in ['player', 'register', 'approve', 'remove']):
+            access_control['player'] = ['player']
+        elif any(keyword in tool_lower for keyword in ['team', 'member', 'admin', 'remove']):
+            access_control['team_member'] = ['team_member']
+        elif any(keyword in tool_lower for keyword in ['both', 'both_players', 'both_members']):
+            access_control['both'] = ['both']
+        
+        return access_control
+    
     def get_tool_statistics(self) -> Dict[str, Any]:
         """Get statistics about registered tools."""
         total_tools = len(self._tools)
@@ -381,13 +455,26 @@ class ToolRegistry:
         for feature in self._feature_tools:
             tools_by_feature[feature] = len(self._feature_tools[feature])
         
+        tools_by_entity_type = {}
+        for entity_type in EntityType:
+            tools_by_entity_type[entity_type.value] = len(self.get_tools_by_entity_type(entity_type))
+        
+        # Count enabled tools
+        enabled_tools = len(self.get_enabled_tools())
+        
+        # Get features with tools
+        features_with_tools = list(self._feature_tools.keys())
+        
         return {
             "total_tools": total_tools,
+            "enabled_tools": enabled_tools,
             "total_aliases": total_aliases,
             "tools_by_type": tools_by_type,
             "tools_by_category": tools_by_category,
             "tools_by_feature": tools_by_feature,
-            "features": list(self._feature_tools.keys()),
+            "tools_by_entity_type": tools_by_entity_type,
+            "features": features_with_tools,
+            "features_with_tools": features_with_tools,
             "discovered": self._discovered
         }
     

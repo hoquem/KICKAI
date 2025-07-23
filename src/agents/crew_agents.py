@@ -21,12 +21,14 @@ import time
 from crewai import Agent, Crew
 from crewai.tools import tool
 
-from src.core.settings import get_settings
-from src.core.enums import AgentRole, AIProvider
-from src.config.agents import get_agent_config, get_enabled_agent_configs
-from src.agents.configurable_agent import ConfigurableAgent, AgentFactory
-from src.utils.llm_factory import LLMFactory, LLMConfig, LLMProviderError
-from src.agents.tool_registry import get_tool_registry, get_tool_names
+from core.settings import get_settings
+from core.enums import AgentRole, AIProvider
+from config.agents import get_agent_config, get_enabled_agent_configs
+from agents.configurable_agent import ConfigurableAgent, AgentContext
+from agents.entity_specific_agents import EntitySpecificAgentManager, create_entity_specific_agent, EntityType
+from utils.llm_factory import LLMFactory, LLMConfig, LLMProviderError
+from agents.tool_registry import get_tool_registry, get_tool_names
+
 from loguru import logger
 
 class ConfigurationError(Exception):
@@ -48,35 +50,20 @@ def log_errors(func):
             raise
     return wrapper
 
+
 class AgentToolsManager:
-    """Manages tool loading and configuration for agents using agent-specific tool lists."""
+    """Manages tool assignment for agents with entity-specific validation."""
     
-    def __init__(self, team_config, telegram_context=None):
-        self.team_config = team_config
-        self.telegram_context = telegram_context
-        self._tool_registry = get_tool_registry()
-        self._build_tool_registry()
-    
-    def _build_tool_registry(self) -> Dict[str, Any]:
-        logger.debug(f"AgentToolsManager._build_tool_registry called for team {self.team_config.default_team_id}")
-        logger.info(f"[TOOL REGISTRY] Starting tool registry build for team {self.team_config.default_team_id}")
+    def __init__(self, tool_registry):
+        self._tool_registry = tool_registry
+        self._entity_manager = EntitySpecificAgentManager(tool_registry)
         
-        # Ensure tools are discovered
-        if not self._tool_registry._discovered:
-            self._tool_registry.auto_discover_tools()
-        
-        # Get all available tools
-        available_tools = self._tool_registry.get_tool_names()
-        logger.info(f"[TOOL REGISTRY] Loaded tools: {available_tools}")
-        
-        # Return tool functions mapping for backward compatibility
-        return self._tool_registry.get_tool_functions()
+        logger.info("🔧 AgentToolsManager initialized with entity-specific validation")
     
     @log_errors
-    def get_tools_for_agent(self, role: AgentRole) -> List[Any]:
-        """Get tools for a specific agent role using agent-specific configuration."""
+    def get_tools_for_role(self, role: AgentRole, entity_type: Optional[EntityType] = None) -> List[Any]:
+        """Get tools for a specific role with entity-specific filtering."""
         try:
-            # Get agent configuration
             config = get_agent_config(role)
             if not config:
                 logger.warning(f"No configuration found for role {role}")
@@ -85,6 +72,13 @@ class AgentToolsManager:
             # Get tools based on agent-specific configuration
             tools = []
             for tool_name in config.tools:
+                # Validate tool access for this agent and entity type
+                if entity_type and not self._entity_manager.validate_agent_tool_combination(
+                    role, tool_name, {}
+                ):
+                    logger.warning(f"⚠️ Tool '{tool_name}' not accessible for {role.value} with entity type {entity_type.value}")
+                    continue
+                
                 tool_func = self._tool_registry.get_tool_function(tool_name)
                 if tool_func:
                     tools.append(tool_func)
@@ -112,7 +106,8 @@ class AgentToolsManager:
                 'description': tool.description,
                 'type': tool.tool_type.value,
                 'category': tool.category.value,
-                'feature': tool.feature_module
+                'feature': tool.feature_module,
+                'entity_types': [et.value for et in tool.entity_types]
             }
         return None
 
@@ -122,21 +117,18 @@ class TeamManagementSystem:
     Simplified Team Management System using generic ConfigurableAgent.
     
     This system uses the new generic ConfigurableAgent class and centralized
-    configuration to create and manage all agents.
+    configuration to create and manage all agents with entity-specific validation.
     """
     
     def __init__(self, team_id: str):
-        """
-        Initialize the team management system.
-        
-        Args:
-            team_id: The team ID to manage
-        """
-        logger.info(f"[TEAM INIT] Starting TeamManagementSystem initialization for team {team_id}")
-        
         self.team_id = team_id
         self.agents: Dict[AgentRole, ConfigurableAgent] = {}
         self.crew: Optional[Crew] = None
+        
+        # Initialize team memory for conversation context
+        from src.agents.team_memory import TeamMemory
+        self.team_memory = TeamMemory(team_id)
+        logger.info(f"[TEAM INIT] Initialized team memory for {team_id}")
         
         # Initialize configuration
         logger.info(f"[TEAM INIT] Getting improved config")
@@ -152,15 +144,19 @@ class TeamManagementSystem:
         logger.info(f"[TEAM INIT] Initializing LLM")
         self._initialize_llm()
         
-        # Initialize agents
+        # Initialize tool registry and entity manager
+        logger.info(f"[TEAM INIT] Initializing tool registry and entity manager")
+        self._initialize_tool_registry()
+        
+        # Initialize agents with entity-specific validation
         logger.info(f"[TEAM INIT] Initializing agents dictionary")
         self._initialize_agents()
         
-        # Create crew
-        logger.info(f"[TEAM INIT] Creating crew")
+        # Create persistent crew
+        logger.info(f"[TEAM INIT] Creating persistent crew")
         self._create_crew()
         
-        logger.info(f"✅ TeamManagementSystem initialized for team {team_id}")
+        logger.info(f"✅ TeamManagementSystem initialized for team {team_id} with entity-specific validation")
     
     def _initialize_llm(self):
         """Initialize the LLM using the factory pattern with robust error handling."""
@@ -174,166 +170,186 @@ class TeamManagementSystem:
             logger.info(f"✅ LLM initialized successfully with robust error handling: {type(self.llm).__name__}")
             
         except Exception as e:
-            logger.error(f"Error initializing LLM: {e}", exc_info=True)
-            raise
+            logger.error(f"❌ Failed to initialize LLM: {e}")
+            raise ConfigurationError(f"Failed to initialize LLM: {str(e)}")
     
-    def _wrap_llm_with_error_handling(self, llm):
-        """Wrap the LLM with robust error handling for CrewAI."""
+    def _initialize_tool_registry(self):
+        """Initialize tool registry and entity manager."""
         try:
-            # Create a wrapper that adds error handling to the LLM
-            class RobustLLMWrapper:
-                def __init__(self, original_llm):
-                    self.original_llm = original_llm
-                    self.model_name = getattr(original_llm, 'model_name', 'unknown')
-                    self.client = getattr(original_llm, 'client', None)
-                
-                def invoke(self, prompt, **kwargs):
-                    """Synchronous invoke with error handling."""
-                    start_time = time.time()
-                    try:
-                        logger.info(f"[LLM REQUEST] CrewAI invoke request to {self.model_name}")
-                        logger.info(f"[LLM REQUEST] Prompt preview: {str(prompt)[:100]}...")
-                        
-                        result = self.original_llm.invoke(prompt, **kwargs)
-                        
-                        duration = (time.time() - start_time) * 1000
-                        logger.info(f"[LLM SUCCESS] CrewAI invoke completed in {duration:.2f}ms")
-                        logger.info(f"[LLM SUCCESS] Result preview: {str(result)[:100]}...")
-                        
-                        return result
-                        
-                    except Exception as e:
-                        duration = (time.time() - start_time) * 1000
-                        self._handle_crewai_error(e, duration, prompt, **kwargs)
-                        raise
-                
-                async def ainvoke(self, prompt, **kwargs):
-                    """Asynchronous invoke with error handling."""
-                    start_time = time.time()
-                    try:
-                        logger.info(f"[LLM REQUEST] CrewAI ainvoke request to {self.model_name}")
-                        logger.info(f"[LLM REQUEST] Prompt preview: {str(prompt)[:100]}...")
-                        
-                        result = await self.original_llm.ainvoke(prompt, **kwargs)
-                        
-                        duration = (time.time() - start_time) * 1000
-                        logger.info(f"[LLM SUCCESS] CrewAI ainvoke completed in {duration:.2f}ms")
-                        logger.info(f"[LLM SUCCESS] Result preview: {str(result)[:100]}...")
-                        
-                        return result
-                        
-                    except Exception as e:
-                        duration = (time.time() - start_time) * 1000
-                        self._handle_crewai_error(e, duration, prompt, **kwargs)
-                        raise
-                
-                def _handle_crewai_error(self, error, duration_ms, prompt, **kwargs):
-                    """Handle CrewAI LLM errors with detailed logging."""
-                    error_type = type(error).__name__
-                    error_msg = str(error)
-                    
-                    # Create detailed error context
-                    error_context = {
-                        "error_type": error_type,
-                        "error_message": error_msg,
-                        "model": self.model_name,
-                        "duration_ms": duration_ms,
-                        "prompt_length": len(str(prompt)),
-                        "kwargs": list(kwargs.keys())
-                    }
-                    
-                    # Categorize and log errors appropriately
-                    if "503" in error_msg or "service unavailable" in error_msg.lower():
-                        logger.error(f"[LLM ERROR] 🚫 SERVICE UNAVAILABLE (503): {error_msg}")
-                        logger.error(f"[LLM ERROR] 🚫 Google Gemini API is temporarily unavailable")
-                        logger.error(f"[LLM ERROR] 🚫 This is a Google service issue, not a configuration problem")
-                        logger.error(f"[LLM ERROR] 🚫 Error context: {error_context}")
-                        
-                    elif "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
-                        logger.error(f"[LLM ERROR] ⏰ TIMEOUT ERROR: {error_msg}")
-                        logger.error(f"[LLM ERROR] ⏰ Request timed out after {duration_ms:.2f}ms")
-                        logger.error(f"[LLM ERROR] ⏰ Consider increasing timeout or checking network connectivity")
-                        logger.error(f"[LLM ERROR] ⏰ Error context: {error_context}")
-                        
-                    elif "quota" in error_msg.lower() or "rate limit" in error_msg.lower():
-                        logger.error(f"[LLM ERROR] 📊 QUOTA/RATE LIMIT ERROR: {error_msg}")
-                        logger.error(f"[LLM ERROR] 📊 Google Gemini API quota exceeded or rate limited")
-                        logger.error(f"[LLM ERROR] 📊 Check your Google Cloud Console for quota usage")
-                        logger.error(f"[LLM ERROR] 📊 Error context: {error_context}")
-                        
-                    elif "authentication" in error_msg.lower() or "unauthorized" in error_msg.lower():
-                        logger.critical(f"[LLM ERROR] 🔑 API KEY ERROR: {error_msg}")
-                        logger.critical(f"[LLM ERROR] 🔑 This is likely an invalid or expired GOOGLE_API_KEY")
-                        logger.critical(f"[LLM ERROR] 🔑 Please check your .env file and ensure GOOGLE_API_KEY is correct")
-                        logger.critical(f"[LLM ERROR] 🔑 Error context: {error_context}")
-                        
-                    else:
-                        # Generic error handling
-                        logger.error(f"[LLM ERROR] ❌ UNKNOWN ERROR: {error_msg}")
-                        logger.error(f"[LLM ERROR] ❌ Error type: {error_type}")
-                        logger.error(f"[LLM ERROR] ❌ Full error context: {error_context}")
-                        logger.error(f"[LLM ERROR] ❌ Full traceback: {traceback.format_exc()}")
-                    
-                    # Additional diagnostics
-                    logger.info(f"[LLM DIAGNOSTICS] Environment check:")
-                    logger.info(f"[LLM DIAGNOSTICS] - GOOGLE_API_KEY present: {bool(os.getenv('GOOGLE_API_KEY'))}")
-                    logger.info(f"[LLM DIAGNOSTICS] - AI_PROVIDER: {os.getenv('AI_PROVIDER', 'not set')}")
-                    logger.info(f"[LLM DIAGNOSTICS] - AI_MODEL_NAME: {os.getenv('AI_MODEL_NAME', 'not set')}")
-                    logger.info(f"[LLM DIAGNOSTICS] - Request duration: {duration_ms:.2f}ms")
-                
-                # Forward any other attributes to the original LLM
-                def __getattr__(self, name):
-                    return getattr(self.original_llm, name)
+            self.tool_registry = get_tool_registry()
             
-            return RobustLLMWrapper(llm)
+            # Ensure tools are discovered and registered
+            if not self.tool_registry._discovered:
+                logger.info("🔍 Tool registry not discovered, running auto-discovery...")
+                self.tool_registry.auto_discover_tools('src')
+            else:
+                logger.info("✅ Tool registry already discovered")
+            
+            self.entity_manager = EntitySpecificAgentManager(self.tool_registry)
+            logger.info("✅ Tool registry and entity manager initialized")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize tool registry: {e}")
+            raise ConfigurationError(f"Failed to initialize tool registry: {str(e)}")
+    
+    def _initialize_agents(self):
+        """Initialize all agents with entity-specific validation."""
+        try:
+            # Get enabled agent configurations
+            enabled_configs = get_enabled_agent_configs()
+            
+            for role, config in enabled_configs.items():
+                try:
+                    # Create entity-specific agent
+                    agent = create_entity_specific_agent(
+                        team_id=self.team_id,
+                        role=role,
+                        llm=self.llm,
+                        tool_registry=self.tool_registry,
+                        team_memory=self.team_memory,
+                        config=config,
+                        entity_type=config.primary_entity_type
+                    )
+                    
+                    self.agents[role] = agent
+                    logger.info(f"✅ Created entity-specific agent for role: {role.value} (entity_type: {config.primary_entity_type.value if config.primary_entity_type else 'None'})")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Failed to create agent for role {role.value}: {e}")
+                    # Continue with other agents instead of failing completely
+                    continue
+            
+            logger.info(f"✅ Initialized {len(self.agents)} agents with entity-specific validation")
             
         except Exception as e:
-            logger.error(f"Error wrapping LLM with error handling: {e}")
-            return llm  # Return original LLM if wrapping fails
+            logger.error(f"❌ Failed to initialize agents: {e}")
+            raise AgentInitializationError(f"Failed to initialize agents: {str(e)}")
     
-    def _initialize_agents(self) -> None:
-        """Initialize all agents using the new generic ConfigurableAgent system."""
+    def _create_crew(self):
+        """Create the CrewAI crew with entity-aware agents."""
         try:
-            logger.info(f"[AGENT INIT] Initializing agents...")
+            # Create crew with all available agents
+            crew_agents = [agent.crew_agent for agent in self.agents.values()]
             
-            # Create tools manager
-            tools_manager = AgentToolsManager(self.team_config, telegram_context=None)
+            if not crew_agents:
+                raise AgentInitializationError("No agents available for crew creation")
             
-            # Create agent factory with the actual tool registry object
-            agent_factory = AgentFactory(
-                team_id=self.team_id,
-                llm=self.llm,
-                tool_registry=tools_manager._tool_registry  # Pass the actual ToolRegistry object
+            # Get verbose setting from environment
+            from src.core.settings import get_settings
+            settings = get_settings()
+            verbose_mode = settings.verbose_logging or settings.is_development
+            
+            self.crew = Crew(
+                agents=crew_agents,
+                tasks=[],
+                verbose=verbose_mode,  # Use environment-based verbose setting
+                memory=True  # Enable memory for the crew
             )
             
-            # Create all enabled agents
-            self.agents = agent_factory.create_all_agents()
-            
-            if not self.agents:
-                raise AgentInitializationError("No agents were initialized!")
-            
-            logger.info(f"[AGENT INIT] All enabled agents initialized: {list(self.agents.keys())}")
+            logger.info(f"✅ Created crew with {len(crew_agents)} entity-aware agents")
             
         except Exception as e:
-            logger.error(f"[AGENT INIT] Critical error in agent initialization: {e}", exc_info=True)
-            raise
+            logger.error(f"❌ Failed to create crew: {e}")
+            raise AgentInitializationError(f"Failed to create crew: {str(e)}")
     
-    def _create_crew(self) -> None:
-        """Create the CrewAI crew."""
-        if not self.agents:
-            raise AgentInitializationError("No agents available to create crew")
-        
-        crew_agents = [agent.crew_agent for agent in self.agents.values()]
-        
-        # Create crew with LangChain Gemini LLM
-        self.crew = Crew(
-            agents=crew_agents,
-            verbose=False,  # Set to False to reduce verbose output
-            memory=True,
-            llm=self.llm
-        )
-        
-        logger.info(f"✅ Crew created successfully with {len(crew_agents)} agents using LangChain Gemini LLM")
+    def _wrap_llm_with_error_handling(self, llm):
+        """Wrap LLM with robust error handling for CrewAI."""
+        # This is a simplified wrapper - in production you might want more sophisticated error handling
+        return llm
+    
+    async def execute_task(self, task_description: str, execution_context: Dict[str, Any]) -> str:
+        """Execute a task with entity-specific validation."""
+        try:
+            # Validate inputs
+            if not task_description or not task_description.strip():
+                return "❌ Task description is required"
+            
+            if not self.agents:
+                return "❌ No agents available for task execution"
+            
+            # Extract parameters for entity validation
+            parameters = execution_context.get('parameters', {})
+            
+            # Route to appropriate agent using entity manager
+            selected_agent_role = self.entity_manager.route_operation_to_agent(
+                task_description, parameters, self.agents
+            )
+            
+            if not selected_agent_role:
+                logger.warning("⚠️ No suitable agent found, using message processor")
+                selected_agent_role = AgentRole.MESSAGE_PROCESSOR
+            
+            if selected_agent_role not in self.agents:
+                logger.error(f"❌ Selected agent {selected_agent_role.value} not available")
+                return "❌ No suitable agent available for this request"
+            
+            # Get the selected agent
+            agent = self.agents[selected_agent_role]
+            
+            # Validate entity access
+            entity_type = self.entity_manager.validator.get_entity_type_from_parameters(parameters)
+            if entity_type and not self.entity_manager.validate_agent_entity_access(selected_agent_role, entity_type):
+                logger.warning(f"⚠️ Agent {selected_agent_role.value} cannot handle entity type {entity_type.value}")
+                # Fallback to message processor
+                if AgentRole.MESSAGE_PROCESSOR in self.agents:
+                    agent = self.agents[AgentRole.MESSAGE_PROCESSOR]
+                    logger.info("🔄 Fallback to Message Processor")
+                else:
+                    return "❌ No suitable agent available for this request"
+            
+            # Execute the task
+            logger.info(f"🚀 [CREW] Executing task with agent: {selected_agent_role.value}")
+            logger.info(f"📋 [CREW] Task description: {task_description[:100]}{'...' if len(task_description) > 100 else ''}")
+            logger.info(f"👤 [CREW] User context: {execution_context.get('user_id', 'unknown')}")
+            
+            result = await agent.execute(task_description, execution_context)
+            
+            logger.info(f"✅ [CREW] Task execution completed with {selected_agent_role.value}")
+            logger.debug(f"📄 [CREW] Result preview: {result[:200]}{'...' if len(result) > 200 else ''}")
+            
+            # Store conversation in memory
+            self.team_memory.store_conversation(
+                user_id=execution_context.get('user_id', 'unknown'),
+                message=task_description,
+                response=result,
+                agent_role=selected_agent_role.value
+            )
+            
+            logger.info(f"✅ Task execution completed successfully with {selected_agent_role.value}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Task execution failed: {e}", exc_info=True)
+            return f"❌ Sorry, I encountered an error while processing your request: {str(e)}"
+    
+    def get_agent_summary(self) -> Dict[str, Any]:
+        """Get a summary of all agents with their entity types."""
+        summary = {}
+        for role, agent in self.agents.items():
+            config = get_agent_config(role)
+            summary[role.value] = {
+                'role': role.value,
+                'goal': config.goal if config else 'Unknown',
+                'entity_types': [et.value for et in config.entity_types] if config else [],
+                'primary_entity_type': config.primary_entity_type.value if config and config.primary_entity_type else None,
+                'tools_count': len(agent.tools),
+                'enabled': config.enabled if config else False
+            }
+        return summary
+    
+    def get_entity_validation_summary(self) -> Dict[str, Any]:
+        """Get a summary of entity validation capabilities."""
+        return {
+            'entity_manager_available': self.entity_manager is not None,
+            'agent_entity_mappings': {
+                role.value: [et.value for et in self.entity_manager.agent_entity_mappings.get(role, [])]
+                for role in self.agents.keys()
+            },
+            'validation_rules': {
+                'player_keywords': list(self.entity_manager.validator.player_keywords),
+                'team_member_keywords': list(self.entity_manager.validator.team_member_keywords),
+                'ambiguous_keywords': list(self.entity_manager.validator.ambiguous_keywords)
+            }
+        }
     
     def get_agent(self, role: AgentRole) -> Optional[ConfigurableAgent]:
         """Get a specific agent by role."""
@@ -355,7 +371,7 @@ class TeamManagementSystem:
     
     async def execute_task(self, task_description: str, execution_context: Dict[str, Any]) -> str:
         """
-        Execute a task using the orchestration pipeline.
+        Execute a task using the orchestration pipeline with conversation context.
         
         This method delegates task execution to the dedicated OrchestrationPipeline
         which breaks down the process into separate, swappable components.
@@ -371,6 +387,14 @@ class TeamManagementSystem:
             for role, agent in self.agents.items():
                 tools = agent.get_tools()
                 logger.info(f"🤖 TEAM MANAGEMENT: Agent '{role.value}' has {len(tools)} tools: {[tool.name for tool in tools]}")
+            
+            # Add conversation context to execution context
+            user_id = execution_context.get('user_id')
+            if user_id and hasattr(self, 'team_memory'):
+                # Get user-specific memory context
+                memory_context = self.team_memory.get_user_memory_context(user_id)
+                execution_context['memory_context'] = memory_context
+                logger.info(f"🤖 TEAM MANAGEMENT: Added memory context for user {user_id}")
             
             # Initialize orchestration pipeline if not already done
             if not hasattr(self, '_orchestration_pipeline'):
@@ -400,13 +424,23 @@ class TeamManagementSystem:
             logger.info(f"🤖 TEAM MANAGEMENT: Calling orchestration pipeline.execute_task")
             result = await self._orchestration_pipeline.execute_task(
                 task_description=task_description,
-                available_agents=self.agents,
-                execution_context=execution_context
+                execution_context=execution_context,
+                available_agents=self.agents
             )
             
             if is_myinfo_command:
                 logger.info(f"🔍 MYINFO FLOW STEP 8: Orchestration pipeline completed")
                 logger.info(f"🔍 MYINFO FLOW STEP 8a: result={result}")
+            
+            # Store conversation in memory for context persistence
+            if user_id and hasattr(self, 'team_memory'):
+                self.team_memory.add_conversation(
+                    user_id=user_id,
+                    input_text=task_description,
+                    output_text=result,
+                    context=execution_context
+                )
+                logger.info(f"🤖 TEAM MANAGEMENT: Stored conversation in memory for user {user_id}")
             
             logger.info(f"🤖 TEAM MANAGEMENT: Task execution completed successfully")
             return result
@@ -429,16 +463,40 @@ class TeamManagementSystem:
             # Use the basic crew that was created in _create_crew
             if hasattr(self, 'crew') and self.crew:
                 logger.info(f"🤖 BASIC CREW: Using existing crew")
-                result = await self.crew.kickoff({"name": task_description})
-                logger.info(f"🤖 BASIC CREW: Task completed with result: {result}")
-                return result
+                
+                # Create a proper CrewAI task
+                from crewai import Task
+                
+                # Get the appropriate agent for this task
+                selected_agent_role = self.entity_manager.route_operation_to_agent(
+                    task_description, execution_context.get('parameters', {}), self.agents
+                )
+                
+                if selected_agent_role and selected_agent_role in self.agents:
+                    agent = self.agents[selected_agent_role]
+                    
+                    # Create a task for the selected agent
+                    task = Task(
+                        description=task_description,
+                        agent=agent.crew_agent,
+                        expected_output="A clear and helpful response to the user's request"
+                    )
+                    
+                    # Add task to crew and execute
+                    self.crew.tasks = [task]
+                    result = self.crew.kickoff()
+                    logger.info(f"🤖 BASIC CREW: Task completed with result: {result}")
+                    return result
+                else:
+                    logger.error(f"🤖 BASIC CREW: No suitable agent found for task")
+                    return "❌ Sorry, I'm unable to process your request at the moment."
             else:
                 logger.error(f"🤖 BASIC CREW: No crew available for fallback")
                 return "❌ Sorry, I'm unable to process your request at the moment."
                 
         except Exception as e:
             logger.error(f"🤖 BASIC CREW: Error in fallback execution: {e}", exc_info=True)
-            return f"❌ Sorry, I encountered an error processing your request: {str(e)}"
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
     
     @contextmanager
     def debug_mode(self):

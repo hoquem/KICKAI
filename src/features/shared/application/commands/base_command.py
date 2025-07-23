@@ -7,19 +7,11 @@ in the KICKAI system.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
 from typing import Optional, Dict, Any
 from telegram import Update
 from telegram.ext import ContextTypes
 
-
-class PermissionLevel(Enum):
-    """Permission levels for commands."""
-    PUBLIC = "public"
-    PLAYER = "player"
-    LEADERSHIP = "leadership"
-    ADMIN = "admin"
-    SYSTEM = "system"
+from core.enums import PermissionLevel
 
 
 @dataclass
@@ -73,7 +65,7 @@ class Command(ABC):
     
     def get_help_text(self) -> str:
         """Get help text for this command."""
-        return f"**{self.name}** - {self.description}\nPermission: {self.permission_level.value}"
+        return f"{self.name} - {self.description}\nPermission: {self.permission_level.value}"
 
 
 class SimpleCommand(Command):

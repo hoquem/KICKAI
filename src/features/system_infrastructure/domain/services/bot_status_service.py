@@ -121,7 +121,7 @@ class BotStatusService:
                 },
                 "Permissions": {
                     "admin_only": ["/add", "/remove", "/admin"],
-                    "leadership": ["/approve", "/reject", "/team", "/match"],
+                    "leadership": ["/approve", "/reject", "/addplayer", "/addmember", "/list"],
                     "description": "Permission levels for different commands"
                 },
                 "status": "active",

@@ -43,34 +43,24 @@ else
     exit 1
 fi
 
-# 2. Black (Code formatting)
-echo "🎨 Running Black..."
-if black --check --diff src tests scripts; then
-    print_status "Black passed"
+# 2. Ruff (Linting and formatting)
+echo "⚡ Running Ruff linter..."
+if ruff check src tests scripts; then
+    print_status "Ruff linter passed"
 else
-    print_warning "Black found formatting issues. Run 'black src tests scripts' to fix"
+    print_error "Ruff linter found issues. Run 'ruff check --fix src tests scripts' to fix"
     exit 1
 fi
 
-# 3. isort (Import sorting)
-echo "📦 Running isort..."
-if isort --check-only --diff src tests scripts; then
-    print_status "isort passed"
+echo "🎨 Running Ruff formatter..."
+if ruff format --check src tests scripts; then
+    print_status "Ruff formatter passed"
 else
-    print_warning "isort found import sorting issues. Run 'isort src tests scripts' to fix"
+    print_warning "Ruff found formatting issues. Run 'ruff format src tests scripts' to fix"
     exit 1
 fi
 
-# 4. flake8 (Linting)
-echo "🔧 Running flake8..."
-if flake8 src tests scripts; then
-    print_status "flake8 passed"
-else
-    print_error "flake8 found issues"
-    exit 1
-fi
-
-# 5. mypy (Type checking)
+# 3. mypy (Type checking)
 echo "🔍 Running mypy..."
 if mypy src; then
     print_status "mypy passed"
@@ -79,7 +69,7 @@ else
     exit 1
 fi
 
-# 6. Pre-commit hooks
+# 4. Pre-commit hooks
 echo "🔒 Running pre-commit hooks..."
 if pre-commit run --all-files; then
     print_status "Pre-commit hooks passed"

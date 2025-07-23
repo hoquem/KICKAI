@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from crewai.tools import tool
 from src.features.player_registration.domain.services.player_service import PlayerService
 from src.core.dependency_container import get_container
+from src.core.context_types import StandardizedContext
 
 logger = logging.getLogger(__name__)
 
@@ -71,26 +72,34 @@ def approve_player(player_id: str, team_id: Optional[str] = None) -> str:
 
 
 @tool("get_my_status")
-def get_my_status(user_id: str, team_id: Optional[str] = None) -> str:
+def get_my_status(context: dict) -> str:
     """
-    Get current user's player status and information. Requires: user_id
+    Get current user's player status and information. Requires: context
     
     Args:
-        user_id: The user ID to get status for
-        team_id: Optional team ID for context
+        context: Dictionary containing user information (will be converted to StandardizedContext)
     
     Returns:
         User's player status and information
     """
     try:
+        # Convert dictionary to StandardizedContext
+        if isinstance(context, dict):
+            standardized_context = StandardizedContext.from_dict(context)
+        else:
+            standardized_context = context
+        
+        user_id = standardized_context.user_id
+        team_id = standardized_context.team_id
+        
         container = get_container()
         player_service = container.get(PlayerService)
         result = player_service.get_my_status(user_id, team_id)
-        logger.info(f"✅ My status retrieved for user: {user_id}")
+        logger.info(f"✅ My status retrieved for user: {user_id} in team: {team_id}")
         return result
         
     except Exception as e:
-        logger.error(f"❌ Failed to get my status: {e}")
+        logger.error(f"❌ Failed to get my status for {context.get('user_id', 'unknown')}: {e}")
         return f"❌ Failed to get my status: {str(e)}"
 
 
@@ -119,17 +128,25 @@ def get_player_status(phone: str, team_id: Optional[str] = None) -> str:
 
 
 @tool("get_all_players")
-def get_all_players(team_id: Optional[str] = None) -> str:
+def get_all_players(context: dict) -> str:
     """
-    Get all players for the team. Optional: team_id
+    Get all players for the team. Requires: context
     
     Args:
-        team_id: Optional team ID for context
+        context: Dictionary containing team information (will be converted to StandardizedContext)
     
     Returns:
         List of all players or error message
     """
     try:
+        # Convert dictionary to StandardizedContext
+        if isinstance(context, dict):
+            standardized_context = StandardizedContext.from_dict(context)
+        else:
+            standardized_context = context
+        
+        team_id = standardized_context.team_id
+        
         container = get_container()
         player_service = container.get(PlayerService)
         result = player_service.get_all_players(team_id)
@@ -137,7 +154,7 @@ def get_all_players(team_id: Optional[str] = None) -> str:
         return result
         
     except Exception as e:
-        logger.error(f"❌ Failed to get all players: {e}")
+        logger.error(f"❌ Failed to get all players for team {context.get('team_id', 'unknown')}: {e}")
         return f"❌ Failed to get all players: {str(e)}"
 
 
