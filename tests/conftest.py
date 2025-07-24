@@ -8,8 +8,7 @@ import pytest
 from unittest.mock import Mock, patch
 from typing import Dict, Any
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+# Package imports work directly now
 
 # Set up test environment variables
 os.environ.update({
@@ -76,7 +75,7 @@ def mock_telegram_config():
 @pytest.fixture(scope="function")
 def mock_config_manager(test_environment, mock_firebase_credentials, mock_ai_config, mock_telegram_config):
     """Mock configuration manager for testing."""
-    with patch('src.core.config.ImprovedConfigurationManager') as mock_config:
+    with patch('kickai.core.config.ImprovedConfigurationManager') as mock_config:
         # Create a mock configuration manager
         config_instance = Mock()
         config_instance.environment.value = 'testing'
@@ -104,7 +103,7 @@ def mock_config_manager(test_environment, mock_firebase_credentials, mock_ai_con
 @pytest.fixture(scope="function")
 def mock_firebase_client():
     """Mock Firebase client for testing."""
-    with patch('src.database.firebase_client.FirebaseClient') as mock_client:
+    with patch('kickai.database.firebase_client.FirebaseClient') as mock_client:
         client_instance = Mock()
         
         # Mock common Firebase operations
@@ -136,7 +135,7 @@ def mock_telegram_bot():
 @pytest.fixture(scope="function")
 def mock_llm():
     """Mock LLM for testing."""
-    with patch('src.agents.handlers.create_llm') as mock_llm_create:
+    with patch('kickai.agents.handlers.create_llm') as mock_llm_create:
         llm_instance = Mock()
         llm_instance.invoke.return_value = "Mock LLM response"
         llm_instance.ainvoke.return_value = "Mock async LLM response"

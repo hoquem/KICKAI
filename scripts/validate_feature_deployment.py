@@ -25,7 +25,7 @@ from typing import List, Dict, Any, Optional
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from core.settings import get_settings
+from kickai.core.settings import get_settings
 from loguru import logger
 
 class FeatureDeploymentValidator:
@@ -130,7 +130,7 @@ class FeatureDeploymentValidator:
         """Check health of a specific service."""
         try:
             # Use dependency container to get services with proper dependencies
-            from core.dependency_container import get_container
+            from kickai.core.dependency_container import get_container
             
             container = get_container()
             

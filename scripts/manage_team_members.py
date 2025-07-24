@@ -37,8 +37,8 @@ sys.path.insert(0, src_path)
 from telegram import Bot
 from telegram.error import TelegramError
 from loguru import logger
-from database.firebase_client import FirebaseClient
-from core.settings import get_settings
+from kickai.database.firebase_client import FirebaseClient
+from kickai.core.settings import get_settings
 
 
 @dataclass

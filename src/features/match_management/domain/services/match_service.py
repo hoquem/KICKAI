@@ -5,6 +5,7 @@ from database.firebase_client import get_firebase_client
 from features.match_management.domain.entities.match import Match, MatchStatus
 from features.match_management.domain.interfaces.match_service_interface import IMatchService
 from src.core.exceptions import MatchError, MatchNotFoundError, create_error_context
+from src.utils.football_id_generator import generate_football_match_id
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,21 @@ class MatchService(IMatchService):
     async def create_match(self, team_id: str, opponent: str, date: datetime, location: str | None = None, status: MatchStatus = MatchStatus.SCHEDULED, home_away: str = "home", competition: str | None = None) -> Match:
         """Creates a new match."""
         try:
+            # Generate football-friendly match ID
+            match_date_str = date.strftime('%Y-%m-%d')
+            competition_str = competition or "Friendly"
+            
+            # For home matches, team_id is home team, opponent is away team
+            # For away matches, opponent is home team, team_id is away team
+            if home_away.lower() == "home":
+                home_team = team_id
+                away_team = opponent
+            else:
+                home_team = opponent
+                away_team = team_id
+            
+            match_id = generate_football_match_id(home_team, away_team, match_date_str, competition_str)
+            
             match = Match.create(
                 team_id=team_id,
                 opponent=opponent,
@@ -29,9 +45,9 @@ class MatchService(IMatchService):
                 home_away=home_away,
                 competition=competition
             )
-            match_id = await self._data_store.create_match(match)
             match.id = match_id
-            logger.info(f"Match created: {match.id}")
+            await self._data_store.create_match(match)
+            logger.info(f"Football match created: {match.id}")
             return match
         except Exception as e:
             logger.error(f"Failed to create match: {e}")
