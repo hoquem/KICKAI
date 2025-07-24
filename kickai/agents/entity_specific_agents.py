@@ -15,7 +15,7 @@ from typing import Any
 from loguru import logger
 
 from kickai.core.entity_types import EntityType
-from kickai.core.enums import AgentRole
+from kickai.core.enums import AgentRole, ChatType
 
 from .configurable_agent import AgentContext, ConfigurableAgent
 from .tool_registry import ToolRegistry
@@ -91,8 +91,17 @@ class PlayerTeamMemberValidator(EntityValidator):
                 suggested_agent=AgentRole.MESSAGE_PROCESSOR
             )
 
-        # Check operation-based entity type first
-        entity_type = self.get_entity_type_from_operation(operation)
+        # Extract user context from parameters for simplified routing
+        user_context = {}
+        if 'chat_type' in parameters:
+            user_context['chat_type'] = parameters['chat_type']
+        if 'is_team_member' in parameters:
+            user_context['is_team_member'] = parameters['is_team_member']
+        if 'is_player' in parameters:
+            user_context['is_player'] = parameters['is_player']
+
+        # Check operation-based entity type first with user context
+        entity_type = self.get_entity_type_from_operation(operation, user_context)
 
         # If operation doesn't indicate entity type, check parameters
         if entity_type is None:
@@ -170,20 +179,48 @@ class PlayerTeamMemberValidator(EntityValidator):
 
         return None
 
-    def get_entity_type_from_operation(self, operation: str) -> EntityType | None:
-        """Extract entity type from operation name."""
+    def get_entity_type_from_operation(self, operation: str, user_context: dict = None) -> EntityType | None:
+        """Extract entity type from operation name with simplified chat-based logic."""
         operation_lower = operation.lower().strip()
 
         # Extract just the command name (before any parameters)
         command_name = operation_lower.split()[0] if operation_lower else ""
 
-        # Player-specific operations
+        # SIMPLIFIED LOGIC: Chat type determines entity type
+        if user_context:
+            chat_type = user_context.get('chat_type', '').lower()
+            
+            # Log context for debugging
+            logger.debug(f"Entity classification: operation={operation}, chat_type={chat_type}, user_context={user_context}")
+            
+            # In leadership chat, treat as team member
+            if chat_type == ChatType.LEADERSHIP.value:
+                if command_name in ['/myinfo', '/status', '/info', '/list', '/team']:
+                    return EntityType.TEAM_MEMBER
+                elif command_name in ['/addmember', '/add_member', '/addteammember', '/add_team_member', '/member', '/members', '/admin', '/management']:
+                    return EntityType.TEAM_MEMBER
+                else:
+                    return EntityType.TEAM_MEMBER  # Default to team member in leadership chat
+            
+            # In main chat, treat as player
+            elif chat_type == ChatType.MAIN.value:
+                if command_name in ['/myinfo', '/status', '/info', '/list']:
+                    return EntityType.PLAYER
+                elif command_name in ['/addplayer', '/add_player', '/register', '/approve', '/reject', '/player', '/players']:
+                    return EntityType.PLAYER
+                else:
+                    return EntityType.PLAYER  # Default to player in main chat
+            else:
+                logger.warning(f"Unknown chat_type: {chat_type} for operation: {operation}")
+        else:
+            logger.debug(f"No user_context provided for operation: {operation} - using fallback classification")
+
+        # Fallback to operation-based classification if no context
         player_operations = {
             '/addplayer', '/add_player', '/register', '/approve', '/reject',
-            '/player', '/players', '/myinfo', '/status', '/list'
+            '/player', '/players'
         }
 
-        # Team member-specific operations
         team_member_operations = {
             '/addmember', '/add_member', '/addteammember', '/add_team_member',
             '/member', '/members', '/admin', '/management'
@@ -250,6 +287,8 @@ class EntitySpecificAgentManager:
         elif entity_type == EntityType.TEAM_MEMBER:
             if any(keyword in command_name for keyword in ['/admin', '/manage', '/control']):
                 return AgentRole.TEAM_MANAGER
+            elif any(keyword in command_name for keyword in ['/myinfo', '/status', '/info', '/list', '/team']):
+                return AgentRole.MESSAGE_PROCESSOR  # Has get_my_team_member_status and list_team_members_and_players tools
             else:
                 return AgentRole.TEAM_MANAGER
 
@@ -309,9 +348,18 @@ class EntitySpecificAgentManager:
         parameters: dict[str, Any],
         available_agents: dict[AgentRole, ConfigurableAgent]
     ) -> AgentRole | None:
-        """Route an operation to the most appropriate agent."""
-        # Determine entity type from operation (not parameters)
-        entity_type = self.validator.get_entity_type_from_operation(operation)
+        """Route an operation to the most appropriate agent using simplified chat-based logic."""
+        # Extract user context from parameters for simplified routing
+        user_context = {}
+        if 'chat_type' in parameters:
+            user_context['chat_type'] = parameters['chat_type']
+        if 'is_team_member' in parameters:
+            user_context['is_team_member'] = parameters['is_team_member']
+        if 'is_player' in parameters:
+            user_context['is_player'] = parameters['is_player']
+
+        # Determine entity type from operation with user context
+        entity_type = self.validator.get_entity_type_from_operation(operation, user_context)
         if entity_type is None:
             entity_type = EntityType.NEITHER
 

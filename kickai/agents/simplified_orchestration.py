@@ -158,8 +158,16 @@ class EntityValidationStep(PipelineStep):
         intent_result = context.get('intent_result')
 
         try:
-            # Extract parameters from execution context
+            # Extract parameters from execution context and add missing context
             parameters = execution_context.get('parameters', {})
+            
+            # Add missing context information to parameters
+            if 'chat_type' in execution_context:
+                parameters['chat_type'] = execution_context['chat_type']
+            if 'is_team_member' in execution_context:
+                parameters['is_team_member'] = execution_context['is_team_member']
+            if 'is_player' in execution_context:
+                parameters['is_player'] = execution_context['is_player']
 
             # Extract command name from task description for proper validation
             command_name = task_description.split()[0] if task_description else ""

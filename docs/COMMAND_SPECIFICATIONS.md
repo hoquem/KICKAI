@@ -1,9 +1,9 @@
 # KICKAI Command Specifications
 
-**Version:** 4.0  
+**Version:** 4.1  
 **Status:** Production Ready  
 **Last Updated:** July 2025  
-**Architecture:** Plain Text with Emojis - Simple and Reliable
+**Architecture:** Simplified User Type Logic - Chat-Based Entity Classification
 
 This document defines the expected behavior for all KICKAI bot commands across different scenarios, chat types, and user states, using the latest agentic architecture.
 
@@ -23,10 +23,10 @@ This document defines the expected behavior for all KICKAI bot commands across d
 |---------|-------------|-----------|-----------------|------------------|-------|
 | `/help` | Show available commands | ✅ | ✅ | PUBLIC | HelpAssistantAgent |
 | `/start` | Initialize bot interaction | ✅ | ✅ | PUBLIC | MessageProcessorAgent |
-| `/register` | Register as a new player | ✅ | ❌ | PUBLIC | PlayerCoordinatorAgent |
-| `/myinfo` | Show personal information | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent |
-| `/status` | Check player/team member status | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent |
-| `/list` | List players/team members | ✅ | ✅ | PUBLIC | TeamManagerAgent |
+| `/register` | Register as a new player | ❌ | ✅ | PUBLIC | PlayerCoordinatorAgent |
+| `/myinfo` | Show personal information | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent (Main) / MessageProcessorAgent (Leadership) |
+| `/status` | Check player/team member status | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent (Main) / MessageProcessorAgent (Leadership) |
+| `/list` | List players/team members | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent (Main) / MessageProcessorAgent (Leadership) |
 
 ### Player Management Commands
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent |
@@ -374,35 +374,55 @@ Result: ✅ Access Granted - Player approval processed
 
 ## User States
 
+### **SIMPLIFIED USER TYPE LOGIC**
+
+The KICKAI system now uses a **simplified user type determination** based on chat context:
+
+#### **Core Principle: Chat Type Determines User Type**
+- **Leadership Chat** → Users are treated as **Team Members**
+- **Main Chat** → Users are treated as **Players**
+
+#### **Registration Status Determination**
+- **Leadership Chat**: User is registered if they exist in `kickai_{team_id}_team_members` collection
+- **Main Chat**: User is registered if they exist in `kickai_{team_id}_players` collection
+
+#### **Unregistered User Handling**
+- **Unregistered Team Member** (Leadership Chat): Prompted to register using `/register [name] [phone] [role]`
+- **Unregistered Player** (Main Chat): Prompted to contact team leadership to be added as a player
+
 ### Unregistered User
-**Status**: User not registered in the system  
-**Access**: Limited access - can only use `/register` command  
-**Data**: No record in Firestore  
+**Status**: User not registered in the appropriate collection for their chat type  
+**Access**: Limited access - can only use `/register` command (leadership chat) or contact leadership (main chat)  
+**Data**: No record in appropriate Firestore collection  
 **Registration**: Must register to gain access
 
-**Note**: Users who are not registered in the system can only use the `/register` command. All other commands will show a message asking them to contact an admin to be registered.
+**Note**: Users who are not registered in the appropriate collection can only use the `/register` command (in leadership chat) or are guided to contact leadership (in main chat). All other commands will show appropriate guidance messages.
 
 #### **Unregistered User Flow Processing**
 
-**Trigger**: Any command typed by an unregistered user (except `/register`)
+**Trigger**: Any command typed by an unregistered user (except `/register` in leadership chat)
 
 **Behavior**: 
-- Show message explaining they need to be registered
-- Block all commands except `/register`
-- Guide them to contact an admin
+- **Leadership Chat**: Show message explaining they need to register as team member
+- **Main Chat**: Show message explaining they need to contact team leadership
+- Block all commands except `/register` (leadership chat only)
+- Guide them to appropriate registration process
 
 #### **Implementation Flow**
 ```python
 # 1. User types any command
-# 2. System checks if user is registered
-is_registered = await self._check_user_registration(user_id)
+# 2. System determines chat type and checks appropriate registration
+if chat_type == ChatType.LEADERSHIP:
+    is_registered = await self._check_team_member_registration(user_id, team_id)
+else:  # Main chat
+    is_registered = await self._check_player_registration(user_id, team_id)
 
-# 3. If not registered and NOT /register command, show message and block processing
-if not is_registered and command != "/register":
+# 3. If not registered and NOT /register command (leadership chat), show message and block processing
+if not is_registered and (command != "/register" or chat_type != ChatType.LEADERSHIP):
     await self._show_unregistered_user_message(update, username, chat_type)
     return  # Block normal command processing
 
-# 4. If not registered and IS /register command, allow normal processing
+# 4. If not registered and IS /register command in leadership chat, allow normal processing
 # 5. After registration, user gains appropriate access based on chat type
 ```
 
@@ -414,14 +434,14 @@ if not is_registered and command != "/register":
 
 🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant
 
-🎯 To join the team as a player:
+🤔 You're not registered as a player yet.
 
 📞 Contact Team Leadership
 You need to be added as a player by someone in the team's leadership.
 
 💬 What to do:
 1. Reach out to someone in the team's leadership chat
-2. Ask them to add you as a player using the `/addplayer` command
+2. Ask them to add you as a player using the `/add` command
 3. They'll send you an invite link to join the main chat
 4. Once added, you can register with your full details
 
@@ -438,17 +458,17 @@ Use /help to see available commands or ask me questions!
 
 🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant
 
-🤔 I don't see you registered as a team member yet.
+🤔 You're not registered as a team member yet.
 
-📝 Please provide your details so I can add you to the team members collection.
+📝 To register as a team member, please provide your details:
 
-💡 You can use:
+💡 Use this command:
 /register [name] [phone] [role]
 
 Example:
 /register John Smith +1234567890 Assistant Coach
 
-🎯 Your role can be:
+🎯 Available roles:
 • Team Manager, Coach, Assistant Coach
 • Club Administrator, Treasurer
 • Volunteer Coordinator, etc.
@@ -458,13 +478,17 @@ Example:
 • Generate invite links for chats
 • Manage the team system
 
+❓ Got here by mistake?
+If you're not part of the team leadership, please leave this chat.
+
 Ready to get started? Use the /register command above!
 ```
 
-### Registered Player
+### Registered Player (Main Chat)
 **Status**: Active player in the system  
-**Access**: Main chat commands, limited leadership chat access  
-**Data**: Player record in Firestore
+**Access**: Main chat commands only  
+**Data**: Player record in `kickai_{team_id}_players` collection  
+**Context**: Users in main chat are always treated as players
 
 **Design Principle**: Commands have distinct implementations for different chat contexts to maintain clean, predictable behavior.
 
@@ -498,16 +522,17 @@ async def list_players_leadership(update, context):
 - **🛠️ Maintainable**: Easy to modify behavior for specific contexts
 - **🧪 Testable**: Each implementation can be tested independently
 
-### Registered Team Member
+### Registered Team Member (Leadership Chat)
 **Status**: Member of the leadership chat with team management responsibilities  
 **Access**: All commands in leadership chat, admin commands based on role  
-**Data**: Team member record in Firestore  
-**Registration**: Must register to provide their details
+**Data**: Team member record in `kickai_{team_id}_team_members` collection  
+**Registration**: Must register to provide their details  
+**Context**: Users in leadership chat are always treated as team members
 
-#### **Dual Role Capability**
-- **Team Member**: Core role as a member of the leadership chat
-- **Player**: Can also be a registered player if added to main chat and completed registration
+#### **Simplified Role Logic**
+- **Team Member**: Primary role as a member of the leadership chat
 - **Role-Based Permissions**: Admin commands only available with admin role
+- **No Dual Role Confusion**: Clear separation between chat contexts
 
 #### **Registration Process**
 ```python
@@ -538,8 +563,8 @@ async def approve_player(update, context):
 #### **Available Commands**
 - **All Leadership Commands**: Can run any command available in leadership chat
 - **Admin Commands**: Only if they have admin role
-- **Player Commands**: If also registered as a player in main chat
 - **Team Management**: Access to team oversight and coordination features
+- **Info Commands**: `/myinfo`, `/status`, `/list` route to team member tools
 
 #### **Example Team Member Response**
 ```
@@ -575,6 +600,46 @@ You can also ask me questions in natural language!
 **Access**: Basic commands only  
 **Data**: No Firestore record  
 **Guidance**: Users are asked to contact a member of the leadership team to be added as a player, or they can leave the chat if they got here by mistake.
+
+## Simplified Entity Classification
+
+### **Chat-Based Entity Type Determination**
+
+The KICKAI system now uses a **simplified entity classification** system that determines user type based on chat context:
+
+#### **Core Logic**
+```python
+# Simplified entity classification
+if chat_type == ChatType.LEADERSHIP:
+    # In leadership chat, treat as team member
+    entity_type = EntityType.TEAM_MEMBER
+elif chat_type == ChatType.MAIN:
+    # In main chat, treat as player
+    entity_type = EntityType.PLAYER
+else:
+    # Unknown chat type
+    entity_type = EntityType.NEITHER
+```
+
+#### **Command Routing Based on Chat Type**
+
+**Leadership Chat Commands:**
+- `/myinfo` → `MESSAGE_PROCESSOR` (has `get_my_team_member_status` tool)
+- `/status` → `MESSAGE_PROCESSOR` (has `get_my_team_member_status` tool)
+- `/list` → `MESSAGE_PROCESSOR` (has `list_team_members_and_players` tool)
+- `/team` → `MESSAGE_PROCESSOR` (has team member tools)
+
+**Main Chat Commands:**
+- `/myinfo` → `PLAYER_COORDINATOR` (has `get_my_status` tool)
+- `/status` → `PLAYER_COORDINATOR` (has `get_my_status` tool)
+- `/list` → `PLAYER_COORDINATOR` (has `get_all_players` tool)
+
+#### **Benefits of Simplified Logic**
+- **🎯 Clear Separation**: No ambiguity about user type
+- **🔧 Simpler Maintenance**: Logic is straightforward and easy to understand
+- ** Better UX**: Users get appropriate tools and responses based on chat context
+- **🛡️ Security**: Proper access control based on chat type
+- ** Clear Registration**: Unregistered users get appropriate guidance
 
 ## Command Specifications
 
@@ -1230,6 +1295,48 @@ async def status_leadership(update, context):
     phone = context.args[0] if context.args else None
     player = await get_player_by_phone(phone)
     return format_player_status(player, show_details=True)
-```
+
+---
+
+## **📋 Summary: Simplified User Type Logic**
+
+### **Key Changes in Version 4.0**
+
+The KICKAI system has been updated to use a **simplified user type determination** that eliminates complexity and improves maintainability:
+
+#### **🎯 Core Principle**
+- **Chat Type Determines User Type**
+  - Leadership Chat → Team Members
+  - Main Chat → Players
+
+#### **🔄 Simplified Registration Logic**
+- **Leadership Chat**: Users must be in `kickai_{team_id}_team_members` collection
+- **Main Chat**: Users must be in `kickai_{team_id}_players` collection
+
+#### **🛣️ Simplified Command Routing**
+- **Leadership Chat Commands** (`/myinfo`, `/status`, `/list`) → `MESSAGE_PROCESSOR` (team member tools)
+- **Main Chat Commands** (`/myinfo`, `/status`, `/list`) → `PLAYER_COORDINATOR` (player tools)
+
+#### **📝 Simplified Unregistered User Handling**
+- **Leadership Chat**: Prompted to register using `/register [name] [phone] [role]`
+- **Main Chat**: Prompted to contact team leadership to be added as a player
+
+#### **✅ Benefits Achieved**
+- **🎯 Clear Separation**: No ambiguity about user type
+- **🔧 Simpler Maintenance**: Logic is straightforward and easy to understand
+- ** Better UX**: Users get appropriate tools and responses based on chat context
+- **🛡️ Security**: Proper access control based on chat type
+- ** Clear Registration**: Unregistered users get appropriate guidance
+
+### **🚀 Migration Notes**
+
+This simplified logic replaces the previous complex dual-role system where users could be both players and team members. The new system provides:
+
+1. **Clearer User Experience**: Users know exactly what they are based on which chat they're in
+2. **Simpler Codebase**: No complex role determination logic
+3. **Better Maintainability**: Easy to understand and modify
+4. **Consistent Behavior**: Same commands always behave the same way in the same context
+
+The system is now **production-ready** with robust error handling, comprehensive logging, and type-safe code.
 
 This clean design approach ensures the system is maintainable, testable, and follows software engineering best practices! 🚀
