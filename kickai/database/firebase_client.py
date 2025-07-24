@@ -6,6 +6,7 @@ error handling, batch operations, and performance optimization.
 """
 
 import os
+import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
@@ -406,22 +407,30 @@ class FirebaseClient:
     async def create_player(self, player: Any) -> str:
         """Create a new player."""
         data = serialize_enums_for_firestore(player.to_dict())
-        # Use player_id as the document ID for predictable lookups
-        collection_name = get_collection_name(COLLECTION_PLAYERS)
+        # Use team-specific collection for player data
+        from kickai.core.firestore_constants import get_team_players_collection
+        collection_name = get_team_players_collection(player.team_id)
         return await self.create_document(collection_name, data, player.player_id)
 
-    async def get_player(self, player_id: str) -> Any | None:
+    async def get_player(self, player_id: str, team_id: str) -> Any | None:
         """Get a player by ID."""
-        collection_name = get_collection_name(COLLECTION_PLAYERS)
+        from kickai.core.firestore_constants import get_team_players_collection
+        collection_name = get_team_players_collection(team_id)
         data = await self.get_document(collection_name, player_id)
         if data:
-            return Any.from_dict(data)
+            return data
         return None
 
-    async def update_player(self, player_id: str, updates: dict[str, Any]) -> Any | None:
+    async def update_player(self, player_id: str, updates: dict[str, Any], team_id: str = None) -> Any | None:
         """Update a player by ID with specific fields and return the updated player."""
         try:
-            collection_name = get_collection_name(COLLECTION_PLAYERS)
+            # Use team-specific collection if team_id is provided
+            if team_id:
+                from kickai.core.firestore_constants import get_team_players_collection
+                collection_name = get_team_players_collection(team_id)
+            else:
+                collection_name = get_collection_name(COLLECTION_PLAYERS)
+                
             # First get the current player data
             current_data = await self.get_document(collection_name, player_id)
             if not current_data:
@@ -436,50 +445,55 @@ class FirebaseClient:
             if not success:
                 return None
 
-            # Return the updated player object
-            return Any.from_dict(current_data)
+            # Return the updated player data
+            return current_data
 
         except Exception as e:
             logger.error(f"Failed to update player {player_id}: {e}")
             return None
 
-    async def delete_player(self, player_id: str) -> bool:
+    async def delete_player(self, player_id: str, team_id: str) -> bool:
         """Delete a player."""
-        collection_name = get_collection_name(COLLECTION_PLAYERS)
+        from kickai.core.firestore_constants import get_team_players_collection
+        collection_name = get_team_players_collection(team_id)
         return await self.delete_document(collection_name, player_id)
 
     async def get_players_by_team(self, team_id: str) -> list[Any]:
         """Get all players for a team."""
-        collection_name = get_collection_name(COLLECTION_PLAYERS)
-        filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
-        data_list = await self.query_documents(collection_name, filters)
+        from kickai.core.firestore_constants import get_team_players_collection
+        collection_name = get_team_players_collection(team_id)
+        data_list = await self.query_documents(collection_name, [])
         players = []
         for data in data_list:
-            player = Any.from_dict(data)
-            if player:
-                players.append(player)
+            if data:
+                players.append(data)
             else:
                 logger.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_players_by_team")
         return players
 
     async def get_player_by_phone(self, phone: str, team_id: str | None = None) -> Any | None:
         """Get a player by phone number, optionally filtered by team."""
-        from kickai.utils.phone_utils import get_phone_variants
+        from kickai.utils.phone_validation import get_phone_variants
 
-        collection_name = get_collection_name(COLLECTION_PLAYERS)
-        # Get all phone variants for flexible matching
+        # Use team-specific collection if team_id is provided
+        if team_id:
+            from kickai.core.firestore_constants import get_team_players_collection
+            collection_name = get_team_players_collection(team_id)
+        else:
+            collection_name = get_collection_name(COLLECTION_PLAYERS)
+            
+        # Get all phone variants for flexible matching using enhanced validation
         phone_variants = get_phone_variants(phone)
 
         # Try to find player with any of the phone variants
         for variant in phone_variants:
-            filters = [{'field': 'phone', 'operator': '==', 'value': variant}]
+            filters = [{'field': 'phone_number', 'operator': '==', 'value': variant}]
             if team_id:
                 filters.append({'field': 'team_id', 'operator': '==', 'value': team_id})
             data_list = await self.query_documents(collection_name, filters, limit=1)
             for data in data_list:
-                player = Any.from_dict(data)
-                if player:
-                    return player
+                if data:
+                    return data
                 else:
                     logger.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_player_by_phone")
         return None
@@ -490,17 +504,16 @@ class FirebaseClient:
 
     async def get_players_by_status(self, team_id: str, status: Any) -> list[Any]:
         """Get players by onboarding status."""
-        collection_name = get_collection_name(COLLECTION_PLAYERS)
+        from kickai.core.firestore_constants import get_team_players_collection
+        collection_name = get_team_players_collection(team_id)
         filters = [
-            {'field': 'team_id', 'operator': '==', 'value': team_id},
             {'field': 'onboarding_status', 'operator': '==', 'value': status.value}
         ]
         data_list = await self.query_documents(collection_name, filters)
         players = []
         for data in data_list:
-            player = Any.from_dict(data)
-            if player:
-                players.append(player)
+            if data:
+                players.append(data)
             else:
                 logger.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_players_by_status")
         return players
@@ -513,67 +526,88 @@ class FirebaseClient:
     async def create_team(self, team: Any) -> str:
         """Create a new team."""
         data = team.to_dict()
-        return await self.create_document('teams', data, team.id)
+        from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
+        collection_name = get_collection_name(COLLECTION_TEAMS)
+        return await self.create_document(collection_name, data, team.id)
 
     async def get_team(self, team_id: str) -> Any | None:
         """Get a team by ID."""
-        data = await self.get_document('teams', team_id)
+        from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
+        collection_name = get_collection_name(COLLECTION_TEAMS)
+        data = await self.get_document(collection_name, team_id)
         if data:
-            return Any.from_dict(data)
+            return data
         return None
 
     async def update_team(self, team: Any) -> bool:
         """Update a team."""
         data = team.to_dict()
-        return await self.update_document('teams', team.id, data)
+        from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
+        collection_name = get_collection_name(COLLECTION_TEAMS)
+        return await self.update_document(collection_name, team.id, data)
 
     async def delete_team(self, team_id: str) -> bool:
         """Delete a team."""
-        return await self.delete_document('teams', team_id)
+        from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
+        collection_name = get_collection_name(COLLECTION_TEAMS)
+        return await self.delete_document(collection_name, team_id)
 
     async def get_team_by_name(self, name: str) -> Any | None:
         """Get a team by name."""
+        from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
+        collection_name = get_collection_name(COLLECTION_TEAMS)
         filters = [{'field': 'name', 'operator': '==', 'value': name}]
-        data_list = await self.query_documents('teams', filters, limit=1)
+        data_list = await self.query_documents(collection_name, filters, limit=1)
         if data_list:
-            return Any.from_dict(data_list[0])
+            return data_list[0]
         return None
 
     async def get_all_teams(self, status: Any | None = None) -> list[Any]:
         """Get all teams, optionally filtered by status."""
+        from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
+        collection_name = get_collection_name(COLLECTION_TEAMS)
         filters = []
         if status:
             filters.append({'field': 'status', 'operator': '==', 'value': status.value})
-        data_list = await self.query_documents('teams', filters)
-        return [Any.from_dict(data) for data in data_list]
+        data_list = await self.query_documents(collection_name, filters)
+        return data_list
 
     # Match-specific operations
     async def create_match(self, match: Any) -> str:
         """Create a new match."""
         data = match.to_dict()
-        return await self.create_document('matches', data, match.id)
+        from kickai.core.firestore_constants import get_team_matches_collection
+        collection_name = get_team_matches_collection(match.team_id)
+        return await self.create_document(collection_name, data, match.id)
 
-    async def get_match(self, match_id: str) -> Any | None:
+    async def get_match(self, match_id: str, team_id: str) -> Any | None:
         """Get a match by ID."""
-        data = await self.get_document('matches', match_id)
+        from kickai.core.firestore_constants import get_team_matches_collection
+        collection_name = get_team_matches_collection(team_id)
+        data = await self.get_document(collection_name, match_id)
         if data:
-            return Any.from_dict(data)
+            return data
         return None
 
     async def update_match(self, match: Any) -> bool:
         """Update a match."""
         data = match.to_dict()
-        return await self.update_document('matches', match.id, data)
+        from kickai.core.firestore_constants import get_team_matches_collection
+        collection_name = get_team_matches_collection(match.team_id)
+        return await self.update_document(collection_name, match.id, data)
 
-    async def delete_match(self, match_id: str) -> bool:
+    async def delete_match(self, match_id: str, team_id: str) -> bool:
         """Delete a match."""
-        return await self.delete_document('matches', match_id)
+        from kickai.core.firestore_constants import get_team_matches_collection
+        collection_name = get_team_matches_collection(team_id)
+        return await self.delete_document(collection_name, match_id)
 
     async def get_matches_by_team(self, team_id: str) -> list[Any]:
         """Get all matches for a team."""
-        filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
-        data_list = await self.query_documents('matches', filters)
-        return [Any.from_dict(data) for data in data_list]
+        from kickai.core.firestore_constants import get_team_matches_collection
+        collection_name = get_team_matches_collection(team_id)
+        data_list = await self.query_documents(collection_name, [])
+        return data_list
 
     async def get_team_matches(self, team_id: str) -> list[Any]:
         """Get all matches for a team."""
@@ -667,7 +701,9 @@ class FirebaseClient:
         """Get a player by telegram_id and team_id efficiently."""
         logger.debug(f"get_player_by_telegram_id called with telegram_id={telegram_id}, team_id={team_id}")
         try:
-            collection_name = get_collection_name(COLLECTION_PLAYERS)
+            # Use team-specific collection
+            from kickai.core.firestore_constants import get_team_players_collection
+            collection_name = get_team_players_collection(team_id)
             filters = [
                 {'field': 'telegram_id', 'operator': '==', 'value': telegram_id},
                 {'field': 'team_id', 'operator': '==', 'value': team_id}
@@ -676,8 +712,8 @@ class FirebaseClient:
             data_list = await self.query_documents(collection_name, filters, limit=1)
             logger.debug(f"query_documents result: {data_list}")
             if data_list:
-                player = Any.from_dict(data_list[0])
-                logger.debug(f"created Player object: {player}")
+                player = data_list[0]
+                logger.debug(f"found player data: {player}")
                 return player
             logger.debug(f"No player found with telegram_id={telegram_id}, team_id={team_id}")
             return None

@@ -109,11 +109,8 @@ class Settings(BaseSettings):
         description="Telegram timeout in seconds"
     )
 
-    # Team Configuration
-    default_team_id: str = Field(
-        default="KAI",
-        description="Default team ID"
-    )
+    # Team Configuration - REMOVED: No default team ID allowed
+    # All operations must explicitly provide team_id from execution context
 
     # Payment Configuration
     collectiv_api_key: str = Field(
@@ -140,7 +137,7 @@ class Settings(BaseSettings):
     )
     log_file_path: str | None = Field(
         default=None,
-        description="Log file path"
+        description="Log file path (disabled - use redirection for file logging)"
     )
     log_max_file_size: int = Field(
         default=10 * 1024 * 1024,  # 10MB

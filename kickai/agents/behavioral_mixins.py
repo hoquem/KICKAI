@@ -993,7 +993,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
             
             # Get team to access bot configuration
             team_service = container.get_service(ITeamService)
-            team = await team_service.get_team(team_id)
+            team = await team_service.get_team(team_id=team_id)
             if not team or not team.leadership_chat_id:
                 return "❌ Team not found or no leadership chat configured"
 

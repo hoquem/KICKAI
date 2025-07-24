@@ -32,6 +32,8 @@ class TelegramMessage:
     team_id: str
     text: str
     raw_update: Any = None
+    contact_phone: str = None
+    contact_user_id: str = None
 
 
 @dataclass
@@ -40,6 +42,7 @@ class AgentResponse:
     message: str
     success: bool = True
     error: str | None = None
+    needs_contact_button: bool = False
 
 
 class UserFlowAgent:
@@ -157,14 +160,13 @@ class UserFlowAgent:
                 message = (
                     f"👋 Welcome to KICKAI for {team_id}, {username}!\n\n"
                     f"🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant\n\n"
-                    f"🎯 To join the team as a player:\n\n"
-                    f"📞 Contact Team Leadership\n"
-                    f"You need to be added as a player by someone in the team's leadership.\n\n"
-                    f"💬 What to do:\n"
-                    f"1. Reach out to someone in the team's leadership chat\n"
-                    f"2. Ask them to add you as a player using the /add command\n"
-                    f"3. They'll send you an invite link to join the main chat\n"
-                    f"4. Once added, you can register with your full details\n\n"
+                    f"🔗 **Account Linking Available**\n"
+                    f"I can help you link to an existing player record if you were added by team leadership.\n\n"
+                    f"📱 **To link your account:**\n"
+                    f"Type your phone number in international format:\n"
+                    f"Example: +447123456789\n\n"
+                    f"💬 **If linking doesn't work:**\n"
+                    f"Contact team leadership to be added as a player using the /addplayer command.\n\n"
                     f"❓ Got here by mistake?\n"
                     f"If you're not interested in joining the team, you can leave this chat.\n\n"
                     f"🤖 Need help?\n"
@@ -364,6 +366,18 @@ class UserFlowAgent:
                             return True
                     except Exception as e:
                         logger.debug(f"User {user_id} not found as player: {e}")
+
+                # Check if there are pending players that could be linked
+                try:
+                    from kickai.features.player_registration.domain.services.player_linking_service import PlayerLinkingService
+                    linking_service = PlayerLinkingService(self.team_id)
+                    pending_players = await linking_service.get_pending_players_without_telegram_id()
+                    
+                    if pending_players:
+                        logger.info(f"🔗 Found {len(pending_players)} pending players that could be linked for user {user_id}")
+                        # Don't return True here - let the user flow handle the linking
+                except Exception as e:
+                    logger.debug(f"Could not check pending players: {e}")
 
                 logger.info(f"❌ User {user_id} not registered as player in main chat")
                 return False

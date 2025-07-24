@@ -3,18 +3,23 @@
 Centralized Logging Configuration for KICKAI
 
 This module provides standardized logging configuration using loguru
-for consistent debugging across the entire system.
+for console-only logging. File logging is handled through redirection
+in the startup scripts.
 """
 
 import sys
+import os
 
 from loguru import logger
 
-# Remove all existing handlers and add loguru handlers
+# Remove all existing handlers to prevent double logging
 logger.remove()
 
+# Check if we're in a test environment
+is_test = os.getenv("TESTING", "false").lower() == "true"
+
 # Add console handler only - this is the primary logging destination
-# File logging will be handled by redirecting console output in local development
+# File logging will be handled by redirecting console output in startup scripts
 logger.add(
     sys.stdout,
     level="INFO",
@@ -22,10 +27,11 @@ logger.add(
     enqueue=True,
     backtrace=True,
     diagnose=True,
-    colorize=True
+    colorize=True,
+    filter=lambda record: not is_test or record["level"].name in ["ERROR", "CRITICAL"]
 )
 
-# Add error handler to stderr for critical errors
+# Add error handler to stderr for critical errors only
 logger.add(
     sys.stderr,
     level="ERROR",

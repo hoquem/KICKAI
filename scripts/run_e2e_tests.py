@@ -110,25 +110,10 @@ async def run_test_suite(suite_name: str, verbose: bool = False) -> bool:
     
     # Get configuration
     config = get_settings()
-    # Fix: Use correct attribute for team ID
-    team_id = None
-    if hasattr(config, 'team') and hasattr(config.team, 'default_team_id'):
-        team_id = config.team.default_team_id
-    elif hasattr(config, 'teams'):
-        teams = config.teams
-        if isinstance(teams, dict):
-            # Try 'default' key or first key
-            if 'default' in teams and hasattr(teams['default'], 'team_id'):
-                team_id = teams['default'].team_id
-            else:
-                # Fallback: get first team_id
-                for t in teams.values():
-                    if hasattr(t, 'team_id'):
-                        team_id = t.team_id
-                        break
-        elif isinstance(teams, list) and len(teams) > 0 and hasattr(teams[0], 'team_id'):
-            team_id = teams[0].team_id
-    logger.info(f"📋 Team ID: {team_id}")
+    # Team ID should come from Firestore, not from environment or config
+    # For testing, we need to get the team ID from the actual team configuration
+    team_id = None  # Will be set from Firestore team configuration
+    logger.info(f"📋 Team ID: Will be retrieved from Firestore team configuration")
     
     # Initialize test components
     logger.info("🔧 Initializing test components...")

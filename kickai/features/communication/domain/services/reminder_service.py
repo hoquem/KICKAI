@@ -94,7 +94,7 @@ class ReminderService(IReminderService):
             )
 
         except Exception as e:
-            logging.error(f"Error sending automated reminder to {player.name}: {e}")
+            logging.error(f"Error sending automated reminder to {player.full_name}: {e}")
             return None
 
     async def send_manual_reminder(self, player_id: str, admin_id: str) -> tuple[bool, str]:
@@ -112,7 +112,7 @@ class ReminderService(IReminderService):
                 return False, f"❌ Player {player_id} not found"
 
             if player.onboarding_status not in [OnboardingStatus.IN_PROGRESS, OnboardingStatus.PENDING]:
-                return False, f"❌ Player {player.name} is not in onboarding"
+                return False, f"❌ Player {player.full_name} is not in onboarding"
 
             # Generate manual reminder message
             message = self._generate_manual_reminder_message(player)
@@ -130,7 +130,7 @@ class ReminderService(IReminderService):
             await self._send_telegram_message(player.telegram_id, message)
 
             # Return success message for admin
-            admin_message = f"""📢 Reminder Sent to {player.name} ({player.player_id})
+            admin_message = f"""📢 Reminder Sent to {player.full_name} ({player.player_id})
 
 📋 Reminder Details:
 • Type: Manual Admin Reminder
@@ -171,7 +171,7 @@ class ReminderService(IReminderService):
         if reminder_number == 1:
             return f"""⏰ Gentle Reminder - Complete Your Onboarding
 
-Hi {player.name}! 👋
+Hi {player.full_name}! 👋
 
 You started your KICKAI Team onboarding yesterday but haven't completed it yet.
 
@@ -191,7 +191,7 @@ Ready to continue? Just reply with your emergency contact details!"""
         elif reminder_number == 2:
             return f"""⏰ Reminder - Onboarding Still Pending
 
-Hi {player.name}! 👋
+Hi {player.full_name}! 👋
 
 Your KICKAI Team onboarding is still incomplete. Let's get you set up!
 
@@ -211,7 +211,7 @@ Need help? Just reply with "help"!"""
         else:  # reminder_number >= 3
             return f"""⏰ Final Reminder - Complete Onboarding
 
-Hi {player.name}! 👋
+Hi {player.full_name}! 👋
 
 This is your final reminder to complete your KICKAI Team onboarding.
 
@@ -237,7 +237,7 @@ Let's get you fully registered!"""
 
         return f"""💰 Payment Reminder
 
-Hi {player.name}! 👋
+Hi {player.full_name}! 👋
 
 You have outstanding payments that need to be settled:
 
@@ -261,7 +261,7 @@ Need help? Reply with "help" or contact admin!"""
 
         return f"""📢 Admin Reminder - Complete Your Onboarding
 
-Hi {player.name}! 👋
+Hi {player.full_name}! 👋
 
 Your team admin has sent you a reminder to complete your onboarding.
 
@@ -299,7 +299,7 @@ Please complete your onboarding as soon as possible!"""
     async def _notify_admin_reminder_sent(self, player: Player, reminder_number: int) -> None:
         """Notify admin that a reminder was sent."""
         # This would send a notification to admin
-        logging.info(f"Reminder #{reminder_number} sent to {player.name} ({player.player_id})")
+        logging.info(f"Reminder #{reminder_number} sent to {player.full_name} ({player.player_id})")
 
     async def get_players_needing_reminders(self) -> list[Player]:
         """Get list of players who need reminders."""

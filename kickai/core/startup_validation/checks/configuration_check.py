@@ -38,8 +38,7 @@ class ConfigurationCheck(BaseCheck):
                 if not hasattr(config, field) or getattr(config, field) is None:
                     missing_fields.append(field)
 
-            if not config.default_team_id:
-                missing_fields.append('default_team_id')
+            # REMOVED: default_team_id validation - team context should come from execution context
 
             if missing_fields:
                 return CheckResult(
@@ -60,7 +59,7 @@ class ConfigurationCheck(BaseCheck):
                 category=self.category,
                 status=CheckStatus.PASSED,
                 message="Configuration loaded successfully",
-                details={'provider': f'AIProvider.{provider_str.upper()}', 'team_id': config.default_team_id},
+                details={'provider': f'AIProvider.{provider_str.upper()}', 'note': 'team_id comes from execution context'},
                 duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
             )
         except Exception as e:

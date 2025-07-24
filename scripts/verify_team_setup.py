@@ -112,8 +112,8 @@ class TeamSetupVerifier:
                 # Get admin player details
                 admin_player = await self.player_service.get_player_by_id(admin_member.user_id)
                 if admin_player:
-                    logger.info(f"✅ Admin user found: {admin_player.name}")
-                    logger.info(f"   Phone: {admin_player.phone}")
+                    logger.info(f"✅ Admin user found: {admin_player.full_name}")
+                    logger.info(f"   Phone: {admin_player.phone_number}")
                     logger.info(f"   Email: {admin_player.email}")
                     logger.info(f"   Role: {admin_player.role.value}")
                     return admin_player

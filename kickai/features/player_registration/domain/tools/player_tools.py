@@ -1,33 +1,32 @@
+#!/usr/bin/env python3
 """
-Player management tools for KICKAI system.
+Player Tools
 
-This module provides tools for player management, approval, and information retrieval.
+This module provides tools for player management operations.
 """
 
 import asyncio
-import logging
+from typing import Any
 
 from crewai.tools import tool
+from loguru import logger
 from pydantic import BaseModel
 
 from kickai.core.dependency_container import get_container
+from kickai.core.exceptions import (
+    PlayerAlreadyExistsError,
+    PlayerValidationError,
+    ServiceNotAvailableError,
+    TeamNotFoundError,
+    TeamNotConfiguredError,
+)
 from kickai.features.player_registration.domain.services.player_service import PlayerService
 from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
-from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
-
-logger = logging.getLogger(__name__)
-
-
-class ApprovePlayerInput(BaseModel):
-    """Input model for approve_player tool."""
-    player_id: str
-    team_id: str | None = None
-
-
-class GetPlayerStatusInput(BaseModel):
-    """Input model for get_player_status tool."""
-    player_id: str
-    team_id: str | None = None
+from kickai.utils.validation_utils import (
+    normalize_phone,
+    sanitize_input,
+    validate_player_input,
+)
 
 
 class AddPlayerInput(BaseModel):
@@ -35,84 +34,106 @@ class AddPlayerInput(BaseModel):
     name: str
     phone: str
     position: str
-    team_id: str | None = None
+    team_id: str
+
+
+class ApprovePlayerInput(BaseModel):
+    """Input model for approve_player tool."""
+    player_id: str
+    team_id: str
+
+
+class GetPlayerStatusInput(BaseModel):
+    """Input model for get_player_status tool."""
+    player_id: str
+    team_id: str
 
 
 class GetMatchInput(BaseModel):
     """Input model for get_match tool."""
     match_id: str
+    team_id: str
 
 
 @tool("add_player")
-def add_player(name: str, phone: str, position: str, team_id: str | None = None) -> str:
+async def add_player(name: str, phone: str, position: str, team_id: str) -> str:
     """
-    Add a new player to the team with invite link. Requires: name, phone, position
+    Add a new player to the team with invite link. Requires: name, phone, position, team_id
 
     Args:
         name: The name of the player to add
         phone: The player's phone number
         position: The player's position
-        team_id: Optional team ID for context
+        team_id: Team ID (required)
 
     Returns:
         Player information and invite link, or existing player info if already exists
     """
     try:
+        # Sanitize inputs to prevent injection attacks
+        name = sanitize_input(name, max_length=100)
+        phone = sanitize_input(phone, max_length=20)
+        position = sanitize_input(position, max_length=50)
+        team_id = sanitize_input(team_id, max_length=20)
+        
+        # Validate inputs
+        validation_errors = validate_player_input(name, phone, position, team_id)
+        if validation_errors:
+            raise PlayerValidationError(validation_errors)
+        
+        # Normalize phone number
+        normalized_phone = normalize_phone(phone)
+        
+        # Get services from container
         container = get_container()
         player_service = container.get_service(PlayerService)
-
+        team_service = container.get_service(ITeamService)
+        
         if not player_service:
-            logger.error("❌ PlayerService not available")
-            return "❌ Player service not available"
-
-        # Normalize phone number
-        from kickai.utils.phone_utils import normalize_phone
-        normalized_phone = normalize_phone(phone)
-
+            raise ServiceNotAvailableError("PlayerService")
+        
+        if not team_service:
+            raise ServiceNotAvailableError("TeamService")
+        
         # Check if player already exists
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        existing_player = loop.run_until_complete(
-            player_service.get_player_by_phone(phone=normalized_phone, team_id=team_id or "KAI")
+        existing_player = await player_service.get_player_by_phone(
+            phone=normalized_phone, team_id=team_id
         )
-
+        
         if existing_player:
             # Player exists - return existing info + new invite link
             logger.info(f"ℹ️ Player already exists: {name} ({position})")
-
+            
             # Generate new invite link for existing player
-            from kickai.core.settings import get_settings
             from kickai.features.communication.domain.services.invite_link_service import (
                 InviteLinkService,
             )
-
+            
             invite_service = container.get_service(InviteLinkService)
+            if not invite_service:
+                raise ServiceNotAvailableError("InviteLinkService")
             
             # Get team to access bot configuration
-            team_service = container.get_service(ITeamService)
-            team = loop.run_until_complete(team_service.get_team(team_id or "KAI"))
-            if not team or not team.main_chat_id:
-                return "❌ Team not found or no main chat configured"
-
-            invite_result = loop.run_until_complete(
-                invite_service.create_player_invite_link(
-                    team_id=team_id or "KAI",
-                    player_name=existing_player.name,
-                    player_phone=existing_player.phone,
-                    player_position=existing_player.position,
-                    main_chat_id=team.main_chat_id
-                )
+            team = await team_service.get_team(team_id=team_id)
+            if not team:
+                raise TeamNotFoundError(team_id)
+            
+            if not team.main_chat_id:
+                raise TeamNotConfiguredError(team_id, "main_chat_id")
+            
+            invite_result = await invite_service.create_player_invite_link(
+                team_id=team_id,
+                player_name=existing_player.full_name,
+                player_phone=existing_player.phone_number,
+                player_position=existing_player.position,
+                main_chat_id=team.main_chat_id
             )
-
+            
             return f"""ℹ️ Player Already Exists
 
 👤 Existing Player Details:
-• Name: {existing_player.name}
-• Phone: {existing_player.phone}
+• Name: {existing_player.full_name}
+• Phone: {existing_player.phone_number}
 • Position: {existing_player.position}
 • Player ID: {existing_player.player_id or 'Not assigned'}
 • Status: {existing_player.status.title()}
@@ -121,50 +142,49 @@ def add_player(name: str, phone: str, position: str, team_id: str | None = None)
 {invite_result['invite_link']}
 
 💡 Note: This invite link is unique, expires in 7 days, and can only be used once."""
-
+        
         # Add new player
-        success, result = loop.run_until_complete(
-            player_service.add_player(
-                name=name,
-                phone=normalized_phone,
-                position=position,
-                team_id=team_id or "KAI"
-            )
+        success, result = await player_service.add_player(
+            name=name,
+            phone=normalized_phone,
+            position=position,
+            team_id=team_id
         )
-
+        
         if success:
             logger.info(f"✅ Player added: {name} ({position})")
-
+            
             # Extract player ID from the result message
             player_id = None
             if "ID:" in result:
                 player_id = result.split("ID:")[1].strip()
-
+            
             # Generate invite link for new player
-            from kickai.core.settings import get_settings
             from kickai.features.communication.domain.services.invite_link_service import (
                 InviteLinkService,
             )
-
+            
             invite_service = container.get_service(InviteLinkService)
+            if not invite_service:
+                raise ServiceNotAvailableError("InviteLinkService")
             
             # Get team to access bot configuration
-            team_service = container.get_service(ITeamService)
-            team = loop.run_until_complete(team_service.get_team(team_id or "KAI"))
-            if not team or not team.main_chat_id:
-                return "❌ Team not found or no main chat configured"
-
-            invite_result = loop.run_until_complete(
-                invite_service.create_player_invite_link(
-                    team_id=team_id or "KAI",
-                    player_name=name,
-                    player_phone=normalized_phone,
-                    player_position=position,
-                    main_chat_id=team.main_chat_id,
-                    player_id=player_id  # Pass the extracted player ID
-                )
+            team = await team_service.get_team(team_id=team_id)
+            if not team:
+                raise TeamNotFoundError(team_id)
+            
+            if not team.main_chat_id:
+                raise TeamNotConfiguredError(team_id, "main_chat_id")
+            
+            invite_result = await invite_service.create_player_invite_link(
+                team_id=team_id,
+                player_name=name,
+                player_phone=normalized_phone,
+                player_position=position,
+                main_chat_id=team.main_chat_id,
+                player_id=player_id  # Pass the extracted player ID
             )
-
+            
             return f"""✅ Player Added Successfully!
 
 👤 Player Details:
@@ -186,38 +206,68 @@ def add_player(name: str, phone: str, position: str, team_id: str | None = None)
         else:
             logger.error(f"❌ Failed to add player: {name}")
             return f"❌ Failed to add player: {name}\n\n{result}"
-
+    
+    except PlayerValidationError as e:
+        logger.warning(f"Validation error in add_player: {e}")
+        return f"❌ Invalid input: {e.message}"
+    except PlayerAlreadyExistsError:
+        # This should be handled above, but just in case
+        return "ℹ️ Player already exists. Generating new invite link..."
+    except TeamNotFoundError as e:
+        logger.error(f"Team not found in add_player: {e}")
+        return f"❌ Team not found: {e.message}"
+    except TeamNotConfiguredError as e:
+        logger.error(f"Team not configured in add_player: {e}")
+        return f"❌ Team not configured: {e.message}"
+    except ServiceNotAvailableError as e:
+        logger.error(f"Service not available in add_player: {e}")
+        return f"❌ Service temporarily unavailable: {e.message}"
     except Exception as e:
-        logger.error(f"❌ Failed to add player: {e}")
-        return f"❌ Failed to add player: {e!s}"
+        logger.error(f"Unexpected error in add_player: {e}", exc_info=True)
+        return "❌ System error. Please try again later."
 
 
 @tool("approve_player")
-def approve_player(player_id: str, team_id: str | None = None) -> str:
+async def approve_player(player_id: str, team_id: str) -> str:
     """
-    Approve a player for team participation. Requires: player_id
+    Approve a player for team participation. Requires: player_id, team_id
 
     Args:
         player_id: The player ID to approve
-        team_id: Optional team ID for context
+        team_id: Team ID for context
 
     Returns:
         Approval status or error message
     """
     try:
+        # Sanitize inputs
+        player_id = sanitize_input(player_id, max_length=50)
+        team_id = sanitize_input(team_id, max_length=20)
+        
+        # Validate team_id
+        if not team_id or not team_id.strip():
+            return "❌ Team ID is required"
+        
         container = get_container()
         player_service = container.get_service(PlayerService)
-        result = player_service.approve_player(player_id, team_id)
+        
+        if not player_service:
+            raise ServiceNotAvailableError("PlayerService")
+        
+        result = await player_service.approve_player(player_id, team_id)
         logger.info(f"✅ Player approved: {player_id}")
         return result
-
+    
+    except ServiceNotAvailableError as e:
+        logger.error(f"Service not available in approve_player: {e}")
+        return f"❌ Service temporarily unavailable: {e.message}"
     except Exception as e:
-        logger.error(f"❌ Failed to approve player: {e}")
-        return f"❌ Failed to approve player: {e!s}"
+        logger.error(f"Failed to approve player: {e}", exc_info=True)
+        return f"❌ Failed to approve player: {e}"
 
 
 @tool("get_my_status")
-def get_my_status(team_id: str, user_id: str) -> str:
+async def get_my_status(team_id: str, user_id: str) -> str:
     """
     Get current user's player status and information. 
     This tool is for players in the main chat.
@@ -228,212 +278,314 @@ def get_my_status(team_id: str, user_id: str) -> str:
         User's player status and information
     """
     try:
-        # For now, we'll use a simplified approach that works with the current system
-        # In a future iteration, we can improve this to extract context from the task description
-
-        # Lazy-load services only when needed
-        try:
-            container = get_container()
-            player_service = container.get_service(PlayerService)
-        except Exception as e:
-            logger.error(f"❌ Failed to get services from container: {e}")
-            return "❌ Service temporarily unavailable. Please try again in a moment."
-
-        # Parameters are now passed explicitly - no context extraction needed
+        # Sanitize inputs
+        team_id = sanitize_input(team_id, max_length=20)
+        user_id = sanitize_input(user_id, max_length=50)
+        
+        # Validate inputs
+        if not team_id or not team_id.strip():
+            return "❌ Team ID is required"
+        
+        if not user_id or not user_id.strip():
+            return "❌ User ID is required"
+        
+        # Get services from container
+        container = get_container()
+        player_service = container.get_service(PlayerService)
+        
+        if not player_service:
+            raise ServiceNotAvailableError("PlayerService")
+        
         logger.info(f"🔧 get_my_status called with team_id: {team_id}, user_id: {user_id}")
+        
+        # Get player status
+        player = await player_service.get_player_by_user_id(user_id, team_id)
+        
+        if not player:
+            return f"""👋 Welcome to KICKAI! 
 
-        # Try to get player status
-        try:
-            result = player_service.get_my_status(user_id, team_id)
-            logger.info(f"✅ Player status retrieved for user: {user_id} in team: {team_id}")
-            return result
-        except Exception as e:
-            logger.error(f"❌ Failed to get player status: {e}")
-            return f"❌ Failed to get player status: {e!s}"
+I don't see your registration in our system yet. No worries - let's get you set up to join the team! 
 
+📞 Contact Team Leadership
+You need to be added as a player by someone in the team's leadership.
+
+💡 What to do:
+1. Reach out to someone in the team's leadership chat
+2. Ask them to add you as a player using the /addplayer command
+3. They'll send you an invite link to join the main chat
+4. Once added, you can register with your full details
+
+🔗 Need Help?
+Contact the team admin in the leadership chat."""
+        
+        # Format player status
+        status_emoji = {
+            "active": "✅",
+            "pending": "⏳",
+            "inactive": "❌",
+            "suspended": "🚫"
+        }.get(player.status.lower(), "❓")
+        
+        return f"""👤 Your Player Information
+
+{status_emoji} Status: {player.status.title()}
+📝 Name: {player.full_name}
+📱 Phone: {player.phone_number}
+⚽️ Position: {player.position}
+🆔 Player ID: {player.player_id or 'Not assigned'}
+🏢 Team: {player.team_id}
+
+💬 Need Help?
+Contact the team admin in the leadership chat."""
+    
+    except ServiceNotAvailableError as e:
+        logger.error(f"Service not available in get_my_status: {e}")
+        return f"❌ Service temporarily unavailable: {e.message}"
     except Exception as e:
-        logger.error(f"❌ Failed to get status: {e}")
-        return f"❌ Failed to get status: {e!s}"
+        logger.error(f"Error in get_my_status: {e}", exc_info=True)
+        return "❌ System error. Please try again later."
 
 
 @tool("get_player_status")
-def get_player_status(phone: str, team_id: str | None = None) -> str:
+async def get_player_status(phone: str, team_id: str) -> str:
     """
-    Get player status by phone number. Requires: phone
+    Get player status by phone number. Requires: phone, team_id
 
     Args:
-        phone: The phone number to check
-        team_id: Optional team ID for context
+        phone: The player's phone number
+        team_id: Team ID for context
 
     Returns:
         Player status or error message
     """
     try:
+        # Sanitize inputs
+        phone = sanitize_input(phone, max_length=20)
+        team_id = sanitize_input(team_id, max_length=20)
+        
+        # Validate inputs
+        if not phone or not phone.strip():
+            return "❌ Phone number is required"
+        
+        if not team_id or not team_id.strip():
+            return "❌ Team ID is required"
+        
+        # Normalize phone number
+        normalized_phone = normalize_phone(phone)
+        
         container = get_container()
         player_service = container.get_service(PlayerService)
-        result = player_service.get_player_status(phone, team_id)
-        logger.info(f"✅ Player status retrieved for phone: {phone}")
-        return result
+        
+        if not player_service:
+            raise ServiceNotAvailableError("PlayerService")
+        
+        player = await player_service.get_player_by_phone(phone=normalized_phone, team_id=team_id)
+        
+        if not player:
+            return f"❌ Player with phone {phone} not found in team {team_id}"
+        
+        # Format player status
+        status_emoji = {
+            "active": "✅",
+            "pending": "⏳",
+            "inactive": "❌",
+            "suspended": "🚫"
+        }.get(player.status.lower(), "❓")
+        
+        return f"""👤 Player Status
 
+{status_emoji} Status: {player.status.title()}
+📝 Name: {player.full_name}
+📱 Phone: {player.phone_number}
+⚽️ Position: {player.position}
+🆔 Player ID: {player.player_id or 'Not assigned'}
+🏢 Team: {player.team_id}"""
+    
+    except ServiceNotAvailableError as e:
+        logger.error(f"Service not available in get_player_status: {e}")
+        return f"❌ Service temporarily unavailable: {e.message}"
     except Exception as e:
-        logger.error(f"❌ Failed to get player status: {e}")
-        return f"❌ Failed to get player status: {e!s}"
+        logger.error(f"Failed to get player status: {e}", exc_info=True)
+        return f"❌ Failed to get player status: {e}"
 
 
 @tool("get_all_players")
-def get_all_players(team_id: str) -> str:
+async def get_all_players(team_id: str) -> str:
     """
-    Get players for the team. Uses context information from the task description.
+    Get all players for a team. Requires: team_id
+
+    Args:
+        team_id: Team ID
 
     Returns:
-        List of players or error message
+        List of all players or error message
     """
     try:
-        # Lazy-load services only when needed
-        try:
-            container = get_container()
-            player_service = container.get_service(PlayerService)
-        except Exception as e:
-            logger.error(f"❌ Failed to get PlayerService from container: {e}")
-            return "❌ Service temporarily unavailable. Please try again in a moment."
-
-        # Parameter is now passed explicitly - no context extraction needed
-        logger.info(f"🔧 get_all_players called with team_id: {team_id}")
-
-        # Get all players
-        players = asyncio.run(player_service.get_all_players(team_id=team_id))
+        # Sanitize input
+        team_id = sanitize_input(team_id, max_length=20)
+        
+        # Validate input
+        if not team_id or not team_id.strip():
+            return "❌ Team ID is required"
+        
+        container = get_container()
+        player_service = container.get_service(PlayerService)
+        
+        if not player_service:
+            raise ServiceNotAvailableError("PlayerService")
+        
+        players = await player_service.get_all_players(team_id)
+        
         if not players:
-            return "📋 No players found in the team."
-
+            return f"📋 No players found in team {team_id}"
+        
         # Group players by status
-        active_players = [p for p in players if p.status == "active"]
-        pending_players = [p for p in players if p.status == "pending"]
-        inactive_players = [p for p in players if p.status == "inactive"]
-
-        result = "📋 Team Players (All Statuses):\n\n"
-
+        active_players = [p for p in players if p.status.lower() == "active"]
+        pending_players = [p for p in players if p.status.lower() == "pending"]
+        other_players = [p for p in players if p.status.lower() not in ["active", "pending"]]
+        
+        result = f"📋 Players for {team_id}\n\n"
+        
         if active_players:
-            result += "🟢 Active Players:\n"
-            for player in sorted(active_players, key=lambda p: p.name or ""):
-                result += f"• {player.player_id} - {player.name} ({player.position})\n"
+            result += "✅ Active Players:\n"
+            for player in active_players:
+                result += f"• {player.full_name} - {player.position} ({player.player_id or 'No ID'})\n"
             result += "\n"
-
+        
         if pending_players:
-            result += "🟡 Pending Players:\n"
-            for player in sorted(pending_players, key=lambda p: p.name or ""):
-                result += f"• {player.player_id} - {player.name} ({player.position})\n"
+            result += "⏳ Pending Approval:\n"
+            for player in pending_players:
+                result += f"• {player.full_name} - {player.position} ({player.player_id or 'No ID'})\n"
             result += "\n"
-
-        if inactive_players:
-            result += "🔴 Inactive Players:\n"
-            for player in sorted(inactive_players, key=lambda p: p.name or ""):
-                result += f"• {player.player_id} - {player.name} ({player.position})\n"
-
+        
+        if other_players:
+            result += "❓ Other Status:\n"
+            for player in other_players:
+                result += f"• {player.full_name} - {player.position} ({player.status.title()})\n"
+        
         return result
-
+    
+    except ServiceNotAvailableError as e:
+        logger.error(f"Service not available in get_all_players: {e}")
+        return f"❌ Service temporarily unavailable: {e.message}"
     except Exception as e:
-        logger.error(f"❌ Failed to get players: {e}")
-        return f"❌ Failed to get players: {e!s}"
+        logger.error(f"Failed to get all players: {e}", exc_info=True)
+        return f"❌ Failed to get players: {e}"
 
 
 @tool("get_match")
-def get_match(match_id: str, team_id: str | None = None) -> str:
+async def get_match(match_id: str, team_id: str) -> str:
     """
-    Get match information. Requires: match_id
+    Get match details. Requires: match_id, team_id
 
     Args:
-        match_id: The match ID to get information for
-        team_id: Optional team ID for context
+        match_id: The match ID
+        team_id: Team ID for context
 
     Returns:
-        Match information or error message
+        Match details or error message
     """
     try:
-        # This would integrate with match service
-        logger.info(f"✅ Match info retrieved: {match_id}")
-        return f"✅ Match info for {match_id}: Match details would be displayed here"
+        # Sanitize inputs
+        match_id = sanitize_input(match_id, max_length=50)
+        team_id = sanitize_input(team_id, max_length=20)
+        
+        # Validate inputs
+        if not match_id or not match_id.strip():
+            return "❌ Match ID is required"
+        
+        if not team_id or not team_id.strip():
+            return "❌ Team ID is required"
+        
+        container = get_container()
+        match_service = container.get_service("MatchService")
+        
+        if not match_service:
+            raise ServiceNotAvailableError("MatchService")
+        
+        match = await match_service.get_match(match_id)
+        
+        if not match:
+            return f"❌ Match {match_id} not found"
+        
+        return f"""⚽️ Match Details
 
+🏆 Match ID: {match.id}
+🏠 Home Team: {match.home_team}
+✈️ Away Team: {match.away_team}
+📅 Date: {match.date}
+📍 Location: {match.location or 'TBD'}
+📊 Status: {match.status.value.title()}
+🏆 Competition: {match.competition or 'Friendly'}"""
+    
+    except ServiceNotAvailableError as e:
+        logger.error(f"Service not available in get_match: {e}")
+        return f"❌ Service temporarily unavailable: {e.message}"
     except Exception as e:
-        logger.error(f"❌ Failed to get match info: {e}")
-        return f"❌ Failed to get match info: {e!s}"
+        logger.error(f"Failed to get match: {e}", exc_info=True)
+        return f"❌ Failed to get match: {e}"
 
 
 @tool("list_team_members_and_players")
-def list_team_members_and_players(team_id: str) -> str:
+async def list_team_members_and_players(team_id: str) -> str:
     """
-    Comprehensive list tool for /list command. Shows team members and players for a specific team.
+    List all team members and players for a team. Requires: team_id
 
     Args:
-        team_id: The team ID to list members and players for
+        team_id: Team ID
 
     Returns:
-        Comprehensive list of team members and players for the specified team
+        List of team members and players or error message
     """
     try:
-        logger.info(f"🔍 Listing team members and players for team: {team_id}")
-
-        if not team_id or team_id == 'unknown':
-            logger.error("❌ Invalid team_id provided. Cannot proceed without valid team_id.")
-            return "❌ Error: Invalid team ID provided. Please try again or contact support."
-
-        # Lazy-load services only when needed
-        try:
-            container = get_container()
-            player_service = container.get_service(PlayerService)
-            team_member_service = container.get_service(TeamMemberService) # Assuming TeamMemberService is still needed
-        except Exception as e:
-            logger.error(f"❌ Failed to get services from container: {e}")
-            return "❌ Service temporarily unavailable. Please try again in a moment."
-
-        # Get all players and team members
-        players = asyncio.run(player_service.get_all_players(team_id=team_id))
-        team_members = asyncio.run(team_member_service.get_team_members_by_team(team_id))
-
-        result = f"📋 Team Overview for {team_id}:\n\n"
-
-        # Team Members Section
+        # Sanitize input
+        team_id = sanitize_input(team_id, max_length=20)
+        
+        # Validate input
+        if not team_id or not team_id.strip():
+            return "❌ Team ID is required"
+        
+        container = get_container()
+        player_service = container.get_service(PlayerService)
+        team_service = container.get_service(ITeamService)
+        
+        if not player_service:
+            raise ServiceNotAvailableError("PlayerService")
+        
+        if not team_service:
+            raise ServiceNotAvailableError("TeamService")
+        
+        # Get team members and players
+        team_members = await team_service.get_team_members(team_id)
+        players = await player_service.get_all_players(team_id)
+        
+        result = f"👥 Team Members for {team_id}\n\n"
+        
         if team_members:
-            result += "👥 Team Members:\n"
-            for member in sorted(team_members, key=lambda m: m.full_name or m.first_name or ""):
-                role_text = member.role if member.role else "No role"
-                admin_status = "👑 Admin" if member.is_admin else "👤 Member"
-                result += f"• {member.full_name or member.first_name or 'Unknown'} - {admin_status} ({role_text})\n"
-            result += "\n"
+            for member in team_members:
+                role_emoji = "👑" if member.role.lower() in ["admin", "administrator"] else "⚽️"
+                result += f"• {member.full_name} - {role_emoji} {member.role}\n"
         else:
-            result += "👥 Team Members: None\n\n"
-
-        # Players Section
+            result += "📋 No team members found.\n"
+        
+        result += "\n"
+        
         if players:
-            # Group players by status
-            active_players = [p for p in players if p.status == "active"]
-            pending_players = [p for p in players if p.status == "pending"]
-            inactive_players = [p for p in players if p.status == "inactive"]
-
+            active_players = [p for p in players if p.status.lower() == "active"]
             if active_players:
-                result += "🟢 Active Players:\n"
-                for player in sorted(active_players, key=lambda p: p.name or ""):
-                    result += f"• {player.player_id} - {player.name} ({player.position})\n"
-                result += "\n"
-
-            if pending_players:
-                result += "🟡 Pending Players:\n"
-                for player in sorted(pending_players, key=lambda p: p.name or ""):
-                    result += f"• {player.player_id} - {player.name} ({player.position})\n"
-                result += "\n"
-
-            if inactive_players:
-                result += "🔴 Inactive Players:\n"
-                for player in sorted(inactive_players, key=lambda p: p.name or ""):
-                    result += f"• {player.player_id} - {player.name} ({player.position})\n"
+                result += "✅ Active Players:\n"
+                for player in active_players:
+                    result += f"• {player.full_name} - {player.position}\n"
+            else:
+                result += "📋 No active players found in the team.\n"
         else:
-            result += "📋 Players: None\n"
-
+            result += "📋 No players found in the team.\n"
+        
         return result
-
+    
+    except ServiceNotAvailableError as e:
+        logger.error(f"Service not available in list_team_members_and_players: {e}")
+        return f"❌ Service temporarily unavailable: {e.message}"
     except Exception as e:
-        logger.error(f"❌ Failed to get comprehensive list: {e}")
-        return f"❌ Failed to get comprehensive list: {e!s}"
-
-
-# Note: Removed unused tools: remove_player, get_player_info, list_players
-# These tools are not assigned to any agents in the configuration
+        logger.error(f"Failed to list team members and players: {e}", exc_info=True)
+        return f"❌ Failed to list team members and players: {e}"

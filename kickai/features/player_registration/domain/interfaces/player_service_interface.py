@@ -8,15 +8,15 @@ class IPlayerService(ABC):
         pass
 
     @abstractmethod
-    async def get_player(self, player_id: str) -> dict[str, Any] | None:
+    async def get_player(self, player_id: str, team_id: str) -> dict[str, Any] | None:
         pass
 
     @abstractmethod
-    async def update_player(self, player_id: str, updates: dict[str, Any]) -> bool:
+    async def update_player(self, player_id: str, updates: dict[str, Any], team_id: str) -> bool:
         pass
 
     @abstractmethod
-    async def delete_player(self, player_id: str) -> bool:
+    async def delete_player(self, player_id: str, team_id: str) -> bool:
         pass
 
     @abstractmethod

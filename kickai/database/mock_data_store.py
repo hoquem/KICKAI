@@ -74,7 +74,7 @@ class MockDataStore:
     async def get_player_by_phone(self, phone: str, team_id: str) -> Player | None:
         """Get player by phone number and team."""
         for player in self.players.values():
-            if player.phone == phone and player.team_id == team_id:
+            if player.phone_number == phone and player.team_id == team_id:
                 return player
         return None
 

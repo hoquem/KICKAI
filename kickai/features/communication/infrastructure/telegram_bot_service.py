@@ -1,5 +1,5 @@
 from loguru import logger
-from telegram import Update
+from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from kickai.agents.agentic_message_router import AgenticMessageRouter
@@ -77,11 +77,14 @@ class TelegramBotService(TelegramBotServiceInterface):
             # Add message handler for natural language processing
             message_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message)
 
+            # Add contact handler for phone number sharing
+            contact_handler = MessageHandler(filters.CONTACT, self._handle_contact_share)
+
             # Add debug handler to log all updates
             debug_handler = MessageHandler(filters.ALL, self._debug_handler)
 
             # Add all handlers to the application
-            self.app.add_handlers(command_handlers + [message_handler, debug_handler])
+            self.app.add_handlers(command_handlers + [message_handler, contact_handler, debug_handler])
 
             logger.info(f"✅ Set up {len(command_handlers)} agentic command handlers and 1 message handler")
 
@@ -95,7 +98,8 @@ class TelegramBotService(TelegramBotServiceInterface):
         try:
             # All messages now use agentic routing - minimal fallback
             handlers = [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message)
+                MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message),
+                MessageHandler(filters.CONTACT, self._handle_contact_share)
             ]
 
             self.app.add_handlers(handlers)
@@ -119,6 +123,39 @@ class TelegramBotService(TelegramBotServiceInterface):
         except Exception as e:
             logger.error(f"Error in agentic message handling: {e}")
             await self._send_error_response(update, "I encountered an error processing your message.")
+
+    async def _handle_contact_share(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle contact sharing for phone number linking."""
+        try:
+            logger.info(f"📱 Contact shared by user {update.effective_user.id}")
+            
+            # Extract contact information
+            contact = update.message.contact
+            phone_number = contact.phone_number
+            user_id = contact.user_id if contact.user_id else update.effective_user.id
+            username = update.effective_user.username
+            
+            # Validate that the contact belongs to the user
+            if str(user_id) != str(update.effective_user.id):
+                await self._send_error_response(update, "❌ Please share your own contact information.")
+                return
+            
+            # Convert to domain message with special handling for contact sharing
+            message = self.agentic_router.convert_telegram_update_to_message(update)
+            
+            # Add contact information to the message
+            message.contact_phone = phone_number
+            message.contact_user_id = str(user_id)
+            
+            # Route through agentic system
+            response = await self.agentic_router.route_contact_share(message)
+            
+            # Send response
+            await self._send_response(update, response)
+            
+        except Exception as e:
+            logger.error(f"Error in contact share handling: {e}")
+            await self._send_error_response(update, "I encountered an error processing your contact information.")
 
     def _determine_chat_type(self, chat_id: str) -> ChatType:
         """Determine the chat type based on chat ID."""
@@ -166,9 +203,15 @@ class TelegramBotService(TelegramBotServiceInterface):
             is_agent_message = self._is_agent_formatted_message(message_text)
             logger.debug(f"🔍 Is agent message: {is_agent_message} | Message preview: {message_text[:50]}...")
 
-            # Send as plain text - no Markdown or HTML formatting
-            logger.debug("✅ Sending message as plain text")
-            await update.message.reply_text(message_text)
+            # Check if we need to send contact sharing button
+            if hasattr(response, 'needs_contact_button') and response.needs_contact_button:
+                logger.info("📱 Sending message with contact sharing button")
+                await self.send_contact_share_button(update.effective_chat.id, message_text)
+            else:
+                # Send as plain text - no Markdown or HTML formatting
+                logger.debug("✅ Sending message as plain text")
+                await update.message.reply_text(message_text)
+            
             logger.info("✅ Agentic response sent successfully")
 
         except Exception as e:
@@ -240,6 +283,24 @@ class TelegramBotService(TelegramBotServiceInterface):
         except Exception as e:
             logger.error(f"❌ Error sending message: {e}")
             raise
+
+    async def send_contact_share_button(self, chat_id: int | str, text: str):
+        """Send a message with a contact sharing button."""
+        try:
+            keyboard = [[
+                KeyboardButton(text="📱 Share My Phone Number", request_contact=True)
+            ]]
+            reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+            
+            await self.app.bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                reply_markup=reply_markup
+            )
+        except Exception as e:
+            logger.error(f"Error sending contact share button: {e}")
+            # Fallback to regular message
+            await self.send_message(chat_id, text)
 
     def _is_agent_formatted_message(self, text: str) -> bool:
         """Check if message is already properly formatted by an agent."""
