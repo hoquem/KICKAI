@@ -258,25 +258,19 @@ class ChatRoleAssignmentService:
             # Check if player already exists
             existing_player = await self.player_service.get_player_by_telegram_id(user_id, team_id)
             if not existing_player:
-                # Create a basic player record
-                player = Player(
+                # Create a basic player record using the PlayerService directly
+                # This avoids creating Player objects manually and ensures proper entity usage
+                from kickai.features.player_registration.domain.services.player_service import PlayerCreateParams
+                
+                params = PlayerCreateParams(
                     name=username or f"User {user_id}",
                     phone="",  # Will be filled during onboarding
+                    position="",  # Will be filled during onboarding
                     team_id=team_id,
-                    telegram_id=user_id,
-                    telegram_username=username,
-                    onboarding_status="pending"
+                    created_by="system"
                 )
-                await self.player_service.create_player(
-                    name=player.name,
-                    phone=player.phone,
-                    team_id=team_id,
-                    email=player.email,
-                    position=player.position,
-                    role=player.role,
-                    fa_registered=player.fa_registered,
-                    player_id=player.player_id
-                )
+                
+                await self.player_service.create_player(params)
                 logger.info(f"Created player record for user {user_id}")
         except Exception as e:
             logger.warning(f"Failed to create player record for user {user_id}: {e}")

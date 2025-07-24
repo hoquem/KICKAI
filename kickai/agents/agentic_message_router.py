@@ -77,15 +77,24 @@ class AgenticMessageRouter:
                 command=command
             )
 
-
-
             # Handle unregistered users
             if user_flow_result == UserFlowDecision.UNREGISTERED_USER:
                 logger.info("🔄 AgenticMessageRouter: Unregistered user flow detected")
+                
+                # Check if the message looks like a phone number
+                if self._looks_like_phone_number(message.text):
+                    logger.info(f"📱 AgenticMessageRouter: Detected phone number in message from unregistered user")
+                    return await self._handle_phone_number_from_unregistered_user(message)
+                
+                # Show welcome message for unregistered users
+                message_text = self._get_unregistered_user_message(message.chat_type, message.username)
+                
                 return AgentResponse(
                     success=True,
-                    message=self._get_unregistered_user_message(message.chat_type, message.username),
-                    error=None
+                    message=message_text,
+                    error=None,
+                    # Contact sharing button only works in private chats, not group chats
+                    needs_contact_button=False
                 )
 
             # Handle registered users - normal agentic processing
@@ -97,6 +106,60 @@ class AgenticMessageRouter:
             return AgentResponse(
                 success=False,
                 message="❌ System error. Please try again.",
+                error=str(e)
+            )
+
+    async def route_contact_share(self, message: TelegramMessage) -> AgentResponse:
+        """
+        Route contact sharing messages for phone number linking.
+        
+        Args:
+            message: Telegram message with contact information
+            
+        Returns:
+            AgentResponse with the linking result
+        """
+        try:
+            logger.info(f"📱 AgenticMessageRouter: Processing contact share from {message.username}")
+            
+            # Check if message has contact information
+            if not hasattr(message, 'contact_phone') or not message.contact_phone:
+                return AgentResponse(
+                    success=False,
+                    message="❌ No contact information found in message.",
+                    error="Missing contact phone"
+                )
+            
+            # Use the phone linking service to link the user
+            from kickai.features.player_registration.domain.services.player_linking_service import PlayerLinkingService
+            
+            linking_service = PlayerLinkingService(self.team_id)
+            
+            # Attempt to link the user
+            linked_player = await linking_service.link_telegram_user_by_phone(
+                phone=message.contact_phone,
+                telegram_id=message.user_id,
+                username=message.username
+            )
+            
+            if linked_player:
+                return AgentResponse(
+                    success=True,
+                    message=f"✅ Successfully linked to your player record: {linked_player.full_name} ({linked_player.player_id})",
+                    error=None
+                )
+            else:
+                return AgentResponse(
+                    success=False,
+                    message="❌ No player record found with that phone number. Please contact team leadership.",
+                    error="No matching player record"
+                )
+                
+        except Exception as e:
+            logger.error(f"AgenticMessageRouter contact share failed: {e}")
+            return AgentResponse(
+                success=False,
+                message="❌ Error linking account. Please try again or contact team leadership.",
                 error=str(e)
             )
 
@@ -168,7 +231,7 @@ You need to be added as a player by someone in the team's leadership.
 
 💬 What to do:
 1. Reach out to someone in the team's leadership chat
-2. Ask them to add you as a player using the `/add` command
+2. Ask them to add you as a player using the `/addplayer` command
 3. They'll send you an invite link to join the main chat
 4. Once added, you can register with your full details
 
@@ -375,6 +438,13 @@ Use /help to see available commands or ask me questions!"""
                 # For natural language, use the message text
                 text = update.message.text.strip()
 
+            # Extract contact information if available
+            contact_phone = None
+            contact_user_id = None
+            if hasattr(update.message, 'contact') and update.message.contact:
+                contact_phone = update.message.contact.phone_number
+                contact_user_id = str(update.message.contact.user_id) if update.message.contact.user_id else user_id
+
             return TelegramMessage(
                 user_id=user_id,
                 chat_id=chat_id,
@@ -382,7 +452,9 @@ Use /help to see available commands or ask me questions!"""
                 username=username,
                 team_id=self.team_id,
                 text=text,
-                raw_update=update
+                raw_update=update,
+                contact_phone=contact_phone,
+                contact_user_id=contact_user_id
             )
 
         except Exception as e:
@@ -407,6 +479,63 @@ Use /help to see available commands or ask me questions!"""
         """Set the chat IDs for proper chat type determination."""
         self.main_chat_id = main_chat_id
         self.leadership_chat_id = leadership_chat_id
+
+    def _looks_like_phone_number(self, text: str) -> bool:
+        """Check if text looks like a phone number."""
+        if not text or len(text.strip()) < 10:
+            return False
+        
+        # Remove common separators and check if it's mostly digits
+        cleaned = ''.join(c for c in text if c.isdigit() or c in '+()-')
+        
+        # Must have at least 10 digits
+        digit_count = sum(1 for c in cleaned if c.isdigit())
+        if digit_count < 10:
+            return False
+        
+        # Must start with + or be all digits
+        if cleaned.startswith('+') or cleaned.replace('+', '').replace('-', '').replace('(', '').replace(')', '').isdigit():
+            return True
+        
+        return False
+
+    async def _handle_phone_number_from_unregistered_user(self, message: TelegramMessage) -> AgentResponse:
+        """Handle phone number input from unregistered users."""
+        try:
+            logger.info(f"📱 Processing phone number from unregistered user: {message.username}")
+            
+            # Use the phone linking service to link the user
+            from kickai.features.player_registration.domain.services.player_linking_service import PlayerLinkingService
+            
+            linking_service = PlayerLinkingService(self.team_id)
+            
+            # Attempt to link the user
+            linked_player = await linking_service.link_telegram_user_by_phone(
+                phone=message.text.strip(),
+                telegram_id=message.user_id,
+                username=message.username
+            )
+            
+            if linked_player:
+                return AgentResponse(
+                    success=True,
+                    message=f"✅ Successfully linked to your player record: {linked_player.full_name} ({linked_player.player_id})\n\n🎉 Welcome to the team! You can now use all team features.",
+                    error=None
+                )
+            else:
+                return AgentResponse(
+                    success=False,
+                    message="❌ No player record found with that phone number.\n\n💡 **What to do:**\n1. Make sure you were added by team leadership using /addplayer\n2. Check that the phone number matches what was used when you were added\n3. Contact team leadership if you need help",
+                    error="No matching player record"
+                )
+                
+        except Exception as e:
+            logger.error(f"❌ Error processing phone number from unregistered user: {e}")
+            return AgentResponse(
+                success=False,
+                message="❌ Error processing your phone number. Please try again or contact team leadership.",
+                error=str(e)
+            )
 
     def _determine_chat_type_with_ids(self, chat_id: str) -> ChatType:
         """Determine chat type using configured chat IDs."""

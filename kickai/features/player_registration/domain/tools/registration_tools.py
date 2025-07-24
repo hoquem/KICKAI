@@ -22,7 +22,7 @@ class RegisterPlayerInput(BaseModel):
     player_name: str
     phone_number: str
     position: str
-    team_id: str | None = None
+    team_id: str
 
 
 class TeamMemberRegistrationInput(BaseModel):
@@ -36,19 +36,19 @@ class TeamMemberRegistrationInput(BaseModel):
 class RegistrationGuidanceInput(BaseModel):
     """Input model for registration_guidance tool."""
     user_id: str
-    team_id: str | None = None
+    team_id: str
 
 
 @tool("register_player")
-def register_player(player_name: str, phone_number: str, position: str, team_id: str | None = None) -> str:
+def register_player(player_name: str, phone_number: str, position: str, team_id: str) -> str:
     """
-    Register a new player in the main chat. Requires: player_name, phone_number, position
+    Register a new player in the main chat. Requires: player_name, phone_number, position, team_id
 
     Args:
         player_name: The name of the player to register
         phone_number: The player's phone number
         position: The player's position
-        team_id: Optional team ID for context
+        team_id: Team ID (required)
 
     Returns:
         Confirmation message indicating success or failure
@@ -86,15 +86,15 @@ def register_player(player_name: str, phone_number: str, position: str, team_id:
 
 
 @tool("register_team_member")
-def register_team_member(player_name: str, phone_number: str, role: str, team_id: str | None = None) -> str:
+def register_team_member(player_name: str, phone_number: str, role: str, team_id: str) -> str:
     """
-    Register a new team member in the leadership chat. Requires: player_name, phone_number, role
+    Register a new team member in the leadership chat. Requires: player_name, phone_number, role, team_id
 
     Args:
         player_name: The name of the team member to register
         phone_number: The team member's phone number
         role: The team member's role (e.g., Coach, Manager, Assistant)
-        team_id: Optional team ID for context
+        team_id: Team ID (required)
 
     Returns:
         Confirmation message indicating success or failure
@@ -180,13 +180,13 @@ def team_member_registration(player_name: str, phone_number: str, position: str,
 
 
 @tool("registration_guidance")
-def registration_guidance(user_id: str, team_id: str | None = None) -> str:
+def registration_guidance(user_id: str, team_id: str) -> str:
     """
-    Provide registration guidance to a user. Requires: user_id
+    Provide registration guidance to a user. Requires: user_id, team_id
 
     Args:
         user_id: The user ID to provide guidance to
-        team_id: Optional team ID for context
+        team_id: Team ID (required)
 
     Returns:
         Registration guidance message

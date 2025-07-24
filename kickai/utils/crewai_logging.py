@@ -76,6 +76,7 @@ def setup_crewai_logging(level: str = "INFO") -> None:
         # Add handler to CrewAI logger
         crewai_logger.addHandler(handler)
         crewai_logger.setLevel(getattr(logging, level.upper()))
+        crewai_logger.propagate = False  # Prevent propagation to root logger
 
         # Also set up logging for related libraries
         related_loggers = [
@@ -93,6 +94,14 @@ def setup_crewai_logging(level: str = "INFO") -> None:
             lib_logger.addHandler(handler)
             lib_logger.setLevel(getattr(logging, level.upper()))
             lib_logger.propagate = False  # Prevent duplicate logs
+
+        # Configure CrewAI to only log through our custom handler to loguru
+        # This prevents duplicate logging and ensures clean console output
+        crewai_logger.disabled = False  # Ensure logging is enabled
+        
+        logger.info(f"✅ CrewAI logging configured with level: {level}")
+        logger.info("📝 All CrewAI logs will be redirected to console only")
+        crewai_logger.propagate = False  # Prevent propagation to root logger
 
         logger.info(f"✅ CrewAI logging redirected to loguru (level: {level})")
 

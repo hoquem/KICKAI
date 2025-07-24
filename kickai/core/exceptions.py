@@ -1,525 +1,251 @@
+#!/usr/bin/env python3
 """
 Custom Exceptions for KICKAI
 
-This module defines a comprehensive exception hierarchy for the KICKAI system,
-providing proper error categorization and context for different types of failures.
+This module defines custom exceptions used throughout the KICKAI system.
 """
 
-from dataclasses import dataclass
-from typing import Any
+from typing import Any, Dict, Optional
 
 
-@dataclass
-class ErrorContext:
-    """Context information for errors."""
-    operation: str
-    entity_id: str | None = None
-    user_id: str | None = None
-    team_id: str | None = None
-    additional_info: dict[str, Any] | None = None
-
-
-class KICKAIError(Exception):
+class KickAIError(Exception):
     """Base exception for all KICKAI errors."""
-
-    def __init__(self, message: str, context: ErrorContext | None = None):
+    
+    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None):
         super().__init__(message)
         self.message = message
-        self.context = context or ErrorContext("unknown")
-
-    def __str__(self) -> str:
-        context_str = f" [{self.context.operation}]" if self.context else ""
-        return f"{self.__class__.__name__}: {self.message}{context_str}"
+        self.context = context or {}
 
 
-# Configuration Errors
-class ConfigurationError(KICKAIError):
-    """Configuration-related errors."""
+class PlayerError(KickAIError):
+    """Base exception for player-related errors."""
     pass
 
 
-class EnvironmentError(KICKAIError):
-    """Environment-related errors."""
+class PlayerAlreadyExistsError(PlayerError):
+    """Raised when trying to create a player that already exists."""
+    
+    def __init__(self, phone: str, team_id: str):
+        message = f"Player with phone {phone} already exists in team {team_id}"
+        super().__init__(message, {"phone": phone, "team_id": team_id})
+
+
+class PlayerNotFoundError(PlayerError):
+    """Raised when a player is not found."""
+    
+    def __init__(self, player_id: str, team_id: str):
+        message = f"Player {player_id} not found in team {team_id}"
+        super().__init__(message, {"player_id": player_id, "team_id": team_id})
+
+
+class PlayerValidationError(PlayerError):
+    """Raised when player data validation fails."""
+    
+    def __init__(self, errors: list[str]):
+        message = f"Player validation failed: {'; '.join(errors)}"
+        super().__init__(message, {"validation_errors": errors})
+
+
+class TeamError(KickAIError):
+    """Base exception for team-related errors."""
     pass
 
 
-# Database Errors
-class DatabaseError(KICKAIError):
-    """Base exception for database-related errors."""
+class TeamNotFoundError(TeamError):
+    """Raised when a team is not found."""
+    
+    def __init__(self, team_id: str):
+        message = f"Team {team_id} not found"
+        super().__init__(message, {"team_id": team_id})
+
+
+class TeamNotConfiguredError(TeamError):
+    """Raised when a team is not properly configured."""
+    
+    def __init__(self, team_id: str, missing_config: str):
+        message = f"Team {team_id} not configured: {missing_config}"
+        super().__init__(message, {"team_id": team_id, "missing_config": missing_config})
+
+
+class InviteLinkError(KickAIError):
+    """Base exception for invite link-related errors."""
     pass
 
 
-class ConnectionError(DatabaseError):
-    """Database connection errors."""
+class InviteLinkNotFoundError(InviteLinkError):
+    """Raised when an invite link is not found."""
+    
+    def __init__(self, invite_id: str):
+        message = f"Invite link {invite_id} not found"
+        super().__init__(message, {"invite_id": invite_id})
+
+
+class InviteLinkExpiredError(InviteLinkError):
+    """Raised when an invite link has expired."""
+    
+    def __init__(self, invite_id: str):
+        message = f"Invite link {invite_id} has expired"
+        super().__init__(message, {"invite_id": invite_id})
+
+
+class InviteLinkAlreadyUsedError(InviteLinkError):
+    """Raised when an invite link has already been used."""
+    
+    def __init__(self, invite_id: str):
+        message = f"Invite link {invite_id} has already been used"
+        super().__init__(message, {"invite_id": invite_id})
+
+
+class InviteLinkInvalidError(InviteLinkError):
+    """Raised when an invite link is invalid."""
+    
+    def __init__(self, invite_link: str, reason: str):
+        message = f"Invalid invite link: {reason}"
+        super().__init__(message, {"invite_link": invite_link, "reason": reason})
+
+
+class ServiceError(KickAIError):
+    """Base exception for service-related errors."""
     pass
 
 
-class QueryError(DatabaseError):
-    """Database query errors."""
+class ServiceNotAvailableError(ServiceError):
+    """Raised when a required service is not available."""
+    
+    def __init__(self, service_name: str):
+        message = f"Service {service_name} is not available"
+        super().__init__(message, {"service_name": service_name})
+
+
+class ConfigurationError(KickAIError):
+    """Base exception for configuration-related errors."""
     pass
 
 
-class DatabaseValidationError(DatabaseError):
-    """Database validation errors."""
-    pass
-
-
-class NotFoundError(DatabaseError):
-    """Resource not found errors."""
-    pass
-
-
-class DuplicateError(DatabaseError):
-    """Duplicate resource errors."""
-    pass
-
-
-# AI/LLM Errors
-class AIError(KICKAIError):
-    """Base exception for AI-related errors."""
-    pass
-
-
-class LLMError(AIError):
-    """LLM-specific errors."""
-    pass
-
-
-class ModelError(AIError):
-    """AI model errors."""
-    pass
-
-
-class TokenLimitError(AIError):
-    """Token limit exceeded errors."""
-    pass
-
-
-class RateLimitError(AIError):
-    """Rate limiting errors."""
-    pass
-
-
-# Agent Errors
-class AgentError(KICKAIError):
+class AgentError(KickAIError):
     """Base exception for agent-related errors."""
     pass
 
 
 class AgentInitializationError(AgentError):
-    """Agent initialization errors."""
-    pass
+    """Raised when agent initialization fails."""
+    
+    def __init__(self, agent_name: str, error: str):
+        message = f"Failed to initialize agent {agent_name}: {error}"
+        super().__init__(message, {"agent_name": agent_name, "error": error})
+
+
+class AgentConfigurationError(AgentError):
+    """Raised when agent configuration is invalid."""
+    
+    def __init__(self, agent_name: str, config_error: str):
+        message = f"Invalid configuration for agent {agent_name}: {config_error}"
+        super().__init__(message, {"agent_name": agent_name, "config_error": config_error})
 
 
 class AgentExecutionError(AgentError):
-    """Agent execution errors."""
-    pass
+    """Raised when agent execution fails."""
+    
+    def __init__(self, agent_name: str, task: str, error: str):
+        message = f"Agent {agent_name} failed to execute task '{task}': {error}"
+        super().__init__(message, {"agent_name": agent_name, "task": task, "error": error})
 
 
-class AgentCommunicationError(AgentError):
-    """Agent communication errors."""
-    pass
+class AuthorizationError(KickAIError):
+    """Raised when authorization fails."""
+    
+    def __init__(self, user_id: str, action: str, reason: str = "Insufficient permissions"):
+        message = f"Authorization failed for user {user_id} to perform {action}: {reason}"
+        super().__init__(message, {"user_id": user_id, "action": action, "reason": reason})
 
 
-class AgentCapabilityError(AgentError):
-    """Agent capability errors."""
-    pass
+class InputValidationError(KickAIError):
+    """Raised when input validation fails."""
+    
+    def __init__(self, field: str, value: str, reason: str):
+        message = f"Input validation failed for field '{field}' with value '{value}': {reason}"
+        super().__init__(message, {"field": field, "value": value, "reason": reason})
 
 
-# Validation Errors (moved here for inheritance)
-class GeneralValidationError(KICKAIError):
-    """General validation errors."""
-    pass
-
-
-# Alias for backward compatibility
-ValidationError = GeneralValidationError
-
-
-class InputValidationError(GeneralValidationError):
-    """Input validation errors."""
-    pass
-
-
-class DataValidationError(GeneralValidationError):
-    """Data validation errors."""
-    pass
-
-
-class AgentToolError(AgentError):
-    """Agent tool-related errors."""
-    pass
-
-
-class ToolExecutionError(AgentToolError):
-    """Tool execution errors."""
-    pass
-
-
-class ToolNotFoundError(AgentToolError, NotFoundError):
-    """Tool not found errors."""
-    pass
-
-
-class ToolValidationError(AgentToolError, GeneralValidationError):
-    """Tool validation errors."""
-    pass
-
-
-class ToolPermissionError(AgentToolError):
-    """Tool permission errors."""
-    pass
-
-
-class OrchestrationError(KICKAIError):
-    """Orchestration pipeline errors."""
-    pass
-
-
-class IntentClassificationError(OrchestrationError):
-    """Intent classification errors."""
-    pass
-
-
-class TaskDecompositionError(OrchestrationError):
-    """Task decomposition errors."""
-    pass
-
-
-class AgentRoutingError(OrchestrationError):
-    """Agent routing errors."""
-    pass
-
-
-class TaskExecutionError(OrchestrationError):
-    """Task execution errors."""
-    pass
-
-
-class ResultAggregationError(OrchestrationError):
-    """Result aggregation errors."""
-    pass
-
-
-# Telegram Errors
-class TelegramError(KICKAIError):
-    """Base exception for Telegram-related errors."""
-    pass
-
-
-class BotError(TelegramError):
-    """Telegram bot errors."""
-    pass
-
-
-class MessageError(TelegramError):
-    """Message-related errors."""
-    pass
-
-
-class WebhookError(TelegramError):
-    """Webhook-related errors."""
-    pass
-
-
-class TelegramAuthenticationError(TelegramError):
-    """Telegram authentication errors."""
-    pass
-
-
-# Player Management Errors
-class PlayerError(KICKAIError):
-    """Base exception for player-related errors."""
-    pass
-
-
-class PlayerNotFoundError(PlayerError, NotFoundError):
-    """Player not found errors."""
-    pass
-
-
-class PlayerValidationError(PlayerError, DatabaseValidationError):
-    """Player validation errors."""
-    pass
-
-
-class PlayerDuplicateError(PlayerError, DuplicateError):
-    """Duplicate player errors."""
-    pass
-
-
-class OnboardingError(PlayerError):
-    """Player onboarding errors."""
-    pass
-
-
-# Team Management Errors
-class TeamError(KICKAIError):
-    """Base exception for team-related errors."""
-    pass
-
-
-class TeamNotFoundError(TeamError, NotFoundError):
-    """Team not found errors."""
-    pass
-
-
-class TeamValidationError(TeamError, DatabaseValidationError):
-    """Team validation errors."""
-    pass
-
-
-class TeamPermissionError(TeamError):
-    """Team permission errors."""
-    pass
-
-
-
-
-
-# Service Errors
-class ServiceError(KICKAIError):
-    """Base exception for service-related errors."""
-    pass
-
-
-class ServiceUnavailableError(ServiceError):
-    """Service unavailable errors."""
-    pass
-
-
-class ServiceTimeoutError(ServiceError):
-    """Service timeout errors."""
-    pass
-
-
-class ServiceAuthenticationError(ServiceError):
-    """Service authentication errors."""
-    pass
-
-
-# Security Errors
-class SecurityError(KICKAIError):
-    """Base exception for security-related errors."""
-    pass
-
-
-class AuthenticationError(SecurityError):
-    """Authentication errors."""
-    pass
-
-
-class AuthorizationError(SecurityError):
-    """Authorization errors."""
-    pass
-
-
-class AccessDeniedError(AuthorizationError):
-    """Access denied errors."""
-    pass
-
-
-class TokenError(SecurityError):
-    """Token-related errors."""
-    pass
-
-
-# Performance Errors
-class PerformanceError(KICKAIError):
-    """Base exception for performance-related errors."""
-    pass
-
-
-class TimeoutError(PerformanceError):
-    """Timeout errors."""
-    pass
-
-
-class ResourceExhaustedError(PerformanceError):
-    """Resource exhaustion errors."""
-    pass
-
-
-class RateLimitExceededError(PerformanceError):
-    """Rate limit exceeded errors."""
-    pass
-
-
-# Payment Errors
-class PaymentError(KICKAIError):
+class PaymentError(KickAIError):
     """Base exception for payment-related errors."""
     pass
 
 
-class PaymentValidationError(PaymentError, GeneralValidationError):
-    """Payment validation errors."""
-    pass
+class PaymentNotFoundError(PaymentError):
+    """Raised when a payment is not found."""
+    
+    def __init__(self, payment_id: str):
+        message = f"Payment {payment_id} not found"
+        super().__init__(message, {"payment_id": payment_id})
 
 
 class PaymentProcessingError(PaymentError):
-    """Payment processing errors."""
+    """Raised when payment processing fails."""
+    
+    def __init__(self, payment_id: str, error: str):
+        message = f"Payment processing failed for {payment_id}: {error}"
+        super().__init__(message, {"payment_id": payment_id, "error": error})
+
+
+class PaymentValidationError(PaymentError):
+    """Raised when payment validation fails."""
+    
+    def __init__(self, field: str, value: str, reason: str):
+        message = f"Payment validation failed for field '{field}' with value '{value}': {reason}"
+        super().__init__(message, {"field": field, "value": value, "reason": reason})
+
+
+class MissingEnvironmentVariableError(ConfigurationError):
+    """Raised when a required environment variable is missing."""
+    
+    def __init__(self, variable_name: str):
+        message = f"Required environment variable {variable_name} is not set"
+        super().__init__(message, {"variable_name": variable_name})
+
+
+class DatabaseError(KickAIError):
+    """Base exception for database-related errors."""
     pass
 
 
-class PaymentProviderError(PaymentError):
-    """Payment provider (Collectiv) errors."""
-    pass
+class DatabaseConnectionError(DatabaseError):
+    """Raised when database connection fails."""
+    
+    def __init__(self, database_name: str, error: str):
+        message = f"Database connection failed for {database_name}: {error}"
+        super().__init__(message, {"database_name": database_name, "error": error})
 
 
-class PaymentTimeoutError(PaymentError, TimeoutError):
-    """Payment timeout errors."""
-    pass
+# Aliases for backward compatibility
+ConnectionError = DatabaseConnectionError
+DuplicateError = DatabaseError  # Generic duplicate error
+NotFoundError = DatabaseError   # Generic not found error
+KICKAIError = KickAIError  # Alias for case-sensitive imports
 
 
-class PaymentAuthenticationError(PaymentError, AuthenticationError):
-    """Payment authentication errors."""
-    pass
+class DatabaseOperationError(DatabaseError):
+    """Raised when a database operation fails."""
+    
+    def __init__(self, operation: str, error: str):
+        message = f"Database operation '{operation}' failed: {error}"
+        super().__init__(message, {"operation": operation, "error": error})
 
 
-class PaymentNotFoundError(PaymentError, NotFoundError):
-    """Payment not found errors."""
-    pass
-
-
-# Match Errors
-class MatchError(KICKAIError):
-    """Base exception for match-related errors."""
-    pass
-
-
-class MatchNotFoundError(MatchError, NotFoundError):
-    """Match not found errors."""
-    pass
-
-
-class MatchValidationError(MatchError, GeneralValidationError):
-    """Match validation errors."""
-    pass
-
-
-class MatchPermissionError(MatchError):
-    """Match permission errors."""
-    pass
-
-
-# Budget Errors
-class BudgetError(KICKAIError):
-    """Base exception for budget-related errors."""
-    pass
-
-
-class BudgetValidationError(BudgetError, GeneralValidationError):
-    """Budget validation errors."""
-    pass
-
-
-class BudgetLimitError(BudgetError):
-    """Budget limit exceeded errors."""
-    pass
-
-
-# Expense Errors
-class ExpenseError(KICKAIError):
-    """Base exception for expense-related errors."""
-    pass
-
-
-class ExpenseNotFoundError(ExpenseError, NotFoundError):
-    """Expense not found errors."""
-    pass
-
-
-class ExpenseValidationError(ExpenseError, GeneralValidationError):
-    """Expense validation errors."""
-    pass
-
-
-# Utility Functions
-def create_error_context(operation: str, **kwargs) -> ErrorContext:
-    """Create an error context with the given parameters."""
-    return ErrorContext(
-        operation=operation,
-        entity_id=kwargs.get('entity_id'),
-        user_id=kwargs.get('user_id'),
-        team_id=kwargs.get('team_id'),
-        additional_info=kwargs.get('additional_info')
-    )
-
-
-def is_retryable_error(error: Exception) -> bool:
-    """Check if an error is retryable."""
-    retryable_errors = (
-        ConnectionError,
-        ServiceUnavailableError,
-        ServiceTimeoutError,
-        RateLimitError,
-        TimeoutError,
-        ResourceExhaustedError
-    )
-    return isinstance(error, retryable_errors)
-
-
-def is_critical_error(error: Exception) -> bool:
-    """Check if an error is critical and should stop processing."""
-    critical_errors = (
-        ConfigurationError,
-        AuthenticationError,
-        AuthorizationError,
-        SecurityError
-    )
-    return isinstance(error, critical_errors)
-
-
-def get_error_category(error: Exception) -> str:
-    """Get the category of an error."""
-    if isinstance(error, ConfigurationError):
-        return "configuration"
-    elif isinstance(error, DatabaseError):
-        return "database"
-    elif isinstance(error, AIError):
-        return "ai"
-    elif isinstance(error, AgentError):
-        return "agent"
-    elif isinstance(error, TelegramError):
-        return "telegram"
-    elif isinstance(error, PlayerError):
-        return "player"
-    elif isinstance(error, TeamError):
-        return "team"
-    elif isinstance(error, ServiceError):
-        return "service"
-    elif isinstance(error, GeneralValidationError):
-        return "validation"
-    elif isinstance(error, SecurityError):
-        return "security"
-    elif isinstance(error, PerformanceError):
-        return "performance"
-    else:
-        return "unknown"
-
-
-def format_error_message(error: Exception, include_context: bool = True) -> str:
-    """Format an error message with optional context."""
-    if isinstance(error, KICKAIError) and include_context and error.context:
-        context = error.context
-        parts = [f"{error.__class__.__name__}: {error.message}"]
-
-        if context.operation != "unknown":
-            parts.append(f"Operation: {context.operation}")
-
-        if context.entity_id:
-            parts.append(f"Entity: {context.entity_id}")
-
-        if context.user_id:
-            parts.append(f"User: {context.user_id}")
-
-        if context.team_id:
-            parts.append(f"Team: {context.team_id}")
-
-        if context.additional_info:
-            for key, value in context.additional_info.items():
-                parts.append(f"{key}: {value}")
-
-        return " | ".join(parts)
-    else:
-        return str(error)
+def create_error_context(operation: str, **kwargs) -> Dict[str, Any]:
+    """
+    Create a standardized error context.
+    
+    Args:
+        operation: The operation that failed
+        **kwargs: Additional context information
+        
+    Returns:
+        Dictionary containing error context
+    """
+    context = {
+        "operation": operation,
+        "timestamp": "2025-07-24T21:00:00Z",  # This should be dynamic in real usage
+        **kwargs
+    }
+    return context

@@ -9,6 +9,7 @@ for players and team members. Links are stored in Firestore for validation and o
 import hashlib
 import hmac
 import json
+import os
 import uuid
 from datetime import datetime, timedelta
 from typing import Any
@@ -28,8 +29,10 @@ class InviteLinkService:
         self.collection_name = "kickai_invite_links"
         self.bot_token = bot_token
         self._bot = None
-        # Secret key for signing invite data (should be stored securely)
-        self._secret_key = "kickai_invite_secret_2025"  # TODO: Move to environment variable
+        # Get secret key from environment variable
+        self._secret_key = os.getenv('KICKAI_INVITE_SECRET_KEY')
+        if not self._secret_key:
+            raise ValueError("KICKAI_INVITE_SECRET_KEY environment variable is required for secure invite links")
 
     def _get_bot(self):
         """Get or create bot instance."""
@@ -45,6 +48,18 @@ class InviteLinkService:
         """Set the bot token for this service."""
         self.bot_token = bot_token
         self._bot = None  # Reset bot instance
+
+    def is_bot_configured(self) -> bool:
+        """Check if the bot is properly configured for creating invite links."""
+        try:
+            if not self.bot_token:
+                return False
+            
+            # Test if we can create a bot instance
+            app = self._get_bot()
+            return hasattr(app, 'bot') and hasattr(app.bot, 'create_chat_invite_link')
+        except Exception:
+            return False
 
     def _generate_secure_invite_data(self, player_data: dict) -> str:
         """
@@ -152,6 +167,14 @@ class InviteLinkService:
             Dict containing invite link details
         """
         try:
+            # Validate bot token is available
+            if not self.bot_token:
+                raise ValueError("Bot token not available for creating invite links")
+
+            # Validate chat ID
+            if not main_chat_id or not main_chat_id.strip():
+                raise ValueError("Main chat ID is required for creating invite links")
+
             # Generate unique invite link ID
             invite_id = str(uuid.uuid4())
 
@@ -241,6 +264,14 @@ class InviteLinkService:
             Dict containing invite link details
         """
         try:
+            # Validate bot token is available
+            if not self.bot_token:
+                raise ValueError("Bot token not available for creating invite links")
+
+            # Validate chat ID
+            if not leadership_chat_id or not leadership_chat_id.strip():
+                raise ValueError("Leadership chat ID is required for creating invite links")
+
             # Generate unique invite link ID
             invite_id = str(uuid.uuid4())
 
@@ -423,8 +454,8 @@ class InviteLinkService:
         """
         try:
             # Create invite link with custom parameters
-            bot = self._get_bot()
-            invite_link = await bot.create_chat_invite_link(
+            app = self._get_bot()
+            invite_link = await app.bot.create_chat_invite_link(
                 chat_id=int(chat_id),
                 name=f"KICKAI Invite {invite_id[:8]}",  # Short name for the link
                 creates_join_request=False,  # Direct join, no approval needed
@@ -437,6 +468,9 @@ class InviteLinkService:
         except TelegramError as e:
             logger.error(f"❌ Telegram API error creating invite link: {e}")
             raise
+        except AttributeError as e:
+            logger.error(f"❌ Bot not properly configured for invite links: {e}")
+            raise ValueError("Bot not properly configured for creating invite links")
         except Exception as e:
             logger.error(f"❌ Error creating Telegram invite link: {e}")
             raise

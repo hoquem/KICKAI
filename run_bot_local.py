@@ -2,7 +2,8 @@
 """
 KICKAI Bot Startup Script - Local Development
 
-A clean, robust bot startup script for local development with file logging.
+A clean, robust bot startup script for local development with console-only logging.
+File logging is handled through redirection in the startup script.
 """
 
 import asyncio
@@ -32,17 +33,36 @@ shutdown_event = asyncio.Event()
 
 
 def setup_logging():
-    """Configure logging for local development - file and console."""
-    # Loguru is already configured in core.logging_config to log to file and console
+    """Configure logging for local development - console only."""
+    # Loguru is already configured in core.logging_config to log to console only
     logger.info("📝 Logging configured for local development")
-    logger.info("📄 Console output: DEBUG level and above")
-    logger.info("📁 File output: logs/kickai.log")
+    logger.info("📄 Console output only - file logging handled by redirection")
     logger.info("🔄 Local development mode enabled")
 
+
+def cleanup_existing_bots():
+    """Kill existing bot processes before starting."""
+    try:
+        import subprocess
+        logger.info("🧹 Cleaning up existing bot processes...")
+        
+        # Kill any existing bot processes
+        subprocess.run(["pkill", "-f", "run_bot_local.py"], capture_output=True)
+        subprocess.run(["pkill", "-f", "python.*bot"], capture_output=True)
+        
+        # Wait for processes to terminate
+        time.sleep(2)
+        logger.info("✅ Bot cleanup completed")
+        
+    except Exception as e:
+        logger.warning(f"⚠️ Could not cleanup existing bots: {e}")
 
 def setup_environment():
     """Set up the environment and load configuration."""
     try:
+        # Clean up existing bot processes first
+        cleanup_existing_bots()
+        
         # Load environment variables from .env file
         from dotenv import load_dotenv
         load_dotenv()
@@ -178,7 +198,7 @@ async def main():
         
         logger.info("✅ Bot startup completed successfully")
         logger.info("🤖 Bot is now running and ready to receive messages")
-        logger.info("📝 Check logs/kickai.log for detailed logs")
+        logger.info("📝 Check console output for detailed logs")
         logger.info("🛑 Press Ctrl+C to stop the bot")
         logger.info("=" * 60)
         

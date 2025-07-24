@@ -46,12 +46,33 @@ class PlayerService:
         phone_hash = hashlib.md5(params.phone.encode()).hexdigest()[:8]
         user_id = f"user_{phone_hash}"
 
+        # Generate football-specific player ID
+        from kickai.utils.football_id_generator import generate_football_player_id
+        
+        # Parse name into first and last name
+        name_parts = params.name.strip().split()
+        first_name = name_parts[0] if name_parts else "Unknown"
+        last_name = name_parts[-1] if len(name_parts) > 1 else "Player"
+        
+        # Get existing player IDs for collision detection
+        existing_players = await self.player_repository.get_all_players(params.team_id)
+        existing_ids = {player.player_id for player in existing_players if player.player_id}
+        
+        player_id = generate_football_player_id(
+            first_name=first_name,
+            last_name=last_name,
+            position=params.position,
+            team_id=params.team_id,
+            existing_ids=existing_ids
+        )
+
         player = Player(
             user_id=user_id,
             team_id=params.team_id,
             full_name=params.name,
             phone_number=params.phone,
             position=params.position,
+            player_id=player_id,
             status="pending"
         )
         return await self.player_repository.create_player(player)
@@ -85,11 +106,9 @@ class PlayerService:
         if len(team_id.strip()) < 2:
             raise ValueError("Team ID must be at least 2 characters long")
 
-    async def get_player_by_id(self, player_id: str) -> Player | None:
+    async def get_player_by_id(self, player_id: str, team_id: str) -> Player | None:
         """Get a player by ID."""
-        # Note: This method requires team_id, but we don't have it here
-        # We'll need to modify this or the interface
-        return await self.player_repository.get_player_by_id(player_id, "")
+        return await self.player_repository.get_player_by_id(player_id, team_id)
 
     async def get_player_by_phone(self, *, phone: str, team_id: str) -> Player | None:
         """Get a player by phone number."""
@@ -148,9 +167,9 @@ class PlayerService:
         """Get active players for a team."""
         return await self.get_players_by_team(team_id=team_id, status="active")
 
-    async def update_player_status(self, player_id: str, status: str) -> Player:
+    async def update_player_status(self, player_id: str, status: str, team_id: str) -> Player:
         """Update a player's status."""
-        player = await self.player_repository.get_player_by_id(player_id, "")
+        player = await self.player_repository.get_player_by_id(player_id, team_id)
         if not player:
             raise ValueError(f"Player with ID {player_id} not found")
 
@@ -159,9 +178,9 @@ class PlayerService:
 
         return await self.player_repository.update_player(player)
 
-    async def get_player_with_team_info(self, player_id: str) -> dict[str, Any]:
+    async def get_player_with_team_info(self, player_id: str, team_id: str) -> dict[str, Any]:
         """Get player information including team details."""
-        player = await self.get_player_by_id(player_id)
+        player = await self.get_player_by_id(player_id, team_id)
         if not player:
             return {}
 
@@ -175,9 +194,9 @@ class PlayerService:
             'team_id': player.team_id
         }
 
-    async def delete_player(self, player_id: str) -> bool:
+    async def delete_player(self, player_id: str, team_id: str) -> bool:
         """Delete a player."""
-        return await self.player_repository.delete_player(player_id, "")
+        return await self.player_repository.delete_player(player_id, team_id)
 
     async def get_my_status(self, user_id: str, team_id: str) -> str:
         """
@@ -234,9 +253,9 @@ class PlayerService:
 🔄 Updated: {player.updated_at.strftime('%Y-%m-%d') if player.updated_at else 'Unknown'}"""
 
     # Methods needed by reminder service and other components
-    async def update_player(self, player_id: str, **updates) -> Player:
+    async def update_player(self, player_id: str, team_id: str, **updates) -> Player:
         """Update a player with the given updates."""
-        player = await self.player_repository.get_player_by_id(player_id, "")
+        player = await self.player_repository.get_player_by_id(player_id, team_id)
         if not player:
             raise ValueError(f"Player with ID {player_id} not found")
 
@@ -276,8 +295,8 @@ class PlayerService:
     async def approve_player(self, player_id: str, team_id: str) -> str:
         """Approve a player for team participation."""
         try:
-            player = await self.update_player_status(player_id, "approved")
-            return f"✅ Player {player.name} approved successfully"
+            player = await self.update_player_status(player_id, "approved", team_id)
+            return f"✅ Player {player.full_name} approved successfully"
         except Exception as e:
             logger.error(f"Error approving player {player_id}: {e}")
             return f"❌ Failed to approve player: {e!s}"

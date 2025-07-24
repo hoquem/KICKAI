@@ -126,13 +126,9 @@ class PlayerTeamMemberValidator(EntityValidator):
                     suggested_agent=AgentRole.TEAM_MANAGER
                 )
         elif entity_type == EntityType.TEAM_MEMBER:
-            if any(keyword in operation_lower for keyword in ['player', 'position', 'jersey']):
-                return EntityValidationResult(
-                    is_valid=False,
-                    entity_type=entity_type,
-                    error_message="Team member operation attempted on player data",
-                    suggested_agent=AgentRole.PLAYER_COORDINATOR
-                )
+            # Allow team members to perform player operations in leadership chat
+            # This is the correct behavior for the simplified logic
+            pass
 
         return EntityValidationResult(
             is_valid=True,
