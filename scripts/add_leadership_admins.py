@@ -9,7 +9,7 @@ This script:
 4. Provides a summary of the operation
 
 Usage:
-    python scripts-oneoff/add_leadership_admins.py
+    python scripts/add_leadership_admins.py
 """
 
 import asyncio
@@ -19,14 +19,14 @@ from typing import List, Dict, Any
 from dataclasses import dataclass
 from datetime import datetime
 
-# Add src to path for imports
+# Add src to path for imports BEFORE any other imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from telegram import Bot
 from telegram.error import TelegramError
 from loguru import logger
-from src.database.firebase_client import FirebaseClient
-from src.config.environment import get_environment_config
+from kickai.database.firebase_client import FirebaseClient
+from kickai.config.environment import get_environment_config
 
 
 @dataclass
@@ -45,20 +45,43 @@ class LeadershipAdminAdder:
     
     def __init__(self, team_id: str):
         self.team_id = team_id
-        self.env_config = get_environment_config()
-        self.bot_token = self.env_config.get('TELEGRAM_BOT_TOKEN')
-        self.leadership_chat_id = self.env_config.get('TELEGRAM_LEADERSHIP_CHAT_ID')
-        
-        if not self.bot_token:
-            raise ValueError("TELEGRAM_BOT_TOKEN not found in environment")
-        if not self.leadership_chat_id:
-            raise ValueError("TELEGRAM_LEADERSHIP_CHAT_ID not found in environment")
-        
-        self.bot = Bot(token=self.bot_token)
         self.firebase_client = FirebaseClient()
         
+        # Get bot configuration from Firestore team document
+        self.bot_token = None
+        self.leadership_chat_id = None
+        self.bot = None
+        
         logger.info(f"Initialized LeadershipAdminAdder for team: {team_id}")
-        logger.info(f"Leadership chat ID: {self.leadership_chat_id}")
+    
+    async def _load_bot_config(self):
+        """Load bot configuration from Firestore team document."""
+        try:
+            # Get team document from Firestore
+            team_doc = await self.firebase_client.get_document(
+                collection='kickai_teams',
+                document_id=self.team_id
+            )
+            
+            if not team_doc:
+                raise ValueError(f"Team {self.team_id} not found in Firestore")
+            
+            self.bot_token = team_doc.get('bot_token')
+            self.leadership_chat_id = team_doc.get('leadership_chat_id')
+            
+            if not self.bot_token:
+                raise ValueError(f"Bot token not found for team {self.team_id}")
+            if not self.leadership_chat_id:
+                raise ValueError(f"Leadership chat ID not found for team {self.team_id}")
+            
+            self.bot = Bot(token=self.bot_token)
+            
+            logger.info(f"Bot configuration loaded for team: {self.team_id}")
+            logger.info(f"Leadership chat ID: {self.leadership_chat_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to load bot configuration: {e}")
+            raise
     
     async def get_chat_administrators(self) -> List[ChatMember]:
         """Get all administrators from the leadership chat."""
@@ -152,6 +175,9 @@ class LeadershipAdminAdder:
         logger.info("🚀 Starting leadership admin addition process...")
         
         try:
+            # Load bot configuration from Firestore
+            await self._load_bot_config()
+            
             # Get chat administrators
             chat_members = await self.get_chat_administrators()
             
@@ -225,9 +251,12 @@ async def main():
     logger.info("🤖 Leadership Admin Addition Script")
     logger.info("=" * 50)
     
-    # Get team ID from environment
-    env_config = get_environment_config()
-    team_id = env_config.get('TEAM_ID', 'KTI')  # Default to KTI if not specified
+    # Get team ID from command line argument or use default
+    import sys
+    if len(sys.argv) > 1:
+        team_id = sys.argv[1]
+    else:
+        team_id = 'KTI'  # Default to KTI if not specified
     
     logger.info(f"Team ID: {team_id}")
     

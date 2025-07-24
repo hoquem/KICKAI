@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'tests'))
 
 from frameworks.e2e_framework import E2ETestRunner, TelegramBotTester, FirestoreValidator
 from frameworks.test_suites import load_test_suite, get_available_suites
-from core.settings import get_settings
+from kickai.core.settings import get_settings
 
 # Configure logging
 logging.basicConfig(

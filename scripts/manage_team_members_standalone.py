@@ -41,7 +41,7 @@ sys.path.insert(0, src_path)
 from telegram import Bot
 from telegram.error import TelegramError
 from loguru import logger
-from utils.user_id_generator import generate_user_id
+from kickai.utils.user_id_generator import generate_user_id
 
 # Direct Firestore imports
 try:
@@ -236,9 +236,9 @@ class TeamMemberManager:
                 team = Team(
                     id=team_data.get('id', ''),
                     name=team_data.get('name', 'Unknown Team'),
-                    bot_token=settings.get('bot_token'),
-                    main_chat_id=settings.get('main_chat_id'),
-                    leadership_chat_id=settings.get('leadership_chat_id'),
+                    bot_token=team_data.get('bot_token'),
+                    main_chat_id=team_data.get('main_chat_id'),
+                    leadership_chat_id=team_data.get('leadership_chat_id'),
                     settings=settings
                 )
                 teams.append(team)

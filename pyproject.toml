@@ -46,6 +46,9 @@ Homepage = "https://github.com/yourusername/kickai"
 Repository = "https://github.com/yourusername/kickai"
 Issues = "https://github.com/yourusername/kickai/issues"
 
+[tool.setuptools.packages.find]
+include = ["kickai*"]
+
 [tool.black]
 line-length = 100
 target-version = ['py311']
@@ -73,7 +76,7 @@ force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
 skip = ["venv", ".venv", "build", "dist", ".git", ".pytest_cache"]
-known_first_party = ["src"]
+known_first_party = ["kickai"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -89,6 +92,7 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+packages = ["kickai"]
 
 [[tool.mypy.overrides]]
 module = [
