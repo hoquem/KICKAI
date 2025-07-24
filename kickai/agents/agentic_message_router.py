@@ -124,7 +124,7 @@ class AgenticMessageRouter:
 
 
     def _get_unregistered_user_message(self, chat_type: ChatType, username: str) -> str:
-        """Get message for unregistered users."""
+        """Get message for unregistered users based on chat type."""
         from kickai.core.constants import BOT_VERSION
 
         if chat_type == ChatType.LEADERSHIP:
@@ -132,17 +132,17 @@ class AgenticMessageRouter:
 
 🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant
 
-🤔 I don't see you registered as a team member yet.
+🤔 You're not registered as a team member yet.
 
-📝 Please provide your details so I can add you to the team members collection.
+📝 To register as a team member, please provide your details:
 
-💡 You can use:
+💡 Use this command:
 /register [name] [phone] [role]
 
 Example:
 /register John Smith +1234567890 Assistant Coach
 
-🎯 Your role can be:
+🎯 Available roles:
 • Team Manager, Coach, Assistant Coach
 • Club Administrator, Treasurer
 • Volunteer Coordinator, etc.
@@ -152,13 +152,16 @@ Example:
 • Generate invite links for chats
 • Manage the team system
 
+❓ Got here by mistake?
+If you're not part of the team leadership, please leave this chat.
+
 Ready to get started? Use the /register command above!"""
         else:
             return f"""👋 Welcome to KICKAI for {self.team_id}, {username}!
 
 🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant
 
-🎯 To join the team as a player:
+🤔 You're not registered as a player yet.
 
 📞 Contact Team Leadership
 You need to be added as a player by someone in the team's leadership.
@@ -207,18 +210,22 @@ Use /help to see available commands or ask me questions!"""
                 except Exception:
                     pass
 
-            # Determine registration status based on CHAT CONTEXT
+            # SIMPLIFIED LOGIC: Chat type determines user type
             if message.chat_type == ChatType.MAIN:
-                # In main chat, only players are considered registered
+                # In main chat, treat as player
                 is_registered = is_player
-                logger.info(f"🔄 AgenticMessageRouter: Main chat - is_player={is_player}, is_team_member={is_team_member}, is_registered={is_registered}")
+                is_team_member = False  # Force team member to False in main chat
+                logger.info(f"🔄 AgenticMessageRouter: Main chat - treating as player, is_player={is_player}, is_registered={is_registered}")
             elif message.chat_type == ChatType.LEADERSHIP:
-                # In leadership chat, only team members are considered registered
+                # In leadership chat, treat as team member
                 is_registered = is_team_member
-                logger.info(f"🔄 AgenticMessageRouter: Leadership chat - is_player={is_player}, is_team_member={is_team_member}, is_registered={is_registered}")
+                is_player = False  # Force player to False in leadership chat
+                logger.info(f"🔄 AgenticMessageRouter: Leadership chat - treating as team member, is_team_member={is_team_member}, is_registered={is_registered}")
             else:
                 # Unknown chat type, assume unregistered
                 is_registered = False
+                is_player = False
+                is_team_member = False
                 logger.warning(f"⚠️ AgenticMessageRouter: Unknown chat type {message.chat_type}, assuming unregistered")
 
             # Create standardized context for CrewAI system
@@ -238,6 +245,7 @@ Use /help to see available commands or ask me questions!"""
             # Convert to execution context for backward compatibility
             execution_context = standardized_context.to_dict()
             execution_context.update({
+                'chat_type': message.chat_type.value,  # Add chat_type for simplified logic
                 'is_leadership_chat': message.chat_type == ChatType.LEADERSHIP,
                 'is_main_chat': message.chat_type == ChatType.MAIN,
             })

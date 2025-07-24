@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from kickai.core.dependency_container import get_container
 from kickai.features.player_registration.domain.services.player_service import PlayerService
 from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
+from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
 
 logger = logging.getLogger(__name__)
 
