@@ -31,7 +31,7 @@ This document defines the expected behavior for all KICKAI bot commands across d
 ### Player Management Commands
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent |
 |---------|-------------|-----------|-----------------|------------------|-------|
-| `/add` | Add a new player | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
+| `/addplayer` | Add a new player | ❌ | ✅ | LEADERSHIP | PlayerCoordinatorAgent |
 | `/approve` | Approve player registration | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
 | `/reject` | Reject player registration | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
 | `/pending` | Show pending registrations | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
@@ -101,16 +101,17 @@ graph TD
 - **Tools**: Intent analysis, context extraction, message routing
 
 #### 3. **PlayerCoordinatorAgent**
-- **Primary Commands**: `/register`, `/myinfo`, `/status`
+- **Primary Commands**: `/register`, `/myinfo`, `/status`, `/addplayer`
 - **Responsibilities**:
   - Player registration and onboarding
   - Individual player support
   - Player status tracking
   - Personal information management
-- **Tools**: Player management, registration, status tracking
+  - Player addition and invite link generation
+- **Tools**: Player management, registration, status tracking, add_player
 
 #### 4. **TeamManagerAgent**
-- **Primary Commands**: `/list`, `/add`, `/approve`, `/reject`, `/team`, `/invite`, `/announce`
+- **Primary Commands**: `/list`, `/approve`, `/reject`, `/team`, `/invite`, `/announce`
 - **Responsibilities**:
   - Team administration
   - Player management
@@ -212,7 +213,7 @@ def _map_intent_to_command(self, intent: Dict[str, Any]) -> Optional[str]:
         'player status': '/status',
         'list players': '/list',
         'team info': '/team',
-        'add player': '/add',
+        'add player': '/addplayer',
         'approve player': '/approve',
         'system health': '/health',
         'bot version': '/version'
@@ -327,7 +328,7 @@ graph TD
 **Example 1: Unauthorized Leadership Request**
 ```
 User (in main chat): "Add a new player to the team"
-System: Maps to /add command
+System: Maps to /addplayer command
 Permission Check: LEADERSHIP required, user has PLAYER level
 Result: ❌ Access Denied - "This action requires leadership access"
 ```
@@ -420,7 +421,7 @@ You need to be added as a player by someone in the team's leadership.
 
 💬 What to do:
 1. Reach out to someone in the team's leadership chat
-2. Ask them to add you as a player using the `/add` command
+2. Ask them to add you as a player using the `/addplayer` command
 3. They'll send you an invite link to join the main chat
 4. Once added, you can register with your full details
 
@@ -549,7 +550,7 @@ Role: {role} | Player: {is_player}
 
 Team Management:
 • /register - Register new player with name, phone, position
-• /add - Add new player to team roster
+• /addplayer - Add new player to team roster
 • /list - List all players with their status
 • /status - Check player status by phone number
 • /myinfo - Check your team member information
@@ -604,7 +605,7 @@ You need to be added as a player by someone in the team's leadership.
 
 💬 What to do:
 1. Reach out to someone in the team's leadership chat
-2. Ask them to add you as a player using the `/add` command
+2. Ask them to add you as a player using the `/addplayer` command
 3. They'll send you an invite link to join the main chat
 4. Once added, you can register with your full details
 
@@ -687,9 +688,212 @@ Contact the team administrator to make any changes.
 🎯 What you can do:
 • Use /myinfo to check your details
 • Use /list to see all team members and players
-• Use /add to add new players
+• Use /addplayer to add new players
 • Use /approve to approve registrations
 • Ask me questions in natural language!
+```
+
+### `/addplayer` Command
+
+#### Agentic Implementation Overview
+
+The `/addplayer` command is implemented using the **PlayerCoordinatorAgent** that handles player addition and invite link generation.
+
+**Key Components:**
+- **PlayerCoordinatorAgent**: Specialized agent for player management
+- **Player Registration Service**: Handles player record creation
+- **Invite Link Service**: Generates unique Telegram invite links
+- **Team Context**: Requires team_id for proper routing
+
+#### Invite Link Creation Strategy
+
+**Required Information for Invite Link Creation:**
+1. **Team ID**: Obtained from the current chat context (team_id)
+2. **Player Name**: Provided in the command parameters
+3. **Player Phone**: Provided in the command parameters  
+4. **Player Position**: Provided in the command parameters
+5. **Main Chat ID**: Obtained from team configuration in Firestore
+6. **Bot Token**: Obtained from team configuration in Firestore
+
+**Information Sources:**
+- **Command Parameters**: `name`, `phone`, `position` (user input)
+- **Team Configuration**: `team_id`, `main_chat_id`, `bot_token` (from Firestore)
+- **Chat Context**: Current team context (from message routing)
+
+**Invite Link Creation Flow:**
+```python
+async def create_player_invite_link(self, team_id: str, player_name: str, 
+                                  player_phone: str, player_position: str, 
+                                  main_chat_id: str) -> dict[str, Any]:
+    """
+    Create a unique invite link for a player to join the main chat.
+    
+    Args:
+        team_id: Team ID (from team configuration)
+        player_name: Player's name (from command parameters)
+        player_phone: Player's phone number (from command parameters)
+        player_position: Player's position (from command parameters)
+        main_chat_id: Main chat ID (from team configuration)
+        
+    Returns:
+        Dict containing invite link details
+    """
+    # 1. Generate unique invite link ID
+    invite_id = str(uuid.uuid4())
+    
+    # 2. Create Telegram invite link using bot token
+    invite_link = await self._create_telegram_invite_link(main_chat_id, invite_id)
+    
+    # 3. Store invite link metadata in Firestore
+    invite_data = {
+        "invite_id": invite_id,
+        "team_id": team_id,
+        "chat_id": main_chat_id,
+        "chat_type": "main",
+        "invite_link": invite_link,
+        "player_name": player_name,
+        "player_phone": player_phone,
+        "player_position": player_position,
+        "status": "active",
+        "created_at": datetime.now().isoformat(),
+        "expires_at": (datetime.now() + timedelta(days=7)).isoformat(),
+        "used_at": None,
+        "used_by": None
+    }
+    
+    # 4. Store in Firestore for tracking and validation
+    await self.database.create_document(self.collection_name, invite_data, invite_id)
+    
+    return {
+        "invite_id": invite_id,
+        "invite_link": invite_link,
+        "player_name": player_name,
+        "expires_at": invite_data["expires_at"]
+    }
+```
+
+**Bot Token Configuration Strategy:**
+The `InviteLinkService` requires a bot token to create Telegram invite links. The bot token is obtained from:
+
+1. **Team Configuration**: Primary source - stored in team document in Firestore
+2. **Environment Variables**: Fallback source - `TELEGRAM_BOT_TOKEN` environment variable
+3. **Service Update**: The bot token is set on the service after bot configurations are loaded
+
+**Bot Token Update Flow:**
+```python
+# In MultiBotManager.start_all_bots()
+for team in self.bot_configs:
+    bot_token = getattr(team, 'bot_token', None)
+    if not bot_token:
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    
+    # Update InviteLinkService with bot token
+    invite_service = get_service(InviteLinkService)
+    invite_service.set_bot_token(bot_token)
+```
+
+#### Expected Behavior
+
+**Leadership Chat - Registered Team Member (`/addplayer` command):**
+
+**Input:** `/addplayer John Smith +447123456789 Forward`
+
+**Process:**
+1. **Parameter Validation**: Validate name, phone, and position format
+2. **Player Creation**: Create player record in Firestore with status "pending"
+3. **Invite Link Generation**: Generate unique Telegram invite link
+4. **Response**: Return success message with invite link
+
+**Success Response:**
+```
+✅ Player Added Successfully!
+
+👤 Player Details:
+• Name: John Smith
+• Phone: +447123456789
+• Position: Forward
+• Status: Pending Approval
+
+🔗 Invite Link Generated:
+https://t.me/joinchat/ABC123DEF456
+
+📋 Next Steps:
+1. Share this invite link with John Smith
+2. They can join the main chat using the link
+3. Once they join, they can register with /register
+4. Use /approve to approve their registration
+
+🔒 Security:
+• Link expires in 7 days
+• One-time use only
+• Automatically tracked in system
+
+💡 Tip: The player will need to register with /register after joining the chat.
+```
+
+**Error Responses:**
+
+**Invalid Parameters:**
+```
+❌ Invalid Parameters
+
+Please provide all required information:
+/addplayer [name] [phone] [position]
+
+Example:
+/addplayer John Smith +447123456789 Forward
+
+💡 Phone should be in international format (e.g., +447123456789)
+```
+
+**Bot Token Missing:**
+```
+❌ System Configuration Error
+
+Unable to generate invite link: Bot token not configured.
+
+🔧 Please contact the system administrator to configure the bot token.
+```
+
+**Player Already Exists:**
+```
+❌ Player Already Exists
+
+A player with phone number +447123456789 is already registered.
+
+💡 Use /status +447123456789 to check their current status.
+```
+
+**Database Error:**
+```
+❌ Database Error
+
+Unable to add player due to a system error.
+
+🔧 Please try again or contact support if the problem persists.
+```
+
+#### Command Processing Flow
+
+```mermaid
+graph TD
+    A[User Input: /addplayer John Smith +447123456789 Forward] --> B[Command Registry]
+    B --> C[Entity Routing: PLAYER]
+    C --> D[PlayerCoordinatorAgent]
+    D --> E[Parameter Validation]
+    E --> F{Valid Parameters?}
+    F -->|No| G[Return Error Message]
+    F -->|Yes| H[Check Player Exists]
+    H --> I{Player Exists?}
+    I -->|Yes| J[Return Already Exists Error]
+    I -->|No| K[Create Player Record]
+    K --> L[Get Team Configuration]
+    L --> M[Get Bot Token]
+    M --> N{Bot Token Available?}
+    N -->|No| O[Return Bot Token Error]
+    N -->|Yes| P[Generate Invite Link]
+    P --> Q[Store Invite Link Data]
+    Q --> R[Return Success Response]
 ```
 
 ### `/register` Command
@@ -859,7 +1063,7 @@ You can also ask me questions in natural language!
 👤 {telegram_name} (Team Member)
 
 Leadership Commands:
-• /add - Add a new player
+• /addplayer - Add a new player
 • /approve - Approve player registration
 • /reject - Reject player registration
 • /pending - Show pending registrations

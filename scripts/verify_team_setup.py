@@ -22,9 +22,9 @@ project_root = os.path.dirname(current_dir)
 src_path = os.path.join(project_root, 'src')
 sys.path.insert(0, src_path)
 
-from database.firebase_client import get_firebase_client
-from features.team_administration.domain.services.team_service import TeamService
-from features.player_registration.domain.services.player_service import PlayerService
+from kickai.database.firebase_client import get_firebase_client
+from kickai.features.team_administration.domain.services.team_service import TeamService
+from kickai.features.player_registration.domain.services.player_service import PlayerService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

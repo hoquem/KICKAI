@@ -154,9 +154,9 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
     async def create_team_member(self, team_member: TeamMember) -> TeamMember:
         """Create a new team member."""
         # Generate a unique ID for the team member if not provided
-        from utils.id_generator import generate_team_member_id
+        # Team member ID generation moved to behavioral mixins
         if not team_member.id:
-            team_member.id = generate_team_member_id(team_member.name)
+            team_member.id = f"TM_{team_member.name.replace(' ', '')[:6].upper()}"
 
         # Preserve the original user_id (should be telegram_id or unique user identifier)
         # Don't override user_id with the document ID
