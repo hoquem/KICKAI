@@ -22,9 +22,9 @@ project_root = os.path.dirname(current_dir)
 src_path = os.path.join(project_root, 'src')
 sys.path.insert(0, src_path)
 
-from database.firebase_client import get_firebase_client
-from features.team_administration.domain.services.team_service import TeamService
-from features.player_registration.domain.services.player_service import PlayerService
+from kickai.database.firebase_client import get_firebase_client
+from kickai.features.team_administration.domain.services.team_service import TeamService
+from kickai.features.player_registration.domain.services.player_service import PlayerService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -112,8 +112,8 @@ class TeamSetupVerifier:
                 # Get admin player details
                 admin_player = await self.player_service.get_player_by_id(admin_member.user_id)
                 if admin_player:
-                    logger.info(f"✅ Admin user found: {admin_player.name}")
-                    logger.info(f"   Phone: {admin_player.phone}")
+                    logger.info(f"✅ Admin user found: {admin_player.full_name}")
+                    logger.info(f"   Phone: {admin_player.phone_number}")
                     logger.info(f"   Email: {admin_player.email}")
                     logger.info(f"   Role: {admin_player.role.value}")
                     return admin_player

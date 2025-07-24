@@ -3,20 +3,19 @@
 Script to add leadership chat members as team admins in Firestore.
 
 This script:
-1. Connects to Telegram using the bot token
+1. Connects to Telegram using the bot token from Firestore
 2. Gets the list of administrators in the leadership chat
 3. Adds each admin as a team member in Firestore with admin role
-4. Provides a summary of the operation
+4. Uses the proper domain model and follows established patterns
 
 Usage:
-    python scripts-oneoff/add_leadership_admins.py
+    python scripts/add_leadership_admins.py [team_id]
 """
 
 import asyncio
 import os
 import sys
 from typing import List, Dict, Any
-from dataclasses import dataclass
 from datetime import datetime
 
 # Add src to path for imports
@@ -25,19 +24,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 from telegram import Bot
 from telegram.error import TelegramError
 from loguru import logger
-from src.database.firebase_client import FirebaseClient
-from src.config.environment import get_environment_config
 
-
-@dataclass
-class ChatMember:
-    """Represents a chat member with admin status."""
-    user_id: int
-    username: str
-    first_name: str
-    last_name: str
-    is_admin: bool
-    status: str
+from kickai.database.firebase_client import get_firebase_client
+from kickai.features.team_administration.domain.entities.team_member import TeamMember
+from kickai.utils.user_id_generator import generate_user_id
 
 
 class LeadershipAdminAdder:
@@ -45,22 +35,45 @@ class LeadershipAdminAdder:
     
     def __init__(self, team_id: str):
         self.team_id = team_id
-        self.env_config = get_environment_config()
-        self.bot_token = self.env_config.get('TELEGRAM_BOT_TOKEN')
-        self.leadership_chat_id = self.env_config.get('TELEGRAM_LEADERSHIP_CHAT_ID')
+        self.firebase_client = get_firebase_client()
         
-        if not self.bot_token:
-            raise ValueError("TELEGRAM_BOT_TOKEN not found in environment")
-        if not self.leadership_chat_id:
-            raise ValueError("TELEGRAM_LEADERSHIP_CHAT_ID not found in environment")
-        
-        self.bot = Bot(token=self.bot_token)
-        self.firebase_client = FirebaseClient()
+        # Bot configuration
+        self.bot_token = None
+        self.leadership_chat_id = None
+        self.bot = None
         
         logger.info(f"Initialized LeadershipAdminAdder for team: {team_id}")
-        logger.info(f"Leadership chat ID: {self.leadership_chat_id}")
     
-    async def get_chat_administrators(self) -> List[ChatMember]:
+    async def _load_bot_config(self):
+        """Load bot configuration from Firestore team document."""
+        try:
+            # Get team document from Firestore
+            team_doc = await self.firebase_client.get_document(
+                collection='kickai_teams',
+                document_id=self.team_id
+            )
+            
+            if not team_doc:
+                raise ValueError(f"Team {self.team_id} not found in Firestore")
+            
+            self.bot_token = team_doc.get('bot_token')
+            self.leadership_chat_id = team_doc.get('leadership_chat_id')
+            
+            if not self.bot_token:
+                raise ValueError(f"Bot token not found for team {self.team_id}")
+            if not self.leadership_chat_id:
+                raise ValueError(f"Leadership chat ID not found for team {self.team_id}")
+            
+            self.bot = Bot(token=self.bot_token)
+            
+            logger.info(f"Bot configuration loaded for team: {self.team_id}")
+            logger.info(f"Leadership chat ID: {self.leadership_chat_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to load bot configuration: {e}")
+            raise
+    
+    async def get_chat_administrators(self) -> List[Dict[str, Any]]:
         """Get all administrators from the leadership chat."""
         try:
             logger.info("Fetching chat administrators...")
@@ -68,18 +81,22 @@ class LeadershipAdminAdder:
             
             chat_members = []
             for admin in admins:
-                member = ChatMember(
-                    user_id=admin.user.id,
-                    username=admin.user.username or "",
-                    first_name=admin.user.first_name or "",
-                    last_name=admin.user.last_name or "",
-                    is_admin=admin.status in ['creator', 'administrator'],
-                    status=admin.status
-                )
-                chat_members.append(member)
-                logger.info(f"Found admin: {member.first_name} {member.last_name} (@{member.username}) - Status: {member.status}")
+                # Skip the bot itself
+                if admin.user.is_bot:
+                    continue
+                    
+                member_data = {
+                    'user_id': admin.user.id,
+                    'username': admin.user.username or "",
+                    'first_name': admin.user.first_name or "",
+                    'last_name': admin.user.last_name or "",
+                    'is_admin': admin.status in ['creator', 'administrator'],
+                    'status': admin.status
+                }
+                chat_members.append(member_data)
+                logger.info(f"Found admin: {member_data['first_name']} {member_data['last_name']} (@{member_data['username']}) - Status: {member_data['status']}")
             
-            logger.info(f"Found {len(chat_members)} chat members")
+            logger.info(f"Found {len(chat_members)} chat members (excluding bot)")
             return chat_members
             
         except TelegramError as e:
@@ -92,7 +109,7 @@ class LeadershipAdminAdder:
             collection_name = f"kickai_{self.team_id}_team_members"
             existing_members = await self.firebase_client.query_documents(
                 collection=collection_name,
-                filters=[("team_id", "==", self.team_id)]
+                filters=[{"field": "team_id", "operator": "==", "value": self.team_id}]
             )
             
             logger.info(f"Found {len(existing_members)} existing team members")
@@ -102,49 +119,48 @@ class LeadershipAdminAdder:
             logger.error(f"Error checking existing team members: {e}")
             raise
     
-    async def add_team_member(self, member: ChatMember) -> bool:
-        """Add a chat member as a team member in Firestore."""
+    async def add_team_member(self, member_data: Dict[str, Any]) -> bool:
+        """Add a chat member as a team member in Firestore using the domain model."""
         try:
-            # Determine role based on status
-            if member.status == 'creator':
-                role = "Team Owner"
-            elif member.status == 'administrator':
-                role = "Team Administrator"
-            else:
-                role = "Team Member"
+            # Create TeamMember entity using the domain model
+            team_member = TeamMember.create_from_telegram(
+                team_id=self.team_id,
+                telegram_id=member_data['user_id'],
+                first_name=member_data['first_name'],
+                last_name=member_data['last_name'],
+                username=member_data['username'],
+                is_admin=member_data['is_admin']
+            )
             
-            # Create team member document
-            team_member_data = {
-                "team_id": self.team_id,
-                "telegram_id": str(member.user_id),
-                "username": member.username,
-                "first_name": member.first_name,
-                "last_name": member.last_name,
-                "full_name": f"{member.first_name} {member.last_name}".strip(),
-                "role": role,
-                "status": "active",
-                "is_admin": member.is_admin,
-                "chat_status": member.status,
-                "created_at": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat(),
-                "registration_source": "leadership_chat_admin_script"
-            }
+            # Determine role based on status
+            if member_data['status'] == 'creator':
+                team_member.role = "Club Administrator"
+            elif member_data['status'] == 'administrator':
+                team_member.role = "Team Manager"
+            else:
+                team_member.role = "Team Member"
+            
+            # Set source
+            team_member.source = "leadership_chat_admin_script"
+            
+            # Convert to dictionary for storage
+            team_member_dict = team_member.to_dict()
             
             # Add to Firestore
             collection_name = f"kickai_{self.team_id}_team_members"
-            doc_id = f"{self.team_id}_{member.user_id}"
+            doc_id = team_member.user_id  # Use the generated user_id as document ID
             
-            await self.firebase_client.add_document(
+            await self.firebase_client.create_document(
                 collection=collection_name,
-                document_id=doc_id,
-                data=team_member_data
+                data=team_member_dict,
+                document_id=doc_id
             )
             
-            logger.info(f"✅ Added team member: {member.first_name} {member.last_name} as {role}")
+            logger.info(f"✅ Added team member: {team_member.get_display_name()} as {team_member.role}")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Error adding team member {member.first_name} {member.last_name}: {e}")
+            logger.error(f"❌ Error adding team member {member_data.get('first_name', 'Unknown')}: {e}")
             return False
     
     async def run(self) -> Dict[str, Any]:
@@ -152,6 +168,9 @@ class LeadershipAdminAdder:
         logger.info("🚀 Starting leadership admin addition process...")
         
         try:
+            # Load bot configuration from Firestore
+            await self._load_bot_config()
+            
             # Get chat administrators
             chat_members = await self.get_chat_administrators()
             
@@ -160,7 +179,7 @@ class LeadershipAdminAdder:
             existing_telegram_ids = {member.get('telegram_id') for member in existing_members}
             
             # Filter out existing members
-            new_members = [member for member in chat_members if str(member.user_id) not in existing_telegram_ids]
+            new_members = [member for member in chat_members if str(member['user_id']) not in existing_telegram_ids]
             
             if not new_members:
                 logger.info("ℹ️ No new members to add - all chat admins are already team members")
@@ -183,7 +202,7 @@ class LeadershipAdminAdder:
                 if success:
                     added_count += 1
                 else:
-                    errors.append(f"Failed to add {member.first_name} {member.last_name}")
+                    errors.append(f"Failed to add {member.get('first_name', 'Unknown')} {member.get('last_name', '')}")
             
             # Summary
             logger.info("📊 Summary:")
@@ -217,7 +236,8 @@ class LeadershipAdminAdder:
             }
         
         finally:
-            await self.bot.close()
+            if self.bot:
+                await self.bot.close()
 
 
 async def main():
@@ -225,9 +245,11 @@ async def main():
     logger.info("🤖 Leadership Admin Addition Script")
     logger.info("=" * 50)
     
-    # Get team ID from environment
-    env_config = get_environment_config()
-    team_id = env_config.get('TEAM_ID', 'KTI')  # Default to KTI if not specified
+    # Get team ID from command line argument or use default
+    if len(sys.argv) > 1:
+        team_id = sys.argv[1]
+    else:
+        team_id = 'KTI'  # Default to KTI if not specified
     
     logger.info(f"Team ID: {team_id}")
     

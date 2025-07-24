@@ -11,7 +11,7 @@ from typing import Any
 
 from loguru import logger
 
-from core.exceptions import (
+from src.core.exceptions import (
     AgentExecutionError,
     AuthorizationError,
     InputValidationError,
@@ -842,156 +842,16 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
         return "player_addition"
 
     def get_supported_commands(self) -> list:
-        return ["/addplayer", "/add_player"]
+        return ["/addplayer"]
 
     async def handle_addplayer_command(self, message_text: str, execution_context: dict[str, Any]) -> str:
         """
-        Handle /addplayer command using agent-based processing.
-        
-        Args:
-            message_text: The command text (e.g., "/addplayer John Smith +447123456789 Forward")
-            execution_context: Execution context with user and team info
-            
-        Returns:
-            Formatted response message
+        Handle /addplayer command - this should be routed through the agent system.
+        The actual implementation is handled by the add_player tool assigned to PLAYER_COORDINATOR.
         """
-        try:
-            from datetime import datetime
+        return "🔄 This command is being processed by the agent system. Please wait..."
 
-            from core.dependency_container import get_dependency_container
-            from core.settings import get_settings
-            from database.firebase_client import get_firebase_client
-            from features.communication.domain.services.invite_link_service import InviteLinkService
-            from features.player_registration.domain.entities.player import Player
-            from utils.id_generator import generate_player_id_from_name
-            from utils.phone_utils import is_valid_phone, normalize_phone
 
-            # Parse command arguments
-            args = message_text.split()[1:]  # Remove /addplayer
-
-            if len(args) < 3:
-                return (
-                    "❌ Missing Information\n\n"
-                    "Please provide all required information:\n"
-                    "• Name\n"
-                    "• Phone number  \n"
-                    "• Position\n\n"
-                    "Format: /addplayer [name] [phone] [position]\n\n"
-                    "Example: /addplayer John Smith +447123456789 Forward\n\n"
-                    "💡 Need help? Contact the team admin."
-                )
-
-            # Extract parameters - handle names with spaces
-            # Find the phone number (starts with + or 0)
-            phone_index = -1
-            for i, arg in enumerate(args):
-                if arg.startswith('+') or arg.startswith('0'):
-                    phone_index = i
-                    break
-
-            if phone_index == -1:
-                return (
-                    "❌ Invalid Phone Number\n\n"
-                    "Please provide a valid UK phone number:\n"
-                    "• Format: 07123456789 or +447123456789\n"
-                    "• Example: /addplayer John Smith +447123456789 Forward"
-                )
-
-            # Extract name (everything before phone)
-            name = ' '.join(args[:phone_index])
-            phone = args[phone_index]
-            position = ' '.join(args[phone_index + 1:])
-
-            if not name or not position:
-                return (
-                    "❌ Missing Information\n\n"
-                    "Please provide all required information:\n"
-                    "• Name\n"
-                    "• Phone number  \n"
-                    "• Position\n\n"
-                    "Format: /addplayer [name] [phone] [position]\n\n"
-                    "Example: /addplayer John Smith +447123456789 Forward\n\n"
-                    "💡 Need help? Contact the team admin."
-                )
-
-            # Validate phone number
-            if not is_valid_phone(phone):
-                return (
-                    "❌ Invalid Phone Number\n\n"
-                    "Please provide a valid UK phone number:\n"
-                    "• Format: 07123456789 or +447123456789\n"
-                    "• Example: /addplayer John Smith +447123456789 Forward"
-                )
-
-            # Get team ID from context
-            team_id = execution_context.get('team_id')
-            if not team_id:
-                return "❌ Error: Team ID not found in context"
-
-            # Generate player ID
-            player_id = generate_player_id_from_name(name, team_id)
-
-            # Create player record (pending approval)
-            player = Player(
-                id=player_id,
-                team_id=team_id,
-                name=name,
-                phone=normalize_phone(phone),
-                position=position,
-                status="pending_approval",
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            )
-
-            # Save to database
-            firebase_client = get_firebase_client()
-            collection_name = get_team_members_collection(team_id)
-            await firebase_client.create_document(collection_name, player.to_dict(), player_id)
-
-            # Generate unique invite link using the invite link service
-            container = get_dependency_container()
-            invite_service = container.get_service(InviteLinkService)
-            settings = get_settings()
-
-            invite_result = await invite_service.create_player_invite_link(
-                team_id=team_id,
-                player_name=name,
-                player_phone=normalize_phone(phone),
-                player_position=position,
-                main_chat_id=settings.telegram_main_chat_id
-            )
-
-            response = f"""✅ Player Added Successfully!
-
-👤 Player Details:
-• Name: {name}
-• Phone: {normalize_phone(phone)}
-• Position: {position}
-• Player ID: {player_id}
-• Status: Pending Approval
-
-🔗 Unique Invite Link for Main Chat:
-{invite_result['invite_link']}
-
-📋 Next Steps:
-1. Send the invite link to {name}
-2. Ask them to join the main chat
-3. They can then use /register to complete their profile
-4. Use /approve {player_id} to approve them once registered
-
-💡 Note: This invite link is unique, expires in 7 days, and can only be used once.
-
-🎯 Player ID: {player_id} (save this for approval)"""
-
-            return response
-
-        except Exception as e:
-            logger.error(f"❌ Error in addplayer command: {e}")
-            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
-
-    async def handle_add_player_command(self, parameters: dict) -> str:
-        """Alias for /addplayer command."""
-        return await self.handle_addplayer_command(parameters)
 
 
 class TeamMemberAdditionMixin(BaseBehavioralMixin):
@@ -1029,7 +889,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
             from database.firebase_client import get_firebase_client
             from features.communication.domain.services.invite_link_service import InviteLinkService
             from features.team_administration.domain.entities.team_member import TeamMember
-            from utils.id_generator import generate_team_member_id_from_name
+            from utils.football_id_generator import generate_football_team_id
             from utils.phone_utils import is_valid_phone, normalize_phone
 
             # Parse command arguments
@@ -1104,8 +964,9 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
             if not team_id:
                 return "❌ Error: Team ID not found in context"
 
-            # Generate team member ID
-            member_id = generate_team_member_id_from_name(name, team_id)
+            # Generate team member ID (using team ID generation for now)
+            # TODO: Create specific team member ID generation if needed
+            member_id = f"TM_{name.replace(' ', '')[:6].upper()}"
 
             # Create team member record
             team_member = TeamMember(

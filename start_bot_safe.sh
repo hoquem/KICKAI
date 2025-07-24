@@ -39,11 +39,18 @@ kill_existing_bots() {
 # Function to start the bot
 start_bot() {
     echo "🚀 Starting KICKAI bot..."
-    echo "📝 Logs will be saved to: kickai_nlp_test.log"
+    echo "📝 Console logging only - use redirection for file logging"
+    echo "   Examples:"
+    echo "     ./start_bot_safe.sh                    # Console only"
+    echo "     ./start_bot_safe.sh > logs/kickai.log 2>&1  # Standard log file"
+    echo "     ./start_bot_safe.sh > bot.log 2>&1     # Custom log file"
     echo "=================================="
     
-    # Activate virtual environment and start bot
-    source venv/bin/activate && python run_bot_local.py 2>&1 | tee kickai_nlp_test.log
+    # Ensure logs directory exists
+    mkdir -p logs
+    
+    # Activate virtual environment and start bot with console-only logging
+    source venv/bin/activate && python run_bot_local.py
 }
 
 # Main execution

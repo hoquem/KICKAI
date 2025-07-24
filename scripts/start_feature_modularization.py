@@ -122,7 +122,7 @@ def test_e2e_integration():
     
     try:
         # Test basic system startup
-        from core.startup_validator import run_startup_validation
+        from kickai.core.startup_validator import run_startup_validation
         logger.info("✅ Startup validation test successful")
     except Exception as e:
         logger.error(f"❌ Startup validation test failed: {e}")
@@ -134,8 +134,8 @@ def test_feature_communication():
     
     try:
         # Test inter-feature communication
-        from features.player_registration.domain.services.player_service import PlayerService
-        from features.team_administration.domain.services.team_service import TeamService
+        from kickai.features.player_registration.domain.services.player_service import PlayerService
+        from kickai.features.team_administration.domain.services.team_service import TeamService
         logger.info("✅ Feature communication test successful")
     except Exception as e:
         logger.error(f"❌ Feature communication test failed: {e}")

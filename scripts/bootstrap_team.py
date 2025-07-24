@@ -24,21 +24,15 @@ try:
 except ImportError:
     pass
 
-# Add src to path for imports
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(current_dir)
-src_path = os.path.join(project_root, 'src')
-sys.path.insert(0, src_path)
-
-from core.dependency_container import get_service, ensure_container_initialized
-from core.settings import initialize_settings, get_settings
-from database.firebase_client import initialize_firebase_client
-from features.team_administration.domain.interfaces.team_service_interface import ITeamService
-from features.player_registration.domain.interfaces.player_service_interface import IPlayerService
-from features.team_administration.domain.entities.team import Team, TeamStatus, TeamMember
-from features.team_administration.domain.entities.bot_mapping import BotMapping
-from utils.id_generator import generate_team_id
-from core.exceptions import TeamError, PlayerError
+from kickai.core.dependency_container import get_service, ensure_container_initialized
+from kickai.core.settings import initialize_settings, get_settings
+from kickai.database.firebase_client import initialize_firebase_client
+from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
+from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
+from kickai.features.team_administration.domain.entities.team import Team, TeamStatus, TeamMember
+from kickai.features.team_administration.domain.entities.bot_mapping import BotMapping
+from kickai.utils.football_id_generator import generate_football_team_id
+from kickai.core.exceptions import TeamError, PlayerError
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -61,6 +55,7 @@ class TeamBootstrap:
     
     async def bootstrap_team(self, 
                            team_name: str,
+                           bot_token: str,
                            main_chat_id: str,
                            leadership_chat_id: str,
                            bot_username: str,
@@ -83,6 +78,7 @@ class TeamBootstrap:
                 division=division,
                 home_pitch=home_pitch,
                 fa_website_url=fa_website_url,
+                bot_token=bot_token,
                 main_chat_id=main_chat_id,
                 leadership_chat_id=leadership_chat_id
             )
@@ -106,6 +102,7 @@ class TeamBootstrap:
             bot_mapping = await self._create_bot_mapping(
                 team_name=team_name,
                 bot_username=bot_username,
+                bot_token=bot_token,
                 main_chat_id=main_chat_id,
                 leadership_chat_id=leadership_chat_id
             )
@@ -130,14 +127,15 @@ class TeamBootstrap:
                           division: str,
                           home_pitch: str,
                           fa_website_url: str,
+                          bot_token: str,
                           main_chat_id: str,
                           leadership_chat_id: str) -> Team:
         """Create team record."""
         
         logger.info(f"📝 Creating team: {team_name}")
         
-        # Generate team ID
-        team_id = generate_team_id(team_name)
+        # Generate football-friendly team ID with league context
+        team_id = generate_football_team_id(team_name, league_name)
         
         # Create team with league information and bot configuration
         team = await self._get_team_service().create_team(
@@ -150,7 +148,7 @@ class TeamBootstrap:
                 "fa_website_url": fa_website_url,
                 "created_at": datetime.now().isoformat()
             },
-            bot_token=os.getenv('TELEGRAM_BOT_TOKEN', ''),
+            bot_token=bot_token,
             main_chat_id=main_chat_id,
             leadership_chat_id=leadership_chat_id
         )
@@ -207,6 +205,7 @@ class TeamBootstrap:
     async def _create_bot_mapping(self,
                                  team_name: str,
                                  bot_username: str,
+                                 bot_token: str,
                                  main_chat_id: str,
                                  leadership_chat_id: str) -> BotMapping:
         """Create bot mapping record."""
@@ -218,7 +217,7 @@ class TeamBootstrap:
             team_name=team_name,
             bot_username=bot_username,
             chat_id=main_chat_id,  # Main chat ID
-            bot_token=os.getenv('TELEGRAM_BOT_TOKEN', '')
+            bot_token=bot_token
         )
         
         # Store leadership chat ID in settings
@@ -246,6 +245,7 @@ def main():
     
     # Required arguments
     parser.add_argument('--team-name', required=True, help='Team name')
+    parser.add_argument('--bot-token', required=True, help='Bot token')
     parser.add_argument('--main-chat-id', required=True, help='Main chat ID')
     parser.add_argument('--leadership-chat-id', required=True, help='Leadership chat ID')
     parser.add_argument('--bot-username', required=True, help='Bot username')
@@ -260,11 +260,6 @@ def main():
     parser.add_argument('--fa-website-url', default='', help='FA website URL')
     
     args = parser.parse_args()
-    
-    # Validate required environment variables
-    if not os.getenv('TELEGRAM_BOT_TOKEN'):
-        logger.error("❌ TELEGRAM_BOT_TOKEN environment variable not set")
-        sys.exit(1)
     
     # Initialize settings and dependency container
     try:
@@ -283,6 +278,7 @@ def main():
     async def run_bootstrap():
         success = await bootstrap.bootstrap_team(
             team_name=args.team_name,
+            bot_token=args.bot_token,
             main_chat_id=args.main_chat_id,
             leadership_chat_id=args.leadership_chat_id,
             bot_username=args.bot_username,
