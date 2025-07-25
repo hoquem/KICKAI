@@ -32,7 +32,7 @@ This document defines the expected behavior for all KICKAI bot commands across d
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent |
 |---------|-------------|-----------|-----------------|------------------|-------|
 | `/addplayer` | Add a new player | ❌ | ✅ | LEADERSHIP | PlayerCoordinatorAgent |
-| `/approve` | Approve player registration | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
+| `/approve` | Approve and activate player | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
 | `/reject` | Reject player registration | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
 | `/pending` | Show pending registrations | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
 
@@ -548,9 +548,9 @@ async def register_team_member(update, context):
 #### **Role-Based Access Control**
 ```python
 # Example role checking for admin commands
-@command(name="/approve", description="Approve player registration", chat_type="leadership")
+@command(name="/approve", description="Approve and activate player", chat_type="leadership")
 async def approve_player(update, context):
-    """Approve a player registration (admin only)."""
+    """Approve and activate a player (admin only)."""
     user_roles = await get_user_roles(update.effective_user.id)
     
     if "admin" not in user_roles:
@@ -581,7 +581,7 @@ Team Management:
 • /myinfo - Check your team member information
 
 Admin Commands (Admin role required):
-• /approve - Approve player registration
+• /approve - Approve and activate player
 • /reject - Reject player registration
 • /pending - List pending registrations
 • /announce - Send team announcement
@@ -886,7 +886,7 @@ https://t.me/joinchat/ABC123DEF456
 1. Share this invite link with John Smith
 2. They can join the main chat using the link
 3. Once they join, they can register with /register
-4. Use /approve to approve their registration
+4. Use /approve to approve and activate their registration
 
 🔒 Security:
 • Link expires in 7 days
@@ -1129,7 +1129,7 @@ You can also ask me questions in natural language!
 
 Leadership Commands:
 • /addplayer - Add a new player
-• /approve - Approve player registration
+• /approve - Approve and activate player
 • /reject - Reject player registration
 • /pending - Show pending registrations
 • /announce - Make team announcement

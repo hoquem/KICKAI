@@ -293,10 +293,10 @@ class PlayerService:
             return False, f"❌ Failed to add player: {e!s}"
 
     async def approve_player(self, player_id: str, team_id: str) -> str:
-        """Approve a player for team participation."""
+        """Approve a player for team participation and activate them."""
         try:
-            player = await self.update_player_status(player_id, "approved", team_id)
-            return f"✅ Player {player.full_name} approved successfully"
+            player = await self.update_player_status(player_id, "active", team_id)
+            return f"✅ Player {player.full_name} approved and activated successfully"
         except Exception as e:
             logger.error(f"Error approving player {player_id}: {e}")
             return f"❌ Failed to approve player: {e!s}"
