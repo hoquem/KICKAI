@@ -65,6 +65,54 @@ chat_type=ChatType.LEADERSHIP
 command_type=CommandType.UNDEFINED_VALUE
 ```
 
+### **4. 🚨 CrewAI Native Implementation (MANDATORY)**
+```python
+# ✅ CORRECT: Use CrewAI native classes
+from crewai import Agent, Task, Crew
+from crewai.tools import tool
+
+# ✅ Native Agent creation
+agent = Agent(
+    role="Player Coordinator",
+    goal="Manage player registration",
+    backstory="Expert in player management",
+    tools=[get_my_status, add_player],
+    verbose=True
+)
+
+# ✅ Native Task creation with context
+task = Task(
+    description="Process user request",
+    agent=agent,
+    config={'team_id': 'TEST', 'user_id': '12345'}  # ✅ Use config for context
+)
+
+# ✅ Native Crew orchestration
+crew = Crew(agents=[agent], tasks=[task])
+result = crew.kickoff()
+
+# ✅ Native tool implementation
+@tool("get_my_status")
+async def get_my_status(team_id: str, user_id: str) -> str:
+    """Get user status using parameters from context."""
+    return f"Status for {user_id} in team {team_id}"
+```
+
+```python
+# ❌ WRONG: Custom implementations
+class CustomAgent:  # Don't create custom wrappers
+    def __init__(self, role, tools):
+        pass
+
+class CustomTool:  # Don't create custom tool wrappers
+    def __init__(self, func):
+        pass
+
+# ❌ WRONG: Manual context injection
+def inject_context_manually(task, context):
+    pass
+```
+
 ---
 
 ## **🔧 Key Files**

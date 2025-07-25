@@ -8,13 +8,14 @@ configurations and behavioral mixins.
 import logging
 import traceback
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Union
 
 from crewai import Agent
 
 from kickai.config.agents import AgentConfig, get_agent_config
 from kickai.core.enums import AgentRole
 from kickai.core.exceptions import AgentInitializationError, ConfigurationError
+# Removed custom tool output capture - using CrewAI native tools_results
 
 from .behavioral_mixins import get_mixin_for_role
 from .team_memory import TeamMemory
@@ -37,8 +38,8 @@ class AgentContext:
     team_id: str
     llm: Any
     tool_registry: Any
-    config: AgentConfig | None = None
-    team_memory: Any | None = None  # Add team memory for context persistence
+    config: Union[AgentConfig, None] = None
+    team_memory: Union[Any, None] = None  # Add team memory for context persistence
 
 
 class AgentToolsManager:
@@ -87,6 +88,7 @@ class ConfigurableAgent:
 
     def __init__(self, context: AgentContext):
         """Initialize the configurable agent."""
+        
         self.context = context
         self._tools_manager = AgentToolsManager(context.tool_registry)
         self._crew_agent = self._create_crew_agent()
@@ -94,57 +96,18 @@ class ConfigurableAgent:
         logger.info(f"🤖 ConfigurableAgent created for role: {context.role}")
 
     def _create_crew_agent(self) -> Agent:
-        """Create the underlying CrewAI agent with native memory."""
-        try:
-            config = self.context.config or get_agent_config(self.context.role)
-
-            # Debug logging to see what we're getting
-            logger.info(f"[AGENT DEBUG] Context config type: {type(self.context.config)}")
-            logger.info(f"[AGENT DEBUG] Context config: {self.context.config}")
-            logger.info(f"[AGENT DEBUG] Context team_memory type: {type(self.context.team_memory)}")
-            logger.info(f"[AGENT DEBUG] Context team_memory: {self.context.team_memory}")
-            logger.info(f"[AGENT DEBUG] Config type: {type(config)}")
-            logger.info(f"[AGENT DEBUG] Config: {config}")
-
-            if not config or not config.enabled:
-                raise ConfigurationError(f"Agent configuration not found or disabled for role: {self.context.role}")
-
-            # Get tools for this role
-            tools = self._get_tools_for_role(config.tools)
-
-            # Get behavioral mixin if available
-            mixin = get_mixin_for_role(self.context.role)
-
-            # Get verbose setting from environment
-            from kickai.core.settings import get_settings
-            settings = get_settings()
-            verbose_mode = settings.verbose_logging or settings.is_development
-
-            # Build agent parameters
-            agent_params = {
-                "role": config.role.value,
-                "goal": config.goal,
-                "backstory": config.backstory,
-                "tools": tools,
-                "llm": self.context.llm,
-                "verbose": verbose_mode,  # Use environment-based verbose setting
-                "allow_delegation": config.allow_delegation,
-                "max_iter": config.max_iterations
-            }
-
-            # Add mixin if available
-            if mixin:
-                agent_params["backstory"] = f"{agent_params['backstory']}\n\n{mixin}"
-
-            logger.info(f"[AGENT FACTORY] Creating agent with {len(tools)} tools")
-            agent = LoggingCrewAIAgent(**agent_params)
-
-            return agent
-
-        except Exception as e:
-            logger.error(f"[AGENT FACTORY] Error creating agent {self.context.role}: {e}")
-            logger.error(f"[AGENT FACTORY] Traceback: {traceback.format_exc()}")
-            raise AgentInitializationError(f"Failed to create agent for role {self.context.role}: {e!s}")
+        """Create a CrewAI agent with tools."""
+        tools = self._get_tools_for_role(self.context.config.tools)
+        
+        # Use CrewAI's native tool handling - no custom wrapping needed
+        return LoggingCrewAIAgent(
+            role=self.context.config.role,
+            goal=self.context.config.goal,
+            backstory=self.context.config.backstory,
+            tools=tools,
+            llm=self.context.llm,
+            verbose=True
+        )
 
     def _get_tools_for_role(self, tool_names: list[str]) -> list[Any]:
         """Get tools for a specific role. Tools are validated at factory level."""
@@ -202,117 +165,72 @@ class ConfigurableAgent:
         return False
 
     def get_tools(self) -> list[Any]:
-        """Get the agent's tools."""
+        """Get all tools available to this agent."""
         return self._crew_agent.tools
 
     def is_enabled(self) -> bool:
         """Check if the agent is enabled."""
-        return True  # All agents are enabled by default
+        return self.context.config.enabled if self.context.config else False
 
     async def execute(self, task: str, context: dict[str, Any] = None) -> str:
-        """Execute a task using the underlying CrewAI agent with native context passing."""
+        """Execute a task using CrewAI's native context passing."""
         try:
-            if context is None:
-                context = {}
-
-            # Create a task using native CrewAI approach
-            from crewai import Task
-
-            # Create task with native context support
-            crew_task = Task(
-                description=f"""TASK: {task}
-
-EXECUTION CONTEXT:
-- User ID: {{user_id}}
-- Team ID: {{team_id}}
-- Chat ID: {{chat_id}}
-- Chat Type: {{chat_type}}
-- Username: {{username}}
-- Telegram Name: {{telegram_name}}
-- Message Text: {{message_text}}
-- Is Registered: {{is_registered}}
-- Is Player: {{is_player}}
-- Is Team Member: {{is_team_member}}
-
-CRITICAL TOOL USAGE INSTRUCTIONS:
-When calling tools, you MUST pass the exact values from the execution context above as explicit parameters.
-
-EXAMPLES:
-- get_team_overview(team_id="{{team_id}}", user_id="{{user_id}}")
-- get_my_status(team_id="{{team_id}}", user_id="{{user_id}}")
-- get_all_players(team_id="{{team_id}}")
-- send_message(chat_id="{{chat_id}}", text="Your message here", team_id="{{team_id}}")
-
-DO NOT:
-- Use placeholder values like "current_user" or "123"
-- Call tools without parameters
-- Use hardcoded team IDs
-- Assume context will be automatically available
-
-ALWAYS:
-- Pass team_id="{{team_id}}" explicitly to every tool that needs it
-- Pass user_id="{{user_id}}" explicitly to every tool that needs it
-- Use the exact values from the execution context above""",
-                agent=self._crew_agent,
-                expected_output="A clear and helpful response to the user's request"
-            )
-
-            # Use native CrewAI context passing - interpolate context into task description
+            # Ensure task is a string
+            if not isinstance(task, str):
+                task = str(task)
+            
+            logger.info(f"🚀 [CONFIGURABLE AGENT] Executing task for {self.context.role}: {task[:50]}...")
+            
+            # No need to clear tool captures - using CrewAI native tools_results
+            
+            # Create a CrewAI Task and Crew for proper execution
+            from crewai import Task, Crew
+            
+            # Create a task for this agent with robust context enhancement
+            enhanced_task = task
             if context:
-                # Convert context to inputs for interpolation
-                inputs = {
-                    'user_id': context.get('user_id', 'unknown'),
-                    'team_id': context.get('team_id', 'unknown'),
-                    'chat_id': context.get('chat_id', 'unknown'),
-                    'chat_type': context.get('chat_type', 'unknown'),
-                    'username': context.get('username', ''),
-                    'telegram_name': context.get('telegram_name', ''),
-                    'message_text': context.get('message_text', ''),
-                    'is_registered': context.get('is_registered', False),
-                    'is_player': context.get('is_player', False),
-                    'is_team_member': context.get('is_team_member', False)
-                }
-
-                # Use native CrewAI interpolation
-                crew_task.interpolate_inputs_and_add_conversation_history(inputs)
-
-            # Execute the task using native CrewAI Agent.execute_task() method
-            logger.info(f"🚀 [AGENT] Starting execution with agent {self.role}")
-            logger.info(f"📋 [AGENT] Task: {task}")
-            logger.info(f"🔧 [AGENT] Available tools: {[tool.name for tool in self._crew_agent.tools]}")
-
-            # Enhanced logging for help commands
-            is_help_command = task.lower().strip() == "/help" or "help" in task.lower()
-            if is_help_command:
-                logger.info(f"🔍 [HELP DEBUG] About to execute help command with agent {self.role}")
-                logger.info(f"🔍 [HELP DEBUG] Task description: '{task}'")
-                logger.info(f"🔍 [HELP DEBUG] Context: {context}")
-                logger.info(f"🔍 [HELP DEBUG] Agent tools: {[tool.name for tool in self._crew_agent.tools]}")
-
-            # Use native CrewAI Agent.execute_task() method
-            result = self._crew_agent.execute_task(crew_task)
-
-            logger.info(f"✅ [AGENT] Execution completed for {self.role}")
-
-            # Handle result properly
-            result_str = str(result)
-
-            # Enhanced logging for help commands
-            if is_help_command:
-                logger.info("🔍 [HELP DEBUG] Agent execution completed")
-                logger.info(f"🔍 [HELP DEBUG] Raw result type: {type(result)}")
-                logger.info(f"🔍 [HELP DEBUG] Raw result: {result}")
-                logger.info(f"🔍 [HELP DEBUG] Final result string: {result_str}")
-                logger.info(f"🔍 [HELP DEBUG] Final result length: {len(result_str)}")
-                logger.info(f"🔍 [HELP DEBUG] Final result preview: {result_str[:200]}{'...' if len(result_str) > 200 else ''}")
-
-            logger.debug(f"📄 [AGENT] Result: {result_str[:200]}{'...' if len(result_str) > 200 else ''}")
-
-            return result_str
-
+                context_info = []
+                for key, value in context.items():
+                    # Handle different value types robustly
+                    if value is None:
+                        context_info.append(f"{key}: null")
+                    elif isinstance(value, str):
+                        if value.strip():
+                            context_info.append(f"{key}: {value}")
+                        else:
+                            context_info.append(f"{key}: empty")
+                    else:
+                        context_info.append(f"{key}: {str(value)}")
+                
+                if context_info:
+                    enhanced_task = f"{task}\n\nAvailable context parameters: {', '.join(context_info)}\n\nPlease use these context parameters when calling tools that require them."
+            
+            crew_task = Task(
+                description=enhanced_task,
+                agent=self._crew_agent,
+                expected_output="A clear and helpful response to the user's request",
+                config=context or {}  # Pass context data through config for reference
+            )
+            
+            # Create a crew with just this agent and task
+            crew = Crew(
+                agents=[self._crew_agent],
+                tasks=[crew_task],
+                verbose=True
+            )
+            
+            # Execute using CrewAI's kickoff method
+            result = crew.kickoff()
+            
+            # Log execution completion - using CrewAI native tools_results
+            logger.info(f"📊 [CONFIGURABLE AGENT] Execution completed successfully")
+            
+            return result
+            
         except Exception as e:
-            logger.error(f"❌ Error executing task with agent {self.role}: {e}")
-            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
+            logger.error(f"❌ [CONFIGURABLE AGENT] Task execution failed: {e}")
+            logger.error(f"Stack trace: {traceback.format_exc()}")
+            raise
 
 
 class AgentFactory:
@@ -418,7 +336,7 @@ class AgentFactory:
             logger.error(f"❌ Failed to create agents: {e}")
             raise AgentInitializationError(f"Failed to create agents: {e!s}")
 
-    def get_agent(self, role: AgentRole) -> ConfigurableAgent | None:
+    def get_agent(self, role: AgentRole) -> Union[ConfigurableAgent, None]:
         """Get an agent by role."""
         try:
             return self.create_agent(role)

@@ -6,6 +6,7 @@ This service provides a single source of truth for all permission checks,
 integrating chat-based role assignment with command permissions.
 """
 
+from typing import Union
 import logging
 from dataclasses import dataclass
 
@@ -27,7 +28,7 @@ class PermissionContext:
     team_id: str
     chat_id: str
     chat_type: ChatType
-    username: str | None = None
+    username: Union[str, None] = None
 
     def __post_init__(self):
         if self.chat_type is None:
@@ -348,7 +349,7 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
         """Promote a user to admin role (only by existing admin)."""
         return await self.team_member_service.promote_to_admin(user_id, team_id, promoted_by)
 
-    async def handle_last_admin_leaving(self, team_id: str) -> str | None:
+    async def handle_last_admin_leaving(self, team_id: str) -> Union[str, None]:
         """Handle when the last admin leaves - promote longest-tenured leadership member."""
         return await self.team_member_service.handle_last_admin_leaving(team_id)
 
@@ -363,7 +364,7 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
 
 
 # Global instance for easy access
-_permission_service: PermissionService | None = None
+_permission_service: Union[PermissionService, None] = None
 
 
 def get_permission_service(firebase_client: FirebaseClient = None) -> PermissionService:

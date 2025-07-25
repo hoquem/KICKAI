@@ -9,6 +9,7 @@ It ensures that absolute imports work correctly whether running from:
 - Any other location
 
 Usage:
+from typing import Union
     from kickai.utils.import_helper import ensure_src_in_path
     ensure_src_in_path()
 
@@ -21,7 +22,7 @@ import sys
 from pathlib import Path
 
 
-def find_project_root() -> Path | None:
+def find_project_root() -> Union[Path, None]:
     """
     Find the project root directory by looking for key files.
 

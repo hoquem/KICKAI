@@ -7,7 +7,7 @@ This module provides reporting structures for startup validation results.
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Union, Union
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +39,9 @@ class CheckResult:
     category: CheckCategory
     status: CheckStatus
     message: str
-    details: dict[str, Any] | None = None
-    duration_ms: float | None = None
-    error: Exception | None = None
+    details: Union[dict[str, Any], None] = None
+    duration_ms: Union[float, None] = None
+    error: Union[Exception, None] = None
 
 
 @dataclass

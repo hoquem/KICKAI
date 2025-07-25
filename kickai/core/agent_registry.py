@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Union, Union
 
 from loguru import logger
 
@@ -50,8 +50,8 @@ class AgentMetadata:
     enabled: bool = True
     dependencies: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
-    config_schema: dict[str, Any] | None = None
-    factory_function: Callable | None = None
+    config_schema: Union[dict[str, Any], None] = None
+    factory_function: Union[Callable, None] = None
     feature_module: str = "unknown"
     tags: list[str] = field(default_factory=list)
 
@@ -100,13 +100,13 @@ class AgentRegistry:
         description: str,
         version: str = "1.0.0",
         enabled: bool = True,
-        dependencies: list[str] | None = None,
-        tools: list[str] | None = None,
-        config_schema: dict[str, Any] | None = None,
-        factory_function: Callable | None = None,
+        dependencies: Union[list[str], None] = None,
+        tools: Union[list[str], None] = None,
+        config_schema: Union[dict[str, Any], None] = None,
+        factory_function: Union[Callable, None] = None,
         feature_module: str = "unknown",
-        tags: list[str] | None = None,
-        aliases: list[str] | None = None
+        tags: Union[list[str], None] = None,
+        aliases: Union[list[str], None] = None
     ) -> None:
         """
         Register an agent with the registry.
@@ -167,7 +167,7 @@ class AgentRegistry:
         self._factories[agent_id] = factory
         logger.info(f"🏭 Registered factory for agent: {agent_id}")
 
-    def get_agent(self, agent_id: str) -> AgentMetadata | None:
+    def get_agent(self, agent_id: str) -> Union[AgentMetadata, None]:
         """Get agent metadata by ID or alias."""
         # Check direct ID
         if agent_id in self._agents:
@@ -180,7 +180,7 @@ class AgentRegistry:
 
         return None
 
-    def get_factory(self, agent_id: str) -> AgentFactory | None:
+    def get_factory(self, agent_id: str) -> Union[AgentFactory, None]:
         """Get agent factory by ID."""
         return self._factories.get(agent_id)
 
@@ -390,7 +390,7 @@ class AgentRegistry:
 
 
 # Global agent registry instance
-_agent_registry: AgentRegistry | None = None
+_agent_registry: Union[AgentRegistry, None] = None
 
 
 def get_agent_registry() -> AgentRegistry:
@@ -405,16 +405,16 @@ def register_agent_decorator(
     agent_id: str,
     agent_type: AgentType,
     category: AgentCategory = AgentCategory.FEATURE,
-    name: str | None = None,
-    description: str | None = None,
+    name: Union[str, None] = None,
+    description: Union[str, None] = None,
     version: str = "1.0.0",
     enabled: bool = True,
-    dependencies: list[str] | None = None,
-    tools: list[str] | None = None,
-    config_schema: dict[str, Any] | None = None,
+    dependencies: Union[list[str], None] = None,
+    tools: Union[list[str], None] = None,
+    config_schema: Union[dict[str, Any], None] = None,
     feature_module: str = "unknown",
-    tags: list[str] | None = None,
-    aliases: list[str] | None = None
+    tags: Union[list[str], None] = None,
+    aliases: Union[list[str], None] = None
 ):
     """
     Decorator to register an agent class with the registry.

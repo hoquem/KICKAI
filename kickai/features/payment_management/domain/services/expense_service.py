@@ -4,6 +4,7 @@ Expense Service
 This module provides expense management functionality.
 """
 
+from typing import Union
 import logging
 from datetime import datetime
 
@@ -32,7 +33,7 @@ class ExpenseService:
         )
         return await self.expense_repository.create(expense)
 
-    async def get_expense_by_id(self, expense_id: str) -> Expense | None:
+    async def get_expense_by_id(self, expense_id: str) -> Union[Expense, None]:
         """Get an expense by ID."""
         return await self.expense_repository.get_by_id(expense_id)
 
@@ -45,9 +46,9 @@ class ExpenseService:
         expenses = await self.get_expenses_by_team(team_id=team_id)
         return sum(expense.amount for expense in expenses)
 
-    async def update_expense(self, expense_id: str, amount: float | None = None,
-                           description: str | None = None,
-                           category: str | None = None) -> Expense:
+    async def update_expense(self, expense_id: str, amount: Union[float, None] = None,
+                           description: Union[str, None] = None,
+                           category: Union[str, None] = None) -> Expense:
         """Update an expense."""
         expense = await self.expense_repository.get_by_id(expense_id)
         if not expense:

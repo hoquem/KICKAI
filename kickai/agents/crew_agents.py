@@ -10,7 +10,7 @@ import asyncio
 import logging
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any
+from typing import Any, Union, Union
 
 from crewai import Crew
 from loguru import logger
@@ -58,7 +58,7 @@ class AgentToolsManager:
         logger.info("🔧 AgentToolsManager initialized with entity-specific validation")
 
     @log_errors
-    def get_tools_for_role(self, role: AgentRole, entity_type: EntityType | None = None) -> list[Any]:
+    def get_tools_for_role(self, role: AgentRole, entity_type: Union[EntityType, None] = None) -> list[Any]:
         """Get tools for a specific role with entity-specific filtering."""
         try:
             config = get_agent_config(role)
@@ -94,7 +94,7 @@ class AgentToolsManager:
         """Get list of available tool names."""
         return self._tool_registry.get_tool_names()
 
-    def get_tool_info(self, tool_name: str) -> dict[str, Any] | None:
+    def get_tool_info(self, tool_name: str) -> Union[dict[str, Any], None]:
         """Get information about a specific tool."""
         tool = self._tool_registry.get_tool(tool_name)
         if tool:
@@ -120,7 +120,7 @@ class TeamManagementSystem:
     def __init__(self, team_id: str):
         self.team_id = team_id
         self.agents: dict[AgentRole, ConfigurableAgent] = {}
-        self.crew: Crew | None = None
+        self.crew: Union[Crew, None] = None
 
         # Initialize team memory for conversation context
         from kickai.agents.team_memory import TeamMemory
@@ -279,7 +279,7 @@ class TeamManagementSystem:
             }
         }
 
-    def get_agent(self, role: AgentRole) -> ConfigurableAgent | None:
+    def get_agent(self, role: AgentRole) -> Union[ConfigurableAgent, None]:
         """Get a specific agent by role."""
         return self.agents.get(role)
 
@@ -477,7 +477,7 @@ def create_team_management_system(team_id: str) -> TeamManagementSystem:
     return TeamManagementSystem(team_id)
 
 
-def get_agent(team_id: str, role: AgentRole) -> ConfigurableAgent | None:
+def get_agent(team_id: str, role: AgentRole) -> Union[ConfigurableAgent, None]:
     """Get a specific agent for a team."""
     system = TeamManagementSystem(team_id)
     return system.get_agent(role)

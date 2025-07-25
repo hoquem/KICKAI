@@ -7,7 +7,7 @@ This module provides functionality to check FA registration status.
 
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Union
 
 from ..repositories.player_repository_interface import PlayerRepositoryInterface
 
@@ -66,7 +66,7 @@ class FARegistrationChecker:
                 'last_checked': datetime.now().isoformat()
             }
 
-    async def get_fixture_data(self, player_id: str) -> FixtureData | None:
+    async def get_fixture_data(self, player_id: str) -> Union[FixtureData, None]:
         """Get fixture data for a player."""
         try:
             # In a real implementation, this would fetch data from FA fixtures

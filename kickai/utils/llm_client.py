@@ -6,7 +6,7 @@ in the KICKAI system.
 """
 
 import asyncio
-from typing import Any
+from typing import Any, Union, Union
 
 from loguru import logger
 
@@ -46,7 +46,7 @@ async def extract_intent(message: str, context: str = "") -> dict[str, Any]:
 class LLMClient:
     """LLM client for natural language processing."""
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: Union[dict[str, Any], None] = None):
         self.config = config or {}
         self._llm_instance = None
         self._initialize_llm()
@@ -61,7 +61,7 @@ class LLMClient:
         except Exception as e:
             logger.warning(f"Failed to initialize LLM: {e}. Using fallback client.")
 
-    def _get_api_key_from_env(self) -> str | None:
+    def _get_api_key_from_env(self) -> Union[str, None]:
         """Get API key from environment variables."""
         import os
         return os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')

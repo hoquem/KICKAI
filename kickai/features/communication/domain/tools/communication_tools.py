@@ -1,120 +1,180 @@
+#!/usr/bin/env python3
 """
-Communication tools for KICKAI system.
+Communication Tools
 
-This module provides tools for sending messages, announcements, and polls
-to Telegram chats.
+This module provides tools for communication and messaging operations.
 """
-
-import logging
 
 from crewai.tools import tool
-from pydantic import BaseModel
+from loguru import logger
 
-logger = logging.getLogger(__name__)
-
-
-class SendMessageInput(BaseModel):
-    """Input model for send_message tool."""
-    chat_id: str
-    text: str
-    team_id: str | None = None
-
-
-class SendAnnouncementInput(BaseModel):
-    """Input model for send_announcement tool."""
-    chat_id: str
-    text: str
-    team_id: str | None = None
-
-
-class SendPollInput(BaseModel):
-    """Input model for send_poll tool."""
-    chat_id: str
-    question: str
-    options: list[str]
-    team_id: str | None = None
+from kickai.core.dependency_container import get_container
+from kickai.core.exceptions import ServiceNotAvailableError
+from kickai.utils.tool_helpers import (
+    extract_single_value,
+    format_tool_error,
+    format_tool_success,
+    validate_required_input,
+)
 
 
 @tool("send_message")
-def send_message(chat_id: str, text: str, team_id: str | None = None) -> str:
+async def send_message(message: str, chat_type: str, team_id: str) -> str:
     """
-    Send a message to a Telegram chat. Requires: chat_id, text
+    Send a message to a specific chat. Requires: message, chat_type, team_id
 
     Args:
-        chat_id: The Telegram chat ID to send the message to
-        text: The message text to send
-        team_id: Optional team ID for context
+        message: The message to send
+        chat_type: The chat type (main_chat, leadership_chat)
+        team_id: Team ID (required)
 
     Returns:
-        Confirmation message indicating success or failure
+        Success or error message
     """
     try:
-        logger.info(f"🔧 send_message tool called with chat_id: {chat_id}, text: {text[:50]}..., team_id: {team_id}")
-
-        # Validate required parameters
-        if not chat_id:
-            logger.error("❌ send_message: Missing required parameter 'chat_id'")
-            return "❌ Error: Missing required parameter 'chat_id'. Cannot send message without knowing which chat to send to."
-
-        if not text:
-            logger.error("❌ send_message: Missing required parameter 'text'")
-            return "❌ Error: Missing required parameter 'text'. Cannot send empty message."
-
-        # For now, return a success message since we can't access the Telegram service directly
-        # The actual message sending will be handled by the orchestration pipeline
-        logger.info(f"✅ Message prepared for chat {chat_id} (team: {team_id}): {text[:50]}...")
-        return f"✅ Message prepared for chat {chat_id}: {text}"
-
+        # Handle JSON string input using utility functions
+        message = extract_single_value(message, 'message')
+        chat_type = extract_single_value(chat_type, 'chat_type')
+        team_id = extract_single_value(team_id, 'team_id')
+        
+        # Validate inputs using utility functions
+        validation_error = validate_required_input(message, "Message")
+        if validation_error:
+            return validation_error
+        
+        validation_error = validate_required_input(chat_type, "Chat Type")
+        if validation_error:
+            return validation_error
+        
+        validation_error = validate_required_input(team_id, "Team ID")
+        if validation_error:
+            return validation_error
+        
+        # Get services from container
+        container = get_container()
+        communication_service = container.get_service("CommunicationService")
+        
+        if not communication_service:
+            raise ServiceNotAvailableError("CommunicationService")
+        
+        # Send message
+        success = await communication_service.send_message(message, chat_type, team_id)
+        
+        if success:
+            return format_tool_success("Message sent successfully")
+        else:
+            return format_tool_error("Failed to send message")
+    
+    except ServiceNotAvailableError as e:
+        logger.error(f"Service not available in send_message: {e}")
+        return format_tool_error(f"Service temporarily unavailable: {e.message}")
     except Exception as e:
-        logger.error(f"❌ Failed to prepare message for chat {chat_id}: {e}")
-        return f"❌ Failed to prepare message: {e!s}"
+        logger.error(f"Failed to send message: {e}", exc_info=True)
+        return format_tool_error(f"Failed to send message: {e}")
 
 
 @tool("send_announcement")
-def send_announcement(chat_id: str, text: str, team_id: str | None = None) -> str:
+async def send_announcement(announcement: str, team_id: str) -> str:
     """
-    Send an announcement to a Telegram chat. Requires: chat_id, text
+    Send an announcement to all team members. Requires: announcement, team_id
 
     Args:
-        chat_id: The Telegram chat ID to send the announcement to
-        text: The announcement text to send
-        team_id: Optional team ID for context
+        announcement: The announcement message
+        team_id: Team ID (required)
 
     Returns:
-        Confirmation message indicating success or failure
+        Success or error message
     """
     try:
-        # For now, return a success message since we can't access the Telegram service directly
-        # The actual announcement sending will be handled by the orchestration pipeline
-        announcement_text = f"📢 *ANNOUNCEMENT*\n\n{text}"
-        logger.info(f"✅ Announcement prepared for chat {chat_id}: {text[:50]}...")
-        return f"✅ Announcement prepared for chat {chat_id}: {announcement_text}"
-
+        # Handle JSON string input using utility functions
+        announcement = extract_single_value(announcement, 'announcement')
+        team_id = extract_single_value(team_id, 'team_id')
+        
+        # Validate inputs using utility functions
+        validation_error = validate_required_input(announcement, "Announcement")
+        if validation_error:
+            return validation_error
+        
+        validation_error = validate_required_input(team_id, "Team ID")
+        if validation_error:
+            return validation_error
+        
+        # Get services from container
+        container = get_container()
+        communication_service = container.get_service("CommunicationService")
+        
+        if not communication_service:
+            raise ServiceNotAvailableError("CommunicationService")
+        
+        # Send announcement
+        success = await communication_service.send_announcement(announcement, team_id)
+        
+        if success:
+            return format_tool_success("Announcement sent successfully")
+        else:
+            return format_tool_error("Failed to send announcement")
+    
+    except ServiceNotAvailableError as e:
+        logger.error(f"Service not available in send_announcement: {e}")
+        return format_tool_error(f"Service temporarily unavailable: {e.message}")
     except Exception as e:
-        logger.error(f"❌ Failed to prepare announcement: {e}")
-        return f"❌ Failed to prepare announcement: {e!s}"
+        logger.error(f"Failed to send announcement: {e}", exc_info=True)
+        return format_tool_error(f"Failed to send announcement: {e}")
 
 
 @tool("send_poll")
-def send_poll(chat_id: str, question: str, options: list[str], team_id: str | None = None) -> str:
+async def send_poll(question: str, options: str, team_id: str) -> str:
     """
-    Send a poll to a Telegram chat. Requires: chat_id, question, options
+    Send a poll to team members. Requires: question, options, team_id
 
     Args:
-        chat_id: The Telegram chat ID to send the poll to
         question: The poll question
-        options: List of poll options
-        team_id: Optional team ID for context
+        options: Comma-separated poll options
+        team_id: Team ID (required)
 
     Returns:
-        Confirmation message indicating success or failure
+        Success or error message
     """
     try:
-        # For now, return a success message since we can't access the Telegram service directly
-        # The actual poll sending will be handled by the orchestration pipeline
-        logger.info(f"✅ Poll prepared for chat {chat_id}: {question[:50]}...")
-        return f"✅ Poll prepared for chat {chat_id}: {question} with {len(options)} options"
-
+        # Handle JSON string input using utility functions
+        question = extract_single_value(question, 'question')
+        options = extract_single_value(options, 'options')
+        team_id = extract_single_value(team_id, 'team_id')
+        
+        # Validate inputs using utility functions
+        validation_error = validate_required_input(question, "Question")
+        if validation_error:
+            return validation_error
+        
+        validation_error = validate_required_input(options, "Options")
+        if validation_error:
+            return validation_error
+        
+        validation_error = validate_required_input(team_id, "Team ID")
+        if validation_error:
+            return validation_error
+        
+        # Get services from container
+        container = get_container()
+        communication_service = container.get_service("CommunicationService")
+        
+        if not communication_service:
+            raise ServiceNotAvailableError("CommunicationService")
+        
+        # Parse options
+        option_list = [opt.strip() for opt in options.split(',') if opt.strip()]
+        
+        # Send poll
+        success = await communication_service.send_poll(question, option_list, team_id)
+        
+        if success:
+            return format_tool_success("Poll sent successfully")
+        else:
+            return format_tool_error("Failed to send poll")
+    
+    except ServiceNotAvailableError as e:
+        logger.error(f"Service not available in send_poll: {e}")
+        return format_tool_error(f"Service temporarily unavailable: {e.message}")
     except Exception as e:
-        logger.error(f"❌ Failed to prepare poll: {e}")
-        return f"❌ Failed to prepare poll: {e!s}"
+        logger.error(f"Failed to send poll: {e}", exc_info=True)
+        return format_tool_error(f"Failed to send poll: {e}")

@@ -7,7 +7,7 @@ to give them specific capabilities and behaviors.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Union
 
 from loguru import logger
 
@@ -1060,7 +1060,7 @@ MIXIN_REGISTRY = {
 }
 
 
-def get_mixin_for_role(role) -> BaseBehavioralMixin | None:
+def get_mixin_for_role(role) -> Union[BaseBehavioralMixin, None]:
     """Get the appropriate mixin for a given agent role."""
     # Handle both string and AgentRole enum
     if hasattr(role, 'value'):

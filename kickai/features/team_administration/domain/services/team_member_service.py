@@ -7,6 +7,7 @@ Team members represent administrative/management roles within a team.
 This is separate from Players who represent football players.
 """
 
+from typing import Union
 from datetime import datetime
 
 from loguru import logger
@@ -41,7 +42,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to create team member: {e}")
             raise
 
-    async def get_team_member_by_id(self, member_id: str) -> TeamMember | None:
+    async def get_team_member_by_id(self, member_id: str) -> Union[TeamMember, None]:
         """Get a team member by ID."""
         try:
             return await self.team_repository.get_team_member_by_id(member_id)
@@ -49,7 +50,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team member by ID {member_id}: {e}")
             return None
 
-    async def get_team_member_by_telegram_id(self, user_id: str, team_id: str) -> TeamMember | None:
+    async def get_team_member_by_telegram_id(self, user_id: str, team_id: str) -> Union[TeamMember, None]:
         """Get a team member by Telegram ID and team."""
         try:
             return await self.team_repository.get_team_member_by_telegram_id(team_id, user_id)

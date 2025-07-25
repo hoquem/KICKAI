@@ -6,7 +6,7 @@ all service dependencies and ensures proper initialization order.
 """
 
 import os
-from typing import Any
+from typing import Any, Union
 
 from kickai.database.firebase_client import get_firebase_client
 from kickai.database.interfaces import DataStoreInterface
@@ -19,8 +19,8 @@ class DependencyContainer:
 
     def __init__(self):
         self._services: dict[type, Any] = {}
-        self._database: DataStoreInterface | None = None
-        self._factory: ServiceFactory | None = None
+        self._database: Union[DataStoreInterface, None] = None
+        self._factory: Union[ServiceFactory, None] = None
         self._initialized = False
 
     def initialize(self):
@@ -166,9 +166,21 @@ class DependencyContainer:
         else:
             self._services[interface] = implementation
 
-    def get_service(self, interface: type) -> Any:
-        """Get a service by its interface."""
-        # Allow access during initialization (when services are being created)
+    def get_service(self, interface: Union[type, str]) -> Any:
+        """Get a service by its interface or name."""
+        # Handle string-based service lookup
+        if isinstance(interface, str):
+            # Try to find by name in registered services
+            for service_type, service in self._services.items():
+                if service_type.__name__ == interface:
+                    return service
+            # If not found and container is initialized, raise error
+            if self._initialized:
+                raise RuntimeError(f"Service '{interface}' not registered.")
+            else:
+                raise RuntimeError(f"Service '{interface}' not registered (container may not be fully initialized yet).")
+        
+        # Handle type-based service lookup (original behavior)
         if interface not in self._services:
             if not self._initialized:
                 raise RuntimeError(f"Service for interface {interface} not registered (container may not be fully initialized yet).")
@@ -190,7 +202,7 @@ class DependencyContainer:
 
 
 # Global container instance
-_container: DependencyContainer | None = None
+_container: Union[DependencyContainer, None] = None
 
 
 def get_container() -> DependencyContainer:

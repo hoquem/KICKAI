@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Union
 
 
 class TeamStatus(Enum):
@@ -20,19 +20,19 @@ class Team:
     description: str = ""
     created_by: str = "system"
     created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime | None = None
+    updated_at: Union[datetime, None] = None
     settings: dict[str, Any] = field(default_factory=dict)
-    fa_team_url: str | None = None
-    fa_fixtures_url: str | None = None
-    id: str | None = None
+    fa_team_url: Union[str, None] = None
+    fa_fixtures_url: Union[str, None] = None
+    id: Union[str, None] = None
 
     # Bot configuration - SINGLE SOURCE OF TRUTH
     # These fields are the authoritative source for bot configuration
     # The settings dict should NOT contain duplicate bot config
-    bot_id: str | None = None
-    bot_token: str | None = None
-    main_chat_id: str | None = None
-    leadership_chat_id: str | None = None
+    bot_id: Union[str, None] = None
+    bot_token: Union[str, None] = None
+    main_chat_id: Union[str, None] = None
+    leadership_chat_id: Union[str, None] = None
 
     def __post_init__(self):
         """Ensure data consistency after initialization."""

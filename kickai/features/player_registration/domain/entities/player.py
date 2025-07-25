@@ -7,6 +7,7 @@ Players represent football players, separate from Team Members who are administr
 A person can be both a Player and a Team Member, linked by user_id.
 """
 
+from typing import Union
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -51,37 +52,37 @@ class Player:
     # Core identification fields
     user_id: str = ""  # Generated from telegram_id using generate_user_id()
     team_id: str = ""
-    telegram_id: str | None = None
-    player_id: str | None = None  # Team-specific player identifier (e.g., "KTI_MH_001")
+    telegram_id: Union[str, None] = None
+    player_id: Union[str, None] = None  # Team-specific player identifier (e.g., "KTI_MH_001")
 
     # Personal information
-    first_name: str | None = None
-    last_name: str | None = None
-    full_name: str | None = None
-    username: str | None = None
+    first_name: Union[str, None] = None
+    last_name: Union[str, None] = None
+    full_name: Union[str, None] = None
+    username: Union[str, None] = None
 
     # Football-specific information
-    position: str | None = None  # e.g., "Midfielder", "Forward"
-    preferred_foot: str | None = None  # "left", "right", "both"
-    jersey_number: str | None = None
+    position: Union[str, None] = None  # e.g., "Midfielder", "Forward"
+    preferred_foot: Union[str, None] = None  # "left", "right", "both"
+    jersey_number: Union[str, None] = None
 
     # Contact and personal information
-    phone_number: str | None = None
-    email: str | None = None
-    date_of_birth: str | None = None
-    emergency_contact: str | None = None
-    medical_notes: str | None = None
+    phone_number: Union[str, None] = None
+    email: Union[str, None] = None
+    date_of_birth: Union[str, None] = None
+    emergency_contact: Union[str, None] = None
+    medical_notes: Union[str, None] = None
 
     # Status and approval
     status: str = "pending"  # pending, approved, rejected, active, inactive
 
     # Timestamps
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: Union[datetime, None] = None
+    updated_at: Union[datetime, None] = None
 
     # Metadata
-    source: str | None = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
-    sync_version: str | None = None
+    source: Union[str, None] = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
+    sync_version: Union[str, None] = None
 
     def __post_init__(self):
         """Validate and set defaults after initialization."""

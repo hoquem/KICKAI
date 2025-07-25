@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Union, Union
 
 from kickai.core.enums import CommandType, PermissionLevel
 
@@ -30,8 +30,8 @@ class CommandMetadata:
     aliases: list[str] = field(default_factory=list)
     examples: list[str] = field(default_factory=list)
     parameters: dict[str, str] = field(default_factory=dict)
-    help_text: str | None = None
-    chat_type: str | None = None  # ChatType.MAIN, ChatType.LEADERSHIP, or None for all
+    help_text: Union[str, None] = None
+    chat_type: Union[str, None] = None  # ChatType.MAIN, ChatType.LEADERSHIP, or None for all
 
 
 class CommandHandler(ABC):
@@ -72,11 +72,11 @@ class CommandRegistry:
         command_type: CommandType = CommandType.SLASH_COMMAND,
         permission_level: PermissionLevel = PermissionLevel.PUBLIC,
         feature: str = "unknown",
-        aliases: list[str] | None = None,
-        examples: list[str] | None = None,
+        aliases: Union[list[str], None] = None,
+        examples: Union[list[str], None] = None,
         parameters: dict[str, str] | None = None,
-        help_text: str | None = None,
-        chat_type: str | None = None
+        help_text: Union[str, None] = None,
+        chat_type: Union[str, None] = None
     ) -> None:
         """
         Register a command with the registry.
@@ -185,7 +185,7 @@ class CommandRegistry:
 
         logger.info(f"Registered command: {name} ({feature})")
 
-    def get_command(self, name: str) -> CommandMetadata | None:
+    def get_command(self, name: str) -> Union[CommandMetadata, None]:
         """Get command metadata by name or alias."""
         # Check direct name
         if name in self._commands:
@@ -233,7 +233,7 @@ class CommandRegistry:
 
         return commands
 
-    def get_command_for_chat(self, name: str, chat_type: str) -> CommandMetadata | None:
+    def get_command_for_chat(self, name: str, chat_type: str) -> Union[CommandMetadata, None]:
         """Get a specific command for a chat type, considering chat-specific and universal commands."""
         # First check for chat-specific command
         if name in self._chat_specific_commands:
@@ -285,7 +285,7 @@ class CommandRegistry:
 
         return results
 
-    def generate_help_text(self, command_name: str) -> str | None:
+    def generate_help_text(self, command_name: str) -> Union[str, None]:
         """Generate help text for a specific command."""
         cmd = self.get_command(command_name)
         if not cmd:
@@ -314,7 +314,7 @@ class CommandRegistry:
 
         return "\n".join(help_parts)
 
-    def generate_feature_help(self, feature: str) -> str | None:
+    def generate_feature_help(self, feature: str) -> Union[str, None]:
         """Generate help text for all commands in a feature."""
         commands = self.get_commands_by_feature(feature)
         if not commands:
@@ -463,7 +463,7 @@ class CommandRegistry:
 
 
 # Global command registry instance (DEPRECATED - use CommandRegistryInitializer instead)
-_command_registry: CommandRegistry | None = None
+_command_registry: Union[CommandRegistry, None] = None
 
 
 def get_command_registry() -> CommandRegistry:
@@ -500,7 +500,7 @@ def command(
     command_type: CommandType = CommandType.SLASH_COMMAND,
     permission_level: PermissionLevel = PermissionLevel.PUBLIC,
     feature: str = "unknown",
-    chat_type: str | None = None,
+    chat_type: Union[str, None] = None,
     **kwargs
 ):
     """

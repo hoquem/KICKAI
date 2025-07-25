@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Union, Union
 
 from kickai.features.communication.domain.entities.message import Message
 from kickai.features.communication.domain.repositories.message_repository_interface import (
@@ -17,8 +17,8 @@ class MessageService:
         sender_id: str,
         recipient_id: str,
         content: str,
-        conversation_id: str | None = None,
-        metadata: dict[str, Any] | None = None
+        conversation_id: Union[str, None] = None,
+        metadata: Union[dict[str, Any], None] = None
     ) -> str:
         """Send a message and return the message ID."""
         if not conversation_id:

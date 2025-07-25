@@ -6,7 +6,7 @@ in the KICKAI system.
 """
 
 import re
-from typing import Any
+from typing import Any, Union
 
 from loguru import logger
 
@@ -30,40 +30,40 @@ def extract_intent(message: str, context: str = "") -> dict[str, Any]:
         intent_patterns = {
             'get_player_info': [
                 # Pattern for "What's my registration status?" and similar queries
-                r'\b(what|show|tell|get|my|me)\b.*\b(phone|number|position|role|id|player|info|information|status|fa|registration)\b',
-                r'\b(phone|number|position|role|id|player|info|information|status|fa|registration)\b.*\b(what|is|my|me)\b',
-                r'\b(am i|are you|is my)\b.*\b(fa|registered|eligible|active|pending)\b',
-                r'\b(my|me)\b.*\b(phone|number|position|role|id|info|information)\b',
+                r'\b(Union[what, show]|Union[tell, get]|Union[my, me])\b.*\b(Union[phone, number]|Union[position, role]|Union[id, player]|Union[info, information]|Union[status, fa]|registration)\b',
+                r'\b(Union[phone, number]|Union[position, role]|Union[id, player]|Union[info, information]|Union[status, fa]|registration)\b.*\b(Union[what, is]|Union[my, me])\b',
+                r'\b(am Union[i, are] Union[you, is] my)\b.*\b(Union[fa, registered]|Union[eligible, active]|pending)\b',
+                r'\b(Union[my, me])\b.*\b(Union[phone, number]|Union[position, role]|Union[id, info]|information)\b',
                 # Additional patterns for registration status queries
-                r'\b(what|how)\b.*\b(registration|status)\b',
-                r'\b(registration|status)\b.*\b(what|how)\b',
-                r'\b(my|me)\b.*\b(registration|status)\b',
-                r'\b(registration|status)\b.*\b(my|me)\b'
+                r'\b(Union[what, how])\b.*\b(Union[registration, status])\b',
+                r'\b(Union[registration, status])\b.*\b(Union[what, how])\b',
+                r'\b(Union[my, me])\b.*\b(Union[registration, status])\b',
+                r'\b(Union[registration, status])\b.*\b(Union[my, me])\b'
             ],
             'get_help': [
-                r'\b(help|how|what can you|commands|available)\b',
-                r'\b(how do|what should|what does)\b',
-                r'\b(help me|assist|support)\b'
+                r'\b(Union[help, how]|what can Union[you, commands]|available)\b',
+                r'\b(how Union[do, what] Union[should, what] does)\b',
+                r'\b(help Union[me, assist]|support)\b'
             ],
             'update_profile': [
-                r'\b(update|change|modify|edit)\b.*\b(phone|number|position|role|info|information|profile)\b',
-                r'\b(my|me)\b.\b(phone|number|position|role|info|information)\b.\b(is|are)\b',
-                r'\b(change|update|modify)\b.*\b(my|me)\b'
+                r'\b(Union[update, change]|Union[modify, edit])\b.*\b(Union[phone, number]|Union[position, role]|Union[info, information]|profile)\b',
+                r'\b(Union[my, me])\b.\b(Union[phone, number]|Union[position, role]|Union[info, information])\b.\b(Union[is, are])\b',
+                r'\b(Union[change, update]|modify)\b.*\b(Union[my, me])\b'
             ],
             'get_team_info': [
-                r'\b(team|players|members|list|show)\b.*\b(all|everyone|everybody)\b',
-                r'\b(how many|count|total)\b.*\b(players|members|team)\b',
-                r'\b(show|list|get)\b.*\b(team|players|members)\b'
+                r'\b(Union[team, players]|Union[members, list]|show)\b.*\b(Union[all, everyone]|everybody)\b',
+                r'\b(how Union[many, count]|total)\b.*\b(Union[players, members]|team)\b',
+                r'\b(Union[show, list]|get)\b.*\b(Union[team, players]|members)\b'
             ],
             'filter_players': [
-                r'\b(players|members)\b.*\b(position|role|fa|registered|eligible|active|pending)\b',
-                r'\b(show|list|get)\b.*\b(goalkeeper|defender|midfielder|forward|striker|utility)\b',
-                r'\b(goalkeeper|defender|midfielder|forward|striker|utility)\b.*\b(players|members)\b'
+                r'\b(Union[players, members])\b.*\b(Union[position, role]|Union[fa, registered]|Union[eligible, active]|pending)\b',
+                r'\b(Union[show, list]|get)\b.*\b(Union[goalkeeper, defender]|Union[midfielder, forward]|Union[striker, utility])\b',
+                r'\b(Union[goalkeeper, defender]|Union[midfielder, forward]|Union[striker, utility])\b.*\b(Union[players, members])\b'
             ],
             'get_team_stats': [
-                r'\b(stats|statistics|numbers|count|total)\b',
-                r'\b(how many|how much)\b.*\b(players|members|active|pending|registered)\b',
-                r'\b(team|overall|summary)\b.*\b(stats|statistics|info|information)\b'
+                r'\b(Union[stats, statistics]|Union[numbers, count]|total)\b',
+                r'\b(how Union[many, how] much)\b.*\b(Union[players, members]|Union[active, pending]|registered)\b',
+                r'\b(Union[team, overall]|summary)\b.*\b(Union[stats, statistics]|Union[info, information])\b'
             ]
         }
 
@@ -111,28 +111,28 @@ def extract_entities(message: str, intent: str) -> dict[str, Any]:
     try:
         if intent == 'get_player_info':
             # Extract specific info type requested
-            if re.search(r'\b(phone|number)\b', message):
+            if re.search(r'\b(Union[phone, number])\b', message):
                 entities['info_type'] = 'phone'
-            elif re.search(r'\b(position|role)\b', message):
+            elif re.search(r'\b(Union[position, role])\b', message):
                 entities['info_type'] = 'position'
-            elif re.search(r'\b(id|player.?id)\b', message):
+            elif re.search(r'\b(Union[id, player].?id)\b', message):
                 entities['info_type'] = 'id'
-            elif re.search(r'\b(fa|registration|registered)\b', message):
+            elif re.search(r'\b(Union[fa, registration]|registered)\b', message):
                 entities['info_type'] = 'fa_status'
-            elif re.search(r'\b(status|onboarding)\b', message):
+            elif re.search(r'\b(Union[status, onboarding])\b', message):
                 entities['info_type'] = 'status'
             else:
                 entities['info_type'] = 'all'
 
         elif intent == 'update_profile':
             # Extract what needs to be updated
-            if re.search(r'\b(phone|number)\b', message):
+            if re.search(r'\b(Union[phone, number])\b', message):
                 entities['update_type'] = 'phone'
-            elif re.search(r'\b(position|role)\b', message):
+            elif re.search(r'\b(Union[position, role])\b', message):
                 entities['update_type'] = 'position'
-            elif re.search(r'\b(emergency|contact)\b', message):
+            elif re.search(r'\b(Union[emergency, contact])\b', message):
                 entities['update_type'] = 'emergency_contact'
-            elif re.search(r'\b(dob|birth|date)\b', message):
+            elif re.search(r'\b(Union[dob, birth]|date)\b', message):
                 entities['update_type'] = 'date_of_birth'
             else:
                 entities['update_type'] = 'general'
@@ -146,7 +146,7 @@ def extract_entities(message: str, intent: str) -> dict[str, Any]:
                     break
 
             # Extract status filter
-            if re.search(r'\b(fa|registered)\b', message):
+            if re.search(r'\b(Union[fa, registered])\b', message):
                 entities['fa_status'] = 'registered'
             elif re.search(r'\b(eligible)\b', message):
                 entities['fa_status'] = 'eligible'

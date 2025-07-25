@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Union, Union
 
 from kickai.features.team_administration.domain.entities.team import Team, TeamStatus
 
@@ -7,15 +7,15 @@ from kickai.features.team_administration.domain.entities.team import Team, TeamS
 
 class ITeamService(ABC):
     @abstractmethod
-    async def create_team(self, name: str, description: str | None = None, settings: dict[str, Any] | None = None) -> Team:
+    async def create_team(self, name: str, description: Union[str, None] = None, settings: Union[dict[str, Any], None] = None) -> Team:
         pass
 
     @abstractmethod
-    async def get_team(self, team_id: str) -> Team | None:
+    async def get_team(self, team_id: str) -> Union[Team, None]:
         pass
 
     @abstractmethod
-    async def get_team_by_name(self, name: str) -> Team | None:
+    async def get_team_by_name(self, name: str) -> Union[Team, None]:
         pass
 
     @abstractmethod
@@ -27,11 +27,11 @@ class ITeamService(ABC):
         pass
 
     @abstractmethod
-    async def get_all_teams(self, status: TeamStatus | None = None) -> list[Team]:
+    async def get_all_teams(self, status: Union[TeamStatus, None] = None) -> list[Team]:
         pass
 
     @abstractmethod
-    async def add_team_member(self, team_id: str, user_id: str, role: str = "player", permissions: list[str] | None = None):
+    async def add_team_member(self, team_id: str, user_id: str, role: str = "player", permissions: Union[list[str], None] = None):
         pass
 
     @abstractmethod

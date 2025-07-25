@@ -9,7 +9,7 @@ context passing across the entire system to agents and tools.
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Union, Union
 
 from kickai.core.enums import ChatType, PermissionLevel
 
@@ -50,9 +50,9 @@ class StandardizedContext:
     telegram_name: str
 
     # Optional fields (populated when available)
-    user_permissions: UserPermissions | None = None
-    player_data: dict[str, Any] | None = None
-    team_member_data: dict[str, Any] | None = None
+    user_permissions: Union[UserPermissions, None] = None
+    player_data: Union[dict[str, Any], None] = None
+    team_member_data: Union[dict[str, Any], None] = None
     is_registered: bool = False
     is_player: bool = False
     is_team_member: bool = False
@@ -207,9 +207,9 @@ def create_context_from_command(
 
 def enhance_context_with_user_data(
     context: StandardizedContext,
-    user_permissions: UserPermissions | None = None,
-    player_data: dict[str, Any] | None = None,
-    team_member_data: dict[str, Any] | None = None
+    user_permissions: Union[UserPermissions, None] = None,
+    player_data: Union[dict[str, Any], None] = None,
+    team_member_data: Union[dict[str, Any], None] = None
 ) -> StandardizedContext:
     """Enhance context with additional user data."""
     context.user_permissions = user_permissions

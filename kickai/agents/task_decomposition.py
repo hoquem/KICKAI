@@ -10,7 +10,7 @@ import json
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Union
 
 # Import the correct AgentRole enum from the main enums file
 from kickai.core.enums import AgentRole
@@ -136,7 +136,7 @@ class TaskTemplateLoader:
             )
         }
 
-    def get_template(self, template_name: str) -> TaskTemplate | None:
+    def get_template(self, template_name: str) -> Union[TaskTemplate, None]:
         """Get a task template by name."""
         return self.templates.get(template_name)
 
@@ -380,7 +380,7 @@ Respond with valid JSON only. Do not include any explanatory text outside the JS
             "priority": 1
         }}
     ],
-    "complexity": "SIMPLE|MODERATE|COMPLEX|VERY_COMPLEX",
+    "complexity": "Union[SIMPLE, MODERATE]|Union[COMPLEX, VERY_COMPLEX]",
     "reasoning": "Brief explanation of the decomposition strategy and agent selection logic"
 }}
 

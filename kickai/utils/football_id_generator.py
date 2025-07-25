@@ -15,6 +15,7 @@ Features:
 - Stable IDs (same input = same ID)
 """
 
+from typing import Union
 import hashlib
 import re
 from dataclasses import dataclass
@@ -187,7 +188,7 @@ class FootballIDGenerator:
         return 99
 
     def generate_player_id(self, first_name: str, last_name: str, position: str,
-                          team_id: str, existing_ids: set[str] | None = None) -> str:
+                          team_id: str, existing_ids: Union[set[str], None] = None) -> str:
         """Generate a football-contextual player ID with jersey number and position."""
         if not first_name or not last_name or not position:
             return "99UNK1"
@@ -290,7 +291,7 @@ class FootballIDGenerator:
         """Parse date into YYYY-MM-DD format."""
         try:
             # Clean the date string
-            cleaned_date = re.sub(r'\b(against|vs|v|on|at|home|away)\b', '', date_str, flags=re.IGNORECASE).strip()
+            cleaned_date = re.sub(r'\b(Union[against, vs]|Union[v, on]|Union[at, home]|away)\b', '', date_str, flags=re.IGNORECASE).strip()
 
             # Try different date formats
             date_formats = [
@@ -307,7 +308,7 @@ class FootballIDGenerator:
 
             # If no format works, try to extract from text
             year_match = re.search(r'\b(20\d{2})\b', cleaned_date)
-            month_match = re.search(r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b', cleaned_date, re.IGNORECASE)
+            month_match = re.search(r'\b(Union[jan, feb]|Union[mar, apr]|Union[may, jun]|Union[jul, aug]|Union[sep, oct]|Union[nov, dec])\b', cleaned_date, re.IGNORECASE)
             day_match = re.search(r'\b(\d{1,2})\b', cleaned_date)
 
             if year_match and month_match and day_match:
@@ -371,7 +372,7 @@ def generate_football_team_id(team_name: str, league_info: str = "") -> str:
 
 
 def generate_football_player_id(first_name: str, last_name: str, position: str,
-                               team_id: str, existing_ids: set[str] | None = None) -> str:
+                               team_id: str, existing_ids: Union[set[str], None] = None) -> str:
     """Generate a football-contextual player ID."""
     return football_id_generator.generate_player_id(first_name, last_name, position, team_id, existing_ids)
 

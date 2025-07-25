@@ -9,7 +9,7 @@ import os
 import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any
+from typing import Any, Union, Union
 
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -79,7 +79,7 @@ class FirebaseClient:
 
     def __init__(self, config):
         self.config = config
-        self._client: firestore_client.Client | None = None
+        self._client: firestore_client.Union[Client, None] = None
         self._connection_pool: dict[str, Any] = {}
         self._batch_operations: list[dict[str, Any]] = []
 
@@ -275,7 +275,7 @@ class FirebaseClient:
     @async_retry(max_attempts=3, delay=1.0)
     @async_timeout(30.0)
     async def create_document(self, collection: str, data: dict[str, Any],
-                            document_id: str | None = None) -> str:
+                            document_id: Union[str, None] = None) -> str:
         """Create a new document with optional custom document ID."""
         async with async_operation_context("create_document", collection=collection, document_id=document_id):
             try:
@@ -292,7 +292,7 @@ class FirebaseClient:
 
     @async_retry(max_attempts=3, delay=1.0)
     @async_timeout(30.0)
-    async def get_document(self, collection: str, document_id: str) -> dict[str, Any] | None:
+    async def get_document(self, collection: str, document_id: str) -> Union[dict[str, Any], None]:
         """Get a document by ID."""
         async with async_operation_context("get_document", collection=collection, document_id=document_id):
             try:
@@ -346,8 +346,8 @@ class FirebaseClient:
 
     @async_retry(max_attempts=3, delay=1.0)
     @async_timeout(30.0)
-    async def query_documents(self, collection: str, filters: list[dict[str, Any]] | None = None,
-                            order_by: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
+    async def query_documents(self, collection: str, filters: Union[list[dict[str, Any]], None] = None,
+                            order_by: Union[str, None] = None, limit: Union[int, None] = None) -> list[dict[str, Any]]:
         """Query documents with filters and ordering."""
         logger.debug(f"Query documents called with collection={collection}, filters={filters}, limit={limit}")
         async with async_operation_context("query_documents", collection=collection, filters_count=len(filters) if filters else 0):
@@ -412,7 +412,7 @@ class FirebaseClient:
         collection_name = get_team_players_collection(player.team_id)
         return await self.create_document(collection_name, data, player.player_id)
 
-    async def get_player(self, player_id: str, team_id: str) -> Any | None:
+    async def get_player(self, player_id: str, team_id: str) -> Union[Any, None]:
         """Get a player by ID."""
         from kickai.core.firestore_constants import get_team_players_collection
         collection_name = get_team_players_collection(team_id)
@@ -421,7 +421,7 @@ class FirebaseClient:
             return data
         return None
 
-    async def update_player(self, player_id: str, updates: dict[str, Any], team_id: str = None) -> Any | None:
+    async def update_player(self, player_id: str, updates: dict[str, Any], team_id: str = None) -> Union[Any, None]:
         """Update a player by ID with specific fields and return the updated player."""
         try:
             # Use team-specific collection if team_id is provided
@@ -471,7 +471,7 @@ class FirebaseClient:
                 logger.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_players_by_team")
         return players
 
-    async def get_player_by_phone(self, phone: str, team_id: str | None = None) -> Any | None:
+    async def get_player_by_phone(self, phone: str, team_id: Union[str, None] = None) -> Union[Any, None]:
         """Get a player by phone number, optionally filtered by team."""
         from kickai.utils.phone_validation import get_phone_variants
 
@@ -530,7 +530,7 @@ class FirebaseClient:
         collection_name = get_collection_name(COLLECTION_TEAMS)
         return await self.create_document(collection_name, data, team.id)
 
-    async def get_team(self, team_id: str) -> Any | None:
+    async def get_team(self, team_id: str) -> Union[Any, None]:
         """Get a team by ID."""
         from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
         collection_name = get_collection_name(COLLECTION_TEAMS)
@@ -552,7 +552,7 @@ class FirebaseClient:
         collection_name = get_collection_name(COLLECTION_TEAMS)
         return await self.delete_document(collection_name, team_id)
 
-    async def get_team_by_name(self, name: str) -> Any | None:
+    async def get_team_by_name(self, name: str) -> Union[Any, None]:
         """Get a team by name."""
         from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
         collection_name = get_collection_name(COLLECTION_TEAMS)
@@ -562,7 +562,7 @@ class FirebaseClient:
             return data_list[0]
         return None
 
-    async def get_all_teams(self, status: Any | None = None) -> list[Any]:
+    async def get_all_teams(self, status: Union[Any, None] = None) -> list[Any]:
         """Get all teams, optionally filtered by status."""
         from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
         collection_name = get_collection_name(COLLECTION_TEAMS)
@@ -580,7 +580,7 @@ class FirebaseClient:
         collection_name = get_team_matches_collection(match.team_id)
         return await self.create_document(collection_name, data, match.id)
 
-    async def get_match(self, match_id: str, team_id: str) -> Any | None:
+    async def get_match(self, match_id: str, team_id: str) -> Union[Any, None]:
         """Get a match by ID."""
         from kickai.core.firestore_constants import get_team_matches_collection
         collection_name = get_team_matches_collection(team_id)
@@ -621,7 +621,7 @@ class FirebaseClient:
         collection_name = get_team_members_collection(team_member.team_id)
         return await self.create_document(collection_name, data)
 
-    async def get_team_member(self, member_id: str, team_id: str) -> TeamMember | None:
+    async def get_team_member(self, member_id: str, team_id: str) -> Union[TeamMember, None]:
         """Get a team member by ID."""
         # Use centralized collection naming
         collection_name = get_team_members_collection(team_id)
@@ -656,7 +656,7 @@ class FirebaseClient:
             logger.error("Error getting team members by team")
             return []  # Return empty list on error
 
-    async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> TeamMember | None:
+    async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> Union[TeamMember, None]:
         """Get a team member by telegram_id and team_id."""
         try:
             # Use centralized collection naming
@@ -697,7 +697,7 @@ class FirebaseClient:
         return [member for member in team_members
                 if member.chat_access.get('leadership_chat', False)]
 
-    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Any | None:
+    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Union[Any, None]:
         """Get a player by telegram_id and team_id efficiently."""
         logger.debug(f"get_player_by_telegram_id called with telegram_id={telegram_id}, team_id={team_id}")
         try:
@@ -749,7 +749,7 @@ class FirebaseClient:
 
 
 # Global Firebase client instance
-_firebase_client: FirebaseClient | None = None
+_firebase_client: Union[FirebaseClient, None] = None
 
 
 def get_firebase_client() -> FirebaseClient:

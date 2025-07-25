@@ -7,11 +7,12 @@ phonenumbers library (Google's libphonenumber port).
 """
 
 
+from typing import Union
 import phonenumbers
 from loguru import logger
 
 
-def normalize_phone(phone: str, region: str = "GB") -> str | None:
+def normalize_phone(phone: str, region: str = "GB") -> Union[str, None]:
     """
     Normalize a phone number to E.164 format.
 
@@ -97,7 +98,7 @@ def is_valid_phone(phone: str, region: str = "GB") -> bool:
     return normalize_phone(phone, region) is not None
 
 
-def format_phone_display(phone: str, region: str = "GB") -> str | None:
+def format_phone_display(phone: str, region: str = "GB") -> Union[str, None]:
     """
     Format a phone number for display (national format).
 
@@ -127,7 +128,7 @@ def format_phone_display(phone: str, region: str = "GB") -> str | None:
         return None
 
 
-def get_phone_info(phone: str, region: str = "GB") -> dict | None:
+def get_phone_info(phone: str, region: str = "GB") -> Union[dict, None]:
     """
     Get detailed information about a phone number.
 

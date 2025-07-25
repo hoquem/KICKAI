@@ -12,7 +12,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Union, Union
 
 from loguru import logger
 from telegram.error import TelegramError
@@ -101,7 +101,7 @@ class InviteLinkService:
         # Base64 encode for URL safety
         return base64.urlsafe_b64encode(combined_data.encode('utf-8')).decode('utf-8')
 
-    def _validate_secure_invite_data(self, invite_data: str) -> dict | None:
+    def _validate_secure_invite_data(self, invite_data: str) -> Union[dict, None]:
         """
         Validate and decode secure invite data.
 
@@ -331,7 +331,7 @@ class InviteLinkService:
             raise
 
     async def validate_and_use_invite_link(self, invite_link: str, user_id: str,
-                                         username: str = None, secure_data: str = None) -> dict[str, Any] | None:
+                                         username: str = None, secure_data: str = None) -> Union[dict[str, Any], None]:
         """
         Validate an invite link and mark it as used.
 
@@ -475,7 +475,7 @@ class InviteLinkService:
             logger.error(f"❌ Error creating Telegram invite link: {e}")
             raise
 
-    def _extract_invite_id_from_link(self, invite_link: str) -> str | None:
+    def _extract_invite_id_from_link(self, invite_link: str) -> Union[str, None]:
         """
         Extract invite ID from a Telegram invite link.
 

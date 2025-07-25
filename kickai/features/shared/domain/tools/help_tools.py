@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-Help Tools for KICKAI
+Help Tools
 
-This module provides tools for generating help responses and command information.
+This module provides tools for help and command information.
 """
 
-import logging
-
 from crewai.tools import tool
+from loguru import logger
 
 from kickai.core.constants import (
     get_chat_type_display_name,
@@ -15,13 +14,16 @@ from kickai.core.constants import (
     get_commands_for_chat_type,
     normalize_chat_type,
 )
+from kickai.utils.tool_helpers import (
+    extract_single_value,
+    format_tool_error,
+    validate_required_input,
+)
 from kickai.core.enums import ChatType as ChatTypeEnum
-
-logger = logging.getLogger(__name__)
 
 
 @tool("FINAL_HELP_RESPONSE")
-def final_help_response(chat_type: str, user_id: str, team_id: str, username: str = "Unknown") -> str:
+def final_help_response(chat_type: str, user_id: str, team_id: str, username: str) -> str:
     """
     Generate a comprehensive help response for users based on their chat type and context.
 
@@ -30,19 +32,37 @@ def final_help_response(chat_type: str, user_id: str, team_id: str, username: st
     and include all relevant commands with descriptions.
 
     Args:
-        context: Dictionary containing:
-            - chat_type: Chat type (string or enum)
-            - user_id: User ID
-            - team_id: Team ID
-            - username: Username (optional)
-            - message_text: Original message (optional)
-
+        chat_type: Chat type (string or enum) from the available context parameters
+        user_id: User ID from the available context parameters  
+        team_id: Team ID from the available context parameters
+        username: Username from the available context parameters
+        
     Returns:
         Formatted help response string
+        
+    Example:
+        If context provides "chat_type: main, user_id: 12345, team_id: TEST, username: John", 
+        call this tool with chat_type="main", user_id="12345", team_id="TEST", username="John"
     """
     try:
-        # Parameters are now passed explicitly - no context extraction needed
-        logger.info(f"🔧 [TOOL DEBUG] Generating help for chat_type: {chat_type}, user: {user_id}, team: {team_id}")
+        # Validate inputs - these should NOT be None, they must come from context
+        validation_error = validate_required_input(chat_type, "Chat Type")
+        if validation_error:
+            return format_tool_error("Chat Type is required and must be provided from available context")
+        
+        validation_error = validate_required_input(user_id, "User ID")
+        if validation_error:
+            return format_tool_error("User ID is required and must be provided from available context")
+        
+        validation_error = validate_required_input(team_id, "Team ID")
+        if validation_error:
+            return format_tool_error("Team ID is required and must be provided from available context")
+        
+        validation_error = validate_required_input(username, "Username")
+        if validation_error:
+            return format_tool_error("Username is required and must be provided from available context")
+        
+        logger.info(f"🔧 [TOOL DEBUG] Generating help for chat_type: {chat_type}, user: {user_id}, team: {team_id}, username: {username}")
 
         # Normalize chat type to enum
         chat_type_enum = normalize_chat_type(chat_type)
@@ -59,7 +79,7 @@ def final_help_response(chat_type: str, user_id: str, team_id: str, username: st
 
     except Exception as e:
         logger.error(f"Error generating help response: {e}", exc_info=True)
-        return f"❌ Error generating help: {e!s}"
+        return format_tool_error(f"Failed to generate help response: {e}")
 
 
 def _format_help_message(chat_type: ChatTypeEnum, commands: list, username: str) -> str:
@@ -149,6 +169,14 @@ def get_available_commands(chat_type: str) -> str:
         List of available commands with descriptions
     """
     try:
+        # Handle JSON string input using utility function
+        chat_type = extract_single_value(chat_type, 'chat_type')
+        
+        # Validate input
+        validation_error = validate_required_input(chat_type, "Chat Type")
+        if validation_error:
+            return validation_error
+        
         # Normalize chat type
         chat_type_enum = normalize_chat_type(chat_type)
 
@@ -168,7 +196,7 @@ def get_available_commands(chat_type: str) -> str:
 
     except Exception as e:
         logger.error(f"Error getting available commands: {e}", exc_info=True)
-        return f"❌ Error getting commands: {e!s}"
+        return format_tool_error(f"Error getting commands: {e!s}")
 
 
 @tool("get_command_help")

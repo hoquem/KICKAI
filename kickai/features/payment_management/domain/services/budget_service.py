@@ -6,7 +6,7 @@ This module provides budget management functionality.
 
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Union
 
 from ..entities.budget import Budget
 from ..repositories.budget_repository_interface import BudgetRepositoryInterface
@@ -33,7 +33,7 @@ class BudgetService:
         )
         return await self.budget_repository.create(budget)
 
-    async def get_budget_by_team(self, team_id: str) -> Budget | None:
+    async def get_budget_by_team(self, team_id: str) -> Union[Budget, None]:
         """Get budget for a team."""
         return await self.budget_repository.get_by_team(team_id)
 

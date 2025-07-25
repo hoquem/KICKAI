@@ -5,6 +5,7 @@ This service provides centralized message routing logic using the Player model's
 encapsulated methods as the single source of truth for all routing decisions.
 """
 
+from typing import Union
 import logging
 
 from kickai.features.player_registration.domain.entities.player import OnboardingStatus, Player
@@ -19,7 +20,7 @@ class MessageRoutingService:
     """
 
     @staticmethod
-    def should_route_to_onboarding(player: Player | None, message: str) -> tuple[bool, str]:
+    def should_route_to_onboarding(player: Union[Player, None], message: str) -> tuple[bool, str]:
         """
         Determine if a message should be routed to onboarding handler.
 
@@ -48,7 +49,7 @@ class MessageRoutingService:
         return False, f"Player {player.full_name} is not in onboarding"
 
     @staticmethod
-    def should_route_to_player_update(player: Player | None, message: str) -> tuple[bool, str]:
+    def should_route_to_player_update(player: Union[Player, None], message: str) -> tuple[bool, str]:
         """
         Determine if a message should be routed to player update handler.
 
@@ -76,7 +77,7 @@ class MessageRoutingService:
         return False, "Not a player update request"
 
     @staticmethod
-    def should_route_to_general_handler(player: Player | None, message: str) -> tuple[bool, str]:
+    def should_route_to_general_handler(player: Union[Player, None], message: str) -> tuple[bool, str]:
         """
         Determine if a message should be routed to general handler.
 
@@ -105,7 +106,7 @@ class MessageRoutingService:
         return True, f"Player {player.full_name} message routed to general handler"
 
     @staticmethod
-    def get_routing_decision(player: Player | None, message: str, user_role: str = "player") -> dict:
+    def get_routing_decision(player: Union[Player, None], message: str, user_role: str = "player") -> dict:
         """
         Get the complete routing decision for a message.
 

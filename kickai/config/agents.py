@@ -6,6 +6,7 @@ and tool mappings. This allows for easy agent management and modification
 without writing new classes.
 """
 
+from typing import Union
 from dataclasses import dataclass, field
 
 from kickai.core.entity_types import EntityType
@@ -24,11 +25,11 @@ class AgentConfig:
     allow_delegation: bool = True
     verbose: bool = True
     custom_tools: list[str] = field(default_factory=list)
-    behavioral_mixin: str | None = None
+    behavioral_mixin: Union[str, None] = None
     memory_enabled: bool = True
     learning_enabled: bool = True
     entity_types: list[EntityType] = field(default_factory=list)
-    primary_entity_type: EntityType | None = None
+    primary_entity_type: Union[EntityType, None] = None
 
 
 class AgentConfigurationManager:
@@ -91,7 +92,9 @@ ERROR HANDLING:
 - If system errors occur: Acknowledge the issue and provide immediate solutions
 - Always maintain user confidence and enthusiasm
 
-CRITICAL HELP COMMAND HANDLING:
+CRITICAL COMMAND HANDLING:
+
+HELP COMMANDS:
 When users ask for help (e.g., "/help", "help", "what can you do", "show commands"), you MUST:
 1. ALWAYS use the get_available_commands tool to get the current list of available commands
 2. Pass the correct chat type - "leadership_chat" for leadership chats, "main_chat" for main chats
@@ -102,6 +105,13 @@ When users ask for help (e.g., "/help", "help", "what can you do", "show command
 4. Return the exact output from the tool - this provides accurate, context-aware command information
 5. NEVER fabricate or guess command lists
 
+LIST COMMANDS:
+When users use "/list" command, you MUST:
+1. In LEADERSHIP CHAT: Use the list_team_members_and_players tool to show all team members and players with their status
+2. In MAIN CHAT: Route to PLAYER_COORDINATOR who will use get_active_players tool
+3. NEVER ask clarifying questions for "/list" - use the appropriate tool immediately
+4. Return the exact output from the tool - this provides authoritative data
+
 HELP COMMAND EXAMPLES:
 ✅ CORRECT: Use get_available_commands tool with chat_type="leadership_chat", is_registered=True, is_player=False, is_team_member=True for leadership chats
 ✅ CORRECT: Use get_available_commands tool with chat_type="main_chat", is_registered=False, is_player=False, is_team_member=False for unregistered users in main chat
@@ -110,14 +120,22 @@ HELP COMMAND EXAMPLES:
 ❌ INCORRECT: Mentioning commands that don't exist like "/players", "/schedule"
 ❌ INCORRECT: Not passing user registration status parameters
 
+LIST COMMAND EXAMPLES:
+✅ CORRECT: For "/list" in leadership chat, immediately use list_team_members_and_players tool
+✅ CORRECT: Return the exact output from list_team_members_and_players tool
+❌ INCORRECT: Asking "What do you want a list of?" for "/list" commands
+❌ INCORRECT: Using send_message instead of the appropriate listing tool
+
 TOOLS AND CAPABILITIES:
 - Natural language understanding and intent classification
 - Context management and conversation flow
 - Agent routing and load balancing
 - Help system and user guidance
 - Error recovery and fallback handling
-- Command information retrieval via get_available_commands tool""",
-                tools=["send_message", "send_announcement", "get_available_commands", "get_my_status", "get_my_team_member_status", "get_all_players", "get_team_members", "list_team_members_and_players"],
+- Command information retrieval via get_available_commands tool
+- Team member and player listing via list_team_members_and_players tool
+- Direct messaging via send_message and send_announcement tools""",
+                tools=["send_message", "send_announcement", "get_available_commands", "get_my_status", "get_my_team_member_status", "get_team_members", "list_team_members_and_players"],
                 behavioral_mixin="message_processor",
                 memory_enabled=True,
                 learning_enabled=True,
@@ -183,7 +201,7 @@ EXAMPLES:
 ✅ Great: "Excellent work on the match coordination! The team is really coming together. Let's keep this momentum going! 💪"
 ✅ Good: "I've reviewed the performance data and we're making good progress. Here are the key areas to focus on..."
 ❌ Bad: "The team needs to improve. That's all I have to say.""",
-                tools=["send_message", "send_announcement", "send_poll", "add_player", "approve_player", "get_all_players", "get_team_members"],
+                tools=["send_message", "send_announcement", "send_poll", "add_player", "approve_player", "get_active_players", "get_team_members"],
                 behavioral_mixin=None,
                 memory_enabled=True,
                 learning_enabled=True,
@@ -228,7 +246,7 @@ CRITICAL TOOL SELECTION GUIDELINES:
    - ✅ TEAM ID: Use the actual team ID from context (usually "KAI")
 
 3. For listing all players ("list", "show players", "team roster"):
-   - ✅ MANDATORY: USE get_all_players tool
+   - ✅ MANDATORY: USE get_active_players tool (shows only active players)
    - ❌ FORBIDDEN: Creating fake player lists or tables
    - ❌ FORBIDDEN: Using markdown tables without tool data
    - ❌ FORBIDDEN: Returning just empty responses
@@ -259,13 +277,14 @@ EXAMPLES OF CORRECT TOOL USAGE:
 
 ✅ CORRECT for team list:
 - User asks: "Show all players" or "list" or "/list"
-- Agent response: "Here's the team roster!" (then use get_all_players tool with NO parameters)
+- Agent response: "Here's the team roster!" (then use get_active_players tool with NO parameters)
 
 ❌ INCORRECT:
 - Using get_player_status for own status
 - Creating fake responses without tools
 - Asking for team ID when tools have context
 - Handling team member operations
+- Using get_all_players instead of get_active_players for main chat
 
 PERSONALITY & COMMUNICATION STYLE:
 - Friendly & Supportive: Be warm and encouraging to all players
@@ -294,7 +313,7 @@ TOOLS AND CAPABILITIES:
 - Player registration and onboarding
 - Individual player support
 - Status tracking and reporting""",
-                tools=["get_my_status", "get_player_status", "get_all_players", "approve_player", "register_player", "add_player", "send_message", "Parse Registration Command"],
+                tools=["get_my_status", "get_player_status", "get_active_players", "approve_player", "register_player", "add_player", "send_message", "Parse Registration Command"],
                 behavioral_mixin="player_coordinator",
                 memory_enabled=True,
                 learning_enabled=True,
@@ -1208,7 +1227,7 @@ INTEGRATION POINTS:
             )
         }
 
-    def get_agent_config(self, role: AgentRole) -> AgentConfig | None:
+    def get_agent_config(self, role: AgentRole) -> Union[AgentConfig, None]:
         """Get configuration for a specific agent role."""
         return self._configs.get(role)
 
@@ -1261,7 +1280,7 @@ def get_agent_config_manager() -> AgentConfigurationManager:
     return _agent_config_manager
 
 
-def get_agent_config(role: AgentRole) -> AgentConfig | None:
+def get_agent_config(role: AgentRole) -> Union[AgentConfig, None]:
     """Get configuration for a specific agent role."""
     return get_agent_config_manager().get_agent_config(role)
 

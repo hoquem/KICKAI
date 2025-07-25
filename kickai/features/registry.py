@@ -351,6 +351,9 @@ class ServiceFactory:
         from kickai.features.communication.domain.services.notification_service import (
             NotificationService,
         )
+        from kickai.features.communication.domain.services.communication_service import (
+            CommunicationService,
+        )
         from kickai.features.communication.infrastructure.firebase_message_repository import (
             FirebaseMessageRepository,
         )
@@ -367,15 +370,20 @@ class ServiceFactory:
         # Create invite link service (bot token will be set later from Firestore)
         invite_link_service = InviteLinkService(self.database)
 
+        # Create communication service (TelegramBotService will be injected later)
+        communication_service = CommunicationService(None)  # Will be updated when TelegramBotService is available
+
         # Register with container
         self.container.register_service(MessageService, message_service)
         self.container.register_service(NotificationService, notification_service)
         self.container.register_service(InviteLinkService, invite_link_service)
+        self.container.register_service(CommunicationService, communication_service)
 
         return {
             'message_service': message_service,
             'notification_service': notification_service,
-            'invite_link_service': invite_link_service
+            'invite_link_service': invite_link_service,
+            'communication_service': communication_service
         }
 
     def create_health_monitoring_services(self):

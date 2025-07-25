@@ -1,6 +1,7 @@
 """
 Firebase Team Repository Implementation
 """
+from typing import Union
 import logging
 
 from firebase_admin import firestore
@@ -41,7 +42,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             self.logger.error(f"❌ Failed to create team: {e}")
             raise
 
-    async def get_by_id(self, team_id: str) -> Team | None:
+    async def get_by_id(self, team_id: str) -> Union[Team, None]:
         """Get a team by ID from Firestore."""
         try:
             doc = self.db.collection('teams').document(team_id).get()
@@ -54,7 +55,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             self.logger.error(f"❌ Failed to get team by ID {team_id}: {e}")
             return None
 
-    async def update(self, team: Team) -> Team | None:
+    async def update(self, team: Team) -> Union[Team, None]:
         """Update a team in Firestore."""
         try:
             team_data = {
@@ -155,10 +156,10 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
     async def create_team(self, team: Team) -> Team:
         return await self.create(team)
 
-    async def get_team_by_id(self, team_id: str) -> Team | None:
+    async def get_team_by_id(self, team_id: str) -> Union[Team, None]:
         return await self.get_by_id(team_id)
 
-    async def update_team(self, team: Team) -> Team | None:
+    async def update_team(self, team: Team) -> Union[Team, None]:
         return await self.update(team)
 
     async def delete_team(self, team_id: str) -> bool:

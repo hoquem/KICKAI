@@ -1,3 +1,4 @@
+from typing import Union
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -16,13 +17,13 @@ class TeamMember:
     # Core identification fields
     user_id: str = ""  # Generated from telegram_id using generate_user_id()
     team_id: str = ""
-    telegram_id: str | None = None
+    telegram_id: Union[str, None] = None
 
     # Personal information
-    first_name: str | None = None
-    last_name: str | None = None
-    full_name: str | None = None
-    username: str | None = None
+    first_name: Union[str, None] = None
+    last_name: Union[str, None] = None
+    full_name: Union[str, None] = None
+    username: Union[str, None] = None
 
     # Administrative role information
     role: str = "Team Member"  # e.g., "Club Administrator", "Team Manager", "Coach"
@@ -30,17 +31,17 @@ class TeamMember:
     status: str = "active"  # active, inactive, suspended
 
     # Contact information
-    phone_number: str | None = None
-    email: str | None = None
-    emergency_contact: str | None = None
+    phone_number: Union[str, None] = None
+    email: Union[str, None] = None
+    emergency_contact: Union[str, None] = None
 
     # Timestamps
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: Union[datetime, None] = None
+    updated_at: Union[datetime, None] = None
 
     # Metadata
-    source: str | None = None  # e.g., "telegram_sync", "manual_entry"
-    sync_version: str | None = None
+    source: Union[str, None] = None  # e.g., "telegram_sync", "manual_entry"
+    sync_version: Union[str, None] = None
 
     def __post_init__(self):
         """Validate and set defaults after initialization."""

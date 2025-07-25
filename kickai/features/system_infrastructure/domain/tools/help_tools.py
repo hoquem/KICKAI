@@ -4,6 +4,7 @@ Help tools for KICKAI system.
 This module provides tools for help and command information.
 """
 
+from typing import Union
 import logging
 
 from crewai.tools import tool
@@ -18,12 +19,12 @@ logger = logging.getLogger(__name__)
 class GetAvailableCommandsInput(BaseModel):
     """Input model for get_available_commands tool."""
     chat_type: str
-    user_id: str | None = None
-    team_id: str | None = None
+    user_id: Union[str, None] = None
+    team_id: Union[str, None] = None
 
 
 @tool("get_available_commands")
-def get_available_commands(chat_type: str, user_id: str | None = None, team_id: str | None = None, is_registered: bool = None, is_player: bool = None, is_team_member: bool = None) -> str:
+def get_available_commands(chat_type: str, user_id: Union[str, None] = None, team_id: Union[str, None] = None, is_registered: bool = None, is_player: bool = None, is_team_member: bool = None) -> str:
     """
     Get list of available commands for a user in the given chat type.
 
