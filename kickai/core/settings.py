@@ -8,6 +8,7 @@ the complex improved_config_system.py and all scattered configuration access.
 import os
 from enum import Enum
 from pathlib import Path
+from typing import Union
 
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -40,17 +41,16 @@ class Settings(BaseSettings):
 
     # Database Configuration
     firebase_project_id: str = Field(
-        default="",
-        description="Firebase project ID"
+        description="Firebase project ID (REQUIRED)"
     )
-    firebase_credentials_path: str | None = Field(
+    firebase_credentials_path: Union[str, None] = Field(
         default=None,
         alias="FIREBASE_CREDENTIALS_FILE",
-        description="Path to Firebase credentials file"
+        description="Path to Firebase credentials file (REQUIRED if firebase_credentials_json not provided)"
     )
-    firebase_credentials_json: str | None = Field(
+    firebase_credentials_json: Union[str, None] = Field(
         default=None,
-        description="Firebase credentials as JSON string"
+        description="Firebase credentials as JSON string (REQUIRED if firebase_credentials_path not provided)"
     )
     firebase_batch_size: int = Field(
         default=500,
@@ -67,10 +67,9 @@ class Settings(BaseSettings):
         description="AI provider to use"
     )
     google_api_key: str = Field(
-        default="",
-        description="Google API key for Gemini"
+        description="Google API key for Gemini (REQUIRED)"
     )
-    openai_api_key: str | None = Field(
+    openai_api_key: Union[str, None] = Field(
         default=None,
         description="OpenAI API key"
     )
@@ -96,7 +95,7 @@ class Settings(BaseSettings):
     )
 
     # Telegram Configuration (Bot config now comes from Firestore teams collection)
-    telegram_webhook_url: str | None = Field(
+    telegram_webhook_url: Union[str, None] = Field(
         default=None,
         description="Telegram webhook URL"
     )
@@ -135,7 +134,7 @@ class Settings(BaseSettings):
         default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         description="Log format"
     )
-    log_file_path: str | None = Field(
+    log_file_path: Union[str, None] = Field(
         default=None,
         description="Log file path (disabled - use redirection for file logging)"
     )
@@ -237,11 +236,11 @@ class Settings(BaseSettings):
         default=False,
         description="Enable test mode"
     )
-    admin_session_string: str | None = Field(
+    admin_session_string: Union[str, None] = Field(
         default=None,
         description="Admin session string for testing"
     )
-    player_session_string: str | None = Field(
+    player_session_string: Union[str, None] = Field(
         default=None,
         description="Player session string for testing"
     )
@@ -274,6 +273,23 @@ class Settings(BaseSettings):
                 return AIProvider(v.lower())
             except ValueError:
                 return AIProvider.GEMINI
+        return v
+
+    @validator("firebase_credentials_path", "firebase_credentials_json")
+    def validate_firebase_credentials(cls, v, values):
+        """Validate that at least one Firebase credential method is provided."""
+        # This validator runs for both fields, so we need to check the other field
+        if 'firebase_credentials_path' in values:
+            path = values['firebase_credentials_path']
+            json_creds = v
+        else:
+            path = v
+            json_creds = values.get('firebase_credentials_json')
+        
+        # If neither is provided, raise an error
+        if not path and not json_creds:
+            raise ValueError("Either FIREBASE_CREDENTIALS_FILE or FIREBASE_CREDENTIALS_JSON must be provided")
+        
         return v
 
     @property
@@ -329,7 +345,7 @@ class Settings(BaseSettings):
 
 
 # Global settings instance
-_settings: Settings | None = None
+_settings: Union[Settings, None] = None
 
 
 def get_settings() -> Settings:
@@ -340,7 +356,7 @@ def get_settings() -> Settings:
     return _settings
 
 
-def initialize_settings(env_file: str | None = None) -> Settings:
+def initialize_settings(env_file: Union[str, None] = None) -> Settings:
     """Initialize settings with optional custom env file."""
     global _settings
 

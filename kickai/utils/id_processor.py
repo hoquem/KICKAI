@@ -8,6 +8,7 @@ This follows the single source of truth principle - all ID processing logic shou
 go through this service to ensure consistency across the entire system.
 """
 
+from typing import Union
 import logging
 import re
 from dataclasses import dataclass
@@ -85,7 +86,7 @@ class IDProcessor:
                 'normalization': lambda x: x.upper().strip()
             },
             IDType.PHONE_NUMBER: {
-                'pattern': r'\b(?:\+?44|0)?[17]\d{9}\b',
+                'pattern': r'\b(?:\+?Union[44, 0])?[17]\d{9}\b',
                 'validation_rules': [
                     lambda x: len(x) >= 10 and len(x) <= 13,
                     lambda x: re.match(r'^[\d\+]+$', x)
@@ -93,7 +94,7 @@ class IDProcessor:
                 'normalization': self._normalize_phone_number
             },
             IDType.EMAIL: {
-                'pattern': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+                'pattern': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Union[Z, a]-z]{2,}\b',
                 'validation_rules': [
                     lambda x: '@' in x,
                     lambda x: '.' in x.split('@')[1]
@@ -297,7 +298,7 @@ class IDProcessor:
         processed_id = self._process_id(value, id_type, "")
         return processed_id.normalized_value
 
-    def get_entity_value(self, entities: dict[str, ProcessedID], entity_name: str) -> str | None:
+    def get_entity_value(self, entities: dict[str, ProcessedID], entity_name: str) -> Union[str, None]:
         """
         Get the normalized value of an entity.
 
@@ -314,7 +315,7 @@ class IDProcessor:
 
 
 # Global instance
-_id_processor: IDProcessor | None = None
+_id_processor: Union[IDProcessor, None] = None
 
 def get_id_processor() -> IDProcessor:
     """Get the global ID processor instance."""

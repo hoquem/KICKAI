@@ -8,7 +8,7 @@ and uses agents and tools for complex operations.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Union, Union
 
 from loguru import logger
 
@@ -30,9 +30,9 @@ class UserContext:
     chat_type: ChatType
     telegram_username: str
     telegram_name: str
-    user_permissions: UserPermissions | None = None
-    player_data: dict[str, Any] | None = None
-    team_member_data: dict[str, Any] | None = None
+    user_permissions: Union[UserPermissions, None] = None
+    player_data: Union[dict[str, Any], None] = None
+    team_member_data: Union[dict[str, Any], None] = None
     is_registered: bool = False
     is_player: bool = False
     is_team_member: bool = False
@@ -44,8 +44,8 @@ class CommandResponse:
     message: str
     success: bool
     requires_action: bool = False
-    action_type: str | None = None
-    action_data: dict[str, Any] | None = None
+    action_type: Union[str, None] = None
+    action_data: Union[dict[str, Any], None] = None
 
 
 class CommandProcessingService:
@@ -276,17 +276,24 @@ class CommandProcessingService:
 
             # Use the normalized chat type from constants
             from kickai.core.constants import normalize_chat_type
-            chat_type_enum = normalize_chat_type(str(user_context.chat_type))
-            chat_type = chat_type_enum.value
+            
+            # Handle chat type conversion properly
+            if hasattr(user_context.chat_type, 'value'):
+                # It's an enum, get the value directly
+                chat_type = user_context.chat_type.value
+            else:
+                # It's a string, normalize it
+                chat_type_enum = normalize_chat_type(str(user_context.chat_type))
+                chat_type = chat_type_enum.value
+
+            # Build robust context with comprehensive fallbacks
+            context = self._build_robust_help_context(user_context, chat_type)
+            
+            # DEBUG: Log the final context being sent
+            logger.info(f"🔧 [HELP COMMAND] Final context being sent: {context}")
 
             # Process help request using HelpAssistantAgent
-            help_message = await help_assistant.process_help_request({
-                'user_id': user_context.user_id,
-                'team_id': user_context.team_id,
-                'chat_type': chat_type,
-                'username': user_context.telegram_username or user_context.telegram_name,
-                'message_text': 'help request'
-            })
+            help_message = help_assistant.process_help_request(context)
 
             return CommandResponse(
                 message=help_message,
@@ -299,6 +306,63 @@ class CommandProcessingService:
                 message="❌ Error generating help information. Please try again.",
                 success=False
             )
+
+    def _build_robust_help_context(self, user_context: UserContext, chat_type: str) -> dict[str, str]:
+        """
+        Build a robust context for help requests with comprehensive fallbacks.
+        
+        This ensures that all required parameters are never None and have sensible defaults.
+        """
+        # Build username with multiple fallbacks
+        username = (
+            user_context.telegram_username or 
+            user_context.telegram_name or 
+            f"User_{user_context.user_id}" or 
+            "Unknown User"
+        )
+        
+        # Ensure username is not empty or just whitespace
+        if not username or not username.strip():
+            username = f"User_{user_context.user_id}"
+        
+        # Build the context with guaranteed non-None values
+        context = {
+            'user_id': str(user_context.user_id) if user_context.user_id else "unknown",
+            'team_id': str(user_context.team_id) if user_context.team_id else "unknown",
+            'chat_type': str(chat_type) if chat_type else "main",
+            'username': str(username).strip(),
+            'message_text': 'help request'
+        }
+        
+        # Validate that no values are None or empty
+        for key, value in context.items():
+            if value is None or (isinstance(value, str) and not value.strip()):
+                logger.warning(f"🔧 [HELP COMMAND] Context value for {key} is None or empty: {value}")
+                if key == 'username':
+                    context[key] = f"User_{user_context.user_id}"
+                elif key in ['user_id', 'team_id']:
+                    context[key] = "unknown"
+                elif key == 'chat_type':
+                    context[key] = "main"
+                else:
+                    context[key] = "unknown"
+        
+        # Final validation - ensure all required fields have valid values
+        required_fields = ['user_id', 'team_id', 'chat_type', 'username']
+        for field in required_fields:
+            if field not in context or not context[field] or context[field] == "unknown":
+                logger.error(f"🔧 [HELP COMMAND] Required field {field} is missing or invalid: {context.get(field)}")
+                if field == 'user_id':
+                    context[field] = "12345"  # Fallback user ID
+                elif field == 'team_id':
+                    context[field] = "DEFAULT"  # Fallback team ID
+                elif field == 'chat_type':
+                    context[field] = "main"  # Default to main chat
+                elif field == 'username':
+                    context[field] = "User"  # Fallback username
+        
+        logger.info(f"🔧 [HELP COMMAND] Final robust context: {context}")
+        return context
 
     async def _get_available_commands_for_user(self, user_context: UserContext) -> dict[str, Any]:
         """Get available commands for the specific user context."""

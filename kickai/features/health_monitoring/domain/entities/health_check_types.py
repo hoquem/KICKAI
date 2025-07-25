@@ -7,7 +7,7 @@ This module contains the data structures and types used by the health check serv
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Union
 
 
 class HealthStatus(Enum):
@@ -37,7 +37,7 @@ class HealthCheckResult:
     response_time_ms: float
     timestamp: datetime
     details: dict[str, Any] = field(default_factory=dict)
-    error: Exception | None = None
+    error: Union[Exception, None] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""

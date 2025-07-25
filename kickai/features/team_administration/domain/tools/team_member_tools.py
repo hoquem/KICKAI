@@ -5,6 +5,7 @@ Team member management tools for KICKAI system.
 This module provides tools for team member management and information retrieval.
 """
 
+from typing import Union
 import asyncio
 import logging
 
@@ -55,7 +56,7 @@ def get_my_team_member_status(team_id: str, user_id: str) -> str:
 
 
 @tool("get_team_members")
-def get_team_members(team_id: str, role: str | None = None) -> str:
+def get_team_members(team_id: str, role: Union[str, None] = None) -> str:
     """
     Get team members for a team, optionally filtered by role.
 

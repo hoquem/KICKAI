@@ -8,7 +8,7 @@ unregistered user guidance, and user status determination.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Union
 
 from loguru import logger
 
@@ -41,7 +41,7 @@ class AgentResponse:
     """Agent response structure."""
     message: str
     success: bool = True
-    error: str | None = None
+    error: Union[str, None] = None
     needs_contact_button: bool = False
 
 

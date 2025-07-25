@@ -3,7 +3,7 @@ FirebaseMessageRepository for Communication.
 
 Implements MessageRepositoryInterface using Firebase/Firestore as the backend.
 """
-from typing import Any
+from typing import Any, Union
 
 from kickai.core.firestore_constants import COLLECTION_MESSAGES
 from kickai.features.communication.domain.repositories.message_repository_interface import (
@@ -24,7 +24,7 @@ class FirebaseMessageRepository(MessageRepositoryInterface):
         # For now, return a mock ID
         return message.get('id', 'mock_message_id')
 
-    async def get_by_id(self, message_id: str) -> dict[str, Any] | None:
+    async def get_by_id(self, message_id: str) -> Union[dict[str, Any], None]:
         """Fetch a message by its ID."""
         # TODO: Implement Firestore logic
         # For now, return None

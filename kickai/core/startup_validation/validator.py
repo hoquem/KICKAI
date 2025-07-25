@@ -6,7 +6,7 @@ This module provides the main startup validator that orchestrates all health che
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Union, Union
 
 from .checks import (
     AgentInitializationCheck,
@@ -30,7 +30,7 @@ class StartupValidator:
     comprehensive validation reports.
     """
 
-    def __init__(self, config_path: str | None = None):
+    def __init__(self, config_path: Union[str, None] = None):
         self.config_path = config_path
         self.checks: list[Any] = []
         self._load_default_checks()
@@ -58,7 +58,7 @@ class StartupValidator:
         """Remove a health check by name."""
         self.checks = [check for check in self.checks if check.name != check_name]
 
-    async def validate(self, context: dict[str, Any] | None = None) -> ValidationReport:
+    async def validate(self, context: Union[dict[str, Any], None] = None) -> ValidationReport:
         """
         Execute all health checks and generate a validation report.
 
@@ -232,7 +232,7 @@ class StartupValidator:
         logger.info("="*80)
 
 
-async def run_startup_validation(team_id: str | None = None) -> ValidationReport:
+async def run_startup_validation(team_id: Union[str, None] = None) -> ValidationReport:
     """
     Run startup validation for the system.
 

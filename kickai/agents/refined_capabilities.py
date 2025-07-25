@@ -12,7 +12,7 @@ This module provides a hierarchical capability system with:
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Union
 
 from kickai.core.enums import AgentRole
 
@@ -496,7 +496,7 @@ class HierarchicalCapabilityManager:
 
         return matrix
 
-    def get_capability_definition(self, capability: RefinedCapabilityType) -> CapabilityDefinition | None:
+    def get_capability_definition(self, capability: RefinedCapabilityType) -> Union[CapabilityDefinition, None]:
         """Get the definition for a specific capability."""
         return self._capability_definitions.get(capability)
 
@@ -537,7 +537,7 @@ class HierarchicalCapabilityManager:
             if definition.category == category
         ]
 
-    def find_best_agent_for_capability(self, capability: RefinedCapabilityType) -> AgentRole | None:
+    def find_best_agent_for_capability(self, capability: RefinedCapabilityType) -> Union[AgentRole, None]:
         """Find the best agent for a specific capability."""
         best_agent = None
         best_proficiency = 0.0
@@ -607,10 +607,10 @@ def get_agents_with_capability(capability: RefinedCapabilityType, min_proficienc
     """Get all agents that have a specific capability."""
     return _hierarchical_capability_manager.get_agents_with_capability(capability, min_proficiency)
 
-def find_best_agent_for_capability(capability: RefinedCapabilityType) -> AgentRole | None:
+def find_best_agent_for_capability(capability: RefinedCapabilityType) -> Union[AgentRole, None]:
     """Find the best agent for a specific capability."""
     return _hierarchical_capability_manager.find_best_agent_for_capability(capability)
 
-def get_capability_definition(capability: RefinedCapabilityType) -> CapabilityDefinition | None:
+def get_capability_definition(capability: RefinedCapabilityType) -> Union[CapabilityDefinition, None]:
     """Get the definition for a specific capability."""
     return _hierarchical_capability_manager.get_capability_definition(capability)

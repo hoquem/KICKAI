@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Union
 
 
 class FirebaseNotificationRepository:
@@ -11,7 +11,7 @@ class FirebaseNotificationRepository:
         # TODO: Implement Firestore logic
         return notification.get('id', 'mock_notification_id')
 
-    async def get_by_id(self, notification_id: str) -> dict[str, Any] | None:
+    async def get_by_id(self, notification_id: str) -> Union[dict[str, Any], None]:
         # TODO: Implement Firestore logic
         return None
 

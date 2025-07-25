@@ -5,6 +5,7 @@ This module provides continuous monitoring of LLM connectivity and will
 stop the bot if LLM authentication fails during runtime.
 """
 
+from typing import Union
 import asyncio
 import logging
 from collections.abc import Callable
@@ -27,8 +28,8 @@ class LLMHealthMonitor:
     def __init__(self, check_interval_seconds: int = 300):  # Check every 5 minutes
         self.check_interval = check_interval_seconds
         self.is_running = False
-        self.shutdown_callback: Callable | None = None
-        self.last_check_time: datetime | None = None
+        self.shutdown_callback: Union[Callable, None] = None
+        self.last_check_time: Union[datetime, None] = None
         self.consecutive_failures = 0
         self.max_consecutive_failures = 2  # Allow 2 failures before stopping
 
@@ -167,7 +168,7 @@ class LLMHealthMonitor:
 
 
 # Global instance
-_llm_monitor: LLMHealthMonitor | None = None
+_llm_monitor: Union[LLMHealthMonitor, None] = None
 
 
 def get_llm_monitor() -> LLMHealthMonitor:

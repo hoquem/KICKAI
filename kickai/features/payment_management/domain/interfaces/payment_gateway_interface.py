@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Union
 
 
 class IPaymentGateway(ABC):
@@ -23,18 +23,18 @@ class IPaymentGateway(ABC):
         pass
 
     @abstractmethod
-    async def refund_payment(self, transaction_id: str, amount: float | None = None) -> dict[str, Any]:
+    async def refund_payment(self, transaction_id: str, amount: Union[float, None] = None) -> dict[str, Any]:
         """Refund a payment."""
         pass
 
     @abstractmethod
     async def create_charge(self, amount: float, currency: str, source: str,
-                          description: str | None = None) -> dict[str, Any]:
+                          description: Union[str, None] = None) -> dict[str, Any]:
         """Create a direct charge."""
         pass
 
     @abstractmethod
-    async def create_refund(self, charge_id: str, amount: float | None = None) -> dict[str, Any]:
+    async def create_refund(self, charge_id: str, amount: Union[float, None] = None) -> dict[str, Any]:
         """Create a refund for a charge."""
         pass
 

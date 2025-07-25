@@ -7,7 +7,7 @@ a real database connection.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Union, Union
 from unittest.mock import Mock
 
 from loguru import logger
@@ -44,11 +44,11 @@ class MockDataStore:
         self.players[player.id] = player
         return player.id
 
-    async def get_player(self, player_id: str) -> Player | None:
+    async def get_player(self, player_id: str) -> Union[Player, None]:
         """Get a player by ID."""
         return self.players.get(player_id)
 
-    async def update_player(self, player_id: str, updates: dict[str, Any]) -> Player | None:
+    async def update_player(self, player_id: str, updates: dict[str, Any]) -> Union[Player, None]:
         """Update a player by ID with updates dictionary."""
         if player_id in self.players:
             player = self.players[player_id]
@@ -71,7 +71,7 @@ class MockDataStore:
         """Get players by team ID."""
         return [p for p in self.players.values() if p.team_id == team_id]
 
-    async def get_player_by_phone(self, phone: str, team_id: str) -> Player | None:
+    async def get_player_by_phone(self, phone: str, team_id: str) -> Union[Player, None]:
         """Get player by phone number and team."""
         for player in self.players.values():
             if player.phone_number == phone and player.team_id == team_id:
@@ -86,7 +86,7 @@ class MockDataStore:
         self.teams[team.id] = team
         return team.id
 
-    async def get_team(self, team_id: str) -> Team | None:
+    async def get_team(self, team_id: str) -> Union[Team, None]:
         """Get a team by ID."""
         return self.teams.get(team_id)
 
@@ -104,7 +104,7 @@ class MockDataStore:
             return True
         return False
 
-    async def get_team_by_name(self, name: str) -> Team | None:
+    async def get_team_by_name(self, name: str) -> Union[Team, None]:
         """Get team by name."""
         for team in self.teams.values():
             if team.name == name:
@@ -119,7 +119,7 @@ class MockDataStore:
         self.team_members[member.id] = member
         return member.id
 
-    async def get_team_member(self, member_id: str) -> TeamMember | None:
+    async def get_team_member(self, member_id: str) -> Union[TeamMember, None]:
         """Get a team member by ID."""
         return self.team_members.get(member_id)
 
@@ -141,7 +141,7 @@ class MockDataStore:
         """Get team members by team ID."""
         return [m for m in self.team_members.values() if m.team_id == team_id]
 
-    async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> TeamMember | None:
+    async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> Union[TeamMember, None]:
         """Get team member by Telegram ID and team."""
         for member in self.team_members.values():
             if member.telegram_id == telegram_id and member.team_id == team_id:
@@ -164,7 +164,7 @@ class MockDataStore:
         self.matches[match.id] = match
         return match.id
 
-    async def get_match(self, match_id: str) -> Match | None:
+    async def get_match(self, match_id: str) -> Union[Match, None]:
         """Get a match by ID."""
         return self.matches.get(match_id)
 
@@ -194,12 +194,12 @@ class MockDataStore:
         logger.info(f"✅ Created fixture with ID: {fixture_id}")
         return fixture_id
 
-    async def get_fixture(self, fixture_id: str) -> dict[str, Any] | None:
+    async def get_fixture(self, fixture_id: str) -> Union[dict[str, Any], None]:
         """Get a fixture by ID."""
         return self.fixtures.get(fixture_id)
 
     # Generic document operations
-    async def create_document(self, collection: str, data: dict[str, Any], doc_id: str | None = None) -> str:
+    async def create_document(self, collection: str, data: dict[str, Any], doc_id: Union[str, None] = None) -> str:
         """Create a generic document."""
         if doc_id is None:
             doc_id = f"{collection}_{len(self._get_collection(collection)) + 1}"
@@ -207,7 +207,7 @@ class MockDataStore:
         logger.info(f"✅ Created document with ID: {doc_id}")
         return doc_id
 
-    async def get_document(self, collection: str, doc_id: str) -> dict[str, Any] | None:
+    async def get_document(self, collection: str, doc_id: str) -> Union[dict[str, Any], None]:
         """Get a generic document."""
         return self._get_collection(collection).get(doc_id)
 
@@ -225,7 +225,7 @@ class MockDataStore:
             return True
         return False
 
-    async def query_documents(self, collection: str, filters: list[dict[str, Any]] | None = None, limit: int | None = None) -> list[dict[str, Any]]:
+    async def query_documents(self, collection: str, filters: Union[list[dict[str, Any]], None] = None, limit: Union[int, None] = None) -> list[dict[str, Any]]:
         """Query documents with filters."""
         collection_data = self._get_collection(collection)
         logger.info(f"🔍 [MOCK] query_documents called for collection '{collection}' with {len(collection_data)} documents")

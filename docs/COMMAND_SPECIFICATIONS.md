@@ -632,7 +632,7 @@ else:
 **Main Chat Commands:**
 - `/myinfo` → `PLAYER_COORDINATOR` (has `get_my_status` tool)
 - `/status` → `PLAYER_COORDINATOR` (has `get_my_status` tool)
-- `/list` → `PLAYER_COORDINATOR` (has `get_all_players` tool)
+- `/list` → `PLAYER_COORDINATOR` (has `get_active_players` tool)
 
 #### **Benefits of Simplified Logic**
 - **🎯 Clear Separation**: No ambiguity about user type

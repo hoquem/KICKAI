@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any
+from typing import Any, Union
 
 from loguru import logger
 
@@ -160,6 +160,18 @@ class MultiBotManager:
                 except Exception as e:
                     logger.warning(f"⚠️ Failed to update InviteLinkService with bot token for team {team_id}: {e}")
 
+                # Update CommunicationService with TelegramBotService
+                try:
+                    from kickai.features.communication.domain.services.communication_service import (
+                        CommunicationService,
+                    )
+                    communication_service = get_service(CommunicationService)
+                    if communication_service:
+                        communication_service.set_telegram_bot_service(bot_service)
+                        logger.info(f"✅ Updated CommunicationService with TelegramBotService for team: {team_id}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to update CommunicationService with TelegramBotService for team {team_id}: {e}")
+
                 # Start the bot polling
                 logger.info(f"🚀 Starting Telegram bot polling for team: {name}")
                 await bot_service.start_polling()
@@ -314,11 +326,11 @@ class MultiBotManager:
         """Return True if bots are running."""
         return self._running
 
-    def get_bot(self, team_id: str) -> Any | None:
+    def get_bot(self, team_id: str) -> Union[Any, None]:
         """Get the bot instance for a given team ID."""
         return self.bots.get(team_id)
 
-    def get_crewai_system(self, team_id: str) -> Any | None:
+    def get_crewai_system(self, team_id: str) -> Union[Any, None]:
         """Get the CrewAI system for a given team ID."""
         return self.crewai_systems.get(team_id)
 

@@ -5,6 +5,7 @@ Firebase Player Repository Implementation
 This module provides the Firebase implementation of the player repository interface.
 """
 
+from typing import Union
 import logging
 from datetime import datetime
 
@@ -85,7 +86,7 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
         else:
             raise ValueError("Player must have either player_id, user_id, or phone_number")
 
-    async def get_player_by_id(self, player_id: str, team_id: str) -> Player | None:
+    async def get_player_by_id(self, player_id: str, team_id: str) -> Union[Player, None]:
         """Get a player by ID."""
         try:
             # Use team-specific collection naming
@@ -104,7 +105,7 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             logger.error(f"Failed to get player by ID {player_id} for team {team_id}: {e}")
             return None
 
-    async def get_player_by_phone(self, phone: str, team_id: str) -> Player | None:
+    async def get_player_by_phone(self, phone: str, team_id: str) -> Union[Player, None]:
         """Get a player by phone number."""
         try:
             # Use team-specific collection naming
@@ -259,7 +260,7 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             sync_version=doc.get("sync_version")
         )
 
-    def _parse_datetime(self, dt_str: str | None) -> datetime | None:
+    def _parse_datetime(self, dt_str: Union[str, None]) -> Union[datetime, None]:
         """Parse datetime string to datetime object."""
         if not dt_str:
             return None

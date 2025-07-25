@@ -11,9 +11,15 @@ from typing import Any
 from crewai import Agent, Crew, Process, Task
 
 from kickai.core.enums import AgentRole
-from kickai.features.shared.domain.tools.help_tools import GenerateHelpResponseTool
+from kickai.features.shared.domain.tools.help_tools import final_help_response
+from kickai.utils.llm_factory import LLMFactory
 
 logger = logging.getLogger(__name__)
+
+
+def get_help_assistant_agent() -> 'HelpAssistantAgent':
+    """Get a help assistant agent instance with proper LLM configuration."""
+    return HelpAssistantAgent()
 
 
 class HelpAssistantAgent:
@@ -21,7 +27,8 @@ class HelpAssistantAgent:
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.tools = [GenerateHelpResponseTool()]
+        self.tools = [final_help_response]
+        self.llm = LLMFactory.create_from_environment()  # Get the LLM instance
 
     def create_agent(self) -> Agent:
         """Create the help assistant agent."""
@@ -35,10 +42,11 @@ class HelpAssistantAgent:
             verbose=True,  # Enable verbose mode for debugging
             allow_delegation=False,
             tools=self.tools,
+            llm=self.llm,  # Add the LLM
             memory=True
         )
 
-    async def process_help_request(self, context: dict[str, Any]) -> str:
+    def process_help_request(self, context: dict[str, Any]) -> str:
         """
         Process a help request using the help assistant agent.
 
@@ -57,27 +65,51 @@ class HelpAssistantAgent:
             # Create the agent
             agent = self.create_agent()
 
+            # Create the task with robust context enhancement
+            base_task = """Generate a comprehensive help response for the user.
+
+Requirements:
+1. Use the FINAL_HELP_RESPONSE tool with the provided context
+2. Ensure the response is tailored to the specific chat type
+3. Include all relevant commands with descriptions
+4. Format the response with proper emojis and structure
+5. Make sure the response is complete and ready for the user
+
+IMPORTANT: The FINAL_HELP_RESPONSE tool's output IS the final answer.
+Do not modify or add to it - return it exactly as provided by the tool.
+
+CRITICAL: You MUST use the context parameters provided to you when calling the FINAL_HELP_RESPONSE tool.
+The context contains: chat_type, user_id, team_id, and username. Use these exact values."""
+
+            # Enhance task with context parameters (robust approach)
+            enhanced_task = base_task
+            if context:
+                # Build context info with robust handling
+                context_info = []
+                for key, value in context.items():
+                    # Handle different value types robustly
+                    if value is None:
+                        context_info.append(f"{key}: null")
+                    elif isinstance(value, str):
+                        if value.strip():
+                            context_info.append(f"{key}: {value}")
+                        else:
+                            context_info.append(f"{key}: empty")
+                    else:
+                        context_info.append(f"{key}: {str(value)}")
+                
+                if context_info:
+                    enhanced_task = f"{base_task}\n\nAvailable context parameters: {', '.join(context_info)}\n\nPlease use these context parameters when calling tools that require them."
+                    self.logger.info(f"🔧 [HELP ASSISTANT] Enhanced task with context: {', '.join(context_info)}")
+                else:
+                    self.logger.warning(f"🔧 [HELP ASSISTANT] No context parameters found!")
+
             # Create the task
             task = Task(
-                description=f"""Generate a comprehensive help response for the user.
-
-                Context:
-                - Chat Type: {context.get('chat_type', 'unknown')}
-                - User ID: {context.get('user_id', 'unknown')}
-                - Username: {context.get('username', 'unknown')}
-                - Message: {context.get('message_text', 'help request')}
-
-                Requirements:
-                1. Use the FINAL_HELP_RESPONSE tool with the provided context
-                2. Ensure the response is tailored to the specific chat type
-                3. Include all relevant commands with descriptions
-                4. Format the response with proper emojis and structure
-                5. Make sure the response is complete and ready for the user
-
-                IMPORTANT: The FINAL_HELP_RESPONSE tool's output IS the final answer.
-                Do not modify or add to it - return it exactly as provided by the tool.""",
+                description=enhanced_task,
                 agent=agent,
-                expected_output="A complete, formatted help response ready for the user"
+                expected_output="A complete, formatted help response ready for the user",
+                config=context or {}  # Pass context data through config for reference
             )
 
             # Create the crew
@@ -89,7 +121,7 @@ class HelpAssistantAgent:
             )
 
             # Execute the crew
-            result = await crew.kickoff()
+            result = crew.kickoff()
 
             self.logger.info(f"✅ Help response generated successfully for user {context.get('user_id')}")
             return result

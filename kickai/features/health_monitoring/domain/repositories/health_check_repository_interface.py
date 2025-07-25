@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Union
 
 
 class HealthCheckRepositoryInterface(ABC):
@@ -8,7 +8,7 @@ class HealthCheckRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, check_id: str) -> dict[str, Any] | None:
+    async def get_by_id(self, check_id: str) -> Union[dict[str, Any], None]:
         pass
 
     @abstractmethod

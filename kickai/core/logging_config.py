@@ -20,6 +20,7 @@ is_test = os.getenv("TESTING", "false").lower() == "true"
 
 # Add console handler only - this is the primary logging destination
 # File logging will be handled by redirecting console output in startup scripts
+# Using only stdout to prevent double logging when redirecting with 2>&1
 logger.add(
     sys.stdout,
     level="INFO",
@@ -29,15 +30,6 @@ logger.add(
     diagnose=True,
     colorize=True,
     filter=lambda record: not is_test or record["level"].name in ["ERROR", "CRITICAL"]
-)
-
-# Add error handler to stderr for critical errors only
-logger.add(
-    sys.stderr,
-    level="ERROR",
-    format="<red>{time:YYYY-MM-DD HH:mm:ss}</red> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-    enqueue=True,
-    colorize=True
 )
 
 # Export the logger for use throughout the application
