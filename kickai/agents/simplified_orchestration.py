@@ -142,11 +142,20 @@ class AgentSelectionStep(PipelineStep):
                 return available_agents.get(AgentRole.HELP_ASSISTANT) or available_agents.get(AgentRole.MESSAGE_PROCESSOR)
             
             # Player commands - context-aware selection
-            if command in ['myinfo', 'register', 'approve']:
+            if command in ['register', 'approve']:
                 if chat_type == 'main_chat' and command == 'approve':
                     # Approve command not available in main chat
                     return available_agents.get(AgentRole.MESSAGE_PROCESSOR)
                 return available_agents.get(AgentRole.PLAYER_COORDINATOR) or available_agents.get(AgentRole.MESSAGE_PROCESSOR)
+            
+            # Info commands - context-aware selection
+            if command in ['myinfo', 'status']:
+                if chat_type == 'main_chat':
+                    # Main chat: Use PLAYER_COORDINATOR for player information
+                    return available_agents.get(AgentRole.PLAYER_COORDINATOR) or available_agents.get(AgentRole.MESSAGE_PROCESSOR)
+                else:
+                    # Leadership chat: Use MESSAGE_PROCESSOR for team member information
+                    return available_agents.get(AgentRole.MESSAGE_PROCESSOR)
             
             # List commands - context-aware selection
             if command in ['list', 'players']:

@@ -168,19 +168,26 @@ async def approve_player(team_id: str, user_id: str, player_id: str) -> str:
         # Approve player
         result = await player_service.approve_player(player_id, team_id)
         
-        if result.get('success'):
-            player_name = result.get('player_name', 'Unknown')
-            return f"""✅ Player Approved Successfully!
+        # Check if result indicates success (starts with ✅)
+        if result.startswith("✅"):
+            # Extract player name from the result string
+            # Expected format: "✅ Player {name} approved and activated successfully"
+            try:
+                player_name = result.split("Player ")[1].split(" approved")[0]
+            except:
+                player_name = "Unknown"
+            
+            return f"""✅ Player Approved and Activated Successfully!
 
 👤 Player Details:
 • Name: {player_name}
 • Player ID: {player_id}
 • Status: Active
 
-🎉 The player is now approved and can participate in team activities."""
+🎉 The player is now approved, activated, and can participate in team activities."""
         else:
-            error_message = result.get('error', 'Unknown error occurred')
-            return format_tool_error(f"Failed to approve player: {error_message}")
+            # Result contains error message
+            return format_tool_error(f"Failed to approve player: {result}")
 
     except ServiceNotAvailableError as e:
         logger.error(f"Service not available in approve_player: {e}")
@@ -429,7 +436,7 @@ async def get_active_players(team_id: str, user_id: str) -> str:
         result = "✅ Active Players in Team\n\n"
         
         for player in players:
-            result += f"👤 **{player.full_name}**\n"
+            result += f"👤 {player.full_name}\n"
             result += f"   • Position: {player.position}\n"
             result += f"   • Player ID: {player.player_id or 'Not assigned'}\n"
             result += f"   • Phone: {player.phone_number or 'Not provided'}\n\n"
@@ -559,7 +566,8 @@ async def list_team_members_and_players(team_id: str) -> str:
             result += "👥 Players:\n"
             for player in players:
                 status_emoji = "✅" if player.status.lower() == "active" else "⏳"
-                result += f"• {player.full_name} - {player.position} {status_emoji} {player.status.title()}\n"
+                player_id_display = f" (ID: {player.player_id})" if player.player_id else ""
+                result += f"• {player.full_name} - {player.position} {status_emoji} {player.status.title()}{player_id_display}\n"
         else:
             result += "👥 No players found"
         
