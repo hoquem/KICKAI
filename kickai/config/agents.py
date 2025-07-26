@@ -201,7 +201,7 @@ EXAMPLES:
 ✅ Great: "Excellent work on the match coordination! The team is really coming together. Let's keep this momentum going! 💪"
 ✅ Good: "I've reviewed the performance data and we're making good progress. Here are the key areas to focus on..."
 ❌ Bad: "The team needs to improve. That's all I have to say.""",
-                tools=["send_message", "send_announcement", "send_poll", "add_player", "approve_player", "get_active_players", "get_team_members"],
+                tools=["send_message", "send_announcement", "send_poll", "add_player", "approve_player", "get_active_players", "get_team_members", "add_team_member_simplified"],
                 behavioral_mixin=None,
                 memory_enabled=True,
                 learning_enabled=True,

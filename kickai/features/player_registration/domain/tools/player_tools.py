@@ -54,19 +54,19 @@ class GetMatchInput(BaseModel):
 
 
 @tool("add_player")
-async def add_player(team_id: str, user_id: str, name: str, phone: str, position: str) -> str:
+async def add_player(team_id: str, user_id: str, name: str, phone: str, position: str = None) -> str:
     """
-    Add a new player to the team.
+    Add a new player to the team with simplified ID generation.
     
     Args:
         team_id: Team ID (required) - available from context
         user_id: User ID (required) - available from context
         name: Player's full name
         phone: Player's phone number
-        position: Player's position
+        position: Player's position (optional, can be set later)
         
     Returns:
-        Success message or error
+        Success message with invite link or error
     """
     try:
         # Validate inputs using utility functions
@@ -78,14 +78,17 @@ async def add_player(team_id: str, user_id: str, name: str, phone: str, position
         if validation_error:
             return validation_error
         
-        validation_error = validate_player_input(name, phone, position)
-        if validation_error:
-            return validation_error
+        # Simplified validation - only name and phone required
+        if not name or not name.strip():
+            return format_tool_error("Player name is required")
+        
+        if not phone or not phone.strip():
+            return format_tool_error("Player phone number is required")
         
         # Sanitize inputs
         name = sanitize_input(name, max_length=50)
         phone = sanitize_input(phone, max_length=20)
-        position = sanitize_input(position, max_length=30)
+        position = sanitize_input(position, max_length=30) if position else "To be set"
         team_id = sanitize_input(team_id, max_length=20)
         user_id = sanitize_input(user_id, max_length=20)
         
@@ -95,12 +98,34 @@ async def add_player(team_id: str, user_id: str, name: str, phone: str, position
         if not player_service:
             raise ServiceNotAvailableError("PlayerService")
         
-        # Add player
-        result = await player_service.add_player(name, phone, position, team_id)
+        # Add player with simplified ID generation
+        success, message = await player_service.add_player(name, phone, position, team_id)
         
-        if result.get('success'):
-            player_id = result.get('player_id', 'Unknown')
-            return f"""✅ Player Added Successfully!
+        if success:
+            # Extract player ID from message
+            import re
+            player_id_match = re.search(r'ID: (\w+)', message)
+            player_id = player_id_match.group(1) if player_id_match else "Unknown"
+            
+            # Create invite link
+            invite_service = container.get_service(InviteLinkService)
+            if invite_service:
+                try:
+                    # Get team configuration for main chat ID
+                    team_service = container.get_service("TeamService")
+                    team = await team_service.get_team(team_id=team_id)
+                    
+                    if team and team.main_chat_id:
+                        invite_result = await invite_service.create_player_invite_link(
+                            team_id=team_id,
+                            player_name=name,
+                            player_phone=phone,
+                            player_position=position,
+                            main_chat_id=team.main_chat_id,
+                            player_id=player_id
+                        )
+                        
+                        return f"""✅ Player Added Successfully!
 
 👤 Player Details:
 • Name: {name}
@@ -109,15 +134,60 @@ async def add_player(team_id: str, user_id: str, name: str, phone: str, position
 • Player ID: {player_id}
 • Status: Pending Approval
 
-📋 Next Steps:
-1. Team leadership will review the registration
-2. You'll be notified once approved
-3. You can then access team features
+🔗 Invite Link for Main Chat:
+{invite_result['invite_link']}
 
-💡 Note: Your registration is pending approval by team leadership."""
+📋 Next Steps:
+1. Share this invite link with {name}
+2. They can join the main chat using the link
+3. Once they join, they can register with /register
+4. Use /approve to approve and activate their registration
+
+🔒 Security:
+• Link expires in 7 days
+• One-time use only
+• Automatically tracked in system
+
+💡 Tip: The player will need to register with /register after joining the chat."""
+                    else:
+                        return f"""✅ Player Added Successfully!
+
+👤 Player Details:
+• Name: {name}
+• Phone: {phone}
+• Position: {position}
+• Player ID: {player_id}
+• Status: Pending Approval
+
+⚠️ Note: Could not generate invite link - team configuration incomplete.
+Please contact the system administrator."""
+                except Exception as e:
+                    logger.error(f"Error creating invite link: {e}")
+                    return f"""✅ Player Added Successfully!
+
+👤 Player Details:
+• Name: {name}
+• Phone: {phone}
+• Position: {position}
+• Player ID: {player_id}
+• Status: Pending Approval
+
+⚠️ Note: Could not generate invite link due to system error.
+Please contact the system administrator."""
+            else:
+                return f"""✅ Player Added Successfully!
+
+👤 Player Details:
+• Name: {name}
+• Phone: {phone}
+• Position: {position}
+• Player ID: {player_id}
+• Status: Pending Approval
+
+⚠️ Note: Could not generate invite link - invite service unavailable.
+Please contact the system administrator."""
         else:
-            error_message = result.get('error', 'Unknown error occurred')
-            return format_tool_error(f"Failed to add player: {error_message}")
+            return format_tool_error(f"Failed to add player: {message}")
 
     except ServiceNotAvailableError as e:
         logger.error(f"Service not available in add_player: {e}")

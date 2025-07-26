@@ -267,27 +267,39 @@ class PlayerService:
         player.updated_at = datetime.now()
         return await self.player_repository.update_player(player)
 
-    async def add_player(self, name: str, phone: str, position: str, team_id: str) -> tuple[bool, str]:
-        """Add a new player to the team."""
+    async def add_player(self, name: str, phone: str, position: str = None, team_id: str = None) -> tuple[bool, str]:
+        """Add a new player to the team with simplified ID generation."""
         try:
             # Check if player already exists
             existing_player = await self.get_player_by_phone(phone=phone, team_id=team_id)
             if existing_player:
                 return False, f"Player with phone {phone} already exists in team {team_id}"
 
+            # Get existing player IDs for collision detection
+            existing_players = await self.player_repository.get_all_players(team_id)
+            existing_ids = {player.player_id for player in existing_players if player.player_id}
+
+            # Generate simple player ID using new generator
+            from kickai.utils.simple_id_generator import generate_simple_player_id
+            player_id = generate_simple_player_id(name, team_id, existing_ids)
+
             # Create player parameters
             params = PlayerCreateParams(
                 name=name,
                 phone=phone,
-                position=position,
+                position=position or "To be set",  # Default position
                 team_id=team_id,
                 created_by="system"
             )
 
-            # Create the player
+            # Create the player with the generated ID
             player = await self.create_player(params)
+            
+            # Update the player with the generated ID
+            player.player_id = player_id
+            await self.player_repository.update_player(player)
 
-            return True, f"✅ Player {name} added successfully with ID: {player.player_id}"
+            return True, f"✅ Player {name} added successfully with ID: {player_id}"
         except Exception as e:
             logger.error(f"Error adding player {name}: {e}")
             return False, f"❌ Failed to add player: {e!s}"
