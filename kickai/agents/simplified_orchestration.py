@@ -132,22 +132,30 @@ class AgentSelectionStep(PipelineStep):
         """Select the most appropriate agent based on intent and context."""
         intent = intent_result.get('intent', 'general_query')
         chat_type = execution_context.get('chat_type', 'main_chat')
-        
+
         # Direct mapping based on intent and chat type
         if intent.startswith('command_'):
             command = intent.replace('command_', '')
-            
+
+            # Explicit mapping for addplayer and addmember
+            if command == 'addplayer':
+                # Leadership chat: Use PLAYER_COORDINATOR for add_player
+                return available_agents.get(AgentRole.PLAYER_COORDINATOR)
+            if command == 'addmember':
+                # Leadership chat: Use TEAM_MANAGER for add_team_member
+                return available_agents.get(AgentRole.TEAM_MANAGER)
+
             # Help commands - available in both chats
             if command in ['help', 'start']:
                 return available_agents.get(AgentRole.HELP_ASSISTANT) or available_agents.get(AgentRole.MESSAGE_PROCESSOR)
-            
+
             # Player commands - context-aware selection
             if command in ['register', 'approve']:
                 if chat_type == 'main_chat' and command == 'approve':
                     # Approve command not available in main chat
                     return available_agents.get(AgentRole.MESSAGE_PROCESSOR)
                 return available_agents.get(AgentRole.PLAYER_COORDINATOR) or available_agents.get(AgentRole.MESSAGE_PROCESSOR)
-            
+
             # Info commands - context-aware selection
             if command in ['myinfo', 'status']:
                 if chat_type == 'main_chat':
@@ -156,7 +164,7 @@ class AgentSelectionStep(PipelineStep):
                 else:
                     # Leadership chat: Use MESSAGE_PROCESSOR for team member information
                     return available_agents.get(AgentRole.MESSAGE_PROCESSOR)
-            
+
             # List commands - context-aware selection
             if command in ['list', 'players']:
                 if chat_type == 'main_chat':
@@ -165,7 +173,7 @@ class AgentSelectionStep(PipelineStep):
                 else:
                     # Leadership chat: Use MESSAGE_PROCESSOR for list_team_members_and_players
                     return available_agents.get(AgentRole.MESSAGE_PROCESSOR)
-        
+
         # Intent-based selection with context awareness
         if intent == 'help_request':
             return available_agents.get(AgentRole.HELP_ASSISTANT) or available_agents.get(AgentRole.MESSAGE_PROCESSOR)
@@ -188,7 +196,7 @@ class AgentSelectionStep(PipelineStep):
                 # Approval not available in main chat
                 return available_agents.get(AgentRole.MESSAGE_PROCESSOR)
             return available_agents.get(AgentRole.PLAYER_COORDINATOR)
-        
+
         # Default to message processor
         return available_agents.get(AgentRole.MESSAGE_PROCESSOR)
 

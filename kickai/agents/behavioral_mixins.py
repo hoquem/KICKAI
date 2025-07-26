@@ -54,7 +54,7 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
         return "player_coordinator"
 
     def get_supported_commands(self) -> list:
-        return ["/status", "/myinfo", "/list", "/approve"]
+        return ["/status", "/myinfo", "/list", "/approve", "/addplayer"]
 
     async def handle_status_command(self, parameters: dict) -> str:
         """Handle /status command (async)."""
@@ -111,6 +111,22 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
 
         except Exception as e:
             self.logger.error(f"Error in _handle_list_command: {e}", exc_info=True)
+            return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
+
+    async def handle_addplayer_command(self, parameters: dict) -> str:
+        """Handle /addplayer command (async)."""
+        try:
+            team_id = parameters.get('team_id', 'unknown')
+            user_id = parameters.get('user_id', 'unknown')
+
+            self.logger.info(f"🔍 PLAYER_COORDINATOR: Processing addplayer command for team_id={team_id}, user_id={user_id}")
+
+            # Let the agent use the add_player tool instead of providing fallback
+            self.logger.info("🔍 PLAYER_COORDINATOR: Delegating to agent tools for addplayer request")
+            return None  # Return None to let the agent handle this with tools
+
+        except Exception as e:
+            self.logger.error(f"Error in _handle_addplayer_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
 
     async def handle_approve_command(self, parameters: dict) -> str:
