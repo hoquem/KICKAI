@@ -167,7 +167,8 @@ def validate_team_member_input(name: str, phone: str, role: str, team_id: str) -
         'coach', 'head coach',
         'assistant coach', 'assistant',
         'captain', 'vice captain',
-        'secretary', 'treasurer'
+        'secretary', 'treasurer',
+        'coordinator', 'volunteer'
     }
     
     if not role or not role.strip():
