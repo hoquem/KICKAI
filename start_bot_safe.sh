@@ -125,10 +125,8 @@ start_bot() {
     echo "=================================="
     
     # Start the bot in background and capture PID
-    (
-        # Activate virtual environment and start bot
-        source venv/bin/activate && python "$BOT_SCRIPT"
-    ) &
+    # Use nohup to detach the process completely
+    nohup bash -c "source venv/bin/activate && python $BOT_SCRIPT" > "$LOG_FILE" 2>&1 &
     
     local bot_pid=$!
     echo "$bot_pid" > "$BOT_PID_FILE"
@@ -136,6 +134,7 @@ start_bot() {
     # Wait a moment to see if the process starts successfully
     sleep 3
     
+    # Verify the process is still running
     if is_process_running "$bot_pid"; then
         echo "✅ Bot started successfully with PID: $bot_pid"
         echo "📁 PID saved to: $BOT_PID_FILE"
@@ -146,13 +145,10 @@ start_bot() {
         echo "   Monitor logs: tail -f $LOG_FILE"
         echo "   Stop bot: kill \$(cat $BOT_PID_FILE)"
         echo ""
-        echo "🛑 To stop the bot, press Ctrl+C or run: kill \$(cat $BOT_PID_FILE)"
-        echo ""
-        echo "🤖 Bot is now running in the background..."
+        echo "🤖 Bot is now running in the background (detached)..."
         echo "📊 Use './check_bot_status.sh' to check if it's still running"
         
-        # Don't wait for the background process - let it run independently
-        # The bot will handle its own lifecycle
+        # Exit immediately - the bot process is now detached
         return 0
     else
         echo "❌ Bot failed to start or crashed immediately"
