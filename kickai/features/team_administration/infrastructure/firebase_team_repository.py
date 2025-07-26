@@ -191,6 +191,10 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             logger.error(f"❌ [REPO] Error getting team members: {e}")
             return []
 
+    async def get_team_members_by_team(self, team_id: str) -> list[TeamMember]:
+        """Get all members of a team (alias for get_team_members for compatibility)."""
+        return await self.get_team_members(team_id)
+
     async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> Union[TeamMember, None]:
         """Get a team member by Telegram ID."""
         try:

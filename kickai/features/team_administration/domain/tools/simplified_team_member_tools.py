@@ -33,7 +33,8 @@ from kickai.utils.constants import (
     MAX_POSITION_LENGTH,
     MAX_TEAM_ID_LENGTH,
     MAX_USER_ID_LENGTH,
-    ERROR_MESSAGES
+    ERROR_MESSAGES,
+    DEFAULT_ROLE
 )
 
 
@@ -72,7 +73,7 @@ async def add_team_member_simplified(team_id: str, user_id: str, name: str, phon
         # Sanitize inputs
         name = sanitize_input(name, max_length=MAX_NAME_LENGTH)
         phone = sanitize_input(phone, max_length=MAX_PHONE_LENGTH)
-        role = sanitize_input(role, max_length=MAX_POSITION_LENGTH) if role else "To be set"
+        role = sanitize_input(role, max_length=MAX_POSITION_LENGTH) if role else DEFAULT_ROLE
         team_id = sanitize_input(team_id, max_length=MAX_TEAM_ID_LENGTH)
         user_id = sanitize_input(user_id, max_length=MAX_USER_ID_LENGTH)
         
