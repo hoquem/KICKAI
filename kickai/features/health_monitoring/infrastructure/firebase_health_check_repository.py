@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Union
 
 from kickai.core.firestore_constants import COLLECTION_HEALTH_CHECKS
 from kickai.features.health_monitoring.domain.repositories.health_check_repository_interface import (
@@ -15,7 +15,7 @@ class FirebaseHealthCheckRepository(HealthCheckRepositoryInterface):
         # TODO: Implement Firestore logic
         return health_check.get('id', 'mock_health_check_id')
 
-    async def get_by_id(self, check_id: str) -> dict[str, Any] | None:
+    async def get_by_id(self, check_id: str) -> Union[dict[str, Any], None]:
         # TODO: Implement Firestore logic
         return None
 

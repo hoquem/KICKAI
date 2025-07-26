@@ -4,6 +4,7 @@ Expense Service Interface
 This module defines the interface for expense management services.
 """
 
+from typing import Union
 from abc import ABC, abstractmethod
 from datetime import datetime
 
@@ -15,12 +16,12 @@ class ExpenseServiceInterface(ABC):
 
     @abstractmethod
     async def create_expense(self, amount: float, description: str, category: ExpenseCategory,
-                           team_id: str, created_by: str, date: datetime | None = None) -> Expense:
+                           team_id: str, created_by: str, date: Union[datetime, None] = None) -> Expense:
         """Create a new expense."""
         pass
 
     @abstractmethod
-    async def get_expenses_by_team(self, team_id: str, limit: int | None = None) -> list[Expense]:
+    async def get_expenses_by_team(self, team_id: str, limit: Union[int, None] = None) -> list[Expense]:
         """Get expenses for a team."""
         pass
 
@@ -30,8 +31,8 @@ class ExpenseServiceInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_total_expenses(self, team_id: str, start_date: datetime | None = None,
-                               end_date: datetime | None = None) -> float:
+    async def get_total_expenses(self, team_id: str, start_date: Union[datetime, None] = None,
+                               end_date: Union[datetime, None] = None) -> float:
         """Get total expenses for a team within a date range."""
         pass
 

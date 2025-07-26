@@ -70,6 +70,63 @@ src/features/
 - **Domain → Application** ❌
 - **Application → Presentation** ❌
 
+### 6. **🚨 CrewAI Native Implementation (MANDATORY)**
+
+**All CrewAI implementations MUST use native features exclusively:**
+
+#### **✅ REQUIRED: CrewAI Native Classes**
+```python
+# ✅ Use CrewAI's native classes
+from crewai import Agent, Task, Crew
+from crewai.tools import tool
+
+# ✅ Native Agent creation
+agent = Agent(
+    role="Player Coordinator",
+    goal="Manage player registration",
+    backstory="Expert in player management",
+    tools=[get_my_status, add_player],
+    verbose=True
+)
+
+# ✅ Native Task creation
+task = Task(
+    description="Process user request",
+    agent=agent,
+    config={'team_id': 'TEST', 'user_id': '12345'}  # ✅ Use config for context
+)
+
+# ✅ Native Crew orchestration
+crew = Crew(agents=[agent], tasks=[task])
+result = crew.kickoff()
+```
+
+#### **✅ REQUIRED: CrewAI Native Tools**
+```python
+# ✅ Use @tool decorator from crewai.tools
+@tool("get_my_status")
+async def get_my_status(team_id: str, user_id: str) -> str:
+    """
+    Get user status using team_id and user_id from context.
+    """
+    return f"Status for {user_id} in team {team_id}"
+```
+
+#### **❌ FORBIDDEN: Custom Implementations**
+- ❌ Custom agent wrappers
+- ❌ Custom tool wrappers  
+- ❌ Custom task wrappers
+- ❌ Custom orchestration logic
+- ❌ Custom context passing mechanisms
+- ❌ Custom parameter extraction
+
+#### **🎯 CrewAI Native Principles**
+1. **Use CrewAI's built-in features first**
+2. **Let LLM handle parameter extraction intelligently**
+3. **Use Task.config for context passing**
+4. **Follow CrewAI's intended design patterns**
+5. **Never invent custom solutions when CrewAI provides them**
+
 ## 🤖 Agentic Architecture
 
 ### 8-Agent CrewAI System (Streamlined)
@@ -981,7 +1038,7 @@ def get_available_commands(user_id: str, chat_type: str) -> str:
 def get_available_commands(user_id: str, chat_type: str) -> str:
     if chat_type == "main_chat":
         return "Available commands: /register, /help, /status"
-    return "Leadership commands: /approve, /reject, /list"
+    return "Leadership commands: /approve, /reject, /pending, /addplayer"
 ```
 
 #### 2. **Absolute Imports with PYTHONPATH**

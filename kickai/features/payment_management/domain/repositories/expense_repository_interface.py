@@ -5,6 +5,7 @@ Expense Repository Interface
 This module defines the interface for expense data access operations.
 """
 
+from typing import Union
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -18,8 +19,8 @@ class Expense:
     amount: float
     category: str
     created_by: str
-    created_at: str | None = None
-    updated_at: str | None = None
+    created_at: Union[str, None] = None
+    updated_at: Union[str, None] = None
 
 
 class ExpenseRepositoryInterface(ABC):
@@ -31,7 +32,7 @@ class ExpenseRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_expense_by_id(self, expense_id: str, team_id: str) -> Expense | None:
+    async def get_expense_by_id(self, expense_id: str, team_id: str) -> Union[Expense, None]:
         """Get an expense by ID."""
         pass
 

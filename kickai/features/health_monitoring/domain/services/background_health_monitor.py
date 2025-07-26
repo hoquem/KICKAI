@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, Union, Union
 
 # These should be updated to the correct feature-based paths
 # from kickai.features.health_monitoring.domain.entities.health_check_types import SystemHealthReport, HealthStatus, ComponentType
@@ -27,7 +27,7 @@ class HealthAlert:
     timestamp: datetime
     details: dict[str, Any] = field(default_factory=dict)
     resolved: bool = False
-    resolved_at: datetime | None = None
+    resolved_at: Union[datetime, None] = None
 
 class BackgroundHealthMonitor:
     def __init__(self, team_id: str, check_interval: int = 300):
@@ -35,7 +35,7 @@ class BackgroundHealthMonitor:
         self.check_interval = check_interval
         self.logger = logging.getLogger(__name__)
         # self.health_check_service = HealthCheckService(team_id)
-        self._monitoring_task: asyncio.Task | None = None
+        self._monitoring_task: asyncio.Union[Task, None] = None
         self._running = False
         self._shutdown_event = asyncio.Event()
         self.active_alerts: dict[str, HealthAlert] = {}
@@ -116,7 +116,7 @@ class BackgroundHealthMonitor:
         self.performance_metrics["check_durations"].append(duration)
         self.performance_metrics["alert_counts"].append(len(self.active_alerts))
 
-    async def _create_alert(self, level: AlertLevel, component_name: str, component_type: str, message: str, details: dict[str, Any] | None = None) -> None:
+    async def _create_alert(self, level: AlertLevel, component_name: str, component_type: str, message: str, details: Union[dict[str, Any], None] = None) -> None:
         alert_id = f"{component_type}_{component_name}_{datetime.now().timestamp()}"
         alert = HealthAlert(
             level=level,

@@ -1,3 +1,4 @@
+from typing import Union
 from dataclasses import dataclass
 from enum import Enum
 
@@ -15,11 +16,11 @@ class Expense:
     team_id: str
     amount: float
     category: ExpenseCategory
-    id: str | None = None
-    description: str | None = None
-    receipt_url: str | None = None
-    created_at: str | None = None
-    updated_at: str | None = None
+    id: Union[str, None] = None
+    description: Union[str, None] = None
+    receipt_url: Union[str, None] = None
+    created_at: Union[str, None] = None
+    updated_at: Union[str, None] = None
 
     @staticmethod
     def from_dict(data: dict) -> "Expense":

@@ -39,18 +39,22 @@ class CommandType(Enum):
 
 class AgentRole(Enum):
     """CrewAI agent roles."""
+    INTELLIGENT_SYSTEM = "intelligent_system"
     MESSAGE_PROCESSOR = "message_processor"
-    TEAM_MANAGER = "team_manager"
+    TEAM_ADMINISTRATOR = "team_administrator"
     PLAYER_COORDINATOR = "player_coordinator"
+    ONBOARDING_AGENT = "onboarding_agent"
+    AVAILABILITY_MANAGER = "availability_manager"
+    SQUAD_SELECTOR = "squad_selector"
+    MATCH_COORDINATOR = "match_coordinator"
+    COMMUNICATION_MANAGER = "communication_manager"
+    HELP_ASSISTANT = "help_assistant"
+    ANALYTICS_AGENT = "analytics_agent"
+    TEAM_MANAGER = "team_manager"
     FINANCE_MANAGER = "finance_manager"
     PERFORMANCE_ANALYST = "performance_analyst"
     LEARNING_AGENT = "learning_agent"
-    ONBOARDING_AGENT = "onboarding_agent"
     COMMAND_FALLBACK_AGENT = "command_fallback_agent"
-    AVAILABILITY_MANAGER = "availability_manager"
-    SQUAD_SELECTOR = "squad_selector"
-    COMMUNICATION_MANAGER = "communication_manager"
-    HELP_ASSISTANT = "help_assistant"
 
 
 class AIProvider(Enum):

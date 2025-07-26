@@ -4,6 +4,7 @@ Telegram-specific tools for KICKAI system.
 This module provides tools for Telegram-specific operations.
 """
 
+from typing import Union
 import logging
 
 from crewai.tools import tool
@@ -19,11 +20,11 @@ class SendTelegramMessageInput(BaseModel):
     """Input model for send_telegram_message tool."""
     chat_id: str
     text: str
-    team_id: str | None = None
+    team_id: Union[str, None] = None
 
 
 @tool("send_telegram_message")
-def send_telegram_message(chat_id: str, text: str, team_id: str | None = None) -> str:
+def send_telegram_message(chat_id: str, text: str, team_id: Union[str, None] = None) -> str:
     """
     Send a message to a Telegram chat using the Telegram bot service. Requires: chat_id, text
 

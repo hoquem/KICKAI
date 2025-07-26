@@ -12,7 +12,7 @@ import os
 import traceback
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Union
 
 # Import the correct AIProvider enum from kickai.core.enums
 from kickai.core.enums import AIProvider
@@ -29,8 +29,8 @@ class LLMConfig:
     temperature: float = 0.7
     timeout_seconds: int = 30
     max_retries: int = 3
-    api_base: str | None = None
-    additional_params: dict | None = None
+    api_base: Union[str, None] = None
+    additional_params: Union[dict, None] = None
 
 
 class LLMProviderError(Exception):
@@ -418,7 +418,7 @@ class LLMFactory:
         return provider.create_llm(config)
 
     @classmethod
-    def create_from_environment(cls, model_name: str | None = None) -> 'Any':
+    def create_from_environment(cls, model_name: Union[str, None] = None) -> 'Any':
         """
         Create an LLM instance from environment variables.
 

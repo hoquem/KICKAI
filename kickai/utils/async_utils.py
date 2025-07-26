@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable, Coroutine
 from contextlib import asynccontextmanager
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any, Union, TypeVar
 
 from loguru import logger
 
@@ -280,9 +280,9 @@ def create_async_context_manager(func: Callable[..., Coroutine[Any, Any, T]]):
 async def safe_async_call(
     func: Callable[..., Coroutine[Any, Any, T]],
     *args,
-    default_value: T | None = None,
+    default_value: Union[T, None] = None,
     **kwargs
-) -> T | None:
+) -> Union[T, None]:
     """
     Safely call an async function with error handling.
 

@@ -5,6 +5,7 @@ Firebase Team Repository Implementation
 This module provides the Firebase implementation of the team repository interface.
 """
 
+from typing import Union
 from datetime import datetime
 
 from kickai.core.firestore_constants import (
@@ -58,7 +59,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
         return team
 
-    async def get_team_by_id(self, team_id: str) -> Team | None:
+    async def get_team_by_id(self, team_id: str) -> Union[Team, None]:
         """Get a team by ID."""
         try:
             doc = await self.database.get_document(
@@ -190,7 +191,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             logger.error(f"❌ [REPO] Error getting team members: {e}")
             return []
 
-    async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> TeamMember | None:
+    async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> Union[TeamMember, None]:
         """Get a team member by Telegram ID."""
         try:
             docs = await self.database.query_documents(

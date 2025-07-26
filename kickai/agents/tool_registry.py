@@ -11,12 +11,20 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Union, Union, Dict, Optional, Type
 
-from crewai.tools import BaseTool
+from crewai.tools import BaseTool as Tool
+from pydantic import BaseModel, ValidationError
 from loguru import logger
 
 from kickai.core.entity_types import EntityType
+from kickai.core.models.context_models import BaseContext, create_context, validate_context_data
+from kickai.utils.context_validation import (
+    validate_context_for_tool,
+    log_context_validation_success,
+    log_context_validation_failure,
+    ContextError
+)
 
 
 class ToolType(Enum):
@@ -54,21 +62,94 @@ class ToolMetadata:
     required_permissions: list[str] = field(default_factory=list)
     feature_module: str = "unknown"
     tags: list[str] = field(default_factory=list)
-    tool_function: Callable | None = None
+    tool_function: Union[Callable, None] = None
     entity_types: list[EntityType] = field(default_factory=lambda: [EntityType.NEITHER])
     access_control: dict[str, list[str]] = field(default_factory=dict)  # agent_role -> allowed_entity_types
     requires_context: bool = False  # Whether the tool requires context parameter
+    context_model: Union[Type[BaseContext], None] = None  # Pydantic model for context validation
 
 
-class ContextAwareToolWrapper(BaseTool):
-    """Wrapper for tools that need context but are called without parameters."""
+class ContextAwareTool(Tool):
+    """Enhanced context-aware tool wrapper using Pydantic models."""
+    
+    def __init__(
+        self, 
+        original_tool: Any, 
+        tool_name: str, 
+        context_model: Union[Type[BaseContext], None] = None
+    ):
+        """Initialize context-aware tool wrapper."""
+        
+        # Initialize Tool with required attributes
+        super().__init__(
+            name=tool_name,
+            description=getattr(original_tool, 'description', f'Context-aware wrapper for {tool_name}'),
+            func=self._run,
+            original_tool=original_tool,
+            tool_name=tool_name,
+            context_model=context_model
+        )
+        
+        # Copy all attributes from the original tool
+        for attr_name in dir(original_tool):
+            if not attr_name.startswith('_') and not hasattr(self, attr_name):
+                try:
+                    setattr(self, attr_name, getattr(original_tool, attr_name))
+                except Exception:
+                    pass
+
+    def _run(self, *args, **kwargs):
+        """Run the tool with validated context."""
+        try:
+            # Extract context from arguments
+            context_data = self._extract_context_from_args(args, kwargs)
+            
+            # Validate context if model is provided
+            if self.context_model and context_data:
+                try:
+                    validated_context = validate_context_for_tool(
+                        context_data, 
+                        self.context_model, 
+                        self.tool_name
+                    )
+                    log_context_validation_success(self.tool_name, validated_context)
+                    # Call original tool with validated context
+                    return self.original_tool(validated_context)
+                except ContextError as e:
+                    log_context_validation_failure(self.tool_name, e)
+                    return f"Error: {e.message}"
+            
+            # Fallback to original tool if no context model or no context data
+            return self.original_tool(*args, **kwargs)
+            
+        except Exception as e:
+            logger.error(f"Error in context-aware tool {self.tool_name}: {e}")
+            return f"Error: {str(e)}"
+
+    def _extract_context_from_args(self, args: tuple, kwargs: dict) -> Optional[Dict[str, Any]]:
+        """Extract context data from tool arguments."""
+        # With CrewAI's native approach, context is passed through task description
+        # and the LLM decides which parameters to pass to tools
+        # This method is kept for backward compatibility but simplified
+        return None
+
+    def _extract_context_from_task(self) -> Optional[Dict[str, Any]]:
+        """Extract context from CrewAI task description."""
+        # With CrewAI's native approach, context is included in task description
+        # and the LLM extracts and passes relevant parameters to tools
+        # This method is kept for backward compatibility but simplified
+        return None
+
+
+class ContextAwareToolWrapper(Tool):
+    """Legacy wrapper for backward compatibility."""
 
     # Define Pydantic model fields
     original_tool: Any  # Changed from Callable to Any to handle CrewAI Tool objects
     tool_name: str
 
     def __init__(self, original_tool: Any, tool_name: str):
-        # Initialize BaseTool with required attributes
+        # Initialize Tool with required attributes
         super().__init__(
             name=tool_name,
             description=getattr(original_tool, 'description', f'Context-aware wrapper for {tool_name}'),
@@ -98,50 +179,24 @@ class ContextAwareToolWrapper(BaseTool):
 
             # If no context provided, try to extract from task description
             if not context:
-                logger.info(f"🔧 ContextAwareToolWrapper: No context provided for {self.tool_name}, attempting to extract from task")
                 context = self._extract_context_from_task()
-            else:
-                logger.info(f"🔧 ContextAwareToolWrapper: Using provided context for {self.tool_name}: {context}")
 
-            # Handle CrewAI Tool objects vs regular callables
-            if hasattr(self.original_tool, '_run'):
-                # It's a CrewAI Tool object
-                return self.original_tool._run(context, *args, **kwargs)
-            else:
-                # It's a regular callable
+            # Call the original tool with context
+            if context:
                 return self.original_tool(context, *args, **kwargs)
+            else:
+                return self.original_tool(*args, **kwargs)
 
         except Exception as e:
-            logger.error(f"❌ ContextAwareToolWrapper: Error calling {self.tool_name}: {e}")
-            return f"❌ Error executing {self.tool_name}: {e!s}"
+            logger.error(f"Error in context-aware wrapper for {self.tool_name}: {e}")
+            return f"Error: {str(e)}"
 
     def _extract_context_from_task(self) -> dict:
-        """Extract context from the current task description."""
-        try:
-            # This method is deprecated - context should be passed explicitly to tools
-            # For now, return a clear error message to indicate the issue
-            logger.error(f"❌ ContextAwareToolWrapper: Tool {self.tool_name} called without explicit context")
-            logger.error("❌ ContextAwareToolWrapper: This indicates a system configuration issue")
-
-            # Return a context that clearly indicates the problem
-            context = {
-                'user_id': 'CONTEXT_NOT_PROVIDED',
-                'team_id': 'CONTEXT_NOT_PROVIDED',
-                'chat_type': 'unknown',
-                'is_registered': False,
-                'is_player': False,
-                'is_team_member': False,
-                'username': '',
-                'telegram_name': '',
-                'message_text': '',
-                'chat_id': 'unknown'
-            }
-
-            return context
-
-        except Exception as e:
-            logger.error(f"❌ ContextAwareToolWrapper: Error in deprecated context extraction: {e}")
-            return self._get_fallback_context()
+        """Extract context from task description."""
+        # This is a simplified implementation
+        # In a real implementation, you would parse the task description
+        # to extract context information
+        return {}
 
 
 class ToolFactory(ABC):
@@ -154,34 +209,23 @@ class ToolFactory(ABC):
 
     @abstractmethod
     def get_tool_info(self) -> dict[str, Any]:
-        """Get information about the tool this factory creates."""
+        """Get information about the tool."""
         pass
 
 
 class ToolRegistry:
-    """
-    Centralized tool registry for the KICKAI system.
-
-    This registry provides:
-    - Fully automatic tool discovery from feature modules
-    - Single source of truth for all tools
-    - Factory pattern for tool creation
-    - Dependency management
-    - Permission-based access control
-    - Feature-based organization
-    - Entity-specific access control
-    - Context-aware tool wrapping
-    """
+    """Enhanced tool registry with context support."""
 
     def __init__(self):
+        """Initialize the tool registry."""
         self._tools: dict[str, ToolMetadata] = {}
         self._factories: dict[str, ToolFactory] = {}
-        self._tool_aliases: dict[str, str] = {}
-        self._feature_tools: dict[str, list[str]] = {}
-        self._entity_tools: dict[EntityType, list[str]] = {entity_type: [] for entity_type in EntityType}
-        self._discovered = False
-
-        logger.info("🔧 ToolRegistry initialized")
+        self._context_aware_tools: set[str] = set()
+        self._tool_aliases: dict[str, str] = {}  # alias -> tool_id mapping
+        self._feature_tools: dict[str, list[str]] = {}  # feature_module -> list of tool_ids
+        self._entity_tools: dict[EntityType, list[str]] = {entity_type: [] for entity_type in EntityType}  # entity_type -> list of tool_ids
+        self._discovered = False  # Track if tools have been auto-discovered
+        logger.info("🔧 Tool Registry initialized")
 
     def register_tool(
         self,
@@ -192,68 +236,133 @@ class ToolRegistry:
         description: str,
         version: str = "1.0.0",
         enabled: bool = True,
-        dependencies: list[str] | None = None,
-        required_permissions: list[str] | None = None,
-        tool_function: Callable | None = None,
+        dependencies: Union[list[str], None] = None,
+        required_permissions: Union[list[str], None] = None,
+        tool_function: Union[Callable, None] = None,
         feature_module: str = "unknown",
-        tags: list[str] | None = None,
-        aliases: list[str] | None = None,
-        entity_types: list[EntityType] | None = None,
-        access_control: dict[str, list[str]] | None = None,
-        requires_context: bool = False
+        tags: Union[list[str], None] = None,
+        aliases: Union[list[str], None] = None,
+        entity_types: Union[list[EntityType], None] = None,
+        access_control: Union[dict[str, list[str]], None] = None,
+        requires_context: bool = False,
+        context_model: Union[Type[BaseContext], None] = None
     ) -> None:
-        """Register a tool with the registry."""
-        try:
-            # Note: Tools that require context should be modified to extract context from task description
-            # instead of requiring context parameters. This is more compatible with CrewAI.
-            if requires_context:
-                logger.info(f"⚠️ Tool {tool_id} requires context but should be modified to extract context from task description")
-
-            tool_metadata = ToolMetadata(
-                tool_id=tool_id,
-                tool_type=tool_type,
-                category=category,
-                name=name,
-                description=description,
-                version=version,
-                enabled=enabled,
-                dependencies=dependencies or [],
-                required_permissions=required_permissions or [],
-                tool_function=tool_function,
-                feature_module=feature_module,
-                tags=tags or [],
-                entity_types=entity_types or [EntityType.NEITHER],
-                access_control=access_control or {},
-                requires_context=requires_context
-            )
-
-            self._tools[tool_id] = tool_metadata
-
-            # Register aliases
-            if aliases:
-                for alias in aliases:
-                    self._tool_aliases[alias] = tool_id
-
-            # Update feature tools mapping
-            if feature_module not in self._feature_tools:
-                self._feature_tools[feature_module] = []
-            self._feature_tools[feature_module].append(tool_id)
-
-            # Update entity tools mapping
-            for entity_type in tool_metadata.entity_types:
+        """Register a tool with enhanced context support."""
+        
+        # Create tool metadata
+        metadata = ToolMetadata(
+            tool_id=tool_id,
+            tool_type=tool_type,
+            category=category,
+            name=name,
+            description=description,
+            version=version,
+            enabled=enabled,
+            dependencies=dependencies or [],
+            required_permissions=required_permissions or [],
+            tool_function=tool_function,
+            feature_module=feature_module,
+            tags=tags or [],
+            entity_types=entity_types or [EntityType.NEITHER],
+            access_control=access_control or {},
+            requires_context=requires_context,
+            context_model=context_model
+        )
+        
+        # Register the tool
+        self._tools[tool_id] = metadata
+        
+        # Track context-aware tools
+        if requires_context or context_model:
+            self._context_aware_tools.add(tool_id)
+        
+        # Register aliases if provided
+        if aliases:
+            for alias in aliases:
+                self._tool_aliases[alias] = tool_id
+        
+        # Update feature tools mapping
+        if feature_module not in self._feature_tools:
+            self._feature_tools[feature_module] = []
+        self._feature_tools[feature_module].append(tool_id)
+        
+        # Update entity tools mapping
+        for entity_type in metadata.entity_types:
+            if entity_type not in self._entity_tools:
+                self._entity_tools[entity_type] = []
+            if tool_id not in self._entity_tools[entity_type]:
                 self._entity_tools[entity_type].append(tool_id)
+        
+        logger.info(f"✅ Registered tool: {tool_id} (context-aware: {requires_context or context_model is not None})")
 
-            logger.info(f"✅ Registered tool: {tool_id} ({tool_type.value})")
+    def register_context_tool(
+        self, 
+        tool_id: str, 
+        tool_function: Callable, 
+        context_model: Type[BaseContext],
+        **kwargs
+    ) -> None:
+        """Register a tool with specific context model."""
+        
+        # Determine tool type and category from function name
+        tool_type = self._determine_tool_type(tool_id)
+        category = self._determine_tool_category(kwargs.get('feature_module', 'unknown'))
+        
+        self.register_tool(
+            tool_id=tool_id,
+            tool_type=tool_type,
+            category=category,
+            name=tool_id,
+            description=kwargs.get('description', f'Context-aware tool: {tool_id}'),
+            tool_function=tool_function,
+            requires_context=True,
+            context_model=context_model,
+            **kwargs
+        )
 
-        except Exception as e:
-            logger.error(f"❌ Failed to register tool {tool_id}: {e}")
+    def create_context_aware_tool(self, tool_id: str, **kwargs) -> Any:
+        """Create a context-aware tool instance."""
+        metadata = self._tools.get(tool_id)
+        if not metadata:
+            raise ValueError(f"Tool not found: {tool_id}")
+        
+        if not metadata.tool_function:
+            raise ValueError(f"Tool function not available: {tool_id}")
+        
+        # Create context-aware wrapper
+        return ContextAwareTool(
+            original_tool=metadata.tool_function,
+            tool_name=tool_id,
+            context_model=metadata.context_model
+        )
+
+    def validate_tool_context(self, tool_id: str, context_data: Dict[str, Any]) -> bool:
+        """Validate context data for a specific tool."""
+        metadata = self._tools.get(tool_id)
+        if not metadata or not metadata.context_model:
+            return True  # No context model means no validation needed
+        
+        return validate_context_data(context_data, metadata.context_model.__name__.lower())
+
+    def get_context_aware_tools(self) -> list[str]:
+        """Get list of context-aware tools."""
+        return list(self._context_aware_tools)
+
+    def get_tools_by_context_type(self, context_type: str) -> list[ToolMetadata]:
+        """Get tools that use a specific context type."""
+        context_tools = []
+        for metadata in self._tools.values():
+            if (metadata.context_model and 
+                metadata.context_model.__name__.lower() == context_type.lower()):
+                context_tools.append(metadata)
+        return context_tools
 
     def register_factory(self, tool_id: str, factory: ToolFactory) -> None:
         """Register a tool factory."""
         self._factories[tool_id] = factory
         logger.info(f"✅ Registered factory for tool: {tool_id}")
 
-    def get_tool(self, tool_id: str) -> ToolMetadata | None:
+    def get_tool(self, tool_id: str) -> Union[ToolMetadata, None]:
         """Get tool metadata by ID."""
         # Check direct match first
         if tool_id in self._tools:
@@ -266,12 +375,12 @@ class ToolRegistry:
 
         return None
 
-    def get_tool_function(self, tool_id: str) -> Callable | None:
+    def get_tool_function(self, tool_id: str) -> Union[Callable, None]:
         """Get the actual tool function by ID."""
         tool_metadata = self.get_tool(tool_id)
         return tool_metadata.tool_function if tool_metadata else None
 
-    def get_factory(self, tool_id: str) -> ToolFactory | None:
+    def get_factory(self, tool_id: str) -> Union[ToolFactory, None]:
         """Get tool factory by ID."""
         return self._factories.get(tool_id)
 
@@ -310,7 +419,7 @@ class ToolRegistry:
         """Get all tools that require a specific permission."""
         return [tool for tool in self._tools.values() if permission in tool.required_permissions]
 
-    def get_tools_for_agent(self, agent_role: str, entity_type: EntityType | None = None) -> list[ToolMetadata]:
+    def get_tools_for_agent(self, agent_role: str, entity_type: Union[EntityType, None] = None) -> list[ToolMetadata]:
         """Get tools available for a specific agent role and entity type."""
         available_tools = []
 
@@ -324,7 +433,7 @@ class ToolRegistry:
 
         return available_tools
 
-    def validate_tool_access(self, tool_id: str, agent_role: str, entity_type: EntityType | None = None) -> bool:
+    def validate_tool_access(self, tool_id: str, agent_role: str, entity_type: Union[EntityType, None] = None) -> bool:
         """Validate if an agent can access a specific tool."""
         tool = self.get_tool(tool_id)
         if not tool:
@@ -646,7 +755,7 @@ class ToolRegistry:
 
 
 # Global tool registry instance - True singleton
-_tool_registry: ToolRegistry | None = None
+_tool_registry: Union[ToolRegistry, None] = None
 _tool_registry_initialized = False
 
 
@@ -684,7 +793,7 @@ def reset_tool_registry() -> None:
     logger.info("🔄 Global ToolRegistry reset")
 
 
-def get_tool(tool_name: str) -> Callable | None:
+def get_tool(tool_name: str) -> Union[Callable, None]:
     """Get a tool function by name."""
     registry = get_tool_registry()
     return registry.get_tool_function(tool_name)

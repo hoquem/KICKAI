@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, Union
 
 from kickai.features.payment_management.domain.interfaces.payment_gateway_interface import (
     IPaymentGateway,
@@ -50,8 +50,8 @@ class MockPaymentLink:
     payment_url: str
     expires_at: datetime
     created_at: datetime
-    paid_at: datetime | None = None
-    transaction_id: str | None = None
+    paid_at: Union[datetime, None] = None
+    transaction_id: Union[str, None] = None
 
 
 @dataclass
@@ -65,7 +65,7 @@ class MockTransaction:
     status: TransactionStatus
     transaction_data: dict[str, Any]
     created_at: datetime
-    completed_at: datetime | None = None
+    completed_at: Union[datetime, None] = None
 
 
 class MockCollectivPaymentGateway(IPaymentGateway):
@@ -84,7 +84,7 @@ class MockCollectivPaymentGateway(IPaymentGateway):
         self.base_url = base_url
         self.payment_links: dict[str, MockPaymentLink] = {}
         self.transactions: dict[str, MockTransaction] = {}
-        self.webhook_url: str | None = None
+        self.webhook_url: Union[str, None] = None
         self.webhook_secret: str = "mock_webhook_secret"
 
         logger.info("✅ MockCollectivPaymentGateway initialized")
@@ -231,7 +231,7 @@ class MockCollectivPaymentGateway(IPaymentGateway):
             "completed_at": datetime.now().isoformat()
         }
 
-    async def refund_payment(self, transaction_id: str, amount: float | None = None) -> dict[str, Any]:
+    async def refund_payment(self, transaction_id: str, amount: Union[float, None] = None) -> dict[str, Any]:
         """
         Simulate refunding a payment.
 
@@ -310,7 +310,7 @@ class MockCollectivPaymentGateway(IPaymentGateway):
         logger.info(f"✅ Webhook URL set to: {url}")
 
     async def create_charge(self, amount: float, currency: str, source: str,
-                          description: str | None = None) -> dict[str, Any]:
+                          description: Union[str, None] = None) -> dict[str, Any]:
         """
         Create a direct charge (not using payment links).
 
@@ -339,7 +339,7 @@ class MockCollectivPaymentGateway(IPaymentGateway):
             "created_at": datetime.now().isoformat()
         }
 
-    async def create_refund(self, charge_id: str, amount: float | None = None) -> dict[str, Any]:
+    async def create_refund(self, charge_id: str, amount: Union[float, None] = None) -> dict[str, Any]:
         """Create a refund for a charge."""
         refund_id = f"rf_{uuid.uuid4().hex[:16]}"
         logger.info(f"✅ Created refund: {refund_id} for charge {charge_id}")
@@ -350,22 +350,22 @@ class MockCollectivPaymentGateway(IPaymentGateway):
         # Mock implementation - always returns succeeded
         return "succeeded"
 
-    def get_payment_link(self, link_id: str) -> MockPaymentLink | None:
+    def get_payment_link(self, link_id: str) -> Union[MockPaymentLink, None]:
         """Get a payment link by ID."""
         return self.payment_links.get(link_id)
 
-    def get_transaction(self, transaction_id: str) -> MockTransaction | None:
+    def get_transaction(self, transaction_id: str) -> Union[MockTransaction, None]:
         """Get a transaction by ID."""
         return self.transactions.get(transaction_id)
 
-    def list_payment_links(self, status: PaymentLinkStatus | None = None) -> list[MockPaymentLink]:
+    def list_payment_links(self, status: Union[PaymentLinkStatus, None] = None) -> list[MockPaymentLink]:
         """List payment links with optional status filter."""
         links = list(self.payment_links.values())
         if status:
             links = [link for link in links if link.status == status]
         return links
 
-    def list_transactions(self, status: TransactionStatus | None = None) -> list[MockTransaction]:
+    def list_transactions(self, status: Union[TransactionStatus, None] = None) -> list[MockTransaction]:
         """List transactions with optional status filter."""
         transactions = list(self.transactions.values())
         if status:

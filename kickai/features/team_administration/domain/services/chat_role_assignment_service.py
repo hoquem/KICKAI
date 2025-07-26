@@ -12,7 +12,7 @@ This service handles automatic role assignment based on chat membership:
 
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Union
 
 # TeamMemberService removed - using mock service instead
 # Import TeamMember dynamically to avoid circular imports
@@ -76,7 +76,7 @@ class ChatRoleAssignmentService:
         return MockTeamMemberService()
 
     async def add_user_to_chat(self, team_id: str, user_id: str, chat_type: str,
-                              username: str | None = None) -> dict[str, Any]:
+                              username: Union[str, None] = None) -> dict[str, Any]:
         """
         Add user to a chat and assign appropriate role.
 
@@ -252,7 +252,7 @@ class ChatRoleAssignmentService:
         if chat_type == ChatType.LEADERSHIP.value and "team_member" not in team_member.roles:
             team_member.roles.append("team_member")
 
-    async def _ensure_player_role(self, team_id: str, user_id: str, username: str | None = None) -> None:
+    async def _ensure_player_role(self, team_id: str, user_id: str, username: Union[str, None] = None) -> None:
         """Ensure user has a player record if they're in the main chat."""
         try:
             # Check if player already exists
@@ -302,7 +302,7 @@ class ChatRoleAssignmentService:
         except Exception as e:
             logger.error(f"Failed to handle admin leaving leadership: {e}")
 
-    async def _promote_longest_tenured_to_admin(self, team_id: str) -> str | None:
+    async def _promote_longest_tenured_to_admin(self, team_id: str) -> Union[str, None]:
         """
         Promote the longest-tenured leadership member to admin.
 
