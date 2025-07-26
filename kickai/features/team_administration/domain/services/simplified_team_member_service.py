@@ -17,7 +17,14 @@ from kickai.features.team_administration.domain.repositories.team_repository_int
     TeamRepositoryInterface,
 )
 from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
+from kickai.features.team_administration.domain.services.team_service import TeamService
 from kickai.utils.simple_id_generator import generate_simple_team_member_id
+from kickai.utils.constants import (
+    DEFAULT_ROLE,
+    DEFAULT_STATUS,
+    ERROR_MESSAGES,
+    SUCCESS_MESSAGES
+)
 
 
 class SimplifiedTeamMemberService:
@@ -44,7 +51,7 @@ class SimplifiedTeamMemberService:
             # Check if team member already exists
             existing_member = await self.get_team_member_by_phone(phone=phone, team_id=team_id)
             if existing_member:
-                return False, f"Team member with phone {phone} already exists in team {team_id}"
+                return False, ERROR_MESSAGES["MEMBER_EXISTS"].format(phone=phone, team_id=team_id)
 
             # Get existing team member IDs for collision detection
             existing_members = await self.team_repository.get_team_members_by_team(team_id)
@@ -59,8 +66,8 @@ class SimplifiedTeamMemberService:
                 team_id=team_id,
                 name=name,
                 phone=phone,
-                role=role or "To be set",  # Default role
-                status="active",
+                role=role or DEFAULT_ROLE,
+                status=DEFAULT_STATUS,
                 created_at=datetime.now(),
                 updated_at=datetime.now()
             )
@@ -68,7 +75,7 @@ class SimplifiedTeamMemberService:
             # Save to repository
             await self.team_repository.create_team_member(team_member)
 
-            return True, f"✅ Team member {name} added successfully with ID: {member_id}"
+            return True, SUCCESS_MESSAGES["MEMBER_ADDED"].format(name=name, member_id=member_id)
         except Exception as e:
             logger.error(f"Error adding team member {name}: {e}")
             return False, f"❌ Failed to add team member: {e!s}"
@@ -100,7 +107,7 @@ class SimplifiedTeamMemberService:
         """
         try:
             # Get team configuration
-            team_service = get_container().get_service("TeamService")
+            team_service = get_container().get_service(TeamService)
             team = await team_service.get_team(team_id=team_id)
             
             if not team or not team.leadership_chat_id:

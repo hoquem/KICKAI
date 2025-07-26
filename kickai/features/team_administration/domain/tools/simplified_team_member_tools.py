@@ -15,6 +15,9 @@ from kickai.core.exceptions import ServiceNotAvailableError
 from kickai.features.team_administration.domain.services.simplified_team_member_service import (
     SimplifiedTeamMemberService,
 )
+from kickai.features.team_administration.domain.repositories.team_repository_interface import (
+    TeamRepositoryInterface,
+)
 from kickai.utils.tool_helpers import (
     extract_single_value,
     format_tool_error,
@@ -23,6 +26,14 @@ from kickai.utils.tool_helpers import (
 from kickai.utils.validation_utils import (
     normalize_phone,
     sanitize_input,
+)
+from kickai.utils.constants import (
+    MAX_NAME_LENGTH,
+    MAX_PHONE_LENGTH,
+    MAX_POSITION_LENGTH,
+    MAX_TEAM_ID_LENGTH,
+    MAX_USER_ID_LENGTH,
+    ERROR_MESSAGES
 )
 
 
@@ -53,17 +64,17 @@ async def add_team_member_simplified(team_id: str, user_id: str, name: str, phon
         
         # Simplified validation - only name and phone required
         if not name or not name.strip():
-            return format_tool_error("Team member name is required")
+            return format_tool_error(ERROR_MESSAGES["NAME_REQUIRED"])
         
         if not phone or not phone.strip():
-            return format_tool_error("Team member phone number is required")
+            return format_tool_error(ERROR_MESSAGES["PHONE_REQUIRED"])
         
         # Sanitize inputs
-        name = sanitize_input(name, max_length=50)
-        phone = sanitize_input(phone, max_length=20)
-        role = sanitize_input(role, max_length=30) if role else "To be set"
-        team_id = sanitize_input(team_id, max_length=20)
-        user_id = sanitize_input(user_id, max_length=20)
+        name = sanitize_input(name, max_length=MAX_NAME_LENGTH)
+        phone = sanitize_input(phone, max_length=MAX_PHONE_LENGTH)
+        role = sanitize_input(role, max_length=MAX_POSITION_LENGTH) if role else "To be set"
+        team_id = sanitize_input(team_id, max_length=MAX_TEAM_ID_LENGTH)
+        user_id = sanitize_input(user_id, max_length=MAX_USER_ID_LENGTH)
         
         # Normalize phone number
         phone = normalize_phone(phone)
@@ -71,9 +82,9 @@ async def add_team_member_simplified(team_id: str, user_id: str, name: str, phon
         container = get_container()
         
         # Get team repository for the service
-        team_repository = container.get_service("TeamRepositoryInterface")
+        team_repository = container.get_service(TeamRepositoryInterface)
         if not team_repository:
-            raise ServiceNotAvailableError("TeamRepositoryInterface")
+            raise ServiceNotAvailableError(ERROR_MESSAGES["SERVICE_UNAVAILABLE"].format(service="TeamRepositoryInterface"))
         
         # Create simplified team member service
         team_member_service = SimplifiedTeamMemberService(team_repository)

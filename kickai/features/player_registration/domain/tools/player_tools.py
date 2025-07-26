@@ -15,6 +15,8 @@ from pydantic import BaseModel, ValidationError
 from kickai.core.dependency_container import get_container
 from kickai.core.exceptions import ServiceNotAvailableError
 from kickai.features.player_registration.domain.services.player_service import PlayerService
+from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
+from kickai.features.team_administration.domain.services.team_service import TeamService
 from kickai.utils.tool_helpers import (
     extract_single_value,
     format_tool_error,
@@ -24,6 +26,14 @@ from kickai.utils.validation_utils import (
     normalize_phone,
     sanitize_input,
     validate_player_input,
+)
+from kickai.utils.constants import (
+    MAX_NAME_LENGTH,
+    MAX_PHONE_LENGTH,
+    MAX_POSITION_LENGTH,
+    MAX_TEAM_ID_LENGTH,
+    MAX_USER_ID_LENGTH,
+    ERROR_MESSAGES
 )
 
 
@@ -80,23 +90,23 @@ async def add_player(team_id: str, user_id: str, name: str, phone: str, position
         
         # Simplified validation - only name and phone required
         if not name or not name.strip():
-            return format_tool_error("Player name is required")
+            return format_tool_error(ERROR_MESSAGES["NAME_REQUIRED"])
         
         if not phone or not phone.strip():
-            return format_tool_error("Player phone number is required")
+            return format_tool_error(ERROR_MESSAGES["PHONE_REQUIRED"])
         
         # Sanitize inputs
-        name = sanitize_input(name, max_length=50)
-        phone = sanitize_input(phone, max_length=20)
-        position = sanitize_input(position, max_length=30) if position else "To be set"
-        team_id = sanitize_input(team_id, max_length=20)
-        user_id = sanitize_input(user_id, max_length=20)
+        name = sanitize_input(name, max_length=MAX_NAME_LENGTH)
+        phone = sanitize_input(phone, max_length=MAX_PHONE_LENGTH)
+        position = sanitize_input(position, max_length=MAX_POSITION_LENGTH) if position else "To be set"
+        team_id = sanitize_input(team_id, max_length=MAX_TEAM_ID_LENGTH)
+        user_id = sanitize_input(user_id, max_length=MAX_USER_ID_LENGTH)
         
         container = get_container()
         player_service = container.get_service(PlayerService)
         
         if not player_service:
-            raise ServiceNotAvailableError("PlayerService")
+            raise ServiceNotAvailableError(ERROR_MESSAGES["SERVICE_UNAVAILABLE"].format(service="PlayerService"))
         
         # Add player with simplified ID generation
         success, message = await player_service.add_player(name, phone, position, team_id)
@@ -112,7 +122,7 @@ async def add_player(team_id: str, user_id: str, name: str, phone: str, position
             if invite_service:
                 try:
                     # Get team configuration for main chat ID
-                    team_service = container.get_service("TeamService")
+                    team_service = container.get_service(TeamService)
                     team = await team_service.get_team(team_id=team_id)
                     
                     if team and team.main_chat_id:
