@@ -40,7 +40,7 @@ VALID_TEAM_MEMBER_ROLES = [
 
 # Default Values
 DEFAULT_POSITION = "utility"
-DEFAULT_ROLE = "To be set"
+DEFAULT_ROLE = "coordinator"
 DEFAULT_STATUS = "pending"
 DEFAULT_CREATED_BY = "system"
 
