@@ -35,12 +35,13 @@ VALID_TEAM_MEMBER_ROLES = [
     'manager',
     'assistant',
     'admin',
-    'coordinator'
+    'coordinator',
+    'volunteer'
 ]
 
 # Default Values
 DEFAULT_POSITION = "utility"
-DEFAULT_ROLE = "coordinator"
+DEFAULT_ROLE = "volunteer"
 DEFAULT_STATUS = "pending"
 DEFAULT_CREATED_BY = "system"
 

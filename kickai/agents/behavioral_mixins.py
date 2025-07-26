@@ -968,7 +968,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                 )
 
             # Validate role
-            valid_roles = ["Coach", "Assistant Coach", "Manager", "Assistant Manager", "Admin", "Coordinator"]
+            valid_roles = ["Coach", "Assistant Coach", "Manager", "Assistant Manager", "Admin", "Coordinator", "Volunteer"]
             if role not in valid_roles:
                 return (
                     f"❌ Invalid Role\n\n"
