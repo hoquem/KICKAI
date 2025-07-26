@@ -98,7 +98,7 @@ async def add_player(team_id: str, user_id: str, name: str, phone: str, position
         # Sanitize inputs
         name = sanitize_input(name, max_length=MAX_NAME_LENGTH)
         phone = sanitize_input(phone, max_length=MAX_PHONE_LENGTH)
-        position = sanitize_input(position, max_length=MAX_POSITION_LENGTH) if position else "To be set"
+        position = sanitize_input(position, max_length=MAX_POSITION_LENGTH) if position else DEFAULT_POSITION
         team_id = sanitize_input(team_id, max_length=MAX_TEAM_ID_LENGTH)
         user_id = sanitize_input(user_id, max_length=MAX_USER_ID_LENGTH)
         

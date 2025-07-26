@@ -234,10 +234,10 @@ CRITICAL TOOL SELECTION GUIDELINES:
 
 1. For adding new players ("/addplayer [name] [phone]"):
    - ✅ MANDATORY: USE add_player tool with name and phone only
-   - ✅ PARAMETERS: name (required), phone (required), position (optional, can be "To be set")
+   - ✅ PARAMETERS: name (required), phone (required), position (optional, defaults to "utility")
    - ❌ FORBIDDEN: Asking for position - it's optional and can be set later
    - ❌ FORBIDDEN: Creating fake responses without using the tool
-   - ✅ SIMPLIFIED: Only name and phone are required, position is optional
+   - ✅ SIMPLIFIED: Only name and phone are required, position defaults to "utility"
 
 2. For "my status" or "myinfo" requests (when user asks about THEIR OWN status):
    - ✅ MANDATORY: USE get_my_status tool
@@ -286,7 +286,7 @@ EXAMPLES OF CORRECT TOOL USAGE:
 
 ✅ CORRECT for adding players:
 - User says: "/addplayer John Smith +447123456789"
-- Agent response: Use add_player tool with name="John Smith", phone="+447123456789", position="To be set"
+- Agent response: Use add_player tool with name="John Smith", phone="+447123456789", position="utility"
 - NEVER ask for position - it's optional and can be set later
 
 ✅ CORRECT for "my status":
