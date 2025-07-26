@@ -5,6 +5,7 @@ Player Registration Service
 This module provides the business logic for player registration operations.
 """
 
+from typing import Union
 from datetime import datetime
 
 from kickai.features.player_registration.domain.entities.player import Player
@@ -108,11 +109,11 @@ class PlayerRegistrationService:
         player.reject()
         return await self.player_repository.update_player(player)
 
-    async def get_player(self, *, player_id: str, team_id: str) -> Player | None:
+    async def get_player(self, *, player_id: str, team_id: str) -> Union[Player, None]:
         """Get a player by ID."""
         return await self.player_repository.get_player_by_id(player_id, team_id)
 
-    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Player | None:
+    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Union[Player, None]:
         """Get a player by phone number."""
         return await self.player_repository.get_player_by_phone(phone, team_id)
 

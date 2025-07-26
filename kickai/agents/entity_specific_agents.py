@@ -10,7 +10,7 @@ at the orchestration level and ensures proper tool access control.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Union
 
 from loguru import logger
 
@@ -33,9 +33,9 @@ class EntityAgentType(Enum):
 class EntityValidationResult:
     """Result of entity validation."""
     is_valid: bool
-    entity_type: EntityType | None = None
-    error_message: str | None = None
-    suggested_agent: AgentRole | None = None
+    entity_type: Union[EntityType, None] = None
+    error_message: Union[str, None] = None
+    suggested_agent: Union[AgentRole, None] = None
 
 
 @dataclass
@@ -58,7 +58,7 @@ class EntityValidator(ABC):
         pass
 
     @abstractmethod
-    def get_entity_type_from_parameters(self, parameters: dict[str, Any]) -> EntityType | None:
+    def get_entity_type_from_parameters(self, parameters: dict[str, Any]) -> Union[EntityType, None]:
         """Extract entity type from operation parameters."""
         pass
 
@@ -135,7 +135,7 @@ class PlayerTeamMemberValidator(EntityValidator):
             entity_type=entity_type
         )
 
-    def get_entity_type_from_parameters(self, parameters: dict[str, Any]) -> EntityType | None:
+    def get_entity_type_from_parameters(self, parameters: dict[str, Any]) -> Union[EntityType, None]:
         """Extract entity type from operation parameters."""
         param_keys = set(parameters.keys())
 
@@ -157,7 +157,7 @@ class PlayerTeamMemberValidator(EntityValidator):
 
         return None
 
-    def _infer_entity_type_from_context(self, parameters: dict[str, Any]) -> EntityType | None:
+    def _infer_entity_type_from_context(self, parameters: dict[str, Any]) -> Union[EntityType, None]:
         """Infer entity type from context when parameters are ambiguous."""
         # Check for specific values that indicate entity type
         if 'role' in parameters:
@@ -175,7 +175,7 @@ class PlayerTeamMemberValidator(EntityValidator):
 
         return None
 
-    def get_entity_type_from_operation(self, operation: str, user_context: dict = None) -> EntityType | None:
+    def get_entity_type_from_operation(self, operation: str, user_context: dict = None) -> Union[EntityType, None]:
         """Extract entity type from operation name with simplified chat-based logic."""
         operation_lower = operation.lower().strip()
 
@@ -262,7 +262,7 @@ class EntitySpecificAgentManager:
         allowed_entities = self.agent_entity_mappings.get(agent_role, [])
         return entity_type in allowed_entities
 
-    def get_appropriate_agent_for_entity(self, entity_type: EntityType, operation: str) -> AgentRole | None:
+    def get_appropriate_agent_for_entity(self, entity_type: EntityType, operation: str) -> Union[AgentRole, None]:
         """Get the most appropriate agent for a given entity type and operation."""
         # Extract just the command name (before any parameters) for proper routing
         operation_lower = operation.lower().strip()
@@ -343,7 +343,7 @@ class EntitySpecificAgentManager:
         operation: str,
         parameters: dict[str, Any],
         available_agents: dict[AgentRole, ConfigurableAgent]
-    ) -> AgentRole | None:
+    ) -> Union[AgentRole, None]:
         """Route an operation to the most appropriate agent using simplified chat-based logic."""
         # Extract user context from parameters for simplified routing
         user_context = {}
@@ -391,7 +391,7 @@ class EntityAwareAgentContext(AgentContext):
         tool_registry: ToolRegistry,
         team_memory: Any,
         config: Any = None,
-        entity_type: EntityType | None = None
+        entity_type: Union[EntityType, None] = None
     ):
         super().__init__(role, team_id, llm, tool_registry, config, team_memory)
         self.entity_type = entity_type
@@ -416,7 +416,7 @@ def create_entity_specific_agent(
     tool_registry: ToolRegistry,
     team_memory: Any,
     config: Any = None,
-    entity_type: EntityType | None = None
+    entity_type: Union[EntityType, None] = None
 ) -> ConfigurableAgent:
     """Create an entity-specific agent with proper validation."""
     context = EntityAwareAgentContext(

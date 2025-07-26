@@ -4,6 +4,7 @@ Team management tools for KICKAI system.
 This module provides tools for team administration and management.
 """
 
+from typing import Union
 import logging
 
 from crewai.tools import tool
@@ -19,11 +20,11 @@ class CreateTeamInput(BaseModel):
     """Input model for create_team tool."""
     team_name: str
     team_id: str
-    admin_user_id: str | None = None
+    admin_user_id: Union[str, None] = None
 
 
 @tool("create_team")
-def create_team(team_name: str, team_id: str, admin_user_id: str | None = None) -> str:
+def create_team(team_name: str, team_id: str, admin_user_id: Union[str, None] = None) -> str:
     """
     Create a new team. Requires: team_name, team_id
 

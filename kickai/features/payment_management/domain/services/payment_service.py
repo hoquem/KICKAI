@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Union
 
 from kickai.core.exceptions import PaymentError, PaymentNotFoundError, create_error_context
 from kickai.features.payment_management.domain.entities.payment import (
@@ -24,13 +24,13 @@ from kickai.features.player_registration.domain.interfaces.player_lookup_interfa
 
 class PaymentService(IPaymentService):
     """Service for managing payments with Collectiv integration."""
-    def __init__(self, data_store, payment_gateway: IPaymentGateway | None = None, player_lookup: IPlayerLookup | None = None, team_id: str | None = None):
+    def __init__(self, data_store, payment_gateway: Union[IPaymentGateway, None] = None, player_lookup: Union[IPlayerLookup, None] = None, team_id: Union[str, None] = None):
         self._data_store = data_store
         self.team_id = team_id
         self._payment_gateway = payment_gateway or self._get_default_payment_gateway(team_id)
         self._player_lookup = player_lookup
 
-    def _get_default_payment_gateway(self, team_id: str | None) -> IPaymentGateway:
+    def _get_default_payment_gateway(self, team_id: Union[str, None]) -> IPaymentGateway:
         """Returns the default payment gateway based on configuration."""
         # Use MockCollectivPaymentGateway for development/testing
         # In production, this would check configuration and use real Collectiv API
@@ -53,8 +53,8 @@ class PaymentService(IPaymentService):
             raise PaymentError("Team ID is required", create_error_context("_validate_team_id"))
 
     async def create_payment_link(self, player_id: str, amount: float, payment_type: PaymentType,
-                                description: str, due_date: datetime | None = None,
-                                related_entity_id: str | None = None) -> dict[str, Any]:
+                                description: str, due_date: Union[datetime, None] = None,
+                                related_entity_id: Union[str, None] = None) -> dict[str, Any]:
         """
         Create a payment link for a player using Collectiv.
 
@@ -238,7 +238,7 @@ class PaymentService(IPaymentService):
             logging.error(f"Failed to get payment link status: {e}")
             raise PaymentError(f"Failed to get payment link status: {e!s}", create_error_context("get_payment_link_status"))
 
-    async def refund_payment(self, transaction_id: str, amount: float | None = None) -> dict[str, Any]:
+    async def refund_payment(self, transaction_id: str, amount: Union[float, None] = None) -> dict[str, Any]:
         """
         Refund a payment.
 
@@ -280,8 +280,8 @@ class PaymentService(IPaymentService):
             logging.error(f"Failed to refund payment: {e}")
             raise PaymentError(f"Failed to refund payment: {e!s}", create_error_context("refund_payment"))
 
-    async def get_payment_analytics(self, team_id: str, start_date: datetime | None = None,
-                                  end_date: datetime | None = None) -> dict[str, Any]:
+    async def get_payment_analytics(self, team_id: str, start_date: Union[datetime, None] = None,
+                                  end_date: Union[datetime, None] = None) -> dict[str, Any]:
         """
         Get payment analytics for a team.
 
@@ -336,7 +336,7 @@ class PaymentService(IPaymentService):
             logging.error(f"Failed to get payment analytics: {e}")
             raise PaymentError(f"Failed to get payment analytics: {e!s}", create_error_context("get_payment_analytics"))
 
-    async def record_payment(self, player_id: str, amount: float, type: PaymentType, related_entity_id: str | None = None, description: str | None = None) -> Payment:
+    async def record_payment(self, player_id: str, amount: float, type: PaymentType, related_entity_id: Union[str, None] = None, description: Union[str, None] = None) -> Payment:
         """
         Record a manual payment (e.g., cash payment).
 
@@ -375,7 +375,7 @@ class PaymentService(IPaymentService):
             logging.error(f"Failed to record payment: {e}")
             raise PaymentError(f"Failed to record payment: {e!s}", create_error_context("record_payment"))
 
-    async def get_player_payments(self, player_id: str, status: PaymentStatus | None = None) -> list[Payment]:
+    async def get_player_payments(self, player_id: str, status: Union[PaymentStatus, None] = None) -> list[Payment]:
         """
         Get payments for a specific player.
 
@@ -398,7 +398,7 @@ class PaymentService(IPaymentService):
             logging.error(f"Failed to get player payments: {e}")
             raise PaymentError(f"Failed to get player payments: {e!s}", create_error_context("get_player_payments"))
 
-    async def get_team_payments(self, team_id: str, status: PaymentStatus | None = None) -> list[Payment]:
+    async def get_team_payments(self, team_id: str, status: Union[PaymentStatus, None] = None) -> list[Payment]:
         """
         Get payments for a specific team.
 
@@ -421,7 +421,7 @@ class PaymentService(IPaymentService):
             logging.error(f"Failed to get team payments: {e}")
             raise PaymentError(f"Failed to get team payments: {e!s}", create_error_context("get_team_payments"))
 
-    async def create_payment_request(self, player_id: str, amount: float, type: PaymentType, due_date: datetime, description: str | None = None, related_entity_id: str | None = None) -> Payment:
+    async def create_payment_request(self, player_id: str, amount: float, type: PaymentType, due_date: datetime, description: Union[str, None] = None, related_entity_id: Union[str, None] = None) -> Payment:
         """
         Create a payment request (manual payment tracking).
 
@@ -462,7 +462,7 @@ class PaymentService(IPaymentService):
             logging.error(f"Failed to create payment request: {e}")
             raise PaymentError(f"Failed to create payment request: {e!s}", create_error_context("create_payment_request"))
 
-    async def update_payment_status(self, payment_id: str, new_status: PaymentStatus, paid_date: datetime | None = None) -> Payment:
+    async def update_payment_status(self, payment_id: str, new_status: PaymentStatus, paid_date: Union[datetime, None] = None) -> Payment:
         """
         Update the status of a payment.
 
@@ -496,7 +496,7 @@ class PaymentService(IPaymentService):
             logging.error(f"Failed to update payment status: {e}")
             raise PaymentError(f"Failed to update payment status: {e!s}", create_error_context("update_payment_status"))
 
-    async def list_payments(self, player_id: str | None = None, status: PaymentStatus | None = None, payment_type: PaymentType | None = None) -> list[Payment]:
+    async def list_payments(self, player_id: Union[str, None] = None, status: Union[PaymentStatus, None] = None, payment_type: Union[PaymentType, None] = None) -> list[Payment]:
         """
         List payments with optional filters.
 

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Union
 
 
 class MessageRepositoryInterface(ABC):
@@ -9,7 +9,7 @@ class MessageRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, message_id: str) -> dict[str, Any] | None:
+    async def get_by_id(self, message_id: str) -> Union[dict[str, Any], None]:
         """Fetch a message by its ID."""
         pass
 

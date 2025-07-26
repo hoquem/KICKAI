@@ -7,6 +7,7 @@ This is the ONLY place where these constants should be defined to prevent
 inconsistencies and maintenance issues.
 """
 
+from typing import Union, Union
 from dataclasses import dataclass, field
 
 from kickai.core.enums import ChatType, PermissionLevel
@@ -56,7 +57,7 @@ PLAYER_COMMANDS = {
         name="/register",
         description="Register as a new player",
         permission_level=PermissionLevel.PUBLIC,
-        chat_types=frozenset([ChatType.MAIN]),
+        chat_types=frozenset([ChatType.LEADERSHIP]),
         examples=("/register", "/register John Smith 07123456789 midfielder"),
         feature="player_registration"
     ),
@@ -205,7 +206,7 @@ MATCH_COMMANDS = {
         name="/listmatches",
         description="List upcoming matches",
         permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
+        chat_types=frozenset([ChatType.LEADERSHIP]),
         examples=("/listmatches", "/listmatches upcoming"),
         feature="match_management"
     ),
@@ -213,7 +214,7 @@ MATCH_COMMANDS = {
         name="/matchdetails",
         description="Get match details",
         permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
+        chat_types=frozenset([ChatType.LEADERSHIP]),
         examples=("/matchdetails", "/matchdetails MATCH123"),
         feature="match_management"
     ),
@@ -244,7 +245,7 @@ ATTENDANCE_COMMANDS = {
         name="/markattendance",
         description="Mark attendance for a match",
         permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.MAIN]),
+        chat_types=frozenset([ChatType.LEADERSHIP]),
         examples=("/markattendance", "/markattendance yes", "/markattendance no"),
         feature="attendance_management"
     ),
@@ -252,7 +253,7 @@ ATTENDANCE_COMMANDS = {
         name="/attendance",
         description="View match attendance",
         permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
+        chat_types=frozenset([ChatType.LEADERSHIP]),
         examples=("/attendance", "/attendance MATCH123"),
         feature="attendance_management"
     ),
@@ -260,7 +261,7 @@ ATTENDANCE_COMMANDS = {
         name="/attendancehistory",
         description="View attendance history",
         permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
+        chat_types=frozenset([ChatType.LEADERSHIP]),
         examples=("/attendancehistory", "/attendancehistory 2024"),
         feature="attendance_management"
     ),
@@ -490,16 +491,11 @@ SYSTEM_INFRA_COMMANDS = {
 # =============================================================================
 
 ALL_COMMANDS = (
-    PLAYER_COMMANDS |
-    LEADERSHIP_COMMANDS |
-    SYSTEM_COMMANDS |
-    MATCH_COMMANDS |
-    ATTENDANCE_COMMANDS |
-    PAYMENT_COMMANDS |
-    COMMUNICATION_COMMANDS |
-    TEAM_ADMIN_COMMANDS |
-    HEALTH_COMMANDS |
-    SYSTEM_INFRA_COMMANDS
+    PLAYER_COMMANDS | LEADERSHIP_COMMANDS |
+    SYSTEM_COMMANDS | MATCH_COMMANDS |
+    ATTENDANCE_COMMANDS | PAYMENT_COMMANDS |
+    COMMUNICATION_COMMANDS | TEAM_ADMIN_COMMANDS |
+    HEALTH_COMMANDS | SYSTEM_INFRA_COMMANDS
 )
 
 # =============================================================================

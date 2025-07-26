@@ -1,3 +1,4 @@
+from typing import Union
 import logging
 from datetime import datetime, timedelta
 
@@ -18,7 +19,7 @@ class MatchService(IMatchService):
         else:
             self._data_store = data_store
 
-    async def create_match(self, team_id: str, opponent: str, date: datetime, location: str | None = None, status: MatchStatus = MatchStatus.SCHEDULED, home_away: str = "home", competition: str | None = None) -> Match:
+    async def create_match(self, team_id: str, opponent: str, date: datetime, location: Union[str, None] = None, status: MatchStatus = MatchStatus.SCHEDULED, home_away: str = "home", competition: Union[str, None] = None) -> Match:
         """Creates a new match."""
         try:
             # Generate football-friendly match ID
@@ -53,7 +54,7 @@ class MatchService(IMatchService):
             logger.error(f"Failed to create match: {e}")
             raise MatchError(f"Failed to create match: {e!s}", create_error_context("create_match"))
 
-    async def get_match(self, match_id: str) -> Match | None:
+    async def get_match(self, match_id: str) -> Union[Match, None]:
         """Retrieves a match by its ID."""
         try:
             match = await self._data_store.get_match(match_id)
@@ -93,7 +94,7 @@ class MatchService(IMatchService):
             logger.error(f"Failed to delete match {match_id}: {e}")
             raise MatchError(f"Failed to delete match: {e!s}", create_error_context("delete_match"))
 
-    async def list_matches(self, team_id: str, status: MatchStatus | None = None) -> list[Match]:
+    async def list_matches(self, team_id: str, status: Union[MatchStatus, None] = None) -> list[Match]:
         """Lists matches for a team, with optional filters."""
         try:
             filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]

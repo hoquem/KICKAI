@@ -13,7 +13,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Union
 
 from kickai.database.interfaces import DataStoreInterface
 
@@ -680,7 +680,7 @@ class HealthCheckService(IHealthCheckService):
         cutoff_time = datetime.now() - timedelta(hours=hours)
         return [report for report in self.health_history if report.timestamp >= cutoff_time]
 
-    async def export_health_report(self, file_path: str | None = None) -> str:
+    async def export_health_report(self, file_path: Union[str, None] = None) -> str:
         """Export health report to file."""
         report = await self.perform_comprehensive_health_check()
         # Implementation for exporting report

@@ -6,7 +6,7 @@ This module provides comprehensive input validation for the KICKAI system.
 """
 
 import re
-from typing import List, Tuple
+from typing import List, Union, Tuple
 
 
 # Valid football positions
@@ -20,8 +20,8 @@ VALID_POSITIONS = {
 
 # Phone number patterns for different countries
 PHONE_PATTERNS = {
-    'UK': r'^(\+44|0)[1-9]\d{1,4}\s?\d{3,4}\s?\d{3,4}$',
-    'US': r'^(\+1|1)?[\s.-]?\(?[0-9]{3}\)?[\s.-]?[0-9]{3}[\s.-]?[0-9]{4}$',
+    'UK': r'^(\+Union[44, 0])[1-9]\d{1,4}\s?\d{3,4}\s?\d{3,4}$',
+    'US': r'^(\+Union[1, 1])?[\s.-]?\(?[0-9]{3}\)?[\s.-]?[0-9]{3}[\s.-]?[0-9]{4}$',
     'INTL': r'^\+[1-9]\d{1,14}$'  # International format
 }
 

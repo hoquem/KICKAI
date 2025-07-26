@@ -7,7 +7,7 @@ This module provides utilities to redirect CrewAI logs to our loguru logging sys
 
 import logging
 import sys
-from typing import Any
+from typing import Any, Union, Union
 
 from loguru import logger
 
@@ -31,8 +31,8 @@ class CrewAILogHandler(logging.Handler):
             logger.bind(name=record.name).log(level, crewai_message)
 
         except Exception:
-            # Fallback to stderr if loguru fails
-            sys.stderr.write(f"[CREWAI LOG ERROR] {record.getMessage()}\n")
+            # Silently fail to prevent double logging - loguru will handle errors
+            pass
 
     def _get_loguru_level(self, levelno: int) -> str:
         """Convert Python logging level to loguru level."""
@@ -134,7 +134,7 @@ def get_crewai_log_level() -> str:
         return "INFO"
 
 
-def log_crewai_agent_activity(agent_name: str, action: str, details: dict[str, Any] | None = None) -> None:
+def log_crewai_agent_activity(agent_name: str, action: str, details: Union[dict[str, Any], None] = None) -> None:
     """
     Log CrewAI agent activity with structured information.
 
@@ -150,7 +150,7 @@ def log_crewai_agent_activity(agent_name: str, action: str, details: dict[str, A
     logger.info(f"[CREWAI AGENT] {message}")
 
 
-def log_crewai_tool_usage(tool_name: str, agent_name: str, result: str | None = None) -> None:
+def log_crewai_tool_usage(tool_name: str, agent_name: str, result: Union[str, None] = None) -> None:
     """
     Log CrewAI tool usage.
 

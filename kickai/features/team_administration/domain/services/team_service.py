@@ -7,7 +7,7 @@ This module provides team management functionality.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Union, Union
 
 from loguru import logger
 
@@ -26,10 +26,10 @@ class TeamCreateParams:
     description: str = ""
     status: TeamStatus = TeamStatus.ACTIVE
     created_by: str = "system"
-    settings: dict[str, Any] | None = None
-    bot_token: str | None = None
-    main_chat_id: str | None = None
-    leadership_chat_id: str | None = None
+    settings: Union[dict[str, Any], None] = None
+    bot_token: Union[str, None] = None
+    main_chat_id: Union[str, None] = None
+    leadership_chat_id: Union[str, None] = None
 
 
 class TeamService:
@@ -55,15 +55,15 @@ class TeamService:
         )
         return await self.team_repository.create_team(team)
 
-    async def get_team(self, *, team_id: str) -> Team | None:
+    async def get_team(self, *, team_id: str) -> Union[Team, None]:
         """Get a team by ID."""
         return await self.team_repository.get_team_by_id(team_id)
 
-    async def get_team_by_id(self, *, team_id: str) -> Team | None:
+    async def get_team_by_id(self, *, team_id: str) -> Union[Team, None]:
         """Get a team by ID (alias for get_team)."""
         return await self.get_team(team_id=team_id)
 
-    async def get_team_by_name(self, name: str) -> Team | None:
+    async def get_team_by_name(self, name: str) -> Union[Team, None]:
         """Get a team by name."""
         # This would need to be implemented in the repository
         # For now, get all teams and filter by name
@@ -107,7 +107,7 @@ class TeamService:
         return await self.team_repository.delete(team_id)
 
     async def add_team_member(self, team_id: str, user_id: str, role: str = "player",
-                             permissions: list[str] | None = None, name: str = "", phone: str = ""):
+                             permissions: Union[list[str], None] = None, name: str = "", phone: str = ""):
         """Add a member to a team."""
         # Import TeamMember dynamically to avoid circular imports
         from kickai.features.team_administration.domain.entities.team_member import TeamMember
@@ -140,7 +140,7 @@ class TeamService:
         """Get all members of a team."""
         return await self.team_repository.get_team_members(team_id)
 
-    async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> TeamMember | None:
+    async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> Union[TeamMember, None]:
         """Get a team member by Telegram ID."""
         return await self.team_repository.get_team_member_by_telegram_id(team_id, telegram_id)
 

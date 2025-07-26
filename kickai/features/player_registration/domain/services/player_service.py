@@ -8,7 +8,7 @@ This module provides player management functionality.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Union
 
 from kickai.features.team_administration.domain.services.team_service import TeamService
 
@@ -106,15 +106,15 @@ class PlayerService:
         if len(team_id.strip()) < 2:
             raise ValueError("Team ID must be at least 2 characters long")
 
-    async def get_player_by_id(self, player_id: str, team_id: str) -> Player | None:
+    async def get_player_by_id(self, player_id: str, team_id: str) -> Union[Player, None]:
         """Get a player by ID."""
         return await self.player_repository.get_player_by_id(player_id, team_id)
 
-    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Player | None:
+    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Union[Player, None]:
         """Get a player by phone number."""
         return await self.player_repository.get_player_by_phone(phone, team_id)
 
-    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Player | None:
+    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Union[Player, None]:
         """Get a player by Telegram ID."""
         try:
             # Use the database client directly since repository might not have this method
@@ -150,7 +150,7 @@ class PlayerService:
             logger.error(f"Error getting player by telegram_id {telegram_id}: {e}")
             return None
 
-    async def get_players_by_team(self, *, team_id: str, status: str | None = None) -> list[Player]:
+    async def get_players_by_team(self, *, team_id: str, status: Union[str, None] = None) -> list[Player]:
         """Get players for a team, optionally filtered by status."""
         players = await self.player_repository.get_all_players(team_id)
 
@@ -293,10 +293,10 @@ class PlayerService:
             return False, f"❌ Failed to add player: {e!s}"
 
     async def approve_player(self, player_id: str, team_id: str) -> str:
-        """Approve a player for team participation."""
+        """Approve a player for team participation and activate them."""
         try:
-            player = await self.update_player_status(player_id, "approved", team_id)
-            return f"✅ Player {player.full_name} approved successfully"
+            player = await self.update_player_status(player_id, "active", team_id)
+            return f"✅ Player {player.full_name} approved and activated successfully"
         except Exception as e:
             logger.error(f"Error approving player {player_id}: {e}")
             return f"❌ Failed to approve player: {e!s}"

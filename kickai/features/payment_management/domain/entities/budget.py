@@ -8,7 +8,7 @@ and business logic encapsulation.
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Union
 
 from kickai.features.shared.domain.entities.base_entity import BaseEntity
 
@@ -16,14 +16,14 @@ from kickai.features.shared.domain.entities.base_entity import BaseEntity
 @dataclass
 class Budget(BaseEntity):
     """Budget entity for managing team financial budgets."""
-    team_id: str | None = None
-    total_amount: Decimal | None = None
+    team_id: Union[str, None] = None
+    total_amount: Union[Decimal, None] = None
     allocated_amount: Decimal = Decimal('0')
     spent_amount: Decimal = Decimal('0')
     currency: str = "USD"
     start_date: datetime = field(default_factory=datetime.now)
-    end_date: datetime | None = None
-    description: str | None = None
+    end_date: Union[datetime, None] = None
+    description: Union[str, None] = None
     status: str = "active"  # active, inactive, exceeded
     metadata: dict[str, Any] = field(default_factory=dict)
 

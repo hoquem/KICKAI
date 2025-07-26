@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Union
 
 
 class NotificationService:
@@ -6,7 +6,7 @@ class NotificationService:
     def __init__(self, notification_repository):
         self._repo = notification_repository
 
-    async def send_notification(self, recipient_id: str, message: str, metadata: dict[str, Any] | None = None) -> str:
+    async def send_notification(self, recipient_id: str, message: str, metadata: Union[dict[str, Any], None] = None) -> str:
         """Send a notification and return the notification ID."""
         # TODO: Implement notification sending logic
         raise NotImplementedError

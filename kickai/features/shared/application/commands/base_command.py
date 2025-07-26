@@ -7,7 +7,7 @@ in the KICKAI system.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Union, Union
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -32,8 +32,8 @@ class CommandResult:
     """Result of command execution."""
     success: bool
     message: str
-    error: str | None = None
-    data: dict[str, Any] | None = None
+    error: Union[str, None] = None
+    data: Union[dict[str, Any], None] = None
 
 
 class Command(ABC):

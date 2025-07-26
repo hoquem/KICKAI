@@ -1,3 +1,4 @@
+from typing import Union
 import logging
 
 from kickai.database.interfaces import DataStoreInterface
@@ -7,7 +8,7 @@ logger = logging.getLogger(__name__)
 class PlayerLookupService:
     def __init__(self, data_store: DataStoreInterface):
         self._data_store = data_store
-    async def get_player_team_id(self, player_id: str) -> str | None:
+    async def get_player_team_id(self, player_id: str) -> Union[str, None]:
         try:
             player_data = await self._data_store.get_document('players', player_id)
             if player_data:

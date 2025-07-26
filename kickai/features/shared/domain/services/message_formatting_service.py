@@ -8,7 +8,7 @@ the same design patterns and are properly formatted for Telegram.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Union
 
 from loguru import logger
 
@@ -21,7 +21,7 @@ class MessageContext:
     user_id: str
     team_id: str
     chat_type: ChatType
-    user_name: str | None = None
+    user_name: Union[str, None] = None
     is_player: bool = False
     is_team_member: bool = False
     is_admin: bool = False
@@ -56,15 +56,15 @@ class MessageFormattingService:
         else:
             return self._format_main_chat_welcome(context)
 
-    def format_error_message(self, error: str, context: MessageContext | None = None) -> str:
+    def format_error_message(self, error: str, context: Union[MessageContext, None] = None) -> str:
         """Format error message with consistent styling."""
         return f"❌ Error: {error}\n\nPlease try again or contact support if the issue persists."
 
-    def format_success_message(self, message: str, context: MessageContext | None = None) -> str:
+    def format_success_message(self, message: str, context: Union[MessageContext, None] = None) -> str:
         """Format success message with consistent styling."""
         return f"✅ Success: {message}"
 
-    def format_info_message(self, message: str, context: MessageContext | None = None) -> str:
+    def format_info_message(self, message: str, context: Union[MessageContext, None] = None) -> str:
         """Format informational message with consistent styling."""
         return f"ℹ️ Info: {message}"
 

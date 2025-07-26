@@ -6,6 +6,7 @@ This module provides the Firebase implementation of the expense repository inter
 """
 
 
+from typing import Union
 from kickai.core.firestore_constants import COLLECTION_PAYMENTS
 from kickai.database.interfaces import DataStoreInterface
 from kickai.features.payment_management.domain.repositories.expense_repository_interface import (
@@ -42,7 +43,7 @@ class FirebaseExpenseRepository(ExpenseRepositoryInterface):
 
         return expense
 
-    async def get_expense_by_id(self, expense_id: str, team_id: str) -> Expense | None:
+    async def get_expense_by_id(self, expense_id: str, team_id: str) -> Union[Expense, None]:
         """Get an expense by ID."""
         try:
             doc = await self.database.get_document(

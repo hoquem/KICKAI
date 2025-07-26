@@ -7,7 +7,7 @@ This module handles automated and manual reminders for player onboarding.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Union
 
 from kickai.core.settings import Settings
 from kickai.features.communication.domain.interfaces.reminder_service_interface import (
@@ -64,7 +64,7 @@ class ReminderService(IReminderService):
             logging.error(f"Error checking and sending reminders: {e}")
             return []
 
-    async def send_automated_reminder(self, player: Player) -> ReminderMessage | None:
+    async def send_automated_reminder(self, player: Player) -> Union[ReminderMessage, None]:
         """Send an automated reminder to a player."""
         try:
             reminder_number = player.reminders_sent + 1
