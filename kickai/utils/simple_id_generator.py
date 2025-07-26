@@ -16,6 +16,13 @@ import re
 from typing import Set, Optional
 from loguru import logger
 
+from kickai.utils.constants import (
+    MAX_ID_NUMBER,
+    ID_NUMBER_FORMAT,
+    FALLBACK_ID_PREFIX,
+    LOG_MESSAGES
+)
+
 
 class SimpleIDGenerator:
     """Simple ID generator for players and team members."""
@@ -46,21 +53,25 @@ class SimpleIDGenerator:
         # Find the next available number for these initials
         number = 1
         while True:
-            candidate_id = f"{number:02d}{initials}"
+            candidate_id = ID_NUMBER_FORMAT.format(number) + initials
             if candidate_id not in all_existing_ids:
                 # Add to our tracking set
                 self.used_ids.add(candidate_id)
-                logger.info(f"Generated player ID '{candidate_id}' for '{name}' in team '{team_id}'")
+                logger.info(LOG_MESSAGES["ID_GENERATED"].format(
+                    id=candidate_id, name=name, team_id=team_id
+                ))
                 return candidate_id
             number += 1
             
             # Safety check to prevent infinite loops
-            if number > 99:
-                logger.warning(f"Too many players with initials '{initials}' in team '{team_id}'")
+            if number > MAX_ID_NUMBER:
+                logger.warning(LOG_MESSAGES["TOO_MANY_PLAYERS"].format(
+                    initials=initials, team_id=team_id
+                ))
                 # Use a hash-based fallback
                 import hashlib
                 hash_suffix = hashlib.md5(f"{name}{team_id}".encode()).hexdigest()[:2].upper()
-                fallback_id = f"99{initials}{hash_suffix}"
+                fallback_id = f"{FALLBACK_ID_PREFIX}{initials}{hash_suffix}"
                 self.used_ids.add(fallback_id)
                 return fallback_id
     
@@ -109,7 +120,7 @@ class SimpleIDGenerator:
     def clear_used_ids(self):
         """Clear the used IDs set (useful for testing)."""
         self.used_ids.clear()
-        logger.info("Cleared used IDs from SimpleIDGenerator")
+        logger.info(LOG_MESSAGES["USED_IDS_CLEARED"])
 
 
 # Global instance

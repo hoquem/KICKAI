@@ -11,6 +11,15 @@ from datetime import datetime
 from typing import Any, Union
 
 from kickai.features.team_administration.domain.services.team_service import TeamService
+from kickai.utils.constants import (
+    DEFAULT_POSITION,
+    DEFAULT_CREATED_BY,
+    DEFAULT_STATUS,
+    VALID_PLAYER_POSITIONS,
+    PHONE_PATTERN,
+    ERROR_MESSAGES,
+    SUCCESS_MESSAGES
+)
 
 from ..entities.player import Player
 from ..repositories.player_repository_interface import PlayerRepositoryInterface
@@ -22,9 +31,9 @@ logger = logging.getLogger(__name__)
 class PlayerCreateParams:
     name: str
     phone: str
-    position: str
-    team_id: str
-    created_by: str
+    position: str = DEFAULT_POSITION
+    team_id: str = ""
+    created_by: str = DEFAULT_CREATED_BY
 
 
 class PlayerService:
@@ -80,23 +89,21 @@ class PlayerService:
     def _validate_player_input(self, name: str, phone: str, position: str, team_id: str) -> None:
         """Validate player input parameters."""
         if not name or not name.strip():
-            raise ValueError("Player name cannot be empty")
+            raise ValueError(ERROR_MESSAGES["NAME_REQUIRED"])
         if not phone or not phone.strip():
-            raise ValueError("Player phone cannot be empty")
-        if not position or not position.strip():
-            raise ValueError("Player position cannot be empty")
+            raise ValueError(ERROR_MESSAGES["PHONE_REQUIRED"])
         if not team_id or not team_id.strip():
-            raise ValueError("Team ID cannot be empty")
+            raise ValueError(ERROR_MESSAGES["TEAM_ID_REQUIRED"])
 
-        # Validate phone number format (basic validation)
-        phone_clean = phone.replace('+', '').replace(' ', '').replace('-', '')
-        if not phone_clean.isdigit() or len(phone_clean) < 10:
-            raise ValueError("Phone number must contain at least 10 digits")
+        # Validate phone number format (improved validation)
+        import re
+        if not re.match(PHONE_PATTERN, phone.strip()):
+            raise ValueError(ERROR_MESSAGES["INVALID_PHONE"])
 
-        # Validate position (basic validation)
-        valid_positions = ['goalkeeper', 'defender', 'midfielder', 'forward', 'utility']
-        if position.lower() not in valid_positions:
-            raise ValueError(f"Position must be one of: {', '.join(valid_positions)}")
+        # Validate position only if provided (not default)
+        if position and position.strip() and position.lower() != DEFAULT_POSITION.lower():
+            if position.lower() not in VALID_PLAYER_POSITIONS:
+                raise ValueError(ERROR_MESSAGES["INVALID_POSITION"])
 
         # Validate name length
         if len(name.strip()) < 2:
@@ -283,23 +290,19 @@ class PlayerService:
             from kickai.utils.simple_id_generator import generate_simple_player_id
             player_id = generate_simple_player_id(name, team_id, existing_ids)
 
-            # Create player parameters
+            # Create player parameters with the generated ID
             params = PlayerCreateParams(
                 name=name,
                 phone=phone,
-                position=position or "To be set",  # Default position
+                position=position or DEFAULT_POSITION,
                 team_id=team_id,
-                created_by="system"
+                created_by=DEFAULT_CREATED_BY
             )
 
-            # Create the player with the generated ID
-            player = await self.create_player(params)
-            
-            # Update the player with the generated ID
-            player.player_id = player_id
-            await self.player_repository.update_player(player)
+            # Create the player directly with the correct ID
+            player = await self._create_player_with_id(params, player_id)
 
-            return True, f"✅ Player {name} added successfully with ID: {player_id}"
+            return True, SUCCESS_MESSAGES["PLAYER_ADDED"].format(name=name, player_id=player_id)
         except Exception as e:
             logger.error(f"Error adding player {name}: {e}")
             return False, f"❌ Failed to add player: {e!s}"
@@ -312,6 +315,28 @@ class PlayerService:
         except Exception as e:
             logger.error(f"Error approving player {player_id}: {e}")
             return f"❌ Failed to approve player: {e!s}"
+
+    async def _create_player_with_id(self, params: PlayerCreateParams, player_id: str) -> Player:
+        """Create a new player with a specific ID."""
+        # Validate input parameters
+        self._validate_player_input(params.name, params.phone, params.position, params.team_id)
+
+        # Generate user_id from phone number as a fallback
+        import hashlib
+        phone_hash = hashlib.md5(params.phone.encode()).hexdigest()[:8]
+        user_id = f"user_{phone_hash}"
+
+        # Create player with the provided ID
+        player = Player(
+            user_id=user_id,
+            team_id=params.team_id,
+            full_name=params.name,
+            phone_number=params.phone,
+            position=params.position,
+            player_id=player_id,  # Use the provided ID
+            status=DEFAULT_STATUS
+        )
+        return await self.player_repository.create_player(player)
 
     async def get_player_status(self, phone: str, team_id: str) -> str:
         """Get player status by phone number."""
