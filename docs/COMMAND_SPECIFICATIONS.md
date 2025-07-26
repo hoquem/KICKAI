@@ -1,9 +1,9 @@
 # KICKAI Command Specifications
 
-**Version:** 4.0  
+**Version:** 4.1  
 **Status:** Production Ready  
 **Last Updated:** July 2025  
-**Architecture:** Plain Text with Emojis - Simple and Reliable
+**Architecture:** Simplified User Type Logic - Chat-Based Entity Classification
 
 This document defines the expected behavior for all KICKAI bot commands across different scenarios, chat types, and user states, using the latest agentic architecture.
 
@@ -23,16 +23,16 @@ This document defines the expected behavior for all KICKAI bot commands across d
 |---------|-------------|-----------|-----------------|------------------|-------|
 | `/help` | Show available commands | ✅ | ✅ | PUBLIC | HelpAssistantAgent |
 | `/start` | Initialize bot interaction | ✅ | ✅ | PUBLIC | MessageProcessorAgent |
-| `/register` | Register as a new player | ✅ | ❌ | PUBLIC | PlayerCoordinatorAgent |
-| `/myinfo` | Show personal information | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent |
-| `/status` | Check player/team member status | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent |
-| `/list` | List players/team members | ✅ | ✅ | PUBLIC | TeamManagerAgent |
+| `/register` | Register as a new player | ❌ | ✅ | PUBLIC | PlayerCoordinatorAgent |
+| `/myinfo` | Show personal information | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent (Main) / MessageProcessorAgent (Leadership) |
+| `/status` | Check player/team member status | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent (Main) / MessageProcessorAgent (Leadership) |
+| `/list` | List players/team members | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent (Main) / MessageProcessorAgent (Leadership) |
 
 ### Player Management Commands
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent |
 |---------|-------------|-----------|-----------------|------------------|-------|
-| `/add` | Add a new player | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
-| `/approve` | Approve player registration | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
+| `/addplayer` | Add a new player | ❌ | ✅ | LEADERSHIP | PlayerCoordinatorAgent |
+| `/approve` | Approve and activate player | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
 | `/reject` | Reject player registration | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
 | `/pending` | Show pending registrations | ❌ | ✅ | LEADERSHIP | TeamManagerAgent |
 
@@ -101,16 +101,17 @@ graph TD
 - **Tools**: Intent analysis, context extraction, message routing
 
 #### 3. **PlayerCoordinatorAgent**
-- **Primary Commands**: `/register`, `/myinfo`, `/status`
+- **Primary Commands**: `/register`, `/myinfo`, `/status`, `/addplayer`
 - **Responsibilities**:
   - Player registration and onboarding
   - Individual player support
   - Player status tracking
   - Personal information management
-- **Tools**: Player management, registration, status tracking
+  - Player addition and invite link generation
+- **Tools**: Player management, registration, status tracking, add_player
 
 #### 4. **TeamManagerAgent**
-- **Primary Commands**: `/list`, `/add`, `/approve`, `/reject`, `/team`, `/invite`, `/announce`
+- **Primary Commands**: `/list`, `/approve`, `/reject`, `/team`, `/invite`, `/announce`
 - **Responsibilities**:
   - Team administration
   - Player management
@@ -212,7 +213,7 @@ def _map_intent_to_command(self, intent: Dict[str, Any]) -> Optional[str]:
         'player status': '/status',
         'list players': '/list',
         'team info': '/team',
-        'add player': '/add',
+        'add player': '/addplayer',
         'approve player': '/approve',
         'system health': '/health',
         'bot version': '/version'
@@ -327,7 +328,7 @@ graph TD
 **Example 1: Unauthorized Leadership Request**
 ```
 User (in main chat): "Add a new player to the team"
-System: Maps to /add command
+System: Maps to /addplayer command
 Permission Check: LEADERSHIP required, user has PLAYER level
 Result: ❌ Access Denied - "This action requires leadership access"
 ```
@@ -373,35 +374,55 @@ Result: ✅ Access Granted - Player approval processed
 
 ## User States
 
+### **SIMPLIFIED USER TYPE LOGIC**
+
+The KICKAI system now uses a **simplified user type determination** based on chat context:
+
+#### **Core Principle: Chat Type Determines User Type**
+- **Leadership Chat** → Users are treated as **Team Members**
+- **Main Chat** → Users are treated as **Players**
+
+#### **Registration Status Determination**
+- **Leadership Chat**: User is registered if they exist in `kickai_{team_id}_team_members` collection
+- **Main Chat**: User is registered if they exist in `kickai_{team_id}_players` collection
+
+#### **Unregistered User Handling**
+- **Unregistered Team Member** (Leadership Chat): Prompted to register using `/register [name] [phone] [role]`
+- **Unregistered Player** (Main Chat): Prompted to contact team leadership to be added as a player
+
 ### Unregistered User
-**Status**: User not registered in the system  
-**Access**: Limited access - can only use `/register` command  
-**Data**: No record in Firestore  
+**Status**: User not registered in the appropriate collection for their chat type  
+**Access**: Limited access - can only use `/register` command (leadership chat) or contact leadership (main chat)  
+**Data**: No record in appropriate Firestore collection  
 **Registration**: Must register to gain access
 
-**Note**: Users who are not registered in the system can only use the `/register` command. All other commands will show a message asking them to contact an admin to be registered.
+**Note**: Users who are not registered in the appropriate collection can only use the `/register` command (in leadership chat) or are guided to contact leadership (in main chat). All other commands will show appropriate guidance messages.
 
 #### **Unregistered User Flow Processing**
 
-**Trigger**: Any command typed by an unregistered user (except `/register`)
+**Trigger**: Any command typed by an unregistered user (except `/register` in leadership chat)
 
 **Behavior**: 
-- Show message explaining they need to be registered
-- Block all commands except `/register`
-- Guide them to contact an admin
+- **Leadership Chat**: Show message explaining they need to register as team member
+- **Main Chat**: Show message explaining they need to contact team leadership
+- Block all commands except `/register` (leadership chat only)
+- Guide them to appropriate registration process
 
 #### **Implementation Flow**
 ```python
 # 1. User types any command
-# 2. System checks if user is registered
-is_registered = await self._check_user_registration(user_id)
+# 2. System determines chat type and checks appropriate registration
+if chat_type == ChatType.LEADERSHIP:
+    is_registered = await self._check_team_member_registration(user_id, team_id)
+else:  # Main chat
+    is_registered = await self._check_player_registration(user_id, team_id)
 
-# 3. If not registered and NOT /register command, show message and block processing
-if not is_registered and command != "/register":
+# 3. If not registered and NOT /register command (leadership chat), show message and block processing
+if not is_registered and (command != "/register" or chat_type != ChatType.LEADERSHIP):
     await self._show_unregistered_user_message(update, username, chat_type)
     return  # Block normal command processing
 
-# 4. If not registered and IS /register command, allow normal processing
+# 4. If not registered and IS /register command in leadership chat, allow normal processing
 # 5. After registration, user gains appropriate access based on chat type
 ```
 
@@ -413,7 +434,7 @@ if not is_registered and command != "/register":
 
 🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant
 
-🎯 To join the team as a player:
+🤔 You're not registered as a player yet.
 
 📞 Contact Team Leadership
 You need to be added as a player by someone in the team's leadership.
@@ -437,17 +458,17 @@ Use /help to see available commands or ask me questions!
 
 🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant
 
-🤔 I don't see you registered as a team member yet.
+🤔 You're not registered as a team member yet.
 
-📝 Please provide your details so I can add you to the team members collection.
+📝 To register as a team member, please provide your details:
 
-💡 You can use:
+💡 Use this command:
 /register [name] [phone] [role]
 
 Example:
 /register John Smith +1234567890 Assistant Coach
 
-🎯 Your role can be:
+🎯 Available roles:
 • Team Manager, Coach, Assistant Coach
 • Club Administrator, Treasurer
 • Volunteer Coordinator, etc.
@@ -457,13 +478,17 @@ Example:
 • Generate invite links for chats
 • Manage the team system
 
+❓ Got here by mistake?
+If you're not part of the team leadership, please leave this chat.
+
 Ready to get started? Use the /register command above!
 ```
 
-### Registered Player
+### Registered Player (Main Chat)
 **Status**: Active player in the system  
-**Access**: Main chat commands, limited leadership chat access  
-**Data**: Player record in Firestore
+**Access**: Main chat commands only  
+**Data**: Player record in `kickai_{team_id}_players` collection  
+**Context**: Users in main chat are always treated as players
 
 **Design Principle**: Commands have distinct implementations for different chat contexts to maintain clean, predictable behavior.
 
@@ -497,16 +522,17 @@ async def list_players_leadership(update, context):
 - **🛠️ Maintainable**: Easy to modify behavior for specific contexts
 - **🧪 Testable**: Each implementation can be tested independently
 
-### Registered Team Member
+### Registered Team Member (Leadership Chat)
 **Status**: Member of the leadership chat with team management responsibilities  
 **Access**: All commands in leadership chat, admin commands based on role  
-**Data**: Team member record in Firestore  
-**Registration**: Must register to provide their details
+**Data**: Team member record in `kickai_{team_id}_team_members` collection  
+**Registration**: Must register to provide their details  
+**Context**: Users in leadership chat are always treated as team members
 
-#### **Dual Role Capability**
-- **Team Member**: Core role as a member of the leadership chat
-- **Player**: Can also be a registered player if added to main chat and completed registration
+#### **Simplified Role Logic**
+- **Team Member**: Primary role as a member of the leadership chat
 - **Role-Based Permissions**: Admin commands only available with admin role
+- **No Dual Role Confusion**: Clear separation between chat contexts
 
 #### **Registration Process**
 ```python
@@ -522,9 +548,9 @@ async def register_team_member(update, context):
 #### **Role-Based Access Control**
 ```python
 # Example role checking for admin commands
-@command(name="/approve", description="Approve player registration", chat_type="leadership")
+@command(name="/approve", description="Approve and activate player", chat_type="leadership")
 async def approve_player(update, context):
-    """Approve a player registration (admin only)."""
+    """Approve and activate a player (admin only)."""
     user_roles = await get_user_roles(update.effective_user.id)
     
     if "admin" not in user_roles:
@@ -537,8 +563,8 @@ async def approve_player(update, context):
 #### **Available Commands**
 - **All Leadership Commands**: Can run any command available in leadership chat
 - **Admin Commands**: Only if they have admin role
-- **Player Commands**: If also registered as a player in main chat
 - **Team Management**: Access to team oversight and coordination features
+- **Info Commands**: `/myinfo`, `/status`, `/list` route to team member tools
 
 #### **Example Team Member Response**
 ```
@@ -549,13 +575,13 @@ Role: {role} | Player: {is_player}
 
 Team Management:
 • /register - Register new player with name, phone, position
-• /add - Add new player to team roster
+• /addplayer - Add new player to team roster
 • /list - List all players with their status
 • /status - Check player status by phone number
 • /myinfo - Check your team member information
 
 Admin Commands (Admin role required):
-• /approve - Approve player registration
+• /approve - Approve and activate player
 • /reject - Reject player registration
 • /pending - List pending registrations
 • /announce - Send team announcement
@@ -574,6 +600,46 @@ You can also ask me questions in natural language!
 **Access**: Basic commands only  
 **Data**: No Firestore record  
 **Guidance**: Users are asked to contact a member of the leadership team to be added as a player, or they can leave the chat if they got here by mistake.
+
+## Simplified Entity Classification
+
+### **Chat-Based Entity Type Determination**
+
+The KICKAI system now uses a **simplified entity classification** system that determines user type based on chat context:
+
+#### **Core Logic**
+```python
+# Simplified entity classification
+if chat_type == ChatType.LEADERSHIP:
+    # In leadership chat, treat as team member
+    entity_type = EntityType.TEAM_MEMBER
+elif chat_type == ChatType.MAIN:
+    # In main chat, treat as player
+    entity_type = EntityType.PLAYER
+else:
+    # Unknown chat type
+    entity_type = EntityType.NEITHER
+```
+
+#### **Command Routing Based on Chat Type**
+
+**Leadership Chat Commands:**
+- `/myinfo` → `MESSAGE_PROCESSOR` (has `get_my_team_member_status` tool)
+- `/status` → `MESSAGE_PROCESSOR` (has `get_my_team_member_status` tool)
+- `/list` → `MESSAGE_PROCESSOR` (has `list_team_members_and_players` tool)
+- `/team` → `MESSAGE_PROCESSOR` (has team member tools)
+
+**Main Chat Commands:**
+- `/myinfo` → `PLAYER_COORDINATOR` (has `get_my_status` tool)
+- `/status` → `PLAYER_COORDINATOR` (has `get_my_status` tool)
+- `/list` → `PLAYER_COORDINATOR` (has `get_active_players` tool)
+
+#### **Benefits of Simplified Logic**
+- **🎯 Clear Separation**: No ambiguity about user type
+- **🔧 Simpler Maintenance**: Logic is straightforward and easy to understand
+- ** Better UX**: Users get appropriate tools and responses based on chat context
+- **🛡️ Security**: Proper access control based on chat type
+- ** Clear Registration**: Unregistered users get appropriate guidance
 
 ## Command Specifications
 
@@ -604,7 +670,7 @@ You need to be added as a player by someone in the team's leadership.
 
 💬 What to do:
 1. Reach out to someone in the team's leadership chat
-2. Ask them to add you as a player using the `/add` command
+2. Ask them to add you as a player using the `/addplayer` command
 3. They'll send you an invite link to join the main chat
 4. Once added, you can register with your full details
 
@@ -687,9 +753,212 @@ Contact the team administrator to make any changes.
 🎯 What you can do:
 • Use /myinfo to check your details
 • Use /list to see all team members and players
-• Use /add to add new players
+• Use /addplayer to add new players
 • Use /approve to approve registrations
 • Ask me questions in natural language!
+```
+
+### `/addplayer` Command
+
+#### Agentic Implementation Overview
+
+The `/addplayer` command is implemented using the **PlayerCoordinatorAgent** that handles player addition and invite link generation.
+
+**Key Components:**
+- **PlayerCoordinatorAgent**: Specialized agent for player management
+- **Player Registration Service**: Handles player record creation
+- **Invite Link Service**: Generates unique Telegram invite links
+- **Team Context**: Requires team_id for proper routing
+
+#### Invite Link Creation Strategy
+
+**Required Information for Invite Link Creation:**
+1. **Team ID**: Obtained from the current chat context (team_id)
+2. **Player Name**: Provided in the command parameters
+3. **Player Phone**: Provided in the command parameters  
+4. **Player Position**: Provided in the command parameters
+5. **Main Chat ID**: Obtained from team configuration in Firestore
+6. **Bot Token**: Obtained from team configuration in Firestore
+
+**Information Sources:**
+- **Command Parameters**: `name`, `phone`, `position` (user input)
+- **Team Configuration**: `team_id`, `main_chat_id`, `bot_token` (from Firestore)
+- **Chat Context**: Current team context (from message routing)
+
+**Invite Link Creation Flow:**
+```python
+async def create_player_invite_link(self, team_id: str, player_name: str, 
+                                  player_phone: str, player_position: str, 
+                                  main_chat_id: str) -> dict[str, Any]:
+    """
+    Create a unique invite link for a player to join the main chat.
+    
+    Args:
+        team_id: Team ID (from team configuration)
+        player_name: Player's name (from command parameters)
+        player_phone: Player's phone number (from command parameters)
+        player_position: Player's position (from command parameters)
+        main_chat_id: Main chat ID (from team configuration)
+        
+    Returns:
+        Dict containing invite link details
+    """
+    # 1. Generate unique invite link ID
+    invite_id = str(uuid.uuid4())
+    
+    # 2. Create Telegram invite link using bot token
+    invite_link = await self._create_telegram_invite_link(main_chat_id, invite_id)
+    
+    # 3. Store invite link metadata in Firestore
+    invite_data = {
+        "invite_id": invite_id,
+        "team_id": team_id,
+        "chat_id": main_chat_id,
+        "chat_type": "main",
+        "invite_link": invite_link,
+        "player_name": player_name,
+        "player_phone": player_phone,
+        "player_position": player_position,
+        "status": "active",
+        "created_at": datetime.now().isoformat(),
+        "expires_at": (datetime.now() + timedelta(days=7)).isoformat(),
+        "used_at": None,
+        "used_by": None
+    }
+    
+    # 4. Store in Firestore for tracking and validation
+    await self.database.create_document(self.collection_name, invite_data, invite_id)
+    
+    return {
+        "invite_id": invite_id,
+        "invite_link": invite_link,
+        "player_name": player_name,
+        "expires_at": invite_data["expires_at"]
+    }
+```
+
+**Bot Token Configuration Strategy:**
+The `InviteLinkService` requires a bot token to create Telegram invite links. The bot token is obtained from:
+
+1. **Team Configuration**: Primary source - stored in team document in Firestore
+2. **Environment Variables**: Fallback source - `TELEGRAM_BOT_TOKEN` environment variable
+3. **Service Update**: The bot token is set on the service after bot configurations are loaded
+
+**Bot Token Update Flow:**
+```python
+# In MultiBotManager.start_all_bots()
+for team in self.bot_configs:
+    bot_token = getattr(team, 'bot_token', None)
+    if not bot_token:
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    
+    # Update InviteLinkService with bot token
+    invite_service = get_service(InviteLinkService)
+    invite_service.set_bot_token(bot_token)
+```
+
+#### Expected Behavior
+
+**Leadership Chat - Registered Team Member (`/addplayer` command):**
+
+**Input:** `/addplayer John Smith +447123456789 Forward`
+
+**Process:**
+1. **Parameter Validation**: Validate name, phone, and position format
+2. **Player Creation**: Create player record in Firestore with status "pending"
+3. **Invite Link Generation**: Generate unique Telegram invite link
+4. **Response**: Return success message with invite link
+
+**Success Response:**
+```
+✅ Player Added Successfully!
+
+👤 Player Details:
+• Name: John Smith
+• Phone: +447123456789
+• Position: Forward
+• Status: Pending Approval
+
+🔗 Invite Link Generated:
+https://t.me/joinchat/ABC123DEF456
+
+📋 Next Steps:
+1. Share this invite link with John Smith
+2. They can join the main chat using the link
+3. Once they join, they can register with /register
+4. Use /approve to approve and activate their registration
+
+🔒 Security:
+• Link expires in 7 days
+• One-time use only
+• Automatically tracked in system
+
+💡 Tip: The player will need to register with /register after joining the chat.
+```
+
+**Error Responses:**
+
+**Invalid Parameters:**
+```
+❌ Invalid Parameters
+
+Please provide all required information:
+/addplayer [name] [phone] [position]
+
+Example:
+/addplayer John Smith +447123456789 Forward
+
+💡 Phone should be in international format (e.g., +447123456789)
+```
+
+**Bot Token Missing:**
+```
+❌ System Configuration Error
+
+Unable to generate invite link: Bot token not configured.
+
+🔧 Please contact the system administrator to configure the bot token.
+```
+
+**Player Already Exists:**
+```
+❌ Player Already Exists
+
+A player with phone number +447123456789 is already registered.
+
+💡 Use /status +447123456789 to check their current status.
+```
+
+**Database Error:**
+```
+❌ Database Error
+
+Unable to add player due to a system error.
+
+🔧 Please try again or contact support if the problem persists.
+```
+
+#### Command Processing Flow
+
+```mermaid
+graph TD
+    A[User Input: /addplayer John Smith +447123456789 Forward] --> B[Command Registry]
+    B --> C[Entity Routing: PLAYER]
+    C --> D[PlayerCoordinatorAgent]
+    D --> E[Parameter Validation]
+    E --> F{Valid Parameters?}
+    F -->|No| G[Return Error Message]
+    F -->|Yes| H[Check Player Exists]
+    H --> I{Player Exists?}
+    I -->|Yes| J[Return Already Exists Error]
+    I -->|No| K[Create Player Record]
+    K --> L[Get Team Configuration]
+    L --> M[Get Bot Token]
+    M --> N{Bot Token Available?}
+    N -->|No| O[Return Bot Token Error]
+    N -->|Yes| P[Generate Invite Link]
+    P --> Q[Store Invite Link Data]
+    Q --> R[Return Success Response]
 ```
 
 ### `/register` Command
@@ -859,8 +1128,8 @@ You can also ask me questions in natural language!
 👤 {telegram_name} (Team Member)
 
 Leadership Commands:
-• /add - Add a new player
-• /approve - Approve player registration
+• /addplayer - Add a new player
+• /approve - Approve and activate player
 • /reject - Reject player registration
 • /pending - Show pending registrations
 • /announce - Make team announcement
@@ -1026,6 +1295,48 @@ async def status_leadership(update, context):
     phone = context.args[0] if context.args else None
     player = await get_player_by_phone(phone)
     return format_player_status(player, show_details=True)
-```
+
+---
+
+## **📋 Summary: Simplified User Type Logic**
+
+### **Key Changes in Version 4.0**
+
+The KICKAI system has been updated to use a **simplified user type determination** that eliminates complexity and improves maintainability:
+
+#### **🎯 Core Principle**
+- **Chat Type Determines User Type**
+  - Leadership Chat → Team Members
+  - Main Chat → Players
+
+#### **🔄 Simplified Registration Logic**
+- **Leadership Chat**: Users must be in `kickai_{team_id}_team_members` collection
+- **Main Chat**: Users must be in `kickai_{team_id}_players` collection
+
+#### **🛣️ Simplified Command Routing**
+- **Leadership Chat Commands** (`/myinfo`, `/status`, `/list`) → `MESSAGE_PROCESSOR` (team member tools)
+- **Main Chat Commands** (`/myinfo`, `/status`, `/list`) → `PLAYER_COORDINATOR` (player tools)
+
+#### **📝 Simplified Unregistered User Handling**
+- **Leadership Chat**: Prompted to register using `/register [name] [phone] [role]`
+- **Main Chat**: Prompted to contact team leadership to be added as a player
+
+#### **✅ Benefits Achieved**
+- **🎯 Clear Separation**: No ambiguity about user type
+- **🔧 Simpler Maintenance**: Logic is straightforward and easy to understand
+- ** Better UX**: Users get appropriate tools and responses based on chat context
+- **🛡️ Security**: Proper access control based on chat type
+- ** Clear Registration**: Unregistered users get appropriate guidance
+
+### **🚀 Migration Notes**
+
+This simplified logic replaces the previous complex dual-role system where users could be both players and team members. The new system provides:
+
+1. **Clearer User Experience**: Users know exactly what they are based on which chat they're in
+2. **Simpler Codebase**: No complex role determination logic
+3. **Better Maintainability**: Easy to understand and modify
+4. **Consistent Behavior**: Same commands always behave the same way in the same context
+
+The system is now **production-ready** with robust error handling, comprehensive logging, and type-safe code.
 
 This clean design approach ensures the system is maintainable, testable, and follows software engineering best practices! 🚀

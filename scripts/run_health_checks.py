@@ -13,7 +13,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from core.startup_validator import run_startup_validation
+from kickai.core.startup_validator import run_startup_validation
 
 # Configure logging
 logging.basicConfig(

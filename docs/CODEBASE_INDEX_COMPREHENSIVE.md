@@ -137,11 +137,10 @@ KICKAI/
 │   │   │   ├── reminder_service_interface.py
 │   │   │   ├── payment_service_interface.py
 │   │   │   ├── expense_service_interface.py
-│   │   │   ├── external_player_service_interface.py
+│   │   │   ├── payment_gateway_interface.py
 │   │   │   └── payment_gateway_interface.py
 │   │   └── mocks/               # Mock services for testing
-│   │       ├── mock_payment_service.py
-│   │       └── mock_external_player_service.py
+│   │       └── mock_payment_service.py
 │   ├── bot_telegram/             # Telegram Integration
 │   │   ├── unified_command_system.py # Unified command architecture (88KB, 2319 lines)
 │   │   ├── unified_message_handler.py # Message processing and routing (20KB, 464 lines)
