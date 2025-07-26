@@ -5,10 +5,10 @@ Team administration tools module.
 This module provides tools for team administration and management.
 """
 
-# Note: All team administration tools are currently unused by agents
-# These tools are kept for potential future use but not exported to avoid clutter
-# - create_team: Not used by any agent
+# Import the simplified team member tools
+from .simplified_team_member_tools import add_team_member_simplified
 
 __all__ = [
-    # No tools exported - all are unused by agents
+    # Simplified team member tools
+    "add_team_member_simplified",
 ]
