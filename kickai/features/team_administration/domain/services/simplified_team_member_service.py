@@ -55,17 +55,17 @@ class SimplifiedTeamMemberService:
 
             # Get existing team member IDs for collision detection
             existing_members = await self.team_repository.get_team_members_by_team(team_id)
-            existing_ids = {member.id for member in existing_members if member.id}
+            existing_ids = {member.user_id for member in existing_members if member.user_id}
 
             # Generate simple team member ID
             member_id = generate_simple_team_member_id(name, team_id, existing_ids)
 
             # Create team member entity
             team_member = TeamMember(
-                id=member_id,
+                user_id=member_id,
                 team_id=team_id,
-                name=name,
-                phone=phone,
+                full_name=name,
+                phone_number=phone,
                 role=role or DEFAULT_ROLE,
                 status=DEFAULT_STATUS,
                 created_at=datetime.now(),
@@ -85,7 +85,7 @@ class SimplifiedTeamMemberService:
         try:
             members = await self.team_repository.get_team_members_by_team(team_id)
             for member in members:
-                if member.phone == phone:
+                if member.phone_number == phone:
                     return member
             return None
         except Exception as e:
