@@ -22,10 +22,10 @@ from typing import Dict, Any, List, Optional
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from testing.e2e_framework import E2ETestFramework
-from features.player_registration.domain.entities.player import Player, PlayerPosition, PlayerRole, OnboardingStatus
-from features.team_administration.domain.entities.team import Team
-from features.team_administration.domain.entities.team_member import TeamMember
-from features.team_administration.domain.entities.bot_mapping import BotMapping
+from kickai.features.player_registration.domain.entities.player import Player, PlayerPosition, PlayerRole, OnboardingStatus
+from kickai.features.team_administration.domain.entities.team import Team
+from kickai.features.team_administration.domain.entities.team_member import TeamMember
+from kickai.features.team_administration.domain.entities.bot_mapping import BotMapping
 
 class TestStatusAndRegistration(E2ETestFramework):
     """End-to-end tests for status command and player registration."""

@@ -14,21 +14,18 @@ from pathlib import Path
 from threading import Thread
 from typing import Optional
 
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-
 # Enable nested event loops for environments that already have an event loop running
 import nest_asyncio
 nest_asyncio.apply()
 
-from core.settings import initialize_settings, get_settings
-from database.firebase_client import initialize_firebase_client
-from features.team_administration.domain.services.multi_bot_manager import MultiBotManager
-from core.dependency_container import get_service, get_singleton, ensure_container_initialized
-from features.team_administration.domain.interfaces.team_service_interface import ITeamService
-from features.player_registration.domain.interfaces.player_service_interface import IPlayerService
-from core.startup_validator import StartupValidator
-from core.logging_config import logger
+from kickai.core.settings import initialize_settings, get_settings
+from kickai.database.firebase_client import initialize_firebase_client
+from kickai.features.team_administration.domain.services.multi_bot_manager import MultiBotManager
+from kickai.core.dependency_container import get_service, get_singleton, ensure_container_initialized
+from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
+from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
+from kickai.core.startup_validator import StartupValidator
+from kickai.core.logging_config import logger
 
 # Global state
 multi_bot_manager: Optional[MultiBotManager] = None
@@ -68,7 +65,7 @@ def setup_environment():
         logger.info("✅ Configuration loaded successfully and logging configured")
         
         # Set up CrewAI logging to redirect to loguru
-        from utils.crewai_logging import setup_crewai_logging
+        from kickai.utils.crewai_logging import setup_crewai_logging
         setup_crewai_logging("INFO")  # Use INFO level for Railway
         
         # Initialize Firebase

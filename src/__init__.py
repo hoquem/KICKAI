@@ -1,1 +1,0 @@
-# KICKAI Source Package

@@ -28,9 +28,8 @@ fi
 echo "🔧 Activating virtual environment..."
 source venv/bin/activate
 
-# Set PYTHONPATH to src
-export PYTHONPATH="src"
-echo "🔧 PYTHONPATH set to: $PYTHONPATH"
+# Package structure - no PYTHONPATH needed
+echo "🔧 Using package structure - imports work directly"
 
 # Check if run_bot_local.py exists
 if [ ! -f "run_bot_local.py" ]; then
@@ -40,7 +39,7 @@ fi
 
 echo "🤖 Starting bot with process management..."
 echo "💡 Press Ctrl+C to stop the bot"
-echo "📝 Logs will be written to both console and logs/kickai.log"
+echo "📝 Logs will be written to console only"
 echo ""
 
 # Start the bot

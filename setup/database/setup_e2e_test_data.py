@@ -30,7 +30,7 @@ from features.team_administration.domain.entities.team_member import TeamMember
 from features.team_administration.domain.entities.bot_mapping import BotMapping
 from features.team_administration.domain.entities.match import Match, MatchStatus
 from features.team_administration.domain.entities.payment import Payment, PaymentType, PaymentStatus
-from utils.id_generator import IDGenerator
+from utils.football_id_generator import FootballIDGenerator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -44,7 +44,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # Test configuration
-TEAM_ID = "KAI"
+TEAM_ID = "SUNKAI"
 TEAM_NAME = "KickAI Testing"
 BOT_USERNAME = "KickAITesting_bot"
 BOT_TOKEN = "7693359073:AAEnLqhdbCOfnf0RDfjn71z8GLRooNKNYsM"
@@ -62,7 +62,7 @@ TEST_PLAYERS = [
         "admin_approved": True,
         "fa_registered": True,
         "fa_registration_number": "FA123456",
-        "player_id": "JS",
+        "player_id": "06MFJS",
         "telegram_id": "1581500055",
         "telegram_username": "doods2000"
     },
@@ -75,7 +75,7 @@ TEST_PLAYERS = [
         "admin_approved": True,
         "fa_registered": True,
         "fa_registration_number": "FA234567",
-        "player_id": "SJ",
+        "player_id": "09FWSJ",
         "telegram_id": "1581500056",
         "telegram_username": "sarah_j"
     },
@@ -88,7 +88,7 @@ TEST_PLAYERS = [
         "admin_approved": True,
         "fa_registered": True,
         "fa_registration_number": "FA345678",
-        "player_id": "MW",
+        "player_id": "02DFMW",
         "telegram_id": "1581500057",
         "telegram_username": "mike_w"
     },
@@ -100,7 +100,7 @@ TEST_PLAYERS = [
         "onboarding_status": OnboardingStatus.IN_PROGRESS,
         "admin_approved": False,
         "fa_registered": False,
-        "player_id": "ED",
+        "player_id": "01GKED",
         "telegram_id": "1581500058",
         "telegram_username": "emma_d"
     },
@@ -112,7 +112,7 @@ TEST_PLAYERS = [
         "onboarding_status": OnboardingStatus.PENDING_APPROVAL,
         "admin_approved": False,
         "fa_registered": False,
-        "player_id": "AB",
+        "player_id": "06MFAB",
         "telegram_id": "1581500059",
         "telegram_username": "alex_b"
     },
@@ -124,7 +124,7 @@ TEST_PLAYERS = [
         "onboarding_status": OnboardingStatus.COMPLETED,
         "admin_approved": True,
         "fa_registered": False,
-        "player_id": "LT",
+        "player_id": "06MFLT",
         "telegram_id": "1581500060",
         "telegram_username": "lisa_t"
     },
@@ -136,7 +136,7 @@ TEST_PLAYERS = [
         "onboarding_status": OnboardingStatus.COMPLETED,
         "admin_approved": True,
         "fa_registered": False,
-        "player_id": "DC",
+        "player_id": "06MFDC",
         "telegram_id": "1581500061",
         "telegram_username": "david_c"
     }
@@ -194,7 +194,7 @@ def create_test_matches() -> List[Dict[str, Any]]:
     now = datetime.now()
     return [
         {
-            "id": "MATCH001",
+            "id": "FRI2024-01-15-SUNKAI-TESTFC",
             "team_id": TEAM_ID,
             "opponent": "Test FC",
             "date": now + timedelta(days=7),
@@ -202,13 +202,13 @@ def create_test_matches() -> List[Dict[str, Any]]:
             "status": MatchStatus.SCHEDULED.value,  # Convert enum to string
             "home_away": "home",
             "competition": "Friendly",
-            "confirmed_players": ["JS", "SJ", "MW"],
+            "confirmed_players": ["06MFJS", "09FWSJ", "02DFMW"],
             "attendees": ["JS", "SJ", "MW"],
             "created_at": now,
             "updated_at": now
         },
         {
-            "id": "MATCH002",
+            "id": "SUN2024-01-22-RIVALS-SUNKAI",
             "team_id": TEAM_ID,
             "opponent": "Rivals United",
             "date": now + timedelta(days=14),
@@ -216,7 +216,7 @@ def create_test_matches() -> List[Dict[str, Any]]:
             "status": MatchStatus.CONFIRMED.value,  # Convert enum to string
             "home_away": "away",
             "competition": "League",
-            "confirmed_players": ["JS", "SJ", "MW", "ED"],
+            "confirmed_players": ["06MFJS", "09FWSJ", "02DFMW", "01GKED"],
             "attendees": ["JS", "SJ", "MW"],
             "created_at": now,
             "updated_at": now
@@ -230,13 +230,13 @@ def create_test_payments() -> List[Dict[str, Any]]:
         {
             "id": "PAY001",
             "team_id": TEAM_ID,
-            "player_id": "JS",
+            "player_id": "06MFJS",
             "amount": 10.0,
             "type": PaymentType.MATCH_FEE.value,  # Convert enum to string
             "status": PaymentStatus.PAID.value,  # Convert enum to string
             "due_date": now - timedelta(days=1),
             "paid_date": now - timedelta(hours=2),
-            "related_entity_id": "MATCH001",
+            "related_entity_id": "FRI2024-01-15-SUNKAI-TESTFC",
             "description": "Match fee for Test FC game",
             "created_at": now - timedelta(days=2),
             "updated_at": now - timedelta(hours=2)
@@ -244,12 +244,12 @@ def create_test_payments() -> List[Dict[str, Any]]:
         {
             "id": "PAY002",
             "team_id": TEAM_ID,
-            "player_id": "SJ",
+            "player_id": "09FWSJ",
             "amount": 10.0,
             "type": PaymentType.MATCH_FEE.value,  # Convert enum to string
             "status": PaymentStatus.PENDING.value,  # Convert enum to string
             "due_date": now + timedelta(days=6),
-            "related_entity_id": "MATCH001",
+            "related_entity_id": "FRI2024-01-15-SUNKAI-TESTFC",
             "description": "Match fee for Test FC game",
             "created_at": now - timedelta(days=1),
             "updated_at": now - timedelta(days=1)
@@ -262,8 +262,7 @@ async def setup_test_data():
     """Set up all test data in Firestore."""
     logger.info("🚀 Setting up E2E test data...")
     
-    # Initialize ID generator
-    id_generator = IDGenerator()
+    # Football ID generator is used automatically
     
     try:
         # 1. Create test team

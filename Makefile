@@ -41,30 +41,29 @@ setup-dev:
 # Development server
 dev:
 	@echo "Starting development server..."
-	export PYTHONPATH=src && python run_telegram_bot.py
+	python run_bot_local.py
 
 # Testing commands
 test: test-unit test-integration test-e2e
 
 test-unit:
 	@echo "Running unit tests..."
-	export PYTHONPATH=src && python -m pytest tests/unit/ -v
+	python -m pytest tests/unit/ -v
 
 test-integration:
 	@echo "Running integration tests..."
-	export PYTHONPATH=src && python -m pytest tests/integration/ -v
+	python -m pytest tests/integration/ -v
 
 test-e2e:
 	@echo "Running E2E tests..."
-	export PYTHONPATH=src && python run_e2e_tests.py --suite=smoke
+	python run_e2e_tests.py --suite=smoke
 
 # Code quality
 lint:
 	@echo "Running code quality checks..."
-	python -m flake8 src/
-	python -m black --check src/
-	python -m isort --check-only src/
-	python -m mypy src/
+	python -m ruff check kickai/
+	python -m ruff format kickai/
+	python -m mypy kickai/
 
 # Clean up
 clean:
