@@ -5,6 +5,7 @@ from kickai.features.attendance_management.domain.repositories.attendance_reposi
 
 # from kickai.features.attendance_management.domain.entities.attendance import Attendance  # Uncomment and implement Attendance entity as needed
 
+
 class FirestoreAttendanceRepository(AttendanceRepositoryInterface):
     def __init__(self, firebase_client):
         self.firebase_client = firebase_client
@@ -12,7 +13,9 @@ class FirestoreAttendanceRepository(AttendanceRepositoryInterface):
 
     async def create(self, attendance):  # Use Attendance type when available
         # Placeholder: Implement actual Firebase logic
-        await self.firebase_client.set_document(self.collection_name, attendance.id, attendance.__dict__)
+        await self.firebase_client.set_document(
+            self.collection_name, attendance.id, attendance.__dict__
+        )
         return attendance
 
     async def get_by_id(self, attendance_id: str):  # -> Optional[Attendance]
@@ -22,11 +25,17 @@ class FirestoreAttendanceRepository(AttendanceRepositoryInterface):
         return None
 
     async def get_by_team(self, team_id: str):  # -> List[Attendance]
-        docs = await self.firebase_client.query_collection(self.collection_name, {'team_id': team_id})
-        return docs  # Replace with [Attendance(**doc) for doc in docs] when Attendance is implemented
+        docs = await self.firebase_client.query_collection(
+            self.collection_name, {"team_id": team_id}
+        )
+        return (
+            docs  # Replace with [Attendance(**doc) for doc in docs] when Attendance is implemented
+        )
 
     async def update(self, attendance):  # -> Attendance
-        await self.firebase_client.set_document(self.collection_name, attendance.id, attendance.__dict__)
+        await self.firebase_client.set_document(
+            self.collection_name, attendance.id, attendance.__dict__
+        )
         return attendance
 
     async def delete(self, attendance_id: str) -> None:

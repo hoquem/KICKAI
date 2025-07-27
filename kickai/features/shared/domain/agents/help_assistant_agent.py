@@ -17,7 +17,7 @@ from kickai.utils.llm_factory import LLMFactory
 logger = logging.getLogger(__name__)
 
 
-def get_help_assistant_agent() -> 'HelpAssistantAgent':
+def get_help_assistant_agent() -> "HelpAssistantAgent":
     """Get a help assistant agent instance with proper LLM configuration."""
     return HelpAssistantAgent()
 
@@ -43,7 +43,7 @@ class HelpAssistantAgent:
             allow_delegation=False,
             tools=self.tools,
             llm=self.llm,  # Add the LLM
-            memory=True
+            memory=True,
         )
 
     def process_help_request(self, context: dict[str, Any]) -> str:
@@ -96,20 +96,22 @@ The context contains: chat_type, user_id, team_id, and username. Use these exact
                         else:
                             context_info.append(f"{key}: empty")
                     else:
-                        context_info.append(f"{key}: {str(value)}")
-                
+                        context_info.append(f"{key}: {value!s}")
+
                 if context_info:
                     enhanced_task = f"{base_task}\n\nAvailable context parameters: {', '.join(context_info)}\n\nPlease use these context parameters when calling tools that require them."
-                    self.logger.info(f"🔧 [HELP ASSISTANT] Enhanced task with context: {', '.join(context_info)}")
+                    self.logger.info(
+                        f"🔧 [HELP ASSISTANT] Enhanced task with context: {', '.join(context_info)}"
+                    )
                 else:
-                    self.logger.warning(f"🔧 [HELP ASSISTANT] No context parameters found!")
+                    self.logger.warning("🔧 [HELP ASSISTANT] No context parameters found!")
 
             # Create the task
             task = Task(
                 description=enhanced_task,
                 agent=agent,
                 expected_output="A complete, formatted help response ready for the user",
-                config=context or {}  # Pass context data through config for reference
+                config=context or {},  # Pass context data through config for reference
             )
 
             # Create the crew
@@ -117,13 +119,15 @@ The context contains: chat_type, user_id, team_id, and username. Use these exact
                 agents=[agent],
                 tasks=[task],
                 process=Process.sequential,
-                verbose=True  # Enable verbose mode for debugging
+                verbose=True,  # Enable verbose mode for debugging
             )
 
             # Execute the crew
             result = crew.kickoff()
 
-            self.logger.info(f"✅ Help response generated successfully for user {context.get('user_id')}")
+            self.logger.info(
+                f"✅ Help response generated successfully for user {context.get('user_id')}"
+            )
             return result
 
         except Exception as e:
@@ -138,7 +142,13 @@ The context contains: chat_type, user_id, team_id, and username. Use these exact
         """Check if this agent can handle the given message."""
         message_lower = message.lower().strip()
         help_keywords = [
-            "help", "commands", "what can you do", "show commands",
-            "how to", "guide", "assistance", "support"
+            "help",
+            "commands",
+            "what can you do",
+            "show commands",
+            "how to",
+            "guide",
+            "assistance",
+            "support",
         ]
         return any(keyword in message_lower for keyword in help_keywords)

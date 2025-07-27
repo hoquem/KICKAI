@@ -9,13 +9,14 @@ context passing across the entire system to agents and tools.
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Union, Union
+from typing import Any
 
 from kickai.core.enums import ChatType, PermissionLevel
 
 
 class ContextSource(Enum):
     """Source of the context."""
+
     TELEGRAM_MESSAGE = "telegram_message"
     COMMAND = "command"
     NATURAL_LANGUAGE = "natural_language"
@@ -25,6 +26,7 @@ class ContextSource(Enum):
 @dataclass
 class UserPermissions:
     """User permissions information."""
+
     is_player: bool = False
     is_team_member: bool = False
     is_admin: bool = False
@@ -40,6 +42,7 @@ class StandardizedContext:
     This ensures all agents and tools have access to the same context information
     regardless of how they are called.
     """
+
     # Core fields (always present)
     user_id: str
     team_id: str
@@ -50,9 +53,9 @@ class StandardizedContext:
     telegram_name: str
 
     # Optional fields (populated when available)
-    user_permissions: Union[UserPermissions, None] = None
-    player_data: Union[dict[str, Any], None] = None
-    team_member_data: Union[dict[str, Any], None] = None
+    user_permissions: UserPermissions | None = None
+    player_data: dict[str, Any] | None = None
+    team_member_data: dict[str, Any] | None = None
     is_registered: bool = False
     is_player: bool = False
     is_team_member: bool = False
@@ -77,45 +80,47 @@ class StandardizedContext:
     def to_dict(self) -> dict[str, Any]:
         """Convert context to dictionary for serialization."""
         return {
-            'user_id': self.user_id,
-            'team_id': self.team_id,
-            'chat_id': self.chat_id,
-            'chat_type': self.chat_type,
-            'message_text': self.message_text,
-            'username': self.username,
-            'telegram_name': self.telegram_name,
-            'is_registered': self.is_registered,
-            'is_player': self.is_player,
-            'is_team_member': self.is_team_member,
-            'source': self.source.value,
-            'timestamp': self.timestamp,
-            'metadata': self.metadata
+            "user_id": self.user_id,
+            "team_id": self.team_id,
+            "chat_id": self.chat_id,
+            "chat_type": self.chat_type,
+            "message_text": self.message_text,
+            "username": self.username,
+            "telegram_name": self.telegram_name,
+            "is_registered": self.is_registered,
+            "is_player": self.is_player,
+            "is_team_member": self.is_team_member,
+            "source": self.source.value,
+            "timestamp": self.timestamp,
+            "metadata": self.metadata,
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'StandardizedContext':
+    def from_dict(cls, data: dict[str, Any]) -> "StandardizedContext":
         """Create context from dictionary with validation of critical fields."""
         # Validate that critical fields are present
-        required_fields = ['user_id', 'team_id', 'chat_id', 'chat_type', 'message_text', 'username']
-        missing_fields = [field for field in required_fields if field not in data or not data[field]]
+        required_fields = ["user_id", "team_id", "chat_id", "chat_type", "message_text", "username"]
+        missing_fields = [
+            field for field in required_fields if field not in data or not data[field]
+        ]
 
         if missing_fields:
             raise ValueError(f"Missing required fields for StandardizedContext: {missing_fields}")
 
         # For user registration status, require explicit values (no defaults)
-        if 'is_registered' not in data:
+        if "is_registered" not in data:
             raise ValueError("is_registered field is required and must be explicitly set")
-        if 'is_player' not in data:
+        if "is_player" not in data:
             raise ValueError("is_player field is required and must be explicitly set")
-        if 'is_team_member' not in data:
+        if "is_team_member" not in data:
             raise ValueError("is_team_member field is required and must be explicitly set")
 
         # Only provide defaults for non-critical fields
         defaults = {
-            'telegram_name': data.get('telegram_name', ''),
-            'source': ContextSource(data.get('source', ContextSource.TELEGRAM_MESSAGE.value)),
-            'timestamp': data.get('timestamp', datetime.now().isoformat()),
-            'metadata': data.get('metadata', {})
+            "telegram_name": data.get("telegram_name", ""),
+            "source": ContextSource(data.get("source", ContextSource.TELEGRAM_MESSAGE.value)),
+            "timestamp": data.get("timestamp", datetime.now().isoformat()),
+            "metadata": data.get("metadata", {}),
         }
 
         # Merge provided data with defaults
@@ -134,11 +139,11 @@ class StandardizedContext:
 
     def is_leadership_chat(self) -> bool:
         """Check if this is a leadership chat."""
-        return self.chat_type.lower() == 'leadership_chat'
+        return self.chat_type.lower() == "leadership_chat"
 
     def is_main_chat(self) -> bool:
         """Check if this is a main chat."""
-        return self.chat_type.lower() == 'main_chat'
+        return self.chat_type.lower() == "main_chat"
 
     def has_permission(self, permission: PermissionLevel) -> bool:
         """Check if user has a specific permission."""
@@ -165,7 +170,7 @@ def create_context_from_telegram_message(
     message_text: str,
     username: str,
     telegram_name: str = "",
-    **kwargs
+    **kwargs,
 ) -> StandardizedContext:
     """Create standardized context from Telegram message data."""
     return StandardizedContext(
@@ -177,7 +182,7 @@ def create_context_from_telegram_message(
         username=username,
         telegram_name=telegram_name,
         source=ContextSource.TELEGRAM_MESSAGE,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -189,7 +194,7 @@ def create_context_from_command(
     command_text: str,
     username: str,
     telegram_name: str = "",
-    **kwargs
+    **kwargs,
 ) -> StandardizedContext:
     """Create standardized context from command data."""
     return StandardizedContext(
@@ -201,15 +206,15 @@ def create_context_from_command(
         username=username,
         telegram_name=telegram_name,
         source=ContextSource.COMMAND,
-        **kwargs
+        **kwargs,
     )
 
 
 def enhance_context_with_user_data(
     context: StandardizedContext,
-    user_permissions: Union[UserPermissions, None] = None,
-    player_data: Union[dict[str, Any], None] = None,
-    team_member_data: Union[dict[str, Any], None] = None
+    user_permissions: UserPermissions | None = None,
+    player_data: dict[str, Any] | None = None,
+    team_member_data: dict[str, Any] | None = None,
 ) -> StandardizedContext:
     """Enhance context with additional user data."""
     context.user_permissions = user_permissions

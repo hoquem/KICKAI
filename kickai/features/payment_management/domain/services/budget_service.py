@@ -6,7 +6,7 @@ This module provides budget management functionality.
 
 import logging
 from datetime import datetime
-from typing import Any, Union
+from typing import Any
 
 from ..entities.budget import Budget
 from ..repositories.budget_repository_interface import BudgetRepositoryInterface
@@ -20,8 +20,9 @@ class BudgetService:
     def __init__(self, budget_repository: BudgetRepositoryInterface):
         self.budget_repository = budget_repository
 
-    async def create_budget(self, team_id: str, amount: float, category: str,
-                          description: str, created_by: str) -> Budget:
+    async def create_budget(
+        self, team_id: str, amount: float, category: str, description: str, created_by: str
+    ) -> Budget:
         """Create a new budget."""
         budget = Budget(
             team_id=team_id,
@@ -29,11 +30,11 @@ class BudgetService:
             category=category,
             description=description,
             created_by=created_by,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
         return await self.budget_repository.create(budget)
 
-    async def get_budget_by_team(self, team_id: str) -> Union[Budget, None]:
+    async def get_budget_by_team(self, team_id: str) -> Budget | None:
         """Get budget for a team."""
         return await self.budget_repository.get_by_team(team_id)
 
@@ -69,5 +70,5 @@ class BudgetService:
             "utilization": utilization,
             "remaining": remaining,
             "spent": spent,
-            "total_budget": budget.amount
+            "total_budget": budget.amount,
         }

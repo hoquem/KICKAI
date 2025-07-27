@@ -4,7 +4,6 @@ Firebase tools for KICKAI system.
 This module provides tools for Firebase/Firestore operations.
 """
 
-from typing import Union
 import logging
 
 from crewai.tools import tool
@@ -18,13 +17,14 @@ logger = logging.getLogger(__name__)
 
 class GetFirebaseDocumentInput(BaseModel):
     """Input model for get_firebase_document tool."""
+
     collection: str
     document_id: str
-    team_id: Union[str, None] = None
+    team_id: str | None = None
 
 
 @tool("get_firebase_document")
-def get_firebase_document(collection: str, document_id: str, team_id: Union[str, None] = None) -> str:
+def get_firebase_document(collection: str, document_id: str, team_id: str | None = None) -> str:
     """
     Get a document from Firebase/Firestore. Requires: collection, document_id
 

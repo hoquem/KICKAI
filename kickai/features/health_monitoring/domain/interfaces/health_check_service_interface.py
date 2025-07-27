@@ -1,4 +1,3 @@
-from typing import Union
 from abc import ABC, abstractmethod
 
 from kickai.features.health_monitoring.domain.entities.health_check_types import SystemHealthReport
@@ -23,6 +22,6 @@ class IHealthCheckService(ABC):
         pass
 
     @abstractmethod
-    async def export_health_report(self, file_path: Union[str, None] = None) -> str:
+    async def export_health_report(self, file_path: str | None = None) -> str:
         """Export health report to file."""
         pass

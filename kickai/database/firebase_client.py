@@ -9,7 +9,7 @@ import os
 import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Union, Union
+from typing import Any
 
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -28,7 +28,10 @@ except ImportError:
             firebase_project_id = "test_project"
             firebase_credentials_json = None
             firebase_credentials_path = None
+
         return MockSettings()
+
+
 try:
     from kickai.core.constants import (
         FIRESTORE_COLLECTION_PREFIX,
@@ -116,34 +119,48 @@ class FirebaseClient:
                             raise RuntimeError(f"Invalid JSON in firebase_credentials_json: {e}")
                     elif self.config.firebase_credentials_path:
                         try:
-                            logger.info(f"🔄 Using firebase_credentials_path from config: {self.config.firebase_credentials_path} ...")
+                            logger.info(
+                                f"🔄 Using firebase_credentials_path from config: {self.config.firebase_credentials_path} ..."
+                            )
                             with open(self.config.firebase_credentials_path) as f:
                                 creds_dict = json.load(f)
                         except Exception as e:
-                            raise RuntimeError(f"Failed to load credentials from file {self.config.firebase_credentials_path}: {e}")
+                            raise RuntimeError(
+                                f"Failed to load credentials from file {self.config.firebase_credentials_path}: {e}"
+                            )
                     else:
                         # Fallback to environment variables for backward compatibility
-                        firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
+                        firebase_creds_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
                         if firebase_creds_json:
                             try:
-                                logger.info("🔄 Using FIREBASE_CREDENTIALS_JSON from environment...")
+                                logger.info(
+                                    "🔄 Using FIREBASE_CREDENTIALS_JSON from environment..."
+                                )
                                 creds_dict = json.loads(firebase_creds_json)
                             except json.JSONDecodeError as e:
-                                raise RuntimeError(f"Invalid JSON in FIREBASE_CREDENTIALS_JSON: {e}")
+                                raise RuntimeError(
+                                    f"Invalid JSON in FIREBASE_CREDENTIALS_JSON: {e}"
+                                )
                         else:
-                            firebase_creds_file = os.getenv('FIREBASE_CREDENTIALS_FILE')
+                            firebase_creds_file = os.getenv("FIREBASE_CREDENTIALS_FILE")
                             if firebase_creds_file:
                                 try:
-                                    logger.info(f"🔄 Using FIREBASE_CREDENTIALS_FILE from environment: {firebase_creds_file} ...")
+                                    logger.info(
+                                        f"🔄 Using FIREBASE_CREDENTIALS_FILE from environment: {firebase_creds_file} ..."
+                                    )
                                     with open(firebase_creds_file) as f:
                                         creds_dict = json.load(f)
                                 except Exception as e:
-                                    raise RuntimeError(f"Failed to load credentials from file {firebase_creds_file}: {e}")
+                                    raise RuntimeError(
+                                        f"Failed to load credentials from file {firebase_creds_file}: {e}"
+                                    )
                             else:
-                                raise RuntimeError("No Firebase credentials found. Please set either firebase_credentials_json, firebase_credentials_path in config, or FIREBASE_CREDENTIALS_JSON/FIREBASE_CREDENTIALS_FILE environment variables.")
+                                raise RuntimeError(
+                                    "No Firebase credentials found. Please set either firebase_credentials_json, firebase_credentials_path in config, or FIREBASE_CREDENTIALS_JSON/FIREBASE_CREDENTIALS_FILE environment variables."
+                                )
 
                     # Log private key details for debugging
-                    private_key = creds_dict.get('private_key', '')
+                    private_key = creds_dict.get("private_key", "")
                     logger.info(f"🔍 Private key length: {len(private_key)} characters")
 
                     # Create credentials
@@ -167,7 +184,9 @@ class FirebaseClient:
                 logger.info("✅ Firebase Firestore client created successfully")
             except Exception as e:
                 if "AuthMetadataPluginCallback" in str(e):
-                    logger.warning("⚠️ gRPC AuthMetadataPluginCallback error in client creation (usually harmless): {e}")
+                    logger.warning(
+                        "⚠️ gRPC AuthMetadataPluginCallback error in client creation (usually harmless): {e}"
+                    )
                     # Try to continue anyway
                     self._client = firestore.client()
                 else:
@@ -177,7 +196,7 @@ class FirebaseClient:
             logger.error("Failed to initialize Firebase client")
             raise ConnectionError(
                 f"Failed to initialize Firebase client: {e!s}",
-                create_error_context("firebase", error=e)
+                create_error_context("firebase", error=e),
             )
 
     @property
@@ -187,11 +206,10 @@ class FirebaseClient:
             if self.config.firebase_project_id == "test_project":
                 raise ConnectionError(
                     "Firebase client not available in test environment",
-                    create_error_context("firebase_client_access")
+                    create_error_context("firebase_client_access"),
                 )
             raise ConnectionError(
-                "Firebase client not initialized",
-                create_error_context("firebase_client_access")
+                "Firebase client not initialized", create_error_context("firebase_client_access")
             )
         return self._client
 
@@ -242,23 +260,23 @@ class FirebaseClient:
 
         try:
             for operation in operations:
-                op_type = operation['type']
-                collection = operation['collection']
-                data = operation.get('data', {})
+                op_type = operation["type"]
+                collection = operation["collection"]
+                data = operation.get("data", {})
 
-                if op_type == 'create':
+                if op_type == "create":
                     doc_ref = self._get_collection(collection).document()
                     batch.set(doc_ref, data)
                     results.append(doc_ref.id)
 
-                elif op_type == 'update':
-                    doc_id = operation['document_id']
+                elif op_type == "update":
+                    doc_id = operation["document_id"]
                     doc_ref = self._get_collection(collection).document(doc_id)
                     batch.update(doc_ref, data)
                     results.append(doc_id)
 
-                elif op_type == 'delete':
-                    doc_id = operation['document_id']
+                elif op_type == "delete":
+                    doc_id = operation["document_id"]
                     doc_ref = self._get_collection(collection).document(doc_id)
                     batch.delete(doc_ref)
                     results.append(doc_id)
@@ -268,66 +286,97 @@ class FirebaseClient:
             return results
 
         except Exception as e:
-            self._handle_firebase_error(e, "batch_execution",
-                                      additional_info={'operation_count': len(operations)})
+            self._handle_firebase_error(
+                e, "batch_execution", additional_info={"operation_count": len(operations)}
+            )
             return []  # Return empty list on error
 
     @async_retry(max_attempts=3, delay=1.0)
     @async_timeout(30.0)
-    async def create_document(self, collection: str, data: dict[str, Any],
-                            document_id: Union[str, None] = None) -> str:
+    async def create_document(
+        self, collection: str, data: dict[str, Any], document_id: str | None = None
+    ) -> str:
         """Create a new document with optional custom document ID."""
-        async with async_operation_context("create_document", collection=collection, document_id=document_id):
+        async with async_operation_context(
+            "create_document", collection=collection, document_id=document_id
+        ):
             try:
                 data_serialized = serialize_enums_for_firestore(data)
-                logger.info(f"[Firestore] Creating document in '{collection}' with data: {data_serialized}")
-                doc_ref = self._get_collection(collection).document(document_id) if document_id else self._get_collection(collection).document()
+                logger.info(
+                    f"[Firestore] Creating document in '{collection}' with data: {data_serialized}"
+                )
+                doc_ref = (
+                    self._get_collection(collection).document(document_id)
+                    if document_id
+                    else self._get_collection(collection).document()
+                )
                 doc_ref.set(data_serialized)
                 logger.info(f"[Firestore] Document created: {doc_ref.id}")
                 return doc_ref.id
             except Exception as e:
-                logger.error(f"[Firestore] Failed to create document in '{collection}': {e}\n{traceback.format_exc()}")
-                self._handle_firebase_error(e, "create_document", additional_info={'collection': collection})
+                logger.error(
+                    f"[Firestore] Failed to create document in '{collection}': {e}\n{traceback.format_exc()}"
+                )
+                self._handle_firebase_error(
+                    e, "create_document", additional_info={"collection": collection}
+                )
                 return ""
 
     @async_retry(max_attempts=3, delay=1.0)
     @async_timeout(30.0)
-    async def get_document(self, collection: str, document_id: str) -> Union[dict[str, Any], None]:
+    async def get_document(self, collection: str, document_id: str) -> dict[str, Any] | None:
         """Get a document by ID."""
-        async with async_operation_context("get_document", collection=collection, document_id=document_id):
+        async with async_operation_context(
+            "get_document", collection=collection, document_id=document_id
+        ):
             try:
                 doc_ref = self._get_collection(collection).document(document_id)
                 doc = doc_ref.get()
 
                 if doc is not None and doc.exists:
                     data = doc.to_dict()
-                    data['id'] = doc.id
+                    data["id"] = doc.id
                     return data
                 else:
                     return None
 
             except Exception as e:
-                self._handle_firebase_error(e, "get_document",
-                                          entity_id=document_id, additional_info={'collection': collection})
+                self._handle_firebase_error(
+                    e,
+                    "get_document",
+                    entity_id=document_id,
+                    additional_info={"collection": collection},
+                )
                 return None  # Return None on error
 
     @async_retry(max_attempts=3, delay=1.0)
     @async_timeout(30.0)
-    async def update_document(self, collection: str, document_id: str,
-                            data: dict[str, Any]) -> bool:
+    async def update_document(
+        self, collection: str, document_id: str, data: dict[str, Any]
+    ) -> bool:
         """Update an existing document."""
-        async with async_operation_context("update_document", collection=collection, document_id=document_id):
+        async with async_operation_context(
+            "update_document", collection=collection, document_id=document_id
+        ):
             try:
                 data_serialized = serialize_enums_for_firestore(data)
-                logger.info(f"[Firestore] Updating document in '{collection}' with ID: {document_id}, data: {data_serialized}")
+                logger.info(
+                    f"[Firestore] Updating document in '{collection}' with ID: {document_id}, data: {data_serialized}"
+                )
                 doc_ref = self._get_collection(collection).document(document_id)
                 doc_ref.update(data_serialized)
                 logger.info(f"[Firestore] Document updated: {document_id}")
                 return True
             except Exception as e:
-                logger.error(f"[Firestore] Failed to update document in '{collection}' (document_id={document_id}): {e}\n{traceback.format_exc()}")
-                self._handle_firebase_error(e, "update_document",
-                                          entity_id=document_id, additional_info={'collection': collection})
+                logger.error(
+                    f"[Firestore] Failed to update document in '{collection}' (document_id={document_id}): {e}\n{traceback.format_exc()}"
+                )
+                self._handle_firebase_error(
+                    e,
+                    "update_document",
+                    entity_id=document_id,
+                    additional_info={"collection": collection},
+                )
                 return False  # Return False on error
 
     async def delete_document(self, collection: str, document_id: str) -> bool:
@@ -339,18 +388,33 @@ class FirebaseClient:
             logger.info(f"[Firestore] Document deleted: {document_id}")
             return True
         except Exception as e:
-            logger.error(f"[Firestore] Failed to delete document in '{collection}' (document_id={document_id}): {e}\n{traceback.format_exc()}")
-            self._handle_firebase_error(e, "delete_document",
-                                      entity_id=document_id, additional_info={'collection': collection})
+            logger.error(
+                f"[Firestore] Failed to delete document in '{collection}' (document_id={document_id}): {e}\n{traceback.format_exc()}"
+            )
+            self._handle_firebase_error(
+                e,
+                "delete_document",
+                entity_id=document_id,
+                additional_info={"collection": collection},
+            )
             return False  # Return False on error
 
     @async_retry(max_attempts=3, delay=1.0)
     @async_timeout(30.0)
-    async def query_documents(self, collection: str, filters: Union[list[dict[str, Any]], None] = None,
-                            order_by: Union[str, None] = None, limit: Union[int, None] = None) -> list[dict[str, Any]]:
+    async def query_documents(
+        self,
+        collection: str,
+        filters: list[dict[str, Any]] | None = None,
+        order_by: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
         """Query documents with filters and ordering."""
-        logger.debug(f"Query documents called with collection={collection}, filters={filters}, limit={limit}")
-        async with async_operation_context("query_documents", collection=collection, filters_count=len(filters) if filters else 0):
+        logger.debug(
+            f"Query documents called with collection={collection}, filters={filters}, limit={limit}"
+        )
+        async with async_operation_context(
+            "query_documents", collection=collection, filters_count=len(filters) if filters else 0
+        ):
             try:
                 query = self._get_collection(collection)
                 logger.debug(f"Got collection: {collection}")
@@ -358,9 +422,9 @@ class FirebaseClient:
                 # Apply filters
                 if filters:
                     for filter_item in filters:
-                        field = filter_item['field']
-                        operator = filter_item['operator']
-                        value = filter_item['value']
+                        field = filter_item["field"]
+                        operator = filter_item["operator"]
+                        value = filter_item["value"]
                         logger.debug(f"Applying filter: {field} {operator} {value}")
                         query = query.where(field, operator, value)
 
@@ -381,7 +445,7 @@ class FirebaseClient:
 
                 for doc in docs:
                     data = doc.to_dict()
-                    data['id'] = doc.id
+                    data["id"] = doc.id
                     results.append(data)
 
                 logger.debug(f"Query documents returning {len(results)} results: {results}")
@@ -389,8 +453,11 @@ class FirebaseClient:
 
             except Exception as e:
                 logger.error(f"Query documents exception: {e}")
-                self._handle_firebase_error(e, "query_documents",
-                                          additional_info={'collection': collection, 'filters': filters})
+                self._handle_firebase_error(
+                    e,
+                    "query_documents",
+                    additional_info={"collection": collection, "filters": filters},
+                )
                 return []  # Return empty list on error
 
     async def list_collections(self) -> list[str]:
@@ -409,28 +476,33 @@ class FirebaseClient:
         data = serialize_enums_for_firestore(player.to_dict())
         # Use team-specific collection for player data
         from kickai.core.firestore_constants import get_team_players_collection
+
         collection_name = get_team_players_collection(player.team_id)
         return await self.create_document(collection_name, data, player.player_id)
 
-    async def get_player(self, player_id: str, team_id: str) -> Union[Any, None]:
+    async def get_player(self, player_id: str, team_id: str) -> Any | None:
         """Get a player by ID."""
         from kickai.core.firestore_constants import get_team_players_collection
+
         collection_name = get_team_players_collection(team_id)
         data = await self.get_document(collection_name, player_id)
         if data:
             return data
         return None
 
-    async def update_player(self, player_id: str, updates: dict[str, Any], team_id: str = None) -> Union[Any, None]:
+    async def update_player(
+        self, player_id: str, updates: dict[str, Any], team_id: str = None
+    ) -> Any | None:
         """Update a player by ID with specific fields and return the updated player."""
         try:
             # Use team-specific collection if team_id is provided
             if team_id:
                 from kickai.core.firestore_constants import get_team_players_collection
+
                 collection_name = get_team_players_collection(team_id)
             else:
                 collection_name = get_collection_name(COLLECTION_PLAYERS)
-                
+
             # First get the current player data
             current_data = await self.get_document(collection_name, player_id)
             if not current_data:
@@ -455,12 +527,14 @@ class FirebaseClient:
     async def delete_player(self, player_id: str, team_id: str) -> bool:
         """Delete a player."""
         from kickai.core.firestore_constants import get_team_players_collection
+
         collection_name = get_team_players_collection(team_id)
         return await self.delete_document(collection_name, player_id)
 
     async def get_players_by_team(self, team_id: str) -> list[Any]:
         """Get all players for a team."""
         from kickai.core.firestore_constants import get_team_players_collection
+
         collection_name = get_team_players_collection(team_id)
         data_list = await self.query_documents(collection_name, [])
         players = []
@@ -468,34 +542,39 @@ class FirebaseClient:
             if data:
                 players.append(data)
             else:
-                logger.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_players_by_team")
+                logger.warning(
+                    f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_players_by_team"
+                )
         return players
 
-    async def get_player_by_phone(self, phone: str, team_id: Union[str, None] = None) -> Union[Any, None]:
+    async def get_player_by_phone(self, phone: str, team_id: str | None = None) -> Any | None:
         """Get a player by phone number, optionally filtered by team."""
         from kickai.utils.phone_validation import get_phone_variants
 
         # Use team-specific collection if team_id is provided
         if team_id:
             from kickai.core.firestore_constants import get_team_players_collection
+
             collection_name = get_team_players_collection(team_id)
         else:
             collection_name = get_collection_name(COLLECTION_PLAYERS)
-            
+
         # Get all phone variants for flexible matching using enhanced validation
         phone_variants = get_phone_variants(phone)
 
         # Try to find player with any of the phone variants
         for variant in phone_variants:
-            filters = [{'field': 'phone_number', 'operator': '==', 'value': variant}]
+            filters = [{"field": "phone_number", "operator": "==", "value": variant}]
             if team_id:
-                filters.append({'field': 'team_id', 'operator': '==', 'value': team_id})
+                filters.append({"field": "team_id", "operator": "==", "value": team_id})
             data_list = await self.query_documents(collection_name, filters, limit=1)
             for data in data_list:
                 if data:
                     return data
                 else:
-                    logger.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_player_by_phone")
+                    logger.warning(
+                        f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_player_by_phone"
+                    )
         return None
 
     async def get_team_players(self, team_id: str) -> list[Any]:
@@ -505,17 +584,18 @@ class FirebaseClient:
     async def get_players_by_status(self, team_id: str, status: Any) -> list[Any]:
         """Get players by onboarding status."""
         from kickai.core.firestore_constants import get_team_players_collection
+
         collection_name = get_team_players_collection(team_id)
-        filters = [
-            {'field': 'onboarding_status', 'operator': '==', 'value': status.value}
-        ]
+        filters = [{"field": "onboarding_status", "operator": "==", "value": status.value}]
         data_list = await self.query_documents(collection_name, filters)
         players = []
         for data in data_list:
             if data:
                 players.append(data)
             else:
-                logger.warning(f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_players_by_status")
+                logger.warning(
+                    f"[Firestore] Skipping bad player document (id={data.get('id', 'unknown')}) in get_players_by_status"
+                )
         return players
 
     async def get_all_players(self, team_id: str) -> list[Any]:
@@ -526,13 +606,15 @@ class FirebaseClient:
     async def create_team(self, team: Any) -> str:
         """Create a new team."""
         data = team.to_dict()
-        from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
+        from kickai.core.firestore_constants import COLLECTION_TEAMS, get_collection_name
+
         collection_name = get_collection_name(COLLECTION_TEAMS)
         return await self.create_document(collection_name, data, team.id)
 
-    async def get_team(self, team_id: str) -> Union[Any, None]:
+    async def get_team(self, team_id: str) -> Any | None:
         """Get a team by ID."""
-        from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
+        from kickai.core.firestore_constants import COLLECTION_TEAMS, get_collection_name
+
         collection_name = get_collection_name(COLLECTION_TEAMS)
         data = await self.get_document(collection_name, team_id)
         if data:
@@ -542,33 +624,37 @@ class FirebaseClient:
     async def update_team(self, team: Any) -> bool:
         """Update a team."""
         data = team.to_dict()
-        from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
+        from kickai.core.firestore_constants import COLLECTION_TEAMS, get_collection_name
+
         collection_name = get_collection_name(COLLECTION_TEAMS)
         return await self.update_document(collection_name, team.id, data)
 
     async def delete_team(self, team_id: str) -> bool:
         """Delete a team."""
-        from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
+        from kickai.core.firestore_constants import COLLECTION_TEAMS, get_collection_name
+
         collection_name = get_collection_name(COLLECTION_TEAMS)
         return await self.delete_document(collection_name, team_id)
 
-    async def get_team_by_name(self, name: str) -> Union[Any, None]:
+    async def get_team_by_name(self, name: str) -> Any | None:
         """Get a team by name."""
-        from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
+        from kickai.core.firestore_constants import COLLECTION_TEAMS, get_collection_name
+
         collection_name = get_collection_name(COLLECTION_TEAMS)
-        filters = [{'field': 'name', 'operator': '==', 'value': name}]
+        filters = [{"field": "name", "operator": "==", "value": name}]
         data_list = await self.query_documents(collection_name, filters, limit=1)
         if data_list:
             return data_list[0]
         return None
 
-    async def get_all_teams(self, status: Union[Any, None] = None) -> list[Any]:
+    async def get_all_teams(self, status: Any | None = None) -> list[Any]:
         """Get all teams, optionally filtered by status."""
-        from kickai.core.firestore_constants import get_collection_name, COLLECTION_TEAMS
+        from kickai.core.firestore_constants import COLLECTION_TEAMS, get_collection_name
+
         collection_name = get_collection_name(COLLECTION_TEAMS)
         filters = []
         if status:
-            filters.append({'field': 'status', 'operator': '==', 'value': status.value})
+            filters.append({"field": "status", "operator": "==", "value": status.value})
         data_list = await self.query_documents(collection_name, filters)
         return data_list
 
@@ -577,12 +663,14 @@ class FirebaseClient:
         """Create a new match."""
         data = match.to_dict()
         from kickai.core.firestore_constants import get_team_matches_collection
+
         collection_name = get_team_matches_collection(match.team_id)
         return await self.create_document(collection_name, data, match.id)
 
-    async def get_match(self, match_id: str, team_id: str) -> Union[Any, None]:
+    async def get_match(self, match_id: str, team_id: str) -> Any | None:
         """Get a match by ID."""
         from kickai.core.firestore_constants import get_team_matches_collection
+
         collection_name = get_team_matches_collection(team_id)
         data = await self.get_document(collection_name, match_id)
         if data:
@@ -593,18 +681,21 @@ class FirebaseClient:
         """Update a match."""
         data = match.to_dict()
         from kickai.core.firestore_constants import get_team_matches_collection
+
         collection_name = get_team_matches_collection(match.team_id)
         return await self.update_document(collection_name, match.id, data)
 
     async def delete_match(self, match_id: str, team_id: str) -> bool:
         """Delete a match."""
         from kickai.core.firestore_constants import get_team_matches_collection
+
         collection_name = get_team_matches_collection(team_id)
         return await self.delete_document(collection_name, match_id)
 
     async def get_matches_by_team(self, team_id: str) -> list[Any]:
         """Get all matches for a team."""
         from kickai.core.firestore_constants import get_team_matches_collection
+
         collection_name = get_team_matches_collection(team_id)
         data_list = await self.query_documents(collection_name, [])
         return data_list
@@ -621,13 +712,13 @@ class FirebaseClient:
         collection_name = get_team_members_collection(team_member.team_id)
         return await self.create_document(collection_name, data)
 
-    async def get_team_member(self, member_id: str, team_id: str) -> Union[TeamMember, None]:
+    async def get_team_member(self, member_id: str, team_id: str) -> TeamMember | None:
         """Get a team member by ID."""
         # Use centralized collection naming
         collection_name = get_team_members_collection(team_id)
         data = await self.get_document(collection_name, member_id)
         if data:
-            data['id'] = member_id
+            data["id"] = member_id
             return TeamMember.from_dict(data)
         return None
 
@@ -649,21 +740,23 @@ class FirebaseClient:
         try:
             # Use centralized collection naming
             collection_name = get_team_members_collection(team_id)
-            filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
+            filters = [{"field": "team_id", "operator": "==", "value": team_id}]
             documents = await self.query_documents(collection_name, filters)
             return [TeamMember.from_dict(doc) for doc in documents]
         except Exception:
             logger.error("Error getting team members by team")
             return []  # Return empty list on error
 
-    async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> Union[TeamMember, None]:
+    async def get_team_member_by_telegram_id(
+        self, telegram_id: str, team_id: str
+    ) -> TeamMember | None:
         """Get a team member by telegram_id and team_id."""
         try:
             # Use centralized collection naming
             collection_name = get_team_members_collection(team_id)
             filters = [
-                {'field': 'telegram_id', 'operator': '==', 'value': telegram_id},
-                {'field': 'team_id', 'operator': '==', 'value': team_id}
+                {"field": "telegram_id", "operator": "==", "value": telegram_id},
+                {"field": "team_id", "operator": "==", "value": team_id},
             ]
             documents = await self.query_documents(collection_name, filters)
 
@@ -679,14 +772,14 @@ class FirebaseClient:
         # Use centralized collection naming
         collection_name = get_team_members_collection(team_id)
         filters = [
-            {'field': 'team_id', 'operator': '==', 'value': team_id},
-            {'field': 'role', 'operator': '==', 'value': role}
+            {"field": "team_id", "operator": "==", "value": team_id},
+            {"field": "role", "operator": "==", "value": role},
         ]
         data_list = await self.query_documents(collection_name, filters)
 
         team_members = []
         for data in data_list:
-            if 'id' in data:
+            if "id" in data:
                 team_members.append(TeamMember.from_dict(data))
 
         return team_members
@@ -694,19 +787,23 @@ class FirebaseClient:
     async def get_leadership_members(self, team_id: str) -> list[Any]:
         """Get all leadership members (with leadership chat access)."""
         team_members = await self.get_team_members_by_team(team_id)
-        return [member for member in team_members
-                if member.chat_access.get('leadership_chat', False)]
+        return [
+            member for member in team_members if member.chat_access.get("leadership_chat", False)
+        ]
 
-    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Union[Any, None]:
+    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Any | None:
         """Get a player by telegram_id and team_id efficiently."""
-        logger.debug(f"get_player_by_telegram_id called with telegram_id={telegram_id}, team_id={team_id}")
+        logger.debug(
+            f"get_player_by_telegram_id called with telegram_id={telegram_id}, team_id={team_id}"
+        )
         try:
             # Use team-specific collection
             from kickai.core.firestore_constants import get_team_players_collection
+
             collection_name = get_team_players_collection(team_id)
             filters = [
-                {'field': 'telegram_id', 'operator': '==', 'value': telegram_id},
-                {'field': 'team_id', 'operator': '==', 'value': team_id}
+                {"field": "telegram_id", "operator": "==", "value": telegram_id},
+                {"field": "team_id", "operator": "==", "value": team_id},
             ]
             logger.debug(f"calling query_documents('{collection_name}', {filters}, limit=1)")
             data_list = await self.query_documents(collection_name, filters, limit=1)
@@ -733,23 +830,19 @@ class FirebaseClient:
             duration = (time.time() - start_time) * 1000
 
             return {
-                'status': 'healthy',
-                'collections_count': len(collections),
-                'response_time_ms': duration,
-                'timestamp': datetime.now().isoformat()
+                "status": "healthy",
+                "collections_count": len(collections),
+                "response_time_ms": duration,
+                "timestamp": datetime.now().isoformat(),
             }
 
         except Exception as e:
             logger.error("Database health check failed")
-            return {
-                'status': 'unhealthy',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
+            return {"status": "unhealthy", "error": str(e), "timestamp": datetime.now().isoformat()}
 
 
 # Global Firebase client instance
-_firebase_client: Union[FirebaseClient, None] = None
+_firebase_client: FirebaseClient | None = None
 
 
 def get_firebase_client() -> FirebaseClient:
@@ -757,7 +850,7 @@ def get_firebase_client() -> FirebaseClient:
     global _firebase_client
 
     # Check if mock data store is enabled
-    use_mock_datastore = os.getenv('USE_MOCK_DATASTORE', 'false').lower() == 'true'
+    use_mock_datastore = os.getenv("USE_MOCK_DATASTORE", "false").lower() == "true"
     if use_mock_datastore:
         raise RuntimeError(
             "Firebase client requested but USE_MOCK_DATASTORE=true. "
@@ -775,7 +868,7 @@ def initialize_firebase_client(config=None) -> FirebaseClient:
     global _firebase_client
 
     # Check if mock data store is enabled
-    use_mock_datastore = os.getenv('USE_MOCK_DATASTORE', 'false').lower() == 'true'
+    use_mock_datastore = os.getenv("USE_MOCK_DATASTORE", "false").lower() == "true"
     if use_mock_datastore:
         raise RuntimeError(
             "Firebase client initialization requested but USE_MOCK_DATASTORE=true. "
@@ -787,24 +880,26 @@ def initialize_firebase_client(config=None) -> FirebaseClient:
     _firebase_client = FirebaseClient(config)
     return _firebase_client
 
+
 # Utility function to seed bot mappings for testing
 async def seed_kickai_testing_bot_mapping():
     """Seed Firestore with the KickAI Testing bot mapping for local testing."""
     client = get_firebase_client()
     from kickai.features.team_administration.domain.entities.bot_mapping import BotMapping
+
     mapping = BotMapping.create(
         team_name="KAI",
         bot_username="KickAITesting_bot",
         chat_id="-4889304885",  # main chat
-        bot_token="7693359073:AAEnLqhdbCOfnf0RDfjn71z8GLRooNKNYsM"
+        bot_token="7693359073:AAEnLqhdbCOfnf0RDfjn71z8GLRooNKNYsM",
     )
-    await client.create_document('teams', mapping.to_dict(), mapping.id)
+    await client.create_document("teams", mapping.to_dict(), mapping.id)
     # Add leadership chat as a separate mapping if needed
     mapping_leadership = BotMapping.create(
         team_name="KAI",
         bot_username="KickAITesting_bot",
         chat_id="-4814449926",  # leadership chat
-        bot_token="7693359073:AAEnLqhdbCOfnf0RDfjn71z8GLRooNKNYsM"
+        bot_token="7693359073:AAEnLqhdbCOfnf0RDfjn71z8GLRooNKNYsM",
     )
-    await client.create_document('teams', mapping_leadership.to_dict(), mapping_leadership.id)
+    await client.create_document("teams", mapping_leadership.to_dict(), mapping_leadership.id)
     logger.info("✅ Seeded KickAI Testing bot mappings in Firestore.")

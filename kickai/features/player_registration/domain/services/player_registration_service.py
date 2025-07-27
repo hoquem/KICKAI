@@ -5,7 +5,6 @@ Player Registration Service
 This module provides the business logic for player registration operations.
 """
 
-from typing import Union
 from datetime import datetime
 
 from kickai.features.player_registration.domain.entities.player import Player
@@ -45,7 +44,9 @@ class PlayerRegistrationService:
             first_name = name_parts[0] if name_parts else "Unknown"
             last_name = first_name
 
-        player_id = generate_football_player_id(first_name, last_name, position, team_id, existing_ids)
+        player_id = generate_football_player_id(
+            first_name, last_name, position, team_id, existing_ids
+        )
 
         # Create new player
         player = Player(
@@ -57,7 +58,7 @@ class PlayerRegistrationService:
             position=position,
             status="pending",
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
         )
 
         return await self.player_repository.create_player(player)
@@ -74,12 +75,12 @@ class PlayerRegistrationService:
             raise ValueError("Team ID cannot be empty")
 
         # Validate phone number format (basic validation)
-        phone_clean = phone.replace('+', '').replace(' ', '').replace('-', '')
+        phone_clean = phone.replace("+", "").replace(" ", "").replace("-", "")
         if not phone_clean.isdigit() or len(phone_clean) < 10:
             raise ValueError("Phone number must contain at least 10 digits")
 
         # Validate position (basic validation)
-        valid_positions = ['goalkeeper', 'defender', 'midfielder', 'forward', 'utility']
+        valid_positions = ["goalkeeper", "defender", "midfielder", "forward", "utility"]
         if position.lower() not in valid_positions:
             raise ValueError(f"Position must be one of: {', '.join(valid_positions)}")
 
@@ -109,11 +110,11 @@ class PlayerRegistrationService:
         player.reject()
         return await self.player_repository.update_player(player)
 
-    async def get_player(self, *, player_id: str, team_id: str) -> Union[Player, None]:
+    async def get_player(self, *, player_id: str, team_id: str) -> Player | None:
         """Get a player by ID."""
         return await self.player_repository.get_player_by_id(player_id, team_id)
 
-    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Union[Player, None]:
+    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Player | None:
         """Get a player by phone number."""
         return await self.player_repository.get_player_by_phone(phone, team_id)
 

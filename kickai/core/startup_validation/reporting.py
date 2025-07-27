@@ -7,13 +7,14 @@ This module provides reporting structures for startup validation results.
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Union, Union
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class CheckStatus(Enum):
     """Status of a health check."""
+
     PASSED = "PASSED"
     FAILED = "FAILED"
     WARNING = "WARNING"
@@ -22,6 +23,7 @@ class CheckStatus(Enum):
 
 class CheckCategory(Enum):
     """Categories of health checks."""
+
     LLM = "LLM"
     AGENT = "AGENT"
     TOOL = "TOOL"
@@ -35,18 +37,20 @@ class CheckCategory(Enum):
 @dataclass
 class CheckResult:
     """Result of a health check."""
+
     name: str
     category: CheckCategory
     status: CheckStatus
     message: str
-    details: Union[dict[str, Any], None] = None
-    duration_ms: Union[float, None] = None
-    error: Union[Exception, None] = None
+    details: dict[str, Any] | None = None
+    duration_ms: float | None = None
+    error: Exception | None = None
 
 
 @dataclass
 class ValidationReport:
     """Complete validation report."""
+
     overall_status: CheckStatus
     checks: list[CheckResult] = field(default_factory=list)
     summary: dict[CheckCategory, dict[CheckStatus, int]] = field(default_factory=dict)
@@ -127,15 +131,12 @@ class ValidationReport:
                     "message": check.message,
                     "details": check.details,
                     "duration_ms": check.duration_ms,
-                    "error": str(check.error) if check.error else None
+                    "error": str(check.error) if check.error else None,
                 }
                 for check in self.checks
             ],
             "summary": {
-                category.value: {
-                    status.value: count
-                    for status, count in status_counts.items()
-                }
+                category.value: {status.value: count for status, count in status_counts.items()}
                 for category, status_counts in self.summary.items()
             },
             "critical_failures": self.critical_failures,
@@ -146,13 +147,14 @@ class ValidationReport:
                 "passed_checks": self.get_passed_count(),
                 "failed_checks": self.get_failure_count(),
                 "warning_checks": self.get_warning_count(),
-                "success_rate": self.get_success_rate()
-            }
+                "success_rate": self.get_success_rate(),
+            },
         }
 
     def to_json(self) -> str:
         """Convert report to JSON string."""
         import json
+
         return json.dumps(self.to_dict(), indent=2)
 
     def to_markdown(self) -> str:
@@ -211,7 +213,7 @@ class ValidationReport:
                 CheckStatus.PASSED: "✅",
                 CheckStatus.FAILED: "❌",
                 CheckStatus.WARNING: "⚠️",
-                CheckStatus.SKIPPED: "⏭️"
+                CheckStatus.SKIPPED: "⏭️",
             }.get(check.status, "❓")
 
             duration_str = f" ({check.duration_ms:.1f}ms)" if check.duration_ms else ""

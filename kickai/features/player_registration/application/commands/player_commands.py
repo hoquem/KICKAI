@@ -13,6 +13,7 @@ from kickai.core.enums import ChatType
 # MAIN CHAT COMMANDS - For Player Registration
 # ============================================================================
 
+
 @command(
     name="/register",
     description="Register as a new player (Main Chat)",
@@ -24,7 +25,7 @@ from kickai.core.enums import ChatType
     parameters={
         "name": "Player's full name",
         "phone": "Phone number (e.g., +447123456789)",
-        "position": "Playing position (e.g., Forward, Midfielder, Defender, Goalkeeper)"
+        "position": "Playing position (e.g., Forward, Midfielder, Defender, Goalkeeper)",
     },
     help_text="""
 📝 Player Registration (Main Chat)
@@ -45,7 +46,7 @@ What happens:
 4. You can start using player commands once approved
 
 💡 Need help? Contact the team admin in the leadership chat.
-    """
+    """,
 )
 async def handle_register_player_main_chat(update, context, **kwargs):
     """Handle /register command in main chat - for player registration."""
@@ -58,11 +59,10 @@ async def handle_register_player_main_chat(update, context, **kwargs):
 # ============================================================================
 
 
-
-
 # ============================================================================
 # SHARED LEADERSHIP COMMANDS
 # ============================================================================
+
 
 @command(
     name="/addplayer",
@@ -71,10 +71,7 @@ async def handle_register_player_main_chat(update, context, **kwargs):
     permission_level=PermissionLevel.LEADERSHIP,
     feature="player_registration",
     examples=["/addplayer John Smith +447123456789"],
-    parameters={
-        "name": "Player's full name",
-        "phone": "Phone number (e.g., +447123456789)"
-    },
+    parameters={"name": "Player's full name", "phone": "Phone number (e.g., +447123456789)"},
     help_text="""
 👤 Add Player (Leadership Only)
 
@@ -95,7 +92,7 @@ What happens:
 🔒 Security: Links are one-time use and expire automatically.
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_addplayer_command(update, context, **kwargs):
     """Handle /addplayer command."""
@@ -110,10 +107,7 @@ async def handle_addplayer_command(update, context, **kwargs):
     permission_level=PermissionLevel.LEADERSHIP,
     feature="player_registration",
     examples=["/addmember John Smith +447123456789"],
-    parameters={
-        "name": "Member's full name",
-        "phone": "Phone number (e.g., +447123456789)"
-    },
+    parameters={"name": "Member's full name", "phone": "Phone number (e.g., +447123456789)"},
     help_text="""
 👔 Add Team Member (Leadership Only)
 
@@ -134,7 +128,7 @@ What happens:
 🔒 Security: Links are one-time use and expire automatically.
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_addmember_command(update, context, **kwargs):
     """Handle /addmember command."""
@@ -149,9 +143,7 @@ async def handle_addmember_command(update, context, **kwargs):
     permission_level=PermissionLevel.LEADERSHIP,
     feature="player_registration",
     examples=["/approve MH123"],
-    parameters={
-        "player_id": "Player ID to approve"
-    },
+    parameters={"player_id": "Player ID to approve"},
     help_text="""
 ✅ Approve Player (Leadership Only)
 
@@ -170,7 +162,7 @@ What happens:
 4. Player appears in squad selection lists
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_approve_command(update, context, **kwargs):
     """Handle /approve command."""
@@ -185,10 +177,7 @@ async def handle_approve_command(update, context, **kwargs):
     permission_level=PermissionLevel.LEADERSHIP,
     feature="player_registration",
     examples=["/reject MH123 Insufficient experience"],
-    parameters={
-        "player_id": "Player ID to reject",
-        "reason": "Reason for rejection (optional)"
-    },
+    parameters={"player_id": "Player ID to reject", "reason": "Reason for rejection (optional)"},
     help_text="""
 ❌ Reject Player (Leadership Only)
 
@@ -207,7 +196,7 @@ What happens:
 4. Reason is recorded for future reference
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_reject_command(update, context, **kwargs):
     """Handle /reject command."""
@@ -237,7 +226,7 @@ What you'll see:
 • Quick approve/reject options
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_pending_command(update, context, **kwargs):
     """Handle /pending command."""

@@ -5,7 +5,6 @@ This service provides centralized message routing logic using the Player model's
 encapsulated methods as the single source of truth for all routing decisions.
 """
 
-from typing import Union
 import logging
 
 from kickai.features.player_registration.domain.entities.player import OnboardingStatus, Player
@@ -20,7 +19,7 @@ class MessageRoutingService:
     """
 
     @staticmethod
-    def should_route_to_onboarding(player: Union[Player, None], message: str) -> tuple[bool, str]:
+    def should_route_to_onboarding(player: Player | None, message: str) -> tuple[bool, str]:
         """
         Determine if a message should be routed to onboarding handler.
 
@@ -39,17 +38,23 @@ class MessageRoutingService:
         # Use Player model's encapsulated method as single source of truth
         # Only route PENDING players to onboarding - IN_PROGRESS players can use general commands
         if player.onboarding_status == OnboardingStatus.PENDING:
-            logger.info(f"[ROUTING] Player {player.full_name} is pending onboarding, routing to onboarding handler")
+            logger.info(
+                f"[ROUTING] Player {player.full_name} is pending onboarding, routing to onboarding handler"
+            )
             return True, f"Player {player.full_name} is pending onboarding"
         else:
-            logger.info(f"[ROUTING] Player {player.full_name} is in progress but not pending, allowing general commands")
+            logger.info(
+                f"[ROUTING] Player {player.full_name} is in progress but not pending, allowing general commands"
+            )
             return False, f"Player {player.full_name} is in progress but can use general commands"
 
-        logger.info(f"[ROUTING] Player {player.full_name} is not in onboarding, allowing general commands")
+        logger.info(
+            f"[ROUTING] Player {player.full_name} is not in onboarding, allowing general commands"
+        )
         return False, f"Player {player.full_name} is not in onboarding"
 
     @staticmethod
-    def should_route_to_player_update(player: Union[Player, None], message: str) -> tuple[bool, str]:
+    def should_route_to_player_update(player: Player | None, message: str) -> tuple[bool, str]:
         """
         Determine if a message should be routed to player update handler.
 
@@ -67,17 +72,30 @@ class MessageRoutingService:
 
         # Use Player model's encapsulated method as single source of truth
         if player.is_onboarding_complete():
-            update_keywords = ['update', 'change', 'my', 'phone', 'emergency', 'contact', 'date', 'birth', 'dob', 'position']
+            update_keywords = [
+                "update",
+                "change",
+                "my",
+                "phone",
+                "emergency",
+                "contact",
+                "date",
+                "birth",
+                "dob",
+                "position",
+            ]
             message_lower = message.lower()
 
             if any(keyword in message_lower for keyword in update_keywords):
-                logger.info(f"[ROUTING] Completed player {player.full_name} requesting update, routing to player update handler")
+                logger.info(
+                    f"[ROUTING] Completed player {player.full_name} requesting update, routing to player update handler"
+                )
                 return True, f"Player {player.full_name} requesting update"
 
         return False, "Not a player update request"
 
     @staticmethod
-    def should_route_to_general_handler(player: Union[Player, None], message: str) -> tuple[bool, str]:
+    def should_route_to_general_handler(player: Player | None, message: str) -> tuple[bool, str]:
         """
         Determine if a message should be routed to general handler.
 
@@ -106,7 +124,9 @@ class MessageRoutingService:
         return True, f"Player {player.full_name} message routed to general handler"
 
     @staticmethod
-    def get_routing_decision(player: Union[Player, None], message: str, user_role: str = "player") -> dict:
+    def get_routing_decision(
+        player: Player | None, message: str, user_role: str = "player"
+    ) -> dict:
         """
         Get the complete routing decision for a message.
 
@@ -122,42 +142,50 @@ class MessageRoutingService:
             Dictionary containing routing decision and metadata
         """
         # Admin users bypass all routing logic
-        if user_role == 'admin':
+        if user_role == "admin":
             return {
-                'route_to': 'general',
-                'reason': 'Admin user',
-                'player_status': 'admin',
-                'should_onboard': False,
-                'should_update': False
+                "route_to": "general",
+                "reason": "Admin user",
+                "player_status": "admin",
+                "should_onboard": False,
+                "should_update": False,
             }
 
         # Get routing decisions using encapsulated methods
-        should_onboard, onboard_reason = MessageRoutingService.should_route_to_onboarding(player, message)
-        should_update, update_reason = MessageRoutingService.should_route_to_player_update(player, message)
-        should_general, general_reason = MessageRoutingService.should_route_to_general_handler(player, message)
+        should_onboard, onboard_reason = MessageRoutingService.should_route_to_onboarding(
+            player, message
+        )
+        should_update, update_reason = MessageRoutingService.should_route_to_player_update(
+            player, message
+        )
+        should_general, general_reason = MessageRoutingService.should_route_to_general_handler(
+            player, message
+        )
 
         # Determine final routing decision
         if should_onboard:
-            route_to = 'onboarding'
+            route_to = "onboarding"
             reason = onboard_reason
         elif should_update:
-            route_to = 'player_update'
+            route_to = "player_update"
             reason = update_reason
         else:
-            route_to = 'general'
+            route_to = "general"
             reason = general_reason
 
         # Get player status using encapsulated method
-        player_status = player.get_status_category() if player else 'unknown'
+        player_status = player.get_status_category() if player else "unknown"
 
-        logger.info(f"[ROUTING DECISION] Player: {player.full_name if player else 'None'}, "
-                   f"Status: {player_status}, Route: {route_to}, Reason: {reason}")
+        logger.info(
+            f"[ROUTING DECISION] Player: {player.full_name if player else 'None'}, "
+            f"Status: {player_status}, Route: {route_to}, Reason: {reason}"
+        )
 
         return {
-            'route_to': route_to,
-            'reason': reason,
-            'player_status': player_status,
-            'should_onboard': should_onboard,
-            'should_update': should_update,
-            'player': player
+            "route_to": route_to,
+            "reason": reason,
+            "player_status": player_status,
+            "should_onboard": should_onboard,
+            "should_update": should_update,
+            "player": player,
         }

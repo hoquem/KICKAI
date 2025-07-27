@@ -8,7 +8,7 @@ the same design patterns and are properly formatted for Telegram.
 """
 
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any
 
 from loguru import logger
 
@@ -18,10 +18,11 @@ from kickai.core.enums import ChatType
 @dataclass
 class MessageContext:
     """Context for message formatting."""
+
     user_id: str
     team_id: str
     chat_type: ChatType
-    user_name: Union[str, None] = None
+    user_name: str | None = None
     is_player: bool = False
     is_team_member: bool = False
     is_admin: bool = False
@@ -56,15 +57,15 @@ class MessageFormattingService:
         else:
             return self._format_main_chat_welcome(context)
 
-    def format_error_message(self, error: str, context: Union[MessageContext, None] = None) -> str:
+    def format_error_message(self, error: str, context: MessageContext | None = None) -> str:
         """Format error message with consistent styling."""
         return f"❌ Error: {error}\n\nPlease try again or contact support if the issue persists."
 
-    def format_success_message(self, message: str, context: Union[MessageContext, None] = None) -> str:
+    def format_success_message(self, message: str, context: MessageContext | None = None) -> str:
         """Format success message with consistent styling."""
         return f"✅ Success: {message}"
 
-    def format_info_message(self, message: str, context: Union[MessageContext, None] = None) -> str:
+    def format_info_message(self, message: str, context: MessageContext | None = None) -> str:
         """Format informational message with consistent styling."""
         return f"ℹ️ Info: {message}"
 
@@ -87,7 +88,9 @@ class MessageFormattingService:
 
         return "\n".join(lines)
 
-    def format_team_member_list(self, members: list[dict[str, Any]], context: MessageContext) -> str:
+    def format_team_member_list(
+        self, members: list[dict[str, Any]], context: MessageContext
+    ) -> str:
         """Format team member list with consistent styling."""
         if not members:
             return "👥 No team members found"
@@ -160,7 +163,7 @@ class MessageFormattingService:
             ("/pending", "List players awaiting approval"),
             ("/announce", "Make an announcement to the team"),
             ("/remind", "Send a reminder to team members"),
-            ("/broadcast", "Broadcast message to all team chats")
+            ("/broadcast", "Broadcast message to all team chats"),
         ]
         for cmd_name, cmd_desc in leadership_commands:
             lines.append(f"• {cmd_name} - {cmd_desc}")

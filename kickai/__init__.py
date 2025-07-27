@@ -27,5 +27,5 @@ __all__ = [
     "get_firebase_client",
     "generate_football_team_id",
     "generate_football_player_id",
-    "generate_football_match_id"
+    "generate_football_match_id",
 ]

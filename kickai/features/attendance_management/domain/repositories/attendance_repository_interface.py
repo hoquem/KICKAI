@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 # from kickai.features.attendance_management.domain.entities.attendance import Attendance  # Uncomment and implement Attendance entity as needed
 
+
 class AttendanceRepositoryInterface(ABC):
     @abstractmethod
     async def create(self, attendance):  # Use Attendance type when available

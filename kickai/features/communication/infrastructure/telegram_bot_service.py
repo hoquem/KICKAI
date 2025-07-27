@@ -1,6 +1,5 @@
-from typing import Union
 from loguru import logger
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
+from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from kickai.agents.agentic_message_router import AgenticMessageRouter
@@ -11,7 +10,14 @@ from kickai.features.communication.domain.interfaces.telegram_bot_service_interf
 
 
 class TelegramBotService(TelegramBotServiceInterface):
-    def __init__(self, token: str, team_id: str, main_chat_id: str = None, leadership_chat_id: str = None, crewai_system = None):
+    def __init__(
+        self,
+        token: str,
+        team_id: str,
+        main_chat_id: str = None,
+        leadership_chat_id: str = None,
+        crewai_system=None,
+    ):
         self.token = token
         self.team_id = team_id
         self.main_chat_id = main_chat_id
@@ -44,18 +50,27 @@ class TelegramBotService(TelegramBotServiceInterface):
             except RuntimeError as e:
                 if "Command registry not initialized" in str(e):
                     # Fallback: try to initialize the registry in this context
-                    logger.warning("⚠️ Command registry not accessible in current context, attempting to initialize...")
+                    logger.warning(
+                        "⚠️ Command registry not accessible in current context, attempting to initialize..."
+                    )
                     try:
                         from kickai.core.command_registry_initializer import (
                             initialize_command_registry,
                         )
+
                         registry = initialize_command_registry()
                         all_commands = registry.list_all_commands()
-                        logger.info(f"✅ Successfully initialized command registry in current context with {len(all_commands)} commands")
+                        logger.info(
+                            f"✅ Successfully initialized command registry in current context with {len(all_commands)} commands"
+                        )
                     except Exception as init_error:
-                        logger.error(f"❌ Failed to initialize command registry in current context: {init_error}")
+                        logger.error(
+                            f"❌ Failed to initialize command registry in current context: {init_error}"
+                        )
                         # Last resort: use fallback handlers
-                        logger.warning("⚠️ Using fallback handlers due to registry initialization failure")
+                        logger.warning(
+                            "⚠️ Using fallback handlers due to registry initialization failure"
+                        )
                         self._setup_fallback_handlers()
                         return
                 else:
@@ -69,14 +84,18 @@ class TelegramBotService(TelegramBotServiceInterface):
             for cmd_metadata in all_commands:
                 # Use the generic agentic handler for all commands
                 def create_handler(cmd_name):
-                    return lambda update, context: self._handle_registered_command(update, context, cmd_name)
+                    return lambda update, context: self._handle_registered_command(
+                        update, context, cmd_name
+                    )
 
                 handler = create_handler(cmd_metadata.name)
-                command_handlers.append(CommandHandler(cmd_metadata.name.lstrip('/'), handler))
+                command_handlers.append(CommandHandler(cmd_metadata.name.lstrip("/"), handler))
                 logger.info(f"✅ Registered agentic command handler: {cmd_metadata.name}")
 
             # Add message handler for natural language processing
-            message_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message)
+            message_handler = MessageHandler(
+                filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message
+            )
 
             # Add contact handler for phone number sharing
             contact_handler = MessageHandler(filters.CONTACT, self._handle_contact_share)
@@ -85,9 +104,13 @@ class TelegramBotService(TelegramBotServiceInterface):
             debug_handler = MessageHandler(filters.ALL, self._debug_handler)
 
             # Add all handlers to the application
-            self.app.add_handlers(command_handlers + [message_handler, contact_handler, debug_handler])
+            self.app.add_handlers(
+                command_handlers + [message_handler, contact_handler, debug_handler]
+            )
 
-            logger.info(f"✅ Set up {len(command_handlers)} agentic command handlers and 1 message handler")
+            logger.info(
+                f"✅ Set up {len(command_handlers)} agentic command handlers and 1 message handler"
+            )
 
         except Exception as e:
             logger.error(f"❌ Error setting up handlers: {e}")
@@ -99,8 +122,10 @@ class TelegramBotService(TelegramBotServiceInterface):
         try:
             # All messages now use agentic routing - minimal fallback
             handlers = [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message),
-                MessageHandler(filters.CONTACT, self._handle_contact_share)
+                MessageHandler(
+                    filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message
+                ),
+                MessageHandler(filters.CONTACT, self._handle_contact_share),
             ]
 
             self.app.add_handlers(handlers)
@@ -109,7 +134,9 @@ class TelegramBotService(TelegramBotServiceInterface):
         except Exception as e:
             logger.error(f"❌ Error setting up fallback handlers: {e}")
 
-    async def _handle_natural_language_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def _handle_natural_language_message(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
         """Handle natural language messages through agentic system ONLY."""
         try:
             # Convert to domain message
@@ -123,40 +150,46 @@ class TelegramBotService(TelegramBotServiceInterface):
 
         except Exception as e:
             logger.error(f"Error in agentic message handling: {e}")
-            await self._send_error_response(update, "I encountered an error processing your message.")
+            await self._send_error_response(
+                update, "I encountered an error processing your message."
+            )
 
     async def _handle_contact_share(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle contact sharing for phone number linking."""
         try:
             logger.info(f"📱 Contact shared by user {update.effective_user.id}")
-            
+
             # Extract contact information
             contact = update.message.contact
             phone_number = contact.phone_number
             user_id = contact.user_id if contact.user_id else update.effective_user.id
             username = update.effective_user.username
-            
+
             # Validate that the contact belongs to the user
             if str(user_id) != str(update.effective_user.id):
-                await self._send_error_response(update, "❌ Please share your own contact information.")
+                await self._send_error_response(
+                    update, "❌ Please share your own contact information."
+                )
                 return
-            
+
             # Convert to domain message with special handling for contact sharing
             message = self.agentic_router.convert_telegram_update_to_message(update)
-            
+
             # Add contact information to the message
             message.contact_phone = phone_number
             message.contact_user_id = str(user_id)
-            
+
             # Route through agentic system
             response = await self.agentic_router.route_contact_share(message)
-            
+
             # Send response
             await self._send_response(update, response)
-            
+
         except Exception as e:
             logger.error(f"Error in contact share handling: {e}")
-            await self._send_error_response(update, "I encountered an error processing your contact information.")
+            await self._send_error_response(
+                update, "I encountered an error processing your contact information."
+            )
 
     def _determine_chat_type(self, chat_id: str) -> ChatType:
         """Determine the chat type based on chat ID."""
@@ -167,7 +200,9 @@ class TelegramBotService(TelegramBotServiceInterface):
         else:
             return ChatType.PRIVATE
 
-    async def _handle_registered_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE, command_name: str):
+    async def _handle_registered_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, command_name: str
+    ):
         """Handle registered commands through agentic system ONLY."""
         try:
             # Convert to domain message
@@ -181,12 +216,14 @@ class TelegramBotService(TelegramBotServiceInterface):
 
         except Exception as e:
             logger.error(f"Error in agentic command handling: {e}")
-            await self._send_error_response(update, "I encountered an error processing your command.")
+            await self._send_error_response(
+                update, "I encountered an error processing your command."
+            )
 
     async def _send_response(self, update: Update, response):
         """Send response to user."""
         try:
-            if hasattr(response, 'message'):
+            if hasattr(response, "message"):
                 # AgentResponse object
                 message_text = response.message
                 success = response.success
@@ -202,17 +239,19 @@ class TelegramBotService(TelegramBotServiceInterface):
             # Check if message is already properly formatted (from agents)
             # Agent messages are already safely formatted for Telegram
             is_agent_message = self._is_agent_formatted_message(message_text)
-            logger.debug(f"🔍 Is agent message: {is_agent_message} | Message preview: {message_text[:50]}...")
+            logger.debug(
+                f"🔍 Is agent message: {is_agent_message} | Message preview: {message_text[:50]}..."
+            )
 
             # Check if we need to send contact sharing button
-            if hasattr(response, 'needs_contact_button') and response.needs_contact_button:
+            if hasattr(response, "needs_contact_button") and response.needs_contact_button:
                 logger.info("📱 Sending message with contact sharing button")
                 await self.send_contact_share_button(update.effective_chat.id, message_text)
             else:
                 # Send as plain text - no Markdown or HTML formatting
                 logger.debug("✅ Sending message as plain text")
                 await update.message.reply_text(message_text)
-            
+
             logger.info("✅ Agentic response sent successfully")
 
         except Exception as e:
@@ -225,8 +264,6 @@ class TelegramBotService(TelegramBotServiceInterface):
             await update.message.reply_text(f"❌ {error_message}")
         except Exception as e:
             logger.error(f"❌ Error sending error response: {e}")
-
-
 
     async def start_polling(self) -> None:
         """Start the bot polling."""
@@ -270,13 +307,15 @@ class TelegramBotService(TelegramBotServiceInterface):
             if update.effective_message:
                 message_type = type(update.effective_message).__name__
                 logger.info(f"🔍 DEBUG: Message Type: {message_type}")
-                logger.info(f"🔍 DEBUG: Chat ID: {update.effective_chat.id}, User ID: {update.effective_user.id if update.effective_user else 'None'}")
+                logger.info(
+                    f"🔍 DEBUG: Chat ID: {update.effective_chat.id}, User ID: {update.effective_user.id if update.effective_user else 'None'}"
+                )
                 if update.effective_message.text:
                     logger.info(f"🔍 DEBUG: Text: {update.effective_message.text[:100]}...")
         except Exception as e:
             logger.error(f"❌ Error in debug handler: {e}")
 
-    async def send_message(self, chat_id: Union[int, str], text: str, **kwargs):
+    async def send_message(self, chat_id: int | str, text: str, **kwargs):
         """Send a message to a specific chat."""
         try:
             logger.info(f"Sending message to chat_id={chat_id}: {text}")
@@ -285,19 +324,15 @@ class TelegramBotService(TelegramBotServiceInterface):
             logger.error(f"❌ Error sending message: {e}")
             raise
 
-    async def send_contact_share_button(self, chat_id: Union[int, str], text: str):
+    async def send_contact_share_button(self, chat_id: int | str, text: str):
         """Send a message with a contact sharing button."""
         try:
-            keyboard = [[
-                KeyboardButton(text="📱 Share My Phone Number", request_contact=True)
-            ]]
-            reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-            
-            await self.app.bot.send_message(
-                chat_id=chat_id,
-                text=text,
-                reply_markup=reply_markup
+            keyboard = [[KeyboardButton(text="📱 Share My Phone Number", request_contact=True)]]
+            reply_markup = ReplyKeyboardMarkup(
+                keyboard, one_time_keyboard=True, resize_keyboard=True
             )
+
+            await self.app.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
         except Exception as e:
             logger.error(f"Error sending contact share button: {e}")
             # Fallback to regular message

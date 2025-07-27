@@ -1,4 +1,3 @@
-from typing import Union
 from dataclasses import dataclass
 
 
@@ -8,10 +7,10 @@ class Match:
     team_id: str
     opponent: str
     date: str  # ISO format string
-    location: Union[str, None] = None
+    location: str | None = None
     status: str = "scheduled"
-    home_away: Union[str, None] = None
-    competition: Union[str, None] = None
-    score: Union[str, None] = None
-    created_at: Union[str, None] = None
-    updated_at: Union[str, None] = None
+    home_away: str | None = None
+    competition: str | None = None
+    score: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None

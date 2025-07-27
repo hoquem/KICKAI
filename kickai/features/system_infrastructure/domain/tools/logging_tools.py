@@ -4,7 +4,6 @@ Logging tools for KICKAI system.
 This module provides tools for logging commands and errors.
 """
 
-from typing import Union
 import logging
 
 from crewai.tools import tool
@@ -15,20 +14,22 @@ logger = logging.getLogger(__name__)
 
 class LogCommandInput(BaseModel):
     """Input model for log_command tool."""
+
     command: str
-    user_id: Union[str, None] = None
-    team_id: Union[str, None] = None
+    user_id: str | None = None
+    team_id: str | None = None
 
 
 class LogErrorInput(BaseModel):
     """Input model for log_error tool."""
+
     error_message: str
-    context: Union[str, None] = None
-    team_id: Union[str, None] = None
+    context: str | None = None
+    team_id: str | None = None
 
 
 @tool("log_command")
-def log_command(command: str, user_id: Union[str, None] = None, team_id: Union[str, None] = None) -> str:
+def log_command(command: str, user_id: str | None = None, team_id: str | None = None) -> str:
     """
     Log a command execution. Requires: command
 
@@ -58,7 +59,9 @@ def log_command(command: str, user_id: Union[str, None] = None, team_id: Union[s
 
 
 @tool("log_error")
-def log_error(error_message: str, error_context: Union[str, None] = None, team_id: Union[str, None] = None) -> str:
+def log_error(
+    error_message: str, error_context: str | None = None, team_id: str | None = None
+) -> str:
     """
     Log an error message. Requires: error_message
 

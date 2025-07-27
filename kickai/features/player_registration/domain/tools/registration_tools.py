@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class RegisterPlayerInput(BaseModel):
     """Input model for register_player tool."""
+
     player_name: str
     phone_number: str
     position: str
@@ -27,6 +28,7 @@ class RegisterPlayerInput(BaseModel):
 
 class TeamMemberRegistrationInput(BaseModel):
     """Input model for team_member_registration tool."""
+
     player_name: str
     phone_number: str
     position: str
@@ -35,6 +37,7 @@ class TeamMemberRegistrationInput(BaseModel):
 
 class RegistrationGuidanceInput(BaseModel):
     """Input model for registration_guidance tool."""
+
     user_id: str
     team_id: str
 
@@ -63,6 +66,7 @@ def register_player(player_name: str, phone_number: str, position: str, team_id:
 
         # Register the player (handle async operation)
         import asyncio
+
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -123,7 +127,9 @@ def register_team_member(player_name: str, phone_number: str, role: str, team_id
 
 
 @tool("team_member_registration")
-def team_member_registration(player_name: str, phone_number: str, position: str, team_id: str, user_id: str = None) -> str:
+def team_member_registration(
+    player_name: str, phone_number: str, position: str, team_id: str, user_id: str = None
+) -> str:
     """
     Register a new team member. Requires: player_name, phone_number, position, team_id
 
@@ -140,6 +146,7 @@ def team_member_registration(player_name: str, phone_number: str, position: str,
     try:
         container = get_container()
         from kickai.features.team_administration.domain.services.team_service import TeamService
+
         team_service = container.get_service(TeamService)
 
         if not team_service:
@@ -151,6 +158,7 @@ def team_member_registration(player_name: str, phone_number: str, position: str,
 
         # Register the team member using TeamService (run async operation synchronously)
         import asyncio
+
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -163,7 +171,7 @@ def team_member_registration(player_name: str, phone_number: str, position: str,
                 user_id=actual_user_id,
                 role=position,  # Use position as role
                 name=player_name,
-                phone=phone_number
+                phone=phone_number,
             )
         )
 

@@ -16,9 +16,7 @@ from kickai.core.command_registry import CommandType, PermissionLevel, command
     permission_level=PermissionLevel.LEADERSHIP,
     feature="communication",
     examples=["/announce Important match this weekend!"],
-    parameters={
-        "message": "Announcement message to send to the team"
-    },
+    parameters={"message": "Announcement message to send to the team"},
     help_text="""
 📢 Team Announcement (Leadership Only)
 
@@ -37,7 +35,7 @@ What happens:
 4. Announcement is logged for record keeping
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_announce_command(update, context, **kwargs):
     """Handle /announce command."""
@@ -52,9 +50,7 @@ async def handle_announce_command(update, context, **kwargs):
     permission_level=PermissionLevel.LEADERSHIP,
     feature="communication",
     examples=["/remind Don't forget training tomorrow at 7pm"],
-    parameters={
-        "message": "Reminder message to send"
-    },
+    parameters={"message": "Reminder message to send"},
     help_text="""
 ⏰ Send Reminder (Leadership Only)
 
@@ -73,7 +69,7 @@ What happens:
 4. Reminder is logged for tracking
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_remind_command(update, context, **kwargs):
     """Handle /remind command."""
@@ -88,9 +84,7 @@ async def handle_remind_command(update, context, **kwargs):
     permission_level=PermissionLevel.LEADERSHIP,
     feature="communication",
     examples=["/broadcast Team meeting tonight at 8pm"],
-    parameters={
-        "message": "Message to broadcast to all chats"
-    },
+    parameters={"message": "Message to broadcast to all chats"},
     help_text="""
 📡 Broadcast Message (Leadership Only)
 
@@ -109,7 +103,7 @@ What happens:
 4. Broadcast is logged for record keeping
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_broadcast_command(update, context, **kwargs):
     """Handle /broadcast command."""

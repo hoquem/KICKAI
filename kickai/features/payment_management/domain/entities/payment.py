@@ -1,4 +1,3 @@
-from typing import Union
 from dataclasses import dataclass
 from enum import Enum
 
@@ -8,11 +7,13 @@ class PaymentType(Enum):
     LINK = "link"
     REQUEST = "request"
 
+
 class PaymentStatus(Enum):
     PENDING = "pending"
     COMPLETED = "completed"
     FAILED = "failed"
     REFUNDED = "refunded"
+
 
 @dataclass
 class Payment:
@@ -20,12 +21,12 @@ class Payment:
     amount: float
     type: PaymentType
     status: PaymentStatus
-    id: Union[str, None] = None
-    team_id: Union[str, None] = None
-    description: Union[str, None] = None
-    related_entity_id: Union[str, None] = None
-    created_at: Union[str, None] = None
-    updated_at: Union[str, None] = None
+    id: str | None = None
+    team_id: str | None = None
+    description: str | None = None
+    related_entity_id: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
     @staticmethod
     def from_dict(data: dict) -> "Payment":

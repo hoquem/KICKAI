@@ -5,7 +5,7 @@ This module defines the interface for budget management services.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Union
+from typing import Any
 
 from ..entities.budget import Budget
 
@@ -14,13 +14,14 @@ class BudgetServiceInterface(ABC):
     """Interface for budget management services."""
 
     @abstractmethod
-    async def create_budget(self, team_id: str, amount: float, category: str,
-                          description: str, created_by: str) -> Budget:
+    async def create_budget(
+        self, team_id: str, amount: float, category: str, description: str, created_by: str
+    ) -> Budget:
         """Create a new budget."""
         pass
 
     @abstractmethod
-    async def get_budget_by_team(self, team_id: str) -> Union[Budget, None]:
+    async def get_budget_by_team(self, team_id: str) -> Budget | None:
         """Get budget for a team."""
         pass
 

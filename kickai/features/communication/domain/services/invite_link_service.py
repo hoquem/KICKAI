@@ -12,7 +12,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Union, Union
+from typing import Any
 
 from loguru import logger
 from telegram.error import TelegramError
@@ -30,9 +30,11 @@ class InviteLinkService:
         self.bot_token = bot_token
         self._bot = None
         # Get secret key from environment variable
-        self._secret_key = os.getenv('KICKAI_INVITE_SECRET_KEY')
+        self._secret_key = os.getenv("KICKAI_INVITE_SECRET_KEY")
         if not self._secret_key:
-            raise ValueError("KICKAI_INVITE_SECRET_KEY environment variable is required for secure invite links")
+            raise ValueError(
+                "KICKAI_INVITE_SECRET_KEY environment variable is required for secure invite links"
+            )
 
     def _get_bot(self):
         """Get or create bot instance."""
@@ -54,10 +56,10 @@ class InviteLinkService:
         try:
             if not self.bot_token:
                 return False
-            
+
             # Test if we can create a bot instance
             app = self._get_bot()
-            return hasattr(app, 'bot') and hasattr(app.bot, 'create_chat_invite_link')
+            return hasattr(app, "bot") and hasattr(app.bot, "create_chat_invite_link")
         except Exception:
             return False
 
@@ -81,27 +83,25 @@ class InviteLinkService:
             "team_id": player_data.get("team_id"),
             "invite_id": player_data.get("invite_id"),
             "expires_at": player_data.get("expires_at"),
-            "created_at": player_data.get("created_at")
+            "created_at": player_data.get("created_at"),
         }
 
         # Convert to JSON and encode
         json_data = json.dumps(payload, sort_keys=True)
-        data_bytes = json_data.encode('utf-8')
+        data_bytes = json_data.encode("utf-8")
 
         # Create HMAC signature
         signature = hmac.new(
-            self._secret_key.encode('utf-8'),
-            data_bytes,
-            hashlib.sha256
+            self._secret_key.encode("utf-8"), data_bytes, hashlib.sha256
         ).hexdigest()
 
         # Combine data and signature
         combined_data = f"{json_data}.{signature}"
 
         # Base64 encode for URL safety
-        return base64.urlsafe_b64encode(combined_data.encode('utf-8')).decode('utf-8')
+        return base64.urlsafe_b64encode(combined_data.encode("utf-8")).decode("utf-8")
 
-    def _validate_secure_invite_data(self, invite_data: str) -> Union[dict, None]:
+    def _validate_secure_invite_data(self, invite_data: str) -> dict | None:
         """
         Validate and decode secure invite data.
 
@@ -115,20 +115,18 @@ class InviteLinkService:
 
         try:
             # Decode from base64
-            decoded_bytes = base64.urlsafe_b64decode(invite_data.encode('utf-8'))
-            combined_data = decoded_bytes.decode('utf-8')
+            decoded_bytes = base64.urlsafe_b64decode(invite_data.encode("utf-8"))
+            combined_data = decoded_bytes.decode("utf-8")
 
             # Split data and signature
-            if '.' not in combined_data:
+            if "." not in combined_data:
                 return None
 
-            json_data, signature = combined_data.rsplit('.', 1)
+            json_data, signature = combined_data.rsplit(".", 1)
 
             # Verify HMAC signature
             expected_signature = hmac.new(
-                self._secret_key.encode('utf-8'),
-                json_data.encode('utf-8'),
-                hashlib.sha256
+                self._secret_key.encode("utf-8"), json_data.encode("utf-8"), hashlib.sha256
             ).hexdigest()
 
             if not hmac.compare_digest(signature, expected_signature):
@@ -150,8 +148,15 @@ class InviteLinkService:
             logger.error(f"❌ Error validating invite data: {e}")
             return None
 
-    async def create_player_invite_link(self, team_id: str, player_name: str, player_phone: str,
-                                      player_position: str, main_chat_id: str, player_id: str = None) -> dict[str, Any]:
+    async def create_player_invite_link(
+        self,
+        team_id: str,
+        player_name: str,
+        player_phone: str,
+        player_position: str,
+        main_chat_id: str,
+        player_id: str = None,
+    ) -> dict[str, Any]:
         """
         Create a secure invite link for a player to join the main chat.
 
@@ -181,6 +186,7 @@ class InviteLinkService:
             # Generate player ID if not provided
             if not player_id:
                 from kickai.utils.football_id_generator import generate_football_player_id
+
                 # Split name into first and last name for football ID generation
                 name_parts = player_name.strip().split()
                 if len(name_parts) >= 2:
@@ -204,7 +210,7 @@ class InviteLinkService:
                 "team_id": team_id,
                 "invite_id": invite_id,
                 "created_at": datetime.now().isoformat(),
-                "expires_at": (datetime.now() + timedelta(days=7)).isoformat()
+                "expires_at": (datetime.now() + timedelta(days=7)).isoformat(),
             }
 
             # Generate secure invite data
@@ -227,7 +233,7 @@ class InviteLinkService:
                 "expires_at": player_data["expires_at"],
                 "used_at": None,
                 "used_by": None,
-                "used_by_username": None
+                "used_by_username": None,
             }
 
             await self.database.create_document(self.collection_name, invite_data, invite_id)
@@ -240,16 +246,21 @@ class InviteLinkService:
                 "player_id": player_id,
                 "player_name": player_name,
                 "expires_at": player_data["expires_at"],
-                "secure_data": secure_data  # Include for validation
+                "secure_data": secure_data,  # Include for validation
             }
 
         except Exception as e:
             logger.error(f"❌ Error creating player invite link: {e}")
             raise
 
-    async def create_team_member_invite_link(self, team_id: str, member_name: str,
-                                           member_phone: str, member_role: str,
-                                           leadership_chat_id: str) -> dict[str, Any]:
+    async def create_team_member_invite_link(
+        self,
+        team_id: str,
+        member_name: str,
+        member_phone: str,
+        member_role: str,
+        leadership_chat_id: str,
+    ) -> dict[str, Any]:
         """
         Create a secure invite link for a team member to join the leadership chat.
 
@@ -287,7 +298,7 @@ class InviteLinkService:
                 "team_id": team_id,
                 "invite_id": invite_id,
                 "created_at": datetime.now().isoformat(),
-                "expires_at": (datetime.now() + timedelta(days=7)).isoformat()
+                "expires_at": (datetime.now() + timedelta(days=7)).isoformat(),
             }
 
             # Generate secure invite data
@@ -310,7 +321,7 @@ class InviteLinkService:
                 "expires_at": member_data["expires_at"],
                 "used_at": None,
                 "used_by": None,
-                "used_by_username": None
+                "used_by_username": None,
             }
 
             await self.database.create_document(self.collection_name, invite_data, invite_id)
@@ -323,15 +334,16 @@ class InviteLinkService:
                 "member_id": member_data["member_id"],
                 "member_name": member_name,
                 "expires_at": member_data["expires_at"],
-                "secure_data": secure_data  # Include for validation
+                "secure_data": secure_data,  # Include for validation
             }
 
         except Exception as e:
             logger.error(f"❌ Error creating team member invite link: {e}")
             raise
 
-    async def validate_and_use_invite_link(self, invite_link: str, user_id: str,
-                                         username: str = None, secure_data: str = None) -> Union[dict[str, Any], None]:
+    async def validate_and_use_invite_link(
+        self, invite_link: str, user_id: str, username: str = None, secure_data: str = None
+    ) -> dict[str, Any] | None:
         """
         Validate an invite link and mark it as used.
 
@@ -379,8 +391,8 @@ class InviteLinkService:
                     "status": "used",
                     "used_at": datetime.now().isoformat(),
                     "used_by": user_id,
-                    "used_by_username": username
-                }
+                    "used_by_username": username,
+                },
             )
 
             logger.info(f"✅ Invite link used: {invite_id} by {user_id}")
@@ -405,10 +417,7 @@ class InviteLinkService:
             await self.database.update_document(
                 self.collection_name,
                 invite_id,
-                {
-                    "status": "revoked",
-                    "revoked_at": datetime.now().isoformat()
-                }
+                {"status": "revoked", "revoked_at": datetime.now().isoformat()},
             )
 
             logger.info(f"✅ Invite link revoked: {invite_id}")
@@ -431,7 +440,7 @@ class InviteLinkService:
         try:
             filters = [
                 {"field": "team_id", "operator": "==", "value": team_id},
-                {"field": "status", "operator": "==", "value": "active"}
+                {"field": "status", "operator": "==", "value": "active"},
             ]
 
             links = await self.database.query_documents(self.collection_name, filters)
@@ -460,7 +469,7 @@ class InviteLinkService:
                 name=f"KICKAI Invite {invite_id[:8]}",  # Short name for the link
                 creates_join_request=False,  # Direct join, no approval needed
                 expire_date=int((datetime.now() + timedelta(days=7)).timestamp()),  # 7 days
-                member_limit=1  # One-time use
+                member_limit=1,  # One-time use
             )
 
             return invite_link.invite_link
@@ -475,7 +484,7 @@ class InviteLinkService:
             logger.error(f"❌ Error creating Telegram invite link: {e}")
             raise
 
-    def _extract_invite_id_from_link(self, invite_link: str) -> Union[str, None]:
+    def _extract_invite_id_from_link(self, invite_link: str) -> str | None:
         """
         Extract invite ID from a Telegram invite link.
 
@@ -511,7 +520,7 @@ class InviteLinkService:
             # Get all expired links
             filters = [
                 {"field": "expires_at", "operator": "<", "value": datetime.now().isoformat()},
-                {"field": "status", "operator": "==", "value": "active"}
+                {"field": "status", "operator": "==", "value": "active"},
             ]
 
             expired_links = await self.database.query_documents(self.collection_name, filters)
@@ -519,9 +528,7 @@ class InviteLinkService:
             # Mark them as expired
             for link in expired_links:
                 await self.database.update_document(
-                    self.collection_name,
-                    link["invite_id"],
-                    {"status": "expired"}
+                    self.collection_name, link["invite_id"], {"status": "expired"}
                 )
 
             logger.info(f"✅ Cleaned up {len(expired_links)} expired invite links")

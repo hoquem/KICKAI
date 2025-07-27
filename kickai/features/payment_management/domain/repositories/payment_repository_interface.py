@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 # from kickai.features.payment_management.domain.entities.payment import Payment  # Uncomment and implement Payment entity as needed
 
+
 class PaymentRepositoryInterface(ABC):
     @abstractmethod
     async def create(self, payment):  # Use Payment type when available

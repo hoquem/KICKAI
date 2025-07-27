@@ -1,4 +1,3 @@
-from typing import Union
 import logging
 from datetime import datetime, timedelta
 
@@ -10,6 +9,7 @@ from kickai.utils.football_id_generator import generate_football_match_id
 
 logger = logging.getLogger(__name__)
 
+
 class MatchService(IMatchService):
     """Service for managing matches."""
 
@@ -19,11 +19,20 @@ class MatchService(IMatchService):
         else:
             self._data_store = data_store
 
-    async def create_match(self, team_id: str, opponent: str, date: datetime, location: Union[str, None] = None, status: MatchStatus = MatchStatus.SCHEDULED, home_away: str = "home", competition: Union[str, None] = None) -> Match:
+    async def create_match(
+        self,
+        team_id: str,
+        opponent: str,
+        date: datetime,
+        location: str | None = None,
+        status: MatchStatus = MatchStatus.SCHEDULED,
+        home_away: str = "home",
+        competition: str | None = None,
+    ) -> Match:
         """Creates a new match."""
         try:
             # Generate football-friendly match ID
-            match_date_str = date.strftime('%Y-%m-%d')
+            match_date_str = date.strftime("%Y-%m-%d")
             competition_str = competition or "Friendly"
 
             # For home matches, team_id is home team, opponent is away team
@@ -35,7 +44,9 @@ class MatchService(IMatchService):
                 home_team = opponent
                 away_team = team_id
 
-            match_id = generate_football_match_id(home_team, away_team, match_date_str, competition_str)
+            match_id = generate_football_match_id(
+                home_team, away_team, match_date_str, competition_str
+            )
 
             match = Match.create(
                 team_id=team_id,
@@ -44,7 +55,7 @@ class MatchService(IMatchService):
                 location=location,
                 status=status,
                 home_away=home_away,
-                competition=competition
+                competition=competition,
             )
             match.id = match_id
             await self._data_store.create_match(match)
@@ -54,7 +65,7 @@ class MatchService(IMatchService):
             logger.error(f"Failed to create match: {e}")
             raise MatchError(f"Failed to create match: {e!s}", create_error_context("create_match"))
 
-    async def get_match(self, match_id: str) -> Union[Match, None]:
+    async def get_match(self, match_id: str) -> Match | None:
         """Retrieves a match by its ID."""
         try:
             match = await self._data_store.get_match(match_id)
@@ -68,7 +79,9 @@ class MatchService(IMatchService):
         try:
             match = await self.get_match(match_id)
             if not match:
-                raise MatchNotFoundError(f"Match not found: {match_id}", create_error_context("update_match"))
+                raise MatchNotFoundError(
+                    f"Match not found: {match_id}", create_error_context("update_match")
+                )
 
             match.update(**updates)
             await self._data_store.update_match(match)
@@ -85,7 +98,9 @@ class MatchService(IMatchService):
         try:
             success = await self._data_store.delete_match(match_id)
             if not success:
-                raise MatchNotFoundError(f"Match not found: {match_id}", create_error_context("delete_match"))
+                raise MatchNotFoundError(
+                    f"Match not found: {match_id}", create_error_context("delete_match")
+                )
             logger.info(f"Match {match_id} deleted.")
             return True
         except MatchNotFoundError:
@@ -94,26 +109,36 @@ class MatchService(IMatchService):
             logger.error(f"Failed to delete match {match_id}: {e}")
             raise MatchError(f"Failed to delete match: {e!s}", create_error_context("delete_match"))
 
-    async def list_matches(self, team_id: str, status: Union[MatchStatus, None] = None) -> list[Match]:
+    async def list_matches(self, team_id: str, status: MatchStatus | None = None) -> list[Match]:
         """Lists matches for a team, with optional filters."""
         try:
-            filters = [{'field': 'team_id', 'operator': '==', 'value': team_id}]
+            filters = [{"field": "team_id", "operator": "==", "value": team_id}]
             if status:
-                filters.append({'field': 'status', 'operator': '==', 'value': status.value})
+                filters.append({"field": "status", "operator": "==", "value": status.value})
 
-            data_list = await self._data_store.query_documents('matches', filters)
+            data_list = await self._data_store.query_documents("matches", filters)
             return [Match.from_dict(data) for data in data_list]
         except Exception as e:
             logger.error(f"Failed to list matches for team {team_id}: {e}")
             raise MatchError(f"Failed to list matches: {e!s}", create_error_context("list_matches"))
 
-    async def generate_fixtures(self, team_id: str, num_matches: int, opponents: list[str]) -> list[Match]:
+    async def generate_fixtures(
+        self, team_id: str, num_matches: int, opponents: list[str]
+    ) -> list[Match]:
         """Generates a set of fixtures for the team (placeholder for complex logic)."""
         logger.info(f"Generating {num_matches} fixtures for team {team_id} against {opponents}")
         generated_matches = []
         for i in range(num_matches):
             opponent = opponents[i % len(opponents)]
-            match_date = datetime.now() + timedelta(days=(i+1)*7) # One match per week
-            match = await self.create_match(team_id, opponent, match_date, location="Generated Venue", status=MatchStatus.SCHEDULED, home_away="home", competition="Friendly")
+            match_date = datetime.now() + timedelta(days=(i + 1) * 7)  # One match per week
+            match = await self.create_match(
+                team_id,
+                opponent,
+                match_date,
+                location="Generated Venue",
+                status=MatchStatus.SCHEDULED,
+                home_away="home",
+                competition="Friendly",
+            )
             generated_matches.append(match)
         return generated_matches

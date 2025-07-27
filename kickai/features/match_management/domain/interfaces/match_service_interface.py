@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Union, Union
+from typing import Any
 
 
 class IMatchService(ABC):
@@ -8,7 +8,7 @@ class IMatchService(ABC):
         pass
 
     @abstractmethod
-    async def get_match(self, match_id: str) -> Union[dict[str, Any], None]:
+    async def get_match(self, match_id: str) -> dict[str, Any] | None:
         pass
 
     @abstractmethod
@@ -20,5 +20,5 @@ class IMatchService(ABC):
         pass
 
     @abstractmethod
-    async def list_matches(self, team_id: str, status: Union[str, None] = None) -> list[dict[str, Any]]:
+    async def list_matches(self, team_id: str, status: str | None = None) -> list[dict[str, Any]]:
         pass

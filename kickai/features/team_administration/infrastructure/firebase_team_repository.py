@@ -5,7 +5,6 @@ Firebase Team Repository Implementation
 This module provides the Firebase implementation of the team repository interface.
 """
 
-from typing import Union
 from datetime import datetime
 
 from kickai.core.firestore_constants import (
@@ -33,7 +32,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             "id": team.id,
             "name": team.name,
             "description": team.description,
-            "status": team.status.value if hasattr(team.status, 'value') else team.status,
+            "status": team.status.value if hasattr(team.status, "value") else team.status,
             "created_by": team.created_by,
             "created_at": team.created_at,
             "updated_at": team.updated_at,
@@ -43,7 +42,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             "bot_id": team.bot_id,
             "bot_token": team.bot_token,
             "main_chat_id": team.main_chat_id,
-            "leadership_chat_id": team.leadership_chat_id
+            "leadership_chat_id": team.leadership_chat_id,
         }
 
         # Create document and get the generated ID
@@ -51,7 +50,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         doc_id = await self.database.create_document(
             collection=self.collection_name,
             document_id=team.id if team.id else None,
-            data=team_data
+            data=team_data,
         )
 
         # Update the team entity with the generated ID
@@ -59,12 +58,11 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
         return team
 
-    async def get_team_by_id(self, team_id: str) -> Union[Team, None]:
+    async def get_team_by_id(self, team_id: str) -> Team | None:
         """Get a team by ID."""
         try:
             doc = await self.database.get_document(
-                collection=self.collection_name,
-                document_id=team_id
+                collection=self.collection_name, document_id=team_id
             )
 
             if doc:
@@ -76,9 +74,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
     async def get_all_teams(self) -> list[Team]:
         """Get all teams."""
         try:
-            docs = await self.database.query_documents(
-                collection=self.collection_name
-            )
+            docs = await self.database.query_documents(collection=self.collection_name)
 
             return [self._doc_to_team(doc) for doc in docs]
         except Exception:
@@ -90,7 +86,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             "id": team.id,
             "name": team.name,
             "description": team.description,
-            "status": team.status.value if hasattr(team.status, 'value') else team.status,
+            "status": team.status.value if hasattr(team.status, "value") else team.status,
             "created_by": team.created_by,
             "created_at": team.created_at,
             "updated_at": team.updated_at,
@@ -100,13 +96,11 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             "bot_id": team.bot_id,
             "bot_token": team.bot_token,
             "main_chat_id": team.main_chat_id,
-            "leadership_chat_id": team.leadership_chat_id
+            "leadership_chat_id": team.leadership_chat_id,
         }
 
         await self.database.update_document(
-            collection=self.collection_name,
-            document_id=team.id,
-            data=team_data
+            collection=self.collection_name, document_id=team.id, data=team_data
         )
 
         return team
@@ -115,8 +109,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         """Delete a team."""
         try:
             await self.database.delete_document(
-                collection=self.collection_name,
-                document_id=team_id
+                collection=self.collection_name, document_id=team_id
             )
 
             return True
@@ -127,15 +120,13 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         """List all teams with optional limit."""
         try:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.info(f"🔍 [REPO] list_all called with limit={limit}")
             logger.info(f"🔍 [REPO] Using collection: {self.collection_name}")
             logger.info(f"🔍 [REPO] Database type: {type(self.database)}")
 
-            docs = await self.database.query_documents(
-                collection=self.collection_name,
-                limit=limit
-            )
+            docs = await self.database.query_documents(collection=self.collection_name, limit=limit)
 
             logger.info(f"🔍 [REPO] Got {len(docs)} documents from database")
 
@@ -145,35 +136,32 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             return teams
         except Exception as e:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error in list_all: {e}")
             import traceback
+
             logger.error(f"❌ [REPO] Traceback: {traceback.format_exc()}")
             return []
 
     # Team Member Methods
     async def create_team_member(self, team_member: TeamMember) -> TeamMember:
         """Create a new team member."""
-        # Generate a unique ID for the team member if not provided
-        # Team member ID generation moved to behavioral mixins
-        if not team_member.id:
-            team_member.id = f"TM_{team_member.name.replace(' ', '')[:6].upper()}"
-
-        # Preserve the original user_id (should be telegram_id or unique user identifier)
-        # Don't override user_id with the document ID
+        # TeamMember entity uses user_id as the primary identifier
+        # The user_id should already be set by the service layer
+        if not team_member.user_id:
+            raise ValueError("TeamMember user_id must be set before creation")
 
         team_member_data = team_member.to_dict()
 
-        # Create document in team_members collection
+        # Create document in team_members collection using user_id as document ID
         doc_id = await self.database.create_document(
             collection=get_team_members_collection(team_member.team_id),
-            document_id=team_member.id,
-            data=team_member_data
+            document_id=team_member.user_id,
+            data=team_member_data,
         )
 
-        # Update only the document ID, preserve user_id
-        team_member.id = doc_id
-
+        # The user_id remains unchanged, doc_id should match user_id
         return team_member
 
     async def get_team_members(self, team_id: str) -> list[TeamMember]:
@@ -181,12 +169,13 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         try:
             docs = await self.database.query_documents(
                 collection=get_team_members_collection(team_id),
-                filters=[{"field": "team_id", "operator": "==", "value": team_id}]
+                filters=[{"field": "team_id", "operator": "==", "value": team_id}],
             )
 
             return [self._doc_to_team_member(doc) for doc in docs]
         except Exception as e:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error getting team members: {e}")
             return []
@@ -195,15 +184,17 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         """Get all members of a team (alias for get_team_members for compatibility)."""
         return await self.get_team_members(team_id)
 
-    async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> Union[TeamMember, None]:
+    async def get_team_member_by_telegram_id(
+        self, team_id: str, telegram_id: str
+    ) -> TeamMember | None:
         """Get a team member by Telegram ID."""
         try:
             docs = await self.database.query_documents(
                 collection=get_team_members_collection(team_id),
                 filters=[
                     {"field": "team_id", "operator": "==", "value": team_id},
-                    {"field": "telegram_id", "operator": "==", "value": telegram_id}
-                ]
+                    {"field": "telegram_id", "operator": "==", "value": telegram_id},
+                ],
             )
 
             if docs:
@@ -211,6 +202,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             return None
         except Exception as e:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error getting team member by telegram_id: {e}")
             return None
@@ -221,8 +213,8 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
         await self.database.update_document(
             collection=get_team_members_collection(team_member.team_id),
-            document_id=team_member.id,
-            data=team_member_data
+            document_id=team_member.user_id,
+            data=team_member_data,
         )
 
         return team_member
@@ -232,12 +224,13 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         try:
             await self.database.delete_document(
                 collection=get_team_members_collection(team_member_id.split("_")[0]),
-                document_id=team_member_id
+                document_id=team_member_id,
             )
 
             return True
         except Exception as e:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error deleting team member: {e}")
             return False
@@ -272,7 +265,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             bot_id=doc.get("bot_id"),
             bot_token=doc.get("bot_token"),
             main_chat_id=doc.get("main_chat_id"),
-            leadership_chat_id=doc.get("leadership_chat_id")
+            leadership_chat_id=doc.get("leadership_chat_id"),
         )
 
         return team
@@ -306,5 +299,5 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             created_at=created_at,
             updated_at=updated_at,
             source=doc.get("source"),
-            sync_version=doc.get("sync_version")
+            sync_version=doc.get("sync_version"),
         )

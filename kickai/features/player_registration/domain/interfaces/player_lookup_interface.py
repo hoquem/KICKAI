@@ -5,7 +5,6 @@ This interface provides a minimal contract for looking up player information
 without creating circular dependencies between services.
 """
 
-from typing import Union
 from abc import ABC, abstractmethod
 
 
@@ -13,7 +12,7 @@ class IPlayerLookup(ABC):
     """Interface for player lookup operations."""
 
     @abstractmethod
-    async def get_player_team_id(self, player_id: str) -> Union[str, None]:
+    async def get_player_team_id(self, player_id: str) -> str | None:
         """
         Get the team ID for a player.
 

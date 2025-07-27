@@ -4,6 +4,7 @@ from kickai.features.attendance_management.domain.repositories.attendance_reposi
 
 # from kickai.features.attendance_management.domain.entities.attendance import Attendance  # Uncomment and implement Attendance entity as needed
 
+
 class AttendanceService:
     def __init__(self, attendance_repository: AttendanceRepositoryInterface):
         self.attendance_repository = attendance_repository
