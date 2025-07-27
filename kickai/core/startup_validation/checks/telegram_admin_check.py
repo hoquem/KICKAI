@@ -41,25 +41,25 @@ class TelegramAdminCheck(BaseCheck):
             logger.info("🔍 Validating Telegram bot admin permissions...")
 
             # Get bot configuration from context
-            bot_config = context.get('bot_config')
+            bot_config = context.get("bot_config")
             if not bot_config:
                 return CheckResult(
                     name=self.name,
                     category=self.category,
                     status=CheckStatus.FAILED,
-                    message="No bot configuration found in context"
+                    message="No bot configuration found in context",
                 )
 
-            bot_token = bot_config.get('bot_token')
-            main_chat_id = bot_config.get('main_chat_id')
-            leadership_chat_id = bot_config.get('leadership_chat_id')
+            bot_token = bot_config.get("bot_token")
+            main_chat_id = bot_config.get("main_chat_id")
+            leadership_chat_id = bot_config.get("leadership_chat_id")
 
             if not bot_token:
                 return CheckResult(
                     name=self.name,
                     category=self.category,
                     status=CheckStatus.FAILED,
-                    message="Bot token not found in configuration"
+                    message="Bot token not found in configuration",
                 )
 
             # Initialize bot
@@ -75,9 +75,15 @@ class TelegramAdminCheck(BaseCheck):
             # Validate admin permissions in chats
             chat_validations = []
             if main_chat_id:
-                chat_validations.append(await self._validate_chat_permissions(bot, main_chat_id, "Main Chat"))
+                chat_validations.append(
+                    await self._validate_chat_permissions(bot, main_chat_id, "Main Chat")
+                )
             if leadership_chat_id:
-                chat_validations.append(await self._validate_chat_permissions(bot, leadership_chat_id, "Leadership Chat"))
+                chat_validations.append(
+                    await self._validate_chat_permissions(
+                        bot, leadership_chat_id, "Leadership Chat"
+                    )
+                )
 
             # Analyze results
             all_passed = privacy_status and all(chat_validations)
@@ -87,7 +93,7 @@ class TelegramAdminCheck(BaseCheck):
                     name=self.name,
                     category=self.category,
                     status=CheckStatus.PASSED,
-                    message="✅ Bot has proper admin permissions in all chats"
+                    message="✅ Bot has proper admin permissions in all chats",
                 )
             else:
                 issues = []
@@ -100,7 +106,7 @@ class TelegramAdminCheck(BaseCheck):
                     name=self.name,
                     category=self.category,
                     status=CheckStatus.WARNING,
-                    message=f"⚠️ Bot permission issues detected: {'; '.join(issues)}"
+                    message=f"⚠️ Bot permission issues detected: {'; '.join(issues)}",
                 )
 
         except Exception as e:
@@ -110,7 +116,7 @@ class TelegramAdminCheck(BaseCheck):
                 category=self.category,
                 status=CheckStatus.FAILED,
                 message=f"Telegram admin validation failed: {e!s}",
-                error=e
+                error=e,
             )
 
     async def _check_privacy_mode(self, bot: Bot) -> bool:
@@ -133,11 +139,13 @@ class TelegramAdminCheck(BaseCheck):
 
             logger.info(f"📊 {chat_name} ({chat_id}) permissions:")
             logger.info(f"   - Status: {chat_member.status}")
-            logger.info(f"   - Can read messages: {getattr(chat_member, 'can_read_messages', 'N/A')}")
+            logger.info(
+                f"   - Can read messages: {getattr(chat_member, 'can_read_messages', 'N/A')}"
+            )
             logger.info(f"   - Is admin: {chat_member.status in ['administrator', 'creator']}")
 
             # Check if bot is admin or has proper permissions
-            if chat_member.status in ['administrator', 'creator']:
+            if chat_member.status in ["administrator", "creator"]:
                 logger.info(f"✅ {chat_name}: Bot has admin permissions")
                 return True
             else:

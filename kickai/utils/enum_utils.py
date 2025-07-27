@@ -28,8 +28,10 @@ def serialize_enums_for_firestore(data: dict[str, Any]) -> dict[str, Any]:
             serialized_data[key] = serialize_enums_for_firestore(value)
         elif isinstance(value, list):
             serialized_data[key] = [
-                serialize_enums_for_firestore(item) if isinstance(item, dict)
-                else item.value if isinstance(item, Enum)
+                serialize_enums_for_firestore(item)
+                if isinstance(item, dict)
+                else item.value
+                if isinstance(item, Enum)
                 else item
                 for item in value
             ]

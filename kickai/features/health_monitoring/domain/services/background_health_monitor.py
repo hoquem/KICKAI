@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Union, Union
+from typing import Any
 
 # These should be updated to the correct feature-based paths
 # from kickai.features.health_monitoring.domain.entities.health_check_types import SystemHealthReport, HealthStatus, ComponentType
@@ -18,6 +18,7 @@ class AlertLevel(Enum):
     ERROR = "error"
     CRITICAL = "critical"
 
+
 @dataclass
 class HealthAlert:
     level: AlertLevel
@@ -27,7 +28,8 @@ class HealthAlert:
     timestamp: datetime
     details: dict[str, Any] = field(default_factory=dict)
     resolved: bool = False
-    resolved_at: Union[datetime, None] = None
+    resolved_at: datetime | None = None
+
 
 class BackgroundHealthMonitor:
     def __init__(self, team_id: str, check_interval: int = 300):
@@ -45,7 +47,7 @@ class BackgroundHealthMonitor:
         self.performance_metrics: dict[str, list[float]] = {
             "response_times": [],
             "check_durations": [],
-            "alert_counts": []
+            "alert_counts": [],
         }
         self.logger.info(f"✅ BackgroundHealthMonitor initialized for team {team_id}")
 
@@ -91,13 +93,10 @@ class BackgroundHealthMonitor:
                         AlertLevel.ERROR,
                         "background_monitor",
                         "SERVICE",
-                        f"Monitoring loop error: {e!s}"
+                        f"Monitoring loop error: {e!s}",
                     )
                 try:
-                    await asyncio.wait_for(
-                        self._shutdown_event.wait(),
-                        timeout=self.check_interval
-                    )
+                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=self.check_interval)
                 except TimeoutError:
                     pass
         except asyncio.CancelledError:
@@ -116,7 +115,14 @@ class BackgroundHealthMonitor:
         self.performance_metrics["check_durations"].append(duration)
         self.performance_metrics["alert_counts"].append(len(self.active_alerts))
 
-    async def _create_alert(self, level: AlertLevel, component_name: str, component_type: str, message: str, details: Union[dict[str, Any], None] = None) -> None:
+    async def _create_alert(
+        self,
+        level: AlertLevel,
+        component_name: str,
+        component_type: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
         alert_id = f"{component_type}_{component_name}_{datetime.now().timestamp()}"
         alert = HealthAlert(
             level=level,
@@ -124,7 +130,7 @@ class BackgroundHealthMonitor:
             component_type=component_type,
             message=message,
             timestamp=datetime.now(),
-            details=details or {}
+            details=details or {},
         )
         self.active_alerts[alert_id] = alert
         self.alert_history.append(alert)
@@ -175,5 +181,5 @@ class BackgroundHealthMonitor:
             "active_alerts": len(self.active_alerts),
             "alert_history": len(self.alert_history),
             "performance_metrics": self.performance_metrics,
-            "is_monitoring": self._running
+            "is_monitoring": self._running,
         }

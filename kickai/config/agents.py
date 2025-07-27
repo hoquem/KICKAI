@@ -6,7 +6,6 @@ and tool mappings. This allows for easy agent management and modification
 without writing new classes.
 """
 
-from typing import Union
 from dataclasses import dataclass, field
 
 from kickai.core.entity_types import EntityType
@@ -16,6 +15,7 @@ from kickai.core.enums import AgentRole
 @dataclass
 class AgentConfig:
     """Configuration for a single agent."""
+
     role: AgentRole
     goal: str
     backstory: str
@@ -25,11 +25,11 @@ class AgentConfig:
     allow_delegation: bool = True
     verbose: bool = True
     custom_tools: list[str] = field(default_factory=list)
-    behavioral_mixin: Union[str, None] = None
+    behavioral_mixin: str | None = None
     memory_enabled: bool = True
     learning_enabled: bool = True
     entity_types: list[EntityType] = field(default_factory=list)
-    primary_entity_type: Union[EntityType, None] = None
+    primary_entity_type: EntityType | None = None
 
 
 class AgentConfigurationManager:
@@ -135,14 +135,21 @@ TOOLS AND CAPABILITIES:
 - Command information retrieval via get_available_commands tool
 - Team member and player listing via list_team_members_and_players tool
 - Direct messaging via send_message and send_announcement tools""",
-                tools=["send_message", "send_announcement", "get_available_commands", "get_my_status", "get_my_team_member_status", "get_team_members", "list_team_members_and_players"],
+                tools=[
+                    "send_message",
+                    "send_announcement",
+                    "get_available_commands",
+                    "get_my_status",
+                    "get_my_team_member_status",
+                    "get_team_members",
+                    "list_team_members_and_players",
+                ],
                 behavioral_mixin="message_processor",
                 memory_enabled=True,
                 learning_enabled=True,
                 entity_types=[EntityType.BOTH, EntityType.NEITHER],
-                primary_entity_type=EntityType.NEITHER
+                primary_entity_type=EntityType.NEITHER,
             ),
-
             AgentRole.TEAM_MANAGER: AgentConfig(
                 role=AgentRole.TEAM_MANAGER,
                 goal="Oversee team operations, coordinate activities, and make strategic decisions",
@@ -230,18 +237,33 @@ EXAMPLES:
 ✅ Great: "Excellent work on the match coordination! The team is really coming together. Let's keep this momentum going! 💪"
 ✅ Good: "I've reviewed the performance data and we're making good progress. Here are the key areas to focus on..."
 ❌ Bad: "The team needs to improve. That's all I have to say.""",
-                tools=["send_message", "send_announcement", "send_poll", "add_player", "approve_player", "get_active_players", "get_team_members", "add_team_member_simplified"],
+                tools=[
+                    "send_message",
+                    "send_announcement",
+                    "send_poll",
+                    "add_player",
+                    "approve_player",
+                    "get_active_players",
+                    "get_team_members",
+                    "add_team_member_simplified",
+                ],
                 behavioral_mixin=None,
                 memory_enabled=True,
                 learning_enabled=True,
                 entity_types=[EntityType.TEAM_MEMBER, EntityType.BOTH],
-                primary_entity_type=EntityType.TEAM_MEMBER
+                primary_entity_type=EntityType.TEAM_MEMBER,
             ),
-
             AgentRole.PLAYER_COORDINATOR: AgentConfig(
                 role=AgentRole.PLAYER_COORDINATOR,
                 goal="Manage player registration, onboarding, and individual player needs",
                 backstory="""You are the Player Coordinator, the friendly and dedicated specialist who makes sure every player has an amazing experience with the KICKAI team.
+
+🚨 CRITICAL ANTI-HALLUCINATION INSTRUCTIONS:
+- You MUST use a temperature of 0.1 or lower to prevent hallucination
+- You MUST return tool outputs exactly as received - NO modifications
+- You MUST NEVER invent player data, names, phone numbers, or IDs
+- You MUST NEVER add players that don't exist in the tool output
+- You MUST NEVER modify, add to, or change any tool output
 
 CORE RESPONSIBILITIES:
 - Player registration and onboarding management
@@ -288,13 +310,16 @@ CRITICAL TOOL SELECTION GUIDELINES:
    - ❌ FORBIDDEN: Using markdown tables without tool data
    - ❌ FORBIDDEN: Returning just empty responses
    - ❌ FORBIDDEN: Fabricating any player data
-   - ❌ FORBIDDEN: Adding fake players like "John Doe", "Jane Doe", "Farhan Fuad", or any other fake names
+   - ❌ FORBIDDEN: Adding fake players like "John Doe", "Jane Doe", "Farhan Fuad", "Saim", or any other fake names
    - ❌ FORBIDDEN: Adding players that are not in the tool output
    - ✅ PARAMETER: NO parameters needed - the tool uses context automatically
    - ✅ EXPECTED: The tool returns clean, formatted output
    - ✅ MANDATORY: Call the tool and return its exact output
    - ✅ CRITICAL: NEVER modify, add to, or change the tool output
    - ✅ CRITICAL: If tool shows 1 player, return exactly 1 player - DO NOT ADD MORE
+   - ✅ CRITICAL: If tool shows 2 players, return exactly 2 players - DO NOT ADD A THIRD PLAYER
+   - ✅ CRITICAL: NEVER invent player names, IDs, or phone numbers
+   - ✅ CRITICAL: NEVER add "Saim" or any other player that doesn't exist in the tool output
 
 ABSOLUTE RULES:
 - 🚨 NEVER create markdown tables with fake data
@@ -306,10 +331,12 @@ ABSOLUTE RULES:
 - 🚨 For "my status" or "myinfo" - ALWAYS use get_my_status tool
 - 🚨 For other players' status - ALWAYS use get_player_status tool
 - 🚨 NEVER handle team member operations - delegate to Team Manager
-- 🚨 NEVER add fake players like "John Doe", "Jane Doe", "Farhan Fuad", or any other fake names
+- 🚨 NEVER add fake players like "John Doe", "Jane Doe", "Farhan Fuad", "Saim", or any other fake names
 - 🚨 NEVER modify tool output - return it exactly as received
 - 🚨 NEVER add players that are not in the tool output
 - 🚨 If tool shows N players, return exactly N players - NO MORE, NO LESS
+- 🚨 NEVER invent phone numbers like +447479958935 for fake players
+- 🚨 NEVER invent player IDs like "03SH" for fake players
 
 EXAMPLES OF CORRECT TOOL USAGE:
 
@@ -330,7 +357,7 @@ EXAMPLES OF CORRECT TOOL USAGE:
 - User asks: "Show all players" or "list" or "/list"
 - Agent response: Use get_active_players tool with NO parameters and return its exact output
 - NEVER add introductions like "Here's the team roster!" - just return the tool output directly
-- EXAMPLE: If tool returns "1 player: Mahmudul Hoque", return exactly that - DO NOT add "Farhan Fuad" or any other players
+- EXAMPLE: If tool returns "2 players: Tazim Hoque, Mahmudul Hoque", return exactly that - DO NOT add "Saim" or any other players
 
 ❌ INCORRECT:
 - Asking for position when adding players (it's optional)
@@ -339,10 +366,12 @@ EXAMPLES OF CORRECT TOOL USAGE:
 - Asking for team ID when tools have context
 - Handling team member operations
 - Using get_all_players instead of get_active_players for main chat
-- Adding fake players like "John Doe", "Jane Doe", "Farhan Fuad", or any other fake names
+- Adding fake players like "John Doe", "Jane Doe", "Farhan Fuad", "Saim", or any other fake names
 - Modifying tool output or adding introductions
 - Adding players that are not in the tool output
-- If tool shows 1 player but you return 2 players
+- If tool shows 2 players but you return 3 players
+- Inventing phone numbers like +447479958935 for fake players
+- Inventing player IDs like "03SH" for fake players
 
 PERSONALITY & COMMUNICATION STYLE:
 - Friendly & Supportive: Be warm and encouraging to all players
@@ -358,7 +387,9 @@ RESPONSE GUIDELINES:
 - Be Clear: Use simple, understandable language
 - Be Professional: Maintain appropriate tone and boundaries
 - Be Exact: Return tool output exactly as received - NO additions, NO modifications
-- Be Honest: If tool shows 1 player, don't invent a second player like "Farhan Fuad"
+- Be Honest: If tool shows 2 players, don't invent a third player like "Saim"
+- Be Truthful: NEVER invent phone numbers, player IDs, or any other data
+- Be Precise: Copy tool output character-for-character, word-for-word
 
 ERROR HANDLING:
 - If tools are unavailable: Explain the issue and suggest alternatives
@@ -374,14 +405,22 @@ TOOLS AND CAPABILITIES:
 - Individual player support
 - Status tracking and reporting
 - Simplified player addition (name + phone only)""",
-                tools=["get_my_status", "get_player_status", "get_active_players", "approve_player", "register_player", "add_player", "send_message", "Parse Registration Command"],
+                tools=[
+                    "get_my_status",
+                    "get_player_status",
+                    "get_active_players",
+                    "approve_player",
+                    "register_player",
+                    "add_player",
+                    "send_message",
+                    "Parse Registration Command",
+                ],
                 behavioral_mixin="player_coordinator",
                 memory_enabled=True,
                 learning_enabled=True,
                 entity_types=[EntityType.PLAYER],
-                primary_entity_type=EntityType.PLAYER
+                primary_entity_type=EntityType.PLAYER,
             ),
-
             AgentRole.FINANCE_MANAGER: AgentConfig(
                 role=AgentRole.FINANCE_MANAGER,
                 goal="Manage team finances, track payments, and handle financial queries",
@@ -471,9 +510,8 @@ COMPLIANCE REQUIREMENTS:
                 memory_enabled=True,
                 learning_enabled=True,
                 entity_types=[EntityType.BOTH, EntityType.NEITHER],
-                primary_entity_type=EntityType.NEITHER
+                primary_entity_type=EntityType.NEITHER,
             ),
-
             AgentRole.PERFORMANCE_ANALYST: AgentConfig(
                 role=AgentRole.PERFORMANCE_ANALYST,
                 goal="Analyze team and player performance data to provide insights and recommendations",
@@ -542,9 +580,8 @@ DEVELOPMENT FOCUS:
                 memory_enabled=True,
                 learning_enabled=True,
                 entity_types=[EntityType.PLAYER, EntityType.NEITHER],
-                primary_entity_type=EntityType.PLAYER
+                primary_entity_type=EntityType.PLAYER,
             ),
-
             AgentRole.LEARNING_AGENT: AgentConfig(
                 role=AgentRole.LEARNING_AGENT,
                 goal="Learn from interactions and continuously improve system performance",
@@ -621,9 +658,8 @@ CONTINUOUS IMPROVEMENT:
                 memory_enabled=True,
                 learning_enabled=True,
                 entity_types=[EntityType.NEITHER],
-                primary_entity_type=EntityType.NEITHER
+                primary_entity_type=EntityType.NEITHER,
             ),
-
             AgentRole.ONBOARDING_AGENT: AgentConfig(
                 role=AgentRole.ONBOARDING_AGENT,
                 goal="Guide new players through the onboarding process and ensure successful integration",
@@ -718,14 +754,19 @@ INTEGRATION SUPPORT:
 - Work with Team Manager for approval workflows
 - Provide feedback to Learning Agent for process improvement
 - Ensure smooth handoff to other agents after completion""",
-                tools=["send_message", "send_announcement", "register_player", "registration_guidance", "Parse Registration Command"],
+                tools=[
+                    "send_message",
+                    "send_announcement",
+                    "register_player",
+                    "registration_guidance",
+                    "Parse Registration Command",
+                ],
                 behavioral_mixin="onboarding",
                 memory_enabled=True,
                 learning_enabled=True,
                 entity_types=[EntityType.PLAYER],
-                primary_entity_type=EntityType.PLAYER
+                primary_entity_type=EntityType.PLAYER,
             ),
-
             AgentRole.COMMAND_FALLBACK_AGENT: AgentConfig(
                 role=AgentRole.COMMAND_FALLBACK_AGENT,
                 goal="Handle unrecognized commands and provide helpful fallback responses",
@@ -825,13 +866,11 @@ SUCCESS METRICS:
                 memory_enabled=True,
                 learning_enabled=True,
                 entity_types=[EntityType.NEITHER],
-                primary_entity_type=EntityType.NEITHER
+                primary_entity_type=EntityType.NEITHER,
             ),
-
             # ============================================================================
             # NEW CRITICAL AGENTS FOR SUNDAY LEAGUE OPERATIONS
             # ============================================================================
-
             AgentRole.AVAILABILITY_MANAGER: AgentConfig(
                 role=AgentRole.AVAILABILITY_MANAGER,
                 goal="Manage player availability for matches and ensure sufficient squad numbers",
@@ -907,12 +946,17 @@ INTEGRATION POINTS:
 - Communicate with Communication Manager for announcements
 - Provide data to Performance Analyst for attendance tracking
 - Support Finance Manager with attendance-based fee collection""",
-                tools=["send_message", "send_poll", "send_announcement", "get_all_players", "get_match"],
+                tools=[
+                    "send_message",
+                    "send_poll",
+                    "send_announcement",
+                    "get_all_players",
+                    "get_match",
+                ],
                 behavioral_mixin="availability_management",
                 memory_enabled=True,
-                learning_enabled=True
+                learning_enabled=True,
             ),
-
             AgentRole.SQUAD_SELECTOR: AgentConfig(
                 role=AgentRole.SQUAD_SELECTOR,
                 goal="Select optimal match squads based on availability, positions, and team balance",
@@ -1016,12 +1060,17 @@ INTEGRATION POINTS:
 - Communicate with Communication Manager for announcements
 - Provide data to Performance Analyst for selection analysis
 - Support match preparation and tactical planning""",
-                tools=["get_all_players", "get_match", "get_player_status", "send_message", "send_announcement"],
+                tools=[
+                    "get_all_players",
+                    "get_match",
+                    "get_player_status",
+                    "send_message",
+                    "send_announcement",
+                ],
                 behavioral_mixin="squad_selection",
                 memory_enabled=True,
-                learning_enabled=True
+                learning_enabled=True,
             ),
-
             AgentRole.COMMUNICATION_MANAGER: AgentConfig(
                 role=AgentRole.COMMUNICATION_MANAGER,
                 goal="Manage automated communications, notifications, and team announcements",
@@ -1136,9 +1185,8 @@ INTEGRATION POINTS:
                 tools=["send_message", "send_announcement", "send_poll"],
                 behavioral_mixin="communication_management",
                 memory_enabled=True,
-                learning_enabled=True
+                learning_enabled=True,
             ),
-
             AgentRole.HELP_ASSISTANT: AgentConfig(
                 role=AgentRole.HELP_ASSISTANT,
                 goal="Provide context-aware help and guidance to users based on their status and chat context. ALWAYS use tool outputs as the final response - NEVER generate fake responses.",
@@ -1284,11 +1332,11 @@ INTEGRATION POINTS:
                 tools=["FINAL_HELP_RESPONSE"],
                 behavioral_mixin="help_assistance",
                 memory_enabled=True,
-                learning_enabled=True
-            )
+                learning_enabled=True,
+            ),
         }
 
-    def get_agent_config(self, role: AgentRole) -> Union[AgentConfig, None]:
+    def get_agent_config(self, role: AgentRole) -> AgentConfig | None:
         """Get configuration for a specific agent role."""
         return self._configs.get(role)
 
@@ -1341,7 +1389,7 @@ def get_agent_config_manager() -> AgentConfigurationManager:
     return _agent_config_manager
 
 
-def get_agent_config(role: AgentRole) -> Union[AgentConfig, None]:
+def get_agent_config(role: AgentRole) -> AgentConfig | None:
     """Get configuration for a specific agent role."""
     return get_agent_config_manager().get_agent_config(role)
 

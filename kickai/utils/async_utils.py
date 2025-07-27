@@ -9,17 +9,18 @@ import time
 from collections.abc import Callable, Coroutine
 from contextlib import asynccontextmanager
 from functools import wraps
-from typing import Any, Union, TypeVar
+from typing import Any, TypeVar
 
 from loguru import logger
 
 logger = logger
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class AsyncRetryError(Exception):
     """Exception raised when async retry operations fail."""
+
     pass
 
 
@@ -27,7 +28,7 @@ def async_retry(
     max_attempts: int = 3,
     delay: float = 1.0,
     backoff_factor: float = 2.0,
-    exceptions: tuple = (Exception,)
+    exceptions: tuple = (Exception,),
 ):
     """
     Decorator for retrying async functions with exponential backoff.
@@ -38,7 +39,10 @@ def async_retry(
         backoff_factor: Multiplier for delay on each retry
         exceptions: Tuple of exceptions to catch and retry
     """
-    def decorator(func: Callable[..., Coroutine[Any, Any, T]]) -> Callable[..., Coroutine[Any, Any, T]]:
+
+    def decorator(
+        func: Callable[..., Coroutine[Any, Any, T]],
+    ) -> Callable[..., Coroutine[Any, Any, T]]:
         @wraps(func)
         async def wrapper(*args, **kwargs) -> T:
             last_exception = None
@@ -57,13 +61,14 @@ def async_retry(
                         await asyncio.sleep(current_delay)
                         current_delay *= backoff_factor
                     else:
-                        logger.error(
-                            f"All {max_attempts} attempts failed for {func.__name__}: {e}"
-                        )
+                        logger.error(f"All {max_attempts} attempts failed for {func.__name__}: {e}")
 
-            raise AsyncRetryError(f"Function {func.__name__} failed after {max_attempts} attempts") from last_exception
+            raise AsyncRetryError(
+                f"Function {func.__name__} failed after {max_attempts} attempts"
+            ) from last_exception
 
         return wrapper
+
     return decorator
 
 
@@ -74,7 +79,10 @@ def async_timeout(timeout_seconds: float):
     Args:
         timeout_seconds: Timeout in seconds
     """
-    def decorator(func: Callable[..., Coroutine[Any, Any, T]]) -> Callable[..., Coroutine[Any, Any, T]]:
+
+    def decorator(
+        func: Callable[..., Coroutine[Any, Any, T]],
+    ) -> Callable[..., Coroutine[Any, Any, T]]:
         @wraps(func)
         async def wrapper(*args, **kwargs) -> T:
             try:
@@ -84,6 +92,7 @@ def async_timeout(timeout_seconds: float):
                 raise AsyncRetryError(f"Function {func.__name__} timed out") from None
 
         return wrapper
+
     return decorator
 
 
@@ -126,8 +135,7 @@ async def run_in_executor(func: Callable[..., T], *args, **kwargs) -> T:
 
 
 async def gather_with_concurrency_limit(
-    coroutines: list[Coroutine[Any, Any, T]],
-    max_concurrent: int = 10
+    coroutines: list[Coroutine[Any, Any, T]], max_concurrent: int = 10
 ) -> list[T]:
     """
     Execute coroutines with a concurrency limit using semaphore.
@@ -153,7 +161,7 @@ async def execute_with_fallback(
     primary_func: Callable[..., Coroutine[Any, Any, T]],
     fallback_func: Callable[..., Coroutine[Any, Any, T]],
     *args,
-    **kwargs
+    **kwargs,
 ) -> T:
     """
     Execute a primary function with a fallback if it fails.
@@ -186,9 +194,7 @@ class AsyncBatchProcessor:
         self.max_concurrent = max_concurrent
 
     async def process_batches(
-        self,
-        items: list[Any],
-        processor_func: Callable[[list[Any]], Coroutine[Any, Any, list[T]]]
+        self, items: list[Any], processor_func: Callable[[list[Any]], Coroutine[Any, Any, list[T]]]
     ) -> list[T]:
         """
         Process items in batches asynchronously.
@@ -200,16 +206,10 @@ class AsyncBatchProcessor:
         Returns:
             List of results from all batches
         """
-        batches = [
-            items[i:i + self.batch_size]
-            for i in range(0, len(items), self.batch_size)
-        ]
+        batches = [items[i : i + self.batch_size] for i in range(0, len(items), self.batch_size)]
 
         batch_coroutines = [processor_func(batch) for batch in batches]
-        batch_results = await gather_with_concurrency_limit(
-            batch_coroutines,
-            self.max_concurrent
-        )
+        batch_results = await gather_with_concurrency_limit(batch_coroutines, self.max_concurrent)
 
         # Flatten results
         all_results = []
@@ -234,7 +234,9 @@ class AsyncRateLimiter:
             now = time.time()
 
             # Remove old calls outside the time window
-            self.calls = [call_time for call_time in self.calls if now - call_time < self.time_window]
+            self.calls = [
+                call_time for call_time in self.calls if now - call_time < self.time_window
+            ]
 
             if len(self.calls) >= self.max_calls:
                 # Wait until we can make another call
@@ -263,6 +265,7 @@ def create_async_context_manager(func: Callable[..., Coroutine[Any, Any, T]]):
     Returns:
         Async context manager
     """
+
     @asynccontextmanager
     async def context_manager(*args, **kwargs):
         try:
@@ -277,12 +280,10 @@ def create_async_context_manager(func: Callable[..., Coroutine[Any, Any, T]]):
 
 # Utility functions for common async patterns
 
+
 async def safe_async_call(
-    func: Callable[..., Coroutine[Any, Any, T]],
-    *args,
-    default_value: Union[T, None] = None,
-    **kwargs
-) -> Union[T, None]:
+    func: Callable[..., Coroutine[Any, Any, T]], *args, default_value: T | None = None, **kwargs
+) -> T | None:
     """
     Safely call an async function with error handling.
 
@@ -303,9 +304,7 @@ async def safe_async_call(
 
 
 async def async_map(
-    func: Callable[[Any], Coroutine[Any, Any, T]],
-    items: list[Any],
-    max_concurrent: int = 10
+    func: Callable[[Any], Coroutine[Any, Any, T]], items: list[Any], max_concurrent: int = 10
 ) -> list[T]:
     """
     Apply an async function to each item in a list with concurrency control.
@@ -323,9 +322,7 @@ async def async_map(
 
 
 async def async_filter(
-    func: Callable[[Any], Coroutine[Any, Any, bool]],
-    items: list[Any],
-    max_concurrent: int = 10
+    func: Callable[[Any], Coroutine[Any, Any, bool]], items: list[Any], max_concurrent: int = 10
 ) -> list[Any]:
     """
     Filter items using an async predicate function.

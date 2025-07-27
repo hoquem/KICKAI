@@ -13,6 +13,7 @@ from kickai.core.enums import ChatType
 # PAYMENT MANAGEMENT COMMANDS
 # ============================================================================
 
+
 @command(
     name="/createpayment",
     description="Create a new payment record (Leadership only)",
@@ -21,10 +22,7 @@ from kickai.core.enums import ChatType
     feature="payment_management",
     chat_type=ChatType.LEADERSHIP,
     examples=["/createpayment", "/createpayment Match Fee 25.00"],
-    parameters={
-        "description": "Payment description",
-        "amount": "Payment amount"
-    },
+    parameters={"description": "Payment description", "amount": "Payment amount"},
     help_text="""
 💰 Create Payment (Leadership Only)
 
@@ -44,7 +42,7 @@ What happens:
 4. Team members are notified
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_createpayment_command(update, context, **kwargs):
     """Handle /createpayment command."""
@@ -59,9 +57,7 @@ async def handle_createpayment_command(update, context, **kwargs):
     permission_level=PermissionLevel.PUBLIC,
     feature="payment_management",
     examples=["/payments", "/payments pending", "/payments completed"],
-    parameters={
-        "status": "Optional filter (pending, completed, all)"
-    },
+    parameters={"status": "Optional filter (pending, completed, all)"},
     help_text="""
 📊 View Payments
 
@@ -79,7 +75,7 @@ What you'll see:
 • Payment categories
 
 💡 Tip: Use filters to focus on relevant payments.
-    """
+    """,
 )
 async def handle_payments_command(update, context, **kwargs):
     """Handle /payments command."""
@@ -94,9 +90,7 @@ async def handle_payments_command(update, context, **kwargs):
     permission_level=PermissionLevel.PUBLIC,
     feature="payment_management",
     examples=["/budget", "/budget 2024"],
-    parameters={
-        "year": "Optional year to filter (e.g., 2024)"
-    },
+    parameters={"year": "Optional year to filter (e.g., 2024)"},
     help_text="""
 💳 Team Budget
 
@@ -114,7 +108,7 @@ What you'll see:
 • Financial trends
 
 💡 Tip: Track budget to ensure financial sustainability.
-    """
+    """,
 )
 async def handle_budget_command(update, context, **kwargs):
     """Handle /budget command."""
@@ -132,7 +126,7 @@ async def handle_budget_command(update, context, **kwargs):
     examples=["/markpaid PAYMENT123", "/markpaid PAYMENT123 2024-01-15"],
     parameters={
         "payment_id": "Payment ID to mark as paid",
-        "date": "Optional payment date (YYYY-MM-DD)"
+        "date": "Optional payment date (YYYY-MM-DD)",
     },
     help_text="""
 ✅ Mark Payment Paid (Leadership Only)
@@ -150,7 +144,7 @@ What happens:
 4. Payment history is updated
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_markpaid_command(update, context, **kwargs):
     """Handle /markpaid command."""
@@ -166,9 +160,7 @@ async def handle_markpaid_command(update, context, **kwargs):
     feature="payment_management",
     chat_type=ChatType.LEADERSHIP,
     examples=["/paymentexport", "/paymentexport 2024"],
-    parameters={
-        "year": "Optional year to filter (e.g., 2024)"
-    },
+    parameters={"year": "Optional year to filter (e.g., 2024)"},
     help_text="""
 📋 Export Payment Data (Leadership Only)
 
@@ -186,7 +178,7 @@ What you'll get:
 • Financial reports
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_paymentexport_command(update, context, **kwargs):
     """Handle /paymentexport command."""

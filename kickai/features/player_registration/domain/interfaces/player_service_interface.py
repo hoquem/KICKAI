@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Union, Union
+from typing import Any
 
 
 class IPlayerService(ABC):
@@ -8,7 +8,7 @@ class IPlayerService(ABC):
         pass
 
     @abstractmethod
-    async def get_player(self, player_id: str, team_id: str) -> Union[dict[str, Any], None]:
+    async def get_player(self, player_id: str, team_id: str) -> dict[str, Any] | None:
         pass
 
     @abstractmethod
@@ -20,9 +20,9 @@ class IPlayerService(ABC):
         pass
 
     @abstractmethod
-    async def list_players(self, team_id: Union[str, None] = None) -> list[dict[str, Any]]:
+    async def list_players(self, team_id: str | None = None) -> list[dict[str, Any]]:
         pass
 
     @abstractmethod
-    async def find_player_by_phone(self, phone: str) -> Union[dict[str, Any], None]:
+    async def find_player_by_phone(self, phone: str) -> dict[str, Any] | None:
         pass

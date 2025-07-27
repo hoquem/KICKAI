@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Union
+from typing import Any
 
 from kickai.features.payment_management.domain.interfaces.payment_gateway_interface import (
     IPaymentGateway,
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 class PaymentLinkStatus(Enum):
     """Status of payment links."""
+
     PENDING = "pending"
     PAID = "paid"
     EXPIRED = "expired"
@@ -32,6 +33,7 @@ class PaymentLinkStatus(Enum):
 
 class TransactionStatus(Enum):
     """Status of payment transactions."""
+
     PENDING = "pending"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -41,6 +43,7 @@ class TransactionStatus(Enum):
 @dataclass
 class MockPaymentLink:
     """Mock payment link data structure."""
+
     id: str
     amount: float
     currency: str
@@ -50,13 +53,14 @@ class MockPaymentLink:
     payment_url: str
     expires_at: datetime
     created_at: datetime
-    paid_at: Union[datetime, None] = None
-    transaction_id: Union[str, None] = None
+    paid_at: datetime | None = None
+    transaction_id: str | None = None
 
 
 @dataclass
 class MockTransaction:
     """Mock transaction data structure."""
+
     id: str
     payment_link_id: str
     amount: float
@@ -65,7 +69,7 @@ class MockTransaction:
     status: TransactionStatus
     transaction_data: dict[str, Any]
     created_at: datetime
-    completed_at: Union[datetime, None] = None
+    completed_at: datetime | None = None
 
 
 class MockCollectivPaymentGateway(IPaymentGateway):
@@ -79,19 +83,26 @@ class MockCollectivPaymentGateway(IPaymentGateway):
     - Webhook simulation
     """
 
-    def __init__(self, api_key: str = "mock_collectiv_key", base_url: str = "https://api.collectiv.com"):
+    def __init__(
+        self, api_key: str = "mock_collectiv_key", base_url: str = "https://api.collectiv.com"
+    ):
         self.api_key = api_key
         self.base_url = base_url
         self.payment_links: dict[str, MockPaymentLink] = {}
         self.transactions: dict[str, MockTransaction] = {}
-        self.webhook_url: Union[str, None] = None
+        self.webhook_url: str | None = None
         self.webhook_secret: str = "mock_webhook_secret"
 
         logger.info("✅ MockCollectivPaymentGateway initialized")
 
-    async def create_payment_link(self, amount: float, currency: str,
-                                description: str, reference: str,
-                                expires_in_days: int = 7) -> dict[str, Any]:
+    async def create_payment_link(
+        self,
+        amount: float,
+        currency: str,
+        description: str,
+        reference: str,
+        expires_in_days: int = 7,
+    ) -> dict[str, Any]:
         """
         Create a mock payment link.
 
@@ -118,7 +129,7 @@ class MockCollectivPaymentGateway(IPaymentGateway):
             status=PaymentLinkStatus.PENDING,
             payment_url=payment_url,
             expires_at=expires_at,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         self.payment_links[link_id] = payment_link
@@ -133,7 +144,7 @@ class MockCollectivPaymentGateway(IPaymentGateway):
             "description": description,
             "reference": reference,
             "expires_at": expires_at.isoformat(),
-            "status": "pending"
+            "status": "pending",
         }
 
     async def get_payment_link_status(self, link_id: str) -> dict[str, Any]:
@@ -163,7 +174,7 @@ class MockCollectivPaymentGateway(IPaymentGateway):
             "status": link.status.value,
             "paid_at": link.paid_at.isoformat() if link.paid_at else None,
             "transaction_id": link.transaction_id,
-            "expires_at": link.expires_at.isoformat()
+            "expires_at": link.expires_at.isoformat(),
         }
 
     async def process_payment(self, link_id: str, payment_method: str = "card") -> dict[str, Any]:
@@ -204,10 +215,10 @@ class MockCollectivPaymentGateway(IPaymentGateway):
             transaction_data={
                 "payment_method": payment_method,
                 "card_last4": "1234",
-                "card_brand": "visa"
+                "card_brand": "visa",
             },
             created_at=datetime.now(),
-            completed_at=datetime.now()
+            completed_at=datetime.now(),
         )
 
         self.transactions[transaction_id] = transaction
@@ -228,10 +239,12 @@ class MockCollectivPaymentGateway(IPaymentGateway):
             "currency": link.currency,
             "status": "completed",
             "payment_method": payment_method,
-            "completed_at": datetime.now().isoformat()
+            "completed_at": datetime.now().isoformat(),
         }
 
-    async def refund_payment(self, transaction_id: str, amount: Union[float, None] = None) -> dict[str, Any]:
+    async def refund_payment(
+        self, transaction_id: str, amount: float | None = None
+    ) -> dict[str, Any]:
         """
         Simulate refunding a payment.
 
@@ -263,10 +276,10 @@ class MockCollectivPaymentGateway(IPaymentGateway):
             status=TransactionStatus.REFUNDED,
             transaction_data={
                 "original_transaction_id": transaction_id,
-                "refund_reason": "customer_request"
+                "refund_reason": "customer_request",
             },
             created_at=datetime.now(),
-            completed_at=datetime.now()
+            completed_at=datetime.now(),
         )
 
         self.transactions[refund_id] = refund_transaction
@@ -282,7 +295,7 @@ class MockCollectivPaymentGateway(IPaymentGateway):
             "currency": transaction.currency,
             "status": "refunded",
             "original_transaction_id": transaction_id,
-            "completed_at": datetime.now().isoformat()
+            "completed_at": datetime.now().isoformat(),
         }
 
     async def _simulate_webhook(self, link_id: str, transaction_id: str):
@@ -297,8 +310,8 @@ class MockCollectivPaymentGateway(IPaymentGateway):
                 "transaction_id": transaction_id,
                 "amount": self.payment_links[link_id].amount,
                 "currency": self.payment_links[link_id].currency,
-                "completed_at": datetime.now().isoformat()
-            }
+                "completed_at": datetime.now().isoformat(),
+            },
         }
 
         # In a real implementation, this would send an HTTP POST to the webhook URL
@@ -309,8 +322,9 @@ class MockCollectivPaymentGateway(IPaymentGateway):
         self.webhook_url = url
         logger.info(f"✅ Webhook URL set to: {url}")
 
-    async def create_charge(self, amount: float, currency: str, source: str,
-                          description: Union[str, None] = None) -> dict[str, Any]:
+    async def create_charge(
+        self, amount: float, currency: str, source: str, description: str | None = None
+    ) -> dict[str, Any]:
         """
         Create a direct charge (not using payment links).
 
@@ -336,10 +350,10 @@ class MockCollectivPaymentGateway(IPaymentGateway):
             "currency": currency,
             "status": "succeeded",
             "description": description,
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
         }
 
-    async def create_refund(self, charge_id: str, amount: Union[float, None] = None) -> dict[str, Any]:
+    async def create_refund(self, charge_id: str, amount: float | None = None) -> dict[str, Any]:
         """Create a refund for a charge."""
         refund_id = f"rf_{uuid.uuid4().hex[:16]}"
         logger.info(f"✅ Created refund: {refund_id} for charge {charge_id}")
@@ -350,22 +364,22 @@ class MockCollectivPaymentGateway(IPaymentGateway):
         # Mock implementation - always returns succeeded
         return "succeeded"
 
-    def get_payment_link(self, link_id: str) -> Union[MockPaymentLink, None]:
+    def get_payment_link(self, link_id: str) -> MockPaymentLink | None:
         """Get a payment link by ID."""
         return self.payment_links.get(link_id)
 
-    def get_transaction(self, transaction_id: str) -> Union[MockTransaction, None]:
+    def get_transaction(self, transaction_id: str) -> MockTransaction | None:
         """Get a transaction by ID."""
         return self.transactions.get(transaction_id)
 
-    def list_payment_links(self, status: Union[PaymentLinkStatus, None] = None) -> list[MockPaymentLink]:
+    def list_payment_links(self, status: PaymentLinkStatus | None = None) -> list[MockPaymentLink]:
         """List payment links with optional status filter."""
         links = list(self.payment_links.values())
         if status:
             links = [link for link in links if link.status == status]
         return links
 
-    def list_transactions(self, status: Union[TransactionStatus, None] = None) -> list[MockTransaction]:
+    def list_transactions(self, status: TransactionStatus | None = None) -> list[MockTransaction]:
         """List transactions with optional status filter."""
         transactions = list(self.transactions.values())
         if status:
@@ -383,8 +397,28 @@ class MockCollectivPaymentGateway(IPaymentGateway):
         return {
             "payment_links_count": len(self.payment_links),
             "transactions_count": len(self.transactions),
-            "pending_links": len([link for link in self.payment_links.values() if link.status == PaymentLinkStatus.PENDING]),
-            "paid_links": len([link for link in self.payment_links.values() if link.status == PaymentLinkStatus.PAID]),
-            "completed_transactions": len([tx for tx in self.transactions.values() if tx.status == TransactionStatus.COMPLETED]),
-            "refunded_transactions": len([tx for tx in self.transactions.values() if tx.status == TransactionStatus.REFUNDED])
+            "pending_links": len(
+                [
+                    link
+                    for link in self.payment_links.values()
+                    if link.status == PaymentLinkStatus.PENDING
+                ]
+            ),
+            "paid_links": len(
+                [
+                    link
+                    for link in self.payment_links.values()
+                    if link.status == PaymentLinkStatus.PAID
+                ]
+            ),
+            "completed_transactions": len(
+                [
+                    tx
+                    for tx in self.transactions.values()
+                    if tx.status == TransactionStatus.COMPLETED
+                ]
+            ),
+            "refunded_transactions": len(
+                [tx for tx in self.transactions.values() if tx.status == TransactionStatus.REFUNDED]
+            ),
         }

@@ -7,7 +7,7 @@ to give them specific capabilities and behaviors.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Union
+from typing import Any
 
 from loguru import logger
 
@@ -18,7 +18,9 @@ from kickai.core.exceptions import (
     InputValidationError,
     KICKAIError,
 )
-from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
+from kickai.features.team_administration.domain.interfaces.team_service_interface import (
+    ITeamService,
+)
 
 
 class BaseBehavioralMixin(ABC):
@@ -59,14 +61,18 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
     async def handle_status_command(self, parameters: dict) -> str:
         """Handle /status command (async)."""
         try:
-            user_id = parameters.get('user_id', 'unknown')
-            team_id = parameters.get('team_id', 'unknown')
+            user_id = parameters.get("user_id", "unknown")
+            team_id = parameters.get("team_id", "unknown")
 
-            self.logger.info(f"🔍 PLAYER_COORDINATOR: Getting status for user_id={user_id}, team_id={team_id}")
+            self.logger.info(
+                f"🔍 PLAYER_COORDINATOR: Getting status for user_id={user_id}, team_id={team_id}"
+            )
 
             # Check if user_id is a test/unknown value
-            if user_id in ['unknown', 'test_user', 'unknown_user']:
-                self.logger.info("🔍 PLAYER_COORDINATOR: Test user detected, providing registration guidance")
+            if user_id in ["unknown", "test_user", "unknown_user"]:
+                self.logger.info(
+                    "🔍 PLAYER_COORDINATOR: Test user detected, providing registration guidance"
+                )
                 return self._get_player_not_found_message(user_id, team_id, "status")
 
             # Let the agent use the get_my_status tool instead of providing fallback
@@ -80,14 +86,18 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
     async def handle_myinfo_command(self, parameters: dict) -> str:
         """Handle /myinfo command (async)."""
         try:
-            user_id = parameters.get('user_id', 'unknown')
-            team_id = parameters.get('team_id', 'unknown')
+            user_id = parameters.get("user_id", "unknown")
+            team_id = parameters.get("team_id", "unknown")
 
-            self.logger.info(f"🔍 PLAYER_COORDINATOR: Getting myinfo for user_id={user_id}, team_id={team_id}")
+            self.logger.info(
+                f"🔍 PLAYER_COORDINATOR: Getting myinfo for user_id={user_id}, team_id={team_id}"
+            )
 
             # Check if user_id is a test/unknown value
-            if user_id in ['unknown', 'test_user', 'unknown_user']:
-                self.logger.info("🔍 PLAYER_COORDINATOR: Test user detected, providing registration guidance")
+            if user_id in ["unknown", "test_user", "unknown_user"]:
+                self.logger.info(
+                    "🔍 PLAYER_COORDINATOR: Test user detected, providing registration guidance"
+                )
                 return self._get_player_not_found_message(user_id, team_id, "myinfo")
 
             # Let the agent use the get_my_status tool instead of providing fallback
@@ -101,7 +111,7 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
     async def handle_list_command(self, parameters: dict) -> str:
         """Handle /list command (async)."""
         try:
-            team_id = parameters.get('team_id', 'unknown')
+            team_id = parameters.get("team_id", "unknown")
 
             self.logger.info(f"🔍 PLAYER_COORDINATOR: Getting all players for team_id={team_id}")
 
@@ -116,13 +126,17 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
     async def handle_addplayer_command(self, parameters: dict) -> str:
         """Handle /addplayer command (async)."""
         try:
-            team_id = parameters.get('team_id', 'unknown')
-            user_id = parameters.get('user_id', 'unknown')
+            team_id = parameters.get("team_id", "unknown")
+            user_id = parameters.get("user_id", "unknown")
 
-            self.logger.info(f"🔍 PLAYER_COORDINATOR: Processing addplayer command for team_id={team_id}, user_id={user_id}")
+            self.logger.info(
+                f"🔍 PLAYER_COORDINATOR: Processing addplayer command for team_id={team_id}, user_id={user_id}"
+            )
 
             # Let the agent use the add_player tool instead of providing fallback
-            self.logger.info("🔍 PLAYER_COORDINATOR: Delegating to agent tools for addplayer request")
+            self.logger.info(
+                "🔍 PLAYER_COORDINATOR: Delegating to agent tools for addplayer request"
+            )
             return None  # Return None to let the agent handle this with tools
 
         except Exception as e:
@@ -132,10 +146,12 @@ class PlayerCoordinatorMixin(BaseBehavioralMixin):
     async def handle_approve_command(self, parameters: dict) -> str:
         """Handle /approve command (async)."""
         try:
-            team_id = parameters.get('team_id', 'unknown')
-            player_id = parameters.get('player_id', 'unknown')
+            team_id = parameters.get("team_id", "unknown")
+            player_id = parameters.get("player_id", "unknown")
 
-            self.logger.info(f"🔍 PLAYER_COORDINATOR: Approving player_id={player_id} for team_id={team_id}")
+            self.logger.info(
+                f"🔍 PLAYER_COORDINATOR: Approving player_id={player_id} for team_id={team_id}"
+            )
 
             # For now, return a basic approval message
             return f"""✅ Player Approval
@@ -150,8 +166,6 @@ Contact the team admin in the leadership chat."""
         except Exception as e:
             self.logger.error(f"Error in _handle_approve_command: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
-
-
 
     def _get_player_not_found_message(self, user_id: str, team_id: str, command_type: str) -> str:
         """Get a friendly and helpful message when a player is not found."""
@@ -237,8 +251,9 @@ class CommandFallbackMixin(BaseBehavioralMixin):
     def get_supported_commands(self) -> list:
         return []  # This mixin handles failed commands, not specific commands
 
-    async def process_failed_command(self, failed_command: str, error_message: str,
-                                   user_context: dict[str, Any]) -> str:
+    async def process_failed_command(
+        self, failed_command: str, error_message: str, user_context: dict[str, Any]
+    ) -> str:
         """Process a failed command and provide helpful suggestions."""
         try:
             self.logger.info(f"🔧 COMMAND_FALLBACK: Processing failed command: {failed_command}")
@@ -248,7 +263,9 @@ class CommandFallbackMixin(BaseBehavioralMixin):
             # Analyze the failed command and provide helpful suggestions
             return await self._analyze_failed_command(failed_command, error_message, user_context)
         except (InputValidationError, AuthorizationError) as e:
-            self.logger.warning(f"🔧 COMMAND_FALLBACK: InputValidationError or AuthorizationError: {e}")
+            self.logger.warning(
+                f"🔧 COMMAND_FALLBACK: InputValidationError or AuthorizationError: {e}"
+            )
             if isinstance(e, InputValidationError):
                 return f"❌ Input error: {e!s}\nPlease check your command and try again."
             else:
@@ -260,18 +277,21 @@ class CommandFallbackMixin(BaseBehavioralMixin):
             self.logger.warning(f"🔧 COMMAND_FALLBACK: KICKAIError: {e}")
             return f"❌ System error: {e!s}\nPlease try again later."
         except Exception as e:
-            self.logger.error(f"🔧 COMMAND_FALLBACK: Unexpected error in fallback agent: {e}", exc_info=True)
+            self.logger.error(
+                f"🔧 COMMAND_FALLBACK: Unexpected error in fallback agent: {e}", exc_info=True
+            )
             return "❌ Sorry, I encountered an unexpected error processing your request. Please try again later or contact support."
 
-    async def _analyze_failed_command(self, failed_command: str, error_message: str,
-                                    user_context: dict[str, Any]) -> str:
+    async def _analyze_failed_command(
+        self, failed_command: str, error_message: str, user_context: dict[str, Any]
+    ) -> str:
         """Analyze a failed command and provide helpful suggestions."""
         try:
             # Simple command analysis
             command_lower = failed_command.lower().strip()
 
             # Check for common command patterns
-            if any(word in command_lower for word in ['add', 'register', 'join']):
+            if any(word in command_lower for word in ["add", "register", "join"]):
                 return """👋 Registration Help
 
 It looks like you want to register or add someone to the team! 
@@ -286,7 +306,7 @@ It looks like you want to register or add someone to the team!
 
 Need help? Just ask me or contact the team admin."""
 
-            elif any(word in command_lower for word in ['status', 'info', 'details']):
+            elif any(word in command_lower for word in ["status", "info", "details"]):
                 return """📊 Status Help
 
 It looks like you want to check player status or information! 
@@ -302,7 +322,7 @@ It looks like you want to check player status or information!
 
 Need help? Just ask me or contact the team admin."""
 
-            elif any(word in command_lower for word in ['approve', 'accept', 'ok']):
+            elif any(word in command_lower for word in ["approve", "accept", "ok"]):
                 return """✅ Approval Help
 
 It looks like you want to approve a player! 
@@ -359,10 +379,12 @@ class FinancialManagementMixin(BaseBehavioralMixin):
     async def handle_payment_command(self, parameters: dict) -> str:
         """Handle payment-related commands."""
         try:
-            payment_type = parameters.get('payment_type', 'unknown')
-            amount = parameters.get('amount', 0)
+            payment_type = parameters.get("payment_type", "unknown")
+            amount = parameters.get("amount", 0)
 
-            self.logger.info(f"💰 FINANCIAL_MANAGER: Processing payment - type={payment_type}, amount={amount}")
+            self.logger.info(
+                f"💰 FINANCIAL_MANAGER: Processing payment - type={payment_type}, amount={amount}"
+            )
 
             return f"""💰 Payment Processing
 
@@ -380,10 +402,12 @@ Contact the team admin in the leadership chat."""
     async def handle_expense_command(self, parameters: dict) -> str:
         """Handle expense-related commands."""
         try:
-            expense_type = parameters.get('expense_type', 'unknown')
-            amount = parameters.get('amount', 0)
+            expense_type = parameters.get("expense_type", "unknown")
+            amount = parameters.get("amount", 0)
 
-            self.logger.info(f"💰 FINANCIAL_MANAGER: Processing expense - type={expense_type}, amount={amount}")
+            self.logger.info(
+                f"💰 FINANCIAL_MANAGER: Processing expense - type={expense_type}, amount={amount}"
+            )
 
             return f"""📊 Expense Recorded
 
@@ -419,7 +443,7 @@ class PerformanceAnalysisMixin(BaseBehavioralMixin):
     async def handle_stats_command(self, parameters: dict) -> str:
         """Handle statistics commands."""
         try:
-            stat_type = parameters.get('stat_type', 'general')
+            stat_type = parameters.get("stat_type", "general")
 
             self.logger.info(f"📊 PERFORMANCE_ANALYST: Generating stats - type={stat_type}")
 
@@ -472,7 +496,7 @@ class LearningOptimizationMixin(BaseBehavioralMixin):
     async def handle_learn_command(self, parameters: dict) -> str:
         """Handle learning commands."""
         try:
-            learning_type = parameters.get('learning_type', 'interaction')
+            learning_type = parameters.get("learning_type", "interaction")
 
             self.logger.info(f"🧠 LEARNING_AGENT: Processing learning - type={learning_type}")
 
@@ -514,12 +538,14 @@ class OnboardingMixin(BaseBehavioralMixin):
     async def handle_onboard_command(self, parameters: dict) -> str:
         """Handle onboarding commands."""
         try:
-            step = parameters.get('step', 'start')
-            user_id = parameters.get('user_id', 'unknown')
+            step = parameters.get("step", "start")
+            user_id = parameters.get("user_id", "unknown")
 
-            self.logger.info(f"📝 ONBOARDING_AGENT: Processing onboarding - step={step}, user_id={user_id}")
+            self.logger.info(
+                f"📝 ONBOARDING_AGENT: Processing onboarding - step={step}, user_id={user_id}"
+            )
 
-            if step == 'start':
+            if step == "start":
                 return """📝 Welcome to KICKAI!
 
 Let's get you set up with the team. I'll guide you through the registration process step by step.
@@ -537,7 +563,7 @@ Example: "John Doe, 07123456789, my husband"
 💬 Need Help?
 Contact the team admin in the leadership chat."""
 
-            elif step == 'emergency_contact':
+            elif step == "emergency_contact":
                 return """✅ Emergency Contact Saved!
 
 Great! Your emergency contact has been recorded.
@@ -584,17 +610,24 @@ class AvailabilityManagementMixin(BaseBehavioralMixin):
         return "availability_management"
 
     def get_supported_commands(self) -> list:
-        return ["/availability", "/check_availability", "/send_availability_request", "/availability_report"]
+        return [
+            "/availability",
+            "/check_availability",
+            "/send_availability_request",
+            "/availability_report",
+        ]
 
     async def handle_availability_command(self, parameters: dict) -> str:
         """Handle availability commands."""
         try:
-            match_id = parameters.get('match_id', 'unknown')
-            action = parameters.get('action', 'check')
+            match_id = parameters.get("match_id", "unknown")
+            action = parameters.get("action", "check")
 
-            self.logger.info(f"📋 AVAILABILITY_MANAGER: Processing availability - action={action}, match_id={match_id}")
+            self.logger.info(
+                f"📋 AVAILABILITY_MANAGER: Processing availability - action={action}, match_id={match_id}"
+            )
 
-            if action == 'request':
+            if action == "request":
                 return """🏆 AVAILABILITY REQUEST: Sunday vs Arsenal
 
 Please confirm your availability by Friday 6pm:
@@ -611,7 +644,7 @@ Deadline: Friday 6pm ⏰
 
 Please respond to this poll to confirm your availability!"""
 
-            elif action == 'check':
+            elif action == "check":
                 return """📊 AVAILABILITY STATUS
 
 Current availability for Sunday vs Arsenal:
@@ -626,7 +659,7 @@ Minimum Required: 11 players
 
 Deadline: Friday 6pm ⏰"""
 
-            elif action == 'report':
+            elif action == "report":
                 return """📈 AVAILABILITY REPORT
 
 Weekly Availability Summary:
@@ -678,12 +711,14 @@ class SquadSelectionMixin(BaseBehavioralMixin):
     async def handle_squad_command(self, parameters: dict) -> str:
         """Handle squad selection commands."""
         try:
-            match_id = parameters.get('match_id', 'unknown')
-            action = parameters.get('action', 'select')
+            match_id = parameters.get("match_id", "unknown")
+            action = parameters.get("action", "select")
 
-            self.logger.info(f"⚽ SQUAD_SELECTOR: Processing squad - action={action}, match_id={match_id}")
+            self.logger.info(
+                f"⚽ SQUAD_SELECTOR: Processing squad - action={action}, match_id={match_id}"
+            )
 
-            if action == 'select':
+            if action == "select":
                 return """🏆 SUNDAY SQUAD vs Arsenal (Home)
 
 Starting XI (4-3-3):
@@ -700,7 +735,7 @@ Kit: Red shirts, black shorts
 
 Good luck team! 💪"""
 
-            elif action == 'analyze':
+            elif action == "analyze":
                 return """📊 SQUAD ANALYSIS
 
 Squad Analysis for Sunday vs Arsenal:
@@ -726,7 +761,7 @@ Areas of Concern:
 
 Recommendation: ✅ SQUAD READY"""
 
-            elif action == 'announce':
+            elif action == "announce":
                 return """📢 SQUAD ANNOUNCEMENT
 
 🏆 SUNDAY SQUAD vs Arsenal (Home)
@@ -782,12 +817,14 @@ class CommunicationManagementMixin(BaseBehavioralMixin):
     async def handle_announce_command(self, parameters: dict) -> str:
         """Handle announcement commands."""
         try:
-            message_type = parameters.get('type', 'general')
-            content = parameters.get('content', '')
+            message_type = parameters.get("type", "general")
+            content = parameters.get("content", "")
 
-            self.logger.info(f"📢 COMMUNICATION_MANAGER: Processing announcement - type={message_type}")
+            self.logger.info(
+                f"📢 COMMUNICATION_MANAGER: Processing announcement - type={message_type}"
+            )
 
-            if message_type == 'match_reminder':
+            if message_type == "match_reminder":
                 return """🏆 MATCH REMINDER: Sunday vs Arsenal
 
 ⏰ Kickoff: 2:00pm
@@ -800,7 +837,7 @@ Please confirm availability by Friday 6pm!
 
 Good luck team! 💪⚽"""
 
-            elif message_type == 'squad_announcement':
+            elif message_type == "squad_announcement":
                 return """📢 SQUAD ANNOUNCEMENT
 
 🏆 SUNDAY SQUAD vs Arsenal (Home)
@@ -819,7 +856,7 @@ Kit: Red shirts, black shorts
 
 Good luck team! 💪"""
 
-            elif message_type == 'emergency':
+            elif message_type == "emergency":
                 return """🚨 EMERGENCY ANNOUNCEMENT
 
 ⚠️ MATCH CANCELLED: Sunday vs Arsenal
@@ -861,14 +898,14 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
     def get_supported_commands(self) -> list:
         return ["/addplayer"]
 
-    async def handle_addplayer_command(self, message_text: str, execution_context: dict[str, Any]) -> str:
+    async def handle_addplayer_command(
+        self, message_text: str, execution_context: dict[str, Any]
+    ) -> str:
         """
         Handle /addplayer command - this should be routed through the agent system.
         The actual implementation is handled by the add_player tool assigned to PLAYER_COORDINATOR.
         """
         return "🔄 This command is being processed by the agent system. Please wait..."
-
-
 
 
 class TeamMemberAdditionMixin(BaseBehavioralMixin):
@@ -887,7 +924,9 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
     def get_supported_commands(self) -> list:
         return ["/addmember", "/add_member", "/addteammember"]
 
-    async def handle_addmember_command(self, message_text: str, execution_context: dict[str, Any]) -> str:
+    async def handle_addmember_command(
+        self, message_text: str, execution_context: dict[str, Any]
+    ) -> str:
         """
         Handle /addmember command using agent-based processing.
 
@@ -902,7 +941,6 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
             from datetime import datetime
 
             from kickai.core.dependency_container import get_dependency_container
-            from kickai.core.settings import get_settings
             from kickai.database.firebase_client import get_firebase_client
             from kickai.features.communication.domain.services.invite_link_service import (
                 InviteLinkService,
@@ -929,7 +967,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
             # Find the phone number (starts with + or 0)
             phone_index = -1
             for i, arg in enumerate(args):
-                if arg.startswith('+') or arg.startswith('0'):
+                if arg.startswith("+") or arg.startswith("0"):
                     phone_index = i
                     break
 
@@ -942,9 +980,9 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                 )
 
             # Extract name (everything before phone)
-            name = ' '.join(args[:phone_index])
+            name = " ".join(args[:phone_index])
             phone = args[phone_index]
-            role = ' '.join(args[phone_index + 1:])
+            role = " ".join(args[phone_index + 1 :])
 
             if not name or not role:
                 return (
@@ -968,7 +1006,15 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                 )
 
             # Validate role
-            valid_roles = ["Coach", "Assistant Coach", "Manager", "Assistant Manager", "Admin", "Coordinator", "Volunteer"]
+            valid_roles = [
+                "Coach",
+                "Assistant Coach",
+                "Manager",
+                "Assistant Manager",
+                "Admin",
+                "Coordinator",
+                "Volunteer",
+            ]
             if role not in valid_roles:
                 return (
                     f"❌ Invalid Role\n\n"
@@ -978,7 +1024,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                 )
 
             # Get team ID from context
-            team_id = execution_context.get('team_id')
+            team_id = execution_context.get("team_id")
             if not team_id:
                 return "❌ Error: Team ID not found in context"
 
@@ -995,7 +1041,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                 role=role,
                 status="active",
                 created_at=datetime.now(),
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             )
 
             # Save to database
@@ -1006,7 +1052,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
             # Generate unique invite link using the invite link service
             container = get_dependency_container()
             invite_service = container.get_service(InviteLinkService)
-            
+
             # Get team to access bot configuration
             team_service = container.get_service(ITeamService)
             team = await team_service.get_team(team_id=team_id)
@@ -1018,7 +1064,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
                 member_name=name,
                 member_phone=normalize_phone(phone),
                 member_role=role,
-                leadership_chat_id=team.leadership_chat_id
+                leadership_chat_id=team.leadership_chat_id,
             )
 
             response = f"""✅ Team Member Added Successfully!
@@ -1048,8 +1094,6 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
             logger.error(f"❌ Error in addmember command: {e}")
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
 
-
-
     async def handle_add_member_command(self, parameters: dict) -> str:
         """Alias for /addmember command."""
         return await self.handle_addmember_command(parameters)
@@ -1076,10 +1120,10 @@ MIXIN_REGISTRY = {
 }
 
 
-def get_mixin_for_role(role) -> Union[BaseBehavioralMixin, None]:
+def get_mixin_for_role(role) -> BaseBehavioralMixin | None:
     """Get the appropriate mixin for a given agent role."""
     # Handle both string and AgentRole enum
-    if hasattr(role, 'value'):
+    if hasattr(role, "value"):
         role_str = role.value.lower()
     else:
         role_str = str(role).lower()

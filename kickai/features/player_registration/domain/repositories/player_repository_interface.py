@@ -5,7 +5,6 @@ Player Repository Interface
 This module defines the interface for player data access operations.
 """
 
-from typing import Union
 from abc import ABC, abstractmethod
 
 from kickai.features.player_registration.domain.entities.player import Player
@@ -20,12 +19,12 @@ class PlayerRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_player_by_id(self, player_id: str, team_id: str) -> Union[Player, None]:
+    async def get_player_by_id(self, player_id: str, team_id: str) -> Player | None:
         """Get a player by ID."""
         pass
 
     @abstractmethod
-    async def get_player_by_phone(self, phone: str, team_id: str) -> Union[Player, None]:
+    async def get_player_by_phone(self, phone: str, team_id: str) -> Player | None:
         """Get a player by phone number."""
         pass
 

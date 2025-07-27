@@ -5,7 +5,6 @@ This module provides continuous monitoring of LLM connectivity and will
 stop the bot if LLM authentication fails during runtime.
 """
 
-from typing import Union
 import asyncio
 import logging
 from collections.abc import Callable
@@ -28,8 +27,8 @@ class LLMHealthMonitor:
     def __init__(self, check_interval_seconds: int = 300):  # Check every 5 minutes
         self.check_interval = check_interval_seconds
         self.is_running = False
-        self.shutdown_callback: Union[Callable, None] = None
-        self.last_check_time: Union[datetime, None] = None
+        self.shutdown_callback: Callable | None = None
+        self.last_check_time: datetime | None = None
         self.consecutive_failures = 0
         self.max_consecutive_failures = 2  # Allow 2 failures before stopping
 
@@ -88,7 +87,9 @@ class LLMHealthMonitor:
 
             # If we get here, the check passed
             if self.consecutive_failures > 0:
-                logger.info(f"✅ LLM health check passed after {self.consecutive_failures} consecutive failures")
+                logger.info(
+                    f"✅ LLM health check passed after {self.consecutive_failures} consecutive failures"
+                )
                 self.consecutive_failures = 0
 
             duration = (datetime.now() - start_time).total_seconds()
@@ -96,10 +97,14 @@ class LLMHealthMonitor:
 
         except Exception as e:
             self.consecutive_failures += 1
-            logger.error(f"❌ LLM health check failed (attempt {self.consecutive_failures}/{self.max_consecutive_failures}): {e}")
+            logger.error(
+                f"❌ LLM health check failed (attempt {self.consecutive_failures}/{self.max_consecutive_failures}): {e}"
+            )
 
             if self.consecutive_failures >= self.max_consecutive_failures:
-                await self._trigger_shutdown(f"LLM authentication failed {self.consecutive_failures} times consecutively")
+                await self._trigger_shutdown(
+                    f"LLM authentication failed {self.consecutive_failures} times consecutively"
+                )
 
     async def _test_litellm_connectivity(self, llm_string: str) -> None:
         """Test LiteLLM connectivity with actual API call."""
@@ -113,7 +118,7 @@ class LLMHealthMonitor:
                 model=llm_string,
                 messages=[{"role": "user", "content": test_prompt}],
                 max_tokens=5,
-                temperature=0
+                temperature=0,
             )
 
             if not response or not response.choices or len(response.choices) == 0:
@@ -129,7 +134,7 @@ class LLMHealthMonitor:
     async def _test_llm_connectivity(self, llm) -> None:
         """Test other LLM types connectivity."""
         try:
-            if hasattr(llm, 'ainvoke'):
+            if hasattr(llm, "ainvoke"):
                 test_prompt = "Health check - respond with 'OK'"
                 response = await llm.ainvoke(test_prompt)
 
@@ -154,21 +159,22 @@ class LLMHealthMonitor:
             logger.error("No shutdown callback set - cannot stop bot gracefully")
             # Force exit if no callback is available
             import sys
+
             sys.exit(1)
 
     def get_status(self) -> dict:
         """Get current monitor status."""
         return {
-            'is_running': self.is_running,
-            'last_check_time': self.last_check_time.isoformat() if self.last_check_time else None,
-            'consecutive_failures': self.consecutive_failures,
-            'max_consecutive_failures': self.max_consecutive_failures,
-            'check_interval_seconds': self.check_interval
+            "is_running": self.is_running,
+            "last_check_time": self.last_check_time.isoformat() if self.last_check_time else None,
+            "consecutive_failures": self.consecutive_failures,
+            "max_consecutive_failures": self.max_consecutive_failures,
+            "check_interval_seconds": self.check_interval,
         }
 
 
 # Global instance
-_llm_monitor: Union[LLMHealthMonitor, None] = None
+_llm_monitor: LLMHealthMonitor | None = None
 
 
 def get_llm_monitor() -> LLMHealthMonitor:

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Union
+from typing import Any
 
 from kickai.features.payment_management.domain.entities.payment import (
     Payment,
@@ -13,9 +13,15 @@ class IPaymentService(ABC):
     """Interface for payment service operations."""
 
     @abstractmethod
-    async def create_payment_link(self, player_id: str, amount: float, payment_type: PaymentType,
-                                description: str, due_date: Union[datetime, None] = None,
-                                related_entity_id: Union[str, None] = None) -> dict[str, Any]:
+    async def create_payment_link(
+        self,
+        player_id: str,
+        amount: float,
+        payment_type: PaymentType,
+        description: str,
+        due_date: datetime | None = None,
+        related_entity_id: str | None = None,
+    ) -> dict[str, Any]:
         """Create a payment link for a player."""
         pass
 
@@ -30,47 +36,71 @@ class IPaymentService(ABC):
         pass
 
     @abstractmethod
-    async def refund_payment(self, transaction_id: str, amount: Union[float, None] = None) -> dict[str, Any]:
+    async def refund_payment(
+        self, transaction_id: str, amount: float | None = None
+    ) -> dict[str, Any]:
         """Refund a payment."""
         pass
 
     @abstractmethod
-    async def get_payment_analytics(self, team_id: str, start_date: Union[datetime, None] = None,
-                                  end_date: Union[datetime, None] = None) -> dict[str, Any]:
+    async def get_payment_analytics(
+        self, team_id: str, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> dict[str, Any]:
         """Get payment analytics for a team."""
         pass
 
     @abstractmethod
-    async def record_payment(self, player_id: str, amount: float, type: PaymentType,
-                           description: Union[str, None] = None, related_entity_id: Union[str, None] = None) -> Payment:
+    async def record_payment(
+        self,
+        player_id: str,
+        amount: float,
+        type: PaymentType,
+        description: str | None = None,
+        related_entity_id: str | None = None,
+    ) -> Payment:
         """Record a manual payment."""
         pass
 
     @abstractmethod
-    async def get_player_payments(self, player_id: str, status: Union[PaymentStatus, None] = None) -> list[Payment]:
+    async def get_player_payments(
+        self, player_id: str, status: PaymentStatus | None = None
+    ) -> list[Payment]:
         """Get payments for a specific player."""
         pass
 
     @abstractmethod
-    async def get_team_payments(self, team_id: str, status: Union[PaymentStatus, None] = None) -> list[Payment]:
+    async def get_team_payments(
+        self, team_id: str, status: PaymentStatus | None = None
+    ) -> list[Payment]:
         """Get payments for a specific team."""
         pass
 
     @abstractmethod
-    async def create_payment_request(self, player_id: str, amount: float, type: PaymentType,
-                                   due_date: datetime, description: Union[str, None] = None,
-                                   related_entity_id: Union[str, None] = None) -> Payment:
+    async def create_payment_request(
+        self,
+        player_id: str,
+        amount: float,
+        type: PaymentType,
+        due_date: datetime,
+        description: str | None = None,
+        related_entity_id: str | None = None,
+    ) -> Payment:
         """Create a payment request."""
         pass
 
     @abstractmethod
-    async def update_payment_status(self, payment_id: str, new_status: PaymentStatus,
-                                  paid_date: Union[datetime, None] = None) -> Payment:
+    async def update_payment_status(
+        self, payment_id: str, new_status: PaymentStatus, paid_date: datetime | None = None
+    ) -> Payment:
         """Update the status of a payment."""
         pass
 
     @abstractmethod
-    async def list_payments(self, player_id: Union[str, None] = None, status: Union[PaymentStatus, None] = None,
-                           payment_type: Union[PaymentType, None] = None) -> list[Payment]:
+    async def list_payments(
+        self,
+        player_id: str | None = None,
+        status: PaymentStatus | None = None,
+        payment_type: PaymentType | None = None,
+    ) -> list[Payment]:
         """List payments with optional filters."""
         pass

@@ -13,11 +13,11 @@ from .telegram_admin_check import TelegramAdminCheck
 from .tool_registration_check import ToolRegistrationCheck
 
 __all__ = [
-    'AgentInitializationCheck',
-    'BaseCheck',
-    'CommandRegistryCheck',
-    'ConfigurationCheck',
-    'LLMProviderCheck',
-    'TelegramAdminCheck',
-    'ToolRegistrationCheck'
+    "AgentInitializationCheck",
+    "BaseCheck",
+    "CommandRegistryCheck",
+    "ConfigurationCheck",
+    "LLMProviderCheck",
+    "TelegramAdminCheck",
+    "ToolRegistrationCheck",
 ]

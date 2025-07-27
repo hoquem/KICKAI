@@ -19,9 +19,12 @@ class CommandRegistryCheck(BaseCheck):
     Startup check to ensure the command registry is properly initialized.
     Validates command discovery and registration.
     """
+
     name = "CommandRegistryCheck"
     category = CheckCategory.CONFIGURATION
-    description = "Validates that the command registry is properly initialized with all expected commands."
+    description = (
+        "Validates that the command registry is properly initialized with all expected commands."
+    )
 
     async def execute(self, context=None) -> CheckResult:
         try:
@@ -32,6 +35,7 @@ class CommandRegistryCheck(BaseCheck):
                 from kickai.core.command_registry_initializer import (
                     get_initialized_command_registry,
                 )
+
                 registry = get_initialized_command_registry()
                 logger.info("✅ Command registry successfully retrieved")
             except RuntimeError as e:
@@ -42,8 +46,11 @@ class CommandRegistryCheck(BaseCheck):
                         from kickai.core.command_registry_initializer import (
                             initialize_command_registry,
                         )
+
                         registry = initialize_command_registry()
-                        logger.info("✅ Command registry successfully initialized in validation context")
+                        logger.info(
+                            "✅ Command registry successfully initialized in validation context"
+                        )
                     except Exception as init_error:
                         logger.error(f"❌ Failed to initialize command registry: {init_error}")
                         return CheckResult(
@@ -51,15 +58,15 @@ class CommandRegistryCheck(BaseCheck):
                             category=self.category,
                             status=CheckStatus.FAILED,
                             message="Command registry not initialized and failed to initialize in validation context.",
-                            error=init_error
+                            error=init_error,
                         )
                 else:
                     raise
 
             # Get command statistics
             stats = registry.get_command_statistics()
-            total_commands = stats.get('total_commands', 0)
-            features = stats.get('features', [])
+            total_commands = stats.get("total_commands", 0)
+            features = stats.get("features", [])
 
             logger.info("📊 Command registry statistics:")
             logger.info(f"  - Total commands: {total_commands}")
@@ -76,14 +83,7 @@ class CommandRegistryCheck(BaseCheck):
                 )
 
             # Check for expected commands
-            expected_commands = [
-                '/help',
-                '/start',
-                '/register',
-                '/myinfo',
-                '/list',
-                '/status'
-            ]
+            expected_commands = ["/help", "/start", "/register", "/myinfo", "/list", "/status"]
 
             missing_commands = []
             for cmd in expected_commands:
@@ -100,11 +100,7 @@ class CommandRegistryCheck(BaseCheck):
                 )
 
             # Check for expected features
-            expected_features = [
-                'player_registration',
-                'team_administration',
-                'shared'
-            ]
+            expected_features = ["player_registration", "team_administration", "shared"]
 
             missing_features = []
             for feature in expected_features:
@@ -120,22 +116,25 @@ class CommandRegistryCheck(BaseCheck):
                     message=f"Command registry initialized but missing expected features: {missing_features}",
                 )
 
-            logger.info(f"✅ Command registry validation passed: {total_commands} commands from {len(features)} features")
+            logger.info(
+                f"✅ Command registry validation passed: {total_commands} commands from {len(features)} features"
+            )
             return CheckResult(
                 name=self.name,
                 category=self.category,
                 status=CheckStatus.PASSED,
-                message=f"Command registry properly initialized with {total_commands} commands from {len(features)} features"
+                message=f"Command registry properly initialized with {total_commands} commands from {len(features)} features",
             )
 
         except Exception as e:
             logger.error(f"❌ Command registry validation failed: {e}")
             import traceback
+
             logger.error(f"❌ Command registry validation traceback: {traceback.format_exc()}")
             return CheckResult(
                 name=self.name,
                 category=self.category,
                 status=CheckStatus.FAILED,
                 message=f"Command registry validation failed: {e!s}",
-                error=e
+                error=e,
             )

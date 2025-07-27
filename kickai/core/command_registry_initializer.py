@@ -8,7 +8,6 @@ This eliminates the initialization order problem with the global singleton patte
 """
 
 
-from typing import Union
 from kickai.core.command_registry import CommandRegistry
 from kickai.core.logging_config import logger
 
@@ -22,7 +21,7 @@ class CommandRegistryInitializer:
     """
 
     def __init__(self):
-        self.registry: Union[CommandRegistry, None] = None
+        self.registry: CommandRegistry | None = None
         self._initialized = False
 
     def initialize(self) -> CommandRegistry:
@@ -69,28 +68,20 @@ class CommandRegistryInitializer:
         command_modules = [
             # Player registration commands
             "kickai.features.player_registration.application.commands.player_commands",
-
             # Team administration commands
             "kickai.features.team_administration.application.commands.team_commands",
-
             # Match management commands
             "kickai.features.match_management.application.commands.match_commands",
-
             # Attendance management commands
             "kickai.features.attendance_management.application.commands.attendance_commands",
-
             # Payment management commands
             "kickai.features.payment_management.application.commands.payment_commands",
-
             # Communication commands
             "kickai.features.communication.application.commands.communication_commands",
-
             # Health monitoring commands
             "kickai.features.health_monitoring.application.commands.health_commands",
-
             # System infrastructure commands
             "kickai.features.system_infrastructure.application.commands.system_commands",
-
             # Shared commands
             "kickai.features.shared.application.commands.shared_commands",
             "kickai.features.shared.application.commands.help_commands",
@@ -110,6 +101,7 @@ class CommandRegistryInitializer:
         """Copy commands from the global registry to the initialized registry."""
         try:
             from kickai.core.command_registry import get_command_registry
+
             global_registry = get_command_registry()
 
             # Copy all commands from global registry
@@ -130,7 +122,7 @@ class CommandRegistryInitializer:
                     self.registry._command_aliases[alias] = target
 
             # Copy chat-specific commands
-            if hasattr(global_registry, '_chat_specific_commands'):
+            if hasattr(global_registry, "_chat_specific_commands"):
                 for cmd_name, chat_commands in global_registry._chat_specific_commands.items():
                     if cmd_name not in self.registry._chat_specific_commands:
                         self.registry._chat_specific_commands[cmd_name] = {}
@@ -143,7 +135,7 @@ class CommandRegistryInitializer:
         except Exception as e:
             logger.error(f"❌ Error copying commands from global registry: {e}")
 
-    def get_registry(self) -> Union[CommandRegistry, None]:
+    def get_registry(self) -> CommandRegistry | None:
         """Get the initialized registry instance."""
         if not self._initialized:
             raise RuntimeError("Command registry not initialized. Call initialize() first.")

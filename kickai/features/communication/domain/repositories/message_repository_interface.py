@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Union
+from typing import Any
 
 
 class MessageRepositoryInterface(ABC):
@@ -9,12 +9,14 @@ class MessageRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, message_id: str) -> Union[dict[str, Any], None]:
+    async def get_by_id(self, message_id: str) -> dict[str, Any] | None:
         """Fetch a message by its ID."""
         pass
 
     @abstractmethod
-    async def get_by_conversation(self, conversation_id: str, limit: int = 50) -> list[dict[str, Any]]:
+    async def get_by_conversation(
+        self, conversation_id: str, limit: int = 50
+    ) -> list[dict[str, Any]]:
         """Fetch messages for a conversation."""
         pass
 

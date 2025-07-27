@@ -11,13 +11,14 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Union, Union
+from typing import Any
 
 from loguru import logger
 
 
 class AgentType(Enum):
     """Types of agents supported by the system."""
+
     HELP_ASSISTANT = "help_assistant"
     MESSAGE_PROCESSOR = "message_processor"
     PLAYER_COORDINATOR = "player_coordinator"
@@ -32,6 +33,7 @@ class AgentType(Enum):
 
 class AgentCategory(Enum):
     """Categories of agents for organization."""
+
     CORE = "core"
     FEATURE = "feature"
     UTILITY = "utility"
@@ -41,6 +43,7 @@ class AgentCategory(Enum):
 @dataclass
 class AgentMetadata:
     """Metadata for agent registration."""
+
     agent_id: str
     agent_type: AgentType
     category: AgentCategory
@@ -50,8 +53,8 @@ class AgentMetadata:
     enabled: bool = True
     dependencies: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
-    config_schema: Union[dict[str, Any], None] = None
-    factory_function: Union[Callable, None] = None
+    config_schema: dict[str, Any] | None = None
+    factory_function: Callable | None = None
     feature_module: str = "unknown"
     tags: list[str] = field(default_factory=list)
 
@@ -100,13 +103,13 @@ class AgentRegistry:
         description: str,
         version: str = "1.0.0",
         enabled: bool = True,
-        dependencies: Union[list[str], None] = None,
-        tools: Union[list[str], None] = None,
-        config_schema: Union[dict[str, Any], None] = None,
-        factory_function: Union[Callable, None] = None,
+        dependencies: list[str] | None = None,
+        tools: list[str] | None = None,
+        config_schema: dict[str, Any] | None = None,
+        factory_function: Callable | None = None,
         feature_module: str = "unknown",
-        tags: Union[list[str], None] = None,
-        aliases: Union[list[str], None] = None
+        tags: list[str] | None = None,
+        aliases: list[str] | None = None,
     ) -> None:
         """
         Register an agent with the registry.
@@ -143,7 +146,7 @@ class AgentRegistry:
             config_schema=config_schema,
             factory_function=factory_function,
             feature_module=feature_module,
-            tags=tags or []
+            tags=tags or [],
         )
 
         self._agents[agent_id] = metadata
@@ -152,7 +155,9 @@ class AgentRegistry:
         if aliases:
             for alias in aliases:
                 if alias in self._agent_aliases:
-                    logger.warning(f"Alias '{alias}' already registered for '{self._agent_aliases[alias]}', overwriting with '{agent_id}'")
+                    logger.warning(
+                        f"Alias '{alias}' already registered for '{self._agent_aliases[alias]}', overwriting with '{agent_id}'"
+                    )
                 self._agent_aliases[alias] = agent_id
 
         # Group by feature
@@ -167,7 +172,7 @@ class AgentRegistry:
         self._factories[agent_id] = factory
         logger.info(f"🏭 Registered factory for agent: {agent_id}")
 
-    def get_agent(self, agent_id: str) -> Union[AgentMetadata, None]:
+    def get_agent(self, agent_id: str) -> AgentMetadata | None:
         """Get agent metadata by ID or alias."""
         # Check direct ID
         if agent_id in self._agents:
@@ -180,7 +185,7 @@ class AgentRegistry:
 
         return None
 
-    def get_factory(self, agent_id: str) -> Union[AgentFactory, None]:
+    def get_factory(self, agent_id: str) -> AgentFactory | None:
         """Get agent factory by ID."""
         return self._factories.get(agent_id)
 
@@ -246,7 +251,7 @@ class AgentRegistry:
             return
 
         for feature_dir in features_path.iterdir():
-            if not feature_dir.is_dir() or feature_dir.name.startswith('_'):
+            if not feature_dir.is_dir() or feature_dir.name.startswith("_"):
                 continue
 
             feature_name = feature_dir.name
@@ -264,7 +269,7 @@ class AgentRegistry:
     def _discover_agents_from_path(self, agents_path: Path, feature_name: str) -> None:
         """Discover agents from a specific path."""
         for py_file in agents_path.glob("*.py"):
-            if py_file.name.startswith('_') or py_file.name == "__init__.py":
+            if py_file.name.startswith("_") or py_file.name == "__init__.py":
                 continue
 
             try:
@@ -288,11 +293,13 @@ class AgentRegistry:
             attr = getattr(module, attr_name)
 
             # Check if it's an agent class
-            if hasattr(attr, '__name__') and hasattr(attr, '__doc__'):
-                if 'agent' in attr_name.lower() and not attr_name.startswith('_'):
+            if hasattr(attr, "__name__") and hasattr(attr, "__doc__"):
+                if "agent" in attr_name.lower() and not attr_name.startswith("_"):
                     self._register_discovered_agent(attr, feature_name, file_path)
 
-    def _register_discovered_agent(self, agent_class: type, feature_name: str, file_path: Path) -> None:
+    def _register_discovered_agent(
+        self, agent_class: type, feature_name: str, file_path: Path
+    ) -> None:
         """Register a discovered agent."""
         agent_id = f"{feature_name}_{agent_class.__name__.lower()}"
 
@@ -307,39 +314,39 @@ class AgentRegistry:
             name=agent_class.__name__,
             description=agent_class.__doc__ or f"Agent for {feature_name}",
             feature_module=feature_name,
-            factory_function=lambda kwargs: agent_class(kwargs)
+            factory_function=lambda kwargs: agent_class(kwargs),
         )
 
     def _determine_agent_type(self, class_name: str) -> AgentType:
         """Determine agent type based on class name."""
         class_lower = class_name.lower()
 
-        if 'help' in class_lower:
+        if "help" in class_lower:
             return AgentType.HELP_ASSISTANT
-        elif 'message' in class_lower:
+        elif "message" in class_lower:
             return AgentType.MESSAGE_PROCESSOR
-        elif 'player' in class_lower:
+        elif "player" in class_lower:
             return AgentType.PLAYER_COORDINATOR
-        elif 'team' in class_lower:
+        elif "team" in class_lower:
             return AgentType.TEAM_MANAGER
-        elif 'finance' in class_lower:
+        elif "finance" in class_lower:
             return AgentType.FINANCE_MANAGER
-        elif 'performance' in class_lower:
+        elif "performance" in class_lower:
             return AgentType.PERFORMANCE_ANALYST
-        elif 'learning' in class_lower:
+        elif "learning" in class_lower:
             return AgentType.LEARNING_AGENT
-        elif 'onboarding' in class_lower:
+        elif "onboarding" in class_lower:
             return AgentType.ONBOARDING_AGENT
-        elif 'fallback' in class_lower:
+        elif "fallback" in class_lower:
             return AgentType.COMMAND_FALLBACK
         else:
             return AgentType.CUSTOM
 
     def _determine_agent_category(self, feature_name: str) -> AgentCategory:
         """Determine agent category based on feature name."""
-        if feature_name in ['shared', 'system_infrastructure']:
+        if feature_name in ["shared", "system_infrastructure"]:
             return AgentCategory.CORE
-        elif feature_name in ['player_registration', 'team_administration', 'match_management']:
+        elif feature_name in ["player_registration", "team_administration", "match_management"]:
             return AgentCategory.FEATURE
         else:
             return AgentCategory.UTILITY
@@ -362,13 +369,13 @@ class AgentRegistry:
             agents_by_feature[feature] = len(self.get_agents_by_feature(feature))
 
         return {
-            'total_agents': total_agents,
-            'enabled_agents': total_enabled,
-            'disabled_agents': total_agents - total_enabled,
-            'agents_by_type': agents_by_type,
-            'agents_by_category': agents_by_category,
-            'agents_by_feature': agents_by_feature,
-            'features_with_agents': list(self._feature_agents.keys())
+            "total_agents": total_agents,
+            "enabled_agents": total_enabled,
+            "disabled_agents": total_agents - total_enabled,
+            "agents_by_type": agents_by_type,
+            "agents_by_category": agents_by_category,
+            "agents_by_feature": agents_by_feature,
+            "features_with_agents": list(self._feature_agents.keys()),
         }
 
     def list_all_agents(self) -> list[AgentMetadata]:
@@ -381,16 +388,18 @@ class AgentRegistry:
         results = []
 
         for agent in self._agents.values():
-            if (query_lower in agent.name.lower() or
-                query_lower in agent.description.lower() or
-                any(query_lower in tag.lower() for tag in agent.tags)):
+            if (
+                query_lower in agent.name.lower()
+                or query_lower in agent.description.lower()
+                or any(query_lower in tag.lower() for tag in agent.tags)
+            ):
                 results.append(agent)
 
         return results
 
 
 # Global agent registry instance
-_agent_registry: Union[AgentRegistry, None] = None
+_agent_registry: AgentRegistry | None = None
 
 
 def get_agent_registry() -> AgentRegistry:
@@ -405,16 +414,16 @@ def register_agent_decorator(
     agent_id: str,
     agent_type: AgentType,
     category: AgentCategory = AgentCategory.FEATURE,
-    name: Union[str, None] = None,
-    description: Union[str, None] = None,
+    name: str | None = None,
+    description: str | None = None,
     version: str = "1.0.0",
     enabled: bool = True,
-    dependencies: Union[list[str], None] = None,
-    tools: Union[list[str], None] = None,
-    config_schema: Union[dict[str, Any], None] = None,
+    dependencies: list[str] | None = None,
+    tools: list[str] | None = None,
+    config_schema: dict[str, Any] | None = None,
     feature_module: str = "unknown",
-    tags: Union[list[str], None] = None,
-    aliases: Union[list[str], None] = None
+    tags: list[str] | None = None,
+    aliases: list[str] | None = None,
 ):
     """
     Decorator to register an agent class with the registry.
@@ -429,6 +438,7 @@ def register_agent_decorator(
         class HelpAssistantAgent:
             pass
     """
+
     def decorator(cls: type) -> type:
         registry = get_agent_registry()
 
@@ -450,7 +460,7 @@ def register_agent_decorator(
             factory_function=lambda kwargs: cls(kwargs),
             feature_module=feature_module,
             tags=tags,
-            aliases=aliases
+            aliases=aliases,
         )
 
         # Mark class as registered

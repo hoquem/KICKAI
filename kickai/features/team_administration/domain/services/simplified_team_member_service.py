@@ -6,25 +6,24 @@ This module provides simplified team member management functionality
 for the new /addmember command that only requires name and phone number.
 """
 
-from typing import Union, Optional
 from datetime import datetime
 
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
+from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
 from kickai.features.team_administration.domain.entities.team_member import TeamMember
 from kickai.features.team_administration.domain.repositories.team_repository_interface import (
     TeamRepositoryInterface,
 )
-from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
 from kickai.features.team_administration.domain.services.team_service import TeamService
-from kickai.utils.simple_id_generator import generate_simple_team_member_id
 from kickai.utils.constants import (
-    DEFAULT_ROLE,
-    DEFAULT_STATUS,
+    DEFAULT_MEMBER_ROLE,
+    DEFAULT_MEMBER_STATUS,
     ERROR_MESSAGES,
-    SUCCESS_MESSAGES
+    SUCCESS_MESSAGES,
 )
+from kickai.utils.simple_id_generator import generate_simple_team_member_id
 
 
 class SimplifiedTeamMemberService:
@@ -34,16 +33,18 @@ class SimplifiedTeamMemberService:
         self.team_repository = team_repository
         self.logger = logger
 
-    async def add_team_member(self, name: str, phone: str, role: str = None, team_id: str = None) -> tuple[bool, str]:
+    async def add_team_member(
+        self, name: str, phone: str, role: str = None, team_id: str = None
+    ) -> tuple[bool, str]:
         """
         Add a new team member with simplified ID generation.
-        
+
         Args:
             name: Team member's full name
             phone: Team member's phone number
             role: Team member's role (optional, can be set later)
             team_id: Team ID
-            
+
         Returns:
             Tuple of (success, message)
         """
@@ -66,10 +67,10 @@ class SimplifiedTeamMemberService:
                 team_id=team_id,
                 full_name=name,
                 phone_number=phone,
-                role=role or DEFAULT_ROLE,
-                status=DEFAULT_STATUS,
+                role=role or DEFAULT_MEMBER_ROLE,
+                status=DEFAULT_MEMBER_STATUS,
                 created_at=datetime.now(),
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             )
 
             # Save to repository
@@ -80,7 +81,7 @@ class SimplifiedTeamMemberService:
             logger.error(f"Error adding team member {name}: {e}")
             return False, f"❌ Failed to add team member: {e!s}"
 
-    async def get_team_member_by_phone(self, phone: str, team_id: str) -> Optional[TeamMember]:
+    async def get_team_member_by_phone(self, phone: str, team_id: str) -> TeamMember | None:
         """Get team member by phone number."""
         try:
             members = await self.team_repository.get_team_members_by_team(team_id)
@@ -92,16 +93,18 @@ class SimplifiedTeamMemberService:
             logger.error(f"Error getting team member by phone {phone}: {e}")
             return None
 
-    async def create_team_member_invite_link(self, name: str, phone: str, role: str, team_id: str) -> dict:
+    async def create_team_member_invite_link(
+        self, name: str, phone: str, role: str, team_id: str
+    ) -> dict:
         """
         Create an invite link for a team member to join the leadership chat.
-        
+
         Args:
             name: Team member's name
             phone: Team member's phone number
             role: Team member's role
             team_id: Team ID
-            
+
         Returns:
             Dict containing invite link details
         """
@@ -109,7 +112,7 @@ class SimplifiedTeamMemberService:
             # Get team configuration
             team_service = get_container().get_service(TeamService)
             team = await team_service.get_team(team_id=team_id)
-            
+
             if not team or not team.leadership_chat_id:
                 raise ValueError("Team not found or no leadership chat configured")
 
@@ -124,19 +127,16 @@ class SimplifiedTeamMemberService:
                 member_name=name,
                 member_phone=phone,
                 member_role=role,
-                leadership_chat_id=team.leadership_chat_id
+                leadership_chat_id=team.leadership_chat_id,
             )
 
             return {
                 "success": True,
                 "invite_link": invite_result["invite_link"],
                 "member_id": invite_result.get("member_id"),
-                "expires_at": invite_result["expires_at"]
+                "expires_at": invite_result["expires_at"],
             }
 
         except Exception as e:
             logger.error(f"Error creating team member invite link: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            } 
+            return {"success": False, "error": str(e)}

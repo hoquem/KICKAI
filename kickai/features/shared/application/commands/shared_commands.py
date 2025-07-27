@@ -12,6 +12,7 @@ from kickai.core.command_registry import CommandType, PermissionLevel, command
 # SHARED COMMANDS
 # ============================================================================
 
+
 @command(
     name="/start",
     description="Start the bot and show welcome message",
@@ -34,7 +35,7 @@ What happens:
 4. Sets up your user session
 
 💡 Tip: Use this command when you first join or need a refresher.
-    """
+    """,
 )
 async def handle_start_command(update, context, **kwargs):
     """Handle /start command."""
@@ -66,7 +67,7 @@ What you'll see:
 • Recent activity
 
 💡 Tip: Use this to check your account status and permissions.
-    """
+    """,
 )
 async def handle_info_command(update, context, **kwargs):
     """Handle /info command."""
@@ -97,7 +98,7 @@ What you'll see:
 • Recent activity
 
 💡 Tip: This is an alias for the /info command.
-    """
+    """,
 )
 async def handle_myinfo_command(update, context, **kwargs):
     """Handle /myinfo command."""
@@ -112,9 +113,7 @@ async def handle_myinfo_command(update, context, **kwargs):
     permission_level=PermissionLevel.PUBLIC,
     feature="shared",
     examples=["/list", "/list players", "/list members"],
-    parameters={
-        "type": "Optional type to list (players, members, all)"
-    },
+    parameters={"type": "Optional type to list (players, members, all)"},
     help_text="""
 📋 List Team
 
@@ -132,7 +131,7 @@ What you'll see:
 • Contact information (if permitted)
 
 💡 Tip: The list content depends on your current chat and permissions.
-    """
+    """,
 )
 async def handle_list_command(update, context, **kwargs):
     """Handle /list command."""
@@ -147,9 +146,7 @@ async def handle_list_command(update, context, **kwargs):
     permission_level=PermissionLevel.PUBLIC,
     feature="shared",
     examples=["/status", "/status MH123", "/status +447123456789"],
-    parameters={
-        "identifier": "Player ID, phone number, or leave empty for yourself"
-    },
+    parameters={"identifier": "Player ID, phone number, or leave empty for yourself"},
     help_text="""
 📊 Status Check
 
@@ -168,7 +165,7 @@ What you'll see:
 • Permission level
 
 💡 Tip: Use this to check player availability and status.
-    """
+    """,
 )
 async def handle_status_command(update, context, **kwargs):
     """Handle /status command."""
@@ -198,7 +195,7 @@ What happens:
 4. Confirms bot is operational
 
 💡 Tip: Use this to verify the bot is working properly.
-    """
+    """,
 )
 async def handle_ping_command(update, context, **kwargs):
     """Handle /ping command."""
@@ -229,7 +226,7 @@ What you'll see:
 • System status
 
 💡 Tip: Use this to check if you're running the latest version.
-    """
+    """,
 )
 async def handle_version_command(update, context, **kwargs):
     """Handle /version command."""

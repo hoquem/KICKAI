@@ -13,6 +13,7 @@ from kickai.core.enums import ChatType
 # MATCH MANAGEMENT COMMANDS
 # ============================================================================
 
+
 @command(
     name="/creatematch",
     description="Create a new match (Leadership only)",
@@ -24,7 +25,7 @@ from kickai.core.enums import ChatType
     parameters={
         "opponent": "Opponent team name",
         "date": "Match date (YYYY-MM-DD)",
-        "time": "Match time (HH:MM)"
+        "time": "Match time (HH:MM)",
     },
     help_text="""
 ⚽ Create Match (Leadership Only)
@@ -45,7 +46,7 @@ What happens:
 4. Squad selection becomes available
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_creatematch_command(update, context, **kwargs):
     """Handle /creatematch command."""
@@ -60,9 +61,7 @@ async def handle_creatematch_command(update, context, **kwargs):
     permission_level=PermissionLevel.PUBLIC,
     feature="match_management",
     examples=["/listmatches", "/listmatches upcoming"],
-    parameters={
-        "filter": "Optional filter (upcoming, past, all)"
-    },
+    parameters={"filter": "Optional filter (upcoming, past, all)"},
     help_text="""
 📅 List Matches
 
@@ -80,7 +79,7 @@ What you'll see:
 • Squad selection status
 
 💡 Tip: Use filters to focus on relevant matches.
-    """
+    """,
 )
 async def handle_listmatches_command(update, context, **kwargs):
     """Handle /listmatches command."""
@@ -95,9 +94,7 @@ async def handle_listmatches_command(update, context, **kwargs):
     permission_level=PermissionLevel.PUBLIC,
     feature="match_management",
     examples=["/matchdetails", "/matchdetails MATCH123"],
-    parameters={
-        "match_id": "Optional match ID for specific match"
-    },
+    parameters={"match_id": "Optional match ID for specific match"},
     help_text="""
 📋 Match Details
 
@@ -115,7 +112,7 @@ What you'll see:
 • Match status and updates
 
 💡 Tip: Use this to get comprehensive match information.
-    """
+    """,
 )
 async def handle_matchdetails_command(update, context, **kwargs):
     """Handle /matchdetails command."""
@@ -131,9 +128,7 @@ async def handle_matchdetails_command(update, context, **kwargs):
     feature="match_management",
     chat_type=ChatType.LEADERSHIP,
     examples=["/selectsquad", "/selectsquad MATCH123"],
-    parameters={
-        "match_id": "Optional match ID for specific match"
-    },
+    parameters={"match_id": "Optional match ID for specific match"},
     help_text="""
 👥 Select Squad (Leadership Only)
 
@@ -150,7 +145,7 @@ What happens:
 4. Selected players are notified
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_selectsquad_command(update, context, **kwargs):
     """Handle /selectsquad command."""
@@ -169,7 +164,7 @@ async def handle_selectsquad_command(update, context, **kwargs):
     parameters={
         "match_id": "Match ID to update",
         "field": "Field to update (date, time, location, etc.)",
-        "value": "New value for the field"
+        "value": "New value for the field",
     },
     help_text="""
 ✏️ Update Match (Leadership Only)
@@ -191,7 +186,7 @@ Available fields:
 • status - Match status
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_updatematch_command(update, context, **kwargs):
     """Handle /updatematch command."""

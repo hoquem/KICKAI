@@ -1,4 +1,3 @@
-
 import re
 
 from crewai.tools import tool
@@ -17,7 +16,10 @@ def parse_registration_command(command: str) -> dict[str, str] | None:
         A dictionary containing the user's name, phone, and role, or None if parsing fails.
     """
     # Regex to capture the name, phone number, and role
-    match = re.match(r"/register\s+(.+?)\s+((?:\+\d{1,3})?\s?\d{1,4}[-\s]?\d{1,4}[-\s]?\d{1,9})\s+(.+)""", command)
+    match = re.match(
+        r"/register\s+(.+?)\s+((?:\+\d{1,3})?\s?\d{1,4}[-\s]?\d{1,4}[-\s]?\d{1,9})\s+(.+)" "",
+        command,
+    )
     if match:
         return {
             "name": match.group(1).strip(),

@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Union
+from typing import Any
 
 from loguru import logger
 
@@ -20,6 +20,7 @@ from kickai.agents.crew_agents import TeamManagementSystem
 
 class CrewStatus(Enum):
     """Status of a crew instance."""
+
     INITIALIZING = "initializing"
     ACTIVE = "active"
     IDLE = "idle"
@@ -30,6 +31,7 @@ class CrewStatus(Enum):
 @dataclass
 class CrewMetrics:
     """Metrics for crew performance monitoring."""
+
     team_id: str
     created_at: datetime
     last_activity: datetime
@@ -109,7 +111,7 @@ class CrewLifecycleManager:
                 failed_requests=0,
                 average_response_time=0.0,
                 memory_usage={},
-                agent_health={}
+                agent_health={},
             )
 
             # Set status to active
@@ -123,7 +125,9 @@ class CrewLifecycleManager:
             logger.error(f"❌ Failed to create crew for team {team_id}: {e}")
             raise
 
-    async def execute_task(self, team_id: str, task_description: str, execution_context: dict[str, Any]) -> str:
+    async def execute_task(
+        self, team_id: str, task_description: str, execution_context: dict[str, Any]
+    ) -> str:
         """
         Execute a task using the team's crew with metrics tracking.
 
@@ -155,16 +159,15 @@ class CrewLifecycleManager:
             # Calculate response time
             response_time = (datetime.now() - start_time).total_seconds()
             metrics.average_response_time = (
-                (metrics.average_response_time * (metrics.total_requests - 1) + response_time) /
-                metrics.total_requests
-            )
+                metrics.average_response_time * (metrics.total_requests - 1) + response_time
+            ) / metrics.total_requests
 
             # Update agent health
             health_status = crew.health_check()
-            metrics.agent_health = health_status.get('agents', {})
+            metrics.agent_health = health_status.get("agents", {})
             metrics.memory_usage = {
-                'conversation_count': len(crew.team_memory._conversation_history),
-                'user_count': len(crew.team_memory._user_memories)
+                "conversation_count": len(crew.team_memory._conversation_history),
+                "user_count": len(crew.team_memory._user_memories),
             }
 
             logger.info(f"✅ Task executed successfully for team {team_id} in {response_time:.2f}s")
@@ -200,11 +203,11 @@ class CrewLifecycleManager:
         except Exception as e:
             logger.error(f"❌ Error shutting down crew for team {team_id}: {e}")
 
-    async def get_crew_status(self, team_id: str) -> Union[CrewStatus, None]:
+    async def get_crew_status(self, team_id: str) -> CrewStatus | None:
         """Get the status of a crew for the specified team."""
         return self._crew_status.get(team_id)
 
-    async def get_crew_metrics(self, team_id: str) -> Union[CrewMetrics, None]:
+    async def get_crew_metrics(self, team_id: str) -> CrewMetrics | None:
         """Get metrics for a crew for the specified team."""
         return self._crew_metrics.get(team_id)
 
@@ -215,32 +218,29 @@ class CrewLifecycleManager:
     async def health_check(self) -> dict[str, Any]:
         """Perform health check on all crews."""
         health_status = {
-            'total_crews': len(self._crews),
-            'active_crews': 0,
-            'error_crews': 0,
-            'crews': {}
+            "total_crews": len(self._crews),
+            "active_crews": 0,
+            "error_crews": 0,
+            "crews": {},
         }
 
         for team_id, status in self._crew_status.items():
-            crew_health = {
-                'status': status.value,
-                'metrics': self._crew_metrics.get(team_id)
-            }
+            crew_health = {"status": status.value, "metrics": self._crew_metrics.get(team_id)}
 
             if status == CrewStatus.ACTIVE:
-                health_status['active_crews'] += 1
+                health_status["active_crews"] += 1
                 # Perform detailed health check on active crews
                 if team_id in self._crews:
                     try:
                         crew = self._crews[team_id]
-                        crew_health['crew_health'] = crew.health_check()
+                        crew_health["crew_health"] = crew.health_check()
                     except Exception as e:
-                        crew_health['crew_health'] = {'error': str(e)}
-                        health_status['error_crews'] += 1
+                        crew_health["crew_health"] = {"error": str(e)}
+                        health_status["error_crews"] += 1
             elif status == CrewStatus.ERROR:
-                health_status['error_crews'] += 1
+                health_status["error_crews"] += 1
 
-            health_status['crews'][team_id] = crew_health
+            health_status["crews"][team_id] = crew_health
 
         return health_status
 
@@ -269,7 +269,9 @@ class CrewLifecycleManager:
                 health_status = await self.health_check()
 
                 # Log health status
-                logger.info(f"🔍 Crew health check: {health_status['active_crews']} active, {health_status['error_crews']} errors")
+                logger.info(
+                    f"🔍 Crew health check: {health_status['active_crews']} active, {health_status['error_crews']} errors"
+                )
 
                 # Check for idle crews (no activity for 30 minutes)
                 await self._check_idle_crews()
@@ -332,7 +334,7 @@ class CrewLifecycleManager:
 
 
 # Global instance for easy access
-_crew_lifecycle_manager: Union[CrewLifecycleManager, None] = None
+_crew_lifecycle_manager: CrewLifecycleManager | None = None
 
 
 def get_crew_lifecycle_manager() -> CrewLifecycleManager:

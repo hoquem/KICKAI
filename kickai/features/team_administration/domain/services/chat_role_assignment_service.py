@@ -12,7 +12,7 @@ This service handles automatic role assignment based on chat membership:
 
 import logging
 from datetime import datetime
-from typing import Any, Union
+from typing import Any
 
 # TeamMemberService removed - using mock service instead
 # Import TeamMember dynamically to avoid circular imports
@@ -49,6 +49,7 @@ class ChatRoleAssignmentService:
 
     def _create_mock_player_service(self):
         """Create a mock player service for fallback."""
+
         class MockPlayerService:
             async def get_player_by_id(self, player_id: str):
                 return None
@@ -60,6 +61,7 @@ class ChatRoleAssignmentService:
 
     def _create_mock_team_member_service(self):
         """Create a mock team member service for fallback."""
+
         class MockTeamMemberService:
             async def get_team_members_by_team(self, team_id: str):
                 return []
@@ -75,8 +77,9 @@ class ChatRoleAssignmentService:
 
         return MockTeamMemberService()
 
-    async def add_user_to_chat(self, team_id: str, user_id: str, chat_type: str,
-                              username: Union[str, None] = None) -> dict[str, Any]:
+    async def add_user_to_chat(
+        self, team_id: str, user_id: str, chat_type: str, username: str | None = None
+    ) -> dict[str, Any]:
         """
         Add user to a chat and assign appropriate role.
 
@@ -97,13 +100,16 @@ class ChatRoleAssignmentService:
             is_first_user = len(existing_members) == 0
 
             # Get or create team member
-            team_member = await self.team_member_service.get_team_member_by_telegram_id(user_id, team_id)
+            team_member = await self.team_member_service.get_team_member_by_telegram_id(
+                user_id, team_id
+            )
 
             if not team_member:
                 # Create new team member
                 from kickai.features.team_administration.domain.entities.team_member import (
                     TeamMember,
                 )
+
                 roles = self._determine_initial_roles(chat_type, is_first_user)
                 team_member = TeamMember(
                     team_id=team_id,
@@ -112,11 +118,11 @@ class ChatRoleAssignmentService:
                     telegram_username=username,
                     roles=roles,
                     chat_access={chat_type: True},
-                    joined_at=datetime.now()
+                    joined_at=datetime.now(),
                 )
 
                 member_id = await self.team_member_service.create_team_member(team_member)
-                team_member.id = member_id
+                # Note: team_member.user_id should already be set, member_id should match
                 logger.info(f"Created new team member {user_id} with roles: {roles}")
             else:
                 # Update existing team member
@@ -140,14 +146,16 @@ class ChatRoleAssignmentService:
                 "chat_type": chat_type,
                 "roles": team_member.roles,
                 "is_first_user": is_first_user,
-                "is_admin": "admin" in team_member.roles
+                "is_admin": "admin" in team_member.roles,
             }
 
         except Exception as e:
             logger.error(f"Failed to add user {user_id} to {chat_type}: {e}")
             raise DatabaseError(f"Failed to add user to chat: {e!s}")
 
-    async def remove_user_from_chat(self, team_id: str, user_id: str, chat_type: str) -> dict[str, Any]:
+    async def remove_user_from_chat(
+        self, team_id: str, user_id: str, chat_type: str
+    ) -> dict[str, Any]:
         """
         Remove user from a chat and update roles accordingly.
 
@@ -162,7 +170,9 @@ class ChatRoleAssignmentService:
         try:
             logger.info(f"Removing user {user_id} from {chat_type} for team {team_id}")
 
-            team_member = await self.team_member_service.get_team_member_by_telegram_id(user_id, team_id)
+            team_member = await self.team_member_service.get_team_member_by_telegram_id(
+                user_id, team_id
+            )
             if not team_member:
                 return {"success": False, "error": "User not found in team"}
 
@@ -184,7 +194,7 @@ class ChatRoleAssignmentService:
                 "user_id": user_id,
                 "team_id": team_id,
                 "chat_type": chat_type,
-                "roles": team_member.roles
+                "roles": team_member.roles,
             }
 
         except Exception as e:
@@ -205,13 +215,17 @@ class ChatRoleAssignmentService:
         """
         try:
             # Check if promoter is admin
-            promoter = await self.team_member_service.get_team_member_by_telegram_id(promoted_by, team_id)
+            promoter = await self.team_member_service.get_team_member_by_telegram_id(
+                promoted_by, team_id
+            )
             if not promoter or "admin" not in promoter.roles:
                 logger.warning(f"Non-admin user {promoted_by} attempted to promote {user_id}")
                 return False
 
             # Get user to promote
-            team_member = await self.team_member_service.get_team_member_by_telegram_id(user_id, team_id)
+            team_member = await self.team_member_service.get_team_member_by_telegram_id(
+                user_id, team_id
+            )
             if not team_member:
                 logger.warning(f"User {user_id} not found in team {team_id}")
                 return False
@@ -252,7 +266,9 @@ class ChatRoleAssignmentService:
         if chat_type == ChatType.LEADERSHIP.value and "team_member" not in team_member.roles:
             team_member.roles.append("team_member")
 
-    async def _ensure_player_role(self, team_id: str, user_id: str, username: Union[str, None] = None) -> None:
+    async def _ensure_player_role(
+        self, team_id: str, user_id: str, username: str | None = None
+    ) -> None:
         """Ensure user has a player record if they're in the main chat."""
         try:
             # Check if player already exists
@@ -260,16 +276,18 @@ class ChatRoleAssignmentService:
             if not existing_player:
                 # Create a basic player record using the PlayerService directly
                 # This avoids creating Player objects manually and ensures proper entity usage
-                from kickai.features.player_registration.domain.services.player_service import PlayerCreateParams
-                
+                from kickai.features.player_registration.domain.services.player_service import (
+                    PlayerCreateParams,
+                )
+
                 params = PlayerCreateParams(
                     name=username or f"User {user_id}",
                     phone="",  # Will be filled during onboarding
                     position="",  # Will be filled during onboarding
                     team_id=team_id,
-                    created_by="system"
+                    created_by="system",
                 )
-                
+
                 await self.player_service.create_player(params)
                 logger.info(f"Created player record for user {user_id}")
         except Exception as e:
@@ -278,7 +296,9 @@ class ChatRoleAssignmentService:
     async def _assign_first_user_admin(self, team_id: str, user_id: str) -> None:
         """Assign admin role to the first user of a team."""
         try:
-            team_member = await self.team_member_service.get_team_member_by_telegram_id(user_id, team_id)
+            team_member = await self.team_member_service.get_team_member_by_telegram_id(
+                user_id, team_id
+            )
             if team_member and "admin" not in team_member.roles:
                 team_member.roles.append("admin")
                 await self.team_member_service.update_team_member(team_member)
@@ -290,19 +310,27 @@ class ChatRoleAssignmentService:
         """Handle when an admin leaves the leadership chat."""
         try:
             # Check if this was the last admin
-            admin_members = await self.team_member_service.get_team_members_by_role(team_id, "admin")
-            remaining_admins = [m for m in admin_members if m.telegram_id != user_id and m.can_access_chat("leadership_chat")]
+            admin_members = await self.team_member_service.get_team_members_by_role(
+                team_id, "admin"
+            )
+            remaining_admins = [
+                m
+                for m in admin_members
+                if m.telegram_id != user_id and m.can_access_chat("leadership_chat")
+            ]
 
             if not remaining_admins:
                 # No admins left in leadership chat, promote longest-tenured member
                 await self._promote_longest_tenured_to_admin(team_id)
             else:
-                logger.info(f"Admin {user_id} left leadership chat, but {len(remaining_admins)} admins remain")
+                logger.info(
+                    f"Admin {user_id} left leadership chat, but {len(remaining_admins)} admins remain"
+                )
 
         except Exception as e:
             logger.error(f"Failed to handle admin leaving leadership: {e}")
 
-    async def _promote_longest_tenured_to_admin(self, team_id: str) -> Union[str, None]:
+    async def _promote_longest_tenured_to_admin(self, team_id: str) -> str | None:
         """
         Promote the longest-tenured leadership member to admin.
 
@@ -314,7 +342,9 @@ class ChatRoleAssignmentService:
             leadership_members = await self.team_member_service.get_leadership_members(team_id)
 
             # Filter to only those with leadership chat access
-            eligible_members = [m for m in leadership_members if m.can_access_chat("leadership_chat")]
+            eligible_members = [
+                m for m in leadership_members if m.can_access_chat("leadership_chat")
+            ]
 
             if not eligible_members:
                 logger.warning(f"No eligible members to promote to admin in team {team_id}")
@@ -328,7 +358,9 @@ class ChatRoleAssignmentService:
             if "admin" not in longest_tenured.roles:
                 longest_tenured.roles.append("admin")
                 await self.team_member_service.update_team_member(longest_tenured)
-                logger.info(f"Promoted longest-tenured member {longest_tenured.user_id} to admin in team {team_id}")
+                logger.info(
+                    f"Promoted longest-tenured member {longest_tenured.user_id} to admin in team {team_id}"
+                )
                 return longest_tenured.user_id
 
             return longest_tenured.user_id  # Already admin
@@ -340,7 +372,9 @@ class ChatRoleAssignmentService:
     async def get_user_roles(self, team_id: str, user_id: str) -> dict[str, Any]:
         """Get comprehensive role information for a user."""
         try:
-            team_member = await self.team_member_service.get_team_member_by_telegram_id(user_id, team_id)
+            team_member = await self.team_member_service.get_team_member_by_telegram_id(
+                user_id, team_id
+            )
             if not team_member:
                 return {
                     "user_id": user_id,
@@ -349,7 +383,7 @@ class ChatRoleAssignmentService:
                     "chat_access": {},
                     "is_admin": False,
                     "is_player": False,
-                    "is_team_member": False
+                    "is_team_member": False,
                 }
 
             return {
@@ -360,7 +394,7 @@ class ChatRoleAssignmentService:
                 "is_admin": "admin" in team_member.roles,
                 "is_player": "player" in team_member.roles,
                 "is_team_member": "team_member" in team_member.roles,
-                "joined_at": team_member.joined_at.isoformat() if team_member.joined_at else None
+                "joined_at": team_member.joined_at.isoformat() if team_member.joined_at else None,
             }
 
         except Exception as e:
@@ -373,5 +407,5 @@ class ChatRoleAssignmentService:
                 "is_admin": False,
                 "is_player": False,
                 "is_team_member": False,
-                "error": str(e)
+                "error": str(e),
             }

@@ -5,7 +5,6 @@ Team Repository Interface
 This module defines the interface for team data access operations.
 """
 
-from typing import Union
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -13,11 +12,12 @@ from dataclasses import dataclass
 @dataclass
 class Team:
     """Team entity."""
+
     id: str
     name: str
-    description: Union[str, None] = None
-    created_at: Union[str, None] = None
-    updated_at: Union[str, None] = None
+    description: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 class TeamRepositoryInterface(ABC):
@@ -29,7 +29,7 @@ class TeamRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_team_by_id(self, team_id: str) -> Union[Team, None]:
+    async def get_team_by_id(self, team_id: str) -> Team | None:
         """Get a team by ID."""
         pass
 

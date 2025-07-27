@@ -8,11 +8,11 @@ It follows the single source of truth principle and ensures clean, loosely coupl
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Union
+from typing import Any
 
 from loguru import logger
 
-from kickai.agents.tool_registry import ToolRegistry, get_tool_registry, initialize_tool_registry
+from kickai.agents.tool_registry import ToolRegistry, initialize_tool_registry
 from kickai.core.agent_registry import AgentRegistry, get_agent_registry
 from kickai.core.command_registry import CommandRegistry
 from kickai.core.command_registry_initializer import get_initialized_command_registry
@@ -20,6 +20,7 @@ from kickai.core.command_registry_initializer import get_initialized_command_reg
 
 class RegistryType(Enum):
     """Types of registries in the system."""
+
     COMMAND = "command"
     AGENT = "agent"
     TOOL = "tool"
@@ -29,6 +30,7 @@ class RegistryType(Enum):
 @dataclass
 class RegistryInfo:
     """Information about a registry."""
+
     registry_type: RegistryType
     name: str
     description: str
@@ -108,7 +110,7 @@ class RegistryManager:
         """Get the tool registry."""
         return self.get_registry(RegistryType.TOOL)
 
-    def get_registry_info(self, registry_type: RegistryType) -> Union[RegistryInfo, None]:
+    def get_registry_info(self, registry_type: RegistryType) -> RegistryInfo | None:
         """Get information about a specific registry."""
         registry = self.get_registry(registry_type)
         if not registry:
@@ -120,10 +122,10 @@ class RegistryManager:
                 registry_type=registry_type,
                 name="Command Registry",
                 description="Manages all system commands and their metadata",
-                total_items=stats.get('total_commands', 0),
-                enabled_items=stats.get('total_commands', 0),  # All commands are enabled by default
-                features=list(stats.get('commands_by_feature', {}).keys()),
-                last_updated="Now"
+                total_items=stats.get("total_commands", 0),
+                enabled_items=stats.get("total_commands", 0),  # All commands are enabled by default
+                features=list(stats.get("commands_by_feature", {}).keys()),
+                last_updated="Now",
             )
 
         elif registry_type == RegistryType.AGENT:
@@ -132,10 +134,10 @@ class RegistryManager:
                 registry_type=registry_type,
                 name="Agent Registry",
                 description="Manages all system agents and their configurations",
-                total_items=stats.get('total_agents', 0),
-                enabled_items=stats.get('enabled_agents', 0),
-                features=stats.get('features_with_agents', []),
-                last_updated="Now"
+                total_items=stats.get("total_agents", 0),
+                enabled_items=stats.get("enabled_agents", 0),
+                features=stats.get("features_with_agents", []),
+                last_updated="Now",
             )
 
         elif registry_type == RegistryType.TOOL:
@@ -144,10 +146,10 @@ class RegistryManager:
                 registry_type=registry_type,
                 name="Tool Registry",
                 description="Manages all system tools and their metadata",
-                total_items=stats.get('total_tools', 0),
-                enabled_items=stats.get('enabled_tools', 0),
-                features=stats.get('features_with_tools', []),
-                last_updated="Now"
+                total_items=stats.get("total_tools", 0),
+                enabled_items=stats.get("enabled_tools", 0),
+                features=stats.get("features_with_tools", []),
+                last_updated="Now",
             )
 
         return None
@@ -168,18 +170,15 @@ class RegistryManager:
         if not self._initialized:
             self.initialize_registries()
 
-        stats = {
-            'total_registries': len(self._registries),
-            'registries': {}
-        }
+        stats = {"total_registries": len(self._registries), "registries": {}}
 
         for registry_type, registry in self._registries.items():
             if registry_type == RegistryType.COMMAND:
-                stats['registries']['commands'] = registry.get_command_statistics()
+                stats["registries"]["commands"] = registry.get_command_statistics()
             elif registry_type == RegistryType.AGENT:
-                stats['registries']['agents'] = registry.get_agent_statistics()
+                stats["registries"]["agents"] = registry.get_agent_statistics()
             elif registry_type == RegistryType.TOOL:
-                stats['registries']['tools'] = registry.get_tool_statistics()
+                stats["registries"]["tools"] = registry.get_tool_statistics()
 
         return stats
 
@@ -190,11 +189,7 @@ class RegistryManager:
         Returns:
             Dictionary of validation results
         """
-        validation_results = {
-            'errors': [],
-            'warnings': [],
-            'success': []
-        }
+        validation_results = {"errors": [], "warnings": [], "success": []}
 
         try:
             # Validate agent-tool dependencies
@@ -206,15 +201,15 @@ class RegistryManager:
                     for tool_name in agent.tools:
                         tool_metadata = tool_registry.get_tool(tool_name)
                         if not tool_metadata:
-                            validation_results['errors'].append(
+                            validation_results["errors"].append(
                                 f"Agent '{agent.agent_id}' references missing tool '{tool_name}'"
                             )
                         elif not tool_metadata.enabled:
-                            validation_results['warnings'].append(
+                            validation_results["warnings"].append(
                                 f"Agent '{agent.agent_id}' references disabled tool '{tool_name}'"
                             )
                         else:
-                            validation_results['success'].append(
+                            validation_results["success"].append(
                                 f"Agent '{agent.agent_id}' tool dependency '{tool_name}' validated"
                             )
 
@@ -227,7 +222,7 @@ class RegistryManager:
                     pass
 
         except Exception as e:
-            validation_results['errors'].append(f"Validation error: {e!s}")
+            validation_results["errors"].append(f"Validation error: {e!s}")
 
         return validation_results
 
@@ -241,11 +236,7 @@ class RegistryManager:
         Returns:
             Dictionary of search results by registry type
         """
-        results = {
-            'commands': [],
-            'agents': [],
-            'tools': []
-        }
+        results = {"commands": [], "agents": [], "tools": []}
 
         # Search commands
         command_registry = self.get_command_registry()
@@ -256,12 +247,12 @@ class RegistryManager:
         # Search agents
         agent_registry = self.get_agent_registry()
         if agent_registry:
-            results['agents'] = agent_registry.search_agents(query)
+            results["agents"] = agent_registry.search_agents(query)
 
         # Search tools
         tool_registry = self.get_tool_registry()
         if tool_registry:
-            results['tools'] = tool_registry.search_tools(query)
+            results["tools"] = tool_registry.search_tools(query)
 
         return results
 
@@ -276,36 +267,34 @@ class RegistryManager:
             Dictionary with feature overview
         """
         overview = {
-            'feature_name': feature_name,
-            'commands': [],
-            'agents': [],
-            'tools': [],
-            'total_items': 0
+            "feature_name": feature_name,
+            "commands": [],
+            "agents": [],
+            "tools": [],
+            "total_items": 0,
         }
 
         # Get commands for feature
         command_registry = self.get_command_registry()
         if command_registry:
             commands = command_registry.get_commands_by_feature(feature_name)
-            overview['commands'] = [cmd.name for cmd in commands]
+            overview["commands"] = [cmd.name for cmd in commands]
 
         # Get agents for feature
         agent_registry = self.get_agent_registry()
         if agent_registry:
             agents = agent_registry.get_agents_by_feature(feature_name)
-            overview['agents'] = [agent.agent_id for agent in agents]
+            overview["agents"] = [agent.agent_id for agent in agents]
 
         # Get tools for feature
         tool_registry = self.get_tool_registry()
         if tool_registry:
             tools = tool_registry.get_tools_by_feature(feature_name)
-            overview['tools'] = [tool.tool_id for tool in tools]
+            overview["tools"] = [tool.tool_id for tool in tools]
 
         # Calculate total
-        overview['total_items'] = (
-            len(overview['commands']) +
-            len(overview['agents']) +
-            len(overview['tools'])
+        overview["total_items"] = (
+            len(overview["commands"]) + len(overview["agents"]) + len(overview["tools"])
         )
 
         return overview
@@ -318,10 +307,10 @@ class RegistryManager:
             Health check results
         """
         health_results = {
-            'status': 'healthy',
-            'registries': {},
-            'issues': [],
-            'recommendations': []
+            "status": "healthy",
+            "registries": {},
+            "issues": [],
+            "recommendations": [],
         }
 
         try:
@@ -330,42 +319,42 @@ class RegistryManager:
                 registry = self.get_registry(registry_type)
                 if registry:
                     registry_info = self.get_registry_info(registry_type)
-                    health_results['registries'][registry_type.value] = {
-                        'status': 'healthy',
-                        'total_items': registry_info.total_items if registry_info else 0,
-                        'enabled_items': registry_info.enabled_items if registry_info else 0
+                    health_results["registries"][registry_type.value] = {
+                        "status": "healthy",
+                        "total_items": registry_info.total_items if registry_info else 0,
+                        "enabled_items": registry_info.enabled_items if registry_info else 0,
                     }
                 else:
-                    health_results['registries'][registry_type.value] = {
-                        'status': 'missing',
-                        'total_items': 0,
-                        'enabled_items': 0
+                    health_results["registries"][registry_type.value] = {
+                        "status": "missing",
+                        "total_items": 0,
+                        "enabled_items": 0,
                     }
-                    health_results['issues'].append(f"Registry {registry_type.value} not found")
+                    health_results["issues"].append(f"Registry {registry_type.value} not found")
 
             # Validate dependencies
             validation_results = self.validate_registry_dependencies()
-            if validation_results['errors']:
-                health_results['status'] = 'unhealthy'
-                health_results['issues'].extend(validation_results['errors'])
+            if validation_results["errors"]:
+                health_results["status"] = "unhealthy"
+                health_results["issues"].extend(validation_results["errors"])
 
-            if validation_results['warnings']:
-                health_results['recommendations'].extend(validation_results['warnings'])
+            if validation_results["warnings"]:
+                health_results["recommendations"].extend(validation_results["warnings"])
 
             # Check for empty registries
-            for registry_type, info in health_results['registries'].items():
-                if info['total_items'] == 0:
-                    health_results['recommendations'].append(
+            for registry_type, info in health_results["registries"].items():
+                if info["total_items"] == 0:
+                    health_results["recommendations"].append(
                         f"Registry {registry_type} is empty - consider adding items"
                     )
 
         except Exception as e:
-            health_results['status'] = 'error'
-            health_results['issues'].append(f"Health check error: {e!s}")
+            health_results["status"] = "error"
+            health_results["issues"].append(f"Health check error: {e!s}")
 
         return health_results
 
-    def export_registry_data(self, registry_type: Union[RegistryType, None] = None) -> dict[str, Any]:
+    def export_registry_data(self, registry_type: RegistryType | None = None) -> dict[str, Any]:
         """
         Export registry data for backup or analysis.
 
@@ -375,57 +364,53 @@ class RegistryManager:
         Returns:
             Dictionary with exported data
         """
-        export_data = {
-            'timestamp': 'Now',
-            'version': '1.0.0',
-            'data': {}
-        }
+        export_data = {"timestamp": "Now", "version": "1.0.0", "data": {}}
 
         if registry_type:
             registry = self.get_registry(registry_type)
             if registry:
                 if registry_type == RegistryType.COMMAND:
-                    export_data['data']['commands'] = [
+                    export_data["data"]["commands"] = [
                         {
-                            'name': cmd.name,
-                            'description': cmd.description,
-                            'feature': cmd.feature,
-                            'permission_level': cmd.permission_level.value
+                            "name": cmd.name,
+                            "description": cmd.description,
+                            "feature": cmd.feature,
+                            "permission_level": cmd.permission_level.value,
                         }
                         for cmd in registry.list_all_commands()
                     ]
                 elif registry_type == RegistryType.AGENT:
-                    export_data['data']['agents'] = [
+                    export_data["data"]["agents"] = [
                         {
-                            'agent_id': agent.agent_id,
-                            'name': agent.name,
-                            'description': agent.description,
-                            'feature_module': agent.feature_module,
-                            'enabled': agent.enabled
+                            "agent_id": agent.agent_id,
+                            "name": agent.name,
+                            "description": agent.description,
+                            "feature_module": agent.feature_module,
+                            "enabled": agent.enabled,
                         }
                         for agent in registry.list_all_agents()
                     ]
                 elif registry_type == RegistryType.TOOL:
-                    export_data['data']['tools'] = [
+                    export_data["data"]["tools"] = [
                         {
-                            'tool_id': tool.tool_id,
-                            'name': tool.name,
-                            'description': tool.description,
-                            'feature_module': tool.feature_module,
-                            'enabled': tool.enabled
+                            "tool_id": tool.tool_id,
+                            "name": tool.name,
+                            "description": tool.description,
+                            "feature_module": tool.feature_module,
+                            "enabled": tool.enabled,
                         }
                         for tool in registry.list_all_tools()
                     ]
         else:
             # Export all registries
             for reg_type in RegistryType:
-                export_data['data'][reg_type.value] = self.export_registry_data(reg_type)['data']
+                export_data["data"][reg_type.value] = self.export_registry_data(reg_type)["data"]
 
         return export_data
 
 
 # Global registry manager instance
-_registry_manager: Union[RegistryManager, None] = None
+_registry_manager: RegistryManager | None = None
 
 
 def get_registry_manager() -> RegistryManager:

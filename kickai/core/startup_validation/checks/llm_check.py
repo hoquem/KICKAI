@@ -34,11 +34,11 @@ class LLMProviderCheck(BaseCheck):
             # Test LLM connectivity using LLMFactory
             try:
                 # Get provider and model from environment
-                provider_str = os.getenv('AI_PROVIDER', 'gemini')
-                if provider_str == 'ollama':
-                    model_name = os.getenv('OLLAMA_MODEL', 'llama2')
+                provider_str = os.getenv("AI_PROVIDER", "gemini")
+                if provider_str == "ollama":
+                    model_name = os.getenv("OLLAMA_MODEL", "llama2")
                 else:
-                    model_name = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
+                    model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
                 # Create LLM using the factory
                 llm = LLMFactory.create_from_environment()
@@ -57,7 +57,7 @@ class LLMProviderCheck(BaseCheck):
                             model=llm,
                             messages=[{"role": "user", "content": test_prompt}],
                             max_tokens=10,
-                            temperature=0
+                            temperature=0,
                         )
 
                         if response and response.choices and len(response.choices) > 0:
@@ -67,12 +67,14 @@ class LLMProviderCheck(BaseCheck):
                                 status=CheckStatus.PASSED,
                                 message=f"LLM authentication successful with {provider_str}",
                                 details={
-                                    'provider': provider_str,
-                                    'model': llm,
-                                    'response_length': len(str(response.choices[0].message.content)),
-                                    'note': 'Real API authentication test passed'
+                                    "provider": provider_str,
+                                    "model": llm,
+                                    "response_length": len(
+                                        str(response.choices[0].message.content)
+                                    ),
+                                    "note": "Real API authentication test passed",
                                 },
-                                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
+                                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                             )
                         else:
                             return CheckResult(
@@ -80,8 +82,8 @@ class LLMProviderCheck(BaseCheck):
                                 category=self.category,
                                 status=CheckStatus.FAILED,
                                 message="LLM returned empty response - authentication may have failed",
-                                details={'provider': provider_str, 'model': llm},
-                                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
+                                details={"provider": provider_str, "model": llm},
+                                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                             )
 
                     except Exception as auth_error:
@@ -94,16 +96,16 @@ class LLMProviderCheck(BaseCheck):
                             message=f"CRITICAL: LLM authentication failed - API key invalid or service unavailable: {auth_error!s}",
                             error=auth_error,
                             details={
-                                'provider': provider_str,
-                                'model': llm,
-                                'error_type': type(auth_error).__name__,
-                                'critical': True
+                                "provider": provider_str,
+                                "model": llm,
+                                "error_type": type(auth_error).__name__,
+                                "critical": True,
                             },
-                            duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
+                            duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                         )
 
                 # For other LLM types, try to validate
-                if hasattr(llm, 'invoke'):
+                if hasattr(llm, "invoke"):
                     # Test with a simple prompt
                     test_prompt = "Hello, this is a connectivity test. Please respond with 'OK' if you can see this message."
                     try:
@@ -115,11 +117,11 @@ class LLMProviderCheck(BaseCheck):
                                 status=CheckStatus.PASSED,
                                 message=f"LLM connectivity successful with {provider_str}",
                                 details={
-                                    'provider': provider_str,
-                                    'model': model_name,
-                                    'response_length': len(str(response))
+                                    "provider": provider_str,
+                                    "model": model_name,
+                                    "response_length": len(str(response)),
                                 },
-                                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
+                                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                             )
                         else:
                             return CheckResult(
@@ -127,8 +129,8 @@ class LLMProviderCheck(BaseCheck):
                                 category=self.category,
                                 status=CheckStatus.FAILED,
                                 message="LLM returned empty response - authentication may have failed",
-                                details={'provider': provider_str, 'model': model_name},
-                                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
+                                details={"provider": provider_str, "model": model_name},
+                                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                             )
                     except Exception as e:
                         # This is a CRITICAL failure
@@ -140,12 +142,12 @@ class LLMProviderCheck(BaseCheck):
                             message=f"CRITICAL: LLM authentication failed: {e!s}",
                             error=e,
                             details={
-                                'provider': provider_str,
-                                'model': model_name,
-                                'error_type': type(e).__name__,
-                                'critical': True
+                                "provider": provider_str,
+                                "model": model_name,
+                                "error_type": type(e).__name__,
+                                "critical": True,
                             },
-                            duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
+                            duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                         )
 
                 # If we get here, we couldn't test the LLM properly
@@ -154,8 +156,12 @@ class LLMProviderCheck(BaseCheck):
                     category=self.category,
                     status=CheckStatus.FAILED,
                     message="Could not perform LLM authentication test - unknown LLM type",
-                    details={'provider': provider_str, 'model': model_name, 'llm_type': type(llm).__name__},
-                    duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
+                    details={
+                        "provider": provider_str,
+                        "model": model_name,
+                        "llm_type": type(llm).__name__,
+                    },
+                    duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                 )
 
             except Exception as e:
@@ -166,8 +172,8 @@ class LLMProviderCheck(BaseCheck):
                     status=CheckStatus.FAILED,
                     message=f"CRITICAL: LLM initialization failed: {e!s}",
                     error=e,
-                    details={'error_type': type(e).__name__, 'critical': True},
-                    duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
+                    details={"error_type": type(e).__name__, "critical": True},
+                    duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                 )
 
         except Exception as e:
@@ -178,6 +184,6 @@ class LLMProviderCheck(BaseCheck):
                 status=CheckStatus.FAILED,
                 message=f"CRITICAL: Exception during LLM check: {e}",
                 error=e,
-                details={'error_type': type(e).__name__, 'critical': True},
-                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000
+                details={"error_type": type(e).__name__, "critical": True},
+                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
             )
