@@ -15,9 +15,7 @@ from kickai.core.command_registry import CommandType, PermissionLevel, command
     permission_level=PermissionLevel.PUBLIC,
     feature="shared",
     examples=["/help", "/help /register", "/help /announce"],
-    parameters={
-        "command": "Optional command name for detailed help (e.g., /help /register)"
-    },
+    parameters={"command": "Optional command name for detailed help (e.g., /help /register)"},
     help_text="""
 📚 Help System
 
@@ -39,7 +37,7 @@ What you'll see:
 • Detailed explanations
 
 💡 Tip: Commands shown depend on your role and current chat type.
-    """
+    """,
 )
 async def handle_help_command(update, context, **kwargs):
     """Handle /help command."""

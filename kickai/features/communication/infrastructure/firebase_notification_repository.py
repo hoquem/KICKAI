@@ -1,25 +1,28 @@
-from typing import Any, Union
+from typing import Any, Dict, List, Optional
+
+from kickai.core.firestore_constants import COLLECTION_NOTIFICATIONS
 
 
 class FirebaseNotificationRepository:
     """Repository for managing notifications in Firebase/Firestore."""
+
     def __init__(self, firebase_client):
         self._client = firebase_client
-        self._collection_name = "notifications"
+        self._collection_name = COLLECTION_NOTIFICATIONS
 
-    async def save(self, notification: dict[str, Any]) -> str:
+    async def save(self, notification: Dict[str, Any]) -> str:
         # TODO: Implement Firestore logic
-        return notification.get('id', 'mock_notification_id')
+        return notification.get("id", "mock_notification_id")
 
-    async def get_by_id(self, notification_id: str) -> Union[dict[str, Any], None]:
+    async def get_by_id(self, notification_id: str) -> Optional[Dict[str, Any]]:
         # TODO: Implement Firestore logic
         return None
 
-    async def list_for_user(self, user_id: str, limit: int = 50) -> list[dict[str, Any]]:
+    async def list_for_user(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         # TODO: Implement Firestore logic
         return []
 
-    async def update(self, notification_id: str, updates: dict[str, Any]) -> bool:
+    async def update(self, notification_id: str, updates: Dict[str, Any]) -> bool:
         # TODO: Implement Firestore logic
         return True
 

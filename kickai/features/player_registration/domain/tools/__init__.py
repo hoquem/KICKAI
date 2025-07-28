@@ -30,7 +30,6 @@ __all__ = [
     "team_member_registration",
     "registration_guidance",
     "parse_registration_command",
-
     # Player management tools (only the ones actually used by agents)
     "add_player",
     "approve_player",
@@ -38,7 +37,6 @@ __all__ = [
     "get_player_status",
     "get_all_players",
     "get_match",
-
 ]
 
 # Note: Removed unused tools: remove_player, get_player_info, list_players

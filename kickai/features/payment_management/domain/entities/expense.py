@@ -1,26 +1,19 @@
-from typing import Union
 from dataclasses import dataclass
-from enum import Enum
+from typing import Optional
 
+from kickai.core.enums import ExpenseCategory
 
-class ExpenseCategory(Enum):
-    PITCH_FEES = "pitch_fees"
-    REFEREE_FEES = "referee_fees"
-    EQUIPMENT = "equipment"
-    TEAM_MEAL = "team_meal"
-    FA_FEES = "fa_fees"
-    OTHER = "other"
 
 @dataclass
 class Expense:
     team_id: str
     amount: float
     category: ExpenseCategory
-    id: Union[str, None] = None
-    description: Union[str, None] = None
-    receipt_url: Union[str, None] = None
-    created_at: Union[str, None] = None
-    updated_at: Union[str, None] = None
+    id: Optional[str] = None
+    description: Optional[str] = None
+    receipt_url: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
     @staticmethod
     def from_dict(data: dict) -> "Expense":

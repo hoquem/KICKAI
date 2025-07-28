@@ -17,7 +17,8 @@ os.environ.update({
     'GITHUB_ACTIONS': 'true',
     'FIREBASE_CREDENTIALS_JSON': '{"type":"service_account","project_id":"test-project","private_key":"test-key","client_email":"test@test.com"}',
     'GOOGLE_API_KEY': 'test-google-api-key',
-    'TELEGRAM_BOT_TOKEN': 'test-bot-token',
+    # Bot token should come from Firestore team configuration, not environment variables
+    # 'TELEGRAM_BOT_TOKEN': 'test-bot-token',  # Removed - should come from Firestore
     'AI_PROVIDER': 'google_gemini',
     'AI_MODEL_NAME': 'gemini-pro',
     'JWT_SECRET': 'test-jwt-secret',

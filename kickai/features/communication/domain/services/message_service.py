@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Union, Union
+from typing import Any, Dict, List, Optional
 
 from kickai.features.communication.domain.entities.message import Message
 from kickai.features.communication.domain.repositories.message_repository_interface import (
@@ -9,6 +9,7 @@ from kickai.features.communication.domain.repositories.message_repository_interf
 
 class MessageService:
     """Service for handling messages in the communication domain."""
+
     def __init__(self, message_repository: MessageRepositoryInterface):
         self._repo = message_repository
 
@@ -17,8 +18,8 @@ class MessageService:
         sender_id: str,
         recipient_id: str,
         content: str,
-        conversation_id: Union[str, None] = None,
-        metadata: Union[dict[str, Any], None] = None
+        conversation_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Send a message and return the message ID."""
         if not conversation_id:
@@ -31,16 +32,12 @@ class MessageService:
             content=content,
             metadata=metadata,
             created_at=datetime.now(),
-            status="sent"
+            status="sent",
         )
         message_id = await self._repo.save(message.__dict__)
         return message_id
 
-    async def fetch_messages(
-        self,
-        conversation_id: str,
-        limit: int = 50
-    ) -> list[Message]:
+    async def fetch_messages(self, conversation_id: str, limit: int = 50) -> List[Message]:
         """Fetch messages for a conversation."""
         raw_messages = await self._repo.get_by_conversation(conversation_id, limit)
         return [Message(**msg) for msg in raw_messages]

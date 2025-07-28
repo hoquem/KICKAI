@@ -8,7 +8,7 @@ the complex improved_config_system.py and all scattered configuration access.
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Union
+from typing import Optional, List
 
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,6 +18,7 @@ from .enums import AIProvider
 
 class Environment(str, Enum):
     """Environment types."""
+
     DEVELOPMENT = "development"
     PRODUCTION = "production"
     TESTING = "testing"
@@ -27,222 +28,103 @@ class Settings(BaseSettings):
     """Main application settings using Pydantic Settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
 
     # Environment
     environment: Environment = Field(
-        default=Environment.DEVELOPMENT,
-        description="Application environment"
+        default=Environment.DEVELOPMENT, description="Application environment"
     )
 
     # Database Configuration
-    firebase_project_id: str = Field(
-        description="Firebase project ID (REQUIRED)"
-    )
-    firebase_credentials_path: Union[str, None] = Field(
+    firebase_project_id: str = Field(description="Firebase project ID (REQUIRED)")
+    firebase_credentials_path: Optional[str] = Field(
         default=None,
         alias="FIREBASE_CREDENTIALS_FILE",
-        description="Path to Firebase credentials file (REQUIRED if firebase_credentials_json not provided)"
+        description="Path to Firebase credentials file (REQUIRED if firebase_credentials_json not provided)",
     )
-    firebase_credentials_json: Union[str, None] = Field(
+    firebase_credentials_json: Optional[str] = Field(
         default=None,
-        description="Firebase credentials as JSON string (REQUIRED if firebase_credentials_path not provided)"
+        description="Firebase credentials as JSON string (REQUIRED if firebase_credentials_path not provided)",
     )
-    firebase_batch_size: int = Field(
-        default=500,
-        description="Firebase batch size for operations"
-    )
-    firebase_timeout: int = Field(
-        default=30,
-        description="Firebase timeout in seconds"
-    )
+    firebase_batch_size: int = Field(default=500, description="Firebase batch size for operations")
+    firebase_timeout: int = Field(default=30, description="Firebase timeout in seconds")
 
     # AI Configuration
-    ai_provider: AIProvider = Field(
-        default=AIProvider.GEMINI,
-        description="AI provider to use"
-    )
-    google_api_key: str = Field(
-        description="Google API key for Gemini (REQUIRED)"
-    )
-    openai_api_key: Union[str, None] = Field(
-        default=None,
-        description="OpenAI API key"
-    )
-    ai_model_name: str = Field(
-        default="gemini-1.5-flash",
-        description="AI model name"
-    )
-    ai_temperature: float = Field(
-        default=0.7,
-        description="AI temperature setting"
-    )
-    ai_max_tokens: int = Field(
-        default=1000,
-        description="AI max tokens"
-    )
-    ai_timeout: int = Field(
-        default=120,
-        description="AI timeout in seconds"
-    )
-    ai_max_retries: int = Field(
-        default=5,
-        description="AI max retries"
-    )
+    ai_provider: AIProvider = Field(default=AIProvider.GEMINI, description="AI provider to use")
+    google_api_key: str = Field(description="Google API key for Gemini (REQUIRED)")
+    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
+    ai_model_name: str = Field(default="gemini-1.5-flash", description="AI model name")
+    ai_temperature: float = Field(default=0.7, description="AI temperature setting")
+    ai_max_tokens: int = Field(default=1000, description="AI max tokens")
+    ai_timeout: int = Field(default=120, description="AI timeout in seconds")
+    ai_max_retries: int = Field(default=5, description="AI max retries")
 
     # Telegram Configuration (Bot config now comes from Firestore teams collection)
-    telegram_webhook_url: Union[str, None] = Field(
-        default=None,
-        description="Telegram webhook URL"
-    )
-    telegram_parse_mode: str = Field(
-        default="MarkdownV2",
-        description="Telegram parse mode"
-    )
-    telegram_timeout: int = Field(
-        default=30,
-        description="Telegram timeout in seconds"
-    )
+    telegram_webhook_url: Optional[str] = Field(default=None, description="Telegram webhook URL")
+    telegram_parse_mode: str = Field(default="MarkdownV2", description="Telegram parse mode")
+    telegram_timeout: int = Field(default=30, description="Telegram timeout in seconds")
 
     # Team Configuration - REMOVED: No default team ID allowed
     # All operations must explicitly provide team_id from execution context
 
     # Payment Configuration
-    collectiv_api_key: str = Field(
-        default="",
-        description="Collectiv API key"
-    )
+    collectiv_api_key: str = Field(default="", description="Collectiv API key")
     collectiv_base_url: str = Field(
-        default="https://api.collectiv.com",
-        description="Collectiv base URL"
+        default="https://api.collectiv.com", description="Collectiv base URL"
     )
-    payment_enabled: bool = Field(
-        default=False,
-        description="Enable payment system"
-    )
+    payment_enabled: bool = Field(default=False, description="Enable payment system")
 
     # Logging Configuration
-    log_level: str = Field(
-        default="INFO",
-        description="Logging level"
-    )
+    log_level: str = Field(default="INFO", description="Logging level")
     log_format: str = Field(
-        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        description="Log format"
+        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s", description="Log format"
     )
-    log_file_path: Union[str, None] = Field(
-        default=None,
-        description="Log file path (disabled - use redirection for file logging)"
+    log_file_path: Optional[str] = Field(
+        default=None, description="Log file path (disabled - use redirection for file logging)"
     )
     log_max_file_size: int = Field(
         default=10 * 1024 * 1024,  # 10MB
-        description="Max log file size"
+        description="Max log file size",
     )
-    log_backup_count: int = Field(
-        default=5,
-        description="Number of log backups"
-    )
+    log_backup_count: int = Field(default=5, description="Number of log backups")
 
     # Performance Configuration
-    cache_ttl_seconds: int = Field(
-        default=300,
-        description="Cache TTL in seconds"
-    )
-    max_concurrent_requests: int = Field(
-        default=10,
-        description="Max concurrent requests"
-    )
-    request_timeout: int = Field(
-        default=30,
-        description="Request timeout in seconds"
-    )
-    retry_attempts: int = Field(
-        default=3,
-        description="Number of retry attempts"
-    )
-    retry_delay: float = Field(
-        default=1.0,
-        description="Retry delay in seconds"
-    )
+    cache_ttl_seconds: int = Field(default=300, description="Cache TTL in seconds")
+    max_concurrent_requests: int = Field(default=10, description="Max concurrent requests")
+    request_timeout: int = Field(default=30, description="Request timeout in seconds")
+    retry_attempts: int = Field(default=3, description="Number of retry attempts")
+    retry_delay: float = Field(default=1.0, description="Retry delay in seconds")
 
     # Security Configuration
     jwt_secret: str = Field(
-        default="default-secret-change-in-production",
-        description="JWT secret key"
+        default="", description="JWT secret key (REQUIRED - must be set via JWT_SECRET environment variable)"
     )
-    session_timeout: int = Field(
-        default=3600,
-        description="Session timeout in seconds"
-    )
-    max_login_attempts: int = Field(
-        default=5,
-        description="Max login attempts"
-    )
-    password_min_length: int = Field(
-        default=8,
-        description="Minimum password length"
-    )
+    session_timeout: int = Field(default=3600, description="Session timeout in seconds")
+    max_login_attempts: int = Field(default=5, description="Max login attempts")
+    password_min_length: int = Field(default=8, description="Minimum password length")
 
     # Advanced Memory Configuration
-    enable_advanced_memory: bool = Field(
-        default=True,
-        description="Enable advanced memory system"
-    )
-    memory_max_short_term: int = Field(
-        default=100,
-        description="Max short-term memory items"
-    )
-    memory_max_long_term: int = Field(
-        default=1000,
-        description="Max long-term memory items"
-    )
-    memory_max_episodic: int = Field(
-        default=500,
-        description="Max episodic memory items"
-    )
-    memory_max_semantic: int = Field(
-        default=200,
-        description="Max semantic memory items"
-    )
-    memory_pattern_learning: bool = Field(
-        default=True,
-        description="Enable pattern learning"
-    )
-    memory_preference_learning: bool = Field(
-        default=True,
-        description="Enable preference learning"
-    )
-    memory_cleanup_interval: int = Field(
-        default=24,
-        description="Memory cleanup interval in hours"
-    )
+    enable_advanced_memory: bool = Field(default=True, description="Enable advanced memory system")
+    memory_max_short_term: int = Field(default=100, description="Max short-term memory items")
+    memory_max_long_term: int = Field(default=1000, description="Max long-term memory items")
+    memory_max_episodic: int = Field(default=500, description="Max episodic memory items")
+    memory_max_semantic: int = Field(default=200, description="Max semantic memory items")
+    memory_pattern_learning: bool = Field(default=True, description="Enable pattern learning")
+    memory_preference_learning: bool = Field(default=True, description="Enable preference learning")
+    memory_cleanup_interval: int = Field(default=24, description="Memory cleanup interval in hours")
 
     # Development Configuration
-    debug: bool = Field(
-        default=False,
-        description="Enable debug mode"
-    )
-    verbose_logging: bool = Field(
-        default=False,
-        description="Enable verbose logging"
-    )
+    debug: bool = Field(default=False, description="Enable debug mode")
+    verbose_logging: bool = Field(default=False, description="Enable verbose logging")
 
     # Test Configuration
-    test_mode: bool = Field(
-        default=False,
-        description="Enable test mode"
+    test_mode: bool = Field(default=False, description="Enable test mode")
+    admin_session_string: Optional[str] = Field(
+        default=None, description="Admin session string for testing"
     )
-    admin_session_string: Union[str, None] = Field(
-        default=None,
-        description="Admin session string for testing"
-    )
-    player_session_string: Union[str, None] = Field(
-        default=None,
-        description="Player session string for testing"
+    player_session_string: Optional[str] = Field(
+        default=None, description="Player session string for testing"
     )
 
     @validator("environment", pre=True)
@@ -279,17 +161,19 @@ class Settings(BaseSettings):
     def validate_firebase_credentials(cls, v, values):
         """Validate that at least one Firebase credential method is provided."""
         # This validator runs for both fields, so we need to check the other field
-        if 'firebase_credentials_path' in values:
-            path = values['firebase_credentials_path']
+        if "firebase_credentials_path" in values:
+            path = values["firebase_credentials_path"]
             json_creds = v
         else:
             path = v
-            json_creds = values.get('firebase_credentials_json')
-        
+            json_creds = values.get("firebase_credentials_json")
+
         # If neither is provided, raise an error
         if not path and not json_creds:
-            raise ValueError("Either FIREBASE_CREDENTIALS_FILE or FIREBASE_CREDENTIALS_JSON must be provided")
-        
+            raise ValueError(
+                "Either FIREBASE_CREDENTIALS_FILE or FIREBASE_CREDENTIALS_JSON must be provided"
+            )
+
         return v
 
     @property
@@ -321,7 +205,7 @@ class Settings(BaseSettings):
             return ""
         return ""
 
-    def validate_required_fields(self) -> list[str]:
+    def validate_required_fields(self) -> List[str]:
         """Validate required fields and return list of errors."""
         errors = []
 
@@ -338,14 +222,18 @@ class Settings(BaseSettings):
 
         # Production requirements
         if self.is_production:
-            if self.jwt_secret == "default-secret-change-in-production":
-                errors.append("JWT_SECRET must be changed in production")
+            if not self.jwt_secret:
+                errors.append("JWT_SECRET is required in production")
+        else:
+            # Development/testing requirements
+            if not self.jwt_secret:
+                errors.append("JWT_SECRET is required (set via JWT_SECRET environment variable)")
 
         return errors
 
 
 # Global settings instance
-_settings: Union[Settings, None] = None
+_settings: Optional[Settings] = None
 
 
 def get_settings() -> Settings:
@@ -356,7 +244,7 @@ def get_settings() -> Settings:
     return _settings
 
 
-def initialize_settings(env_file: Union[str, None] = None) -> Settings:
+def initialize_settings(env_file: Optional[str] = None) -> Settings:
     """Initialize settings with optional custom env file."""
     global _settings
 

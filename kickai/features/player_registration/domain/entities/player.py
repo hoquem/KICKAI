@@ -6,26 +6,19 @@ This module defines the Player entity for the player registration domain.
 Players represent football players, separate from Team Members who are administrators.
 A person can be both a Player and a Team Member, linked by user_id.
 """
+from typing import Optional
 
-from typing import Union
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
 from kickai.utils.user_id_generator import generate_user_id
-
-
-class PlayerPosition(Enum):
-    """Player position enumeration."""
-    GOALKEEPER = "goalkeeper"
-    DEFENDER = "defender"
-    MIDFIELDER = "midfielder"
-    FORWARD = "forward"
-    UTILITY = "utility"
+from kickai.core.enums import PlayerPosition
 
 
 class PreferredFoot(Enum):
     """Player preferred foot enumeration."""
+
     LEFT = "left"
     RIGHT = "right"
     BOTH = "both"
@@ -33,6 +26,7 @@ class PreferredFoot(Enum):
 
 class OnboardingStatus(Enum):
     """Player onboarding status enumeration."""
+
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -49,40 +43,41 @@ class Player:
     This is separate from Team Members who are administrators/managers.
     A person can be both a Player and a Team Member, linked by user_id.
     """
+
     # Core identification fields
     user_id: str = ""  # Generated from telegram_id using generate_user_id()
     team_id: str = ""
-    telegram_id: Union[str, None] = None
-    player_id: Union[str, None] = None  # Team-specific player identifier (e.g., "KTI_MH_001")
+    telegram_id: Optional[str] = None
+    player_id: Optional[str] = None  # Team-specific player identifier (e.g., "KTI_MH_001")
 
     # Personal information
-    first_name: Union[str, None] = None
-    last_name: Union[str, None] = None
-    full_name: Union[str, None] = None
-    username: Union[str, None] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    full_name: Optional[str] = None
+    username: Optional[str] = None
 
     # Football-specific information
-    position: Union[str, None] = None  # e.g., "Midfielder", "Forward"
-    preferred_foot: Union[str, None] = None  # "left", "right", "both"
-    jersey_number: Union[str, None] = None
+    position: Optional[str] = None  # e.g., "Midfielder", "Forward"
+    preferred_foot: Optional[str] = None  # "left", "right", "both"
+    jersey_number: Optional[str] = None
 
     # Contact and personal information
-    phone_number: Union[str, None] = None
-    email: Union[str, None] = None
-    date_of_birth: Union[str, None] = None
-    emergency_contact: Union[str, None] = None
-    medical_notes: Union[str, None] = None
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    medical_notes: Optional[str] = None
 
     # Status and approval
     status: str = "pending"  # pending, approved, rejected, active, inactive
 
     # Timestamps
-    created_at: Union[datetime, None] = None
-    updated_at: Union[datetime, None] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     # Metadata
-    source: Union[str, None] = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
-    sync_version: Union[str, None] = None
+    source: Optional[str] = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
+    sync_version: Optional[str] = None
 
     def __post_init__(self):
         """Validate and set defaults after initialization."""
@@ -109,13 +104,17 @@ class Player:
         if self.position:
             valid_positions = [pos.value for pos in PlayerPosition]
             if self.position.lower() not in valid_positions:
-                raise ValueError(f"Invalid position: {self.position}. Must be one of {valid_positions}")
+                raise ValueError(
+                    f"Invalid position: {self.position}. Must be one of {valid_positions}"
+                )
 
         # Validate preferred foot if provided
         if self.preferred_foot:
             valid_feet = [foot.value for foot in PreferredFoot]
             if self.preferred_foot.lower() not in valid_feet:
-                raise ValueError(f"Invalid preferred foot: {self.preferred_foot}. Must be one of {valid_feet}")
+                raise ValueError(
+                    f"Invalid preferred foot: {self.preferred_foot}. Must be one of {valid_feet}"
+                )
 
     def _set_defaults(self):
         """Set default values if not provided."""
@@ -129,9 +128,15 @@ class Player:
             self.sync_version = "1.0"
 
     @classmethod
-    def create_from_telegram(cls, team_id: str, telegram_id: int,
-                           first_name: str = None, last_name: str = None,
-                           username: str = None, phone_number: str = None) -> 'Player':
+    def create_from_telegram(
+        cls,
+        team_id: str,
+        telegram_id: int,
+        first_name: str = None,
+        last_name: str = None,
+        username: str = None,
+        phone_number: str = None,
+    ) -> "Player":
         """
         Create a Player from Telegram user data.
 
@@ -168,60 +173,64 @@ class Player:
             full_name=full_name,
             username=username,
             phone_number=phone_number,
-            source="telegram_sync"
+            source="telegram_sync",
         )
 
     def to_dict(self) -> dict:
         """Convert to dictionary for storage."""
         return {
-            'user_id': self.user_id,
-            'team_id': self.team_id,
-            'telegram_id': self.telegram_id,
-            'player_id': self.player_id,
-            'first_name': self.first_name,
-            'last_name': self.last_name,
-            'full_name': self.full_name,
-            'username': self.username,
-            'position': self.position,
-            'preferred_foot': self.preferred_foot,
-            'jersey_number': self.jersey_number,
-            'phone_number': self.phone_number,
-            'email': self.email,
-            'date_of_birth': self.date_of_birth,
-            'emergency_contact': self.emergency_contact,
-            'medical_notes': self.medical_notes,
-            'status': self.status,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'source': self.source,
-            'sync_version': self.sync_version
+            "user_id": self.user_id,
+            "team_id": self.team_id,
+            "telegram_id": self.telegram_id,
+            "player_id": self.player_id,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "full_name": self.full_name,
+            "username": self.username,
+            "position": self.position,
+            "preferred_foot": self.preferred_foot,
+            "jersey_number": self.jersey_number,
+            "phone_number": self.phone_number,
+            "email": self.email,
+            "date_of_birth": self.date_of_birth,
+            "emergency_contact": self.emergency_contact,
+            "medical_notes": self.medical_notes,
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "source": self.source,
+            "sync_version": self.sync_version,
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'Player':
+    def from_dict(cls, data: dict) -> "Player":
         """Create from dictionary."""
         return cls(
-            user_id=data.get('user_id', ''),
-            team_id=data.get('team_id', ''),
-            telegram_id=data.get('telegram_id'),
-            player_id=data.get('player_id'),
-            first_name=data.get('first_name'),
-            last_name=data.get('last_name'),
-            full_name=data.get('full_name'),
-            username=data.get('username'),
-            position=data.get('position'),
-            preferred_foot=data.get('preferred_foot'),
-            jersey_number=data.get('jersey_number'),
-            phone_number=data.get('phone_number'),
-            email=data.get('email'),
-            date_of_birth=data.get('date_of_birth'),
-            emergency_contact=data.get('emergency_contact'),
-            medical_notes=data.get('medical_notes'),
-            status=data.get('status', 'pending'),
-            created_at=datetime.fromisoformat(data['created_at']) if data.get('created_at') else None,
-            updated_at=datetime.fromisoformat(data['updated_at']) if data.get('updated_at') else None,
-            source=data.get('source'),
-            sync_version=data.get('sync_version')
+            user_id=data.get("user_id", ""),
+            team_id=data.get("team_id", ""),
+            telegram_id=data.get("telegram_id"),
+            player_id=data.get("player_id"),
+            first_name=data.get("first_name"),
+            last_name=data.get("last_name"),
+            full_name=data.get("full_name"),
+            username=data.get("username"),
+            position=data.get("position"),
+            preferred_foot=data.get("preferred_foot"),
+            jersey_number=data.get("jersey_number"),
+            phone_number=data.get("phone_number"),
+            email=data.get("email"),
+            date_of_birth=data.get("date_of_birth"),
+            emergency_contact=data.get("emergency_contact"),
+            medical_notes=data.get("medical_notes"),
+            status=data.get("status", "pending"),
+            created_at=datetime.fromisoformat(data["created_at"])
+            if data.get("created_at")
+            else None,
+            updated_at=datetime.fromisoformat(data["updated_at"])
+            if data.get("updated_at")
+            else None,
+            source=data.get("source"),
+            sync_version=data.get("sync_version"),
         )
 
     def approve(self):
@@ -277,8 +286,9 @@ class Player:
             return self.position.title()
         return "Not specified"
 
-    def update_football_info(self, position: str = None, preferred_foot: str = None,
-                           jersey_number: str = None):
+    def update_football_info(
+        self, position: str = None, preferred_foot: str = None, jersey_number: str = None
+    ):
         """Update football-specific information."""
         if position is not None:
             self.position = position
@@ -289,9 +299,14 @@ class Player:
 
         self.updated_at = datetime.utcnow()
 
-    def update_personal_info(self, phone_number: str = None, email: str = None,
-                           date_of_birth: str = None, emergency_contact: str = None,
-                           medical_notes: str = None):
+    def update_personal_info(
+        self,
+        phone_number: str = None,
+        email: str = None,
+        date_of_birth: str = None,
+        emergency_contact: str = None,
+        medical_notes: str = None,
+    ):
         """Update personal information."""
         if phone_number is not None:
             self.phone_number = phone_number

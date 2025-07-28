@@ -12,32 +12,128 @@ We will leverage agents for what they do best and fall back on deterministic cod
   - Listing team members or upcoming fixtures.
   - Checking a player's status.
 
-- **Intent Recognition Agent**: A dedicated CrewAI agent, the "Intent Recognizer," will be the primary interface for natural language. Its sole job is to receive raw text from the user and translate it into a structured command and its associated parameters (e.g., `{"command": "add_player", "params": {"name": "John Smith", "position": "Striker"}}`), which the application layer can then process deterministically.
+- **Intent Recognition Agent**: A dedicated CrewAI agent, the "Message Processor," will be the primary interface for natural language. Its job is to receive raw text from the user and route it to the appropriate specialized agent based on intent and context.
 
 ### Agentic & AI Architecture Principles
 
 This section defines the core design patterns for the CrewAI-based agentic system.
 
-- **Hierarchical Multi-Agent System**: The system must be structured as a crew of 9 specialized agents organized into logical layers:
-    - **Primary Interface Layer** (`Message Processor`): Handles initial user interaction and routing.
-    - **Strategic Layer** (`Team Manager`, `Learning Agent`): Oversees high-level planning, coordination, and system improvement.
-    - **Operational Layer** (`Player Coordinator`, `Communication Specialist`, `Finance Manager`): Manages day-to-day team operations.
-    - **Specialized Layer** (`Match Analyst`, `Squad Selection Specialist`, `Analytics Specialist`): Provides deep, domain-specific analysis.
+- **8-Agent CrewAI System**: The system is structured as a crew of 8 specialized agents organized into logical layers:
+    - **Primary Interface Layer** (`MESSAGE_PROCESSOR`): Handles initial user interaction and routing.
+    - **Operational Layer** (`PLAYER_COORDINATOR`, `TEAM_MANAGER`, `SQUAD_SELECTOR`): Manages day-to-day team operations.
+    - **Specialized Layer** (`AVAILABILITY_MANAGER`, `HELP_ASSISTANT`, `ONBOARDING_AGENT`): Provides domain-specific functionality.
+    - **Infrastructure Layer** (`SYSTEM_INFRASTRUCTURE`): Handles system health and maintenance.
 
-- **Intelligent Routing & Task Decomposition**:
-    - An LLM-powered **Intelligent Router** must serve as the entry point for natural language requests. Its responsibility is to analyze the request's complexity and intent.
-    - Based on the analysis, the router must select the appropriate agent, pair of agents, or a multi-agent crew to handle the task.
-    - For complex requests, a **Dynamic Task Decomposer** must be used to break the request into a sequence of smaller, manageable sub-tasks assigned to the appropriate agents.
+- **Context-Aware Routing & Agent Selection**:
+    - The **AgenticMessageRouter** serves as the entry point for all user requests.
+    - Agent selection is based on chat type (main chat vs leadership chat) and command intent.
+    - Commands behave differently based on context (e.g., `/list` shows active players in main chat, all players in leadership chat).
 
-- **Defined Communication Patterns**: Agent interactions must follow established patterns:
-    - **Delegation**: A higher-level agent passes a specific task to a specialist agent.
-    - **Collaboration**: Multiple agents work together, sharing information to complete a complex task that spans their domains.
-    - **Consensus**: Multiple agents provide input or suggestions on a topic, with a manager agent responsible for reaching a final decision.
+- **Defined Communication Patterns**: Agent interactions follow established patterns:
+    - **Direct Routing**: Messages are routed directly to the appropriate agent based on context.
+    - **Tool-Based Execution**: Agents use specialized tools for their domain.
+    - **Context Preservation**: Chat type and user context are preserved throughout processing.
 
-- **Dedicated Learning & Adaptation**: A dedicated **Learning Agent** is a core component. Its purpose is to analyze interaction data, learn user preferences and successful response patterns, and provide feedback to optimize other agents' prompts and routing logic. The Learning Agent provides:
-    - **Pattern Learning**: Analyzes message-response pairs for patterns and success rates
-    - **User Preference Analysis**: Learns communication style, response length, and topic preferences
-    - **Response Optimization**: Dynamically adapts responses based on learned preferences
-    - **System Improvement**: Monitors performance and suggests system enhancements
+- **Tool-Based Architecture**: Agents **must not** interact directly with external systems. All external actions must be performed through a **Tool Layer**. These tools abstract the implementation details and are the only components that interact directly with infrastructure services.
 
-- **Abstracted Tool-Based Execution**: Agents **must not** interact directly with external systems (e.g., Firebase, Telegram API). All external actions must be performed through a **Tool Layer**. These tools (e.g., `PlayerTools`, `TelegramTools`) abstract the implementation details and are the only components that interact directly with infrastructure services.
+### Agent Responsibilities
+
+#### **MESSAGE_PROCESSOR** (Primary Interface)
+- **Goal**: Process and route incoming messages to appropriate agents
+- **Tools**: `send_message`, `send_announcement`, `get_available_commands`, `list_team_members_and_players`
+- **Responsibilities**:
+  - Intent analysis and routing
+  - Help system management
+  - Team member and player listing (leadership chat)
+  - Message broadcasting and announcements
+
+#### **PLAYER_COORDINATOR** (Player Management)
+- **Goal**: Manage player registration, status, and information
+- **Tools**: `get_my_status`, `get_player_status`, `get_active_players`, `approve_player`, `register_player`, `add_player`
+- **Responsibilities**:
+  - Player registration and onboarding
+  - Player status management
+  - Active player listing (main chat)
+  - Player approval workflow
+
+#### **TEAM_MANAGER** (Team Administration)
+- **Goal**: Manage team administration and member operations
+- **Tools**: `get_my_team_member_status`, `get_team_members`, `add_team_member_role`
+- **Responsibilities**:
+  - Team member management
+  - Role assignment and permissions
+  - Team administration tasks
+  - Leadership operations
+
+#### **SQUAD_SELECTOR** (Match Operations)
+- **Goal**: Manage squad selection and match operations
+- **Tools**: `get_match`, `get_all_players`, `get_player_status`
+- **Responsibilities**:
+  - Squad selection for matches
+  - Match operations management
+  - Player availability for matches
+
+#### **AVAILABILITY_MANAGER** (Availability Tracking)
+- **Goal**: Track and manage player availability
+- **Tools**: `get_all_players`, `get_match`
+- **Responsibilities**:
+  - Player availability tracking
+  - Match availability management
+  - Availability reporting
+
+#### **HELP_ASSISTANT** (Help System)
+- **Goal**: Provide comprehensive help and guidance
+- **Tools**: `get_available_commands`, `get_command_help`
+- **Responsibilities**:
+  - Command help and guidance
+  - System usage assistance
+  - User onboarding support
+
+#### **ONBOARDING_AGENT** (User Registration)
+- **Goal**: Handle new user registration and onboarding
+- **Tools**: `register_player`, `register_team_member`, `registration_guidance`
+- **Responsibilities**:
+  - New user registration
+  - Onboarding guidance
+  - Registration workflow management
+
+#### **SYSTEM_INFRASTRUCTURE** (System Health)
+- **Goal**: Monitor and maintain system health
+- **Tools**: `get_firebase_document`, `log_command`, `log_error`
+- **Responsibilities**:
+  - System health monitoring
+  - Error logging and tracking
+  - Infrastructure management
+
+### Context-Aware Routing
+
+The system implements intelligent routing based on chat context:
+
+#### **Main Chat Routing**
+- `/list` → `PLAYER_COORDINATOR` (uses `get_active_players`)
+- `/myinfo` → `PLAYER_COORDINATOR` (uses `get_my_status`)
+- `/status` → `PLAYER_COORDINATOR` (uses `get_player_status`)
+
+#### **Leadership Chat Routing**
+- `/list` → `MESSAGE_PROCESSOR` (uses `list_team_members_and_players`)
+- `/myinfo` → `MESSAGE_PROCESSOR` (uses `get_my_team_member_status`)
+- `/approve` → `PLAYER_COORDINATOR` (uses `approve_player`)
+
+### Tool Independence
+
+**CRITICAL**: Tools must be completely independent functions:
+
+- **❌ NEVER**: Tools calling other tools or services
+- **✅ ALWAYS**: Tools are simple, independent functions
+- **✅ ALWAYS**: Parameters passed directly via Task.config
+- **✅ ALWAYS**: Tools return simple string responses
+
+### Native CrewAI Features
+
+**MANDATORY**: Use only CrewAI's native features:
+
+- **✅ REQUIRED**: `@tool` decorator from `crewai.tools`
+- **✅ REQUIRED**: `Agent` class from `crewai`
+- **✅ REQUIRED**: `Task` class with `config` parameter
+- **✅ REQUIRED**: `Crew` orchestration
+- **❌ FORBIDDEN**: Custom tool wrappers or parameter passing mechanisms

@@ -15,7 +15,7 @@ import logging
 import os
 import sys
 import time
-from typing import Dict, List, Optional, Any, Union
+from typing import Any, Dict, List, Optional, Union
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -43,20 +43,15 @@ logger = logging.getLogger(__name__)
 
 
 def get_chat_ids():
-    """Get chat IDs from environment variables with fallbacks."""
-    main_chat_id = os.getenv('TELEGRAM_MAIN_CHAT_ID', '-4889304885')
-    leadership_chat_id = os.getenv('TELEGRAM_LEADERSHIP_CHAT_ID', '-4814449926')
+    """Get chat IDs from Firestore team configuration with test fallbacks."""
+    # Chat IDs should come from Firestore team configuration, not environment variables
+    # These are fallback test values only
+    main_chat_id = '-4889304885'  # Test fallback - should come from Firestore
+    leadership_chat_id = '-4814449926'  # Test fallback - should come from Firestore
     return main_chat_id, leadership_chat_id
 
 
-class TestType(Enum):
-    """Types of tests supported."""
-    COMMAND = "command"
-    NATURAL_LANGUAGE = "natural_language"
-    USER_FLOW = "user_flow"
-    DATA_VALIDATION = "data_validation"
-    INTEGRATION = "integration"
-    VALIDATION = "validation"
+from kickai.core.enums import TestType
 
 
 @dataclass

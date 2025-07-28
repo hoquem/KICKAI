@@ -103,7 +103,7 @@ python test_process_management.py
 ./start_bot.sh
 
 # Or directly
-source venv/bin/activate
+source venv311/bin/activate
 export PYTHONPATH=src
 python run_bot_local.py
 ```

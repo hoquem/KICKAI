@@ -11,8 +11,8 @@
 ### Feature-First Modular Design
 - Organize code by business features, not technical layers
 - Each feature is self-contained with its own domain, application, and infrastructure
-- Shared code goes in `src/features/shared/`
-- Core system code goes in `src/core/`
+- Shared code goes in `kickai/features/shared/`
+- Core system code goes in `kickai/core/`
 
 ### Dependency Injection
 - Use dependency injection container for service resolution
@@ -31,17 +31,37 @@
 
 ## Agentic Architecture
 
-### CrewAI Integration
-- All user interactions processed through CrewAI agents
+### 8-Agent CrewAI System
+- ALL user interactions processed through 8 specialized CrewAI agents
 - No dedicated command handlers - commands delegate to agents
-- Agents are specialized for specific domains (player management, team management, etc.)
-- Use the 8-agent CrewAI system as defined in the architecture
+- Agents are specialized for specific domains:
+  - **MESSAGE_PROCESSOR**: Primary interface and routing
+  - **PLAYER_COORDINATOR**: Player registration and management
+  - **TEAM_MANAGER**: Team administration
+  - **SQUAD_SELECTOR**: Match squad selection
+  - **AVAILABILITY_MANAGER**: Player availability tracking
+  - **HELP_ASSISTANT**: Help system and guidance
+  - **ONBOARDING_AGENT**: New user registration
+  - **SYSTEM_INFRASTRUCTURE**: System health and maintenance
+
+### Context-Aware Agent Selection
+- Agent selection based on chat type and intent
+- Main chat vs leadership chat routing
+- Command-specific agent assignment
+- Intent-based routing for natural language
 
 ### Tool Management
 - Tools are independent functions with @tool decorator
 - Tools must not call other tools or services (see CrewAI best practices)
 - Tools are discovered automatically from feature directories
 - Tools are assigned to agents based on role configuration
+- Parameters passed directly via Task.config
+
+### Message Processing Flow
+- ALL messages go through AgenticMessageRouter
+- Unified processing for both slash commands and natural language
+- Context-aware routing based on chat type
+- No direct processing bypasses the agentic system
 
 ## Database Design
 
@@ -115,5 +135,8 @@
 - Absolute imports with PYTHONPATH=src
 - Proper tool discovery and registration patterns
 - Common error solutions and debugging procedures
+- Native CrewAI features only (no custom workarounds)
+- Context-aware agent selection
+- Direct parameter passing via Task.config
 
 **These CrewAI rules are CRITICAL for system stability and must be followed strictly.**

@@ -22,6 +22,6 @@ class IReminderService(ABC):
         pass
 
     @abstractmethod
-    async def get_players_needing_reminders(self) -> list[Player]:
+    async def get_players_needing_reminders(self) -> List[Player]:
         """Get list of players who need reminders."""
         pass

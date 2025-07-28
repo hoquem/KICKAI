@@ -1,18 +1,8 @@
-from typing import Union
 from dataclasses import dataclass
-from enum import Enum
+from typing import Optional
 
+from kickai.core.enums import PaymentType, PaymentStatus
 
-class PaymentType(Enum):
-    MANUAL = "manual"
-    LINK = "link"
-    REQUEST = "request"
-
-class PaymentStatus(Enum):
-    PENDING = "pending"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    REFUNDED = "refunded"
 
 @dataclass
 class Payment:
@@ -20,12 +10,12 @@ class Payment:
     amount: float
     type: PaymentType
     status: PaymentStatus
-    id: Union[str, None] = None
-    team_id: Union[str, None] = None
-    description: Union[str, None] = None
-    related_entity_id: Union[str, None] = None
-    created_at: Union[str, None] = None
-    updated_at: Union[str, None] = None
+    id: Optional[str] = None
+    team_id: Optional[str] = None
+    description: Optional[str] = None
+    related_entity_id: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
     @staticmethod
     def from_dict(data: dict) -> "Payment":

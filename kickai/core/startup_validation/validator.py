@@ -6,13 +6,14 @@ This module provides the main startup validator that orchestrates all health che
 
 import asyncio
 import logging
-from typing import Any, Union, Union
+from typing import Any, Dict, List, Optional, Union
 
 from .checks import (
     AgentInitializationCheck,
     CommandRegistryCheck,
     ConfigurationCheck,
     LLMProviderCheck,
+    StubDetectionCheck,
     TelegramAdminCheck,
     ToolRegistrationCheck,
 )
@@ -30,9 +31,9 @@ class StartupValidator:
     comprehensive validation reports.
     """
 
-    def __init__(self, config_path: Union[str, None] = None):
+    def __init__(self, config_path: Optional[str] = None):
         self.config_path = config_path
-        self.checks: list[Any] = []
+        self.checks: List[Any] = []
         self._load_default_checks()
         logger.info(f"StartupValidator initialized with {len(self.checks)} checks")
 
@@ -41,12 +42,13 @@ class StartupValidator:
         self.checks = [
             ConfigurationCheck(),
             LLMProviderCheck(),
-            TelegramAdminCheck(),
+            StubDetectionCheck(),  # Check for stub classes first
             ToolRegistrationCheck(),  # Check tool registration before agent initialization
             CommandRegistryCheck(),  # Check command registry initialization
-            AgentInitializationCheck()  # Enabled to catch agent initialization failures
+            AgentInitializationCheck(),  # Enabled to catch agent initialization failures
+            TelegramAdminCheck(),
         ]
-        
+
         # Add registry validation
         self.registry_validator = RegistryStartupValidator()
 
@@ -58,7 +60,7 @@ class StartupValidator:
         """Remove a health check by name."""
         self.checks = [check for check in self.checks if check.name != check_name]
 
-    async def validate(self, context: Union[dict[str, Any], None] = None) -> ValidationReport:
+    async def validate(self, context: Optional[Dict[str, Any]] = None) -> ValidationReport:
         """
         Execute all health checks and generate a validation report.
 
@@ -95,7 +97,7 @@ class StartupValidator:
                     category=check.category,
                     status=CheckStatus.FAILED,
                     message=f"Check execution failed: {result!s}",
-                    error=result
+                    error=result,
                 )
                 report.add_check(error_result)
             else:
@@ -110,11 +112,13 @@ class StartupValidator:
         # Generate recommendations
         self._generate_recommendations(report)
 
-        logger.info(f"Validation completed: {len(report.checks)} checks, {len(report.critical_failures)} failures")
+        logger.info(
+            f"Validation completed: {len(report.checks)} checks, {len(report.critical_failures)} failures"
+        )
 
         return report
 
-    async def _execute_check(self, check: Any, context: dict[str, Any]) -> CheckResult:
+    async def _execute_check(self, check: Any, context: Dict[str, Any]) -> CheckResult:
         """Execute a single health check."""
         try:
             logger.info(f"🔧 Executing check: {check.name}")
@@ -124,13 +128,14 @@ class StartupValidator:
         except Exception as e:
             logger.error(f"❌ Error executing check {check.name}: {e}")
             import traceback
+
             logger.error(f"❌ Check {check.name} traceback: {traceback.format_exc()}")
             return CheckResult(
                 name=check.name,
                 category=check.category,
                 status=CheckStatus.FAILED,
                 message=f"Check execution error: {e!s}",
-                error=e
+                error=e,
             )
 
     def _generate_recommendations(self, report: ValidationReport) -> None:
@@ -138,32 +143,47 @@ class StartupValidator:
         recommendations = []
 
         # Check for configuration issues
-        config_failures = [check for check in report.checks
-                          if check.category == CheckCategory.CONFIGURATION and check.status == CheckStatus.FAILED]
+        config_failures = [
+            check
+            for check in report.checks
+            if check.category == CheckCategory.CONFIGURATION and check.status == CheckStatus.FAILED
+        ]
         if config_failures:
             recommendations.append("Review and fix configuration issues before proceeding")
 
         # Check for LLM issues
-        llm_failures = [check for check in report.checks
-                       if check.category == CheckCategory.LLM and check.status == CheckStatus.FAILED]
+        llm_failures = [
+            check
+            for check in report.checks
+            if check.category == CheckCategory.LLM and check.status == CheckStatus.FAILED
+        ]
         if llm_failures:
             recommendations.append("Verify LLM provider configuration and API keys")
 
         # Check for database issues
-        db_failures = [check for check in report.checks
-                      if check.category == CheckCategory.DATABASE and check.status == CheckStatus.FAILED]
+        db_failures = [
+            check
+            for check in report.checks
+            if check.category == CheckCategory.DATABASE and check.status == CheckStatus.FAILED
+        ]
         if db_failures:
             recommendations.append("Check database connectivity and credentials")
 
         # Check for agent issues
-        agent_failures = [check for check in report.checks
-                         if check.category == CheckCategory.AGENT and check.status == CheckStatus.FAILED]
+        agent_failures = [
+            check
+            for check in report.checks
+            if check.category == CheckCategory.AGENT and check.status == CheckStatus.FAILED
+        ]
         if agent_failures:
             recommendations.append("Review agent configuration and tool setup")
 
         # Check for tool issues
-        tool_failures = [check for check in report.checks
-                        if check.category == CheckCategory.TOOL and check.status == CheckStatus.FAILED]
+        tool_failures = [
+            check
+            for check in report.checks
+            if check.category == CheckCategory.TOOL and check.status == CheckStatus.FAILED
+        ]
         if tool_failures:
             recommendations.append("Verify tool configuration and dependencies")
 
@@ -178,9 +198,9 @@ class StartupValidator:
 
     def print_report(self, report: ValidationReport) -> None:
         """Print a formatted validation report."""
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info("🚀 KICKAI STARTUP VALIDATION REPORT")
-        logger.info("="*80)
+        logger.info("=" * 80)
 
         # Overall status
         status_emoji = "✅" if report.is_healthy() else "❌"
@@ -222,17 +242,17 @@ class StartupValidator:
                 CheckStatus.PASSED: "✅",
                 CheckStatus.FAILED: "❌",
                 CheckStatus.WARNING: "⚠️",
-                CheckStatus.SKIPPED: "⏭️"
+                CheckStatus.SKIPPED: "⏭️",
             }.get(check.status, "❓")
 
             duration_str = f" ({check.duration_ms:.1f}ms)" if check.duration_ms else ""
             logger.info(f"  {status_emoji} {check.category.value}:{check.name}{duration_str}")
             logger.info(f"      {check.message}")
 
-        logger.info("="*80)
+        logger.info("=" * 80)
 
 
-async def run_startup_validation(team_id: Union[str, None] = None) -> ValidationReport:
+async def run_startup_validation(team_id: Optional[str] = None) -> ValidationReport:
     """
     Run startup validation for the system.
 
@@ -246,35 +266,38 @@ async def run_startup_validation(team_id: Union[str, None] = None) -> Validation
 
     # Initialize dependency container to access services
     from kickai.core.dependency_container import initialize_container
-    from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
-    
+    from kickai.features.team_administration.domain.interfaces.team_service_interface import (
+        ITeamService,
+    )
+
     initialize_container()
-    
-    # Get team service to fetch bot configuration
+
+    # Get team service to fetch bot configuration from Firestore
     from kickai.core.dependency_container import get_service
+
     team_service = get_service(ITeamService)
-    
+
     context = {"team_id": team_id}
-    
-    # If team_id is provided, fetch bot configuration
+
+    # If team_id is provided, fetch bot configuration from Firestore
     if team_id:
         try:
             team = await team_service.get_team(team_id=team_id)
             if team:
                 bot_config = {
-                    'bot_token': team.bot_token,
-                    'main_chat_id': team.main_chat_id,
-                    'leadership_chat_id': team.leadership_chat_id,
-                    'bot_id': team.bot_id
+                    "bot_token": team.bot_token,
+                    "main_chat_id": team.main_chat_id,
+                    "leadership_chat_id": team.leadership_chat_id,
+                    "bot_id": team.bot_id,
                 }
-                context['bot_config'] = bot_config
-                logger.info(f"✅ Bot configuration loaded for team {team_id}")
+                context["bot_config"] = bot_config
+                logger.info(f"✅ Bot configuration loaded from Firestore for team {team_id}")
             else:
-                logger.warning(f"⚠️ Team {team_id} not found, bot configuration unavailable")
+                logger.warning(f"⚠️ Team {team_id} not found in Firestore, bot configuration unavailable")
         except Exception as e:
-            logger.error(f"❌ Failed to load bot configuration for team {team_id}: {e}")
+            logger.error(f"❌ Failed to load bot configuration from Firestore for team {team_id}: {e}")
     else:
-        logger.warning("⚠️ No team_id provided, bot configuration unavailable")
+        logger.warning("⚠️ No team_id provided, bot configuration unavailable - bot config is stored in Firestore teams collection")
 
     report = await validator.validate(context)
     validator.print_report(report)

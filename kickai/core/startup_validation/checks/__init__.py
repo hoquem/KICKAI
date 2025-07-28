@@ -9,15 +9,17 @@ from .base_check import BaseCheck
 from .command_registry_check import CommandRegistryCheck
 from .configuration_check import ConfigurationCheck
 from .llm_check import LLMProviderCheck
+from .stub_detection_check import StubDetectionCheck
 from .telegram_admin_check import TelegramAdminCheck
 from .tool_registration_check import ToolRegistrationCheck
 
 __all__ = [
-    'AgentInitializationCheck',
-    'BaseCheck',
-    'CommandRegistryCheck',
-    'ConfigurationCheck',
-    'LLMProviderCheck',
-    'TelegramAdminCheck',
-    'ToolRegistrationCheck'
+    "AgentInitializationCheck",
+    "BaseCheck",
+    "CommandRegistryCheck",
+    "ConfigurationCheck",
+    "LLMProviderCheck",
+    "StubDetectionCheck",
+    "TelegramAdminCheck",
+    "ToolRegistrationCheck",
 ]

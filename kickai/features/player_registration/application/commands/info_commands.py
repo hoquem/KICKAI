@@ -32,7 +32,7 @@ What you'll see:
 • Contact information
 
 💡 Need to update your info? Contact the team admin.
-    """
+    """,
 )
 async def handle_myinfo_command(update, context, **kwargs):
     """Handle /myinfo command."""
@@ -63,7 +63,7 @@ What you'll see:
 • Quick player count summary
 
 💡 Note: In leadership chat, you'll see all players. In main chat, only active players are shown.
-    """
+    """,
 )
 async def handle_list_command(update, context, **kwargs):
     """Handle /list command."""
@@ -78,9 +78,7 @@ async def handle_list_command(update, context, **kwargs):
     permission_level=PermissionLevel.PLAYER,
     feature="player_registration",
     examples=["/status +447123456789"],
-    parameters={
-        "phone": "Phone number to check status for"
-    },
+    parameters={"phone": "Phone number to check status for"},
     help_text="""
 📊 Player Status Check
 
@@ -100,7 +98,7 @@ What you'll see:
 • Contact details (if you have permission)
 
 💡 Tip: You can also check your own status with /myinfo
-    """
+    """,
 )
 async def handle_status_command(update, context, **kwargs):
     """Handle /status command."""
@@ -132,7 +130,7 @@ What you'll see:
 • Performance metrics
 
 💡 Leadership: You'll see additional admin statistics.
-    """
+    """,
 )
 async def handle_stats_command(update, context, **kwargs):
     """Handle /stats command."""
@@ -164,7 +162,7 @@ What you'll see:
 • Improvement suggestions
 
 💡 Leadership: You'll see comprehensive team analytics.
-    """
+    """,
 )
 async def handle_performance_command(update, context, **kwargs):
     """Handle /performance command."""

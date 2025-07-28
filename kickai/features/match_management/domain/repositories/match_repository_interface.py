@@ -1,5 +1,5 @@
-from typing import Union
 from abc import ABC, abstractmethod
+from typing import List, Optional
 
 from kickai.features.match_management.domain.entities.match import Match
 
@@ -10,11 +10,11 @@ class MatchRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, match_id: str) -> Union[Match, None]:
+    async def get_by_id(self, match_id: str) -> Optional[Match]:
         pass
 
     @abstractmethod
-    async def get_by_team(self, team_id: str) -> list[Match]:
+    async def get_by_team(self, team_id: str) -> List[Match]:
         pass
 
     @abstractmethod

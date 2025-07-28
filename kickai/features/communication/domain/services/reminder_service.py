@@ -7,7 +7,7 @@ This module handles automated and manual reminders for player onboarding.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Union
+from typing import Any, Dict, List, Optional, Union
 
 from kickai.core.settings import Settings
 from kickai.features.communication.domain.interfaces.reminder_service_interface import (
@@ -22,6 +22,7 @@ from kickai.features.player_registration.domain.services.player_service import P
 @dataclass
 class ReminderMessage:
     """Represents a reminder message."""
+
     player_id: str
     message: str
     reminder_type: str  # 'automated' or 'manual'
@@ -32,7 +33,9 @@ class ReminderMessage:
 class ReminderService(IReminderService):
     """Service for managing player reminders and notifications."""
 
-    def __init__(self, team_id: str, player_service: PlayerService, payment_operations=None):  # IPaymentOperations interface removed
+    def __init__(
+        self, team_id: str, player_service: PlayerService, payment_operations=None
+    ):  # IPaymentOperations interface removed
         self.team_id = team_id
         self.player_service = player_service
         self.payment_operations = payment_operations
@@ -43,10 +46,10 @@ class ReminderService(IReminderService):
             "first_reminder": 24,
             "second_reminder": 48,
             "third_reminder": 72,
-            "max_reminders": 3
+            "max_reminders": 3,
         }
 
-    async def check_and_send_reminders(self) -> list[ReminderMessage]:
+    async def check_and_send_reminders(self) -> List[ReminderMessage]:
         """Check for players who need reminders and send them."""
         try:
             players = await self.player_service.get_players_by_team(team_id=self.team_id)
@@ -64,7 +67,7 @@ class ReminderService(IReminderService):
             logging.error(f"Error checking and sending reminders: {e}")
             return []
 
-    async def send_automated_reminder(self, player: Player) -> Union[ReminderMessage, None]:
+    async def send_automated_reminder(self, player: Player) -> Optional[ReminderMessage]:
         """Send an automated reminder to a player."""
         try:
             reminder_number = player.reminders_sent + 1
@@ -76,7 +79,7 @@ class ReminderService(IReminderService):
                 player.id,
                 reminders_sent=player.reminders_sent,
                 last_reminder_sent=player.last_reminder_sent,
-                next_reminder_due=player.next_reminder_due
+                next_reminder_due=player.next_reminder_due,
             )
 
             # Send the message (this would integrate with Telegram bot)
@@ -90,7 +93,7 @@ class ReminderService(IReminderService):
                 message=message,
                 reminder_type="automated",
                 sent_at=datetime.now(),
-                reminder_number=reminder_number
+                reminder_number=reminder_number,
             )
 
         except Exception as e:
@@ -111,7 +114,10 @@ class ReminderService(IReminderService):
             if not player:
                 return False, f"❌ Player {player_id} not found"
 
-            if player.onboarding_status not in [OnboardingStatus.IN_PROGRESS, OnboardingStatus.PENDING]:
+            if player.onboarding_status not in [
+                OnboardingStatus.IN_PROGRESS,
+                OnboardingStatus.PENDING,
+            ]:
                 return False, f"❌ Player {player.full_name} is not in onboarding"
 
             # Generate manual reminder message
@@ -123,7 +129,7 @@ class ReminderService(IReminderService):
                 player.id,
                 reminders_sent=player.reminders_sent,
                 last_reminder_sent=player.last_reminder_sent,
-                next_reminder_due=player.next_reminder_due
+                next_reminder_due=player.next_reminder_due,
             )
 
             # Send the message
@@ -159,7 +165,10 @@ class ReminderService(IReminderService):
             from kickai.features.payment_management.domain.entities.payment_models import (
                 PaymentStatus,
             )
-            outstanding_payments = await self.payment_operations.list_payments(player_id=player.id, status=PaymentStatus.PENDING)
+
+            outstanding_payments = await self.payment_operations.list_payments(
+                player_id=player.id, status=PaymentStatus.PENDING
+            )
         except Exception as e:
             logging.error(f"Error getting outstanding payments: {e}")
             outstanding_payments = []
@@ -231,7 +240,7 @@ Please complete your onboarding within 24 hours to avoid delays.
 
 Let's get you fully registered!"""
 
-    async def _generate_payment_reminder_message(self, player: Player, payments: list[Any]) -> str:
+    async def _generate_payment_reminder_message(self, player: Player, payments: List[Any]) -> str:
         """Generate payment reminder message."""
         total_amount = sum(payment.amount for payment in payments)
 
@@ -301,7 +310,7 @@ Please complete your onboarding as soon as possible!"""
         # This would send a notification to admin
         logging.info(f"Reminder #{reminder_number} sent to {player.full_name} ({player.player_id})")
 
-    async def get_players_needing_reminders(self) -> list[Player]:
+    async def get_players_needing_reminders(self) -> List[Player]:
         """Get list of players who need reminders."""
         try:
             players = await self.player_service.get_players_by_team(team_id=self.team_id)

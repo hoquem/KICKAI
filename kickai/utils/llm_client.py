@@ -6,7 +6,7 @@ in the KICKAI system.
 """
 
 import asyncio
-from typing import Any, Union, Union
+from typing import Any, Dict, List, Optional, Union
 
 from loguru import logger
 
@@ -15,7 +15,7 @@ from kickai.utils.llm_factory import LLMFactory
 from kickai.utils.llm_intent import extract_intent
 
 
-async def extract_intent(message: str, context: str = "") -> dict[str, Any]:
+async def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
     """
     Async wrapper for intent extraction.
 
@@ -29,24 +29,17 @@ async def extract_intent(message: str, context: str = "") -> dict[str, Any]:
     try:
         # Run the sync function in a thread pool to make it async
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None,
-            lambda: extract_intent(message, context)
-        )
+        result = await loop.run_in_executor(None, lambda: extract_intent(message, context))
         return result
     except Exception as e:
         logger.error(f"Error in async intent extraction: {e}")
-        return {
-            'intent': 'unknown',
-            'entities': {},
-            'confidence': 0.0
-        }
+        return {"intent": "unknown", "entities": {}, "confidence": 0.0}
 
 
 class LLMClient:
     """LLM client for natural language processing."""
 
-    def __init__(self, config: Union[dict[str, Any], None] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         self.config = config or {}
         self._llm_instance = None
         self._initialize_llm()
@@ -61,12 +54,13 @@ class LLMClient:
         except Exception as e:
             logger.warning(f"Failed to initialize LLM: {e}. Using fallback client.")
 
-    def _get_api_key_from_env(self) -> Union[str, None]:
+    def _get_api_key_from_env(self) -> Optional[str]:
         """Get API key from environment variables."""
         import os
-        return os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
 
-    async def extract_intent(self, message: str, context: str = "") -> dict[str, Any]:
+        return os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+
+    async def extract_intent(self, message: str, context: str = "") -> Dict[str, Any]:
         """
         Extract intent from a message using the LLM client.
 
@@ -79,7 +73,7 @@ class LLMClient:
         """
         return await extract_intent(message, context)
 
-    async def process_message(self, message: str, context: str = "") -> dict[str, Any]:
+    async def process_message(self, message: str, context: str = "") -> Dict[str, Any]:
         """
         Process a message and return structured information.
 
@@ -94,24 +88,24 @@ class LLMClient:
             intent_result = await self.extract_intent(message, context)
 
             return {
-                'success': True,
-                'intent': intent_result.get('intent', 'unknown'),
-                'entities': intent_result.get('entities', {}),
-                'confidence': intent_result.get('confidence', 0.0),
-                'original_message': message,
-                'context': context
+                "success": True,
+                "intent": intent_result.get("intent", "unknown"),
+                "entities": intent_result.get("entities", {}),
+                "confidence": intent_result.get("confidence", 0.0),
+                "original_message": message,
+                "context": context,
             }
 
         except Exception as e:
             logger.error(f"Error processing message: {e}")
             return {
-                'success': False,
-                'error': str(e),
-                'intent': 'unknown',
-                'entities': {},
-                'confidence': 0.0,
-                'original_message': message,
-                'context': context
+                "success": False,
+                "error": str(e),
+                "intent": "unknown",
+                "entities": {},
+                "confidence": 0.0,
+                "original_message": message,
+                "context": context,
             }
 
     @async_retry(max_attempts=3, delay=1.0)
@@ -131,12 +125,10 @@ class LLMClient:
             if self._llm_instance:
                 # Use the actual LLM instance
                 response = await safe_async_call(
-                    self._llm_instance.ainvoke,
-                    prompt,
-                    default_value=None
+                    self._llm_instance.ainvoke, prompt, default_value=None
                 )
                 if response:
-                    return response.content if hasattr(response, 'content') else str(response)
+                    return response.content if hasattr(response, "content") else str(response)
 
             # Fallback to simple response if LLM is not available
             return f"Generated response for: {prompt[:50]}..."
@@ -162,7 +154,7 @@ class LLMClient:
 
     @async_retry(max_attempts=3, delay=1.0)
     @async_timeout(30.0)
-    async def analyze_text(self, text: str, analysis_type: str) -> dict[str, Any]:
+    async def analyze_text(self, text: str, analysis_type: str) -> Dict[str, Any]:
         """
         Analyze text for specific purposes.
 
@@ -178,41 +170,41 @@ class LLMClient:
                 # Create analysis prompt based on type
                 analysis_prompt = self._create_analysis_prompt(text, analysis_type)
                 response = await safe_async_call(
-                    self._llm_instance.ainvoke,
-                    analysis_prompt,
-                    default_value=None
+                    self._llm_instance.ainvoke, analysis_prompt, default_value=None
                 )
                 if response:
                     return {
-                        'analysis_type': analysis_type,
-                        'result': response.content if hasattr(response, 'content') else str(response),
-                        'success': True
+                        "analysis_type": analysis_type,
+                        "result": response.content
+                        if hasattr(response, "content")
+                        else str(response),
+                        "success": True,
                     }
 
             # Fallback analysis
             return {
-                'analysis_type': analysis_type,
-                'result': f"Basic analysis of: {text[:50]}...",
-                'success': True
+                "analysis_type": analysis_type,
+                "result": f"Basic analysis of: {text[:50]}...",
+                "success": True,
             }
 
         except Exception as e:
             logger.error(f"Error analyzing text: {e}")
             return {
-                'analysis_type': analysis_type,
-                'result': f"Analysis failed: {e!s}",
-                'success': False,
-                'error': str(e)
+                "analysis_type": analysis_type,
+                "result": f"Analysis failed: {e!s}",
+                "success": False,
+                "error": str(e),
             }
 
     def _create_analysis_prompt(self, text: str, analysis_type: str) -> str:
         """Create a prompt for text analysis."""
         prompts = {
-            'sentiment': f"Analyze the sentiment of this text: {text}",
-            'intent': f"Extract the intent from this text: {text}",
-            'entities': f"Extract named entities from this text: {text}",
-            'summary': f"Summarize this text: {text}",
-            'classification': f"Classify this text: {text}"
+            "sentiment": f"Analyze the sentiment of this text: {text}",
+            "intent": f"Extract the intent from this text: {text}",
+            "entities": f"Extract named entities from this text: {text}",
+            "summary": f"Summarize this text: {text}",
+            "classification": f"Classify this text: {text}",
         }
         return prompts.get(analysis_type, f"Analyze this text for {analysis_type}: {text}")
 
@@ -229,7 +221,7 @@ def get_llm_client() -> LLMClient:
     return _llm_client
 
 
-async def process_message_with_llm(message: str, context: str = "") -> dict[str, Any]:
+async def process_message_with_llm(message: str, context: str = "") -> Dict[str, Any]:
     """
     Process a message using the global LLM client.
 

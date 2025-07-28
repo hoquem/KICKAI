@@ -33,13 +33,15 @@ def get_llm_config() -> Any:
             api_key=settings.get_ai_api_key(),
             temperature=settings.ai_temperature,
             timeout_seconds=settings.ai_timeout,
-            max_retries=settings.ai_max_retries
+            max_retries=settings.ai_max_retries,
         )
 
         # Create LLM instance
         llm = LLMFactory.create_llm(llm_config)
 
-        logger.info(f"✅ LLM configured successfully: {settings.ai_provider.value} - {settings.ai_model_name}")
+        logger.info(
+            f"✅ LLM configured successfully: {settings.ai_provider.value} - {settings.ai_model_name}"
+        )
         return llm
 
     except Exception as e:
@@ -48,10 +50,7 @@ def get_llm_config() -> Any:
         # Fallback to mock LLM for development
         logger.info("🔄 Falling back to mock LLM for development")
         mock_config = LLMConfig(
-            provider=AIProvider.MOCK,
-            model_name="mock-model",
-            api_key="mock-key",
-            temperature=0.7
+            provider=AIProvider.MOCK, model_name="mock-model", api_key="mock-key", temperature=0.7
         )
         return LLMFactory.create_llm(mock_config)
 
@@ -95,6 +94,7 @@ def validate_llm_config() -> bool:
 
 # Global LLM instance for reuse
 _global_llm = None
+
 
 def get_global_llm() -> Any:
     """

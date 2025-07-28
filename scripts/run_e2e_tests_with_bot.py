@@ -316,7 +316,8 @@ async def run_test_suite_with_bot(suite_name: str, parallel: bool = False) -> Li
             return []
         
         # Load environment variables for testing
-        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        # Bot token should come from Firestore team configuration, not environment variables
+        bot_token = None  # Should be loaded from Firestore team document
         api_id = os.getenv('TELEGRAM_API_ID')
         api_hash = os.getenv('TELEGRAM_API_HASH')
         session_string = os.getenv('TELEGRAM_SESSION_STRING')
@@ -324,7 +325,7 @@ async def run_test_suite_with_bot(suite_name: str, parallel: bool = False) -> Li
         
         if not all([bot_token, api_id, api_hash, session_string, project_id]):
             logger.error("❌ Missing required environment variables")
-            logger.error("Required: TELEGRAM_BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION_STRING, FIRESTORE_PROJECT_ID")
+            logger.error("Required: Bot token from Firestore, TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION_STRING, FIRESTORE_PROJECT_ID")
             return []
         
         # Initialize testers

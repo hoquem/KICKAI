@@ -29,11 +29,11 @@ def get_available_commands(user_id: str, chat_type: str) -> str:
 ### 2. **Absolute Imports with PYTHONPATH (MANDATORY)**
 - **ALWAYS** use absolute imports: `from src.features...`
 - **ALWAYS** set `PYTHONPATH=src` when running scripts
-- **ALWAYS** activate virtual environment: `source venv/bin/activate`
+- **ALWAYS** activate virtual environment: `source venv311/bin/activate`
 
 ```bash
 # ✅ CORRECT - Always use this pattern
-source venv/bin/activate && PYTHONPATH=src python run_bot_local.py
+source venv311/bin/activate && PYTHONPATH=src python run_bot_local.py
 ```
 
 ### 3. **Tool Discovery Pattern (MANDATORY)**
@@ -196,7 +196,7 @@ result += f"💡 Use `/help [command]` for detailed help\\."  # Unnecessary esca
 
 ### Tool Discovery Test
 ```bash
-source venv/bin/activate && PYTHONPATH=src python -c "
+source venv311/bin/activate && PYTHONPATH=src python -c "
 from src.agents.tool_registry import get_tool_registry
 registry = get_tool_registry()
 registry.auto_discover_tools()
@@ -206,7 +206,7 @@ print('Available tools:', registry.get_tool_names())
 
 ### Individual Tool Test
 ```bash
-source venv/bin/activate && PYTHONPATH=src python -c "
+source venv311/bin/activate && PYTHONPATH=src python -c "
 from src.features.shared.domain.tools.help_tools import get_available_commands
 result = get_available_commands.func('12345', 'main_chat', 'KTI')
 print('Tool result:', result)
@@ -215,7 +215,7 @@ print('Tool result:', result)
 
 ### Telegram Formatting Test
 ```bash
-source venv/bin/activate && PYTHONPATH=src python -c "
+source venv311/bin/activate && PYTHONPATH=src python -c "
 from src.features.communication.infrastructure.telegram_bot_service import TelegramBotService
 service = TelegramBotService('test', 'test')
 result = service._escape_markdown('📋 Available Commands:\n\n*Category:*\n• `/command` - Description')
