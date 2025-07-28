@@ -11,16 +11,16 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from crewai import tool
+from crewai.tools import tool
 
 from kickai.core.constants import get_team_members_collection
-from kickai.core.exceptions import ValidationError
-from kickai.database.firebase_service import FirebaseService
+from kickai.core.exceptions import InputValidationError
+from kickai.database.firebase_client import get_firebase_client
 
 logger = logging.getLogger(__name__)
 
 
-class TeamMemberUpdateValidationError(Exception):
+class TeamMemberUpdateValidationError(InputValidationError):
     """Exception raised for team member update validation errors."""
     pass
 
@@ -188,7 +188,7 @@ def update_team_member_information(user_id: str, team_id: str, field: str, value
             return "❌ Update Failed: Missing required parameters (user_id, team_id, field, value)"
         
         # Initialize Firebase service
-        firebase_service = FirebaseService()
+        firebase_service = get_firebase_client()
         collection_name = get_team_members_collection(team_id)
         
         # Check if team member exists
@@ -348,7 +348,7 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
         logger.info(f"📋 Getting updatable fields for team member: user_id={user_id}")
         
         # Check if team member exists
-        firebase_service = FirebaseService()
+        firebase_service = get_firebase_client()
         collection_name = get_team_members_collection(team_id)
         
         members = firebase_service.query_documents(
@@ -430,7 +430,7 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
         logger.info(f"🔍 Validating team member update: field={field}, value={value}")
         
         # Check if team member exists
-        firebase_service = FirebaseService()
+        firebase_service = get_firebase_client()
         collection_name = get_team_members_collection(team_id)
         
         members = firebase_service.query_documents(
@@ -493,7 +493,7 @@ def get_pending_team_member_approval_requests(team_id: str, user_id: str = None)
     try:
         logger.info(f"📋 Getting pending approval requests for team: {team_id}")
         
-        firebase_service = FirebaseService()
+        firebase_service = get_firebase_client()
         
         # Build query filters
         filters = [("status", "==", "pending"), ("request_type", "==", "field_update")]

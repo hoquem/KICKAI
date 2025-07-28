@@ -170,12 +170,63 @@ class AgenticMessageRouter:
                 )
 
         except Exception as e:
-            logger.error(f"AgenticMessageRouter contact share failed: {e}")
+            logger.error(f"❌ Error in contact share routing: {e}")
             return AgentResponse(
                 success=False,
-                message="❌ Error linking account. Please try again or contact team leadership.",
-                error=str(e),
+                message="I encountered an error processing your contact information. Please try again.",
             )
+
+    async def route_new_member_welcome(self, message: TelegramMessage) -> AgentResponse:
+        """
+        Route new member welcome messages through the agentic system.
+        
+        Args:
+            message: Telegram message with new member context
+            
+        Returns:
+            AgentResponse with welcome message
+        """
+        try:
+            logger.info(
+                f"👋 AgenticMessageRouter: Processing new member welcome for {message.username} in {message.chat_type.value}"
+            )
+
+            # Determine user flow for the new member
+            user_flow_result = await self.user_flow_agent.determine_user_flow(
+                user_id=message.user_id, chat_type=message.chat_type
+            )
+
+            # Generate appropriate welcome message based on user flow
+            if user_flow_result == UserFlowDecision.UNREGISTERED_USER:
+                logger.info("👋 AgenticMessageRouter: New unregistered user - sending welcome message")
+                welcome_message = await self.user_flow_agent.format_unregistered_user_message(
+                    user_id=message.user_id,
+                    team_id=self.team_id,
+                    username=message.username,
+                    chat_type=message.chat_type
+                )
+                return AgentResponse(success=True, message=welcome_message)
+            
+            elif user_flow_result == UserFlowDecision.REGISTERED_USER:
+                logger.info("👋 AgenticMessageRouter: New registered user - sending welcome back message")
+                welcome_message = await self.user_flow_agent.format_registered_user_message(
+                    user_id=message.user_id,
+                    team_id=self.team_id,
+                    username=message.username
+                )
+                return AgentResponse(success=True, message=welcome_message)
+            
+            else:
+                logger.warning(f"👋 AgenticMessageRouter: Unknown user flow for new member: {user_flow_result}")
+                # Fallback welcome message
+                welcome_message = f"👋 Welcome to the team, {message.username}! Use /help to see available commands."
+                return AgentResponse(success=True, message=welcome_message)
+
+        except Exception as e:
+            logger.error(f"❌ Error in new member welcome routing: {e}")
+            # Fallback welcome message
+            welcome_message = f"👋 Welcome to the team, {message.username}! Use /help to see available commands."
+            return AgentResponse(success=True, message=welcome_message)
 
     def _parse_registration_command(self, text: str) -> Optional[Dict[str, str]]:
         """Parse /register command and extract name, phone, and role."""
@@ -501,6 +552,7 @@ Use /help to see available commands or ask me questions!"""
                 raw_update=update,
                 contact_phone=contact_phone,
                 contact_user_id=contact_user_id,
+                is_new_member=getattr(update.message, 'is_new_member', False),
             )
 
         except Exception as e:

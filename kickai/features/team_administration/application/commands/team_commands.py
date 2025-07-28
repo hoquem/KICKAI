@@ -121,32 +121,3 @@ async def handle_updateteam_command(update, context, **kwargs):
     return None
 
 
-@command(
-    name="/listmembers",
-    description="List all team members (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP,
-    feature="team_administration",
-    chat_type=ChatType.LEADERSHIP,
-    examples=["/listmembers"],
-    help_text="""
-👥 List Team Members (Leadership Only)
-
-List all team members with their roles and status.
-
-Usage:
-/listmembers
-
-What you'll see:
-• All team members (players and staff)
-• Their roles and permissions
-• Registration dates
-• Current status (active, inactive, etc.)
-
-💡 Note: This command is only available in the leadership chat.
-    """,
-)
-async def handle_listmembers_command(update, context, **kwargs):
-    """Handle /listmembers command."""
-    # This will be handled by the agent system
-    return None

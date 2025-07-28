@@ -9,7 +9,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from crewai import tool
+from crewai.tools import tool
 from kickai.core.exceptions import TrainingError
 from kickai.database.firebase_client import get_firebase_client
 from kickai.features.training_management.domain.entities.training_session import (
@@ -21,7 +21,7 @@ from kickai.features.training_management.domain.entities.training_attendance imp
 from kickai.features.training_management.domain.services.training_session_service import TrainingSessionService
 from kickai.features.training_management.domain.services.training_attendance_service import TrainingAttendanceService
 from kickai.features.player_registration.domain.services.player_service import PlayerService
-from kickai.utils.json_utils import extract_single_value, validate_required_input
+from kickai.utils.tool_helpers import extract_single_value, validate_required_input
 
 logger = logging.getLogger(__name__)
 

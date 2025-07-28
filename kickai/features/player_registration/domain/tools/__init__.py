@@ -25,6 +25,13 @@ from .registration_tools import (
     team_member_registration,
 )
 
+# Import player update tools
+from .update_player_tools import (
+    update_player_information,
+    get_player_updatable_fields,
+    validate_player_update_request,
+)
+
 __all__ = [
     # Registration tools
     "register_player",
@@ -39,6 +46,10 @@ __all__ = [
     "get_all_players",
     "get_match",
     "get_pending_players",
+    # Player update tools
+    "update_player_information",
+    "get_player_updatable_fields",
+    "validate_player_update_request",
 ]
 
 # Note: Removed unused tools: remove_player, get_player_info, list_players

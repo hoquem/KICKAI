@@ -104,12 +104,15 @@ class TelegramBotService(TelegramBotServiceInterface):
             # Add contact handler for phone number sharing
             contact_handler = MessageHandler(filters.CONTACT, self._handle_contact_share)
 
+            # Add new chat members handler for welcome messages
+            new_chat_members_handler = MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self._handle_new_chat_members)
+
             # Add debug handler to log all updates
             debug_handler = MessageHandler(filters.ALL, self._debug_handler)
 
             # Add all handlers to the application
             self.app.add_handlers(
-                command_handlers + [message_handler, contact_handler, debug_handler]
+                command_handlers + [message_handler, contact_handler, new_chat_members_handler, debug_handler]
             )
 
             logger.info(
@@ -130,6 +133,7 @@ class TelegramBotService(TelegramBotServiceInterface):
                     filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message
                 ),
                 MessageHandler(filters.CONTACT, self._handle_contact_share),
+                MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self._handle_new_chat_members),
             ]
 
             self.app.add_handlers(handlers)
@@ -194,6 +198,49 @@ class TelegramBotService(TelegramBotServiceInterface):
             await self._send_error_response(
                 update, "I encountered an error processing your contact information."
             )
+
+    async def _handle_new_chat_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle new chat members joining the chat."""
+        try:
+            if not update.message or not update.message.new_chat_members:
+                return
+
+            chat_id = str(update.effective_chat.id)
+            chat_type = self._determine_chat_type(chat_id)
+            
+            logger.info(f"👋 New chat members detected in {chat_type.value} chat: {len(update.message.new_chat_members)} members")
+
+            for new_member in update.message.new_chat_members:
+                # Skip if the new member is the bot itself
+                if new_member.is_bot:
+                    logger.info(f"🤖 Bot joined chat, skipping welcome message")
+                    continue
+
+                user_id = str(new_member.id)
+                username = new_member.username or new_member.first_name or "Unknown User"
+                
+                logger.info(f"👋 Processing new member: {username} (ID: {user_id})")
+
+                # Convert to domain message for agentic processing
+                message = self.agentic_router.convert_telegram_update_to_message(update)
+                
+                # Add new member context to the message
+                message.user_id = user_id
+                message.username = username
+                message.chat_type = chat_type
+                message.is_new_member = True
+
+                # Route through agentic system for welcome message
+                response = await self.agentic_router.route_new_member_welcome(message)
+
+                # Send welcome message
+                if response and hasattr(response, 'message') and response.message:
+                    await self.send_message(chat_id, response.message)
+                    logger.info(f"✅ Welcome message sent to {username}")
+
+        except Exception as e:
+            logger.error(f"❌ Error handling new chat members: {e}")
+            # Don't send error response for new member events to avoid spam
 
     def _determine_chat_type(self, chat_id: str) -> ChatType:
         """Determine the chat type based on chat ID."""

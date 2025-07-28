@@ -1,11 +1,15 @@
 # KICKAI Command Specifications
 
-**Version:** 4.3  
+**Version:** 4.4  
 **Status:** Production Ready  
 **Last Updated:** July 2025  
 **Architecture:** 12-Agent CrewAI System with Unified Processing
 
-**New in v4.3:** Updated to reflect current 12-agent system and actual implementation status
+**New in v4.4:** 
+- Removed `/listmembers` command (replaced by `/list`)
+- Updated all command specifications to match actual codebase implementation
+- Added missing command categories: Match Management, Attendance Management, Payment Management
+- Corrected permission levels and chat availability for all commands
 
 This document defines the expected behavior for all KICKAI bot commands across different scenarios, chat types, and user states, using the latest 12-agent CrewAI architecture.
 
@@ -15,14 +19,16 @@ This document defines the expected behavior for all KICKAI bot commands across d
 - [Chat Types](#chat-types)
 - [User States](#user-states)
 - [Command Specifications](#command-specifications)
-  - [/start Command](#start-command)
-  - [/help Command](#help-command)
-  - [/info Command](#info-command)
-  - [/myinfo Command](#myinfo-command)
-  - [/list Command](#list-command)
-  - [/status Command](#status-command)
-  - [/ping Command](#ping-command)
-  - [/version Command](#version-command)
+  - [Core Commands](#core-commands)
+  - [Player Management Commands](#player-management-commands)
+  - [Team Management Commands](#team-management-commands)
+  - [Training Management Commands](#training-management-commands)
+  - [Match Management Commands](#match-management-commands)
+  - [Attendance Management Commands](#attendance-management-commands)
+  - [Payment Management Commands](#payment-management-commands)
+  - [Communication Commands](#communication-commands)
+  - [System Infrastructure Commands](#system-infrastructure-commands)
+  - [Health Monitoring Commands](#health-monitoring-commands)
 - [Command Processing Flow](#command-processing-flow)
 - [Implementation Status](#implementation-status)
 - [Testing Scenarios](#testing-scenarios)
@@ -34,44 +40,91 @@ This document defines the expected behavior for all KICKAI bot commands across d
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
 | `/help` | Show available commands | ✅ | ✅ | PUBLIC | HelpAssistantAgent | ✅ Implemented |
 | `/start` | Initialize bot interaction | ✅ | ✅ | PUBLIC | MessageProcessorAgent | ✅ Implemented |
-| `/info` | Show personal information | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent | ✅ Implemented |
-| `/myinfo` | Show personal information (alias) | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent | ✅ Implemented |
-| `/list` | List players/team members | ✅ | ✅ | PUBLIC | MessageProcessorAgent | ✅ Implemented |
-| `/status` | Check player/team member status | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent | ✅ Implemented |
-| `/ping` | Test bot connectivity | ✅ | ✅ | PUBLIC | MessageProcessorAgent | ✅ Implemented |
-| `/version` | Show bot version info | ✅ | ✅ | PUBLIC | MessageProcessorAgent | ✅ Implemented |
+| `/info` | Show user information | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent | ✅ Implemented |
+| `/myinfo` | View your player information | ✅ | ❌ | PLAYER | PlayerCoordinatorAgent | ✅ Implemented |
+| `/list` | List players (context-dependent) | ✅ | ✅ | LEADERSHIP/PLAYER | MessageProcessorAgent | ✅ Implemented |
+| `/status` | Check your current status | ✅ | ❌ | PLAYER | PlayerCoordinatorAgent | ✅ Implemented |
+| `/ping` | Check bot status | ✅ | ✅ | PUBLIC | MessageProcessorAgent | ✅ Implemented |
+| `/version` | Show bot version | ✅ | ✅ | PUBLIC | MessageProcessorAgent | ✅ Implemented |
 
-### Player Management Commands (🔄 In Progress)
+### Player Management Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/register` | Register as a new player | ❌ | ✅ | PUBLIC | PlayerCoordinatorAgent | 🔄 In Progress |
-| `/addplayer` | Add a new player | ❌ | ✅ | LEADERSHIP | PlayerCoordinatorAgent | 🔄 In Progress |
-| `/approve` | Approve and activate player | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | 🔄 In Progress |
-| `/reject` | Reject player registration | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | 🔄 In Progress |
-| `/pending` | Show pending registrations | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | 🔄 In Progress |
+| `/register` | Register as a new player | ❌ | ✅ | PUBLIC | PlayerCoordinatorAgent | ✅ Implemented |
+| `/addplayer` | Add a player directly | ❌ | ✅ | LEADERSHIP | PlayerCoordinatorAgent | ✅ Implemented |
+| `/approve` | Approve a player for matches | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | ✅ Implemented |
+| `/reject` | Reject a player application | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | ✅ Implemented |
+| `/pending` | List players awaiting approval | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | ✅ Implemented |
+| `/update` | Update your player information | ✅ | ❌ | PLAYER | PlayerCoordinatorAgent | ✅ Implemented |
 
-### Team Management Commands (📋 Planned)
+### Team Management Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/team` | Team information | ✅ | ✅ | PUBLIC | TeamAdministratorAgent | 📋 Planned |
-| `/invite` | Generate invitation link | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | 📋 Planned |
-| `/announce` | Make team announcement | ❌ | ✅ | LEADERSHIP | CommunicationManagerAgent | 📋 Planned |
+| `/addmember` | Add a team member | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | ✅ Implemented |
+| `/createteam` | Create a new team | ❌ | ✅ | ADMIN | TeamAdministratorAgent | ✅ Implemented |
+| `/teamstatus` | View team status | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | ✅ Implemented |
+| `/updateteam` | Update team information | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | ✅ Implemented |
+| `/announce` | Send announcement to team | ❌ | ✅ | LEADERSHIP | CommunicationManagerAgent | ✅ Implemented |
 
-### Team Administration Commands (✅ Implemented)
+### Training Management Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/scheduletraining` | Schedule training session | ❌ | ✅ | LEADERSHIP | TrainingCoordinatorAgent | ✅ Implemented |
-| `/listtrainings` | List training sessions | ✅ | ✅ | PUBLIC | TrainingCoordinatorAgent | ✅ Implemented |
-| `/marktraining` | Mark training attendance | ✅ | ❌ | PUBLIC | TrainingCoordinatorAgent | ✅ Implemented |
-| `/canceltraining` | Cancel training session | ❌ | ✅ | LEADERSHIP | TrainingCoordinatorAgent | ✅ Implemented |
-| `/trainingstats` | Training statistics | ✅ | ✅ | PUBLIC | TrainingCoordinatorAgent | ✅ Implemented |
-| `/mytrainings` | Personal training schedule | ✅ | ❌ | PUBLIC | TrainingCoordinatorAgent | ✅ Implemented |
+| `/scheduletraining` | Schedule a training session (Leadership only) | ❌ | ✅ | LEADERSHIP | TrainingCoordinatorAgent | ✅ Implemented |
+| `/listtrainings` | List upcoming training sessions | ✅ | ❌ | PLAYER | TrainingCoordinatorAgent | ✅ Implemented |
+| `/marktraining` | Mark attendance for a training session | ✅ | ❌ | PLAYER | TrainingCoordinatorAgent | ✅ Implemented |
+| `/canceltraining` | Cancel a training session (Leadership only) | ❌ | ✅ | LEADERSHIP | TrainingCoordinatorAgent | ✅ Implemented |
+| `/trainingstats` | Show training statistics and attendance | ✅ | ❌ | PLAYER | TrainingCoordinatorAgent | ✅ Implemented |
+| `/mytrainings` | Show my training schedule and history | ✅ | ❌ | PLAYER | TrainingCoordinatorAgent | ✅ Implemented |
 
-### System Commands (✅ Implemented)
+### Match Management Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/health` | System health check | ❌ | ✅ | SYSTEM | SystemInfrastructureAgent | ✅ Implemented |
-| `/config` | Configuration info | ❌ | ✅ | SYSTEM | SystemInfrastructureAgent | ✅ Implemented |
+| `/creatematch` | Create a new match | ❌ | ✅ | LEADERSHIP | MatchCoordinatorAgent | ✅ Implemented |
+| `/listmatches` | List upcoming matches | ❌ | ✅ | PLAYER | MatchCoordinatorAgent | ✅ Implemented |
+| `/matchdetails` | Get match details | ❌ | ✅ | PLAYER | MatchCoordinatorAgent | ✅ Implemented |
+| `/selectsquad` | Select match squad | ❌ | ✅ | LEADERSHIP | MatchCoordinatorAgent | ✅ Implemented |
+| `/updatematch` | Update match information | ❌ | ✅ | LEADERSHIP | MatchCoordinatorAgent | ✅ Implemented |
+
+### Attendance Management Commands (✅ Implemented)
+| Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
+|---------|-------------|-----------|-----------------|------------------|-------|--------|
+| `/attendance` | View match attendance | ✅ | ✅ | PLAYER | AttendanceCoordinatorAgent | ✅ Implemented |
+| `/markattendance` | Mark attendance for a match | ✅ | ✅ | PLAYER | AttendanceCoordinatorAgent | ✅ Implemented |
+| `/attendancehistory` | View attendance history | ✅ | ✅ | PLAYER | AttendanceCoordinatorAgent | ✅ Implemented |
+| `/attendancealerts` | Manage attendance alerts | ❌ | ✅ | LEADERSHIP | AttendanceCoordinatorAgent | ✅ Implemented |
+| `/attendanceexport` | Export attendance data | ❌ | ✅ | LEADERSHIP | AttendanceCoordinatorAgent | ✅ Implemented |
+
+### Payment Management Commands (✅ Implemented)
+| Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
+|---------|-------------|-----------|-----------------|------------------|-------|--------|
+| `/budget` | View budget information | ❌ | ✅ | LEADERSHIP | PaymentManagerAgent | ✅ Implemented |
+| `/createpayment` | Create a new payment | ❌ | ✅ | LEADERSHIP | PaymentManagerAgent | ✅ Implemented |
+| `/payments` | View payment history | ❌ | ✅ | LEADERSHIP | PaymentManagerAgent | ✅ Implemented |
+| `/markpaid` | Mark payment as paid | ❌ | ✅ | LEADERSHIP | PaymentManagerAgent | ✅ Implemented |
+| `/paymentexport` | Export payment data | ❌ | ✅ | LEADERSHIP | PaymentManagerAgent | ✅ Implemented |
+
+### Communication Commands (✅ Implemented)
+| Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
+|---------|-------------|-----------|-----------------|------------------|-------|--------|
+| `/broadcast` | Broadcast message to all chats | ❌ | ✅ | LEADERSHIP | CommunicationManagerAgent | ✅ Implemented |
+| `/remind` | Send reminder to players | ❌ | ✅ | LEADERSHIP | CommunicationManagerAgent | ✅ Implemented |
+
+### System Infrastructure Commands (✅ Implemented)
+| Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
+|---------|-------------|-----------|-----------------|------------------|-------|--------|
+| `/config` | View system configuration | ❌ | ✅ | ADMIN | SystemInfrastructureAgent | ✅ Implemented |
+| `/backup` | Create system backup | ❌ | ✅ | ADMIN | SystemInfrastructureAgent | ✅ Implemented |
+| `/diagnostics` | Run system diagnostics | ❌ | ✅ | ADMIN | SystemInfrastructureAgent | ✅ Implemented |
+| `/maintenance` | Manage maintenance mode | ❌ | ✅ | ADMIN | SystemInfrastructureAgent | ✅ Implemented |
+
+### Health Monitoring Commands (✅ Implemented)
+| Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
+|---------|-------------|-----------|-----------------|------------------|-------|--------|
+| `/healthcheck` | Check system health | ❌ | ✅ | ADMIN | HealthMonitoringAgent | ✅ Implemented |
+| `/systemstatus` | View system status | ❌ | ✅ | ADMIN | HealthMonitoringAgent | ✅ Implemented |
+| `/logs` | View system logs | ❌ | ✅ | ADMIN | HealthMonitoringAgent | ✅ Implemented |
+| `/alerts` | Manage system alerts | ❌ | ✅ | ADMIN | HealthMonitoringAgent | ✅ Implemented |
+| `/restart` | Restart system components | ❌ | ✅ | ADMIN | HealthMonitoringAgent | ✅ Implemented |
 
 ## Agentic Architecture
 

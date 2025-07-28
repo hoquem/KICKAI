@@ -245,7 +245,7 @@ KICKAI/
 ├── .cursor/                      # Cursor IDE configuration
 ├── .github/                      # GitHub workflows
 ├── .pytest_cache/                # Pytest cache
-├── venv/                         # Virtual environment
+├── venv311/                      # Virtual environment (Python 3.11)
 ├── run_bot_local.py          # Local bot runner
 ├── run_bot_railway.py        # Railway deployment bot runner
 ├── test_crewai_llm.py           # CrewAI LLM test (1.6KB, 62 lines)

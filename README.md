@@ -258,8 +258,8 @@ git clone https://github.com/your-org/KICKAI.git
 cd KICKAI
 
 # Create virtual environment
-python -m venv venv
-source venv311/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv venv311
+source venv311/bin/activate  # On Windows: venv311\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
