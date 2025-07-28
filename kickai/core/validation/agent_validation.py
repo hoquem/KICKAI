@@ -8,7 +8,7 @@ runtime issues during development and testing.
 
 import sys
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Dict, List
 
 from loguru import logger
 
@@ -18,16 +18,16 @@ class ValidationResult:
     """Result of a validation check."""
 
     passed: bool
-    errors: list[str]
-    warnings: list[str]
-    details: dict[str, Any]
+    errors: List[str]
+    warnings: List[str]
+    details: Dict[str, Any]
 
 
 class AgentValidator:
     """Validates agent components for common runtime issues."""
 
     def __init__(self):
-        self.validation_results: list[ValidationResult] = []
+        self.validation_results: List[ValidationResult] = []
 
     def validate_tool_output_capture_methods(self) -> ValidationResult:
         """Validate agent configuration and tool usage using CrewAI native approach."""

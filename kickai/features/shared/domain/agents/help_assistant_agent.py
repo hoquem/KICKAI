@@ -8,6 +8,8 @@ This agent specializes in providing help and guidance to users.
 import logging
 from typing import Any
 
+from typing import Any, Dict, List
+
 from crewai import Agent, Crew, Process, Task
 
 from kickai.core.enums import AgentRole
@@ -46,7 +48,7 @@ class HelpAssistantAgent:
             memory=True,
         )
 
-    def process_help_request(self, context: dict[str, Any]) -> str:
+    def process_help_request(self, context: Dict[str, Any]) -> str:
         """
         Process a help request using the help assistant agent.
 
@@ -114,12 +116,30 @@ The context contains: chat_type, user_id, team_id, and username. Use these exact
                 config=context or {},  # Pass context data through config for reference
             )
 
+            # CRITICAL: Disable memory completely to prevent OpenAI API calls
+            # CrewAI memory system is making OpenAI calls despite Google configuration
+            memory_enabled = False  # Force disable until OpenAI issue is resolved
+            
+            memory_config = None
+            if memory_enabled:
+                # Configure memory to use Google Gemini embeddings
+                from kickai.core.settings import get_settings
+                settings = get_settings()
+                memory_config = {
+                    "provider": "google",
+                    "config": {
+                        "api_key": settings.google_api_key,
+                        "model": "text-embedding-004"  # Google's latest embedding model
+                    }
+                }
+            
             # Create the crew
             crew = Crew(
                 agents=[agent],
                 tasks=[task],
                 process=Process.sequential,
                 verbose=True,  # Enable verbose mode for debugging
+                memory=False,  # Force disable memory to prevent OpenAI API calls
             )
 
             # Execute the crew
@@ -134,7 +154,7 @@ The context contains: chat_type, user_id, team_id, and username. Use these exact
             self.logger.error(f"❌ Error processing help request: {e}", exc_info=True)
             return "❌ I'm having trouble accessing the help system right now. Please try again in a moment."
 
-    def get_supported_commands(self) -> list[str]:
+    def get_supported_commands(self) -> List[str]:
         """Get list of commands this agent can help with."""
         return ["/help", "/start", "/info"]
 

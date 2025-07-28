@@ -1,21 +1,21 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 
 class DataStoreInterface(ABC):
     @abstractmethod
     async def create_document(
-        self, collection: str, data: dict[str, Any], document_id: str | None = None
+        self, collection: str, data: Dict[str, Any], document_id: Optional[str] = None
     ) -> str:
         pass
 
     @abstractmethod
-    async def get_document(self, collection: str, document_id: str) -> dict[str, Any] | None:
+    async def get_document(self, collection: str, document_id: str) -> Optional[Dict[str, Any]]:
         pass
 
     @abstractmethod
     async def update_document(
-        self, collection: str, document_id: str, data: dict[str, Any]
+        self, collection: str, document_id: str, data: Dict[str, Any]
     ) -> bool:
         pass
 
@@ -27,8 +27,8 @@ class DataStoreInterface(ABC):
     async def query_documents(
         self,
         collection: str,
-        filters: list[dict[str, Any]] | None = None,
-        order_by: str | None = None,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+        filters: Optional[List[Dict[str, Any]]] = None,
+        order_by: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         pass

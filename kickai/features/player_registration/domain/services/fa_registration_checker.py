@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class FixtureData:
     """Placeholder for fixture data structure."""
 
-    def __init__(self, data: dict[str, Any]):
+    def __init__(self, data: Dict[str, Any]):
         self.data = data
 
     def get_registration_status(self) -> str:
@@ -31,7 +31,7 @@ class FARegistrationChecker:
     def __init__(self, player_repository: PlayerRepositoryInterface):
         self.player_repository = player_repository
 
-    async def check_registration_status(self, player_id: str) -> dict[str, Any]:
+    async def check_registration_status(self, player_id: str) -> Dict[str, Any]:
         """Check FA registration status for a player."""
         try:
             player = await self.player_repository.get_by_id(player_id)
@@ -68,7 +68,7 @@ class FARegistrationChecker:
                 "last_checked": datetime.now().isoformat(),
             }
 
-    async def get_fixture_data(self, player_id: str) -> FixtureData | None:
+    async def get_fixture_data(self, player_id: str) -> Optional[FixtureData]:
         """Get fixture data for a player."""
         try:
             # In a real implementation, this would fetch data from FA fixtures

@@ -7,12 +7,14 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
+from typing import Optional
+
 
 @dataclass
 class BaseEntity:
-    id: str | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     def __post_init__(self):
         if not self.id:

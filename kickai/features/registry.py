@@ -5,7 +5,7 @@ This module provides factories for creating all feature services, ensuring
 proper dependency management and avoiding circular imports.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from loguru import logger
 
@@ -21,7 +21,7 @@ class ServiceFactory:
     def __init__(self, container, database):
         self.container = container
         self.database = database
-        self._cache: dict[str, Any] = {}
+        self._cache: Dict[str, Any] = {}
 
     def get_database(self) -> DataStoreInterface:
         """Get the database interface."""
@@ -380,7 +380,7 @@ class ServiceFactory:
         notification_service = NotificationService(notification_repository)
 
         # Create invite link service (bot token will be set later from Firestore)
-        invite_link_service = InviteLinkService(self.database)
+        invite_link_service = InviteLinkService(bot_token=None, database=self.database)
 
         # Create communication service (TelegramBotService will be injected later)
         communication_service = CommunicationService(
@@ -442,10 +442,8 @@ class ServiceFactory:
         logging_service = LoggingService()
 
         # Create permission service with database
-        firebase_client = (
-            FirebaseClient() if hasattr(self.database, "_firebase_client") else self.database
-        )
-        permission_service = PermissionService(firebase_client)
+        # Use the existing database instance instead of creating a new FirebaseClient
+        permission_service = PermissionService(self.database)
 
         # Register with container
         self.container.register_service(ConfigurationService, config_service)
@@ -458,7 +456,7 @@ class ServiceFactory:
             "permission_service": permission_service,
         }
 
-    def create_all_services(self) -> dict[str, Any]:
+    def create_all_services(self) -> Dict[str, Any]:
         """Create all feature services in the correct dependency order."""
         services = {}
 

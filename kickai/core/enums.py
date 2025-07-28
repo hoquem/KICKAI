@@ -70,6 +70,18 @@ class AIProvider(Enum):
     MOCK = "mock"
 
 
+class PlayerPosition(Enum):
+    """Football player positions."""
+
+    GOALKEEPER = "goalkeeper"
+    DEFENDER = "defender"
+    MIDFIELDER = "midfielder"
+    FORWARD = "forward"
+    UTILITY = "utility"
+    WINGER = "winger"
+    STRIKER = "striker"
+
+
 class TeamStatus(Enum):
     """Team status values."""
 
@@ -86,6 +98,9 @@ class PaymentType(Enum):
     MEMBERSHIP_FEE = "membership_fee"
     FINE = "fine"
     REFUND = "refund"
+    MANUAL = "manual"
+    LINK = "link"
+    REQUEST = "request"
 
 
 class PaymentStatus(Enum):
@@ -105,6 +120,10 @@ class ExpenseCategory(Enum):
     FACILITY = "facility"
     TRANSPORTATION = "transportation"
     ADMINISTRATIVE = "administrative"
+    PITCH_FEES = "pitch_fees"
+    REFEREE_FEES = "referee_fees"
+    TEAM_MEAL = "team_meal"
+    FA_FEES = "fa_fees"
     OTHER = "other"
 
 
@@ -114,6 +133,8 @@ class HealthStatus(Enum):
     HEALTHY = "healthy"
     WARNING = "warning"
     CRITICAL = "critical"
+    DEGRADED = "degraded"
+    UNHEALTHY = "unhealthy"
     UNKNOWN = "unknown"
 
 
@@ -125,6 +146,11 @@ class ComponentType(Enum):
     AI_SERVICE = "ai_service"
     PAYMENT_GATEWAY = "payment_gateway"
     NOTIFICATION_SERVICE = "notification_service"
+    AGENT = "agent"
+    TOOL = "tool"
+    SERVICE = "service"
+    INFRASTRUCTURE = "infrastructure"
+    EXTERNAL = "external"
 
 
 class AlertLevel(Enum):
@@ -207,8 +233,12 @@ class CheckStatus(Enum):
     """Health check status."""
 
     PASS = "pass"
+    PASSED = "PASSED"
     FAIL = "fail"
+    FAILED = "FAILED"
     WARN = "warn"
+    WARNING = "WARNING"
+    SKIPPED = "SKIPPED"
 
 
 class CheckCategory(Enum):
@@ -218,6 +248,14 @@ class CheckCategory(Enum):
     FUNCTIONALITY = "functionality"
     PERFORMANCE = "performance"
     SECURITY = "security"
+    LLM = "LLM"
+    AGENT = "AGENT"
+    TOOL = "TOOL"
+    TASK = "TASK"
+    EXTERNAL_SERVICE = "EXTERNAL_SERVICE"
+    CONFIGURATION = "CONFIGURATION"
+    DATABASE = "DATABASE"
+    TELEGRAM = "TELEGRAM"
 
 
 class MemoryType(Enum):
@@ -267,3 +305,24 @@ class ApplicationState(Enum):
     STOPPING = "stopping"
     STOPPED = "stopped"
     ERROR = "error"
+
+
+class TestType(Enum):
+    """Types of tests supported."""
+
+    COMMAND = "command"
+    NATURAL_LANGUAGE = "natural_language"
+    USER_FLOW = "user_flow"
+    DATA_VALIDATION = "data_validation"
+    INTEGRATION = "integration"
+    VALIDATION = "validation"
+
+
+class RegistryType(Enum):
+    """Types of registries supported by the system."""
+
+    TOOL = "tool"
+    COMMAND = "command"
+    SERVICE = "service"
+    AGENT = "agent"
+    TASK = "task"

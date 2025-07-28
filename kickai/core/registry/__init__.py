@@ -6,7 +6,6 @@ consistent registry patterns across the system.
 """
 
 from .base import BaseRegistry, RegistryItem, RegistryType
-from .consolidated_tool_registry import ConsolidatedToolRegistry, get_consolidated_tool_registry
 from .discovery import EntryPointDiscovery
 from .validator import RegistryValidator
 
@@ -16,6 +15,4 @@ __all__ = [
     "RegistryItem",
     "EntryPointDiscovery",
     "RegistryValidator",
-    "ConsolidatedToolRegistry",
-    "get_consolidated_tool_registry",
 ]

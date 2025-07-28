@@ -7,14 +7,14 @@ ALL messages go through agents - no direct processing bypasses the agentic syste
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from kickai.agents.crew_agents import TeamManagementSystem
-from kickai.agents.crew_lifecycle_manager import get_crew_lifecycle_manager
-from kickai.agents.user_flow_agent import (
-    AgentResponse,
+# Lazy imports to avoid circular dependencies
+# from kickai.agents.crew_agents import TeamManagementSystem
+# from kickai.agents.crew_lifecycle_manager import get_crew_lifecycle_manager
+from kickai.agents.user_flow_agent import (AgentResponse,
     TelegramMessage,
     UserFlowAgent,
     UserFlowDecision,
@@ -29,7 +29,7 @@ class IntentResult:
 
     intent: str
     confidence: float
-    entities: dict[str, Any]
+    entities: Dict[str, Any]
 
 
 class AgenticMessageRouter:
@@ -40,12 +40,21 @@ class AgenticMessageRouter:
     No direct processing bypasses agents.
     """
 
-    def __init__(self, team_id: str, crewai_system: TeamManagementSystem = None):
+    def __init__(self, team_id: str, crewai_system=None):
         self.team_id = team_id
         self.crewai_system = crewai_system
         self.user_flow_agent = UserFlowAgent(team_id=team_id)
-        self.crew_lifecycle_manager = get_crew_lifecycle_manager()
+        # Lazy initialization to avoid circular dependencies
+        self._crew_lifecycle_manager = None
         self._setup_router()
+
+    @property
+    def crew_lifecycle_manager(self):
+        """Lazy load crew lifecycle manager to avoid circular imports."""
+        if self._crew_lifecycle_manager is None:
+            from kickai.agents.crew_lifecycle_manager import get_crew_lifecycle_manager
+            self._crew_lifecycle_manager = get_crew_lifecycle_manager()
+        return self._crew_lifecycle_manager
 
     def _setup_router(self):
         """Set up the router configuration."""
@@ -168,7 +177,7 @@ class AgenticMessageRouter:
                 error=str(e),
             )
 
-    def _parse_registration_command(self, text: str) -> dict[str, str] | None:
+    def _parse_registration_command(self, text: str) -> Optional[Dict[str, str]]:
         """Parse /register command and extract name, phone, and role."""
         try:
             parts = text.split()

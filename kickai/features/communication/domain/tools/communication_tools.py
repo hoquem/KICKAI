@@ -5,7 +5,7 @@ Communication Tools
 This module provides tools for communication and messaging operations.
 """
 
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container

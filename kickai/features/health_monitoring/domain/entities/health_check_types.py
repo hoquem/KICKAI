@@ -6,27 +6,12 @@ This module contains the data structures and types used by the health check serv
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
-from typing import Any
+from typing import Any, Dict, List, Optional
+
+from kickai.core.enums import HealthStatus, ComponentType
 
 
-class HealthStatus(Enum):
-    """Health status enumeration."""
 
-    HEALTHY = "healthy"
-    DEGRADED = "degraded"
-    UNHEALTHY = "unhealthy"
-    UNKNOWN = "unknown"
-
-
-class ComponentType(Enum):
-    """Component type enumeration."""
-
-    AGENT = "agent"
-    TOOL = "tool"
-    SERVICE = "service"
-    INFRASTRUCTURE = "infrastructure"
-    EXTERNAL = "external"
 
 
 @dataclass
@@ -39,10 +24,10 @@ class HealthCheckResult:
     message: str
     response_time_ms: float
     timestamp: datetime
-    details: dict[str, Any] = field(default_factory=dict)
-    error: Exception | None = None
+    details: Dict[str, Any] = field(default_factory=dict)
+    error: Optional[Exception] = None
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "component_name": self.component_name,
@@ -63,11 +48,11 @@ class SystemHealthReport:
     timestamp: datetime
     team_id: str
     overall_status: HealthStatus
-    components: dict[str, dict[str, Any]] = field(default_factory=dict)
-    recommendations: list[str] = field(default_factory=list)
+    components: Dict[str, dict[str, Any]] = field(default_factory=dict)
+    recommendations: List[str] = field(default_factory=list)
     execution_time: float = 0.0
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "timestamp": self.timestamp.isoformat(),

@@ -51,12 +51,14 @@ def validate_environment():
     logger.info("🔍 Validating environment configuration...")
     
     required_vars = [
-        'TELEGRAM_BOT_TOKEN',
+        # Bot token should come from Firestore team configuration, not environment variables
+    # 'TELEGRAM_BOT_TOKEN',  # Removed - should come from Firestore
         'TELEGRAM_API_ID', 
         'TELEGRAM_API_HASH',
         'ADMIN_SESSION_STRING',
-        'TELEGRAM_MAIN_CHAT_ID',
-        'TELEGRAM_LEADERSHIP_CHAT_ID',
+            # Chat IDs should come from Firestore team configuration, not environment variables
+    # 'TELEGRAM_MAIN_CHAT_ID',  # Removed - should come from Firestore
+    # 'TELEGRAM_LEADERSHIP_CHAT_ID',  # Removed - should come from Firestore
         'DEFAULT_TEAM_ID',
         'FIREBASE_PROJECT_ID'
     ]
@@ -86,8 +88,10 @@ def log_chat_configuration():
     """Log chat ID configuration and naming convention."""
     logger.info("📱 Chat Configuration:")
     
-    main_chat_id = os.getenv('TELEGRAM_MAIN_CHAT_ID')
-    leadership_chat_id = os.getenv('TELEGRAM_LEADERSHIP_CHAT_ID')
+    # Chat IDs should come from Firestore team configuration, not environment variables
+    # These are fallback test values only
+    main_chat_id = '-4889304885'  # Test fallback - should come from Firestore
+    leadership_chat_id = '-4814449926'  # Test fallback - should come from Firestore
     
     logger.info(f"   Main Chat ID: {main_chat_id} (KickAI Testing)")
     logger.info(f"   Leadership Chat ID: {leadership_chat_id} (KickAI Testing - Leadership)")
@@ -118,7 +122,8 @@ async def run_test_suite(suite_name: str, verbose: bool = False) -> bool:
     # Initialize test components
     logger.info("🔧 Initializing test components...")
     
-    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    # Bot token should come from Firestore team configuration, not environment variables
+    bot_token = None  # Should be loaded from Firestore team document
     api_id = os.getenv('TELEGRAM_API_ID')
     api_hash = os.getenv('TELEGRAM_API_HASH')
     session_string = os.getenv('ADMIN_SESSION_STRING')

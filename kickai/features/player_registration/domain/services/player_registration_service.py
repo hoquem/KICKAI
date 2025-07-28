@@ -4,6 +4,7 @@ Player Registration Service
 
 This module provides the business logic for player registration operations.
 """
+from typing import Optional, List
 
 from datetime import datetime
 
@@ -110,31 +111,31 @@ class PlayerRegistrationService:
         player.reject()
         return await self.player_repository.update_player(player)
 
-    async def get_player(self, *, player_id: str, team_id: str) -> Player | None:
+    async def get_player(self, *, player_id: str, team_id: str) -> Optional[Player]:
         """Get a player by ID."""
         return await self.player_repository.get_player_by_id(player_id, team_id)
 
-    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Player | None:
+    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Optional[Player]:
         """Get a player by phone number."""
         return await self.player_repository.get_player_by_phone(phone, team_id)
 
-    async def get_all_players(self, *, team_id: str) -> list[Player]:
+    async def get_all_players(self, *, team_id: str) -> List[Player]:
         """Get all players in a team."""
         return await self.player_repository.get_all_players(team_id)
 
-    async def get_pending_players(self, *, team_id: str) -> list[Player]:
+    async def get_pending_players(self, *, team_id: str) -> List[Player]:
         """Get all pending players in a team."""
         return await self.player_repository.get_players_by_status(team_id, "pending")
 
-    async def get_approved_players(self, *, team_id: str) -> list[Player]:
+    async def get_approved_players(self, *, team_id: str) -> List[Player]:
         """Get all approved players in a team."""
         return await self.player_repository.get_players_by_status(team_id, "approved")
 
-    async def get_active_players(self, *, team_id: str) -> list[Player]:
+    async def get_active_players(self, *, team_id: str) -> List[Player]:
         """Get all active players in a team."""
         return await self.player_repository.get_players_by_status(team_id, "active")
 
-    async def get_all_players(self, *, team_id: str) -> list[Player]:
+    async def get_all_players(self, *, team_id: str) -> List[Player]:
         """Get all players for a team."""
         return await self.player_repository.get_all_players(team_id)
 

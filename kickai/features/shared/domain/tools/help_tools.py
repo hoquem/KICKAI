@@ -4,8 +4,9 @@ Help Tools
 
 This module provides tools for help and command information.
 """
+from typing import Dict
 
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 
 from kickai.core.constants import (
@@ -135,7 +136,7 @@ def _format_help_message(chat_type: ChatTypeEnum, commands: list, username: str)
         return f"❌ Error formatting help message: {e!s}"
 
 
-def _group_commands_by_category(commands: list) -> dict[str, list]:
+def _group_commands_by_category(commands: list) -> Dict[str, list]:
     """Group commands by their feature/category."""
     categories = {
         "Player Commands": [],

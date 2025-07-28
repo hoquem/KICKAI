@@ -12,7 +12,7 @@ class BotStatusService:
         self.status = "running"
         logger.info("✅ BotStatusService initialized")
 
-    def get_bot_status(self) -> dict[str, Any]:
+    def get_bot_status(self) -> Dict[str, Any]:
         try:
             uptime = datetime.now() - self.start_time
             return {
@@ -29,7 +29,7 @@ class BotStatusService:
             logger.error(f"❌ Error getting bot status: {e}")
             return {"status": "error", "error": str(e), "timestamp": datetime.now().isoformat()}
 
-    async def perform_health_check(self) -> dict[str, Any]:
+    async def perform_health_check(self) -> Dict[str, Any]:
         try:
             self.last_health_check = datetime.now()
             health_status = {
@@ -69,7 +69,7 @@ class BotStatusService:
         uptime = datetime.now() - self.start_time
         return str(uptime).split(".")[0]
 
-    def get_main_chat_features(self) -> dict[str, Any]:
+    def get_main_chat_features(self) -> Dict[str, Any]:
         try:
             return {
                 "features": {
@@ -109,7 +109,7 @@ class BotStatusService:
             logger.error(f"❌ Error getting main chat features: {e}")
             return {"status": "error", "error": str(e), "timestamp": datetime.now().isoformat()}
 
-    def get_leadership_chat_features(self) -> dict[str, Any]:
+    def get_leadership_chat_features(self) -> Dict[str, Any]:
         try:
             return {
                 "Commands": {
@@ -129,7 +129,7 @@ class BotStatusService:
             logger.error(f"❌ Error getting leadership chat features: {e}")
             return {"status": "error", "error": str(e), "timestamp": datetime.now().isoformat()}
 
-    def get_version_info(self) -> dict[str, Any]:
+    def get_version_info(self) -> Dict[str, Any]:
         try:
             return {
                 "version": "1.0.0",

@@ -6,6 +6,7 @@ This module provides team member management functionality.
 Team members represent administrative/management roles within a team.
 This is separate from Players who represent football players.
 """
+from typing import Optional, List
 
 from datetime import datetime
 
@@ -41,7 +42,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to create team member: {e}")
             raise
 
-    async def get_team_member_by_id(self, member_id: str) -> TeamMember | None:
+    async def get_team_member_by_id(self, member_id: str) -> Optional[TeamMember]:
         """Get a team member by ID."""
         try:
             return await self.team_repository.get_team_member_by_id(member_id)
@@ -49,7 +50,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team member by ID {member_id}: {e}")
             return None
 
-    async def get_team_member_by_telegram_id(self, user_id: str, team_id: str) -> TeamMember | None:
+    async def get_team_member_by_telegram_id(self, user_id: str, team_id: str) -> Optional[TeamMember]:
         """Get a team member by Telegram ID and team."""
         try:
             return await self.team_repository.get_team_member_by_telegram_id(team_id, user_id)
@@ -57,7 +58,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team member by Telegram ID {user_id}: {e}")
             return None
 
-    async def get_team_members_by_team(self, team_id: str) -> list[TeamMember]:
+    async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]:
         """Get all team members for a team."""
         try:
             members = await self.team_repository.get_team_members(team_id)
@@ -67,7 +68,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team members for team {team_id}: {e}")
             return []
 
-    async def get_team_members_by_role(self, team_id: str, role: str) -> list[TeamMember]:
+    async def get_team_members_by_role(self, team_id: str, role: str) -> List[TeamMember]:
         """Get team members by specific role."""
         try:
             all_members = await self.get_team_members_by_team(team_id)

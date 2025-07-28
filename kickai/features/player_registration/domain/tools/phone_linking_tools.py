@@ -7,7 +7,7 @@ via phone number matching.
 """
 
 
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 
 from kickai.features.player_registration.domain.services.player_linking_service import (

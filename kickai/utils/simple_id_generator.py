@@ -13,6 +13,7 @@ Examples:
 """
 
 import re
+from typing import Optional
 
 from loguru import logger
 
@@ -26,7 +27,7 @@ class SimpleIDGenerator:
         self.used_ids: set[str] = set()
 
     def generate_player_id(
-        self, name: str, team_id: str, existing_ids: set[str] | None = None
+        self, name: str, team_id: str, existing_ids: Optional[set[str]] = None
     ) -> str:
         """
         Generate a simple player ID in format {Number}{Initials}.
@@ -74,7 +75,7 @@ class SimpleIDGenerator:
                 return fallback_id
 
     def generate_team_member_id(
-        self, name: str, team_id: str, existing_ids: set[str] | None = None
+        self, name: str, team_id: str, existing_ids: Optional[set[str]] = None
     ) -> str:
         """
         Generate a simple team member ID in format user_{Number}{Initials}.
@@ -130,13 +131,13 @@ simple_id_generator = SimpleIDGenerator()
 
 
 # Convenience functions
-def generate_simple_player_id(name: str, team_id: str, existing_ids: set[str] | None = None) -> str:
+def generate_simple_player_id(name: str, team_id: str, existing_ids: Optional[set[str]] = None) -> str:
     """Generate a simple player ID."""
     return simple_id_generator.generate_player_id(name, team_id, existing_ids)
 
 
 def generate_simple_team_member_id(
-    name: str, team_id: str, existing_ids: set[str] | None = None
+    name: str, team_id: str, existing_ids: Optional[set[str]] = None
 ) -> str:
     """Generate a simple team member ID."""
     return simple_id_generator.generate_team_member_id(name, team_id, existing_ids)

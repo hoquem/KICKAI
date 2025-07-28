@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 
 from kickai.utils.user_id_generator import generate_user_id
 
@@ -17,13 +18,13 @@ class TeamMember:
     # Core identification fields
     user_id: str = ""  # Generated from telegram_id using generate_user_id()
     team_id: str = ""
-    telegram_id: str | None = None
+    telegram_id: Optional[str] = None
 
     # Personal information
-    first_name: str | None = None
-    last_name: str | None = None
-    full_name: str | None = None
-    username: str | None = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    full_name: Optional[str] = None
+    username: Optional[str] = None
 
     # Administrative role information
     role: str = "Team Member"  # e.g., "Club Administrator", "Team Manager", "Coach"
@@ -31,17 +32,17 @@ class TeamMember:
     status: str = "active"  # active, inactive, suspended
 
     # Contact information
-    phone_number: str | None = None
-    email: str | None = None
-    emergency_contact: str | None = None
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
+    emergency_contact: Optional[str] = None
 
     # Timestamps
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     # Metadata
-    source: str | None = None  # e.g., "telegram_sync", "manual_entry"
-    sync_version: str | None = None
+    source: Optional[str] = None  # e.g., "telegram_sync", "manual_entry"
+    sync_version: Optional[str] = None
 
     def __post_init__(self):
         """Validate and set defaults after initialization."""

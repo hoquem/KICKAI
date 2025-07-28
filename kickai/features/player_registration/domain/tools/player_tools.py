@@ -4,10 +4,11 @@ Player Tools
 
 This module provides tools for player management operations.
 """
+from typing import Optional
 
 
 
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 from pydantic import BaseModel
 
@@ -65,7 +66,7 @@ class GetMatchInput(BaseModel):
 
 @tool("add_player")
 async def add_player(
-    team_id: str, user_id: str, name: str, phone: str, position: str | None = None
+    team_id: str, user_id: str, name: str, phone: str, position: Optional[str] = None
 ) -> str:
     """
     Add a new player to the team with simplified ID generation.
@@ -120,11 +121,15 @@ async def add_player(
         success, message = await player_service.add_player(name, phone, position, team_id)
 
         if success:
-            # Extract player ID from message
+            # Extract player ID from message - handle both new and existing player formats
             import re
 
-            player_id_match = re.search(r"ID: (\w+)", message)
+            # Try different patterns for player ID extraction
+            player_id_match = re.search(r"ID: (\w+)", message) or re.search(r"Player ID: (\w+)", message)
             player_id = player_id_match.group(1) if player_id_match else "Unknown"
+            
+            # Check if this is an existing player
+            is_existing_player = "Already Exists" in message
 
             # Create invite link
             invite_service = container.get_service(InviteLinkService)
@@ -144,7 +149,24 @@ async def add_player(
                             player_id=player_id,
                         )
 
-                        return f"""✅ Player Added Successfully!
+                        if is_existing_player:
+                            return f"""{message}
+
+🔗 Invite Link for Main Chat:
+{invite_result['invite_link']}
+
+📋 Next Steps:
+1. Share this invite link with {name}
+2. They can join the main chat using the link
+3. Player is already registered - no need to register again
+4. Contact admin if their status needs updating
+
+🔒 Security:
+• Link expires in 7 days
+• One-time use only
+• Automatically tracked in system"""
+                        else:
+                            return f"""✅ Player Added Successfully!
 
 👤 Player Details:
 • Name: {name}
@@ -169,7 +191,13 @@ async def add_player(
 
 💡 Tip: The player will need to register with /register after joining the chat."""
                     else:
-                        return f"""✅ Player Added Successfully!
+                        if is_existing_player:
+                            return f"""{message}
+
+⚠️ Note: Could not generate invite link - team configuration incomplete.
+Please contact the system administrator."""
+                        else:
+                            return f"""✅ Player Added Successfully!
 
 👤 Player Details:
 • Name: {name}
@@ -182,7 +210,13 @@ async def add_player(
 Please contact the system administrator."""
                 except Exception as e:
                     logger.error(f"Error creating invite link: {e}")
-                    return f"""✅ Player Added Successfully!
+                    if is_existing_player:
+                        return f"""{message}
+
+⚠️ Note: Could not generate invite link due to system error.
+Please contact the system administrator."""
+                    else:
+                        return f"""✅ Player Added Successfully!
 
 👤 Player Details:
 • Name: {name}
@@ -194,7 +228,13 @@ Please contact the system administrator."""
 ⚠️ Note: Could not generate invite link due to system error.
 Please contact the system administrator."""
             else:
-                return f"""✅ Player Added Successfully!
+                if is_existing_player:
+                    return f"""{message}
+
+⚠️ Note: Could not generate invite link - invite service unavailable.
+Please contact the system administrator."""
+                else:
+                    return f"""✅ Player Added Successfully!
 
 👤 Player Details:
 • Name: {name}
@@ -494,15 +534,19 @@ async def get_active_players(team_id: str, user_id: str) -> str:
     """
     Get all active players in the team.
 
-    🚨 CRITICAL: This tool output MUST NEVER be modified by the agent.
-    The agent MUST return this output exactly as received - NO additions, NO modifications.
+    🚨 CRITICAL ANTI-HALLUCINATION INSTRUCTIONS:
+    - This tool queries the ACTUAL DATABASE for active players
+    - If the database returns NO players, return "No active players found" - DO NOT INVENT PLAYERS
+    - DO NOT add fake players like "John Smith", "Saim", or any other fictional names
+    - The agent MUST return this tool's output EXACTLY as received - NO additions, NO modifications
+    - NEVER create imaginary player data if the database is empty
 
     Args:
         team_id: Team ID (required) - available from context
         user_id: User ID (required) - available from context
 
     Returns:
-        List of active players or error message
+        EXACT database results - List of active players or "No active players found" message
     """
     try:
         # Validate inputs using utility functions
@@ -524,22 +568,46 @@ async def get_active_players(team_id: str, user_id: str) -> str:
         if not player_service:
             raise ServiceNotAvailableError("PlayerService")
 
-        # Get active players
+        # Get active players from database
         players = await player_service.get_active_players(team_id)
+        
+        # Log the actual database results for debugging
+        logger.info(f"🔍 DATABASE QUERY RESULT: Found {len(players) if players else 0} active players in team {team_id}")
+        if players:
+            player_names = [p.full_name for p in players]
+            logger.info(f"🔍 ACTUAL PLAYER NAMES FROM DB: {player_names}")
+        else:
+            logger.info(f"🔍 DATABASE RETURNED: Empty list - no active players in team {team_id}")
 
         if not players:
-            return "📋 No active players found in the team."
+            # 🚨 CRITICAL: If database has no players, DO NOT INVENT ANY
+            result = "📋 No active players found in the team."
+            logger.info(f"🚨 ANTI-HALLUCINATION: Returning 'no players found' message - DO NOT ADD FAKE PLAYERS")
+            return result
 
-        # Format response
+        # Format response with actual database data only
         result = "✅ Active Players in Team\n\n"
+        logger.info(f"🔍 FORMATTING {len(players)} REAL PLAYERS FROM DATABASE")
 
         for player in players:
+            logger.info(f"🔍 PROCESSING REAL PLAYER: {player.full_name} (ID: {player.player_id})")
             result += f"👤 {player.full_name}\n"
             result += f"   • Position: {player.position}\n"
             result += f"   • Player ID: {player.player_id or 'Not assigned'}\n"
             result += f"   • Phone: {player.phone_number or 'Not provided'}\n\n"
 
         # 🚨 CRITICAL: This exact output must be returned by the agent without any modifications
+        logger.info(f"🚨 FINAL TOOL OUTPUT (EXACT): {result!r}")
+        logger.info(f"🚨 AGENT MUST RETURN THIS EXACTLY - NO FAKE PLAYERS ALLOWED")
+        
+        # Additional validation: Check for specific fake players in the result
+        fake_player_indicators = ["Farhan Fuad", "03FF", "+447479958935", "Saim", "John Smith", "Jane Doe"]
+        for fake_indicator in fake_player_indicators:
+            if fake_indicator in result:
+                logger.error(f"🚨 CRITICAL ERROR: Tool output contains fake player indicator: {fake_indicator}")
+                logger.error(f"🚨 THIS SHOULD NEVER HAPPEN - TOOL IS ONLY RETURNING DATABASE DATA")
+                logger.error(f"🚨 Result: {result!r}")
+        
         return result
 
     except ServiceNotAvailableError as e:

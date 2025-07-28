@@ -10,7 +10,7 @@ import asyncio
 import logging
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from crewai import Crew
 from loguru import logger
@@ -22,6 +22,7 @@ from kickai.agents.entity_specific_agents import (
     create_entity_specific_agent,
 )
 from kickai.agents.tool_registry import initialize_tool_registry
+from kickai.agents.tools_manager import AgentToolsManager
 from kickai.config.agents import get_agent_config, get_enabled_agent_configs
 from kickai.core.enums import AgentRole
 from kickai.core.settings import get_settings
@@ -54,71 +55,7 @@ def log_errors(func):
     return wrapper
 
 
-class AgentToolsManager:
-    """Manages tool assignment for agents with entity-specific validation."""
 
-    def __init__(self, tool_registry):
-        self._tool_registry = tool_registry
-        self._entity_manager = EntitySpecificAgentManager(tool_registry)
-
-        logger.info("🔧 AgentToolsManager initialized with entity-specific validation")
-
-    @log_errors
-    def get_tools_for_role(
-        self, role: AgentRole, entity_type: EntityType | None = None
-    ) -> list[Any]:
-        """Get tools for a specific role with entity-specific filtering."""
-        try:
-            config = get_agent_config(role)
-            if not config:
-                logger.warning(f"No configuration found for role {role}")
-                return []
-
-            # Get tools based on agent-specific configuration
-            tools = []
-            for tool_name in config.tools:
-                # Validate tool access for this agent and entity type
-                if entity_type and not self._entity_manager.validate_agent_tool_combination(
-                    role, tool_name, {}
-                ):
-                    logger.warning(
-                        f"⚠️ Tool '{tool_name}' not accessible for {role.value} with entity type {entity_type.value}"
-                    )
-                    continue
-
-                tool_func = self._tool_registry.get_tool_function(tool_name)
-                if tool_func:
-                    tools.append(tool_func)
-                    logger.info(f"[AGENT TOOLS] ✅ Found tool '{tool_name}' for {role.value}")
-                else:
-                    logger.warning(
-                        f"[AGENT TOOLS] ❌ Tool '{tool_name}' not found for {role.value}"
-                    )
-
-            logger.info(f"🔧 Loading {len(tools)} tools for {role.value}")
-            return tools
-
-        except Exception as e:
-            logger.error(f"Error getting tools for agent {role}: {e}")
-            return []
-
-    def get_available_tools(self) -> list[str]:
-        """Get list of available tool names."""
-        return self._tool_registry.get_tool_names()
-
-    def get_tool_info(self, tool_name: str) -> dict[str, Any] | None:
-        """Get information about a specific tool."""
-        tool = self._tool_registry.get_tool(tool_name)
-        if tool:
-            return {
-                "name": tool.name,
-                "description": tool.description,
-                "type": tool.tool_type.value,
-                "category": tool.category.value,
-                "feature": tool.feature_module,
-                "entity_types": [et.value for et in tool.entity_types],
-            }
-        return None
 
 
 class TeamManagementSystem:
@@ -131,8 +68,8 @@ class TeamManagementSystem:
 
     def __init__(self, team_id: str):
         self.team_id = team_id
-        self.agents: dict[AgentRole, ConfigurableAgent] = {}
-        self.crew: Crew | None = None
+        self.agents: Dict[AgentRole, ConfigurableAgent] = {}
+        self.crew: Optional[Crew] = None
 
         # Initialize team memory for conversation context
         from kickai.agents.team_memory import TeamMemory
@@ -249,11 +186,30 @@ class TeamManagementSystem:
             settings = get_settings()
             verbose_mode = settings.verbose_logging or settings.is_development
 
+            # Import Process enum for CrewAI
+            from crewai import Process
+            
+            # CRITICAL: Disable memory completely to prevent OpenAI API calls
+            # CrewAI memory system is making OpenAI calls despite Google configuration
+            memory_enabled = False  # Force disable until OpenAI issue is resolved
+            
+            memory_config = None
+            if memory_enabled:
+                # Configure memory to use Google Gemini embeddings instead of OpenAI
+                memory_config = {
+                    "provider": "google",
+                    "config": {
+                        "api_key": settings.google_api_key,
+                        "model": "text-embedding-004"  # Google's latest embedding model
+                    }
+                }
+            
             self.crew = Crew(
                 agents=crew_agents,
                 tasks=[],
+                process=Process.sequential,  # Required: must be sequential or hierarchical
                 verbose=verbose_mode,  # Use environment-based verbose setting
-                memory=True,  # Enable memory for the crew
+                memory=False,  # Force disable memory to prevent OpenAI API calls
             )
 
             logger.info(f"✅ Created crew with {len(crew_agents)} entity-aware agents")
@@ -267,7 +223,7 @@ class TeamManagementSystem:
         # This is a simplified wrapper - in production you might want more sophisticated error handling
         return llm
 
-    def get_agent_summary(self) -> dict[str, Any]:
+    def get_agent_summary(self) -> Dict[str, Any]:
         """Get a summary of all agents with their entity types."""
         summary = {}
         for role, agent in self.agents.items():
@@ -284,7 +240,7 @@ class TeamManagementSystem:
             }
         return summary
 
-    def get_entity_validation_summary(self) -> dict[str, Any]:
+    def get_entity_validation_summary(self) -> Dict[str, Any]:
         """Get a summary of entity validation capabilities."""
         return {
             "entity_manager_available": self.entity_manager is not None,
@@ -301,15 +257,15 @@ class TeamManagementSystem:
             },
         }
 
-    def get_agent(self, role: AgentRole) -> ConfigurableAgent | None:
+    def get_agent(self, role: AgentRole) -> Optional[ConfigurableAgent]:
         """Get a specific agent by role."""
         return self.agents.get(role)
 
-    def get_enabled_agents(self) -> list[ConfigurableAgent]:
+    def get_enabled_agents(self) -> List[ConfigurableAgent]:
         """Get all enabled agents."""
         return list(self.agents.values())
 
-    def get_orchestration_pipeline_status(self) -> dict[str, Any]:
+    def get_orchestration_pipeline_status(self) -> Dict[str, Any]:
         """Get the status of the orchestration pipeline."""
         if hasattr(self, "_orchestration_pipeline"):
             return self._orchestration_pipeline.get_pipeline_status()
@@ -319,7 +275,7 @@ class TeamManagementSystem:
                 "all_components_initialized": False,
             }
 
-    async def execute_task(self, task_description: str, execution_context: dict[str, Any]) -> str:
+    async def execute_task(self, task_description: str, execution_context: Dict[str, Any]) -> str:
         """
         Execute a task using the orchestration pipeline with conversation context.
 
@@ -413,7 +369,7 @@ class TeamManagementSystem:
             return await self._execute_with_basic_crew(task_description, execution_context)
 
     async def _execute_with_basic_crew(
-        self, task_description: str, execution_context: dict[str, Any]
+        self, task_description: str, execution_context: Dict[str, Any]
     ) -> str:
         """
         Fallback method to execute task using basic CrewAI crew.
@@ -451,7 +407,18 @@ class TeamManagementSystem:
 
                     # Add task to crew and execute
                     self.crew.tasks = [task]
-                    result = self.crew.kickoff()
+                    crew_result = self.crew.kickoff()
+                    
+                    # Convert CrewOutput to string properly
+                    if hasattr(crew_result, 'raw') and hasattr(crew_result.raw, 'output'):
+                        result = str(crew_result.raw.output)
+                    elif hasattr(crew_result, 'output'):
+                        result = str(crew_result.output)
+                    elif hasattr(crew_result, 'result'):
+                        result = str(crew_result.result)
+                    else:
+                        result = str(crew_result)
+                    
                     logger.info(f"🤖 BASIC CREW: Task completed with result: {result}")
                     return result
                 else:
@@ -475,7 +442,7 @@ class TeamManagementSystem:
         finally:
             logger.setLevel(original_level)
 
-    def health_check(self) -> dict[str, Any]:
+    def health_check(self) -> Dict[str, Any]:
         """Perform a health check on the system."""
         try:
             health_status = {
@@ -508,13 +475,13 @@ def create_team_management_system(team_id: str) -> TeamManagementSystem:
     return TeamManagementSystem(team_id)
 
 
-def get_agent(team_id: str, role: AgentRole) -> ConfigurableAgent | None:
+def get_agent(team_id: str, role: AgentRole) -> Optional[ConfigurableAgent]:
     """Get a specific agent for a team."""
     system = TeamManagementSystem(team_id)
     return system.get_agent(role)
 
 
-def execute_task(team_id: str, task_description: str, execution_context: dict[str, Any]) -> str:
+def execute_task(team_id: str, task_description: str, execution_context: Dict[str, Any]) -> str:
     """Execute a task for a team."""
     system = TeamManagementSystem(team_id)
     return asyncio.run(system.execute_task(task_description, execution_context))

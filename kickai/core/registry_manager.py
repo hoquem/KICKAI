@@ -8,23 +8,15 @@ It follows the single source of truth principle and ensures clean, loosely coupl
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from kickai.agents.tool_registry import ToolRegistry, initialize_tool_registry
-from kickai.core.agent_registry import AgentRegistry, get_agent_registry
+from kickai.agents.tool_registry import ToolRegistry, get_tool_registry, initialize_tool_registry
 from kickai.core.command_registry import CommandRegistry
 from kickai.core.command_registry_initializer import get_initialized_command_registry
-
-
-class RegistryType(Enum):
-    """Types of registries in the system."""
-
-    COMMAND = "command"
-    AGENT = "agent"
-    TOOL = "tool"
-    TASK = "task"
+from kickai.core.agent_registry import AgentRegistry, get_agent_registry
+from kickai.core.registry.base import RegistryType
 
 
 @dataclass
@@ -36,7 +28,7 @@ class RegistryInfo:
     description: str
     total_items: int
     enabled_items: int
-    features: list[str]
+    features: List[str]
     last_updated: str
 
 
@@ -54,7 +46,7 @@ class RegistryManager:
 
     def __init__(self):
         """Initialize the registry manager."""
-        self._registries: dict[RegistryType, Any] = {}
+        self._registries: Dict[RegistryType, Any] = {}
         self._initialized = False
 
         logger.info("🔧 RegistryManager initialized")
@@ -110,7 +102,7 @@ class RegistryManager:
         """Get the tool registry."""
         return self.get_registry(RegistryType.TOOL)
 
-    def get_registry_info(self, registry_type: RegistryType) -> RegistryInfo | None:
+    def get_registry_info(self, registry_type: RegistryType) -> Optional[RegistryInfo]:
         """Get information about a specific registry."""
         registry = self.get_registry(registry_type)
         if not registry:
@@ -154,7 +146,7 @@ class RegistryManager:
 
         return None
 
-    def get_all_registry_info(self) -> list[RegistryInfo]:
+    def get_all_registry_info(self) -> List[RegistryInfo]:
         """Get information about all registries."""
         info_list = []
 
@@ -165,7 +157,7 @@ class RegistryManager:
 
         return info_list
 
-    def get_system_statistics(self) -> dict[str, Any]:
+    def get_system_statistics(self) -> Dict[str, Any]:
         """Get comprehensive system statistics."""
         if not self._initialized:
             self.initialize_registries()
@@ -182,7 +174,7 @@ class RegistryManager:
 
         return stats
 
-    def validate_registry_dependencies(self) -> dict[str, list[str]]:
+    def validate_registry_dependencies(self) -> Dict[str, List[str]]:
         """
         Validate dependencies between registries.
 
@@ -226,7 +218,7 @@ class RegistryManager:
 
         return validation_results
 
-    def search_across_registries(self, query: str) -> dict[str, list[Any]]:
+    def search_across_registries(self, query: str) -> Dict[str, List[Any]]:
         """
         Search across all registries for a query.
 
@@ -256,7 +248,7 @@ class RegistryManager:
 
         return results
 
-    def get_feature_overview(self, feature_name: str) -> dict[str, Any]:
+    def get_feature_overview(self, feature_name: str) -> Dict[str, Any]:
         """
         Get comprehensive overview of a specific feature.
 
@@ -299,7 +291,7 @@ class RegistryManager:
 
         return overview
 
-    def health_check(self) -> dict[str, Any]:
+    def health_check(self) -> Dict[str, Any]:
         """
         Perform comprehensive health check on all registries.
 
@@ -354,7 +346,7 @@ class RegistryManager:
 
         return health_results
 
-    def export_registry_data(self, registry_type: RegistryType | None = None) -> dict[str, Any]:
+    def export_registry_data(self, registry_type: Optional[RegistryType] = None) -> Dict[str, Any]:
         """
         Export registry data for backup or analysis.
 
@@ -410,7 +402,7 @@ class RegistryManager:
 
 
 # Global registry manager instance
-_registry_manager: RegistryManager | None = None
+_registry_manager: Optional[RegistryManager] = None
 
 
 def get_registry_manager() -> RegistryManager:
@@ -427,13 +419,13 @@ def initialize_system_registries(src_path: str = "src") -> None:
     manager.initialize_registries(src_path)
 
 
-def get_system_statistics() -> dict[str, Any]:
+def get_system_statistics() -> Dict[str, Any]:
     """Get comprehensive system statistics."""
     manager = get_registry_manager()
     return manager.get_system_statistics()
 
 
-def health_check_registries() -> dict[str, Any]:
+def health_check_registries() -> Dict[str, Any]:
     """Perform health check on all registries."""
     manager = get_registry_manager()
     return manager.health_check()

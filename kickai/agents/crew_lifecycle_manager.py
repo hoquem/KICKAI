@@ -11,11 +11,12 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any
 
+from typing import Any, Dict, List, Optional, Union
 from loguru import logger
 
-from kickai.agents.crew_agents import TeamManagementSystem
+# Lazy import to avoid circular dependencies
+# from kickai.agents.crew_agents import TeamManagementSystem
 
 
 class CrewStatus(Enum):
@@ -39,8 +40,8 @@ class CrewMetrics:
     successful_requests: int
     failed_requests: int
     average_response_time: float
-    memory_usage: dict[str, Any]
-    agent_health: dict[str, bool]
+    memory_usage: Dict[str, Any]
+    agent_health: Dict[str, bool]
 
 
 class CrewLifecycleManager:
@@ -52,16 +53,16 @@ class CrewLifecycleManager:
     """
 
     def __init__(self):
-        self._crews: dict[str, TeamManagementSystem] = {}
-        self._crew_status: dict[str, CrewStatus] = {}
-        self._crew_metrics: dict[str, CrewMetrics] = {}
-        self._crew_locks: dict[str, asyncio.Lock] = {}
-        self._monitoring_task: asyncio.Union[Task, None] = None
+        self._crews: Dict[str, Any] = {}
+        self._crew_status: Dict[str, CrewStatus] = {}
+        self._crew_metrics: Dict[str, CrewMetrics] = {}
+        self._crew_locks: Dict[str, asyncio.Lock] = {}
+        self._monitoring_task: Optional[asyncio.Task] = None
         self._shutdown_event = asyncio.Event()
 
         logger.info("🚀 CrewLifecycleManager initialized")
 
-    async def get_or_create_crew(self, team_id: str) -> TeamManagementSystem:
+    async def get_or_create_crew(self, team_id: str) -> "TeamManagementSystem":
         """
         Get an existing crew or create a new one for the team.
 
@@ -85,7 +86,7 @@ class CrewLifecycleManager:
         logger.info(f"🆕 Creating new crew for team {team_id}")
         return await self._create_crew(team_id)
 
-    async def _create_crew(self, team_id: str) -> TeamManagementSystem:
+    async def _create_crew(self, team_id: str) -> "TeamManagementSystem":
         """Create a new crew for the specified team."""
         try:
             # Set status to initializing
@@ -95,7 +96,8 @@ class CrewLifecycleManager:
             if team_id not in self._crew_locks:
                 self._crew_locks[team_id] = asyncio.Lock()
 
-            # Create the crew
+            # Create the crew with lazy import to avoid circular dependencies
+            from kickai.agents.crew_agents import TeamManagementSystem
             crew = TeamManagementSystem(team_id=team_id)
 
             # Store the crew
@@ -126,7 +128,7 @@ class CrewLifecycleManager:
             raise
 
     async def execute_task(
-        self, team_id: str, task_description: str, execution_context: dict[str, Any]
+        self, team_id: str, task_description: str, execution_context: Dict[str, Any]
     ) -> str:
         """
         Execute a task using the team's crew with metrics tracking.
@@ -203,19 +205,19 @@ class CrewLifecycleManager:
         except Exception as e:
             logger.error(f"❌ Error shutting down crew for team {team_id}: {e}")
 
-    async def get_crew_status(self, team_id: str) -> CrewStatus | None:
+    async def get_crew_status(self, team_id: str) -> Optional[CrewStatus]:
         """Get the status of a crew for the specified team."""
         return self._crew_status.get(team_id)
 
-    async def get_crew_metrics(self, team_id: str) -> CrewMetrics | None:
+    async def get_crew_metrics(self, team_id: str) -> Optional[CrewMetrics]:
         """Get metrics for a crew for the specified team."""
         return self._crew_metrics.get(team_id)
 
-    async def get_all_crew_metrics(self) -> dict[str, CrewMetrics]:
+    async def get_all_crew_metrics(self) -> Dict[str, CrewMetrics]:
         """Get metrics for all crews."""
         return self._crew_metrics.copy()
 
-    async def health_check(self) -> dict[str, Any]:
+    async def health_check(self) -> Dict[str, Any]:
         """Perform health check on all crews."""
         health_status = {
             "total_crews": len(self._crews),
@@ -334,7 +336,7 @@ class CrewLifecycleManager:
 
 
 # Global instance for easy access
-_crew_lifecycle_manager: CrewLifecycleManager | None = None
+_crew_lifecycle_manager: Optional[CrewLifecycleManager] = None
 
 
 def get_crew_lifecycle_manager() -> CrewLifecycleManager:

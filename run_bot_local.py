@@ -10,6 +10,7 @@ import asyncio
 import signal
 import sys
 import time
+from typing import Optional
 
 # Enable nested event loops for environments that already have an event loop running
 import nest_asyncio
@@ -26,7 +27,7 @@ from kickai.database.firebase_client import initialize_firebase_client
 from kickai.features.team_administration.domain.services.multi_bot_manager import MultiBotManager
 
 # Global state
-multi_bot_manager: MultiBotManager | None = None
+multi_bot_manager: Optional[MultiBotManager] = None
 shutdown_event = asyncio.Event()
 
 
@@ -82,23 +83,36 @@ def setup_environment():
         logger.info("✅ Configuration loaded successfully and logging configured")
 
         # Set up CrewAI logging to redirect to loguru
-        from kickai.utils.crewai_logging import setup_crewai_logging
-        setup_crewai_logging("DEBUG")  # Use DEBUG level for local development
+        try:
+            from kickai.utils.crewai_logging import setup_crewai_logging
+            setup_crewai_logging("DEBUG")  # Use DEBUG level for local development
+            logger.info("✅ CrewAI logging configured with DEBUG level for verbose output")
+        except Exception as e:
+            logger.error(f"❌ Failed to setup CrewAI logging: {e}")
 
         # Also enable CrewAI's internal verbose logging
-        import logging
-        crewai_logger = logging.getLogger("crewai")
-        crewai_logger.setLevel(logging.DEBUG)
-
-        logger.info("✅ CrewAI logging configured with DEBUG level for verbose output")
+        try:
+            import logging
+            crewai_logger = logging.getLogger("crewai")
+            crewai_logger.setLevel(logging.DEBUG)
+        except Exception as e:
+            logger.error(f"❌ Failed to setup CrewAI internal logging: {e}")
 
         # Initialize Firebase
-        initialize_firebase_client(config)
-        logger.info("✅ Firebase client initialized")
+        try:
+            initialize_firebase_client(config)
+            logger.info("✅ Firebase client initialized")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Firebase client: {e}")
+            raise
 
         # Ensure dependency container is initialized with Firebase client
-        ensure_container_initialized()
-        logger.info("✅ Dependency container initialized with Firebase client")
+        try:
+            ensure_container_initialized()
+            logger.info("✅ Dependency container initialized with Firebase client")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize dependency container: {e}")
+            raise
 
         return config
 
@@ -110,7 +124,7 @@ def setup_environment():
 async def run_system_validation():
     """Run comprehensive system validation before starting bots."""
     try:
-        logger.info("🔍 Running system validation...")
+        logger.info("🔍 Running full system validation...")
 
         # Use the centralized startup validation function
         from kickai.core.startup_validation import run_startup_validation
@@ -119,16 +133,27 @@ async def run_system_validation():
 
         # Check if system is healthy
         if not report.is_healthy():
-            logger.warning("⚠️ System validation completed with warnings")
-            logger.warning("Bot will start but some features may not work correctly")
-        else:
-            logger.info("✅ System validation completed successfully")
+            logger.error("❌ System validation failed! Critical issues found:")
+            for failure in report.critical_failures:
+                logger.error(f"   • {failure}")
 
-        return report.is_healthy()
+            logger.error("🚫 Cannot start bots due to critical validation failures")
+            logger.error("🔧 Please run 'python scripts/run_full_system_validation.py' for detailed diagnostics")
+            return False
+
+        if report.warnings:
+            logger.warning("⚠️ System validation completed with warnings:")
+            for warning in report.warnings:
+                logger.warning(f"   • {warning}")
+            logger.info("💡 Consider addressing warnings for optimal performance")
+
+        logger.info("✅ System validation passed! All critical components are healthy")
+        logger.info("🎉 No stub classes detected - all real implementations are working")
+        return True
 
     except Exception as e:
-        logger.error(f"❌ System validation failed: {e}", exc_info=True)
-        logger.warning("⚠️ Continuing with bot startup despite validation errors")
+        logger.error(f"❌ System validation failed with error: {e}")
+        logger.error("🔧 Please run 'python scripts/run_full_system_validation.py' for detailed diagnostics")
         return False
 
 

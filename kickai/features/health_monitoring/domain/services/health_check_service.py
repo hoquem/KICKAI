@@ -18,8 +18,7 @@ from typing import Any
 from kickai.database.interfaces import DataStoreInterface
 
 # IDailyStatusService interface removed - no concrete implementation
-from kickai.features.communication.domain.interfaces.reminder_service_interface import (
-    IReminderService,
+from kickai.features.communication.domain.interfaces.reminder_service_interface import (IReminderService,
 )
 from kickai.features.health_monitoring.domain.entities.health_check_types import (
     ComponentType,
@@ -68,8 +67,8 @@ class HealthCheckService(IHealthCheckService):
 
         # Health check configuration
         self.check_interval = 300  # 5 minutes default
-        self.custom_checks: dict[str, Callable] = {}
-        self.health_history: list[SystemHealthReport] = []
+        self.custom_checks: Dict[str, Callable] = {}
+        self.health_history: List[SystemHealthReport] = []
         self.max_history_size = 100
 
         # Register default health checks
@@ -224,7 +223,7 @@ class HealthCheckService(IHealthCheckService):
     @async_timeout(30.0)
     async def _execute_health_check(
         self, component_name: str, component_type: ComponentType, check_func: callable
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """Execute a single health check with retry and timeout."""
         try:
             start_time = datetime.now()
@@ -335,7 +334,7 @@ class HealthCheckService(IHealthCheckService):
             self.health_history = self.health_history[-self.max_history_size :]
 
     # Agent health check methods
-    async def _check_message_processor_agent(self) -> dict[str, Any]:
+    async def _check_message_processor_agent(self) -> Dict[str, Any]:
         """Check message processor agent health."""
         try:
             # This would check if the agent is available and responding
@@ -351,7 +350,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_team_manager_agent(self) -> dict[str, Any]:
+    async def _check_team_manager_agent(self) -> Dict[str, Any]:
         """Check team manager agent health."""
         try:
             return {
@@ -366,7 +365,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_player_coordinator_agent(self) -> dict[str, Any]:
+    async def _check_player_coordinator_agent(self) -> Dict[str, Any]:
         """Check player coordinator agent health."""
         try:
             return {
@@ -381,7 +380,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_finance_manager_agent(self) -> dict[str, Any]:
+    async def _check_finance_manager_agent(self) -> Dict[str, Any]:
         """Check finance manager agent health."""
         try:
             return {
@@ -396,7 +395,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_performance_analyst_agent(self) -> dict[str, Any]:
+    async def _check_performance_analyst_agent(self) -> Dict[str, Any]:
         """Check performance analyst agent health."""
         try:
             return {
@@ -411,7 +410,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_learning_agent(self) -> dict[str, Any]:
+    async def _check_learning_agent(self) -> Dict[str, Any]:
         """Check learning agent health."""
         try:
             return {
@@ -426,7 +425,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_onboarding_agent(self) -> dict[str, Any]:
+    async def _check_onboarding_agent(self) -> Dict[str, Any]:
         """Check onboarding agent health."""
         try:
             return {
@@ -441,7 +440,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_command_fallback_agent(self) -> dict[str, Any]:
+    async def _check_command_fallback_agent(self) -> Dict[str, Any]:
         """Check command fallback agent health."""
         try:
             return {
@@ -457,7 +456,7 @@ class HealthCheckService(IHealthCheckService):
             }
 
     # Tool health check methods
-    async def _check_communication_tools(self) -> dict[str, Any]:
+    async def _check_communication_tools(self) -> Dict[str, Any]:
         """Check communication tools health."""
         try:
             return {
@@ -472,7 +471,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_logging_tools(self) -> dict[str, Any]:
+    async def _check_logging_tools(self) -> Dict[str, Any]:
         """Check logging tools health."""
         try:
             return {
@@ -487,7 +486,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_player_tools(self) -> dict[str, Any]:
+    async def _check_player_tools(self) -> Dict[str, Any]:
         """Check player tools health."""
         try:
             return {
@@ -502,7 +501,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_team_management_tools(self) -> dict[str, Any]:
+    async def _check_team_management_tools(self) -> Dict[str, Any]:
         """Check team management tools health."""
         try:
             return {
@@ -518,7 +517,7 @@ class HealthCheckService(IHealthCheckService):
             }
 
     # Service health check methods
-    async def _check_player_service(self) -> dict[str, Any]:
+    async def _check_player_service(self) -> Dict[str, Any]:
         """Check player service health."""
         try:
             if not self.player_service:
@@ -542,7 +541,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_team_service(self) -> dict[str, Any]:
+    async def _check_team_service(self) -> Dict[str, Any]:
         """Check team service health."""
         try:
             if not self.team_operations:
@@ -564,7 +563,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_payment_service(self) -> dict[str, Any]:
+    async def _check_payment_service(self) -> Dict[str, Any]:
         """Check payment service health."""
         try:
             if not self.payment_operations:
@@ -586,7 +585,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_reminder_service(self) -> dict[str, Any]:
+    async def _check_reminder_service(self) -> Dict[str, Any]:
         """Check reminder service health."""
         try:
             if not self.reminder_service:
@@ -608,7 +607,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_daily_status_service(self) -> dict[str, Any]:
+    async def _check_daily_status_service(self) -> Dict[str, Any]:
         """Check daily status service health."""
         try:
             if not self.daily_status_service:
@@ -630,7 +629,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_fa_registration_checker(self) -> dict[str, Any]:
+    async def _check_fa_registration_checker(self) -> Dict[str, Any]:
         """Check FA registration checker health."""
         try:
             if not self.fa_registration_checker:
@@ -653,7 +652,7 @@ class HealthCheckService(IHealthCheckService):
             }
 
     # External dependency health check methods
-    async def _check_database_connectivity(self) -> dict[str, Any]:
+    async def _check_database_connectivity(self) -> Dict[str, Any]:
         """Check database connectivity."""
         try:
             if not self.data_store:
@@ -677,7 +676,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_llm_connectivity(self) -> dict[str, Any]:
+    async def _check_llm_connectivity(self) -> Dict[str, Any]:
         """Check LLM connectivity."""
         try:
             # Test LLM connectivity
@@ -695,7 +694,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_payment_gateway(self) -> dict[str, Any]:
+    async def _check_payment_gateway(self) -> Dict[str, Any]:
         """Check payment gateway connectivity."""
         try:
             # Test payment gateway connectivity
@@ -711,7 +710,7 @@ class HealthCheckService(IHealthCheckService):
                 "details": {"error": str(e)},
             }
 
-    async def _check_telegram_connectivity(self) -> dict[str, Any]:
+    async def _check_telegram_connectivity(self) -> Dict[str, Any]:
         """Check Telegram connectivity."""
         try:
             # Test Telegram connectivity
@@ -732,12 +731,12 @@ class HealthCheckService(IHealthCheckService):
         """Get the current health status."""
         return await self.perform_comprehensive_health_check()
 
-    async def get_health_history(self, hours: int = 24) -> list[SystemHealthReport]:
+    async def get_health_history(self, hours: int = 24) -> List[SystemHealthReport]:
         """Get health history for the specified number of hours."""
         cutoff_time = datetime.now() - timedelta(hours=hours)
         return [report for report in self.health_history if report.timestamp >= cutoff_time]
 
-    async def export_health_report(self, file_path: str | None = None) -> str:
+    async def export_health_report(self, file_path: Optional[str] = None) -> str:
         """Export health report to file."""
         report = await self.perform_comprehensive_health_check()
         # Implementation for exporting report

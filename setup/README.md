@@ -231,7 +231,7 @@ chmod +x setup/*/*.py
 #### **Environment Issues**
 ```bash
 # Activate virtual environment
-source venv/bin/activate
+source venv311/bin/activate
 ```
 
 ### **Debug Mode**

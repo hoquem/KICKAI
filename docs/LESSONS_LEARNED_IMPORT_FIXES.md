@@ -166,11 +166,11 @@ class CommandType(Enum):
 ### **1. Development Workflow**
 ```bash
 # Standard startup sequence
-source venv/bin/activate
+source venv311/bin/activate
 PYTHONPATH=src python run_bot_local.py
 
 # Debug startup issues
-source venv/bin/activate && PYTHONPATH=src python run_bot_local.py 2>&1 | head -50
+source venv311/bin/activate && PYTHONPATH=src python run_bot_local.py 2>&1 | head -50
 
 # Clear cache when needed
 find . -name "*.pyc" -delete && find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
@@ -227,10 +227,10 @@ command_type=CommandType.UNDEFINED_VALUE
 ### **4. Bot Startup**
 ```bash
 # ✅ CORRECT - Always use PYTHONPATH
-source venv/bin/activate && PYTHONPATH=src python run_bot_local.py
+source venv311/bin/activate && PYTHONPATH=src python run_bot_local.py
 
 # ❌ WRONG - Missing PYTHONPATH
-source venv/bin/activate && python run_bot_local.py
+source venv311/bin/activate && python run_bot_local.py
 ```
 
 ---
@@ -245,7 +245,7 @@ source venv/bin/activate && python run_bot_local.py
 find . -name "*.pyc" -delete && find . -name "__pycache__" -type d -exec rm -rf {} +
 
 # Test imports
-source venv/bin/activate && PYTHONPATH=src python -c "from core.constants import BOT_VERSION"
+source venv311/bin/activate && PYTHONPATH=src python -c "from core.constants import BOT_VERSION"
 ```
 
 #### **2. Bot Won't Start**
@@ -257,7 +257,7 @@ ps aux | grep python | grep run_bot_local
 pkill -f run_bot_local.py
 
 # Start with verbose output
-source venv/bin/activate && PYTHONPATH=src python run_bot_local.py 2>&1 | head -50
+source venv311/bin/activate && PYTHONPATH=src python run_bot_local.py 2>&1 | head -50
 ```
 
 #### **3. Command Registry Issues**
@@ -266,7 +266,7 @@ source venv/bin/activate && PYTHONPATH=src python run_bot_local.py 2>&1 | head -
 - Validate command definitions
 
 ### **Emergency Procedures**
-1. **Bot Crashes**: Restart with `pkill -f run_bot_local.py && source venv/bin/activate && PYTHONPATH=src python run_bot_local.py`
+1. **Bot Crashes**: Restart with `pkill -f run_bot_local.py && source venv311/bin/activate && PYTHONPATH=src python run_bot_local.py`
 2. **Import Issues**: Clear cache and restart
 3. **Database Issues**: Check Firebase credentials and connectivity
 4. **Telegram Issues**: Verify bot token and chat IDs

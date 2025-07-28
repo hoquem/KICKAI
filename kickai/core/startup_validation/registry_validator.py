@@ -6,6 +6,7 @@ proper initialization and prevent runtime errors.
 """
 
 from dataclasses import dataclass
+from typing import List
 
 from loguru import logger
 
@@ -15,8 +16,8 @@ class RegistryValidationResult:
     """Result of registry validation."""
 
     success: bool
-    errors: list[str]
-    warnings: list[str]
+    errors: List[str]
+    warnings: List[str]
     registry_name: str
 
 
@@ -24,7 +25,7 @@ class RegistryStartupValidator:
     """Validates all registries during startup."""
 
     def __init__(self):
-        self.validation_results: list[RegistryValidationResult] = []
+        self.validation_results: List[RegistryValidationResult] = []
 
     def validate_all_registries(self) -> bool:
         """Validate all registries and return success status."""
