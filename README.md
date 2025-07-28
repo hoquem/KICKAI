@@ -1,17 +1,17 @@
 # KICKAI - AI-Powered Football Team Management System
 
-**Version:** 3.0  
+**Version:** 3.1  
 **Status:** Production Ready  
-**Last Updated:** December 2024  
+**Last Updated:** July 2025  
 **Architecture:** Agentic Clean Architecture with CrewAI
 
 ## 🎯 Overview
 
-KICKAI is an AI-powered football team management system that combines advanced AI capabilities with practical team management tools. The system uses a sophisticated 8-agent CrewAI architecture to provide intelligent, context-aware responses to team management needs through an agentic-first approach.
+KICKAI is an AI-powered football team management system that combines advanced AI capabilities with practical team management tools. The system uses a sophisticated 12-agent CrewAI architecture to provide intelligent, context-aware responses to team management needs through an agentic-first approach.
 
 ### 🚀 Key Features
 
-- ✅ **8-Agent CrewAI System** for intelligent task processing
+- ✅ **12-Agent CrewAI System** for intelligent task processing
 - ✅ **Agentic-First Architecture** with no dedicated command handlers
 - ✅ **Feature-First Clean Architecture** with clean separation of concerns
 - ✅ **Dynamic Command Discovery** from centralized registry
@@ -293,7 +293,7 @@ TEAM_ID=your_team_id
 
 ```
 KICKAI/
-├── src/                          # Main source code
+├── kickai/                       # Main source code
 │   ├── features/                 # Feature-based modules
 │   │   ├── player_registration/  # Player onboarding
 │   │   ├── team_administration/  # Team management
@@ -331,15 +331,15 @@ pre-commit install
 pre-commit run --all-files
 
 # Run type checking
-mypy src/
+mypy kickai/
 
 # Run security checks
-bandit -r src/
+bandit -r kickai/
 ```
 
 ### Adding New Features
 
-1. **Follow Feature-First Architecture**: Create new features in `src/features/`
+1. **Follow Feature-First Architecture**: Create new features in `kickai/features/`
 2. **Implement Clean Architecture**: Follow the layered architecture pattern
 3. **Use Agentic Patterns**: Delegate to CrewAI agents for user interactions
 4. **Write Comprehensive Tests**: Include unit, integration, and E2E tests
