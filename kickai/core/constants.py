@@ -257,17 +257,17 @@ MATCH_COMMANDS = {
 }
 
 # =============================================================================
-# TRAINING MANAGEMENT COMMANDS
+# TEAM ADMINISTRATION COMMANDS
 # =============================================================================
 
-TRAINING_COMMANDS = {
+TEAM_ADMINISTRATION_COMMANDS = {
     CommandDefinition(
         name="/scheduletraining",
         description="Schedule a training session (Leadership only)",
         permission_level=PermissionLevel.LEADERSHIP,
         chat_types=frozenset([ChatType.LEADERSHIP]),
         examples=("/scheduletraining", "/scheduletraining Technical 2024-01-15 18:00 90"),
-        feature="training_management",
+        feature="team_administration",
     ),
     CommandDefinition(
         name="/listtrainings",
@@ -275,7 +275,7 @@ TRAINING_COMMANDS = {
         permission_level=PermissionLevel.PLAYER,
         chat_types=frozenset([ChatType.MAIN]),
         examples=("/listtrainings", "/listtrainings this week", "/listtrainings today"),
-        feature="training_management",
+        feature="team_administration",
     ),
     CommandDefinition(
         name="/marktraining",
@@ -283,7 +283,7 @@ TRAINING_COMMANDS = {
         permission_level=PermissionLevel.PLAYER,
         chat_types=frozenset([ChatType.MAIN]),
         examples=("/marktraining", "/marktraining yes", "/marktraining no TRAIN123"),
-        feature="training_management",
+        feature="team_administration",
     ),
     CommandDefinition(
         name="/canceltraining",
@@ -291,7 +291,7 @@ TRAINING_COMMANDS = {
         permission_level=PermissionLevel.LEADERSHIP,
         chat_types=frozenset([ChatType.LEADERSHIP]),
         examples=("/canceltraining", "/canceltraining TRAIN123", "/canceltraining TRAIN123 Bad weather"),
-        feature="training_management",
+        feature="team_administration",
     ),
     CommandDefinition(
         name="/trainingstats",
@@ -299,7 +299,7 @@ TRAINING_COMMANDS = {
         permission_level=PermissionLevel.PLAYER,
         chat_types=frozenset([ChatType.MAIN]),
         examples=("/trainingstats", "/trainingstats this month", "/trainingstats TRAIN123"),
-        feature="training_management",
+        feature="team_administration",
     ),
     CommandDefinition(
         name="/mytrainings",
@@ -307,7 +307,7 @@ TRAINING_COMMANDS = {
         permission_level=PermissionLevel.PLAYER,
         chat_types=frozenset([ChatType.MAIN]),
         examples=("/mytrainings", "/mytrainings upcoming", "/mytrainings history"),
-        feature="training_management",
+        feature="team_administration",
     ),
 }
 
@@ -570,7 +570,7 @@ ALL_COMMANDS = (
     | LEADERSHIP_COMMANDS
     | SYSTEM_COMMANDS
     | MATCH_COMMANDS
-    | TRAINING_COMMANDS
+    | TEAM_ADMINISTRATION_COMMANDS
     | ATTENDANCE_COMMANDS
     | PAYMENT_COMMANDS
     | COMMUNICATION_COMMANDS

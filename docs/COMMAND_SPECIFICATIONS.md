@@ -50,7 +50,14 @@ This document defines the expected behavior for all KICKAI bot commands across d
 | `/reject` | Reject player registration | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | 🔄 In Progress |
 | `/pending` | Show pending registrations | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | 🔄 In Progress |
 
-### Training Management Commands (✅ Implemented)
+### Team Management Commands (📋 Planned)
+| Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
+|---------|-------------|-----------|-----------------|------------------|-------|--------|
+| `/team` | Team information | ✅ | ✅ | PUBLIC | TeamAdministratorAgent | 📋 Planned |
+| `/invite` | Generate invitation link | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | 📋 Planned |
+| `/announce` | Make team announcement | ❌ | ✅ | LEADERSHIP | CommunicationManagerAgent | 📋 Planned |
+
+### Team Administration Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
 | `/scheduletraining` | Schedule training session | ❌ | ✅ | LEADERSHIP | TrainingCoordinatorAgent | ✅ Implemented |
@@ -59,13 +66,6 @@ This document defines the expected behavior for all KICKAI bot commands across d
 | `/canceltraining` | Cancel training session | ❌ | ✅ | LEADERSHIP | TrainingCoordinatorAgent | ✅ Implemented |
 | `/trainingstats` | Training statistics | ✅ | ✅ | PUBLIC | TrainingCoordinatorAgent | ✅ Implemented |
 | `/mytrainings` | Personal training schedule | ✅ | ❌ | PUBLIC | TrainingCoordinatorAgent | ✅ Implemented |
-
-### Team Management Commands (📋 Planned)
-| Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
-|---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/team` | Team information | ✅ | ✅ | PUBLIC | TeamAdministratorAgent | 📋 Planned |
-| `/invite` | Generate invitation link | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | 📋 Planned |
-| `/announce` | Make team announcement | ❌ | ✅ | LEADERSHIP | CommunicationManagerAgent | 📋 Planned |
 
 ### System Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
