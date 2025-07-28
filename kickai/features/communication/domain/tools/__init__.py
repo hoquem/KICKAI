@@ -12,7 +12,7 @@ __all__ = [
     # Communication tools (only the ones actually used by agents)
     "send_message",
     "send_announcement",
-    "send_poll"
+    "send_poll",
 ]
 
 # Note: Removed unused tool: send_telegram_message

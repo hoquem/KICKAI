@@ -7,52 +7,36 @@ This module provides reporting structures for startup validation results.
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Union, Union
+from typing import Any, Dict, List, Optional
+
+from kickai.core.enums import CheckStatus, CheckCategory
 
 logger = logging.getLogger(__name__)
-
-
-class CheckStatus(Enum):
-    """Status of a health check."""
-    PASSED = "PASSED"
-    FAILED = "FAILED"
-    WARNING = "WARNING"
-    SKIPPED = "SKIPPED"
-
-
-class CheckCategory(Enum):
-    """Categories of health checks."""
-    LLM = "LLM"
-    AGENT = "AGENT"
-    TOOL = "TOOL"
-    TASK = "TASK"
-    EXTERNAL_SERVICE = "EXTERNAL_SERVICE"
-    CONFIGURATION = "CONFIGURATION"
-    DATABASE = "DATABASE"
-    TELEGRAM = "TELEGRAM"
 
 
 @dataclass
 class CheckResult:
     """Result of a health check."""
+
     name: str
     category: CheckCategory
     status: CheckStatus
     message: str
-    details: Union[dict[str, Any], None] = None
-    duration_ms: Union[float, None] = None
-    error: Union[Exception, None] = None
+    details: Optional[Dict[str, Any]] = None
+    duration_ms: Optional[float] = None
+    error: Optional[Exception] = None
 
 
 @dataclass
 class ValidationReport:
     """Complete validation report."""
+
     overall_status: CheckStatus
-    checks: list[CheckResult] = field(default_factory=list)
-    summary: dict[CheckCategory, dict[CheckStatus, int]] = field(default_factory=dict)
-    critical_failures: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
-    recommendations: list[str] = field(default_factory=list)
+    checks: List[CheckResult] = field(default_factory=list)
+    summary: Dict[CheckCategory, dict[CheckStatus, int]] = field(default_factory=dict)
+    critical_failures: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+    recommendations: List[str] = field(default_factory=list)
 
     def add_check(self, check: CheckResult) -> None:
         """Add a check result to the report."""
@@ -95,7 +79,7 @@ class ValidationReport:
             return 0.0
         return (self.get_passed_count() / self.get_total_count()) * 100
 
-    def get_failures_by_category(self) -> dict[CheckCategory, list[CheckResult]]:
+    def get_failures_by_category(self) -> Dict[CheckCategory, List[CheckResult]]:
         """Get failed checks grouped by category."""
         failures = {}
         for check in self.checks:
@@ -105,7 +89,7 @@ class ValidationReport:
                 failures[check.category].append(check)
         return failures
 
-    def get_warnings_by_category(self) -> dict[CheckCategory, list[CheckResult]]:
+    def get_warnings_by_category(self) -> Dict[CheckCategory, List[CheckResult]]:
         """Get warning checks grouped by category."""
         warnings = {}
         for check in self.checks:
@@ -115,7 +99,7 @@ class ValidationReport:
                 warnings[check.category].append(check)
         return warnings
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert report to dictionary for serialization."""
         return {
             "overall_status": self.overall_status.value,
@@ -127,15 +111,12 @@ class ValidationReport:
                     "message": check.message,
                     "details": check.details,
                     "duration_ms": check.duration_ms,
-                    "error": str(check.error) if check.error else None
+                    "error": str(check.error) if check.error else None,
                 }
                 for check in self.checks
             ],
             "summary": {
-                category.value: {
-                    status.value: count
-                    for status, count in status_counts.items()
-                }
+                category.value: {status.value: count for status, count in status_counts.items()}
                 for category, status_counts in self.summary.items()
             },
             "critical_failures": self.critical_failures,
@@ -146,13 +127,14 @@ class ValidationReport:
                 "passed_checks": self.get_passed_count(),
                 "failed_checks": self.get_failure_count(),
                 "warning_checks": self.get_warning_count(),
-                "success_rate": self.get_success_rate()
-            }
+                "success_rate": self.get_success_rate(),
+            },
         }
 
     def to_json(self) -> str:
         """Convert report to JSON string."""
         import json
+
         return json.dumps(self.to_dict(), indent=2)
 
     def to_markdown(self) -> str:
@@ -211,7 +193,7 @@ class ValidationReport:
                 CheckStatus.PASSED: "✅",
                 CheckStatus.FAILED: "❌",
                 CheckStatus.WARNING: "⚠️",
-                CheckStatus.SKIPPED: "⏭️"
+                CheckStatus.SKIPPED: "⏭️",
             }.get(check.status, "❓")
 
             duration_str = f" ({check.duration_ms:.1f}ms)" if check.duration_ms else ""

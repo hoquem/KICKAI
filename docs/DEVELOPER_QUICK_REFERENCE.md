@@ -5,7 +5,7 @@
 ### **Bot Startup**
 ```bash
 # ✅ ALWAYS use this sequence
-source venv/bin/activate
+source venv311/bin/activate
 PYTHONPATH=src python run_bot_local.py
 ```
 
@@ -15,19 +15,19 @@ PYTHONPATH=src python run_bot_local.py
 find . -name "*.pyc" -delete && find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
 # Test imports
-source venv/bin/activate && PYTHONPATH=src python -c "from core.constants import BOT_VERSION"
+source venv311/bin/activate && PYTHONPATH=src python -c "from core.constants import BOT_VERSION"
 
 # Check bot status
 ps aux | grep python | grep run_bot_local
 
 # Debug startup
-source venv/bin/activate && PYTHONPATH=src python run_bot_local.py 2>&1 | head -50
+source venv311/bin/activate && PYTHONPATH=src python run_bot_local.py 2>&1 | head -50
 ```
 
 ### **Emergency Restart**
 ```bash
 pkill -f run_bot_local.py
-source venv/bin/activate && PYTHONPATH=src python run_bot_local.py
+source venv311/bin/activate && PYTHONPATH=src python run_bot_local.py
 ```
 
 ---

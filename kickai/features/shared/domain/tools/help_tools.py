@@ -4,8 +4,9 @@ Help Tools
 
 This module provides tools for help and command information.
 """
+from typing import Dict
 
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 
 from kickai.core.constants import (
@@ -14,12 +15,12 @@ from kickai.core.constants import (
     get_commands_for_chat_type,
     normalize_chat_type,
 )
+from kickai.core.enums import ChatType as ChatTypeEnum
 from kickai.utils.tool_helpers import (
     extract_single_value,
     format_tool_error,
     validate_required_input,
 )
-from kickai.core.enums import ChatType as ChatTypeEnum
 
 
 @tool("FINAL_HELP_RESPONSE")
@@ -33,36 +34,46 @@ def final_help_response(chat_type: str, user_id: str, team_id: str, username: st
 
     Args:
         chat_type: Chat type (string or enum) from the available context parameters
-        user_id: User ID from the available context parameters  
+        user_id: User ID from the available context parameters
         team_id: Team ID from the available context parameters
         username: Username from the available context parameters
-        
+
     Returns:
         Formatted help response string
-        
+
     Example:
-        If context provides "chat_type: main, user_id: 12345, team_id: TEST, username: John", 
+        If context provides "chat_type: main, user_id: 12345, team_id: TEST, username: John",
         call this tool with chat_type="main", user_id="12345", team_id="TEST", username="John"
     """
     try:
         # Validate inputs - these should NOT be None, they must come from context
         validation_error = validate_required_input(chat_type, "Chat Type")
         if validation_error:
-            return format_tool_error("Chat Type is required and must be provided from available context")
-        
+            return format_tool_error(
+                "Chat Type is required and must be provided from available context"
+            )
+
         validation_error = validate_required_input(user_id, "User ID")
         if validation_error:
-            return format_tool_error("User ID is required and must be provided from available context")
-        
+            return format_tool_error(
+                "User ID is required and must be provided from available context"
+            )
+
         validation_error = validate_required_input(team_id, "Team ID")
         if validation_error:
-            return format_tool_error("Team ID is required and must be provided from available context")
-        
+            return format_tool_error(
+                "Team ID is required and must be provided from available context"
+            )
+
         validation_error = validate_required_input(username, "Username")
         if validation_error:
-            return format_tool_error("Username is required and must be provided from available context")
-        
-        logger.info(f"🔧 [TOOL DEBUG] Generating help for chat_type: {chat_type}, user: {user_id}, team: {team_id}, username: {username}")
+            return format_tool_error(
+                "Username is required and must be provided from available context"
+            )
+
+        logger.info(
+            f"🔧 [TOOL DEBUG] Generating help for chat_type: {chat_type}, user: {user_id}, team: {team_id}, username: {username}"
+        )
 
         # Normalize chat type to enum
         chat_type_enum = normalize_chat_type(chat_type)
@@ -83,46 +94,49 @@ def final_help_response(chat_type: str, user_id: str, team_id: str, username: st
 
 
 def _format_help_message(chat_type: ChatTypeEnum, commands: list, username: str) -> str:
-        """Format the help message with commands organized by category."""
-        try:
-            # Get chat type display name
-            chat_display_name = get_chat_type_display_name(chat_type)
+    """Format the help message with commands organized by category."""
+    try:
+        # Get chat type display name
+        chat_display_name = get_chat_type_display_name(chat_type)
 
-            # Start building the message
-            message_parts = [
-                "🤖 KICKAI Help System",
-                f"Your Context: {chat_display_name.upper()} (User: {username})",
-                f"📋 Available Commands for {chat_display_name}:",
-                ""
-            ]
+        # Start building the message
+        message_parts = [
+            "🤖 KICKAI Help System",
+            f"Your Context: {chat_display_name.upper()} (User: {username})",
+            f"📋 Available Commands for {chat_display_name}:",
+            "",
+        ]
 
-            # Group commands by feature/category
-            command_categories = _group_commands_by_category(commands)
+        # Group commands by feature/category
+        command_categories = _group_commands_by_category(commands)
 
-            # Add each category
-            for category, category_commands in command_categories.items():
-                if category_commands:
-                    message_parts.append(f"{category}:")
-                    for cmd in category_commands:
-                        message_parts.append(f"• {cmd.name} - {cmd.description}")
-                    message_parts.append("")
+        # Add each category
+        for category, category_commands in command_categories.items():
+            if category_commands:
+                message_parts.append(f"{category}:")
+                for cmd in category_commands:
+                    message_parts.append(f"• {cmd.name} - {cmd.description}")
+                message_parts.append("")
 
-            # Add footer
-            message_parts.extend([
+        # Add footer
+        message_parts.extend(
+            [
                 "💡 Use /help [command] for detailed help on any command.",
                 "---",
                 "💡 Need more help?",
                 "• Type /help [command] for detailed help",
-                "• Contact team admin for support"
-            ])
+                "• Contact team admin for support",
+            ]
+        )
 
-            return "\n".join(message_parts)
+        return "\n".join(message_parts)
 
-        except Exception as e:
-            logger.error(f"Error formatting help message: {e}", exc_info=True)
-            return f"❌ Error formatting help message: {e!s}"
+    except Exception as e:
+        logger.error(f"Error formatting help message: {e}", exc_info=True)
+        return f"❌ Error formatting help message: {e!s}"
 
-def _group_commands_by_category(commands: list) -> dict[str, list]:
+
+def _group_commands_by_category(commands: list) -> Dict[str, list]:
     """Group commands by their feature/category."""
     categories = {
         "Player Commands": [],
@@ -133,7 +147,7 @@ def _group_commands_by_category(commands: list) -> dict[str, list]:
         "Communication": [],
         "Team Administration": [],
         "System": [],
-        "Health & Monitoring": []
+        "Health & Monitoring": [],
     }
 
     # Map features to display categories
@@ -146,7 +160,7 @@ def _group_commands_by_category(commands: list) -> dict[str, list]:
         "team_administration": "Team Administration",
         "health_monitoring": "Health & Monitoring",
         "system_infrastructure": "System",
-        "shared": "System"
+        "shared": "System",
     }
 
     for cmd in commands:
@@ -170,13 +184,13 @@ def get_available_commands(chat_type: str) -> str:
     """
     try:
         # Handle JSON string input using utility function
-        chat_type = extract_single_value(chat_type, 'chat_type')
-        
+        chat_type = extract_single_value(chat_type, "chat_type")
+
         # Validate input
         validation_error = validate_required_input(chat_type, "Chat Type")
         if validation_error:
             return validation_error
-        
+
         # Normalize chat type
         chat_type_enum = normalize_chat_type(chat_type)
 
@@ -230,7 +244,7 @@ def get_command_help(command_name: str, chat_type: str = "main") -> str:
             f"Permission Level: {cmd.permission_level.value}",
             f"Available in: {', '.join(get_chat_type_display_name(ct) for ct in cmd.chat_types)}",
             f"Feature: {cmd.feature}",
-            ""
+            "",
         ]
 
         if cmd.examples:

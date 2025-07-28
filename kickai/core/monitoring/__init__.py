@@ -5,9 +5,6 @@ This module provides monitoring and metrics collection
 for registry performance and usage.
 """
 
-from .registry_monitor import RegistryMonitor, RegistryMetrics
+from .registry_monitor import RegistryMetrics, RegistryMonitor
 
-__all__ = [
-    'RegistryMonitor',
-    'RegistryMetrics'
-] 
+__all__ = ["RegistryMonitor", "RegistryMetrics"]

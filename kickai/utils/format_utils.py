@@ -4,6 +4,7 @@ This module serves as the single source of truth for all user-facing formatting.
 """
 
 from datetime import datetime
+from typing import List
 
 from kickai.features.player_registration.domain.entities.player import Player
 
@@ -12,7 +13,7 @@ class PlayerFormattingService:
     """Single source of truth for all player-related formatting."""
 
     @staticmethod
-    def format_player_list(players: list[Player], team_name: str = "Team") -> str:
+    def format_player_list(players: List[Player], team_name: str = "Team") -> str:
         """
         Format a list of players in a clean, Telegram-friendly format.
 
@@ -63,7 +64,7 @@ class PlayerFormattingService:
         return "\n".join(output)
 
     @staticmethod
-    def format_player_list_for_leadership(players: list[Player], team_name: str = "Team") -> str:
+    def format_player_list_for_leadership(players: List[Player], team_name: str = "Team") -> str:
         """
         Format a list of players for leadership view - shows all players with detailed status.
 
@@ -90,21 +91,27 @@ class PlayerFormattingService:
         if active_players:
             output.append("✅ Active Players:")
             for player in sorted(active_players, key=lambda p: p.full_name):
-                output.append(f"• {player.player_id} - {player.full_name} ({player.position}) - {player.phone_number}")
+                output.append(
+                    f"• {player.player_id} - {player.full_name} ({player.position}) - {player.phone_number}"
+                )
             output.append("")  # Empty line
 
         # Pending players
         if pending_players:
             output.append("⏳ Pending Approval:")
             for player in sorted(pending_players, key=lambda p: p.full_name):
-                output.append(f"• {player.player_id} - {player.full_name} ({player.position}) - {player.phone_number}")
+                output.append(
+                    f"• {player.player_id} - {player.full_name} ({player.position}) - {player.phone_number}"
+                )
             output.append("")  # Empty line
 
         # Inactive players
         if inactive_players:
             output.append("❌ Inactive Players:")
             for player in sorted(inactive_players, key=lambda p: p.full_name):
-                output.append(f"• {player.player_id} - {player.full_name} ({player.position}) - {player.phone_number}")
+                output.append(
+                    f"• {player.player_id} - {player.full_name} ({player.position}) - {player.phone_number}"
+                )
             output.append("")  # Empty line
 
         # Add timestamp
@@ -149,7 +156,7 @@ class PlayerFormattingService:
             f"Status: {status_icon} {status_text}",
             f"Registration: {player.created_at.strftime('%Y-%m-%d') if player.created_at else 'N/A'}",
             "",
-            f"📅 Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            f"📅 Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         ]
 
         return "\n".join(output)

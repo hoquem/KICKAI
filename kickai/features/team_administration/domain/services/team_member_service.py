@@ -6,8 +6,8 @@ This module provides team member management functionality.
 Team members represent administrative/management roles within a team.
 This is separate from Players who represent football players.
 """
+from typing import Optional, List
 
-from typing import Union
 from datetime import datetime
 
 from loguru import logger
@@ -42,7 +42,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to create team member: {e}")
             raise
 
-    async def get_team_member_by_id(self, member_id: str) -> Union[TeamMember, None]:
+    async def get_team_member_by_id(self, member_id: str) -> Optional[TeamMember]:
         """Get a team member by ID."""
         try:
             return await self.team_repository.get_team_member_by_id(member_id)
@@ -50,7 +50,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team member by ID {member_id}: {e}")
             return None
 
-    async def get_team_member_by_telegram_id(self, user_id: str, team_id: str) -> Union[TeamMember, None]:
+    async def get_team_member_by_telegram_id(self, user_id: str, team_id: str) -> Optional[TeamMember]:
         """Get a team member by Telegram ID and team."""
         try:
             return await self.team_repository.get_team_member_by_telegram_id(team_id, user_id)
@@ -58,7 +58,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team member by Telegram ID {user_id}: {e}")
             return None
 
-    async def get_team_members_by_team(self, team_id: str) -> list[TeamMember]:
+    async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]:
         """Get all team members for a team."""
         try:
             members = await self.team_repository.get_team_members(team_id)
@@ -68,7 +68,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team members for team {team_id}: {e}")
             return []
 
-    async def get_team_members_by_role(self, team_id: str, role: str) -> list[TeamMember]:
+    async def get_team_members_by_role(self, team_id: str, role: str) -> List[TeamMember]:
         """Get team members by specific role."""
         try:
             all_members = await self.get_team_members_by_team(team_id)
@@ -230,4 +230,6 @@ class TeamMemberService:
 
         # Validate user_id format
         if not team_member.user_id.startswith("user_"):
-            raise ValueError(f"Invalid user_id format: {team_member.user_id}. Must start with 'user_'")
+            raise ValueError(
+                f"Invalid user_id format: {team_member.user_id}. Must start with 'user_'"
+            )

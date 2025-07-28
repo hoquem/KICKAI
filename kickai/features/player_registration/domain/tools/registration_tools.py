@@ -6,7 +6,7 @@ This module provides tools for player registration and team member management.
 
 import logging
 
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from pydantic import BaseModel
 
 from kickai.core.dependency_container import get_container
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class RegisterPlayerInput(BaseModel):
     """Input model for register_player tool."""
+
     player_name: str
     phone_number: str
     position: str
@@ -27,6 +28,7 @@ class RegisterPlayerInput(BaseModel):
 
 class TeamMemberRegistrationInput(BaseModel):
     """Input model for team_member_registration tool."""
+
     player_name: str
     phone_number: str
     position: str
@@ -35,6 +37,7 @@ class TeamMemberRegistrationInput(BaseModel):
 
 class RegistrationGuidanceInput(BaseModel):
     """Input model for registration_guidance tool."""
+
     user_id: str
     team_id: str
 
@@ -63,6 +66,7 @@ def register_player(player_name: str, phone_number: str, position: str, team_id:
 
         # Register the player (handle async operation)
         import asyncio
+
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -88,16 +92,17 @@ def register_player(player_name: str, phone_number: str, position: str, team_id:
 @tool("register_team_member")
 def register_team_member(player_name: str, phone_number: str, role: str, team_id: str) -> str:
     """
-    Register a new team member in the leadership chat. Requires: player_name, phone_number, role, team_id
+    Register a new team member with enhanced onboarding feedback. 
+    Requires: player_name, phone_number, role, team_id
 
     Args:
         player_name: The name of the team member to register
         phone_number: The team member's phone number
-        role: The team member's role (e.g., Coach, Manager, Assistant)
+        role: The team member's role (coach, manager, assistant, coordinator, volunteer, admin)
         team_id: Team ID (required)
 
     Returns:
-        Confirmation message indicating success or failure
+        Enhanced confirmation message with next steps
     """
     try:
         container = get_container()
@@ -105,25 +110,44 @@ def register_team_member(player_name: str, phone_number: str, role: str, team_id
 
         if not registration_service:
             logger.error("❌ PlayerRegistrationService not available")
-            return "❌ Registration service not available"
+            return "❌ Registration service not available. Please try again later."
 
         # Register the team member (using the same service but with role instead of position)
-        player = registration_service.register_player(player_name, phone_number, role, team_id)
+        member = registration_service.register_player(player_name, phone_number, role, team_id)
 
-        if player:
+        if member:
             logger.info(f"✅ Team member registered: {player_name} ({role})")
-            return f"✅ Team member registered successfully: {player_name} ({role})"
+            
+            # Enhanced success message for onboarding
+            success_msg = f"""
+🎉 **TEAM MEMBER REGISTERED!**
+
+✅ **Details:**
+• **Name:** {player_name}
+• **Role:** {role.title()}
+• **Status:** Active
+
+🚀 **Next Steps:**
+• Access administrative features immediately
+• Join leadership chat for team coordination
+• Contact existing leadership for orientation
+
+Welcome to the team! 🤝
+            """
+            return success_msg.strip()
         else:
             logger.error(f"❌ Failed to register team member: {player_name}")
-            return f"❌ Failed to register team member: {player_name}"
+            return f"❌ Registration failed for {player_name}. Please verify the information and try again."
 
     except Exception as e:
         logger.error(f"❌ Failed to register team member: {e}")
-        return f"❌ Failed to register team member: {e!s}"
+        return f"❌ Registration failed: {e!s}\n\nPlease check your information and try again."
 
 
 @tool("team_member_registration")
-def team_member_registration(player_name: str, phone_number: str, position: str, team_id: str, user_id: str = None) -> str:
+def team_member_registration(
+    player_name: str, phone_number: str, position: str, team_id: str, user_id: str = None
+) -> str:
     """
     Register a new team member. Requires: player_name, phone_number, position, team_id
 
@@ -140,6 +164,7 @@ def team_member_registration(player_name: str, phone_number: str, position: str,
     try:
         container = get_container()
         from kickai.features.team_administration.domain.services.team_service import TeamService
+
         team_service = container.get_service(TeamService)
 
         if not team_service:
@@ -151,6 +176,7 @@ def team_member_registration(player_name: str, phone_number: str, position: str,
 
         # Register the team member using TeamService (run async operation synchronously)
         import asyncio
+
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -163,7 +189,7 @@ def team_member_registration(player_name: str, phone_number: str, position: str,
                 user_id=actual_user_id,
                 role=position,  # Use position as role
                 name=player_name,
-                phone=phone_number
+                phone=phone_number,
             )
         )
 

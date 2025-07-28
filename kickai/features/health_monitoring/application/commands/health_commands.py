@@ -13,6 +13,7 @@ from kickai.core.enums import ChatType
 # HEALTH MONITORING COMMANDS
 # ============================================================================
 
+
 @command(
     name="/healthcheck",
     description="Perform system health check (Leadership only)",
@@ -21,9 +22,7 @@ from kickai.core.enums import ChatType
     feature="health_monitoring",
     chat_type=ChatType.LEADERSHIP,
     examples=["/healthcheck", "/healthcheck detailed"],
-    parameters={
-        "level": "Optional detail level (basic, detailed, full)"
-    },
+    parameters={"level": "Optional detail level (basic, detailed, full)"},
     help_text="""
 🏥 System Health Check (Leadership Only)
 
@@ -43,7 +42,7 @@ What's checked:
 • Error logs and alerts
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_healthcheck_command(update, context, **kwargs):
     """Handle /healthcheck command."""
@@ -58,9 +57,7 @@ async def handle_healthcheck_command(update, context, **kwargs):
     permission_level=PermissionLevel.PUBLIC,
     feature="health_monitoring",
     examples=["/systemstatus", "/systemstatus performance"],
-    parameters={
-        "metric": "Optional metric to focus on (performance, errors, usage)"
-    },
+    parameters={"metric": "Optional metric to focus on (performance, errors, usage)"},
     help_text="""
 📊 System Status
 
@@ -80,7 +77,7 @@ What you'll see:
 • Service availability
 
 💡 Tip: Monitor system health for optimal performance.
-    """
+    """,
 )
 async def handle_systemstatus_command(update, context, **kwargs):
     """Handle /systemstatus command."""
@@ -98,7 +95,7 @@ async def handle_systemstatus_command(update, context, **kwargs):
     examples=["/logs", "/logs error", "/logs 50"],
     parameters={
         "level": "Optional log level (info, warning, error)",
-        "lines": "Optional number of lines to show"
+        "lines": "Optional number of lines to show",
     },
     help_text="""
 📝 System Logs (Leadership Only)
@@ -118,7 +115,7 @@ Log levels:
 • debug - Debug information
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_logs_command(update, context, **kwargs):
     """Handle /logs command."""
@@ -134,9 +131,7 @@ async def handle_logs_command(update, context, **kwargs):
     feature="health_monitoring",
     chat_type=ChatType.LEADERSHIP,
     examples=["/restart", "/restart agents", "/restart llm"],
-    parameters={
-        "service": "Optional service to restart (agents, llm, all)"
-    },
+    parameters={"service": "Optional service to restart (agents, llm, all)"},
     help_text="""
 🔄 Restart Services (Leadership Only)
 
@@ -154,7 +149,7 @@ Available services:
 • all - All services
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_restart_command(update, context, **kwargs):
     """Handle /restart command."""
@@ -170,9 +165,7 @@ async def handle_restart_command(update, context, **kwargs):
     feature="health_monitoring",
     chat_type=ChatType.LEADERSHIP,
     examples=["/alerts", "/alerts enable", "/alerts disable"],
-    parameters={
-        "action": "Action to perform (enable, disable, configure)"
-    },
+    parameters={"action": "Action to perform (enable, disable, configure)"},
     help_text="""
 🚨 System Alerts (Leadership Only)
 
@@ -191,7 +184,7 @@ Alert types:
 • Usage thresholds
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_alerts_command(update, context, **kwargs):
     """Handle /alerts command."""

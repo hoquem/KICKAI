@@ -8,24 +8,25 @@ and business logic encapsulation.
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Union
 
+from typing import Any, Dict, Optional
 from kickai.features.shared.domain.entities.base_entity import BaseEntity
 
 
 @dataclass
 class Budget(BaseEntity):
     """Budget entity for managing team financial budgets."""
-    team_id: Union[str, None] = None
-    total_amount: Union[Decimal, None] = None
-    allocated_amount: Decimal = Decimal('0')
-    spent_amount: Decimal = Decimal('0')
+
+    team_id: Optional[str] = None
+    total_amount: Optional[Decimal] = None
+    allocated_amount: Decimal = Decimal("0")
+    spent_amount: Decimal = Decimal("0")
     currency: str = "USD"
     start_date: datetime = field(default_factory=datetime.now)
-    end_date: Union[datetime, None] = None
-    description: Union[str, None] = None
+    end_date: Optional[datetime] = None
+    description: Optional[str] = None
     status: str = "active"  # active, inactive, exceeded
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         super().__post_init__()
@@ -108,7 +109,7 @@ class Budget(BaseEntity):
 
         return True
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert budget to dictionary."""
         return {
             "id": self.id,
@@ -123,11 +124,11 @@ class Budget(BaseEntity):
             "status": self.status,
             "metadata": self.metadata,
             "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat()
+            "updated_at": self.updated_at.isoformat(),
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'Budget':
+    def from_dict(cls, data: Dict[str, Any]) -> "Budget":
         """Create budget from dictionary."""
         return cls(
             id=data.get("id"),
@@ -142,5 +143,5 @@ class Budget(BaseEntity):
             status=data.get("status", "active"),
             metadata=data.get("metadata", {}),
             created_at=datetime.fromisoformat(data["created_at"]),
-            updated_at=datetime.fromisoformat(data["updated_at"])
+            updated_at=datetime.fromisoformat(data["updated_at"]),
         )

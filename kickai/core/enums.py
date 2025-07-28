@@ -11,6 +11,7 @@ from enum import Enum
 
 class ChatType(Enum):
     """Chat types for permission checking and role assignment."""
+
     MAIN = "main_chat"
     LEADERSHIP = "leadership_chat"
     PRIVATE = "private"
@@ -18,6 +19,7 @@ class ChatType(Enum):
 
 class PermissionLevel(Enum):
     """Permission levels for commands."""
+
     PUBLIC = "public"
     PLAYER = "player"
     LEADERSHIP = "leadership"
@@ -27,6 +29,7 @@ class PermissionLevel(Enum):
 
 class CommandType(Enum):
     """Types of commands supported by the system."""
+
     SLASH_COMMAND = "slash_command"
     NATURAL_LANGUAGE = "natural_language"
     PLAYER_MANAGEMENT = "player_management"
@@ -39,6 +42,7 @@ class CommandType(Enum):
 
 class AgentRole(Enum):
     """CrewAI agent roles."""
+
     INTELLIGENT_SYSTEM = "intelligent_system"
     MESSAGE_PROCESSOR = "message_processor"
     TEAM_ADMINISTRATOR = "team_administrator"
@@ -59,14 +63,28 @@ class AgentRole(Enum):
 
 class AIProvider(Enum):
     """AI providers for different environments."""
+
     OLLAMA = "ollama"
     GEMINI = "gemini"
     OPENAI = "openai"
     MOCK = "mock"
 
 
+class PlayerPosition(Enum):
+    """Football player positions."""
+
+    GOALKEEPER = "goalkeeper"
+    DEFENDER = "defender"
+    MIDFIELDER = "midfielder"
+    FORWARD = "forward"
+    UTILITY = "utility"
+    WINGER = "winger"
+    STRIKER = "striker"
+
+
 class TeamStatus(Enum):
     """Team status values."""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
@@ -75,14 +93,19 @@ class TeamStatus(Enum):
 
 class PaymentType(Enum):
     """Payment types."""
+
     MATCH_FEE = "match_fee"
     MEMBERSHIP_FEE = "membership_fee"
     FINE = "fine"
     REFUND = "refund"
+    MANUAL = "manual"
+    LINK = "link"
+    REQUEST = "request"
 
 
 class PaymentStatus(Enum):
     """Payment status values."""
+
     PENDING = "pending"
     PAID = "paid"
     OVERDUE = "overdue"
@@ -92,32 +115,47 @@ class PaymentStatus(Enum):
 
 class ExpenseCategory(Enum):
     """Expense categories."""
+
     EQUIPMENT = "equipment"
     FACILITY = "facility"
     TRANSPORTATION = "transportation"
     ADMINISTRATIVE = "administrative"
+    PITCH_FEES = "pitch_fees"
+    REFEREE_FEES = "referee_fees"
+    TEAM_MEAL = "team_meal"
+    FA_FEES = "fa_fees"
     OTHER = "other"
 
 
 class HealthStatus(Enum):
     """System health status."""
+
     HEALTHY = "healthy"
     WARNING = "warning"
     CRITICAL = "critical"
+    DEGRADED = "degraded"
+    UNHEALTHY = "unhealthy"
     UNKNOWN = "unknown"
 
 
 class ComponentType(Enum):
     """System component types."""
+
     DATABASE = "database"
     TELEGRAM = "telegram"
     AI_SERVICE = "ai_service"
     PAYMENT_GATEWAY = "payment_gateway"
     NOTIFICATION_SERVICE = "notification_service"
+    AGENT = "agent"
+    TOOL = "tool"
+    SERVICE = "service"
+    INFRASTRUCTURE = "infrastructure"
+    EXTERNAL = "external"
 
 
 class AlertLevel(Enum):
     """Alert levels for monitoring."""
+
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
@@ -126,6 +164,7 @@ class AlertLevel(Enum):
 
 class TaskStatus(Enum):
     """Task execution status."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -135,6 +174,7 @@ class TaskStatus(Enum):
 
 class TaskComplexity(Enum):
     """Task complexity levels."""
+
     SIMPLE = "simple"
     MODERATE = "moderate"
     COMPLEX = "complex"
@@ -143,6 +183,7 @@ class TaskComplexity(Enum):
 
 class CapabilityLevel(Enum):
     """Agent capability levels."""
+
     BASIC = "basic"
     INTERMEDIATE = "intermediate"
     ADVANCED = "advanced"
@@ -151,6 +192,7 @@ class CapabilityLevel(Enum):
 
 class CapabilityCategory(Enum):
     """Agent capability categories."""
+
     COMMUNICATION = "communication"
     ANALYSIS = "analysis"
     DECISION_MAKING = "decision_making"
@@ -160,6 +202,7 @@ class CapabilityCategory(Enum):
 
 class ErrorSeverity(Enum):
     """Error severity levels."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -168,6 +211,7 @@ class ErrorSeverity(Enum):
 
 class ErrorCategory(Enum):
     """Error categories."""
+
     VALIDATION = "validation"
     DATABASE = "database"
     NETWORK = "network"
@@ -178,6 +222,7 @@ class ErrorCategory(Enum):
 
 class Environment(Enum):
     """Environment types."""
+
     DEVELOPMENT = "development"
     TESTING = "testing"
     STAGING = "staging"
@@ -186,21 +231,36 @@ class Environment(Enum):
 
 class CheckStatus(Enum):
     """Health check status."""
+
     PASS = "pass"
+    PASSED = "PASSED"
     FAIL = "fail"
+    FAILED = "FAILED"
     WARN = "warn"
+    WARNING = "WARNING"
+    SKIPPED = "SKIPPED"
 
 
 class CheckCategory(Enum):
     """Health check categories."""
+
     CONNECTIVITY = "connectivity"
     FUNCTIONALITY = "functionality"
     PERFORMANCE = "performance"
     SECURITY = "security"
+    LLM = "LLM"
+    AGENT = "AGENT"
+    TOOL = "TOOL"
+    TASK = "TASK"
+    EXTERNAL_SERVICE = "EXTERNAL_SERVICE"
+    CONFIGURATION = "CONFIGURATION"
+    DATABASE = "DATABASE"
+    TELEGRAM = "TELEGRAM"
 
 
 class MemoryType(Enum):
     """Memory storage types."""
+
     SHORT_TERM = "short_term"
     LONG_TERM = "long_term"
     EPISODIC = "episodic"
@@ -209,6 +269,7 @@ class MemoryType(Enum):
 
 class MemoryPriority(Enum):
     """Memory priority levels."""
+
     LOW = "low"
     NORMAL = "normal"
     HIGH = "high"
@@ -217,6 +278,7 @@ class MemoryPriority(Enum):
 
 class CacheNamespace(Enum):
     """Cache namespace types."""
+
     USER_SESSION = "user_session"
     TEAM_DATA = "team_data"
     MATCH_DATA = "match_data"
@@ -226,6 +288,7 @@ class CacheNamespace(Enum):
 
 class IDType(Enum):
     """ID generation types."""
+
     PLAYER = "player"
     TEAM = "team"
     MATCH = "match"
@@ -236,8 +299,30 @@ class IDType(Enum):
 
 class ApplicationState(Enum):
     """Application state values."""
+
     STARTING = "starting"
     RUNNING = "running"
     STOPPING = "stopping"
     STOPPED = "stopped"
     ERROR = "error"
+
+
+class TestType(Enum):
+    """Types of tests supported."""
+
+    COMMAND = "command"
+    NATURAL_LANGUAGE = "natural_language"
+    USER_FLOW = "user_flow"
+    DATA_VALIDATION = "data_validation"
+    INTEGRATION = "integration"
+    VALIDATION = "validation"
+
+
+class RegistryType(Enum):
+    """Types of registries supported by the system."""
+
+    TOOL = "tool"
+    COMMAND = "command"
+    SERVICE = "service"
+    AGENT = "agent"
+    TASK = "task"

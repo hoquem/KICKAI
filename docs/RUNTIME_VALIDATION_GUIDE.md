@@ -237,7 +237,7 @@ Please fix these issues before running the bot.
 cd /path/to/KICKAI
 
 # Activate virtual environment
-source venv/bin/activate
+source venv311/bin/activate
 
 # Run validation
 python scripts/quick_validation.py

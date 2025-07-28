@@ -14,8 +14,8 @@ Features:
 - Collision detection and resolution
 - Stable IDs (same input = same ID)
 """
+from typing import Optional, Union, Dict
 
-from typing import Union
 import hashlib
 import re
 from dataclasses import dataclass
@@ -23,20 +23,32 @@ from datetime import datetime
 from enum import Enum
 
 from loguru import logger
+from kickai.core.enums import PlayerPosition
 
 
-class PlayerPosition(Enum):
-    """Football player positions with codes."""
-    GOALKEEPER = "GK"
-    DEFENDER = "DF"
-    MIDFIELDER = "MF"
-    FORWARD = "FW"
-    WINGER = "WG"
-    STRIKER = "ST"
+def get_position_code(position: str) -> str:
+    """Get position code from centralized PlayerPosition enum."""
+    position_lower = position.lower()
+    
+    if any(word in position_lower for word in ["goalkeeper", "keeper", "gk"]):
+        return "GK"
+    elif any(word in position_lower for word in ["defender", "defence", "defense", "back"]):
+        return "DF"
+    elif any(word in position_lower for word in ["midfielder", "midfield", "mid"]):
+        return "MF"
+    elif any(word in position_lower for word in ["forward", "striker", "attack"]):
+        return "FW"
+    elif any(word in position_lower for word in ["winger", "wing"]):
+        return "WG"
+    elif any(word in position_lower for word in ["striker"]):
+        return "ST"
+    else:
+        return "MF"  # Default to midfielder
 
 
 class Competition(Enum):
     """Football competitions with prefixes."""
+
     PREMIER_LEAGUE = "PL"
     EFL_CHAMPIONSHIP = "EFL"
     EFL_LEAGUE_ONE = "EFL1"
@@ -56,8 +68,8 @@ class FootballIDGenerator:
         self.used_team_ids: set[str] = set()
         self.used_player_ids: set[str] = set()
         self.used_match_ids: set[str] = set()
-        self.team_mappings: dict[str, str] = {}
-        self.player_mappings: dict[str, str] = {}
+        self.team_mappings: Dict[str, str] = {}
+        self.player_mappings: Dict[str, str] = {}
 
     def _normalize_name(self, name: str) -> str:
         """Normalize a name for consistent processing."""
@@ -65,15 +77,27 @@ class FootballIDGenerator:
             return ""
 
         # Convert to lowercase and remove extra spaces
-        normalized = re.sub(r'\s+', ' ', name.lower().strip())
+        normalized = re.sub(r"\s+", " ", name.lower().strip())
 
         # Remove common football words that don't add meaning
-        common_words = ['the', 'fc', 'football', 'club', 'united', 'city', 'town',
-                       'athletic', 'athletics', 'rovers', 'rangers', 'wanderers']
+        common_words = [
+            "the",
+            "fc",
+            "football",
+            "club",
+            "united",
+            "city",
+            "town",
+            "athletic",
+            "athletics",
+            "rovers",
+            "rangers",
+            "wanderers",
+        ]
         words = normalized.split()
         filtered_words = [word for word in words if word not in common_words]
 
-        return ' '.join(filtered_words)
+        return " ".join(filtered_words)
 
     def _get_league_prefix(self, team_name: str, league_info: str = "") -> str:
         """Determine league prefix based on team name and league info."""
@@ -81,23 +105,35 @@ class FootballIDGenerator:
         league_lower = league_info.lower()
 
         # Check for Premier League teams (simplified list)
-        pl_teams = ['arsenal', 'chelsea', 'liverpool', 'manchester city', 'manchester united',
-                   'tottenham', 'newcastle', 'brighton', 'west ham', 'crystal palace']
+        pl_teams = [
+            "arsenal",
+            "chelsea",
+            "liverpool",
+            "manchester city",
+            "manchester united",
+            "tottenham",
+            "newcastle",
+            "brighton",
+            "west ham",
+            "crystal palace",
+        ]
 
-        if any(team in team_lower for team in pl_teams) or 'premier' in league_lower:
+        if any(team in team_lower for team in pl_teams) or "premier" in league_lower:
             return Competition.PREMIER_LEAGUE.value
 
         # Check for EFL teams
-        if any(word in league_lower for word in ['championship', 'league one', 'league two', 'efl']):
-            if 'league one' in league_lower:
+        if any(
+            word in league_lower for word in ["championship", "league one", "league two", "efl"]
+        ):
+            if "league one" in league_lower:
                 return Competition.EFL_LEAGUE_ONE.value
-            elif 'league two' in league_lower:
+            elif "league two" in league_lower:
                 return Competition.EFL_LEAGUE_TWO.value
             else:
                 return Competition.EFL_CHAMPIONSHIP.value
 
         # Check for Sunday League
-        if any(word in league_lower for word in ['sunday', 'amateur', 'recreational']):
+        if any(word in league_lower for word in ["sunday", "amateur", "recreational"]):
             return Competition.SUNDAY_LEAGUE.value
 
         # Default to Non-League
@@ -114,7 +150,7 @@ class FootballIDGenerator:
 
         if len(words) >= 2:
             # Use first letter of each word (max 4 characters)
-            code = ''.join(word[0].upper() for word in words[:4])
+            code = "".join(word[0].upper() for word in words[:4])
             return code[:4]  # Limit to 4 characters
         else:
             # For single words, use first 3-4 letters
@@ -143,20 +179,7 @@ class FootballIDGenerator:
 
     def _get_position_code(self, position: str) -> str:
         """Get position code from position string."""
-        position_lower = position.lower()
-
-        if any(word in position_lower for word in ['goalkeeper', 'keeper', 'gk']):
-            return PlayerPosition.GOALKEEPER.value
-        elif any(word in position_lower for word in ['defender', 'defence', 'defense', 'back']):
-            return PlayerPosition.DEFENDER.value
-        elif any(word in position_lower for word in ['midfielder', 'midfield', 'mid']):
-            return PlayerPosition.MIDFIELDER.value
-        elif any(word in position_lower for word in ['forward', 'striker', 'attack']):
-            return PlayerPosition.FORWARD.value
-        elif any(word in position_lower for word in ['winger', 'wing']):
-            return PlayerPosition.WINGER.value
-        else:
-            return PlayerPosition.MIDFIELDER.value  # Default
+        return get_position_code(position)
 
     def _get_jersey_number(self, position: str, existing_numbers: set[int]) -> int:
         """Get appropriate jersey number based on position and availability."""
@@ -164,12 +187,146 @@ class FootballIDGenerator:
 
         # Traditional position-based number ranges
         position_ranges = {
-            PlayerPosition.GOALKEEPER.value: [1, 12, 13, 25, 26],
-            PlayerPosition.DEFENDER.value: [2, 3, 4, 5, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35],
-            PlayerPosition.MIDFIELDER.value: [6, 7, 8, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35],
-            PlayerPosition.FORWARD.value: [9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35],
-            PlayerPosition.WINGER.value: [7, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35],
-            PlayerPosition.STRIKER.value: [9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]
+            "GK": [1, 12, 13, 25, 26],
+            "DF": [
+                2,
+                3,
+                4,
+                5,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+            ],
+            "MF": [
+                6,
+                7,
+                8,
+                10,
+                11,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+            ],
+            "FW": [
+                9,
+                10,
+                11,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+            ],
+            "WG": [
+                7,
+                11,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+            ],
+            "ST": [
+                9,
+                10,
+                11,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+            ],
         }
 
         # Try position-appropriate numbers first
@@ -187,8 +344,14 @@ class FootballIDGenerator:
         # Fallback
         return 99
 
-    def generate_player_id(self, first_name: str, last_name: str, position: str,
-                          team_id: str, existing_ids: Union[set[str], None] = None) -> str:
+    def generate_player_id(
+        self,
+        first_name: str,
+        last_name: str,
+        position: str,
+        team_id: str,
+        existing_ids: Optional[set[str]] = None,
+    ) -> str:
         """Generate a football-contextual player ID with jersey number and position."""
         if not first_name or not last_name or not position:
             return "99UNK1"
@@ -204,7 +367,7 @@ class FootballIDGenerator:
         for player_id in id_set:
             if player_id.startswith(team_id):
                 # Extract jersey number from existing player IDs
-                match = re.match(r'(\d{1,2})', player_id)
+                match = re.match(r"(\d{1,2})", player_id)
                 if match:
                     existing_numbers.add(int(match.group(1)))
 
@@ -231,11 +394,19 @@ class FootballIDGenerator:
         else:
             self.used_player_ids.add(final_id)
 
-        logger.info(f"Generated football player ID '{final_id}' for {first_name} {last_name} ({position})")
+        logger.info(
+            f"Generated football player ID '{final_id}' for {first_name} {last_name} ({position})"
+        )
         return final_id
 
-    def generate_match_id(self, home_team: str, away_team: str, match_date: str,
-                         competition: str = "FRIENDLY", match_time: str = "") -> str:
+    def generate_match_id(
+        self,
+        home_team: str,
+        away_team: str,
+        match_date: str,
+        competition: str = "FRIENDLY",
+        match_time: str = "",
+    ) -> str:
         """Generate a simple match ID with date and team information."""
         # Get team IDs
         home_id = self.generate_team_id(home_team)
@@ -243,7 +414,7 @@ class FootballIDGenerator:
 
         # Parse date to get day and month
         try:
-            parsed_date = datetime.strptime(match_date, '%Y-%m-%d')
+            parsed_date = datetime.strptime(match_date, "%Y-%m-%d")
             day = parsed_date.day
             month = parsed_date.month
 
@@ -254,7 +425,9 @@ class FootballIDGenerator:
             final_id = self._resolve_collision(base_id, self.used_match_ids)
             self.used_match_ids.add(final_id)
 
-            logger.info(f"Generated simple match ID '{final_id}' for {home_team} vs {away_team} on {match_date}")
+            logger.info(
+                f"Generated simple match ID '{final_id}' for {home_team} vs {away_team} on {match_date}"
+            )
             return final_id
 
         except Exception as e:
@@ -270,19 +443,19 @@ class FootballIDGenerator:
         """Get competition prefix from competition string."""
         competition_lower = competition.lower()
 
-        if 'premier' in competition_lower or 'pl' in competition_lower:
+        if "premier" in competition_lower or "pl" in competition_lower:
             return Competition.PREMIER_LEAGUE.value
-        elif 'fa cup' in competition_lower or 'fa' in competition_lower:
+        elif "fa cup" in competition_lower or "fa" in competition_lower:
             return Competition.FA_CUP.value
-        elif 'efl cup' in competition_lower or 'carabao' in competition_lower:
+        elif "efl cup" in competition_lower or "carabao" in competition_lower:
             return Competition.EFL_CUP.value
-        elif 'championship' in competition_lower:
+        elif "championship" in competition_lower:
             return Competition.EFL_CHAMPIONSHIP.value
-        elif 'league one' in competition_lower:
+        elif "league one" in competition_lower:
             return Competition.EFL_LEAGUE_ONE.value
-        elif 'league two' in competition_lower:
+        elif "league two" in competition_lower:
             return Competition.EFL_LEAGUE_TWO.value
-        elif 'sunday' in competition_lower:
+        elif "sunday" in competition_lower:
             return Competition.SUNDAY_LEAGUE.value
         else:
             return Competition.FRIENDLY.value
@@ -291,42 +464,67 @@ class FootballIDGenerator:
         """Parse date into YYYY-MM-DD format."""
         try:
             # Clean the date string
-            cleaned_date = re.sub(r'\b(Union[against, vs]|Union[v, on]|Union[at, home]|away)\b', '', date_str, flags=re.IGNORECASE).strip()
+            cleaned_date = re.sub(
+                r"\b(Union[Union[against, vs], Union[v, on]]|Union[Union[at, home], away])\b",
+                "",
+                date_str,
+                flags=re.IGNORECASE,
+            ).strip()
 
             # Try different date formats
             date_formats = [
-                '%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%d/%m/%y', '%d-%m-%y',
-                '%B %d, %Y', '%d %B %Y', '%B %d %Y', '%d %B, %Y'
+                "%Y-%m-%d",
+                "%d/%m/%Y",
+                "%d-%m-%Y",
+                "%d/%m/%y",
+                "%d-%m-%y",
+                "%B %d, %Y",
+                "%d %B %Y",
+                "%B %d %Y",
+                "%d %B, %Y",
             ]
 
             for fmt in date_formats:
                 try:
                     parsed_date = datetime.strptime(cleaned_date, fmt)
-                    return parsed_date.strftime('%Y-%m-%d')
+                    return parsed_date.strftime("%Y-%m-%d")
                 except ValueError:
                     continue
 
             # If no format works, try to extract from text
-            year_match = re.search(r'\b(20\d{2})\b', cleaned_date)
-            month_match = re.search(r'\b(Union[jan, feb]|Union[mar, apr]|Union[may, jun]|Union[jul, aug]|Union[sep, oct]|Union[nov, dec])\b', cleaned_date, re.IGNORECASE)
-            day_match = re.search(r'\b(\d{1,2})\b', cleaned_date)
+            year_match = re.search(r"\b(20\d{2})\b", cleaned_date)
+            month_match = re.search(
+                r"\b(Union[Union[jan, feb], Union[mar, apr]]|Union[Union[may, jun], Union[jul, aug]]|Union[Union[sep, oct], Union[nov, dec]])\b",
+                cleaned_date,
+                re.IGNORECASE,
+            )
+            day_match = re.search(r"\b(\d{1,2})\b", cleaned_date)
 
             if year_match and month_match and day_match:
                 year = year_match.group(1)
                 month_map = {
-                    'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
-                    'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
-                    'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+                    "jan": "01",
+                    "feb": "02",
+                    "mar": "03",
+                    "apr": "04",
+                    "may": "05",
+                    "jun": "06",
+                    "jul": "07",
+                    "aug": "08",
+                    "sep": "09",
+                    "oct": "10",
+                    "nov": "11",
+                    "dec": "12",
                 }
-                month = month_map.get(month_match.group(1).lower(), '01')
+                month = month_map.get(month_match.group(1).lower(), "01")
                 day = day_match.group(1).zfill(2)
                 return f"{year}-{month}-{day}"
 
-            return datetime.now().strftime('%Y-%m-%d')  # Default to today
+            return datetime.now().strftime("%Y-%m-%d")  # Default to today
 
         except Exception as e:
             logger.error(f"Date parsing error: {e}")
-            return datetime.now().strftime('%Y-%m-%d')  # Default to today
+            return datetime.now().strftime("%Y-%m-%d")  # Default to today
 
     def _resolve_collision(self, base_id: str, existing_ids: set[str]) -> str:
         """Resolve ID collision by adding a number suffix."""
@@ -343,11 +541,11 @@ class FootballIDGenerator:
         hash_suffix = hashlib.md5(base_id.encode()).hexdigest()[:2].upper()
         return f"{base_id}{hash_suffix}"
 
-    def get_team_mappings(self) -> dict[str, str]:
+    def get_team_mappings(self) -> Dict[str, str]:
         """Get all team name to ID mappings."""
         return self.team_mappings.copy()
 
-    def get_player_mappings(self) -> dict[str, str]:
+    def get_player_mappings(self) -> Dict[str, str]:
         """Get all player name to ID mappings."""
         return self.player_mappings.copy()
 
@@ -371,13 +569,27 @@ def generate_football_team_id(team_name: str, league_info: str = "") -> str:
     return football_id_generator.generate_team_id(team_name, league_info)
 
 
-def generate_football_player_id(first_name: str, last_name: str, position: str,
-                               team_id: str, existing_ids: Union[set[str], None] = None) -> str:
+def generate_football_player_id(
+    first_name: str,
+    last_name: str,
+    position: str,
+    team_id: str,
+    existing_ids: Optional[set[str]] = None,
+) -> str:
     """Generate a football-contextual player ID."""
-    return football_id_generator.generate_player_id(first_name, last_name, position, team_id, existing_ids)
+    return football_id_generator.generate_player_id(
+        first_name, last_name, position, team_id, existing_ids
+    )
 
 
-def generate_football_match_id(home_team: str, away_team: str, match_date: str,
-                              competition: str = "FRIENDLY", match_time: str = "") -> str:
+def generate_football_match_id(
+    home_team: str,
+    away_team: str,
+    match_date: str,
+    competition: str = "FRIENDLY",
+    match_time: str = "",
+) -> str:
     """Generate a football-contextual match ID."""
-    return football_id_generator.generate_match_id(home_team, away_team, match_date, competition, match_time)
+    return football_id_generator.generate_match_id(
+        home_team, away_team, match_date, competition, match_time
+    )

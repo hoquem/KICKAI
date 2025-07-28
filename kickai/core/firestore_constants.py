@@ -24,11 +24,15 @@ COLLECTION_DAILY_STATUS = "daily_status"
 COLLECTION_MESSAGES = "messages"
 COLLECTION_HEALTH_CHECKS = "health_checks"
 COLLECTION_ATTENDANCE = "attendance"
+COLLECTION_NOTIFICATIONS = "notifications"
+COLLECTION_INVITE_LINKS = "invite_links"
+
 
 # Full collection names (with prefix)
 def get_collection_name(collection: str) -> str:
     """Get the full collection name with prefix."""
     return f"{FIRESTORE_COLLECTION_PREFIX}_{collection}"
+
 
 # Team-specific collection naming (SINGLE SOURCE OF TRUTH)
 def get_team_specific_collection_name(team_id: str, collection_type: str) -> str:
@@ -44,21 +48,25 @@ def get_team_specific_collection_name(team_id: str, collection_type: str) -> str
     """
     return f"{FIRESTORE_COLLECTION_PREFIX}_{team_id}_{collection_type}"
 
+
 # Specific team collection helpers
 def get_team_members_collection(team_id: str) -> str:
     """Get team members collection name for a specific team."""
     # Team members are stored in team-specific collections
     return get_team_specific_collection_name(team_id, COLLECTION_TEAM_MEMBERS)
 
+
 def get_team_players_collection(team_id: str) -> str:
     """Get players collection name for a specific team."""
     # Players are stored in team-specific collections
     return get_team_specific_collection_name(team_id, COLLECTION_PLAYERS)
 
+
 def get_team_matches_collection(team_id: str) -> str:
     """Get matches collection name for a specific team."""
     # Matches are stored in team-specific collections
     return get_team_specific_collection_name(team_id, COLLECTION_MATCHES)
+
 
 # Predefined full collection names (for non-team-specific collections)
 FIRESTORE_COLLECTIONS = {
@@ -68,4 +76,6 @@ FIRESTORE_COLLECTIONS = {
     "matches": get_collection_name(COLLECTION_MATCHES),
     "payments": get_collection_name(COLLECTION_PAYMENTS),
     "daily_status": get_collection_name(COLLECTION_DAILY_STATUS),
+    "notifications": get_collection_name(COLLECTION_NOTIFICATIONS),
+    "invite_links": get_collection_name(COLLECTION_INVITE_LINKS),
 }

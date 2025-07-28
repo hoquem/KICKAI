@@ -90,7 +90,7 @@ release_lock() {
 # Start the bot in background and capture PID
 (
     # Activate virtual environment and start bot
-    source venv/bin/activate && python "$BOT_SCRIPT"
+    source venv311/bin/activate && python "$BOT_SCRIPT"
 ) &
 
 local bot_pid=$!  # ❌ Captures subshell PID, not Python process PID
@@ -99,7 +99,7 @@ local bot_pid=$!  # ❌ Captures subshell PID, not Python process PID
 **After (Fixed):**
 ```bash
 # Start the bot in background and capture PID
-source venv/bin/activate && python "$BOT_SCRIPT" &
+source venv311/bin/activate && python "$BOT_SCRIPT" &
 
 local bot_pid=$!  # ✅ Captures actual Python process PID
 ```

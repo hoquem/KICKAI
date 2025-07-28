@@ -6,8 +6,8 @@ This module provides utilities to redirect CrewAI logs to our loguru logging sys
 """
 
 import logging
-import sys
-from typing import Any, Union, Union
+
+from typing import Any, Dict, Optional
 
 from loguru import logger
 
@@ -68,9 +68,7 @@ def setup_crewai_logging(level: str = "INFO") -> None:
         handler.setLevel(getattr(logging, level.upper()))
 
         # Set formatter
-        formatter = logging.Formatter(
-            "%(name)s:%(funcName)s:%(lineno)d - %(message)s"
-        )
+        formatter = logging.Formatter("%(name)s:%(funcName)s:%(lineno)d - %(message)s")
         handler.setFormatter(formatter)
 
         # Add handler to CrewAI logger
@@ -85,7 +83,7 @@ def setup_crewai_logging(level: str = "INFO") -> None:
             "anthropic",
             "google.generativeai",
             "firebase_admin",
-            "google.cloud.firestore"
+            "google.cloud.firestore",
         ]
 
         for logger_name in related_loggers:
@@ -98,7 +96,7 @@ def setup_crewai_logging(level: str = "INFO") -> None:
         # Configure CrewAI to only log through our custom handler to loguru
         # This prevents duplicate logging and ensures clean console output
         crewai_logger.disabled = False  # Ensure logging is enabled
-        
+
         logger.info(f"✅ CrewAI logging configured with level: {level}")
         logger.info("📝 All CrewAI logs will be redirected to console only")
         crewai_logger.propagate = False  # Prevent propagation to root logger
@@ -134,7 +132,9 @@ def get_crewai_log_level() -> str:
         return "INFO"
 
 
-def log_crewai_agent_activity(agent_name: str, action: str, details: Union[dict[str, Any], None] = None) -> None:
+def log_crewai_agent_activity(
+    agent_name: str, action: str, details: Optional[Dict[str, Any]] = None
+) -> None:
     """
     Log CrewAI agent activity with structured information.
 
@@ -150,7 +150,7 @@ def log_crewai_agent_activity(agent_name: str, action: str, details: Union[dict[
     logger.info(f"[CREWAI AGENT] {message}")
 
 
-def log_crewai_tool_usage(tool_name: str, agent_name: str, result: Union[str, None] = None) -> None:
+def log_crewai_tool_usage(tool_name: str, agent_name: str, result: Optional[str] = None) -> None:
     """
     Log CrewAI tool usage.
 

@@ -1,9 +1,11 @@
 # KICKAI Command Specifications
 
-**Version:** 4.1  
+**Version:** 4.2  
 **Status:** Production Ready  
 **Last Updated:** July 2025  
 **Architecture:** Simplified User Type Logic - Chat-Based Entity Classification
+
+**New in v4.2:** Added `/update` command for self-service information updates (context-aware for players/team members)
 
 This document defines the expected behavior for all KICKAI bot commands across different scenarios, chat types, and user states, using the latest agentic architecture.
 
@@ -13,6 +15,9 @@ This document defines the expected behavior for all KICKAI bot commands across d
 - [Chat Types](#chat-types)
 - [User States](#user-states)
 - [Command Specifications](#command-specifications)
+  - [/start Command](#start-command)
+  - [/addplayer Command](#addplayer-command)
+  - [/update Command](#update-command)
 - [Command Processing Flow](#command-processing-flow)
 - [Testing Scenarios](#testing-scenarios)
 
@@ -27,6 +32,7 @@ This document defines the expected behavior for all KICKAI bot commands across d
 | `/myinfo` | Show personal information | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent (Main) / MessageProcessorAgent (Leadership) |
 | `/status` | Check player/team member status | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent (Main) / MessageProcessorAgent (Leadership) |
 | `/list` | List players/team members | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent (Main) / MessageProcessorAgent (Leadership) |
+| `/update` | Update personal information | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent (Main) / TeamManagerAgent (Leadership) |
 
 ### Player Management Commands
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent |
@@ -101,23 +107,25 @@ graph TD
 - **Tools**: Intent analysis, context extraction, message routing
 
 #### 3. **PlayerCoordinatorAgent**
-- **Primary Commands**: `/register`, `/myinfo`, `/status`, `/addplayer`
+- **Primary Commands**: `/register`, `/myinfo`, `/status`, `/addplayer`, `/update`
 - **Responsibilities**:
   - Player registration and onboarding
   - Individual player support
   - Player status tracking
   - Personal information management
   - Player addition and invite link generation
-- **Tools**: Player management, registration, status tracking, add_player
+  - Player information updates and validation
+- **Tools**: Player management, registration, status tracking, add_player, update_player_info
 
 #### 4. **TeamManagerAgent**
-- **Primary Commands**: `/list`, `/approve`, `/reject`, `/team`, `/invite`, `/announce`
+- **Primary Commands**: `/list`, `/approve`, `/reject`, `/team`, `/invite`, `/announce`, `/update`
 - **Responsibilities**:
   - Team administration
   - Player management
   - Team coordination
   - Administrative oversight
-- **Tools**: Team management, player administration, team coordination
+  - Team member information updates and role management
+- **Tools**: Team management, player administration, team coordination, update_team_member_info
 
 #### 5. **SystemInfrastructureAgent**
 - **Primary Commands**: `/health`, `/config`
@@ -1295,6 +1303,284 @@ async def status_leadership(update, context):
     phone = context.args[0] if context.args else None
     player = await get_player_by_phone(phone)
     return format_player_status(player, show_details=True)
+
+### `/update` Command
+
+#### Agentic Implementation Overview
+
+The `/update` command is implemented using **context-aware agent routing** that automatically determines whether to update player or team member information based on the chat type.
+
+**Key Components:**
+- **PlayerCoordinatorAgent**: Handles player updates in main chat
+- **TeamManagerAgent**: Handles team member updates in leadership chat
+- **Context Detection**: Automatically determines entity type based on chat context
+- **Validation Service**: Validates update requests and permissions
+- **Audit Trail**: Logs all update operations for security
+
+#### Context-Aware Behavior
+
+The `/update` command automatically adapts its behavior based on the chat context:
+
+**Main Chat Context:**
+- **Entity Type**: Player
+- **Agent**: PlayerCoordinatorAgent
+- **Available Fields**: phone, position, email, emergency_contact, medical_notes
+- **Permission**: Self-update only
+
+**Leadership Chat Context:**
+- **Entity Type**: Team Member
+- **Agent**: TeamManagerAgent
+- **Available Fields**: phone, email, emergency_contact, role
+- **Permission**: Self-update for contact info, admin approval for role changes
+
+#### Expected Behavior by Chat Type and User Status
+
+**Main Chat - Registered Player (`/update` command):**
+```
+✅ Player Information Update
+
+📋 Available Fields to Update:
+• phone - Your phone number
+• position - Your football position
+• email - Your email address
+• emergency_contact - Emergency contact info
+• medical_notes - Medical information
+
+📝 Usage Examples:
+/update phone 07123456789
+/update position midfielder
+/update email john@example.com
+/update emergency_contact +44787654321
+/update medical_notes Allergic to peanuts
+
+🔒 Security:
+• Only you can update your own information
+• All changes are logged for audit purposes
+```
+
+**Main Chat - Unregistered User (`/update` command):**
+```
+❌ Update Not Available
+
+🔍 You are not registered as a player in this team.
+
+📞 To register as a player:
+1. Contact someone in the team's leadership
+2. Ask them to add you using /addplayer
+3. They'll send you an invite link
+4. Join the main chat and register with /register
+
+💡 Need help? Use /help to see available commands.
+```
+
+**Leadership Chat - Registered Team Member (`/update` command):**
+```
+✅ Team Member Information Update
+
+📋 Available Fields to Update:
+• phone - Your phone number
+• email - Your email address
+• emergency_contact - Emergency contact info
+• role - Your administrative role (admin approval required)
+
+📝 Usage Examples:
+/update phone 07123456789
+/update email admin@example.com
+/update emergency_contact +44787654321
+/update role Assistant Coach
+
+🔒 Security:
+• You can update your own contact information
+• Role changes require admin approval
+• All changes are logged for audit purposes
+```
+
+**Leadership Chat - Unregistered User (`/update` command):**
+```
+❌ Update Not Available
+
+🔍 You are not registered as a team member in this team.
+
+📝 To register as a team member:
+1. Use /register [name] [phone] [role]
+2. Example: /register John Smith +447123456789 Assistant Coach
+3. You'll be added to the team members collection
+
+💡 Need help? Use /help to see available commands.
+```
+
+#### Update Field Specifications
+
+**Player Fields (Main Chat):**
+1. **phone** - Contact phone number
+   - **Validation**: UK phone format (+44 or 07xxx)
+   - **Example**: `/update phone 07123456789`
+   - **Permission**: Self-update only
+
+2. **position** - Football position
+   - **Validation**: Must be valid position (goalkeeper, defender, midfielder, forward, etc.)
+   - **Example**: `/update position midfielder`
+   - **Permission**: Self-update only
+
+3. **email** - Email address
+   - **Validation**: Valid email format
+   - **Example**: `/update email john@example.com`
+   - **Permission**: Self-update only
+
+4. **emergency_contact** - Emergency contact information
+   - **Validation**: Phone number or text description
+   - **Example**: `/update emergency_contact +44787654321`
+   - **Permission**: Self-update only
+
+5. **medical_notes** - Medical information
+   - **Validation**: Free text (max 500 characters)
+   - **Example**: `/update medical_notes Allergic to peanuts`
+   - **Permission**: Self-update only
+
+**Team Member Fields (Leadership Chat):**
+1. **phone** - Contact phone number
+   - **Validation**: UK phone format (+44 or 07xxx)
+   - **Example**: `/update phone 07123456789`
+   - **Permission**: Self-update only
+
+2. **email** - Email address
+   - **Validation**: Valid email format
+   - **Example**: `/update email admin@example.com`
+   - **Permission**: Self-update only
+
+3. **emergency_contact** - Emergency contact information
+   - **Validation**: Phone number or text description
+   - **Example**: `/update emergency_contact +44787654321`
+   - **Permission**: Self-update only
+
+4. **role** - Administrative role
+   - **Validation**: Must be valid role (Team Manager, Coach, Assistant Coach, etc.)
+   - **Example**: `/update role Assistant Coach`
+   - **Permission**: Admin approval required
+
+**Fixed Fields (Cannot be updated by users):**
+- `user_id` - Internal user identifier
+- `team_id` - Team assignment
+- `telegram_id` - Telegram user ID
+- `status` - User status (pending/approved/active/inactive)
+- `created_at` - Registration timestamp
+- `source` - Data source information
+
+#### Implementation Requirements
+
+**Context-Aware Routing:**
+```python
+async def handle_update_command(update, context, **kwargs):
+    """Handle /update command with context-aware routing."""
+    chat_type = determine_chat_type(update.effective_chat.id)
+    user_id = update.effective_user.id
+    
+    if chat_type == ChatType.MAIN:
+        # Route to PlayerCoordinatorAgent for player updates
+        return await player_coordinator_agent.handle_update(update, context)
+    elif chat_type == ChatType.LEADERSHIP:
+        # Route to TeamManagerAgent for team member updates
+        return await team_manager_agent.handle_update(update, context)
+    else:
+        return "❌ Update command not available in this chat type."
+```
+
+**Backend Service Methods:**
+```python
+# Player updates (Main chat)
+async def update_player_info(
+    self, 
+    player_id: str, 
+    team_id: str, 
+    field: str, 
+    value: str,
+    updated_by: str
+) -> Dict[str, Any]:
+    """Update specific player information field."""
+
+# Team member updates (Leadership chat)
+async def update_team_member_info(
+    self, 
+    user_id: str, 
+    team_id: str, 
+    field: str, 
+    value: str,
+    updated_by: str
+) -> Dict[str, Any]:
+    """Update specific team member information field."""
+```
+
+**Validation Rules:**
+1. **Context Detection**: Automatically determine entity type from chat context
+2. **Permission Check**: Only the user themselves can update their information
+3. **Field Validation**: Validate field name and value format based on entity type
+4. **Role Change Approval**: Team member role changes require admin approval
+5. **Audit Logging**: Log all update operations with timestamp and user
+6. **Error Handling**: Provide clear error messages for invalid updates
+
+**Success Response:**
+```
+✅ Information Updated
+
+📋 Updated Field: {field}
+🆕 New Value: {value}
+📅 Updated: {timestamp}
+👤 Updated By: {username}
+
+💡 Use /myinfo to view your updated information.
+```
+
+**Role Change Approval Response (Leadership Chat Only):**
+```
+⏳ Role Change Request Submitted
+
+📋 Requested Change: {field} → {value}
+👤 Requested By: {username}
+📅 Requested: {timestamp}
+
+🔒 This change requires admin approval.
+📧 You'll be notified when the request is processed.
+
+💡 Contact a team admin to expedite the approval.
+```
+
+**Error Responses:**
+```
+❌ Update Failed: {error_message}
+
+🔍 Common Issues:
+• Invalid field name - check available fields for your role
+• Invalid value format - check the field requirements
+• Permission denied - you can only update your own information
+• Role change requires admin approval - contact a team admin
+• Service unavailable - try again in a moment
+
+💡 Need help? Use /help for command examples.
+```
+
+#### Natural Language Support
+
+The `/update` command supports natural language queries in both contexts:
+
+**Player Update Examples (Main Chat):**
+- "Update my phone number to 07123456789"
+- "Change my position to midfielder"
+- "I want to update my email address"
+- "Can I change my emergency contact?"
+
+**Team Member Update Examples (Leadership Chat):**
+- "Update my phone number to 07123456789"
+- "Change my role to Assistant Coach"
+- "I want to update my email address"
+- "Can I change my emergency contact?"
+
+**Natural Language Processing:**
+1. **Intent Classification**: Detect update intent from natural language
+2. **Context Detection**: Determine entity type from chat context
+3. **Entity Extraction**: Extract field name and new value
+4. **Validation**: Validate extracted information based on entity type
+5. **Command Mapping**: Map to appropriate update command
+6. **Response**: Provide same response as slash command
 
 ---
 
