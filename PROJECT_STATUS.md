@@ -81,14 +81,6 @@
 - 🔄 `/reject` - Player rejection system
 - 🔄 `/pending` - Pending registrations list
 
-#### **2. Training Management (6/6)**
-- ✅ `/scheduletraining` - Training session scheduling (leadership)
-- ✅ `/listtrainings` - Training session listing
-- ✅ `/marktraining` - Training attendance marking
-- ✅ `/canceltraining` - Training session cancellation (leadership)
-- ✅ `/trainingstats` - Training statistics and analytics
-- ✅ `/mytrainings` - Personal training schedule
-
 #### **3. Advanced Features**
 - 🔄 **Payment Integration**: Collectiv payment processing
 - 🔄 **Match Management**: Match scheduling and operations
@@ -102,7 +94,15 @@
 - 📋 `/invite` - Invitation link generation
 - 📋 `/announce` - Team announcements
 
-#### **2. Advanced Capabilities**
+#### **2. Team Administration Commands (6/6)**
+- ✅ `/scheduletraining` - Training session scheduling (leadership)
+- ✅ `/listtrainings` - Training session listing
+- ✅ `/marktraining` - Training attendance marking
+- ✅ `/canceltraining` - Training session cancellation (leadership)
+- ✅ `/trainingstats` - Training statistics and analytics
+- ✅ `/mytrainings` - Personal training schedule
+
+#### **3. Advanced Capabilities**
 - 📋 **Mobile Integration**: Mobile app development
 - 📋 **API Expansion**: External API development
 - 📋 **Multi-language Support**: Internationalization
