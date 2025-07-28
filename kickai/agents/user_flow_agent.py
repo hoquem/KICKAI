@@ -163,6 +163,8 @@ class UserFlowAgent:
         """Tool: Format unregistered user message based on chat type."""
         try:
             if chat_type == ChatType.MAIN.value:
+                # For main chat, always show linking instructions since we can't check async here
+                # The actual linking check happens in the async _format_unregistered_user_message method
                 message = (
                     f"👋 Welcome to KICKAI for {team_id}, {username}!\n\n"
                     f"🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant\n\n"
@@ -453,7 +455,32 @@ class UserFlowAgent:
         self, chat_type: ChatType, team_id: str, username: str
     ) -> str:
         """Format unregistered user message based on chat type."""
-        return self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
+        try:
+            if chat_type == ChatType.MAIN:
+                # Check for pending players that could be linked
+                try:
+                    from kickai.features.player_registration.domain.services.player_linking_service import (
+                        PlayerLinkingService,
+                    )
+                    
+                    linking_service = PlayerLinkingService(team_id)
+                    pending_players = await linking_service.get_pending_players_without_telegram_id()
+                    
+                    if pending_players:
+                        # Use the specific linking prompt message
+                        message = await linking_service.create_linking_prompt_message("")
+                        return message
+                except Exception as e:
+                    logger.debug(f"Could not check pending players for linking prompt: {e}")
+                
+                # Fallback to generic message if no pending players or error
+                return self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
+            else:
+                # For other chat types, use the tool method
+                return self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
+        except Exception as e:
+            logger.error(f"Error formatting unregistered user message: {e}")
+            return self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
 
     async def _format_registered_user_message(
         self, user_id: str, team_id: str, username: str
