@@ -183,6 +183,19 @@ class AgentSelectionStep(PipelineStep):
                     AgentRole.MESSAGE_PROCESSOR
                 )
 
+            # Update commands - context-aware selection
+            if command == "update":
+                if chat_type == "main_chat":
+                    # Main chat: Use PLAYER_COORDINATOR for player updates
+                    return available_agents.get(AgentRole.PLAYER_COORDINATOR) or available_agents.get(
+                        AgentRole.MESSAGE_PROCESSOR
+                    )
+                else:
+                    # Leadership chat: Use TEAM_MANAGER for team member updates
+                    return available_agents.get(AgentRole.TEAM_MANAGER) or available_agents.get(
+                        AgentRole.MESSAGE_PROCESSOR
+                    )
+
         # Intent-based selection with context awareness
         if intent == "help_request":
             return available_agents.get(AgentRole.HELP_ASSISTANT) or available_agents.get(
