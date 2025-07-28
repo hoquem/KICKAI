@@ -10,7 +10,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-from crewai.tools import tool
+from crewai import tool
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,8 @@ class CommonUpdateValidator:
             r'^44\d{10}$',    # 44xxxxxxxxxx  
             r'^07\d{9}$',     # 07xxxxxxxxx
             r'^01\d{9}$',     # 01xxxxxxxxx
-            r'^02\d{8}$',     # 02xxxxxxxx
+            r'^020\d{8}$',    # 020xxxxxxxx (London)
+            r'^011\d{8}$',    # 011xxxxxxxx (Northern Ireland)
             r'^03\d{9}$',     # 03xxxxxxxxx (non-geographic)
         ]
         

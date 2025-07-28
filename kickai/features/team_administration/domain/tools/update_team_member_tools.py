@@ -11,7 +11,7 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from crewai.tools import tool
+from crewai import tool
 
 from kickai.core.constants import get_team_members_collection
 from kickai.core.exceptions import ValidationError
@@ -87,7 +87,8 @@ class TeamMemberUpdateValidator:
             r'^44\d{10}$',    # 44xxxxxxxxxx  
             r'^07\d{9}$',     # 07xxxxxxxxx
             r'^01\d{9}$',     # 01xxxxxxxxx
-            r'^02\d{8}$',     # 02xxxxxxxx
+            r'^020\d{8}$',    # 020xxxxxxxx (London)
+            r'^011\d{8}$',    # 011xxxxxxxx (Northern Ireland)
         ]
         
         # Try to match patterns
