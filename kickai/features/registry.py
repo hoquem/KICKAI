@@ -5,7 +5,7 @@ This module provides factories for creating all feature services, ensuring
 proper dependency management and avoiding circular imports.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from loguru import logger
 
@@ -21,7 +21,7 @@ class ServiceFactory:
     def __init__(self, container, database):
         self.container = container
         self.database = database
-        self._cache: dict[str, Any] = {}
+        self._cache: Dict[str, Any] = {}
 
     def get_database(self) -> DataStoreInterface:
         """Get the database interface."""
@@ -34,14 +34,17 @@ class ServiceFactory:
         from kickai.features.team_administration.infrastructure.firebase_team_repository import (
             FirebaseTeamRepository,
         )
+
         logger.debug("🔍 Imported FirebaseTeamRepository")
         from kickai.features.player_registration.infrastructure.firebase_player_repository import (
             FirebasePlayerRepository,
         )
+
         logger.debug("🔍 Imported FirebasePlayerRepository")
         from kickai.features.payment_management.infrastructure.firebase_expense_repository import (
             FirebaseExpenseRepository,
         )
+
         logger.debug("🔍 Imported FirebaseExpenseRepository")
 
         logger.debug("🔍 Creating team repository...")
@@ -67,9 +70,9 @@ class ServiceFactory:
         self.container.register_service(ExpenseRepositoryInterface, expense_repo)
 
         return {
-            'team_repository': team_repo,
-            'player_repository': player_repo,
-            'expense_repository': expense_repo
+            "team_repository": team_repo,
+            "player_repository": player_repo,
+            "expense_repository": expense_repo,
         }
 
     def create_payment_services(self):
@@ -78,10 +81,12 @@ class ServiceFactory:
         from kickai.features.payment_management.domain.services.expense_service import (
             ExpenseService,
         )
+
         logger.debug("🔍 Imported ExpenseService")
         from kickai.features.payment_management.domain.repositories.expense_repository_interface import (
             ExpenseRepositoryInterface,
         )
+
         logger.debug("🔍 Imported ExpenseRepositoryInterface")
 
         expense_repo = self.container.get_service(ExpenseRepositoryInterface)
@@ -91,26 +96,28 @@ class ServiceFactory:
 
         self.container.register_service(ExpenseService, expense_service)
 
-        return {
-            'expense_service': expense_service
-        }
+        return {"expense_service": expense_service}
 
     def create_team_services(self):
         """Create team services that depend on repositories and payment services."""
         logger.info("🔍 Creating team services...")
         from kickai.features.team_administration.domain.services.team_service import TeamService
+
         logger.debug("🔍 Imported TeamService")
         from kickai.features.team_administration.domain.repositories.team_repository_interface import (
             TeamRepositoryInterface,
         )
+
         logger.debug("🔍 Imported TeamRepositoryInterface")
         from kickai.features.team_administration.domain.interfaces.team_service_interface import (
             ITeamService,
         )
+
         logger.debug("🔍 Imported ITeamService")
         from kickai.features.payment_management.domain.services.expense_service import (
             ExpenseService,
         )
+
         logger.debug("🔍 Imported ExpenseService")
 
         team_repo = self.container.get_service(TeamRepositoryInterface)
@@ -125,9 +132,7 @@ class ServiceFactory:
         self.container.register_service(TeamService, team_service)
         self.container.register_service(ITeamService, team_service)
 
-        return {
-            'team_service': team_service
-        }
+        return {"team_service": team_service}
 
     def create_player_registration_services(self):
         """Create player registration services that depend on team services."""
@@ -135,19 +140,24 @@ class ServiceFactory:
         from kickai.features.player_registration.domain.services.player_registration_service import (
             PlayerRegistrationService,
         )
+
         logger.debug("🔍 Imported PlayerRegistrationService")
         from kickai.features.player_registration.domain.services.player_service import PlayerService
+
         logger.debug("🔍 Imported PlayerService")
         # TeamMemberService removed - using mock service instead
         from kickai.features.player_registration.domain.interfaces.player_service_interface import (
             IPlayerService,
         )
+
         logger.debug("🔍 Imported IPlayerService")
         from kickai.features.player_registration.domain.repositories.player_repository_interface import (
             PlayerRepositoryInterface,
         )
+
         logger.debug("🔍 Imported PlayerRepositoryInterface")
         from kickai.features.team_administration.domain.services.team_service import TeamService
+
         logger.debug("🔍 Imported TeamService")
 
         player_repo = self.container.get_service(PlayerRepositoryInterface)
@@ -164,12 +174,16 @@ class ServiceFactory:
         class MockTeamMemberRepository:
             async def create(self, team_member):
                 return team_member
+
             async def get_by_team(self, team_id):
                 return []
+
             async def get_by_player(self, player_id, team_id):
                 return None
+
             async def update(self, team_member):
                 return team_member
+
             async def delete_by_player(self, player_id, team_id):
                 return True
 
@@ -180,6 +194,7 @@ class ServiceFactory:
         from kickai.features.team_administration.domain.services.team_member_service import (
             TeamMemberService,
         )
+
         logger.debug("🔍 Imported TeamMemberService")
 
         # Get team repository from container
@@ -199,13 +214,15 @@ class ServiceFactory:
         self.container.register_service(TeamMemberService, team_member_service)
 
         # Debug: Log what services are now in the container
-        logger.debug(f"🔍 Container services after player registration: {[cls.__name__ for cls in self.container._services.keys()]}")
+        logger.debug(
+            f"🔍 Container services after player registration: {[cls.__name__ for cls in self.container._services.keys()]}"
+        )
         logger.debug(f"🔍 Container service count: {len(self.container._services)}")
 
         return {
-            'player_service': player_service,
-            'team_member_service': team_member_service,
-            'registration_service': registration_service
+            "player_service": player_service,
+            "team_member_service": team_member_service,
+            "registration_service": registration_service,
         }
 
     def create_team_administration_services(self):
@@ -214,39 +231,40 @@ class ServiceFactory:
         from kickai.features.team_administration.domain.services.team_administration_service import (
             TeamAdministrationService,
         )
+
         logger.debug("🔍 Imported TeamAdministrationService")
         from kickai.features.team_administration.domain.services.multi_bot_manager import (
             MultiBotManager,
         )
+
         logger.debug("🔍 Imported MultiBotManager")
         from kickai.features.team_administration.domain.repositories.team_repository_interface import (
             TeamRepositoryInterface,
         )
+
         logger.debug("🔍 Imported TeamRepositoryInterface")
         from kickai.features.team_administration.domain.interfaces.team_service_interface import (
             ITeamService,
         )
+
         logger.debug("🔍 Imported ITeamService")
-        
+
         team_repo = self.container.get_service(TeamRepositoryInterface)
         logger.debug("🔍 Got team repository from container")
-        
+
         admin_service = TeamAdministrationService(team_repo)
         logger.debug("🔍 Created TeamAdministrationService")
-        
+
         # Create MultiBotManager with database and team service
         team_service = self.container.get_service(ITeamService)
         multi_bot_manager = MultiBotManager(self.database, team_service)
         logger.debug("🔍 Created MultiBotManager")
-        
+
         # Register services
         self.container.register_service(TeamAdministrationService, admin_service)
         self.container.register_service(MultiBotManager, multi_bot_manager)
-        
-        return {
-            'admin_service': admin_service,
-            'multi_bot_manager': multi_bot_manager
-        }
+
+        return {"admin_service": admin_service, "multi_bot_manager": multi_bot_manager}
 
     def create_match_management_services(self):
         """Create match management services."""
@@ -270,10 +288,7 @@ class ServiceFactory:
         self.container.register_service(MatchRepositoryInterface, match_repo)
         self.container.register_service(MatchManagementService, match_service)
 
-        return {
-            'match_repository': match_repo,
-            'match_service': match_service
-        }
+        return {"match_repository": match_repo, "match_service": match_service}
 
     def create_attendance_management_services(self):
         """Create attendance management services."""
@@ -297,10 +312,7 @@ class ServiceFactory:
         self.container.register_service(AttendanceRepositoryInterface, attendance_repo)
         self.container.register_service(AttendanceService, attendance_service)
 
-        return {
-            'attendance_repository': attendance_repo,
-            'attendance_service': attendance_service
-        }
+        return {"attendance_repository": attendance_repo, "attendance_service": attendance_service}
 
     def create_payment_management_services(self):
         """Create payment management services."""
@@ -336,23 +348,23 @@ class ServiceFactory:
         self.container.register_service(BudgetService, budget_service)
 
         return {
-            'payment_repository': payment_repo,
-            'budget_repository': budget_repo,
-            'payment_service': payment_service,
-            'budget_service': budget_service
+            "payment_repository": payment_repo,
+            "budget_repository": budget_repo,
+            "payment_service": payment_service,
+            "budget_service": budget_service,
         }
 
     def create_communication_services(self):
         """Create communication services."""
+        from kickai.features.communication.domain.services.communication_service import (
+            CommunicationService,
+        )
         from kickai.features.communication.domain.services.invite_link_service import (
             InviteLinkService,
         )
         from kickai.features.communication.domain.services.message_service import MessageService
         from kickai.features.communication.domain.services.notification_service import (
             NotificationService,
-        )
-        from kickai.features.communication.domain.services.communication_service import (
-            CommunicationService,
         )
         from kickai.features.communication.infrastructure.firebase_message_repository import (
             FirebaseMessageRepository,
@@ -368,10 +380,12 @@ class ServiceFactory:
         notification_service = NotificationService(notification_repository)
 
         # Create invite link service (bot token will be set later from Firestore)
-        invite_link_service = InviteLinkService(self.database)
+        invite_link_service = InviteLinkService(bot_token=None, database=self.database)
 
         # Create communication service (TelegramBotService will be injected later)
-        communication_service = CommunicationService(None)  # Will be updated when TelegramBotService is available
+        communication_service = CommunicationService(
+            None
+        )  # Will be updated when TelegramBotService is available
 
         # Register with container
         self.container.register_service(MessageService, message_service)
@@ -380,10 +394,10 @@ class ServiceFactory:
         self.container.register_service(CommunicationService, communication_service)
 
         return {
-            'message_service': message_service,
-            'notification_service': notification_service,
-            'invite_link_service': invite_link_service,
-            'communication_service': communication_service
+            "message_service": message_service,
+            "notification_service": notification_service,
+            "invite_link_service": invite_link_service,
+            "communication_service": communication_service,
         }
 
     def create_health_monitoring_services(self):
@@ -408,10 +422,7 @@ class ServiceFactory:
         self.container.register_service(HealthCheckRepositoryInterface, health_repo)
         self.container.register_service(HealthMonitoringService, health_service)
 
-        return {
-            'health_repository': health_repo,
-            'health_service': health_service
-        }
+        return {"health_repository": health_repo, "health_service": health_service}
 
     def create_system_infrastructure_services(self):
         """Create system infrastructure services."""
@@ -431,8 +442,8 @@ class ServiceFactory:
         logging_service = LoggingService()
 
         # Create permission service with database
-        firebase_client = FirebaseClient() if hasattr(self.database, '_firebase_client') else self.database
-        permission_service = PermissionService(firebase_client)
+        # Use the existing database instance instead of creating a new FirebaseClient
+        permission_service = PermissionService(self.database)
 
         # Register with container
         self.container.register_service(ConfigurationService, config_service)
@@ -440,12 +451,12 @@ class ServiceFactory:
         self.container.register_service(PermissionService, permission_service)
 
         return {
-            'config_service': config_service,
-            'logging_service': logging_service,
-            'permission_service': permission_service
+            "config_service": config_service,
+            "logging_service": logging_service,
+            "permission_service": permission_service,
         }
 
-    def create_all_services(self) -> dict[str, Any]:
+    def create_all_services(self) -> Dict[str, Any]:
         """Create all feature services in the correct dependency order."""
         services = {}
 

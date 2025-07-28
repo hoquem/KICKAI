@@ -1,6 +1,6 @@
 # KICKAI Codebase Index
 
-**Version:** 3.0  
+**Version:** 3.1  
 **Status:** Production Ready  
 **Last Updated:** December 2024  
 **Architecture:** CrewAI Agents Architecture First with 8-Agent CrewAI System
@@ -59,21 +59,20 @@ KICKAI is an AI-powered football team management system built **CrewAI agents ar
 KICKAI/
 ├── kickai/                        # Main source code (src equivalent)
 │   ├── agents/                    # AI Agent System (8 agents)
-│   │   ├── agentic_message_router.py # Message routing (23KB, 548 lines)
-│   │   ├── crew_agents.py         # 8-agent CrewAI definitions (21KB, 490 lines)
-│   │   ├── configurable_agent.py  # Configurable agent base class (13KB, 352 lines)
-│   │   ├── simplified_orchestration.py # Task orchestration (26KB, 586 lines)
-│   │   ├── behavioral_mixins.py   # Agent behavior mixins (36KB, 1080 lines)
-│   │   ├── refined_capabilities.py # Agent capabilities (31KB, 617 lines)
-│   │   ├── task_decomposition.py  # Task decomposition (25KB, 620 lines)
-│   │   ├── tool_output_capture.py # Tool output capture (25KB, 668 lines)
-│   │   ├── team_memory.py         # Team memory system (6.3KB, 188 lines)
-│   │   ├── complexity_assessor.py # Complexity assessment (8.3KB, 210 lines)
-│   │   ├── crew_lifecycle_manager.py # Crew lifecycle (13KB, 362 lines)
-│   │   ├── user_flow_agent.py     # User flow agent (20KB, 419 lines)
-│   │   ├── intelligent_system.py  # Intelligent system (8.4KB, 223 lines)
-│   │   ├── tool_wrapper.py        # Tool wrapper (6.0KB, 168 lines)
-│   │   └── tool_registry.py       # Tool registry (32KB, 812 lines)
+│   │   ├── agentic_message_router.py # Message routing (23KB, 547 lines)
+│   │   ├── crew_agents.py         # 8-agent CrewAI definitions (21KB, 489 lines)
+│   │   ├── configurable_agent.py  # Configurable agent base class (13KB, 345 lines)
+│   │   ├── simplified_orchestration.py # Task orchestration (24KB, 537 lines)
+│   │   ├── behavioral_mixins.py   # Agent behavior mixins (36KB, 1079 lines)
+│   │   ├── refined_capabilities.py # Agent capabilities (31KB, 616 lines)
+│   │   ├── task_decomposition.py  # Task decomposition (25KB, 619 lines)
+│   │   ├── entity_specific_agents.py # Entity-specific agents (18KB, 437 lines)
+│   │   ├── team_memory.py         # Team memory system (6.3KB, 187 lines)
+│   │   ├── complexity_assessor.py # Complexity assessment (8.3KB, 209 lines)
+│   │   ├── crew_lifecycle_manager.py # Crew lifecycle (13KB, 361 lines)
+│   │   ├── user_flow_agent.py     # User flow agent (20KB, 418 lines)
+│   │   ├── intelligent_system.py  # Intelligent system (8.4KB, 222 lines)
+│   │   └── tool_registry.py       # Tool registry (32KB, 811 lines)
 │   ├── features/                  # Feature-based modules (Clean Architecture)
 │   │   ├── player_registration/   # Player onboarding system
 │   │   │   ├── application/       # Application layer
@@ -155,25 +154,25 @@ KICKAI/
 │   │   │       ├── interfaces/    # Shared interfaces
 │   │   │       ├── services/      # Shared services
 │   │   │       └── tools/         # Shared tools
-│   │   └── registry.py            # Feature registry (20KB, 463 lines)
+│   │   └── registry.py            # Feature registry (20KB, 470 lines)
 │   ├── core/                      # Core System Components
-│   │   ├── agent_registry.py      # Agent registry (16KB, 461 lines)
-│   │   ├── command_registry.py    # Unified command registry (20KB, 536 lines)
-│   │   ├── command_registry_initializer.py # Command initialization (7.2KB, 184 lines)
-│   │   ├── settings.py            # Application settings (11KB, 389 lines)
-│   │   ├── exceptions.py          # Custom exceptions (8.1KB, 252 lines)
-│   │   ├── error_handling.py      # Error handling (12KB, 380 lines)
-│   │   ├── dependency_container.py # Dependency injection (9.0KB, 244 lines)
-│   │   ├── context_manager.py     # Context management (3.6KB, 111 lines)
-│   │   ├── context_types.py       # Context type definitions (7.5KB, 226 lines)
-│   │   ├── constants.py           # System constants (21KB, 595 lines)
-│   │   ├── enums.py               # System enums (5.6KB, 244 lines)
-│   │   ├── firestore_constants.py # Firestore constants (2.6KB, 72 lines)
-│   │   ├── entity_types.py        # Entity type definitions (508B, 18 lines)
-│   │   ├── logging_config.py      # Logging configuration (1.1KB, 37 lines)
-│   │   ├── llm_health_monitor.py  # LLM health monitoring (7.0KB, 195 lines)
-│   │   ├── registry_manager.py    # Registry management (16KB, 455 lines)
-│   │   ├── startup_validator.py   # Startup validation (1.1KB, 43 lines)
+│   │   ├── agent_registry.py      # Agent registry (16KB, 460 lines)
+│   │   ├── command_registry.py    # Unified command registry (20KB, 535 lines)
+│   │   ├── command_registry_initializer.py # Command initialization (7.2KB, 183 lines)
+│   │   ├── settings.py            # Application settings (11KB, 388 lines)
+│   │   ├── exceptions.py          # Custom exceptions (8.1KB, 251 lines)
+│   │   ├── error_handling.py      # Error handling (12KB, 379 lines)
+│   │   ├── dependency_container.py # Dependency injection (9.6KB, 255 lines)
+│   │   ├── context_manager.py     # Context management (3.6KB, 110 lines)
+│   │   ├── context_types.py       # Context type definitions (7.5KB, 225 lines)
+│   │   ├── constants.py           # System constants (21KB, 594 lines)
+│   │   ├── enums.py               # System enums (5.6KB, 243 lines)
+│   │   ├── firestore_constants.py # Firestore constants (2.6KB, 71 lines)
+│   │   ├── entity_types.py        # Entity type definitions (508B, 17 lines)
+│   │   ├── logging_config.py      # Logging configuration (1.1KB, 36 lines)
+│   │   ├── llm_health_monitor.py  # LLM health monitoring (7.0KB, 194 lines)
+│   │   ├── registry_manager.py    # Registry management (16KB, 454 lines)
+│   │   ├── startup_validator.py   # Startup validation (1.1KB, 42 lines)
 │   │   ├── models/                # Core models
 │   │   │   └── context_models.py  # Context models
 │   │   ├── validation/            # Validation system
@@ -196,40 +195,35 @@ KICKAI/
 │   │   └── di/                    # Dependency injection
 │   │       └── modern_container.py # Modern DI container
 │   ├── database/                  # Database Layer
-│   │   ├── firebase_client.py     # Firebase client (36KB, 811 lines)
-│   │   ├── interfaces.py          # Database interfaces (874B, 25 lines)
-│   │   └── mock_data_store.py     # Mock data store (14KB, 367 lines)
+│   │   ├── firebase_client.py     # Firebase client (36KB, 810 lines)
+│   │   ├── interfaces.py          # Database interfaces (874B, 24 lines)
+│   │   └── mock_data_store.py     # Mock data store (14KB, 366 lines)
 │   ├── config/                    # Configuration
-│   │   ├── agents.py              # Agent configuration (55KB, 1278 lines)
+│   │   ├── agents.py              # Agent configuration (58KB, 1311 lines)
 │   │   ├── agents.yaml            # Agent YAML config (11KB, 301 lines)
 │   │   ├── tasks.yaml             # Task YAML config (26KB, 477 lines)
-│   │   ├── complexity_config.py   # Complexity configuration (9.1KB, 267 lines)
-│   │   └── llm_config.py          # LLM configuration (2.9KB, 110 lines)
+│   │   ├── complexity_config.py   # Complexity configuration (9.1KB, 266 lines)
+│   │   └── llm_config.py          # LLM configuration (2.9KB, 109 lines)
 │   └── utils/                     # Utilities
-│       ├── football_id_generator.py # Football ID generation (15KB, 384 lines)
-│       ├── llm_factory.py         # LLM factory (20KB, 481 lines)
-│       ├── llm_client.py          # LLM client (7.7KB, 245 lines)
-│       ├── llm_intent.py          # LLM intent processing (7.5KB, 182 lines)
-│       ├── direct_google_llm_provider.py # Google LLM provider (4.4KB, 139 lines)
-│       ├── async_utils.py         # Async utilities (10KB, 343 lines)
-│       ├── cache_utils.py         # Caching utilities (7.0KB, 253 lines)
-│       ├── validation_utils.py    # Validation utilities (7.2KB, 256 lines)
-│       ├── phone_utils.py         # Phone utilities (5.0KB, 167 lines)
-│       ├── phone_validation.py    # Phone validation (15KB, 449 lines)
-│       ├── id_processor.py        # ID processing (11KB, 343 lines)
-│       ├── user_id_generator.py   # User ID generation (3.1KB, 117 lines)
-│       ├── context_validation.py  # Context validation (6.4KB, 221 lines)
-│       ├── tool_helpers.py        # Tool helpers (5.0KB, 158 lines)
-│       ├── format_utils.py        # Format utilities (6.7KB, 194 lines)
-│       ├── enum_utils.py          # Enum utilities (1.5KB, 55 lines)
-│       ├── crewai_tool_decorator.py # CrewAI tool decorator (1.1KB, 39 lines)
-│       ├── crewai_logging.py      # CrewAI logging (5.9KB, 187 lines)
-│       └── import_helper.py       # Import helper (2.8KB, 111 lines)
-├── src/                           # Legacy source directory (migration in progress)
-│   ├── agents/                    # Legacy agent code
-│   ├── features/                  # Legacy feature code
-│   ├── utils/                     # Legacy utilities
-│   └── telegram/                  # Legacy Telegram integration
+│       ├── football_id_generator.py # Football ID generation (15KB, 383 lines)
+│       ├── llm_factory.py         # LLM factory (20KB, 480 lines)
+│       ├── llm_client.py          # LLM client (7.7KB, 244 lines)
+│       ├── llm_intent.py          # LLM intent processing (7.5KB, 181 lines)
+│       ├── direct_google_llm_provider.py # Google LLM provider (4.4KB, 138 lines)
+│       ├── async_utils.py         # Async utilities (10KB, 342 lines)
+│       ├── cache_utils.py         # Caching utilities (7.0KB, 252 lines)
+│       ├── validation_utils.py    # Validation utilities (7.2KB, 255 lines)
+│       ├── phone_utils.py         # Phone utilities (5.0KB, 166 lines)
+│       ├── phone_validation.py    # Phone validation (15KB, 448 lines)
+│       ├── id_processor.py        # ID processing (11KB, 342 lines)
+│       ├── user_id_generator.py   # User ID generation (3.1KB, 116 lines)
+│       ├── context_validation.py  # Context validation (6.4KB, 220 lines)
+│       ├── tool_helpers.py        # Tool helpers (5.0KB, 157 lines)
+│       ├── format_utils.py        # Format utilities (6.7KB, 193 lines)
+│       ├── enum_utils.py          # Enum utilities (1.5KB, 54 lines)
+│       ├── crewai_tool_decorator.py # CrewAI tool decorator (1.1KB, 38 lines)
+│       ├── crewai_logging.py      # CrewAI logging (5.9KB, 186 lines)
+│       └── import_helper.py       # Import helper (2.8KB, 110 lines)
 ├── tests/                         # Test Suite
 │   ├── e2e/                       # End-to-end tests
 │   │   ├── e2e_test_status_and_registration.py # E2E registration test (16KB, 369 lines)
@@ -381,7 +375,7 @@ KICKAI/
 ├── LICENSE                       # MIT License (1.0KB, 22 lines)
 ├── README.md                     # Main documentation (17KB, 496 lines)
 ├── PROJECT_STATUS.md             # Project status (9.0KB, 303 lines)
-├── CODEBASE_INDEX.md             # This file (19KB, 387 lines)
+├── CODEBASE_INDEX.md             # This file (39KB, 637 lines)
 ├── MIGRATION_GUIDE.md            # Migration guide (6.3KB, 230 lines)
 ├── FIRST_USER_IMPLEMENTATION_SUMMARY.md # First user summary (8.4KB, 240 lines)
 ├── SPECIFICATION_UPDATES.md      # Specification updates (5.1KB, 161 lines)
@@ -486,7 +480,7 @@ Each feature follows Clean Architecture with:
 git clone <repository>
 cd KICKAI
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv311/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements-local.txt
@@ -633,5 +627,5 @@ Each feature module contains its own README with:
 ---
 
 **Last Updated**: December 2024  
-**Version**: 3.0  
+**Version**: 3.1  
 **Status**: Production Ready 

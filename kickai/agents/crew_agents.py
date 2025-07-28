@@ -10,7 +10,7 @@ import asyncio
 import logging
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Union, Union
+from typing import Any, Dict, List, Optional
 
 from crewai import Crew
 from loguru import logger
@@ -21,7 +21,8 @@ from kickai.agents.entity_specific_agents import (
     EntityType,
     create_entity_specific_agent,
 )
-from kickai.agents.tool_registry import get_tool_registry, initialize_tool_registry
+from kickai.agents.tool_registry import initialize_tool_registry
+from kickai.agents.tools_manager import AgentToolsManager
 from kickai.config.agents import get_agent_config, get_enabled_agent_configs
 from kickai.core.enums import AgentRole
 from kickai.core.settings import get_settings
@@ -30,14 +31,19 @@ from kickai.utils.llm_factory import LLMFactory
 
 class ConfigurationError(Exception):
     """Raised when there's a configuration error."""
+
     pass
+
 
 class AgentInitializationError(Exception):
     """Raised when agent initialization fails."""
+
     pass
+
 
 def log_errors(func):
     """Decorator to log errors in tool management."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
@@ -45,68 +51,11 @@ def log_errors(func):
         except Exception as e:
             logger.error(f"Error in {func.__name__}: {e}")
             raise
+
     return wrapper
 
 
-class AgentToolsManager:
-    """Manages tool assignment for agents with entity-specific validation."""
 
-    def __init__(self, tool_registry):
-        self._tool_registry = tool_registry
-        self._entity_manager = EntitySpecificAgentManager(tool_registry)
-
-        logger.info("🔧 AgentToolsManager initialized with entity-specific validation")
-
-    @log_errors
-    def get_tools_for_role(self, role: AgentRole, entity_type: Union[EntityType, None] = None) -> list[Any]:
-        """Get tools for a specific role with entity-specific filtering."""
-        try:
-            config = get_agent_config(role)
-            if not config:
-                logger.warning(f"No configuration found for role {role}")
-                return []
-
-            # Get tools based on agent-specific configuration
-            tools = []
-            for tool_name in config.tools:
-                # Validate tool access for this agent and entity type
-                if entity_type and not self._entity_manager.validate_agent_tool_combination(
-                    role, tool_name, {}
-                ):
-                    logger.warning(f"⚠️ Tool '{tool_name}' not accessible for {role.value} with entity type {entity_type.value}")
-                    continue
-
-                tool_func = self._tool_registry.get_tool_function(tool_name)
-                if tool_func:
-                    tools.append(tool_func)
-                    logger.info(f"[AGENT TOOLS] ✅ Found tool '{tool_name}' for {role.value}")
-                else:
-                    logger.warning(f"[AGENT TOOLS] ❌ Tool '{tool_name}' not found for {role.value}")
-
-            logger.info(f"🔧 Loading {len(tools)} tools for {role.value}")
-            return tools
-
-        except Exception as e:
-            logger.error(f"Error getting tools for agent {role}: {e}")
-            return []
-
-    def get_available_tools(self) -> list[str]:
-        """Get list of available tool names."""
-        return self._tool_registry.get_tool_names()
-
-    def get_tool_info(self, tool_name: str) -> Union[dict[str, Any], None]:
-        """Get information about a specific tool."""
-        tool = self._tool_registry.get_tool(tool_name)
-        if tool:
-            return {
-                'name': tool.name,
-                'description': tool.description,
-                'type': tool.tool_type.value,
-                'category': tool.category.value,
-                'feature': tool.feature_module,
-                'entity_types': [et.value for et in tool.entity_types]
-            }
-        return None
 
 
 class TeamManagementSystem:
@@ -119,11 +68,12 @@ class TeamManagementSystem:
 
     def __init__(self, team_id: str):
         self.team_id = team_id
-        self.agents: dict[AgentRole, ConfigurableAgent] = {}
-        self.crew: Union[Crew, None] = None
+        self.agents: Dict[AgentRole, ConfigurableAgent] = {}
+        self.crew: Optional[Crew] = None
 
         # Initialize team memory for conversation context
         from kickai.agents.team_memory import TeamMemory
+
         self.team_memory = TeamMemory(team_id)
         logger.info(f"[TEAM INIT] Initialized team memory for {team_id}")
 
@@ -153,7 +103,9 @@ class TeamManagementSystem:
         logger.info("[TEAM INIT] Creating persistent crew")
         self._create_crew()
 
-        logger.info(f"✅ TeamManagementSystem initialized for team {team_id} with entity-specific validation")
+        logger.info(
+            f"✅ TeamManagementSystem initialized for team {team_id} with entity-specific validation"
+        )
 
     def _initialize_llm(self):
         """Initialize the LLM using the factory pattern with robust error handling."""
@@ -164,7 +116,9 @@ class TeamManagementSystem:
             # Wrap the LLM with our robust error handling for CrewAI
             self.llm = self._wrap_llm_with_error_handling(self.llm)
 
-            logger.info(f"✅ LLM initialized successfully with robust error handling: {type(self.llm).__name__}")
+            logger.info(
+                f"✅ LLM initialized successfully with robust error handling: {type(self.llm).__name__}"
+            )
 
         except Exception as e:
             logger.error(f"❌ Failed to initialize LLM: {e}")
@@ -173,7 +127,7 @@ class TeamManagementSystem:
     def _initialize_tool_registry(self):
         """Initialize tool registry and entity manager."""
         try:
-            self.tool_registry = initialize_tool_registry('kickai')
+            self.tool_registry = initialize_tool_registry("kickai")
             logger.info("✅ Tool registry initialized and ready")
 
             self.entity_manager = EntitySpecificAgentManager(self.tool_registry)
@@ -198,11 +152,13 @@ class TeamManagementSystem:
                         tool_registry=self.tool_registry,
                         team_memory=self.team_memory,
                         config=config,
-                        entity_type=config.primary_entity_type
+                        entity_type=config.primary_entity_type,
                     )
 
                     self.agents[role] = agent
-                    logger.info(f"✅ Created entity-specific agent for role: {role.value} (entity_type: {config.primary_entity_type.value if config.primary_entity_type else 'None'})")
+                    logger.info(
+                        f"✅ Created entity-specific agent for role: {role.value} (entity_type: {config.primary_entity_type.value if config.primary_entity_type else 'None'})"
+                    )
 
                 except Exception as e:
                     logger.error(f"❌ Failed to create agent for role {role.value}: {e}")
@@ -226,14 +182,34 @@ class TeamManagementSystem:
 
             # Get verbose setting from environment
             from kickai.core.settings import get_settings
+
             settings = get_settings()
             verbose_mode = settings.verbose_logging or settings.is_development
 
+            # Import Process enum for CrewAI
+            from crewai import Process
+            
+            # CRITICAL: Disable memory completely to prevent OpenAI API calls
+            # CrewAI memory system is making OpenAI calls despite Google configuration
+            memory_enabled = False  # Force disable until OpenAI issue is resolved
+            
+            memory_config = None
+            if memory_enabled:
+                # Configure memory to use Google Gemini embeddings instead of OpenAI
+                memory_config = {
+                    "provider": "google",
+                    "config": {
+                        "api_key": settings.google_api_key,
+                        "model": "text-embedding-004"  # Google's latest embedding model
+                    }
+                }
+            
             self.crew = Crew(
                 agents=crew_agents,
                 tasks=[],
+                process=Process.sequential,  # Required: must be sequential or hierarchical
                 verbose=verbose_mode,  # Use environment-based verbose setting
-                memory=True  # Enable memory for the crew
+                memory=False,  # Force disable memory to prevent OpenAI API calls
             )
 
             logger.info(f"✅ Created crew with {len(crew_agents)} entity-aware agents")
@@ -247,94 +223,106 @@ class TeamManagementSystem:
         # This is a simplified wrapper - in production you might want more sophisticated error handling
         return llm
 
-
-
-    def get_agent_summary(self) -> dict[str, Any]:
+    def get_agent_summary(self) -> Dict[str, Any]:
         """Get a summary of all agents with their entity types."""
         summary = {}
         for role, agent in self.agents.items():
             config = get_agent_config(role)
             summary[role.value] = {
-                'role': role.value,
-                'goal': config.goal if config else 'Unknown',
-                'entity_types': [et.value for et in config.entity_types] if config else [],
-                'primary_entity_type': config.primary_entity_type.value if config and config.primary_entity_type else None,
-                'tools_count': len(agent.tools),
-                'enabled': config.enabled if config else False
+                "role": role.value,
+                "goal": config.goal if config else "Unknown",
+                "entity_types": [et.value for et in config.entity_types] if config else [],
+                "primary_entity_type": config.primary_entity_type.value
+                if config and config.primary_entity_type
+                else None,
+                "tools_count": len(agent.tools),
+                "enabled": config.enabled if config else False,
             }
         return summary
 
-    def get_entity_validation_summary(self) -> dict[str, Any]:
+    def get_entity_validation_summary(self) -> Dict[str, Any]:
         """Get a summary of entity validation capabilities."""
         return {
-            'entity_manager_available': self.entity_manager is not None,
-            'agent_entity_mappings': {
-                role.value: [et.value for et in self.entity_manager.agent_entity_mappings.get(role, [])]
+            "entity_manager_available": self.entity_manager is not None,
+            "agent_entity_mappings": {
+                role.value: [
+                    et.value for et in self.entity_manager.agent_entity_mappings.get(role, [])
+                ]
                 for role in self.agents.keys()
             },
-            'validation_rules': {
-                'player_keywords': list(self.entity_manager.validator.player_keywords),
-                'team_member_keywords': list(self.entity_manager.validator.team_member_keywords),
-                'ambiguous_keywords': list(self.entity_manager.validator.ambiguous_keywords)
-            }
+            "validation_rules": {
+                "player_keywords": list(self.entity_manager.validator.player_keywords),
+                "team_member_keywords": list(self.entity_manager.validator.team_member_keywords),
+                "ambiguous_keywords": list(self.entity_manager.validator.ambiguous_keywords),
+            },
         }
 
-    def get_agent(self, role: AgentRole) -> Union[ConfigurableAgent, None]:
+    def get_agent(self, role: AgentRole) -> Optional[ConfigurableAgent]:
         """Get a specific agent by role."""
         return self.agents.get(role)
 
-    def get_enabled_agents(self) -> list[ConfigurableAgent]:
+    def get_enabled_agents(self) -> List[ConfigurableAgent]:
         """Get all enabled agents."""
         return list(self.agents.values())
 
-    def get_orchestration_pipeline_status(self) -> dict[str, Any]:
+    def get_orchestration_pipeline_status(self) -> Dict[str, Any]:
         """Get the status of the orchestration pipeline."""
-        if hasattr(self, '_orchestration_pipeline'):
+        if hasattr(self, "_orchestration_pipeline"):
             return self._orchestration_pipeline.get_pipeline_status()
         else:
             return {
-                'orchestration_pipeline': 'Not initialized',
-                'all_components_initialized': False
+                "orchestration_pipeline": "Not initialized",
+                "all_components_initialized": False,
             }
 
-    async def execute_task(self, task_description: str, execution_context: dict[str, Any]) -> str:
+    async def execute_task(self, task_description: str, execution_context: Dict[str, Any]) -> str:
         """
         Execute a task using the orchestration pipeline with conversation context.
 
         This method delegates task execution to the dedicated OrchestrationPipeline
         which breaks down the process into separate, swappable components.
         """
-        logger.info(f"🚨 EXECUTE_TASK CALLED: task_description='{task_description}', execution_context={execution_context}")
+        logger.info(
+            f"🚨 EXECUTE_TASK CALLED: task_description='{task_description}', execution_context={execution_context}"
+        )
         try:
             logger.info(f"🤖 TEAM MANAGEMENT: Starting task execution for team {self.team_id}")
             logger.info(f"🤖 TEAM MANAGEMENT: Task description: {task_description}")
             logger.info(f"🤖 TEAM MANAGEMENT: Execution context: {execution_context}")
-            logger.info(f"🤖 TEAM MANAGEMENT: Available agents: {[role.value for role in self.agents.keys()]}")
+            logger.info(
+                f"🤖 TEAM MANAGEMENT: Available agents: {[role.value for role in self.agents.keys()]}"
+            )
 
             # Log agent details
             for role, agent in self.agents.items():
                 tools = agent.get_tools()
-                logger.info(f"🤖 TEAM MANAGEMENT: Agent '{role.value}' has {len(tools)} tools: {[tool.name for tool in tools]}")
+                logger.info(
+                    f"🤖 TEAM MANAGEMENT: Agent '{role.value}' has {len(tools)} tools: {[tool.name for tool in tools]}"
+                )
 
             # Add conversation context to execution context
-            user_id = execution_context.get('user_id')
-            if user_id and hasattr(self, 'team_memory'):
+            user_id = execution_context.get("user_id")
+            if user_id and hasattr(self, "team_memory"):
                 # Get user-specific memory context
                 memory_context = self.team_memory.get_user_memory_context(user_id)
-                execution_context['memory_context'] = memory_context
+                execution_context["memory_context"] = memory_context
                 logger.info(f"🤖 TEAM MANAGEMENT: Added memory context for user {user_id}")
 
             # Initialize orchestration pipeline if not already done
-            if not hasattr(self, '_orchestration_pipeline'):
+            if not hasattr(self, "_orchestration_pipeline"):
                 logger.info("🤖 TEAM MANAGEMENT: Creating orchestration pipeline")
                 try:
                     from kickai.agents.simplified_orchestration import (
                         SimplifiedOrchestrationPipeline,
                     )
+
                     self._orchestration_pipeline = SimplifiedOrchestrationPipeline(llm=self.llm)
                     logger.info("🤖 ORCHESTRATION: Initialized orchestration pipeline")
                 except Exception as e:
-                    logger.error(f"🤖 TEAM MANAGEMENT: Failed to create orchestration pipeline: {e}", exc_info=True)
+                    logger.error(
+                        f"🤖 TEAM MANAGEMENT: Failed to create orchestration pipeline: {e}",
+                        exc_info=True,
+                    )
                     # Fallback to basic crew
                     logger.info("🤖 TEAM MANAGEMENT: Falling back to basic crew execution")
                     return await self._execute_with_basic_crew(task_description, execution_context)
@@ -355,7 +343,7 @@ class TeamManagementSystem:
             result = await self._orchestration_pipeline.execute_task(
                 task_description=task_description,
                 execution_context=execution_context,
-                available_agents=self.agents
+                available_agents=self.agents,
             )
 
             if is_myinfo_command:
@@ -363,12 +351,12 @@ class TeamManagementSystem:
                 logger.info(f"🔍 MYINFO FLOW STEP 8a: result={result}")
 
             # Store conversation in memory for context persistence
-            if user_id and hasattr(self, 'team_memory'):
+            if user_id and hasattr(self, "team_memory"):
                 self.team_memory.add_conversation(
                     user_id=user_id,
                     input_text=task_description,
                     output_text=result,
-                    context=execution_context
+                    context=execution_context,
                 )
                 logger.info(f"🤖 TEAM MANAGEMENT: Stored conversation in memory for user {user_id}")
 
@@ -380,7 +368,9 @@ class TeamManagementSystem:
             logger.info("🤖 TEAM MANAGEMENT: Falling back to basic crew execution due to error")
             return await self._execute_with_basic_crew(task_description, execution_context)
 
-    async def _execute_with_basic_crew(self, task_description: str, execution_context: dict[str, Any]) -> str:
+    async def _execute_with_basic_crew(
+        self, task_description: str, execution_context: Dict[str, Any]
+    ) -> str:
         """
         Fallback method to execute task using basic CrewAI crew.
         This is used when the orchestration pipeline fails.
@@ -391,7 +381,7 @@ class TeamManagementSystem:
             logger.info(f"🤖 BASIC CREW: Execution context: {execution_context}")
 
             # Use the basic crew that was created in _create_crew
-            if hasattr(self, 'crew') and self.crew:
+            if hasattr(self, "crew") and self.crew:
                 logger.info("🤖 BASIC CREW: Using existing crew")
 
                 # Create a proper CrewAI task
@@ -402,7 +392,7 @@ class TeamManagementSystem:
 
                 # Get the appropriate agent for this task using command name
                 selected_agent_role = self.entity_manager.route_operation_to_agent(
-                    command_name, execution_context.get('parameters', {}), self.agents
+                    command_name, execution_context.get("parameters", {}), self.agents
                 )
 
                 if selected_agent_role and selected_agent_role in self.agents:
@@ -412,12 +402,23 @@ class TeamManagementSystem:
                     task = Task(
                         description=task_description,
                         agent=agent.crew_agent,
-                        expected_output="A clear and helpful response to the user's request"
+                        expected_output="A clear and helpful response to the user's request",
                     )
 
                     # Add task to crew and execute
                     self.crew.tasks = [task]
-                    result = self.crew.kickoff()
+                    crew_result = self.crew.kickoff()
+                    
+                    # Convert CrewOutput to string properly
+                    if hasattr(crew_result, 'raw') and hasattr(crew_result.raw, 'output'):
+                        result = str(crew_result.raw.output)
+                    elif hasattr(crew_result, 'output'):
+                        result = str(crew_result.output)
+                    elif hasattr(crew_result, 'result'):
+                        result = str(crew_result.result)
+                    else:
+                        result = str(crew_result)
+                    
                     logger.info(f"🤖 BASIC CREW: Task completed with result: {result}")
                     return result
                 else:
@@ -441,34 +442,31 @@ class TeamManagementSystem:
         finally:
             logger.setLevel(original_level)
 
-    def health_check(self) -> dict[str, Any]:
+    def health_check(self) -> Dict[str, Any]:
         """Perform a health check on the system."""
         try:
             health_status = {
-                'system': 'healthy',
-                'agents_count': len(self.agents),
-                'agents': {},
-                'crew_created': self.crew is not None,
-                'llm_available': self.llm is not None,
-                'team_config_loaded': self.team_config is not None
+                "system": "healthy",
+                "agents_count": len(self.agents),
+                "agents": {},
+                "crew_created": self.crew is not None,
+                "llm_available": self.llm is not None,
+                "team_config_loaded": self.team_config is not None,
             }
 
             # Check each agent
             for role, agent in self.agents.items():
-                health_status['agents'][role.value] = {
-                    'enabled': agent.is_enabled(),
-                    'tools_count': len(agent.get_tools()),
-                    'crew_agent_available': agent.crew_agent is not None
+                health_status["agents"][role.value] = {
+                    "enabled": agent.is_enabled(),
+                    "tools_count": len(agent.get_tools()),
+                    "crew_agent_available": agent.crew_agent is not None,
                 }
 
             return health_status
 
         except Exception as e:
             logger.error(f"Error in health check: {e}")
-            return {
-                'system': 'unhealthy',
-                'error': str(e)
-            }
+            return {"system": "unhealthy", "error": str(e)}
 
 
 # Convenience functions for backward compatibility
@@ -477,13 +475,13 @@ def create_team_management_system(team_id: str) -> TeamManagementSystem:
     return TeamManagementSystem(team_id)
 
 
-def get_agent(team_id: str, role: AgentRole) -> Union[ConfigurableAgent, None]:
+def get_agent(team_id: str, role: AgentRole) -> Optional[ConfigurableAgent]:
     """Get a specific agent for a team."""
     system = TeamManagementSystem(team_id)
     return system.get_agent(role)
 
 
-def execute_task(team_id: str, task_description: str, execution_context: dict[str, Any]) -> str:
+def execute_task(team_id: str, task_description: str, execution_context: Dict[str, Any]) -> str:
     """Execute a task for a team."""
     system = TeamManagementSystem(team_id)
     return asyncio.run(system.execute_task(task_description, execution_context))

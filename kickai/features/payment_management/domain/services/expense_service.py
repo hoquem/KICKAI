@@ -3,8 +3,8 @@ Expense Service
 
 This module provides expense management functionality.
 """
+from typing import Optional, List
 
-from typing import Union
 import logging
 from datetime import datetime
 
@@ -20,8 +20,9 @@ class ExpenseService:
     def __init__(self, expense_repository: ExpenseRepositoryInterface):
         self.expense_repository = expense_repository
 
-    async def create_expense(self, *, team_id: str, amount: float, description: str,
-                           category: str, created_by: str) -> Expense:
+    async def create_expense(
+        self, *, team_id: str, amount: float, description: str, category: str, created_by: str
+    ) -> Expense:
         """Create a new expense."""
         expense = Expense(
             team_id=team_id,
@@ -29,15 +30,15 @@ class ExpenseService:
             description=description,
             category=category,
             created_by=created_by,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
         return await self.expense_repository.create(expense)
 
-    async def get_expense_by_id(self, expense_id: str) -> Union[Expense, None]:
+    async def get_expense_by_id(self, expense_id: str) -> Optional[Expense]:
         """Get an expense by ID."""
         return await self.expense_repository.get_by_id(expense_id)
 
-    async def get_expenses_by_team(self, *, team_id: str) -> list[Expense]:
+    async def get_expenses_by_team(self, *, team_id: str) -> List[Expense]:
         """Get all expenses for a team."""
         return await self.expense_repository.get_by_team(team_id)
 
@@ -46,9 +47,13 @@ class ExpenseService:
         expenses = await self.get_expenses_by_team(team_id=team_id)
         return sum(expense.amount for expense in expenses)
 
-    async def update_expense(self, expense_id: str, amount: Union[float, None] = None,
-                           description: Union[str, None] = None,
-                           category: Union[str, None] = None) -> Expense:
+    async def update_expense(
+        self,
+        expense_id: str,
+        amount: Optional[float] = None,
+        description: Optional[str] = None,
+        category: Optional[str] = None,
+    ) -> Expense:
         """Update an expense."""
         expense = await self.expense_repository.get_by_id(expense_id)
         if not expense:

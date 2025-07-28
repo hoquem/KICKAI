@@ -94,7 +94,7 @@ PYTHONPATH=src python scripts/find_chat_ids.py --bot-token YOUR_BOT_TOKEN
 
 ```bash
 cd /path/to/KICKAI
-source venv/bin/activate
+source venv311/bin/activate
 ```
 
 ### 3.2 Run Team Bootstrap Script

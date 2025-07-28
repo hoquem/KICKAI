@@ -7,6 +7,7 @@ that link Team Members and Players when a user has both roles in the system.
 
 from typing import Union
 
+
 def generate_user_id(telegram_id: Union[int, str]) -> str:
     """
     Generate a consistent user_id from a Telegram ID.
@@ -50,7 +51,9 @@ def extract_telegram_id_from_user_id(user_id: str) -> str:
         '8148917292'
     """
     if not user_id.startswith("user_"):
-        raise ValueError(f"Invalid user_id format: {user_id}. Expected format: 'user_{{telegram_id}}'")
+        raise ValueError(
+            f"Invalid user_id format: {user_id}. Expected format: 'user_{{telegram_id}}'"
+        )
 
     telegram_id = user_id[5:]  # Remove "user_" prefix
     return telegram_id
@@ -111,6 +114,6 @@ def get_user_entities_summary(user_id: str) -> dict:
         "user_id": user_id,
         "telegram_id": telegram_id,
         "has_team_member_role": False,  # To be populated by calling code
-        "has_player_role": False,       # To be populated by calling code
-        "has_multiple_roles": False     # To be calculated by calling code
+        "has_player_role": False,  # To be populated by calling code
+        "has_multiple_roles": False,  # To be calculated by calling code
     }

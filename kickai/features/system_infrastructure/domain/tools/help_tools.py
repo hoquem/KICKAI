@@ -4,10 +4,10 @@ Help tools for KICKAI system.
 This module provides tools for help and command information.
 """
 
-from typing import Union
 import logging
+from typing import Optional
 
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from pydantic import BaseModel
 
 from kickai.core.command_registry_initializer import get_initialized_command_registry
@@ -18,13 +18,21 @@ logger = logging.getLogger(__name__)
 
 class GetAvailableCommandsInput(BaseModel):
     """Input model for get_available_commands tool."""
+
     chat_type: str
-    user_id: Union[str, None] = None
-    team_id: Union[str, None] = None
+    user_id: Optional[str] = None
+    team_id: Optional[str] = None
 
 
 @tool("get_available_commands")
-def get_available_commands(chat_type: str, user_id: Union[str, None] = None, team_id: Union[str, None] = None, is_registered: bool = None, is_player: bool = None, is_team_member: bool = None) -> str:
+def get_available_commands(
+    chat_type: str,
+    user_id: Optional[str] = None,
+    team_id: Optional[str] = None,
+    is_registered: bool = None,
+    is_player: bool = None,
+    is_team_member: bool = None,
+) -> str:
     """
     Get list of available commands for a user in the given chat type.
 
@@ -48,7 +56,9 @@ def get_available_commands(chat_type: str, user_id: Union[str, None] = None, tea
         if is_team_member is None:
             return "❌ Error: is_team_member parameter is required and must be explicitly set"
 
-        logger.info(f"🔍 Getting available commands for chat_type={chat_type}, user_id={user_id}, team_id={team_id}, is_registered={is_registered}, is_player={is_player}, is_team_member={is_team_member}")
+        logger.info(
+            f"🔍 Getting available commands for chat_type={chat_type}, user_id={user_id}, team_id={team_id}, is_registered={is_registered}, is_player={is_player}, is_team_member={is_team_member}"
+        )
 
         # Get the command registry
         registry = get_initialized_command_registry()
@@ -86,10 +96,18 @@ def get_available_commands(chat_type: str, user_id: Union[str, None] = None, tea
                 available_commands.append(cmd)
 
         # Group filtered commands by permission level
-        public_commands = [cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.PUBLIC]
-        player_commands = [cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.PLAYER]
-        leadership_commands = [cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.LEADERSHIP]
-        admin_commands = [cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.ADMIN]
+        public_commands = [
+            cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.PUBLIC
+        ]
+        player_commands = [
+            cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.PLAYER
+        ]
+        leadership_commands = [
+            cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.LEADERSHIP
+        ]
+        admin_commands = [
+            cmd for cmd in available_commands if cmd.permission_level == PermissionLevel.ADMIN
+        ]
 
         # Build response
         response = f"📋 Available Commands for {chat_type.replace('_', ' ').title()}\n\n"
@@ -123,11 +141,15 @@ def get_available_commands(chat_type: str, user_id: Union[str, None] = None, tea
             if chat_type == "main_chat":
                 response += "📞 **To access more commands, contact team leadership to be added as a player.**\n\n"
             elif chat_type == "leadership_chat":
-                response += "📝 **To access more commands, use /register to become a team member.**\n\n"
+                response += (
+                    "📝 **To access more commands, use /register to become a team member.**\n\n"
+                )
 
         response += "💡 Tip: You can also ask me questions in natural language!"
 
-        logger.info(f"✅ Retrieved {len(available_commands)} commands for {chat_type} (filtered from {len(commands)} total)")
+        logger.info(
+            f"✅ Retrieved {len(available_commands)} commands for {chat_type} (filtered from {len(commands)} total)"
+        )
         return response
 
     except Exception as e:

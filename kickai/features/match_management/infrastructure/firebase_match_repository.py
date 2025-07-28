@@ -1,5 +1,5 @@
+from typing import List, Optional
 
-from typing import Union
 from kickai.features.match_management.domain.entities.match import Match
 from kickai.features.match_management.domain.repositories.match_repository_interface import (
     MatchRepositoryInterface,
@@ -12,23 +12,23 @@ class FirebaseMatchRepository(MatchRepositoryInterface):
 
     async def create(self, match: Match) -> Match:
         # Placeholder: Implement actual Firebase logic
-        await self.firebase_client.set_document('matches', match.id, match.__dict__)
+        await self.firebase_client.set_document("matches", match.id, match.__dict__)
         return match
 
-    async def get_by_id(self, match_id: str) -> Union[Match, None]:
-        data = await self.firebase_client.get_document('matches', match_id)
+    async def get_by_id(self, match_id: str) -> Optional[Match]:
+        data = await self.firebase_client.get_document("matches", match_id)
         if data:
             return Match(**data)
         return None
 
-    async def get_by_team(self, team_id: str) -> list[Match]:
+    async def get_by_team(self, team_id: str) -> List[Match]:
         # Placeholder: Implement actual Firebase logic
-        docs = await self.firebase_client.query_collection('matches', {'team_id': team_id})
+        docs = await self.firebase_client.query_collection("matches", {"team_id": team_id})
         return [Match(**doc) for doc in docs]
 
     async def update(self, match: Match) -> Match:
-        await self.firebase_client.set_document('matches', match.id, match.__dict__)
+        await self.firebase_client.set_document("matches", match.id, match.__dict__)
         return match
 
     async def delete(self, match_id: str) -> None:
-        await self.firebase_client.delete_document('matches', match_id)
+        await self.firebase_client.delete_document("matches", match_id)

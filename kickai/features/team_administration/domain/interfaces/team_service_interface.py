@@ -1,21 +1,24 @@
 from abc import ABC, abstractmethod
-from typing import Any, Union, Union
+from typing import Any, Dict, List, Optional
 
 from kickai.features.team_administration.domain.entities.team import Team, TeamStatus
 
 # TeamMember imported dynamically to avoid circular imports
 
+
 class ITeamService(ABC):
     @abstractmethod
-    async def create_team(self, name: str, description: Union[str, None] = None, settings: Union[dict[str, Any], None] = None) -> Team:
+    async def create_team(
+        self, name: str, description: Optional[str] = None, settings: Optional[Dict[str, Any]] = None
+    ) -> Team:
         pass
 
     @abstractmethod
-    async def get_team(self, team_id: str) -> Union[Team, None]:
+    async def get_team(self, team_id: str) -> Optional[Team]:
         pass
 
     @abstractmethod
-    async def get_team_by_name(self, name: str) -> Union[Team, None]:
+    async def get_team_by_name(self, name: str) -> Optional[Team]:
         pass
 
     @abstractmethod
@@ -27,11 +30,13 @@ class ITeamService(ABC):
         pass
 
     @abstractmethod
-    async def get_all_teams(self, status: Union[TeamStatus, None] = None) -> list[Team]:
+    async def get_all_teams(self, status: Optional[TeamStatus] = None) -> List[Team]:
         pass
 
     @abstractmethod
-    async def add_team_member(self, team_id: str, user_id: str, role: str = "player", permissions: Union[list[str], None] = None):
+    async def add_team_member(
+        self, team_id: str, user_id: str, role: str = "player", permissions: Optional[List[str]] = None
+    ):
         pass
 
     @abstractmethod

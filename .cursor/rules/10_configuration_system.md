@@ -268,7 +268,6 @@ required_fields_prod = [
 ### AI Provider Validation
 - **Google Gemini**: Requires `GOOGLE_API_KEY`
 - **OpenAI**: Requires `OPENAI_API_KEY`
-- **Ollama**: Requires `OLLAMA_BASE_URL` (optional)
 
 ## Usage Patterns
 

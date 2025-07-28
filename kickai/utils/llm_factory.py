@@ -12,7 +12,7 @@ import os
 import traceback
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any, Dict, List, Optional, Union
 
 # Import the correct AIProvider enum from kickai.core.enums
 from kickai.core.enums import AIProvider
@@ -23,18 +23,60 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LLMConfig:
     """Configuration for LLM instances."""
+
     provider: AIProvider
     model_name: str
     api_key: str
     temperature: float = 0.7
     timeout_seconds: int = 30
     max_retries: int = 3
-    api_base: Union[str, None] = None
-    additional_params: Union[dict, None] = None
+    api_base: Optional[str] = None
+    additional_params: Optional[dict] = None
+
+    def __post_init__(self):
+        """Validate temperature range."""
+        if not 0.0 <= self.temperature <= 1.0:
+            raise ValueError(f"Temperature must be between 0.0 and 1.0, got {self.temperature}")
+
+    @classmethod
+    def create_for_agent_type(
+        cls, provider: AIProvider, model_name: str, api_key: str, agent_type: str = None
+    ) -> "LLMConfig":
+        """Create LLM config with agent-specific temperature settings."""
+        # Use lower temperature for data-critical agents to prevent hallucination
+        if agent_type in ["player_coordinator", "help_assistant", "message_processor", "finance_manager"]:
+            temperature = 0.1  # Very low temperature for precise, factual responses
+        elif agent_type in ["team_manager", "availability_manager"]:
+            temperature = 0.3  # Low temperature for administrative tasks
+        elif agent_type in ["onboarding_agent"]:
+            temperature = 0.2  # Very low temperature for registration guidance
+        else:
+            temperature = 0.7  # Default temperature for creative tasks
+
+        # Handle case where provider might be None
+        if provider is None:
+            # Try to get provider from environment as fallback
+            import os
+
+            provider_str = os.getenv("AI_PROVIDER", "gemini")
+            try:
+                provider = AIProvider(provider_str)
+            except ValueError:
+                provider = AIProvider.GEMINI  # Default fallback
+
+        return cls(
+            provider=provider,
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            timeout_seconds=30,
+            max_retries=3,
+        )
 
 
 class LLMProviderError(Exception):
     """Exception raised for LLM provider errors."""
+
     pass
 
 
@@ -70,7 +112,19 @@ class MockLLMProvider(LLMProvider):
             def __init__(self, model_name: str, temperature: float = 0.7):
                 self.model_name = model_name
                 self.temperature = temperature
-                logger.info(f"✅ Mock LLM created (model: {model_name}, temperature: {temperature})")
+
+                # CrewAI compatibility attributes
+                self.supports_functions = False
+                self.supports_tools = False
+                self.stop = None  # Add missing stop attribute
+
+                logger.info(
+                    f"✅ Mock LLM created (model: {model_name}, temperature: {temperature})"
+                )
+
+            def supports_stop_words(self) -> bool:
+                """CrewAI compatibility method."""
+                return False
 
             def invoke(self, messages, **kwargs):
                 """Mock synchronous invocation."""
@@ -90,10 +144,7 @@ class MockLLMProvider(LLMProvider):
                 """Check if the LLM is available (always True for mock)."""
                 return True
 
-        llm = MockLLM(
-            model_name=config.model_name,
-            temperature=config.temperature
-        )
+        llm = MockLLM(model_name=config.model_name, temperature=config.temperature)
 
         logger.info(f"✅ Mock LLM created successfully (model: {config.model_name})")
         return llm
@@ -137,21 +188,30 @@ class GoogleGeminiProvider(LLMProvider):
                     self.max_retries = max_retries
                     self.client = None
 
+                    # CrewAI compatibility attributes
+                    self.supports_functions = False
+                    self.supports_tools = False
+                    self.stop = None  # Add missing stop attribute
+
                     # Log initialization
                     logger.info("[LLM INIT] Initializing RobustLiteLLMChatModel")
                     logger.info(f"[LLM INIT] Model: {model_name}")
                     logger.info(f"[LLM INIT] API Key: {api_key[:10]}..." if api_key else "None")
                     logger.info(f"[LLM INIT] Temperature: {temperature}")
                     logger.info(f"[LLM INIT] Timeout: {timeout}s")
-                    logger.info(f"[LLM INIT] Max Retries: {max_retries}")
+                    logger.info(f"[LLM INIT] Max retries: {max_retries}")
+
+                def supports_stop_words(self) -> bool:
+                    """CrewAI compatibility method."""
+                    return False
 
                 def _clear_vertex_ai_environment(self):
                     """Clear Vertex AI environment variables to avoid conflicts."""
                     vertex_vars = [
-                        'GOOGLE_APPLICATION_CREDENTIALS',
-                        'GOOGLE_CLOUD_PROJECT',
-                        'VERTEX_AI_PROJECT',
-                        'VERTEX_AI_LOCATION'
+                        "GOOGLE_APPLICATION_CREDENTIALS",
+                        "GOOGLE_CLOUD_PROJECT",
+                        "VERTEX_AI_PROJECT",
+                        "VERTEX_AI_LOCATION",
                     ]
                     for var in vertex_vars:
                         if var in os.environ:
@@ -174,14 +234,14 @@ class GoogleGeminiProvider(LLMProvider):
                             timeout=self.timeout,
                             max_retries=self.max_retries,
                             api_key=self.api_key,
-                            **kwargs
+                            **kwargs,
                         )
 
                         duration_ms = (asyncio.get_event_loop().time() * 1000) - start_time
                         logger.info(f"[LLM SUCCESS] Request completed in {duration_ms:.2f}ms")
 
                         # Extract content from response
-                        if hasattr(response, 'choices') and response.choices:
+                        if hasattr(response, "choices") and response.choices:
                             content = response.choices[0].message.content
                             return content
                         else:
@@ -207,14 +267,14 @@ class GoogleGeminiProvider(LLMProvider):
                             timeout=self.timeout,
                             max_retries=self.max_retries,
                             api_key=self.api_key,
-                            **kwargs
+                            **kwargs,
                         )
 
                         duration_ms = (asyncio.get_event_loop().time() * 1000) - start_time
                         logger.info(f"[LLM SUCCESS] Async request completed in {duration_ms:.2f}ms")
 
                         # Extract content from response
-                        if hasattr(response, 'choices') and response.choices:
+                        if hasattr(response, "choices") and response.choices:
                             content = response.choices[0].message.content
                             return content
                         else:
@@ -236,19 +296,15 @@ class GoogleGeminiProvider(LLMProvider):
                     """Format messages for LiteLLM compatibility."""
                     formatted_messages = []
                     for message in messages:
-                        if hasattr(message, 'content') and hasattr(message, 'role'):
-                            formatted_messages.append({
-                                'role': message.role,
-                                'content': message.content
-                            })
+                        if hasattr(message, "content") and hasattr(message, "role"):
+                            formatted_messages.append(
+                                {"role": message.role, "content": message.content}
+                            )
                         elif isinstance(message, dict):
                             formatted_messages.append(message)
                         else:
                             # Fallback: treat as user message
-                            formatted_messages.append({
-                                'role': 'user',
-                                'content': str(message)
-                            })
+                            formatted_messages.append({"role": "user", "content": str(message)})
                     return formatted_messages
 
                 def _handle_litellm_error(self, error, duration_ms, messages, **kwargs):
@@ -277,7 +333,9 @@ class GoogleGeminiProvider(LLMProvider):
 
                     # Log diagnostics
                     logger.error(f"[LLM DIAGNOSTICS] - API Key present: {bool(self.api_key)}")
-                    logger.error(f"[LLM DIAGNOSTICS] - API Key length: {len(self.api_key) if self.api_key else 0}")
+                    logger.error(
+                        f"[LLM DIAGNOSTICS] - API Key length: {len(self.api_key) if self.api_key else 0}"
+                    )
                     logger.error(f"[LLM DIAGNOSTICS] - Request duration: {duration_ms:.2f}ms")
 
                     # Re-raise the error
@@ -291,11 +349,15 @@ class GoogleGeminiProvider(LLMProvider):
                 max_retries=config.max_retries,
             )
 
-            logger.info(f"✅ Google Gemini LLM created successfully using LiteLLM (model: {litellm_model_name})")
+            logger.info(
+                f"✅ Google Gemini LLM created successfully using LiteLLM (model: {litellm_model_name})"
+            )
             return llm
 
         except ImportError:
-            error_msg = "LiteLLM package not installed. Please install it with 'pip install litellm'."
+            error_msg = (
+                "LiteLLM package not installed. Please install it with 'pip install litellm'."
+            )
             logger.error(error_msg)
             raise LLMProviderError(error_msg)
         except Exception as e:
@@ -306,10 +368,10 @@ class GoogleGeminiProvider(LLMProvider):
     def _clear_vertex_ai_environment(self):
         """Clear Vertex AI environment variables to avoid conflicts."""
         vertex_vars = [
-            'GOOGLE_APPLICATION_CREDENTIALS',
-            'GOOGLE_CLOUD_PROJECT',
-            'VERTEX_AI_PROJECT',
-            'VERTEX_AI_LOCATION'
+            "GOOGLE_APPLICATION_CREDENTIALS",
+            "GOOGLE_CLOUD_PROJECT",
+            "VERTEX_AI_PROJECT",
+            "VERTEX_AI_LOCATION",
         ]
         for var in vertex_vars:
             if var in os.environ:
@@ -337,7 +399,19 @@ class OllamaProvider(LLMProvider):
                 def __init__(self, model_name: str, temperature: float = 0.7):
                     self.model_name = model_name
                     self.temperature = temperature
-                    logger.info(f"✅ Mock Ollama LLM created (model: {model_name}, temperature: {temperature})")
+
+                    # CrewAI compatibility attributes
+                    self.supports_functions = False
+                    self.supports_tools = False
+                    self.stop = None  # Add missing stop attribute
+
+                    logger.info(
+                        f"✅ Mock Ollama LLM created (model: {model_name}, temperature: {temperature})"
+                    )
+
+                def supports_stop_words(self) -> bool:
+                    """CrewAI compatibility method."""
+                    return False
 
                 def invoke(self, messages, **kwargs):
                     """Mock synchronous invocation."""
@@ -357,10 +431,7 @@ class OllamaProvider(LLMProvider):
                     """Check if the LLM is available (always True for mock)."""
                     return True
 
-            llm = MockOllamaLLM(
-                model_name=config.model_name,
-                temperature=config.temperature
-            )
+            llm = MockOllamaLLM(model_name=config.model_name, temperature=config.temperature)
             logger.info(f"✅ Mock Ollama LLM created successfully (model: {config.model_name})")
             return llm
 
@@ -373,13 +444,14 @@ class OllamaProvider(LLMProvider):
             logger.error(error_msg)
             raise LLMProviderError(error_msg)
 
+
 class LLMFactory:
     """
     Factory for creating LLM instances.
     Supports multiple AI providers with proper factory pattern.
     """
 
-    _providers: dict[AIProvider, type[LLMProvider]] = {
+    _providers: Dict[AIProvider, type[LLMProvider]] = {
         AIProvider.GEMINI: GoogleGeminiProvider,
         AIProvider.OLLAMA: OllamaProvider,
         AIProvider.MOCK: MockLLMProvider,
@@ -412,13 +484,15 @@ class LLMFactory:
         Raises:
             LLMProviderError: If LLM creation fails
         """
-        logger.info(f"Creating LLM with provider: {config.provider.value}, model: {config.model_name}")
+        logger.info(
+            f"Creating LLM with provider: {config.provider.value}, model: {config.model_name}"
+        )
 
         provider = cls.get_provider(config.provider)
         return provider.create_llm(config)
 
     @classmethod
-    def create_from_environment(cls, model_name: Union[str, None] = None) -> 'Any':
+    def create_from_environment(cls, model_name: Optional[str] = None) -> "Any":
         """
         Create an LLM instance from environment variables.
 
@@ -428,7 +502,7 @@ class LLMFactory:
             LangChain-compatible LLM instance
         """
         # Get provider from environment
-        provider_str = os.getenv('AI_PROVIDER', 'gemini')
+        provider_str = os.getenv("AI_PROVIDER", "gemini")
         logger.debug(f"🔍 [DEBUG] LLMFactory: AI_PROVIDER from env: {provider_str}")
 
         try:
@@ -440,25 +514,25 @@ class LLMFactory:
         # Get API key from environment (only for real providers)
         api_key = ""
         if provider == AIProvider.GEMINI:
-            api_key = os.getenv('GOOGLE_API_KEY', '')
+            api_key = os.getenv("GOOGLE_API_KEY", "")
         elif provider == AIProvider.MOCK:
             api_key = "mock-key"  # Mock doesn't need real API key
 
         # Use default model if not specified
         if not model_name:
             # Try AI_MODEL_NAME first, then provider-specific fallbacks
-            model_name = os.getenv('AI_MODEL_NAME')
+            model_name = os.getenv("AI_MODEL_NAME")
             logger.debug(f"🔍 [DEBUG] LLMFactory: AI_MODEL_NAME from env: {model_name}")
 
         if not model_name:
             if provider == AIProvider.GEMINI:
-                model_name = os.getenv('GOOGLE_AI_MODEL_NAME', 'gemini-1.5-flash')
+                model_name = os.getenv("GOOGLE_AI_MODEL_NAME", "gemini-1.5-flash")
                 logger.debug(f"🔍 [DEBUG] LLMFactory: GOOGLE_AI_MODEL_NAME from env: {model_name}")
             elif provider == AIProvider.OLLAMA:
-                model_name = os.getenv('OLLAMA_MODEL', 'llama2')
+                model_name = os.getenv("OLLAMA_MODEL", "llama2")
                 logger.debug(f"🔍 [DEBUG] LLMFactory: OLLAMA_MODEL from env: {model_name}")
             elif provider == AIProvider.MOCK:
-                model_name = os.getenv('MOCK_MODEL', 'mock-model')
+                model_name = os.getenv("MOCK_MODEL", "mock-model")
                 logger.debug(f"🔍 [DEBUG] LLMFactory: MOCK_MODEL from env: {model_name}")
 
         logger.debug(f"🔍 [DEBUG] LLMFactory: Final model_name: {model_name}")
@@ -467,14 +541,14 @@ class LLMFactory:
             provider=provider,
             model_name=model_name,
             api_key=api_key,
-            temperature=float(os.getenv('LLM_TEMPERATURE', '0.7')),
-            timeout_seconds=int(os.getenv('LLM_TIMEOUT', '30')),
-            max_retries=int(os.getenv('LLM_MAX_RETRIES', '3')),
+            temperature=float(os.getenv("LLM_TEMPERATURE", "0.1")),  # Default to low temperature to prevent hallucination
+            timeout_seconds=int(os.getenv("LLM_TIMEOUT", "30")),
+            max_retries=int(os.getenv("LLM_MAX_RETRIES", "3")),
         )
 
         return cls.create_llm(config)
 
     @classmethod
-    def get_supported_providers(cls) -> list[str]:
+    def get_supported_providers(cls) -> List[str]:
         """Get list of supported AI providers."""
         return [provider.value for provider in cls._providers.keys()]

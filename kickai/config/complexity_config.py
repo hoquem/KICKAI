@@ -15,20 +15,20 @@ class ComplexityFactors:
     """Configuration for complexity assessment factors."""
 
     # Intent complexity mappings
-    simple_intents: list[str]
-    moderate_intents: list[str]
-    complex_intents: list[str]
-    very_complex_intents: list[str]
+    simple_intents: List[str]
+    moderate_intents: List[str]
+    complex_intents: List[str]
+    very_complex_intents: List[str]
 
     # Entity complexity mappings
-    simple_entities: list[str]
-    moderate_entities: list[str]
-    complex_entities: list[str]
+    simple_entities: List[str]
+    moderate_entities: List[str]
+    complex_entities: List[str]
 
     # Context complexity indicators
-    simple_context: list[str]
-    moderate_context: list[str]
-    complex_context: list[str]
+    simple_context: List[str]
+    moderate_context: List[str]
+    complex_context: List[str]
 
     # Dependency complexity weights
     no_dependencies: float
@@ -62,7 +62,7 @@ class ComplexityThresholds:
 class ProcessingTimeConfig:
     """Configuration for processing time estimation."""
 
-    base_times: dict[str, int]
+    base_times: Dict[str, Dict, int]
     entity_complexity_threshold: float
     entity_complexity_adjustment: int
     dependency_complexity_threshold: float
@@ -83,33 +83,26 @@ class ComplexityConfig:
     def _load_complexity_factors(self) -> ComplexityFactors:
         """Load complexity assessment factors."""
         return ComplexityFactors(
-            simple_intents=['status_inquiry', 'help_request', 'general_inquiry'],
-            moderate_intents=['player_registration', 'payment_inquiry', 'match_inquiry'],
-            complex_intents=['player_approval', 'availability_update'],
-            very_complex_intents=['multi_step_operation', 'coordination_task'],
-
-            simple_entities=['player_id', 'status'],
-            moderate_entities=['player_name', 'phone', 'amount'],
-            complex_entities=['match_details', 'payment_details', 'availability_schedule'],
-
-            simple_context=['single_user', 'single_team'],
-            moderate_context=['multiple_users', 'time_constraints'],
-            complex_context=['multi_team', 'conflicting_requirements', 'urgent_deadlines'],
-
+            simple_intents=["status_inquiry", "help_request", "general_inquiry"],
+            moderate_intents=["player_registration", "payment_inquiry", "match_inquiry"],
+            complex_intents=["player_approval", "availability_update"],
+            very_complex_intents=["multi_step_operation", "coordination_task"],
+            simple_entities=["player_id", "status"],
+            moderate_entities=["player_name", "phone", "amount"],
+            complex_entities=["match_details", "payment_details", "availability_schedule"],
+            simple_context=["single_user", "single_team"],
+            moderate_context=["multiple_users", "time_constraints"],
+            complex_context=["multi_team", "conflicting_requirements", "urgent_deadlines"],
             no_dependencies=0.1,
             single_dependency=0.3,
             multiple_dependencies=0.6,
-            circular_dependencies=0.9
+            circular_dependencies=0.9,
         )
 
     def _load_complexity_weights(self) -> ComplexityWeights:
         """Load complexity assessment weights."""
         return ComplexityWeights(
-            intent=0.3,
-            entities=0.2,
-            context=0.2,
-            dependencies=0.15,
-            user_history=0.15
+            intent=0.3, entities=0.2, context=0.2, dependencies=0.15, user_history=0.15
         )
 
     def _load_complexity_thresholds(self) -> ComplexityThresholds:
@@ -118,24 +111,19 @@ class ComplexityConfig:
             simple_threshold=0.3,
             moderate_threshold=0.6,
             complex_threshold=0.8,
-            very_complex_threshold=1.0
+            very_complex_threshold=1.0,
         )
 
     def _load_processing_time_config(self) -> ProcessingTimeConfig:
         """Load processing time configuration."""
         return ProcessingTimeConfig(
-            base_times={
-                'SIMPLE': 15,
-                'MODERATE': 45,
-                'COMPLEX': 120,
-                'VERY_COMPLEX': 300
-            },
+            base_times={"SIMPLE": 15, "MODERATE": 45, "COMPLEX": 120, "VERY_COMPLEX": 300},
             entity_complexity_threshold=0.6,
             entity_complexity_adjustment=30,
             dependency_complexity_threshold=0.5,
             dependency_complexity_adjustment=60,
             context_complexity_threshold=0.7,
-            context_complexity_adjustment=45
+            context_complexity_adjustment=45,
         )
 
     def get_intent_complexity_score(self, intent: str) -> float:
@@ -151,7 +139,7 @@ class ComplexityConfig:
         else:
             return 0.5  # Default moderate complexity
 
-    def get_entity_complexity_score(self, entities: dict[str, Any]) -> float:
+    def get_entity_complexity_score(self, entities: Dict[str, Any]) -> float:
         """Get complexity score for entities."""
         if not entities:
             return 0.1  # No entities = simple
@@ -171,7 +159,7 @@ class ComplexityConfig:
         # Return average entity complexity
         return sum(entity_scores) / len(entity_scores) if entity_scores else 0.1
 
-    def get_context_complexity_score(self, context: dict[str, Any]) -> float:
+    def get_context_complexity_score(self, context: Dict[str, Any]) -> float:
         """Get complexity score for context."""
         if not context:
             return 0.1  # No context = simple
@@ -179,20 +167,20 @@ class ComplexityConfig:
         context_score = 0.1  # Base score
 
         # Check for complexity indicators
-        if context.get('multiple_users', False):
+        if context.get("multiple_users", False):
             context_score += 0.3
-        if context.get('time_constraints', False):
+        if context.get("time_constraints", False):
             context_score += 0.2
-        if context.get('multi_team', False):
+        if context.get("multi_team", False):
             context_score += 0.4
-        if context.get('conflicting_requirements', False):
+        if context.get("conflicting_requirements", False):
             context_score += 0.5
-        if context.get('urgent_deadlines', False):
+        if context.get("urgent_deadlines", False):
             context_score += 0.3
 
         return min(1.0, context_score)
 
-    def get_dependency_complexity_score(self, dependencies: list[str]) -> float:
+    def get_dependency_complexity_score(self, dependencies: List[str]) -> float:
         """Get complexity score for dependencies."""
         if not dependencies:
             return self.factors.no_dependencies
@@ -206,7 +194,7 @@ class ComplexityConfig:
         else:
             return self.factors.circular_dependencies
 
-    def calculate_overall_complexity(self, factors: dict[str, float]) -> tuple[float, str]:
+    def calculate_overall_complexity(self, factors: Dict[str, float]) -> tuple[float, str]:
         """Calculate overall complexity score and level."""
         overall_score = 0.0
         for factor, weight in self.weights.__dict__.items():
@@ -215,43 +203,43 @@ class ComplexityConfig:
 
         # Map score to complexity level
         if overall_score < self.thresholds.simple_threshold:
-            complexity_level = 'SIMPLE'
+            complexity_level = "SIMPLE"
         elif overall_score < self.thresholds.moderate_threshold:
-            complexity_level = 'MODERATE'
+            complexity_level = "MODERATE"
         elif overall_score < self.thresholds.complex_threshold:
-            complexity_level = 'COMPLEX'
+            complexity_level = "COMPLEX"
         else:
-            complexity_level = 'VERY_COMPLEX'
+            complexity_level = "VERY_COMPLEX"
 
         return overall_score, complexity_level
 
-    def estimate_processing_time(self, complexity_level: str, factors: dict[str, float]) -> int:
+    def estimate_processing_time(self, complexity_level: str, factors: Dict[str, float]) -> int:
         """Estimate processing time based on complexity."""
         base_time = self.processing_times.base_times.get(complexity_level, 60)
         adjustments = 0
 
         # Entity complexity adjustment
-        if factors.get('entities', 0) > self.processing_times.entity_complexity_threshold:
+        if factors.get("entities", 0) > self.processing_times.entity_complexity_threshold:
             adjustments += self.processing_times.entity_complexity_adjustment
 
         # Dependency complexity adjustment
-        if factors.get('dependencies', 0) > self.processing_times.dependency_complexity_threshold:
+        if factors.get("dependencies", 0) > self.processing_times.dependency_complexity_threshold:
             adjustments += self.processing_times.dependency_complexity_adjustment
 
         # Context complexity adjustment
-        if factors.get('context', 0) > self.processing_times.context_complexity_threshold:
+        if factors.get("context", 0) > self.processing_times.context_complexity_threshold:
             adjustments += self.processing_times.context_complexity_adjustment
 
         return base_time + adjustments
 
     def recommend_approach(self, complexity_level: str) -> str:
         """Recommend processing approach based on complexity."""
-        if complexity_level == 'SIMPLE':
-            return 'direct'
-        elif complexity_level == 'MODERATE':
-            return 'decomposed'
+        if complexity_level == "SIMPLE":
+            return "direct"
+        elif complexity_level == "MODERATE":
+            return "decomposed"
         else:  # COMPLEX or VERY_COMPLEX
-            return 'collaborative'
+            return "collaborative"
 
 
 # Global configuration instance

@@ -11,7 +11,7 @@ import traceback
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Union, Union
+from typing import Any, Dict, List, Union
 
 from loguru import logger
 
@@ -28,6 +28,7 @@ from .exceptions import (
 @dataclass
 class ErrorHandlingConfig:
     """Configuration for error handling behavior."""
+
     log_errors: bool = True
     log_level: str = "ERROR"
     include_traceback: bool = False
@@ -35,20 +36,17 @@ class ErrorHandlingConfig:
     max_retries: int = 3
     user_friendly_messages: bool = True
     raise_on_critical: bool = True
-    context_operation: Union[str, None] = None
+    context_operation: Optional[str] = None
 
 
 class ErrorHandler:
     """Centralized error handler for the KICKAI system."""
 
-    def __init__(self, config: Union[ErrorHandlingConfig, None] = None):
+    def __init__(self, config: Optional[ErrorHandlingConfig] = None):
         self.config = config or ErrorHandlingConfig()
 
     def handle_error(
-        self,
-        error: Exception,
-        context: Union[dict[str, Any], None] = None,
-        operation: Union[str, None] = None
+        self, error: Exception, context: Optional[Dict[str, Any]] = None, operation: Optional[str] = None
     ) -> str:
         """
         Handle an error and return a user-friendly message.
@@ -64,8 +62,7 @@ class ErrorHandler:
         try:
             # Create error context
             error_context = create_error_context(
-                operation=operation or self.config.context_operation or "unknown",
-                **(context or {})
+                operation=operation or self.config.context_operation or "unknown", **(context or {})
             )
 
             # Log the error if configured
@@ -136,8 +133,7 @@ def get_global_error_handler() -> ErrorHandler:
 
 
 def handle_agent_errors(
-    operation: Union[str, None] = None,
-    config: Union[ErrorHandlingConfig, None] = None
+    operation: Optional[str] = None, config: Optional[ErrorHandlingConfig] = None
 ) -> Callable:
     """
     Decorator for handling agent execution errors.
@@ -149,6 +145,7 @@ def handle_agent_errors(
     Returns:
         Decorated function
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
@@ -156,11 +153,7 @@ def handle_agent_errors(
                 return await func(*args, **kwargs)
             except Exception as e:
                 error_handler = ErrorHandler(config) if config else _global_error_handler
-                context = {
-                    'function': func.__name__,
-                    'args': str(args),
-                    'kwargs': str(kwargs)
-                }
+                context = {"function": func.__name__, "args": str(args), "kwargs": str(kwargs)}
                 return error_handler.handle_error(e, context, operation)
 
         @functools.wraps(func)
@@ -169,11 +162,7 @@ def handle_agent_errors(
                 return func(*args, **kwargs)
             except Exception as e:
                 error_handler = ErrorHandler(config) if config else _global_error_handler
-                context = {
-                    'function': func.__name__,
-                    'args': str(args),
-                    'kwargs': str(kwargs)
-                }
+                context = {"function": func.__name__, "args": str(args), "kwargs": str(kwargs)}
                 return error_handler.handle_error(e, context, operation)
 
         # Return appropriate wrapper based on function type
@@ -186,8 +175,7 @@ def handle_agent_errors(
 
 
 def handle_tool_errors(
-    tool_name: Union[str, None] = None,
-    config: Union[ErrorHandlingConfig, None] = None
+    tool_name: Optional[str] = None, config: Optional[ErrorHandlingConfig] = None
 ) -> Callable:
     """
     Decorator for handling tool execution errors.
@@ -199,6 +187,7 @@ def handle_tool_errors(
     Returns:
         Decorated function
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
@@ -207,12 +196,14 @@ def handle_tool_errors(
             except Exception as e:
                 error_handler = ErrorHandler(config) if config else _global_error_handler
                 context = {
-                    'tool': tool_name or func.__name__,
-                    'function': func.__name__,
-                    'args': str(args),
-                    'kwargs': str(kwargs)
+                    "tool": tool_name or func.__name__,
+                    "function": func.__name__,
+                    "args": str(args),
+                    "kwargs": str(kwargs),
                 }
-                return error_handler.handle_error(e, context, f"tool_execution_{tool_name or func.__name__}")
+                return error_handler.handle_error(
+                    e, context, f"tool_execution_{tool_name or func.__name__}"
+                )
 
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
@@ -221,12 +212,14 @@ def handle_tool_errors(
             except Exception as e:
                 error_handler = ErrorHandler(config) if config else _global_error_handler
                 context = {
-                    'tool': tool_name or func.__name__,
-                    'function': func.__name__,
-                    'args': str(args),
-                    'kwargs': str(kwargs)
+                    "tool": tool_name or func.__name__,
+                    "function": func.__name__,
+                    "args": str(args),
+                    "kwargs": str(kwargs),
                 }
-                return error_handler.handle_error(e, context, f"tool_execution_{tool_name or func.__name__}")
+                return error_handler.handle_error(
+                    e, context, f"tool_execution_{tool_name or func.__name__}"
+                )
 
         # Return appropriate wrapper based on function type
         if asyncio.iscoroutinefunction(func):
@@ -240,9 +233,9 @@ def handle_tool_errors(
 @contextmanager
 def error_context(
     operation: str,
-    context: Union[dict[str, Any], None] = None,
-    config: Union[ErrorHandlingConfig, None] = None,
-    reraise: bool = False
+    context: Optional[Dict[str, Any]] = None,
+    config: Optional[ErrorHandlingConfig] = None,
+    reraise: bool = False,
 ):
     """
     Context manager for error handling.
@@ -273,7 +266,7 @@ def validate_input(
     expected_type: type,
     field_name: str,
     required: bool = True,
-    validator: Union[Callable, None] = None
+    validator: Optional[Callable] = None,
 ) -> None:
     """
     Validate input parameters.
@@ -294,14 +287,17 @@ def validate_input(
     if required and value is None:
         raise InputValidationError(
             f"Required field '{field_name}' is missing",
-            create_error_context("input_validation", additional_info={'field': field_name})
+            create_error_context("input_validation", additional_info={"field": field_name}),
         )
 
     # Check type
     if value is not None and not isinstance(value, expected_type):
         raise InputValidationError(
             f"Field '{field_name}' must be of type {expected_type.__name__}, got {type(value).__name__}",
-            create_error_context("input_validation", additional_info={'field': field_name, 'expected_type': expected_type.__name__})
+            create_error_context(
+                "input_validation",
+                additional_info={"field": field_name, "expected_type": expected_type.__name__},
+            ),
         )
 
     # Run custom validator if provided
@@ -311,7 +307,10 @@ def validate_input(
         except Exception as e:
             raise InputValidationError(
                 f"Validation failed for field '{field_name}': {e!s}",
-                create_error_context("input_validation", additional_info={'field': field_name, 'validator_error': str(e)})
+                create_error_context(
+                    "input_validation",
+                    additional_info={"field": field_name, "validator_error": str(e)},
+                ),
             )
 
 
@@ -319,10 +318,10 @@ def safe_execute(
     func: Callable,
     *args,
     operation: str = "unknown",
-    context: Union[dict[str, Any], None] = None,
-    config: Union[ErrorHandlingConfig, None] = None,
+    context: Optional[Dict[str, Any]] = None,
+    config: Optional[ErrorHandlingConfig] = None,
     default_return: Any = None,
-    **kwargs
+    **kwargs,
 ) -> Any:
     """
     Safely execute a function with error handling.
@@ -350,10 +349,10 @@ async def safe_execute_async(
     func: Callable,
     *args,
     operation: str = "unknown",
-    context: Union[dict[str, Any], None] = None,
-    config: Union[ErrorHandlingConfig, None] = None,
+    context: Optional[Dict[str, Any]] = None,
+    config: Optional[ErrorHandlingConfig] = None,
     default_return: Any = None,
-    **kwargs
+    **kwargs,
 ) -> Any:
     """
     Safely execute an async function with error handling.
@@ -375,5 +374,3 @@ async def safe_execute_async(
         error_handler = ErrorHandler(config) if config else _global_error_handler
         error_handler.handle_error(e, context, operation)
         return default_return
-
-

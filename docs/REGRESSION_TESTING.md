@@ -61,7 +61,7 @@ Edge cases and error scenarios:
 
 ```bash
 # Activate virtual environment
-source venv/bin/activate
+source venv311/bin/activate
 
 # Run quick regression test
 python run_regression_commands_test.py
@@ -158,7 +158,7 @@ python -m pytest tests/e2e/features/test_regression_commands.py::TestRegressionC
 
 1. **Virtual Environment**
    ```bash
-   source venv/bin/activate
+   source venv311/bin/activate
    ```
 
 2. **Environment Variables**
@@ -224,7 +224,7 @@ The tests use:
 3. **Environment Issues**
    ```bash
    # Check virtual environment
-   source venv/bin/activate
+   source venv311/bin/activate
    
    # Verify dependencies
    pip list | grep pytest
@@ -252,7 +252,7 @@ The regression tests can be integrated into CI/CD pipelines:
 ```yaml
 - name: Run Regression Tests
   run: |
-    source venv/bin/activate
+    source venv311/bin/activate
     python run_simple_regression_test.py
 ```
 

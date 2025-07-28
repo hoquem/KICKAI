@@ -14,7 +14,7 @@ The `start_bot_safe.sh` script was hanging due to improper process management. T
 ```bash
 # Start the bot in background and capture PID
 (
-    source venv/bin/activate && python "$BOT_SCRIPT"
+    source venv311/bin/activate && python "$BOT_SCRIPT"
 ) &
 
 local bot_pid=$!
@@ -47,7 +47,7 @@ fi
 ```bash
 # Start the bot in background and capture PID
 (
-    source venv/bin/activate && python "$BOT_SCRIPT"
+    source venv311/bin/activate && python "$BOT_SCRIPT"
 ) &
 
 local bot_pid=$!

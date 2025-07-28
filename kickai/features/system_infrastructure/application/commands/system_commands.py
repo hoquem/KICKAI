@@ -13,6 +13,7 @@ from kickai.core.enums import ChatType
 # SYSTEM INFRASTRUCTURE COMMANDS
 # ============================================================================
 
+
 @command(
     name="/systemstatus",
     description="Show comprehensive system status (Leadership only)",
@@ -21,9 +22,7 @@ from kickai.core.enums import ChatType
     feature="system_infrastructure",
     chat_type=ChatType.LEADERSHIP,
     examples=["/systemstatus", "/systemstatus detailed"],
-    parameters={
-        "level": "Optional detail level (basic, detailed, full)"
-    },
+    parameters={"level": "Optional detail level (basic, detailed, full)"},
     help_text="""
 🔧 System Status (Leadership Only)
 
@@ -44,7 +43,7 @@ What's checked:
 • Configuration status
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_systemstatus_command(update, context, **kwargs):
     """Handle /systemstatus command."""
@@ -60,9 +59,7 @@ async def handle_systemstatus_command(update, context, **kwargs):
     feature="system_infrastructure",
     chat_type=ChatType.LEADERSHIP,
     examples=["/config", "/config show", "/config validate"],
-    parameters={
-        "action": "Action to perform (show, validate, update)"
-    },
+    parameters={"action": "Action to perform (show, validate, update)"},
     help_text="""
 ⚙️ System Configuration (Leadership Only)
 
@@ -83,7 +80,7 @@ Configuration areas:
 • Security settings
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_config_command(update, context, **kwargs):
     """Handle /config command."""
@@ -99,9 +96,7 @@ async def handle_config_command(update, context, **kwargs):
     feature="system_infrastructure",
     chat_type=ChatType.LEADERSHIP,
     examples=["/backup", "/backup full", "/backup data"],
-    parameters={
-        "type": "Backup type (full, data, config)"
-    },
+    parameters={"type": "Backup type (full, data, config)"},
     help_text="""
 💾 System Backup (Leadership Only)
 
@@ -120,7 +115,7 @@ Backup types:
 • logs - System logs
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_backup_command(update, context, **kwargs):
     """Handle /backup command."""
@@ -136,9 +131,7 @@ async def handle_backup_command(update, context, **kwargs):
     feature="system_infrastructure",
     chat_type=ChatType.LEADERSHIP,
     examples=["/maintenance", "/maintenance enable", "/maintenance disable"],
-    parameters={
-        "action": "Action to perform (enable, disable, status)"
-    },
+    parameters={"action": "Action to perform (enable, disable, status)"},
     help_text="""
 🔧 System Maintenance (Leadership Only)
 
@@ -156,7 +149,7 @@ Maintenance mode:
 • Prevents data corruption
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_maintenance_command(update, context, **kwargs):
     """Handle /maintenance command."""
@@ -172,9 +165,7 @@ async def handle_maintenance_command(update, context, **kwargs):
     feature="system_infrastructure",
     chat_type=ChatType.LEADERSHIP,
     examples=["/diagnostics", "/diagnostics network", "/diagnostics performance"],
-    parameters={
-        "area": "Diagnostic area (network, performance, security, all)"
-    },
+    parameters={"area": "Diagnostic area (network, performance, security, all)"},
     help_text="""
 🔍 System Diagnostics (Leadership Only)
 
@@ -196,7 +187,7 @@ Diagnostic areas:
 • Configuration issues
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_diagnostics_command(update, context, **kwargs):
     """Handle /diagnostics command."""

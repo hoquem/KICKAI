@@ -4,9 +4,9 @@ Firebase Expense Repository Implementation
 
 This module provides the Firebase implementation of the expense repository interface.
 """
+from typing import Optional, List
 
 
-from typing import Union
 from kickai.core.firestore_constants import COLLECTION_PAYMENTS
 from kickai.database.interfaces import DataStoreInterface
 from kickai.features.payment_management.domain.repositories.expense_repository_interface import (
@@ -32,23 +32,20 @@ class FirebaseExpenseRepository(ExpenseRepositoryInterface):
             "category": expense.category,
             "created_by": expense.created_by,
             "created_at": expense.created_at,
-            "updated_at": expense.updated_at
+            "updated_at": expense.updated_at,
         }
 
         await self.database.create_document(
-            collection_name=self.collection_name,
-            document_id=expense.id,
-            data=expense_data
+            collection_name=self.collection_name, document_id=expense.id, data=expense_data
         )
 
         return expense
 
-    async def get_expense_by_id(self, expense_id: str, team_id: str) -> Union[Expense, None]:
+    async def get_expense_by_id(self, expense_id: str, team_id: str) -> Optional[Expense]:
         """Get an expense by ID."""
         try:
             doc = await self.database.get_document(
-                collection_name=self.collection_name,
-                document_id=expense_id
+                collection_name=self.collection_name, document_id=expense_id
             )
 
             if doc and doc.get("team_id") == team_id:
@@ -57,12 +54,11 @@ class FirebaseExpenseRepository(ExpenseRepositoryInterface):
         except Exception:
             return None
 
-    async def get_all_expenses(self, team_id: str) -> list[Expense]:
+    async def get_all_expenses(self, team_id: str) -> List[Expense]:
         """Get all expenses for a team."""
         try:
             docs = await self.database.query_documents(
-                collection_name=self.collection_name,
-                filters=[("team_id", "==", team_id)]
+                collection_name=self.collection_name, filters=[("team_id", "==", team_id)]
             )
 
             return [self._doc_to_expense(doc) for doc in docs]
@@ -79,13 +75,11 @@ class FirebaseExpenseRepository(ExpenseRepositoryInterface):
             "category": expense.category,
             "created_by": expense.created_by,
             "created_at": expense.created_at,
-            "updated_at": expense.updated_at
+            "updated_at": expense.updated_at,
         }
 
         await self.database.update_document(
-            collection_name=self.collection_name,
-            document_id=expense.id,
-            data=expense_data
+            collection_name=self.collection_name, document_id=expense.id, data=expense_data
         )
 
         return expense
@@ -99,23 +93,19 @@ class FirebaseExpenseRepository(ExpenseRepositoryInterface):
                 return False
 
             await self.database.delete_document(
-                collection_name=self.collection_name,
-                document_id=expense_id
+                collection_name=self.collection_name, document_id=expense_id
             )
 
             return True
         except Exception:
             return False
 
-    async def get_expenses_by_category(self, team_id: str, category: str) -> list[Expense]:
+    async def get_expenses_by_category(self, team_id: str, category: str) -> List[Expense]:
         """Get expenses by category."""
         try:
             docs = await self.database.query_documents(
                 collection_name=self.collection_name,
-                filters=[
-                    ("team_id", "==", team_id),
-                    ("category", "==", category)
-                ]
+                filters=[("team_id", "==", team_id), ("category", "==", category)],
             )
 
             return [self._doc_to_expense(doc) for doc in docs]
@@ -132,5 +122,5 @@ class FirebaseExpenseRepository(ExpenseRepositoryInterface):
             category=doc.get("category"),
             created_by=doc.get("created_by"),
             created_at=doc.get("created_at"),
-            updated_at=doc.get("updated_at")
+            updated_at=doc.get("updated_at"),
         )

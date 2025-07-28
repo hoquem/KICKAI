@@ -7,7 +7,7 @@ in the KICKAI system.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Union, Union
+from typing import Any, Dict, Optional
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -18,22 +18,24 @@ from kickai.core.enums import PermissionLevel
 @dataclass
 class CommandContext:
     """Context for command execution."""
+
     update: Update
     context: ContextTypes.DEFAULT_TYPE
     team_id: str
     user_id: str
     message_text: str
     permission_level: PermissionLevel
-    additional_data: dict[str, Any] = None
+    additional_data: Dict[str, Any] = None
 
 
 @dataclass
 class CommandResult:
     """Result of command execution."""
+
     success: bool
     message: str
-    error: Union[str, None] = None
-    data: Union[dict[str, Any], None] = None
+    error: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
 
 
 class Command(ABC):
@@ -56,7 +58,7 @@ class Command(ABC):
             PermissionLevel.PLAYER: 1,
             PermissionLevel.LEADERSHIP: 2,
             PermissionLevel.ADMIN: 3,
-            PermissionLevel.SYSTEM: 4
+            PermissionLevel.SYSTEM: 4,
         }
 
         user_level = permission_hierarchy.get(user_permission_level, 0)
@@ -72,14 +74,24 @@ class Command(ABC):
 class SimpleCommand(Command):
     """Simple command implementation for basic commands."""
 
-    def __init__(self, name: str, description: str, handler_func, permission_level: PermissionLevel = PermissionLevel.PUBLIC):
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        handler_func,
+        permission_level: PermissionLevel = PermissionLevel.PUBLIC,
+    ):
         super().__init__(name, description, permission_level)
         self.handler_func = handler_func
 
     async def execute(self, context: CommandContext) -> CommandResult:
         """Execute the command using the handler function."""
         try:
-            result = await self.handler_func(context.update, context.context, **context.additional_data or {})
+            result = await self.handler_func(
+                context.update, context.context, **context.additional_data or {}
+            )
             return CommandResult(success=True, message=str(result))
         except Exception as e:
-            return CommandResult(success=False, message=f"Error executing command: {e!s}", error=str(e))
+            return CommandResult(
+                success=False, message=f"Error executing command: {e!s}", error=str(e)
+            )

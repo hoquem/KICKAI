@@ -32,38 +32,38 @@ help:
 # Development setup
 setup-dev:
 	@echo "Setting up development environment..."
-	python -m venv venv
-	. venv/bin/activate && pip install -r requirements.txt
-	. venv/bin/activate && pip install -r requirements-local.txt
+	python3.11 -m venv venv311
+	. venv311/bin/activate && pip install -r requirements.txt
+	. venv311/bin/activate && pip install -r requirements-local.txt
 	pre-commit install
 	@echo "Development environment setup complete!"
 
 # Development server
 dev:
 	@echo "Starting development server..."
-	python run_bot_local.py
+	. venv311/bin/activate && PYTHONPATH=. python run_bot_local.py
 
 # Testing commands
 test: test-unit test-integration test-e2e
 
 test-unit:
 	@echo "Running unit tests..."
-	python -m pytest tests/unit/ -v
+	. venv311/bin/activate && PYTHONPATH=. python -m pytest tests/unit/ -v
 
 test-integration:
 	@echo "Running integration tests..."
-	python -m pytest tests/integration/ -v
+	. venv311/bin/activate && PYTHONPATH=. python -m pytest tests/integration/ -v
 
 test-e2e:
 	@echo "Running E2E tests..."
-	python run_e2e_tests.py --suite=smoke
+	. venv311/bin/activate && PYTHONPATH=. python run_e2e_tests.py --suite=smoke
 
 # Code quality
 lint:
 	@echo "Running code quality checks..."
-	python -m ruff check kickai/
-	python -m ruff format kickai/
-	python -m mypy kickai/
+	. venv311/bin/activate && python -m ruff check kickai/
+	. venv311/bin/activate && python -m ruff format kickai/
+	. venv311/bin/activate && python -m mypy kickai/
 
 # Clean up
 clean:
@@ -103,34 +103,34 @@ deploy-production:
 # Validation commands
 validate-testing:
 	@echo "Validating testing environment..."
-	export PYTHONPATH=src && python scripts/validate_feature_deployment.py --feature=all --environment=testing
+	. venv311/bin/activate && PYTHONPATH=. python scripts/validate_feature_deployment.py --feature=all --environment=testing
 
 validate-production:
 	@echo "Validating production environment..."
-	export PYTHONPATH=src && python scripts/validate_feature_deployment.py --feature=all --environment=production
+	. venv311/bin/activate && PYTHONPATH=. python scripts/validate_feature_deployment.py --feature=all --environment=production
 
 # Health checks
 health-check:
 	@echo "Running health checks..."
-	export PYTHONPATH=src && python scripts/run_health_checks.py
+	. venv311/bin/activate && PYTHONPATH=. python scripts/run_health_checks.py
 
 # Bootstrap commands
 bootstrap-testing:
 	@echo "Bootstrapping testing environment..."
-	export PYTHONPATH=src && python scripts/bootstrap_team.py --environment=testing
+	. venv311/bin/activate && PYTHONPATH=. python scripts/bootstrap_team.py --environment=testing
 
 bootstrap-production:
 	@echo "Bootstrapping production environment..."
-	export PYTHONPATH=src && python scripts/bootstrap_team.py --environment=production
+	. venv311/bin/activate && PYTHONPATH=. python scripts/bootstrap_team.py --environment=production
 
 # Database cleanup
 cleanup-testing:
 	@echo "Cleaning up testing database..."
-	export PYTHONPATH=src && python scripts-oneoff/cleanup/clean_firestore_collections.py --environment=testing
+	. venv311/bin/activate && PYTHONPATH=. python scripts-oneoff/cleanup/clean_firestore_collections.py --environment=testing
 
 cleanup-production:
 	@echo "Cleaning up production database..."
-	export PYTHONPATH=src && python scripts-oneoff/cleanup/clean_firestore_collections.py --environment=production
+	. venv311/bin/activate && PYTHONPATH=. python scripts-oneoff/cleanup/clean_firestore_collections.py --environment=production
 
 # Full deployment pipeline
 deploy-pipeline: test lint deploy-testing validate-testing deploy-production validate-production
