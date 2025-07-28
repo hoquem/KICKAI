@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Dict, Optional
 
 
 class IPaymentGateway(ABC):
@@ -13,36 +13,36 @@ class IPaymentGateway(ABC):
         description: str,
         reference: str,
         expires_in_days: int = 7,
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """Create a payment link."""
         pass
 
     @abstractmethod
-    async def get_payment_link_status(self, link_id: str) -> dict[str, Any]:
+    async def get_payment_link_status(self, link_id: str) -> Dict[str, Any]:
         """Get the status of a payment link."""
         pass
 
     @abstractmethod
-    async def process_payment(self, link_id: str, payment_method: str = "card") -> dict[str, Any]:
+    async def process_payment(self, link_id: str, payment_method: str = "card") -> Dict[str, Any]:
         """Process a payment using a payment link."""
         pass
 
     @abstractmethod
     async def refund_payment(
-        self, transaction_id: str, amount: float | None = None
-    ) -> dict[str, Any]:
+        self, transaction_id: str, amount: Optional[float] = None
+    ) -> Dict[str, Any]:
         """Refund a payment."""
         pass
 
     @abstractmethod
     async def create_charge(
-        self, amount: float, currency: str, source: str, description: str | None = None
-    ) -> dict[str, Any]:
+        self, amount: float, currency: str, source: str, description: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Create a direct charge."""
         pass
 
     @abstractmethod
-    async def create_refund(self, charge_id: str, amount: float | None = None) -> dict[str, Any]:
+    async def create_refund(self, charge_id: str, amount: Optional[float] = None) -> Dict[str, Any]:
         """Create a refund for a charge."""
         pass
 

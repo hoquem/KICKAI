@@ -6,7 +6,7 @@ This module provides tools for player registration and team member management.
 
 import logging
 
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from pydantic import BaseModel
 
 from kickai.core.dependency_container import get_container
@@ -92,16 +92,17 @@ def register_player(player_name: str, phone_number: str, position: str, team_id:
 @tool("register_team_member")
 def register_team_member(player_name: str, phone_number: str, role: str, team_id: str) -> str:
     """
-    Register a new team member in the leadership chat. Requires: player_name, phone_number, role, team_id
+    Register a new team member with enhanced onboarding feedback. 
+    Requires: player_name, phone_number, role, team_id
 
     Args:
         player_name: The name of the team member to register
         phone_number: The team member's phone number
-        role: The team member's role (e.g., Coach, Manager, Assistant)
+        role: The team member's role (coach, manager, assistant, coordinator, volunteer, admin)
         team_id: Team ID (required)
 
     Returns:
-        Confirmation message indicating success or failure
+        Enhanced confirmation message with next steps
     """
     try:
         container = get_container()
@@ -109,21 +110,38 @@ def register_team_member(player_name: str, phone_number: str, role: str, team_id
 
         if not registration_service:
             logger.error("❌ PlayerRegistrationService not available")
-            return "❌ Registration service not available"
+            return "❌ Registration service not available. Please try again later."
 
         # Register the team member (using the same service but with role instead of position)
-        player = registration_service.register_player(player_name, phone_number, role, team_id)
+        member = registration_service.register_player(player_name, phone_number, role, team_id)
 
-        if player:
+        if member:
             logger.info(f"✅ Team member registered: {player_name} ({role})")
-            return f"✅ Team member registered successfully: {player_name} ({role})"
+            
+            # Enhanced success message for onboarding
+            success_msg = f"""
+🎉 **TEAM MEMBER REGISTERED!**
+
+✅ **Details:**
+• **Name:** {player_name}
+• **Role:** {role.title()}
+• **Status:** Active
+
+🚀 **Next Steps:**
+• Access administrative features immediately
+• Join leadership chat for team coordination
+• Contact existing leadership for orientation
+
+Welcome to the team! 🤝
+            """
+            return success_msg.strip()
         else:
             logger.error(f"❌ Failed to register team member: {player_name}")
-            return f"❌ Failed to register team member: {player_name}"
+            return f"❌ Registration failed for {player_name}. Please verify the information and try again."
 
     except Exception as e:
         logger.error(f"❌ Failed to register team member: {e}")
-        return f"❌ Failed to register team member: {e!s}"
+        return f"❌ Registration failed: {e!s}\n\nPlease check your information and try again."
 
 
 @tool("team_member_registration")

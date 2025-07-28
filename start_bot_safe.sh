@@ -104,8 +104,8 @@ start_bot() {
     mkdir -p logs
     
     # Check if virtual environment exists
-    if [ ! -d "venv" ]; then
-        echo "❌ Virtual environment not found. Please run: python -m venv venv"
+    if [ ! -d "venv311" ]; then
+        echo "❌ Python 3.11 virtual environment not found. Please run: python3.11 -m venv venv311"
         exit 1
     fi
     
@@ -126,7 +126,7 @@ start_bot() {
     
     # Start the bot in background and capture PID
     # Use nohup to detach the process completely
-    nohup bash -c "source venv/bin/activate && python $BOT_SCRIPT" > "$LOG_FILE" 2>&1 &
+    nohup bash -c "source venv311/bin/activate && PYTHONPATH=. python $BOT_SCRIPT" > "$LOG_FILE" 2>&1 &
     
     local bot_pid=$!
     echo "$bot_pid" > "$BOT_PID_FILE"

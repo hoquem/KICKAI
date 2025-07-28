@@ -9,13 +9,13 @@ import time
 from collections.abc import Callable, Coroutine
 from contextlib import asynccontextmanager
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any, TypeVar, Optional, Union, Dict, List
 
 from loguru import logger
 
 logger = logger
 
-T = TypeVar("T")
+T = TypeVar("T", Dict, List)
 
 
 class AsyncRetryError(Exception):
@@ -135,8 +135,8 @@ async def run_in_executor(func: Callable[..., T], *args, **kwargs) -> T:
 
 
 async def gather_with_concurrency_limit(
-    coroutines: list[Coroutine[Any, Any, T]], max_concurrent: int = 10
-) -> list[T]:
+    coroutines: List[Coroutine[Any, Any, T]], max_concurrent: int = 10
+) -> List[T]:
     """
     Execute coroutines with a concurrency limit using semaphore.
 
@@ -194,8 +194,8 @@ class AsyncBatchProcessor:
         self.max_concurrent = max_concurrent
 
     async def process_batches(
-        self, items: list[Any], processor_func: Callable[[list[Any]], Coroutine[Any, Any, list[T]]]
-    ) -> list[T]:
+        self, items: List[Any], processor_func: Callable[[List[Any]], Coroutine[Any, Any, List[T]]]
+    ) -> List[T]:
         """
         Process items in batches asynchronously.
 
@@ -282,8 +282,8 @@ def create_async_context_manager(func: Callable[..., Coroutine[Any, Any, T]]):
 
 
 async def safe_async_call(
-    func: Callable[..., Coroutine[Any, Any, T]], *args, default_value: T | None = None, **kwargs
-) -> T | None:
+    func: Callable[..., Coroutine[Any, Any, T]], *args, default_value: Optional[T] = None, **kwargs
+) -> Optional[T]:
     """
     Safely call an async function with error handling.
 
@@ -304,8 +304,8 @@ async def safe_async_call(
 
 
 async def async_map(
-    func: Callable[[Any], Coroutine[Any, Any, T]], items: list[Any], max_concurrent: int = 10
-) -> list[T]:
+    func: Callable[[Any], Coroutine[Any, Any, T]], items: List[Any], max_concurrent: int = 10
+) -> List[T]:
     """
     Apply an async function to each item in a list with concurrency control.
 
@@ -322,8 +322,8 @@ async def async_map(
 
 
 async def async_filter(
-    func: Callable[[Any], Coroutine[Any, Any, bool]], items: list[Any], max_concurrent: int = 10
-) -> list[Any]:
+    func: Callable[[Any], Coroutine[Any, Any, bool]], items: List[Any], max_concurrent: int = 10
+) -> List[Any]:
     """
     Filter items using an async predicate function.
 

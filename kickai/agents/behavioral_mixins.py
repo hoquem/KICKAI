@@ -18,6 +18,7 @@ from kickai.core.exceptions import (
     InputValidationError,
     KICKAIError,
 )
+from typing import Dict, List, Optional, Union
 from kickai.features.team_administration.domain.interfaces.team_service_interface import (
     ITeamService,
 )
@@ -252,7 +253,7 @@ class CommandFallbackMixin(BaseBehavioralMixin):
         return []  # This mixin handles failed commands, not specific commands
 
     async def process_failed_command(
-        self, failed_command: str, error_message: str, user_context: dict[str, Any]
+        self, failed_command: str, error_message: str, user_context: Dict[str, Any]
     ) -> str:
         """Process a failed command and provide helpful suggestions."""
         try:
@@ -283,7 +284,7 @@ class CommandFallbackMixin(BaseBehavioralMixin):
             return "❌ Sorry, I encountered an unexpected error processing your request. Please try again later or contact support."
 
     async def _analyze_failed_command(
-        self, failed_command: str, error_message: str, user_context: dict[str, Any]
+        self, failed_command: str, error_message: str, user_context: Dict[str, Any]
     ) -> str:
         """Analyze a failed command and provide helpful suggestions."""
         try:
@@ -899,7 +900,7 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
         return ["/addplayer"]
 
     async def handle_addplayer_command(
-        self, message_text: str, execution_context: dict[str, Any]
+        self, message_text: str, execution_context: Dict[str, Any]
     ) -> str:
         """
         Handle /addplayer command - this should be routed through the agent system.
@@ -925,7 +926,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
         return ["/addmember", "/add_member", "/addteammember"]
 
     async def handle_addmember_command(
-        self, message_text: str, execution_context: dict[str, Any]
+        self, message_text: str, execution_context: Dict[str, Any]
     ) -> str:
         """
         Handle /addmember command using agent-based processing.
@@ -1120,7 +1121,7 @@ MIXIN_REGISTRY = {
 }
 
 
-def get_mixin_for_role(role) -> BaseBehavioralMixin | None:
+def get_mixin_for_role(role) -> Optional[BaseBehavioralMixin]:
     """Get the appropriate mixin for a given agent role."""
     # Handle both string and AgentRole enum
     if hasattr(role, "value"):

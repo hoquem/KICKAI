@@ -4,6 +4,7 @@ Firebase Expense Repository Implementation
 
 This module provides the Firebase implementation of the expense repository interface.
 """
+from typing import Optional, List
 
 
 from kickai.core.firestore_constants import COLLECTION_PAYMENTS
@@ -40,7 +41,7 @@ class FirebaseExpenseRepository(ExpenseRepositoryInterface):
 
         return expense
 
-    async def get_expense_by_id(self, expense_id: str, team_id: str) -> Expense | None:
+    async def get_expense_by_id(self, expense_id: str, team_id: str) -> Optional[Expense]:
         """Get an expense by ID."""
         try:
             doc = await self.database.get_document(
@@ -53,7 +54,7 @@ class FirebaseExpenseRepository(ExpenseRepositoryInterface):
         except Exception:
             return None
 
-    async def get_all_expenses(self, team_id: str) -> list[Expense]:
+    async def get_all_expenses(self, team_id: str) -> List[Expense]:
         """Get all expenses for a team."""
         try:
             docs = await self.database.query_documents(
@@ -99,7 +100,7 @@ class FirebaseExpenseRepository(ExpenseRepositoryInterface):
         except Exception:
             return False
 
-    async def get_expenses_by_category(self, team_id: str, category: str) -> list[Expense]:
+    async def get_expenses_by_category(self, team_id: str, category: str) -> List[Expense]:
         """Get expenses by category."""
         try:
             docs = await self.database.query_documents(

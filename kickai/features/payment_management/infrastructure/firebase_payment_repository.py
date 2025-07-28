@@ -4,6 +4,7 @@ FirebasePaymentRepository for Payment Management.
 Implements PaymentRepositoryInterface using Firebase/Firestore as the backend.
 """
 
+from typing import List, Optional
 
 from kickai.features.payment_management.domain.entities.payment import Payment
 from kickai.features.payment_management.domain.repositories.payment_repository_interface import (
@@ -21,11 +22,11 @@ class FirebasePaymentRepository(PaymentRepositoryInterface):
         # TODO: Implement Firestore logic
         raise NotImplementedError
 
-    async def get_by_id(self, payment_id: str) -> Payment | None:
+    async def get_by_id(self, payment_id: str) -> Optional[Payment]:
         # TODO: Implement Firestore logic
         raise NotImplementedError
 
-    async def get_by_team(self, team_id: str) -> list[Payment]:
+    async def get_by_team(self, team_id: str) -> List[Payment]:
         # TODO: Implement Firestore logic
         raise NotImplementedError
 

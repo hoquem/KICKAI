@@ -5,6 +5,7 @@ Simplified Team Member Service
 This module provides simplified team member management functionality
 for the new /addmember command that only requires name and phone number.
 """
+from typing import Optional
 
 from datetime import datetime
 
@@ -81,7 +82,7 @@ class SimplifiedTeamMemberService:
             logger.error(f"Error adding team member {name}: {e}")
             return False, f"❌ Failed to add team member: {e!s}"
 
-    async def get_team_member_by_phone(self, phone: str, team_id: str) -> TeamMember | None:
+    async def get_team_member_by_phone(self, phone: str, team_id: str) -> Optional[TeamMember]:
         """Get team member by phone number."""
         try:
             members = await self.team_repository.get_team_members_by_team(team_id)

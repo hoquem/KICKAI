@@ -10,7 +10,7 @@ This framework uses multiple Telegram clients to simulate real user interactions
 import asyncio
 import time
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Any, List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 from telethon import TelegramClient
@@ -22,13 +22,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-class TestType(Enum):
-    """Types of tests supported."""
-    COMMAND = "command"
-    NATURAL_LANGUAGE = "natural_language"
-    USER_FLOW = "user_flow"
-    DATA_VALIDATION = "data_validation"
-    INTEGRATION = "integration"
+from kickai.core.enums import TestType
 
 @dataclass
 class TestResult:

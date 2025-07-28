@@ -6,7 +6,7 @@ This module provides team administration functionality.
 
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from ..entities.team import Team, TeamStatus
 from ..repositories.team_repository_interface import TeamRepositoryInterface
@@ -20,15 +20,15 @@ class TeamAdministrationService:
     def __init__(self, team_repository: TeamRepositoryInterface):
         self.team_repository = team_repository
 
-    async def get_all_teams(self) -> list[Team]:
+    async def get_all_teams(self) -> List[Team]:
         """Get all teams."""
         return await self.team_repository.list_all()
 
-    async def get_team_by_id(self, *, team_id: str) -> Team | None:
+    async def get_team_by_id(self, *, team_id: str) -> Optional[Team]:
         """Get a team by ID."""
         return await self.team_repository.get_by_id(team_id)
 
-    async def get_team_by_name(self, name: str) -> Team | None:
+    async def get_team_by_name(self, name: str) -> Optional[Team]:
         """Get a team by name."""
         return await self.team_repository.get_by_name(name)
 
@@ -38,7 +38,7 @@ class TeamAdministrationService:
         name: str,
         description: str,
         created_by: str,
-        settings: dict[str, Any] | None = None,
+        settings: Optional[Dict[str, Any]] = None,
     ) -> Team:
         """Create a new team."""
         team = Team(
@@ -54,10 +54,10 @@ class TeamAdministrationService:
     async def update_team(
         self,
         team_id: str,
-        name: str | None = None,
-        description: str | None = None,
-        status: TeamStatus | None = None,
-        settings: dict[str, Any] | None = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        status: Optional[TeamStatus] = None,
+        settings: Optional[Dict[str, Any]] = None,
     ) -> Team:
         """Update a team."""
         team = await self.team_repository.get_by_id(team_id)
@@ -81,7 +81,7 @@ class TeamAdministrationService:
         """Delete a team."""
         return await self.team_repository.delete(team_id)
 
-    async def get_teams_by_status(self, status: TeamStatus) -> list[Team]:
+    async def get_teams_by_status(self, status: TeamStatus) -> List[Team]:
         """Get teams by status."""
         return await self.team_repository.get_by_status(status)
 

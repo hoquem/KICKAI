@@ -19,7 +19,7 @@ class MonitoringService:
         self.health_checks = {}
         logger.info("✅ MonitoringService initialized")
 
-    async def perform_system_health_check(self) -> dict[str, Any]:
+    async def perform_system_health_check(self) -> Dict[str, Any]:
         try:
             health_status = {
                 "status": "healthy",
@@ -54,7 +54,7 @@ class MonitoringService:
             logger.error(f"❌ System health check failed: {e}")
             return {"status": "unhealthy", "error": str(e), "timestamp": datetime.now().isoformat()}
 
-    async def get_system_metrics(self) -> dict[str, Any]:
+    async def get_system_metrics(self) -> Dict[str, Any]:
         try:
             metrics = {
                 "timestamp": datetime.now().isoformat(),
@@ -83,7 +83,7 @@ class MonitoringService:
         else:
             logger.info(log_message)
 
-    async def check_service_dependencies(self) -> dict[str, bool]:
+    async def check_service_dependencies(self) -> Dict[str, bool]:
         dependencies = {}
         try:
             await self.data_store.health_check()

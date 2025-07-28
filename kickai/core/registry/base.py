@@ -8,7 +8,7 @@ with common functionality and patterns.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 
 from loguru import logger
 
@@ -21,6 +21,8 @@ class RegistryType(Enum):
     TOOL = "tool"
     COMMAND = "command"
     SERVICE = "service"
+    AGENT = "agent"
+    TASK = "task"
 
 
 @dataclass
@@ -29,24 +31,24 @@ class RegistryItem(Generic[T]):
 
     name: str
     item: T
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
     registry_type: RegistryType = RegistryType.TOOL
     version: str = "1.0.0"
     enabled: bool = True
-    dependencies: list[str] = field(default_factory=list)
-    tags: list[str] = field(default_factory=list)
+    dependencies: List[str] = field(default_factory=list)
+    tags: List[str] = field(default_factory=list)
 
 
 class BaseRegistry(ABC, Generic[T]):
     """Base registry class with common functionality."""
 
     def __init__(self, registry_type: RegistryType, name: str):
-        self._items: dict[str, RegistryItem[T]] = {}
-        self._aliases: dict[str, str] = {}
+        self._items: Dict[str, RegistryItem[T]] = {}
+        self._aliases: Dict[str, str] = {}
         self._registry_type = registry_type
         self._name = name
         self._initialized = False
-        self._discovery_hooks: list[callable] = []
+        self._discovery_hooks: List[callable] = []
 
         logger.info(f"🔧 Initialized {name} ({registry_type.value})")
 
@@ -56,7 +58,7 @@ class BaseRegistry(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    def get(self, name: str) -> T | None:
+    def get(self, name: str) -> Optional[T]:
         """Get an item by name."""
         pass
 
@@ -84,7 +86,7 @@ class BaseRegistry(ABC, Generic[T]):
             except Exception as e:
                 logger.error(f"❌ Discovery hook failed: {e}")
 
-    def get_statistics(self) -> dict[str, Any]:
+    def get_statistics(self) -> Dict[str, Any]:
         """Get registry statistics."""
         return {
             "name": self._name,
@@ -95,7 +97,7 @@ class BaseRegistry(ABC, Generic[T]):
             "enabled_items": len([item for item in self._items.values() if item.enabled]),
         }
 
-    def validate(self) -> list[str]:
+    def validate(self) -> List[str]:
         """Validate registry state."""
         errors = []
 

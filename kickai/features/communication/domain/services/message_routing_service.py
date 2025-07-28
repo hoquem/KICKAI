@@ -19,7 +19,7 @@ class MessageRoutingService:
     """
 
     @staticmethod
-    def should_route_to_onboarding(player: Player | None, message: str) -> tuple[bool, str]:
+    def should_route_to_onboarding(player: Optional[Player], message: str) -> tuple[bool, str]:
         """
         Determine if a message should be routed to onboarding handler.
 
@@ -54,7 +54,7 @@ class MessageRoutingService:
         return False, f"Player {player.full_name} is not in onboarding"
 
     @staticmethod
-    def should_route_to_player_update(player: Player | None, message: str) -> tuple[bool, str]:
+    def should_route_to_player_update(player: Optional[Player], message: str) -> tuple[bool, str]:
         """
         Determine if a message should be routed to player update handler.
 
@@ -95,7 +95,7 @@ class MessageRoutingService:
         return False, "Not a player update request"
 
     @staticmethod
-    def should_route_to_general_handler(player: Player | None, message: str) -> tuple[bool, str]:
+    def should_route_to_general_handler(player: Optional[Player], message: str) -> tuple[bool, str]:
         """
         Determine if a message should be routed to general handler.
 
@@ -125,7 +125,7 @@ class MessageRoutingService:
 
     @staticmethod
     def get_routing_decision(
-        player: Player | None, message: str, user_role: str = "player"
+        player: Optional[Player], message: str, user_role: str = "player"
     ) -> dict:
         """
         Get the complete routing decision for a message.

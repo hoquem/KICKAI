@@ -6,7 +6,7 @@ This module provides tools for simplified team member management
 for the new /addmember command that only requires name and phone number.
 """
 
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container

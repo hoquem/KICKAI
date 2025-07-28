@@ -7,10 +7,10 @@ standardizing error messages across all tools.
 """
 
 import json
-from typing import Any
+from typing import Any, Dict, List
 
 
-def parse_crewai_json_input(input_value: str, expected_keys: list[str]) -> dict[str, str]:
+def parse_crewai_json_input(input_value: str, expected_keys: List[str]) -> Dict[str, str]:
     """
     Parse CrewAI JSON input and extract expected keys.
 
@@ -128,7 +128,7 @@ def validate_required_input(value: str, field_name: str) -> str:
     return ""
 
 
-def extract_context_from_task_description(task_description: str) -> dict[str, str]:
+def extract_context_from_task_description(task_description: str) -> Dict[str, str]:
     """
     Extract context information from CrewAI task description.
 
@@ -153,6 +153,44 @@ def extract_context_from_task_description(task_description: str) -> dict[str, st
                     context[key.strip()] = value.strip()
 
     except Exception as e:
-        logger.warning(f"Failed to extract context from task description: {e}")
+        # Use logger from loguru if available, otherwise skip logging
+        pass
 
     return context
+
+
+def sanitize_input(value: str, max_length: int = 255) -> str:
+    """
+    Sanitize input string by removing/escaping dangerous characters and trimming to max length.
+
+    Args:
+        value: The input string to sanitize
+        max_length: Maximum allowed length for the string
+
+    Returns:
+        Sanitized string
+    """
+    if not value:
+        return ""
+    
+    # Convert to string if not already
+    value = str(value)
+    
+    # Strip whitespace
+    value = value.strip()
+    
+    # Remove or escape potentially dangerous characters
+    # Remove null bytes, control characters, and other dangerous chars
+    sanitized = ""
+    for char in value:
+        # Allow alphanumeric, spaces, and common punctuation
+        if char.isprintable() and char not in ['\x00', '\x08', '\x0b', '\x0c']:
+            sanitized += char
+        elif char in [' ', '\t']:
+            sanitized += char
+    
+    # Trim to max length
+    if len(sanitized) > max_length:
+        sanitized = sanitized[:max_length]
+    
+    return sanitized

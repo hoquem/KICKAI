@@ -8,6 +8,7 @@ inconsistencies and maintenance issues.
 """
 
 from dataclasses import dataclass, field
+from typing import Union, List
 
 from kickai.core.enums import ChatType, PermissionLevel
 
@@ -88,6 +89,14 @@ PLAYER_COMMANDS = {
         examples=("/list", "/list players"),
         feature="shared",
     ),
+    CommandDefinition(
+        name="/update",
+        description="Update your player information",
+        permission_level=PermissionLevel.PLAYER,
+        chat_types=frozenset([ChatType.MAIN]),
+        examples=("/update phone 07123456789", "/update position midfielder", "/update email john@example.com"),
+        feature="player_registration",
+    ),
 }
 
 # =============================================================================
@@ -142,6 +151,14 @@ LEADERSHIP_COMMANDS = {
         chat_types=frozenset([ChatType.LEADERSHIP]),
         examples=("/list", "/list members"),
         feature="shared",
+    ),
+    CommandDefinition(
+        name="/update",
+        description="Update your team member information",
+        permission_level=PermissionLevel.LEADERSHIP,
+        chat_types=frozenset([ChatType.LEADERSHIP]),
+        examples=("/update phone 07123456789", "/update email admin@example.com", "/update role Assistant Coach"),
+        feature="team_administration",
     ),
 }
 
@@ -248,7 +265,7 @@ ATTENDANCE_COMMANDS = {
         name="/markattendance",
         description="Mark attendance for a match",
         permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
+        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
         examples=("/markattendance", "/markattendance yes", "/markattendance no"),
         feature="attendance_management",
     ),
@@ -256,7 +273,7 @@ ATTENDANCE_COMMANDS = {
         name="/attendance",
         description="View match attendance",
         permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
+        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
         examples=("/attendance", "/attendance MATCH123"),
         feature="attendance_management",
     ),
@@ -264,7 +281,7 @@ ATTENDANCE_COMMANDS = {
         name="/attendancehistory",
         description="View attendance history",
         permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
+        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
         examples=("/attendancehistory", "/attendancehistory 2024"),
         feature="attendance_management",
     ),
@@ -554,17 +571,17 @@ CHAT_TYPE_DESCRIPTIONS = {
 # =============================================================================
 
 
-def get_commands_for_chat_type(chat_type: ChatType) -> list[CommandDefinition]:
+def get_commands_for_chat_type(chat_type: ChatType) -> List[CommandDefinition]:
     """Get all commands available for a specific chat type."""
     return sorted(COMMANDS_BY_CHAT_TYPE.get(chat_type, []), key=lambda x: x.name)
 
 
-def get_commands_for_permission_level(permission_level: PermissionLevel) -> list[CommandDefinition]:
+def get_commands_for_permission_level(permission_level: PermissionLevel) -> List[CommandDefinition]:
     """Get all commands available for a specific permission level."""
     return sorted(COMMANDS_BY_PERMISSION.get(permission_level, []), key=lambda x: x.name)
 
 
-def get_commands_for_feature(feature: str) -> list[CommandDefinition]:
+def get_commands_for_feature(feature: str) -> List[CommandDefinition]:
     """Get all commands for a specific feature."""
     return sorted(COMMANDS_BY_FEATURE.get(feature, []), key=lambda x: x.name)
 

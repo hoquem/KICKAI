@@ -5,8 +5,9 @@ This module provides tools for Telegram-specific operations.
 """
 
 import logging
+from typing import Optional
 
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from pydantic import BaseModel
 
 from kickai.core.dependency_container import get_container
@@ -20,11 +21,11 @@ class SendTelegramMessageInput(BaseModel):
 
     chat_id: str
     text: str
-    team_id: str | None = None
+    team_id: Optional[str] = None
 
 
 @tool("send_telegram_message")
-def send_telegram_message(chat_id: str, text: str, team_id: str | None = None) -> str:
+def send_telegram_message(chat_id: str, text: str, team_id: Optional[str] = None) -> str:
     """
     Send a message to a Telegram chat using the Telegram bot service. Requires: chat_id, text
 

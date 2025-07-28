@@ -21,26 +21,26 @@ class ExpenseServiceInterface(ABC):
         category: ExpenseCategory,
         team_id: str,
         created_by: str,
-        date: datetime | None = None,
+        date: Optional[datetime] = None,
     ) -> Expense:
         """Create a new expense."""
         pass
 
     @abstractmethod
-    async def get_expenses_by_team(self, team_id: str, limit: int | None = None) -> list[Expense]:
+    async def get_expenses_by_team(self, team_id: str, limit: Optional[int] = None) -> List[Expense]:
         """Get expenses for a team."""
         pass
 
     @abstractmethod
     async def get_expenses_by_category(
         self, team_id: str, category: ExpenseCategory
-    ) -> list[Expense]:
+    ) -> List[Expense]:
         """Get expenses by category for a team."""
         pass
 
     @abstractmethod
     async def get_total_expenses(
-        self, team_id: str, start_date: datetime | None = None, end_date: datetime | None = None
+        self, team_id: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None
     ) -> float:
         """Get total expenses for a team within a date range."""
         pass

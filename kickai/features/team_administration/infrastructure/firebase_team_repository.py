@@ -4,6 +4,7 @@ Firebase Team Repository Implementation
 
 This module provides the Firebase implementation of the team repository interface.
 """
+from typing import Optional, List
 
 from datetime import datetime
 
@@ -58,7 +59,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
         return team
 
-    async def get_team_by_id(self, team_id: str) -> Team | None:
+    async def get_team_by_id(self, team_id: str) -> Optional[Team]:
         """Get a team by ID."""
         try:
             doc = await self.database.get_document(
@@ -71,7 +72,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         except Exception:
             return None
 
-    async def get_all_teams(self) -> list[Team]:
+    async def get_all_teams(self) -> List[Team]:
         """Get all teams."""
         try:
             docs = await self.database.query_documents(collection=self.collection_name)
@@ -116,7 +117,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         except Exception:
             return False
 
-    async def list_all(self, limit: int = 100) -> list[Team]:
+    async def list_all(self, limit: int = 100) -> List[Team]:
         """List all teams with optional limit."""
         try:
             import logging
@@ -164,7 +165,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         # The user_id remains unchanged, doc_id should match user_id
         return team_member
 
-    async def get_team_members(self, team_id: str) -> list[TeamMember]:
+    async def get_team_members(self, team_id: str) -> List[TeamMember]:
         """Get all members of a team."""
         try:
             docs = await self.database.query_documents(
@@ -180,13 +181,13 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             logger.error(f"❌ [REPO] Error getting team members: {e}")
             return []
 
-    async def get_team_members_by_team(self, team_id: str) -> list[TeamMember]:
+    async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]:
         """Get all members of a team (alias for get_team_members for compatibility)."""
         return await self.get_team_members(team_id)
 
     async def get_team_member_by_telegram_id(
         self, team_id: str, telegram_id: str
-    ) -> TeamMember | None:
+    ) -> Optional[TeamMember]:
         """Get a team member by Telegram ID."""
         try:
             docs = await self.database.query_documents(

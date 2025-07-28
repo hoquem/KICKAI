@@ -7,7 +7,7 @@ This module provides LLM provider validation health checks.
 import asyncio
 import logging
 import os
-from typing import Any
+from typing import Any, Dict
 
 from kickai.core.settings import get_settings
 from kickai.utils.llm_factory import LLMFactory
@@ -25,7 +25,7 @@ class LLMProviderCheck(BaseCheck):
     category = CheckCategory.LLM
     description = "Validates LLM provider configuration and connectivity"
 
-    async def execute(self, context: dict[str, Any] = None) -> CheckResult:
+    async def execute(self, context: Dict[str, Any] = None) -> CheckResult:
         start_time = asyncio.get_event_loop().time()
 
         try:

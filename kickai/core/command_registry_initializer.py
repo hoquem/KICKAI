@@ -8,6 +8,8 @@ This eliminates the initialization order problem with the global singleton patte
 """
 
 
+from typing import Optional
+
 from kickai.core.command_registry import CommandRegistry
 from kickai.core.logging_config import logger
 
@@ -21,7 +23,7 @@ class CommandRegistryInitializer:
     """
 
     def __init__(self):
-        self.registry: CommandRegistry | None = None
+        self.registry: Optional[CommandRegistry] = None
         self._initialized = False
 
     def initialize(self) -> CommandRegistry:
@@ -135,7 +137,7 @@ class CommandRegistryInitializer:
         except Exception as e:
             logger.error(f"❌ Error copying commands from global registry: {e}")
 
-    def get_registry(self) -> CommandRegistry | None:
+    def get_registry(self) -> Optional[CommandRegistry]:
         """Get the initialized registry instance."""
         if not self._initialized:
             raise RuntimeError("Command registry not initialized. Call initialize() first.")

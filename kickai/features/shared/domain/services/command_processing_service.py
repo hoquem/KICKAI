@@ -8,7 +8,7 @@ and uses agents and tools for complex operations.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Dict, Optional, Union
 
 from loguru import logger
 
@@ -31,9 +31,9 @@ class UserContext:
     chat_type: ChatType
     telegram_username: str
     telegram_name: str
-    user_permissions: UserPermissions | None = None
-    player_data: dict[str, Any] | None = None
-    team_member_data: dict[str, Any] | None = None
+    user_permissions: Optional[UserPermissions] = None
+    player_data: Optional[Dict[str, Any]] = None
+    team_member_data: Optional[Dict[str, Any]] = None
     is_registered: bool = False
     is_player: bool = False
     is_team_member: bool = False
@@ -46,8 +46,8 @@ class CommandResponse:
     message: str
     success: bool
     requires_action: bool = False
-    action_type: str | None = None
-    action_data: dict[str, Any] | None = None
+    action_type: Optional[str] = None
+    action_data: Optional[Dict[str, Any]] = None
 
 
 class CommandProcessingService:
@@ -313,7 +313,7 @@ class CommandProcessingService:
 
     def _build_robust_help_context(
         self, user_context: UserContext, chat_type: str
-    ) -> dict[str, str]:
+    ) -> Dict[str, str]:
         """
         Build a robust context for help requests with comprehensive fallbacks.
 
@@ -374,7 +374,7 @@ class CommandProcessingService:
         logger.info(f"🔧 [HELP COMMAND] Final robust context: {context}")
         return context
 
-    async def _get_available_commands_for_user(self, user_context: UserContext) -> dict[str, Any]:
+    async def _get_available_commands_for_user(self, user_context: UserContext) -> Dict[str, Any]:
         """Get available commands for the specific user context."""
         try:
             from kickai.features.shared.application.commands.help_commands import (

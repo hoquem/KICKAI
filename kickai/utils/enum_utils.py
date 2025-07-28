@@ -6,10 +6,10 @@ for proper serialization when saving to Firestore.
 """
 
 from enum import Enum
-from typing import Any
+from typing import Any, Dict
 
 
-def serialize_enums_for_firestore(data: dict[str, Any]) -> dict[str, Any]:
+def serialize_enums_for_firestore(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Convert enum values to their string representations for Firestore serialization.
 

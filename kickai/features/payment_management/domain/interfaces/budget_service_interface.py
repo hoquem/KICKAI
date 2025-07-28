@@ -21,7 +21,7 @@ class BudgetServiceInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_budget_by_team(self, team_id: str) -> Budget | None:
+    async def get_budget_by_team(self, team_id: str) -> Optional[Budget]:
         """Get budget for a team."""
         pass
 
@@ -36,6 +36,6 @@ class BudgetServiceInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_budget_utilization(self, team_id: str) -> dict[str, Any]:
+    async def get_budget_utilization(self, team_id: str) -> Dict[str, Any]:
         """Get budget utilization for a team."""
         pass

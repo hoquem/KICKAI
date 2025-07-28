@@ -6,13 +6,14 @@ This module provides the main startup validator that orchestrates all health che
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Dict, List, Optional, Union
 
 from .checks import (
     AgentInitializationCheck,
     CommandRegistryCheck,
     ConfigurationCheck,
     LLMProviderCheck,
+    StubDetectionCheck,
     TelegramAdminCheck,
     ToolRegistrationCheck,
 )
@@ -30,9 +31,9 @@ class StartupValidator:
     comprehensive validation reports.
     """
 
-    def __init__(self, config_path: str | None = None):
+    def __init__(self, config_path: Optional[str] = None):
         self.config_path = config_path
-        self.checks: list[Any] = []
+        self.checks: List[Any] = []
         self._load_default_checks()
         logger.info(f"StartupValidator initialized with {len(self.checks)} checks")
 
@@ -41,10 +42,11 @@ class StartupValidator:
         self.checks = [
             ConfigurationCheck(),
             LLMProviderCheck(),
-            TelegramAdminCheck(),
+            StubDetectionCheck(),  # Check for stub classes first
             ToolRegistrationCheck(),  # Check tool registration before agent initialization
             CommandRegistryCheck(),  # Check command registry initialization
             AgentInitializationCheck(),  # Enabled to catch agent initialization failures
+            TelegramAdminCheck(),
         ]
 
         # Add registry validation
@@ -58,7 +60,7 @@ class StartupValidator:
         """Remove a health check by name."""
         self.checks = [check for check in self.checks if check.name != check_name]
 
-    async def validate(self, context: dict[str, Any] | None = None) -> ValidationReport:
+    async def validate(self, context: Optional[Dict[str, Any]] = None) -> ValidationReport:
         """
         Execute all health checks and generate a validation report.
 
@@ -116,7 +118,7 @@ class StartupValidator:
 
         return report
 
-    async def _execute_check(self, check: Any, context: dict[str, Any]) -> CheckResult:
+    async def _execute_check(self, check: Any, context: Dict[str, Any]) -> CheckResult:
         """Execute a single health check."""
         try:
             logger.info(f"🔧 Executing check: {check.name}")
@@ -250,7 +252,7 @@ class StartupValidator:
         logger.info("=" * 80)
 
 
-async def run_startup_validation(team_id: str | None = None) -> ValidationReport:
+async def run_startup_validation(team_id: Optional[str] = None) -> ValidationReport:
     """
     Run startup validation for the system.
 
@@ -270,14 +272,14 @@ async def run_startup_validation(team_id: str | None = None) -> ValidationReport
 
     initialize_container()
 
-    # Get team service to fetch bot configuration
+    # Get team service to fetch bot configuration from Firestore
     from kickai.core.dependency_container import get_service
 
     team_service = get_service(ITeamService)
 
     context = {"team_id": team_id}
 
-    # If team_id is provided, fetch bot configuration
+    # If team_id is provided, fetch bot configuration from Firestore
     if team_id:
         try:
             team = await team_service.get_team(team_id=team_id)
@@ -289,13 +291,13 @@ async def run_startup_validation(team_id: str | None = None) -> ValidationReport
                     "bot_id": team.bot_id,
                 }
                 context["bot_config"] = bot_config
-                logger.info(f"✅ Bot configuration loaded for team {team_id}")
+                logger.info(f"✅ Bot configuration loaded from Firestore for team {team_id}")
             else:
-                logger.warning(f"⚠️ Team {team_id} not found, bot configuration unavailable")
+                logger.warning(f"⚠️ Team {team_id} not found in Firestore, bot configuration unavailable")
         except Exception as e:
-            logger.error(f"❌ Failed to load bot configuration for team {team_id}: {e}")
+            logger.error(f"❌ Failed to load bot configuration from Firestore for team {team_id}: {e}")
     else:
-        logger.warning("⚠️ No team_id provided, bot configuration unavailable")
+        logger.warning("⚠️ No team_id provided, bot configuration unavailable - bot config is stored in Firestore teams collection")
 
     report = await validator.validate(context)
     validator.print_report(report)

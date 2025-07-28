@@ -5,8 +5,9 @@ This module provides tools for help and command information.
 """
 
 import logging
+from typing import Optional
 
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from pydantic import BaseModel
 
 from kickai.core.command_registry_initializer import get_initialized_command_registry
@@ -19,15 +20,15 @@ class GetAvailableCommandsInput(BaseModel):
     """Input model for get_available_commands tool."""
 
     chat_type: str
-    user_id: str | None = None
-    team_id: str | None = None
+    user_id: Optional[str] = None
+    team_id: Optional[str] = None
 
 
 @tool("get_available_commands")
 def get_available_commands(
     chat_type: str,
-    user_id: str | None = None,
-    team_id: str | None = None,
+    user_id: Optional[str] = None,
+    team_id: Optional[str] = None,
     is_registered: bool = None,
     is_player: bool = None,
     is_team_member: bool = None,

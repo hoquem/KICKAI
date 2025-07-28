@@ -11,7 +11,7 @@ import traceback
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Dict, List, Union
 
 from loguru import logger
 
@@ -36,17 +36,17 @@ class ErrorHandlingConfig:
     max_retries: int = 3
     user_friendly_messages: bool = True
     raise_on_critical: bool = True
-    context_operation: str | None = None
+    context_operation: Optional[str] = None
 
 
 class ErrorHandler:
     """Centralized error handler for the KICKAI system."""
 
-    def __init__(self, config: ErrorHandlingConfig | None = None):
+    def __init__(self, config: Optional[ErrorHandlingConfig] = None):
         self.config = config or ErrorHandlingConfig()
 
     def handle_error(
-        self, error: Exception, context: dict[str, Any] | None = None, operation: str | None = None
+        self, error: Exception, context: Optional[Dict[str, Any]] = None, operation: Optional[str] = None
     ) -> str:
         """
         Handle an error and return a user-friendly message.
@@ -133,7 +133,7 @@ def get_global_error_handler() -> ErrorHandler:
 
 
 def handle_agent_errors(
-    operation: str | None = None, config: ErrorHandlingConfig | None = None
+    operation: Optional[str] = None, config: Optional[ErrorHandlingConfig] = None
 ) -> Callable:
     """
     Decorator for handling agent execution errors.
@@ -175,7 +175,7 @@ def handle_agent_errors(
 
 
 def handle_tool_errors(
-    tool_name: str | None = None, config: ErrorHandlingConfig | None = None
+    tool_name: Optional[str] = None, config: Optional[ErrorHandlingConfig] = None
 ) -> Callable:
     """
     Decorator for handling tool execution errors.
@@ -233,8 +233,8 @@ def handle_tool_errors(
 @contextmanager
 def error_context(
     operation: str,
-    context: dict[str, Any] | None = None,
-    config: ErrorHandlingConfig | None = None,
+    context: Optional[Dict[str, Any]] = None,
+    config: Optional[ErrorHandlingConfig] = None,
     reraise: bool = False,
 ):
     """
@@ -266,7 +266,7 @@ def validate_input(
     expected_type: type,
     field_name: str,
     required: bool = True,
-    validator: Callable | None = None,
+    validator: Optional[Callable] = None,
 ) -> None:
     """
     Validate input parameters.
@@ -318,8 +318,8 @@ def safe_execute(
     func: Callable,
     *args,
     operation: str = "unknown",
-    context: dict[str, Any] | None = None,
-    config: ErrorHandlingConfig | None = None,
+    context: Optional[Dict[str, Any]] = None,
+    config: Optional[ErrorHandlingConfig] = None,
     default_return: Any = None,
     **kwargs,
 ) -> Any:
@@ -349,8 +349,8 @@ async def safe_execute_async(
     func: Callable,
     *args,
     operation: str = "unknown",
-    context: dict[str, Any] | None = None,
-    config: ErrorHandlingConfig | None = None,
+    context: Optional[Dict[str, Any]] = None,
+    config: Optional[ErrorHandlingConfig] = None,
     default_return: Any = None,
     **kwargs,
 ) -> Any:

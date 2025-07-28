@@ -1,3 +1,5 @@
+from typing import Dict, Union
+
 from loguru import logger
 from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
@@ -28,7 +30,9 @@ class TelegramBotService(TelegramBotServiceInterface):
             raise ValueError("TelegramBotService: token must be provided explicitly (not from env)")
 
         # Initialize the agentic message router
+        # Initialize the real AgenticMessageRouter with lazy loading
         self.agentic_router = AgenticMessageRouter(team_id=team_id, crewai_system=crewai_system)
+        self.agentic_router.team_id = self.team_id  # Add team_id to router
         if main_chat_id and leadership_chat_id:
             self.agentic_router.set_chat_ids(main_chat_id, leadership_chat_id)
 
@@ -315,7 +319,7 @@ class TelegramBotService(TelegramBotServiceInterface):
         except Exception as e:
             logger.error(f"❌ Error in debug handler: {e}")
 
-    async def send_message(self, chat_id: int | str, text: str, **kwargs):
+    async def send_message(self, chat_id: Union[int, str], text: str, **kwargs):
         """Send a message to a specific chat."""
         try:
             logger.info(f"Sending message to chat_id={chat_id}: {text}")
@@ -324,7 +328,7 @@ class TelegramBotService(TelegramBotServiceInterface):
             logger.error(f"❌ Error sending message: {e}")
             raise
 
-    async def send_contact_share_button(self, chat_id: int | str, text: str):
+    async def send_contact_share_button(self, chat_id: Union[int, str], text: str):
         """Send a message with a contact sharing button."""
         try:
             keyboard = [[KeyboardButton(text="📱 Share My Phone Number", request_contact=True)]]

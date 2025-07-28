@@ -5,13 +5,13 @@ Custom Exceptions for KICKAI
 This module defines custom exceptions used throughout the KICKAI system.
 """
 
-from typing import Any
+from typing import Any, Optional, Dict, List
 
 
 class KickAIError(Exception):
     """Base exception for all KICKAI errors."""
 
-    def __init__(self, message: str, context: dict[str, Any] | None = None):
+    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None):
         super().__init__(message)
         self.message = message
         self.context = context or {}
@@ -42,7 +42,7 @@ class PlayerNotFoundError(PlayerError):
 class PlayerValidationError(PlayerError):
     """Raised when player data validation fails."""
 
-    def __init__(self, errors: list[str]):
+    def __init__(self, errors: List[str]):
         message = f"Player validation failed: {'; '.join(errors)}"
         super().__init__(message, {"validation_errors": errors})
 
@@ -203,6 +203,50 @@ class PaymentValidationError(PaymentError):
         super().__init__(message, {"field": field, "value": value, "reason": reason})
 
 
+class MatchError(KickAIError):
+    """Base exception for match-related errors."""
+
+    pass
+
+
+class MatchNotFoundError(MatchError):
+    """Raised when a match is not found."""
+
+    def __init__(self, match_id: str, context: Optional[Dict[str, Any]] = None):
+        message = f"Match {match_id} not found"
+        super().__init__(message, {"match_id": match_id, **(context or {})})
+
+
+class MatchValidationError(MatchError):
+    """Raised when match validation fails."""
+
+    def __init__(self, field: str, value: str, reason: str):
+        message = f"Match validation failed for field '{field}' with value '{value}': {reason}"
+        super().__init__(message, {"field": field, "value": value, "reason": reason})
+
+
+class AttendanceError(KickAIError):
+    """Base exception for attendance-related errors."""
+
+    pass
+
+
+class AttendanceNotFoundError(AttendanceError):
+    """Raised when an attendance record is not found."""
+
+    def __init__(self, attendance_id: str, context: Optional[Dict[str, Any]] = None):
+        message = f"Attendance record {attendance_id} not found"
+        super().__init__(message, {"attendance_id": attendance_id, **(context or {})})
+
+
+class AttendanceValidationError(AttendanceError):
+    """Raised when attendance validation fails."""
+
+    def __init__(self, field: str, value: str, reason: str):
+        message = f"Attendance validation failed for field '{field}' with value '{value}': {reason}"
+        super().__init__(message, {"field": field, "value": value, "reason": reason})
+
+
 class MissingEnvironmentVariableError(ConfigurationError):
     """Raised when a required environment variable is missing."""
 
@@ -240,7 +284,7 @@ class DatabaseOperationError(DatabaseError):
         super().__init__(message, {"operation": operation, "error": error})
 
 
-def create_error_context(operation: str, **kwargs) -> dict[str, Any]:
+def create_error_context(operation: str, **kwargs) -> Dict[str, Any]:
     """
     Create a standardized error context.
 

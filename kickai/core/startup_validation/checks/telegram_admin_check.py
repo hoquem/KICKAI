@@ -5,7 +5,7 @@ This module provides validation to ensure the bot has proper admin permissions
 in Telegram group chats to receive natural language messages.
 """
 
-from typing import Any
+from typing import Any, Dict
 
 from loguru import logger
 from telegram import Bot
@@ -27,7 +27,7 @@ class TelegramAdminCheck(BaseCheck):
         self.category = CheckCategory.CONFIGURATION
         self.description = "Validates bot admin permissions in Telegram chats"
 
-    async def execute(self, context: dict[str, Any]) -> CheckResult:
+    async def execute(self, context: Dict[str, Any]) -> CheckResult:
         """
         Execute the Telegram admin permission validation.
 
@@ -40,14 +40,14 @@ class TelegramAdminCheck(BaseCheck):
         try:
             logger.info("🔍 Validating Telegram bot admin permissions...")
 
-            # Get bot configuration from context
+            # Get bot configuration from context (loaded from Firestore)
             bot_config = context.get("bot_config")
             if not bot_config:
                 return CheckResult(
                     name=self.name,
                     category=self.category,
                     status=CheckStatus.FAILED,
-                    message="No bot configuration found in context",
+                    message="No bot configuration found in context - bot config should be loaded from Firestore",
                 )
 
             bot_token = bot_config.get("bot_token")
@@ -59,7 +59,7 @@ class TelegramAdminCheck(BaseCheck):
                     name=self.name,
                     category=self.category,
                     status=CheckStatus.FAILED,
-                    message="Bot token not found in configuration",
+                    message="Bot token not found in Firestore configuration - check team document in kickai_teams collection",
                 )
 
             # Initialize bot

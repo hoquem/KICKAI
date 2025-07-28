@@ -8,7 +8,7 @@ performance and usage tracking.
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Dict, List
 
 from loguru import logger
 
@@ -31,8 +31,8 @@ class RegistryMonitor:
     """Monitors registry performance and usage."""
 
     def __init__(self):
-        self._metrics: dict[str, RegistryMetrics] = defaultdict(lambda: RegistryMetrics(""))
-        self._request_times: dict[str, list[float]] = defaultdict(list)
+        self._metrics: Dict[str, RegistryMetrics] = defaultdict(lambda: RegistryMetrics(""))
+        self._request_times: Dict[str, List[float]] = defaultdict(list)
         self._enabled = True
 
         logger.info("📊 Registry Monitor initialized")
@@ -74,7 +74,7 @@ class RegistryMonitor:
         metrics.total_items = count
         metrics.last_updated = time.time()
 
-    def get_metrics(self, registry_name: str = None) -> dict[str, Any]:
+    def get_metrics(self, registry_name: str = None) -> Dict[str, Any]:
         """Get metrics for a specific registry or all registries."""
         if registry_name:
             return self._metrics[registry_name].__dict__

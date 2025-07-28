@@ -480,7 +480,7 @@ Each feature follows Clean Architecture with:
 git clone <repository>
 cd KICKAI
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv311/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements-local.txt

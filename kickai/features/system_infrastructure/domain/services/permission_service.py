@@ -5,6 +5,7 @@ Centralized Permission Service for KICKAI
 This service provides a single source of truth for all permission checks,
 integrating chat-based role assignment with command permissions.
 """
+from typing import Dict, List, Optional
 
 import logging
 from dataclasses import dataclass
@@ -28,7 +29,7 @@ class PermissionContext:
     team_id: str
     chat_id: str
     chat_type: ChatType
-    username: str | None = None
+    username: Optional[str] = None
 
     def __post_init__(self):
         if self.chat_type is None:
@@ -47,8 +48,8 @@ class UserPermissions:
 
     user_id: str
     team_id: str
-    roles: list[str]
-    chat_access: dict[str, bool]
+    roles: List[str]
+    chat_access: Dict[str, bool]
     is_admin: bool
     is_player: bool
     is_team_member: bool
@@ -265,7 +266,7 @@ class PermissionService:
             )
         return True
 
-    async def get_available_commands(self, context: PermissionContext) -> list[str]:
+    async def get_available_commands(self, context: PermissionContext) -> List[str]:
         """
         Get list of available commands for a user in the given context.
 
@@ -364,7 +365,7 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
         """Promote a user to admin role (only by existing admin)."""
         return await self.team_member_service.promote_to_admin(user_id, team_id, promoted_by)
 
-    async def handle_last_admin_leaving(self, team_id: str) -> str | None:
+    async def handle_last_admin_leaving(self, team_id: str) -> Optional[str]:
         """Handle when the last admin leaves - promote longest-tenured leadership member."""
         return await self.team_member_service.handle_last_admin_leaving(team_id)
 
@@ -379,7 +380,7 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
 
 
 # Global instance for easy access
-_permission_service: PermissionService | None = None
+_permission_service: Optional[PermissionService] = None
 
 
 def get_permission_service(firebase_client: FirebaseClient = None) -> PermissionService:

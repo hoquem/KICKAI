@@ -26,6 +26,8 @@ from kickai.core.enums import ChatType
         "opponent": "Opponent team name",
         "date": "Match date (YYYY-MM-DD)",
         "time": "Match time (HH:MM)",
+        "venue": "Match venue (Home/Away)",
+        "competition": "Competition type (Friendly, League, Cup)",
     },
     help_text="""
 ⚽ Create Match (Leadership Only)
@@ -35,14 +37,17 @@ Create a new match in the system.
 Usage:
 • /creatematch - Start match creation process
 • /creatematch [opponent] [date] [time] - Create match with details
+• /creatematch [opponent] [date] [time] [venue] [competition] - Create match with all details
 
-Example:
-/creatematch vs Team B 2024-01-15 14:00
+Examples:
+/creatematch vs Arsenal 2024-01-15 14:00
+/creatematch vs Chelsea 2024-01-20 15:30 Away League
+/creatematch vs Spurs 2024-01-25 19:00 Home Cup
 
 What happens:
 1. New match record is created
 2. Match is announced to all players
-3. Attendance tracking is enabled
+3. Availability tracking is enabled
 4. Squad selection becomes available
 
 💡 Note: This command is only available in the leadership chat.
@@ -56,29 +61,41 @@ async def handle_creatematch_command(update, context, **kwargs):
 
 @command(
     name="/listmatches",
-    description="List all matches",
+    description="List all matches for the team",
     command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PUBLIC,
+    permission_level=PermissionLevel.PLAYER,
     feature="match_management",
-    examples=["/listmatches", "/listmatches upcoming"],
-    parameters={"filter": "Optional filter (upcoming, past, all)"},
+    chat_type=ChatType.MAIN,
+    examples=["/listmatches", "/listmatches scheduled", "/listmatches completed"],
+    parameters={
+        "status": "Match status filter (all, scheduled, completed, cancelled)",
+    },
     help_text="""
-📅 List Matches
+📋 List Matches
 
-View all matches in the system.
+View all matches for the team with optional status filtering.
 
 Usage:
-• /listmatches - Show all matches
-• /listmatches upcoming - Show upcoming matches only
-• /listmatches past - Show past matches only
+• /listmatches - List all matches
+• /listmatches [status] - List matches with specific status
+
+Status Options:
+• all - All matches (default)
+• scheduled - Upcoming matches
+• completed - Finished matches
+• cancelled - Cancelled matches
+
+Examples:
+/listmatches
+/listmatches scheduled
+/listmatches completed
 
 What you'll see:
-• Match details (opponent, date, time)
-• Match status (scheduled, in progress, completed)
-• Attendance information
-• Squad selection status
+• Match details (opponent, date, time, venue)
+• Match status and competition type
+• Match ID for reference
 
-💡 Tip: Use filters to focus on relevant matches.
+💡 Use /matchdetails [match_id] to get detailed information about a specific match.
     """,
 )
 async def handle_listmatches_command(update, context, **kwargs):
@@ -89,29 +106,35 @@ async def handle_listmatches_command(update, context, **kwargs):
 
 @command(
     name="/matchdetails",
-    description="Show detailed match information",
+    description="Get detailed information about a specific match",
     command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PUBLIC,
+    permission_level=PermissionLevel.PLAYER,
     feature="match_management",
+    chat_type=ChatType.MAIN,
     examples=["/matchdetails", "/matchdetails MATCH123"],
-    parameters={"match_id": "Optional match ID for specific match"},
+    parameters={
+        "match_id": "Match ID to get details for",
+    },
     help_text="""
-📋 Match Details
+⚽ Match Details
 
 Get detailed information about a specific match.
 
 Usage:
-• /matchdetails - Show details for next match
-• /matchdetails [match_id] - Show details for specific match
+• /matchdetails - Get details for the most recent match
+• /matchdetails [match_id] - Get details for specific match
+
+Examples:
+/matchdetails
+/matchdetails MATCH123
 
 What you'll see:
-• Match date, time, and location
-• Opponent information
-• Squad selection
-• Attendance list
-• Match status and updates
+• Complete match information
+• Date, time, venue, and competition
+• Match status and score (if available)
+• Squad information (if selected)
 
-💡 Tip: Use this to get comprehensive match information.
+💡 Use /listmatches to see all available matches and their IDs.
     """,
 )
 async def handle_matchdetails_command(update, context, **kwargs):
@@ -128,21 +151,30 @@ async def handle_matchdetails_command(update, context, **kwargs):
     feature="match_management",
     chat_type=ChatType.LEADERSHIP,
     examples=["/selectsquad", "/selectsquad MATCH123"],
-    parameters={"match_id": "Optional match ID for specific match"},
+    parameters={
+        "match_id": "Match ID to select squad for",
+        "player_ids": "List of player IDs to include in squad",
+    },
     help_text="""
-👥 Select Squad (Leadership Only)
+🏆 Select Squad (Leadership Only)
 
-Select the squad for an upcoming match.
+Select the squad for a specific match.
 
 Usage:
-• /selectsquad - Select squad for next match
+• /selectsquad - Start squad selection process
 • /selectsquad [match_id] - Select squad for specific match
+• /selectsquad [match_id] [player_ids] - Select squad with specific players
+
+Examples:
+/selectsquad
+/selectsquad MATCH123
+/selectsquad MATCH123 JS, MW, SJ, AB
 
 What happens:
 1. Available players are listed
-2. You can select players for the squad
-3. Squad is finalized and announced
-4. Selected players are notified
+2. Squad is selected based on availability and tactics
+3. Selected squad is announced
+4. Players are notified of selection
 
 💡 Note: This command is only available in the leadership chat.
     """,
@@ -155,40 +187,129 @@ async def handle_selectsquad_command(update, context, **kwargs):
 
 @command(
     name="/updatematch",
-    description="Update match details (Leadership only)",
+    description="Update match information (Leadership only)",
     command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.LEADERSHIP,
     feature="match_management",
     chat_type=ChatType.LEADERSHIP,
-    examples=["/updatematch MATCH123 date 2024-01-16", "/updatematch MATCH123 time 15:00"],
+    examples=["/updatematch", "/updatematch MATCH123"],
     parameters={
         "match_id": "Match ID to update",
-        "field": "Field to update (date, time, location, etc.)",
-        "value": "New value for the field",
+        "updates": "Fields to update (opponent, date, time, venue, status, score)",
     },
     help_text="""
-✏️ Update Match (Leadership Only)
+🔄 Update Match (Leadership Only)
 
-Update match details and information.
+Update match information and details.
 
 Usage:
-/updatematch [match_id] [field] [value]
+• /updatematch - Start match update process
+• /updatematch [match_id] - Update specific match
+• /updatematch [match_id] [updates] - Update match with specific changes
+
+Updateable Fields:
+• opponent - Opponent team name
+• date - Match date (YYYY-MM-DD)
+• time - Match time (HH:MM)
+• venue - Match venue (Home/Away)
+• status - Match status (scheduled, completed, cancelled)
+• score - Match score (e.g., "2-1")
 
 Examples:
-• /updatematch MATCH123 date 2024-01-16
-• /updatematch MATCH123 time 15:00
-• /updatematch MATCH123 location New Stadium
+/updatematch
+/updatematch MATCH123
+/updatematch MATCH123 score:2-1 status:completed
 
-Available fields:
-• date - Match date
-• time - Match time
-• location - Match location
-• status - Match status
+What happens:
+1. Match details are updated
+2. Changes are logged and tracked
+3. Players are notified of updates
+4. Match status is updated in system
 
 💡 Note: This command is only available in the leadership chat.
     """,
 )
 async def handle_updatematch_command(update, context, **kwargs):
     """Handle /updatematch command."""
+    # This will be handled by the agent system
+    return None
+
+
+@command(
+    name="/deletematch",
+    description="Delete a match (Leadership only)",
+    command_type=CommandType.SLASH_COMMAND,
+    permission_level=PermissionLevel.LEADERSHIP,
+    feature="match_management",
+    chat_type=ChatType.LEADERSHIP,
+    examples=["/deletematch", "/deletematch MATCH123"],
+    parameters={
+        "match_id": "Match ID to delete",
+    },
+    help_text="""
+🗑️ Delete Match (Leadership Only)
+
+Delete a match from the system.
+
+Usage:
+• /deletematch - Start match deletion process
+• /deletematch [match_id] - Delete specific match
+
+Examples:
+/deletematch
+/deletematch MATCH123
+
+What happens:
+1. Match is permanently deleted
+2. All associated data is removed
+3. Players are notified of cancellation
+4. System is updated accordingly
+
+⚠️ Warning: This action cannot be undone!
+
+💡 Note: This command is only available in the leadership chat.
+    """,
+)
+async def handle_deletematch_command(update, context, **kwargs):
+    """Handle /deletematch command."""
+    # This will be handled by the agent system
+    return None
+
+
+@command(
+    name="/availableplayers",
+    description="Get list of available players for a match",
+    command_type=CommandType.SLASH_COMMAND,
+    permission_level=PermissionLevel.LEADERSHIP,
+    feature="match_management",
+    chat_type=ChatType.LEADERSHIP,
+    examples=["/availableplayers", "/availableplayers MATCH123"],
+    parameters={
+        "match_id": "Match ID to check availability for",
+    },
+    help_text="""
+👥 Available Players (Leadership Only)
+
+Get list of available players for a specific match.
+
+Usage:
+• /availableplayers - Check availability for most recent match
+• /availableplayers [match_id] - Check availability for specific match
+
+Examples:
+/availableplayers
+/availableplayers MATCH123
+
+What you'll see:
+• List of all available players
+• Player details (name, position, status)
+• Total count of available players
+• Next steps for squad selection
+
+💡 Use this before selecting a squad to see who's available.
+    """,
+)
+async def handle_availableplayers_command(update, context, **kwargs):
+    """Handle /availableplayers command."""
     # This will be handled by the agent system
     return None

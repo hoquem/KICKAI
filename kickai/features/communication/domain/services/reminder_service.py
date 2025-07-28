@@ -7,7 +7,7 @@ This module handles automated and manual reminders for player onboarding.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List, Optional, Union
 
 from kickai.core.settings import Settings
 from kickai.features.communication.domain.interfaces.reminder_service_interface import (
@@ -49,7 +49,7 @@ class ReminderService(IReminderService):
             "max_reminders": 3,
         }
 
-    async def check_and_send_reminders(self) -> list[ReminderMessage]:
+    async def check_and_send_reminders(self) -> List[ReminderMessage]:
         """Check for players who need reminders and send them."""
         try:
             players = await self.player_service.get_players_by_team(team_id=self.team_id)
@@ -67,7 +67,7 @@ class ReminderService(IReminderService):
             logging.error(f"Error checking and sending reminders: {e}")
             return []
 
-    async def send_automated_reminder(self, player: Player) -> ReminderMessage | None:
+    async def send_automated_reminder(self, player: Player) -> Optional[ReminderMessage]:
         """Send an automated reminder to a player."""
         try:
             reminder_number = player.reminders_sent + 1
@@ -240,7 +240,7 @@ Please complete your onboarding within 24 hours to avoid delays.
 
 Let's get you fully registered!"""
 
-    async def _generate_payment_reminder_message(self, player: Player, payments: list[Any]) -> str:
+    async def _generate_payment_reminder_message(self, player: Player, payments: List[Any]) -> str:
         """Generate payment reminder message."""
         total_amount = sum(payment.amount for payment in payments)
 
@@ -310,7 +310,7 @@ Please complete your onboarding as soon as possible!"""
         # This would send a notification to admin
         logging.info(f"Reminder #{reminder_number} sent to {player.full_name} ({player.player_id})")
 
-    async def get_players_needing_reminders(self) -> list[Player]:
+    async def get_players_needing_reminders(self) -> List[Player]:
         """Get list of players who need reminders."""
         try:
             players = await self.player_service.get_players_by_team(team_id=self.team_id)

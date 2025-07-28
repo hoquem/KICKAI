@@ -12,7 +12,7 @@ import os
 import traceback
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Dict, List, Optional, Union
 
 # Import the correct AIProvider enum from kickai.core.enums
 from kickai.core.enums import AIProvider
@@ -30,8 +30,8 @@ class LLMConfig:
     temperature: float = 0.7
     timeout_seconds: int = 30
     max_retries: int = 3
-    api_base: str | None = None
-    additional_params: dict | None = None
+    api_base: Optional[str] = None
+    additional_params: Optional[dict] = None
 
     def __post_init__(self):
         """Validate temperature range."""
@@ -44,10 +44,12 @@ class LLMConfig:
     ) -> "LLMConfig":
         """Create LLM config with agent-specific temperature settings."""
         # Use lower temperature for data-critical agents to prevent hallucination
-        if agent_type in ["player_coordinator", "help_assistant", "message_processor"]:
+        if agent_type in ["player_coordinator", "help_assistant", "message_processor", "finance_manager"]:
             temperature = 0.1  # Very low temperature for precise, factual responses
-        elif agent_type in ["team_manager", "finance_manager"]:
+        elif agent_type in ["team_manager", "availability_manager"]:
             temperature = 0.3  # Low temperature for administrative tasks
+        elif agent_type in ["onboarding_agent"]:
+            temperature = 0.2  # Very low temperature for registration guidance
         else:
             temperature = 0.7  # Default temperature for creative tasks
 
@@ -449,7 +451,7 @@ class LLMFactory:
     Supports multiple AI providers with proper factory pattern.
     """
 
-    _providers: dict[AIProvider, type[LLMProvider]] = {
+    _providers: Dict[AIProvider, type[LLMProvider]] = {
         AIProvider.GEMINI: GoogleGeminiProvider,
         AIProvider.OLLAMA: OllamaProvider,
         AIProvider.MOCK: MockLLMProvider,
@@ -490,7 +492,7 @@ class LLMFactory:
         return provider.create_llm(config)
 
     @classmethod
-    def create_from_environment(cls, model_name: str | None = None) -> "Any":
+    def create_from_environment(cls, model_name: Optional[str] = None) -> "Any":
         """
         Create an LLM instance from environment variables.
 
@@ -539,7 +541,7 @@ class LLMFactory:
             provider=provider,
             model_name=model_name,
             api_key=api_key,
-            temperature=float(os.getenv("LLM_TEMPERATURE", "0.7")),
+            temperature=float(os.getenv("LLM_TEMPERATURE", "0.1")),  # Default to low temperature to prevent hallucination
             timeout_seconds=int(os.getenv("LLM_TIMEOUT", "30")),
             max_retries=int(os.getenv("LLM_MAX_RETRIES", "3")),
         )
@@ -547,6 +549,6 @@ class LLMFactory:
         return cls.create_llm(config)
 
     @classmethod
-    def get_supported_providers(cls) -> list[str]:
+    def get_supported_providers(cls) -> List[str]:
         """Get list of supported AI providers."""
         return [provider.value for provider in cls._providers.keys()]

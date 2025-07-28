@@ -7,6 +7,7 @@ This module defines the interface for expense data access operations.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import List, Optional
 
 
 @dataclass
@@ -19,8 +20,8 @@ class Expense:
     amount: float
     category: str
     created_by: str
-    created_at: str | None = None
-    updated_at: str | None = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 
 class ExpenseRepositoryInterface(ABC):
@@ -32,12 +33,12 @@ class ExpenseRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_expense_by_id(self, expense_id: str, team_id: str) -> Expense | None:
+    async def get_expense_by_id(self, expense_id: str, team_id: str) -> Optional[Expense]:
         """Get an expense by ID."""
         pass
 
     @abstractmethod
-    async def get_all_expenses(self, team_id: str) -> list[Expense]:
+    async def get_all_expenses(self, team_id: str) -> List[Expense]:
         """Get all expenses for a team."""
         pass
 
@@ -52,6 +53,6 @@ class ExpenseRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_expenses_by_category(self, team_id: str, category: str) -> list[Expense]:
+    async def get_expenses_by_category(self, team_id: str, category: str) -> List[Expense]:
         """Get expenses by category."""
         pass
