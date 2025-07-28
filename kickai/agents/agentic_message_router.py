@@ -188,45 +188,55 @@ class AgenticMessageRouter:
         """
         try:
             logger.info(
-                f"👋 AgenticMessageRouter: Processing new member welcome for {message.username} in {message.chat_type.value}"
+                f"Processing new member welcome for {message.username} in {message.chat_type.value}"
             )
+
+            # Validate message structure
+            if not message.user_id or not message.username:
+                logger.error("❌ Invalid message structure: missing user_id or username")
+                return self._create_fallback_welcome_message(message.username)
 
             # Determine user flow for the new member
-            user_flow_result = await self.user_flow_agent.determine_user_flow(
-                user_id=message.user_id, chat_type=message.chat_type
-            )
+            try:
+                user_flow_result = await self.user_flow_agent.determine_user_flow(
+                    user_id=message.user_id, chat_type=message.chat_type
+                )
+            except Exception as flow_error:
+                logger.error(f"❌ Error determining user flow: {flow_error}")
+                return self._create_fallback_welcome_message(message.username)
 
             # Generate appropriate welcome message based on user flow
-            if user_flow_result == UserFlowDecision.UNREGISTERED_USER:
-                logger.info("👋 AgenticMessageRouter: New unregistered user - sending welcome message")
-                welcome_message = await self.user_flow_agent.format_unregistered_user_message(
-                    user_id=message.user_id,
-                    team_id=self.team_id,
-                    username=message.username,
-                    chat_type=message.chat_type
-                )
-                return AgentResponse(success=True, message=welcome_message)
-            
-            elif user_flow_result == UserFlowDecision.REGISTERED_USER:
-                logger.info("👋 AgenticMessageRouter: New registered user - sending welcome back message")
-                welcome_message = await self.user_flow_agent.format_registered_user_message(
-                    user_id=message.user_id,
-                    team_id=self.team_id,
-                    username=message.username
-                )
-                return AgentResponse(success=True, message=welcome_message)
-            
-            else:
-                logger.warning(f"👋 AgenticMessageRouter: Unknown user flow for new member: {user_flow_result}")
-                # Fallback welcome message
-                welcome_message = f"👋 Welcome to the team, {message.username}! Use /help to see available commands."
-                return AgentResponse(success=True, message=welcome_message)
+            try:
+                if user_flow_result == UserFlowDecision.UNREGISTERED_USER:
+                    logger.info("New unregistered user - sending welcome message")
+                    welcome_message = await self.user_flow_agent.format_unregistered_user_message(
+                        user_id=message.user_id,
+                        team_id=self.team_id,
+                        username=message.username,
+                        chat_type=message.chat_type
+                    )
+                    return AgentResponse(success=True, message=welcome_message)
+                
+                elif user_flow_result == UserFlowDecision.REGISTERED_USER:
+                    logger.info("New registered user - sending welcome back message")
+                    welcome_message = await self.user_flow_agent.format_registered_user_message(
+                        user_id=message.user_id,
+                        team_id=self.team_id,
+                        username=message.username
+                    )
+                    return AgentResponse(success=True, message=welcome_message)
+                
+                else:
+                    logger.warning(f"Unknown user flow for new member: {user_flow_result}")
+                    return self._create_fallback_welcome_message(message.username)
+
+            except Exception as message_error:
+                logger.error(f"❌ Error generating welcome message: {message_error}")
+                return self._create_fallback_welcome_message(message.username)
 
         except Exception as e:
-            logger.error(f"❌ Error in new member welcome routing: {e}")
-            # Fallback welcome message
-            welcome_message = f"👋 Welcome to the team, {message.username}! Use /help to see available commands."
-            return AgentResponse(success=True, message=welcome_message)
+            logger.error(f"❌ Critical error in new member welcome routing: {e}")
+            return self._create_fallback_welcome_message(message.username if message else "User")
 
     def _parse_registration_command(self, text: str) -> Optional[Dict[str, str]]:
         """Parse /register command and extract name, phone, and role."""
@@ -500,19 +510,40 @@ Use /help to see available commands or ask me questions!"""
             )
 
     def convert_telegram_update_to_message(
-        self, update: Any, command_name: str = None
+        self, update: Any, command_name: str = None, is_new_member: bool = False
     ) -> TelegramMessage:
         """
         Convert Telegram update to domain message.
 
         Args:
-            update: Telegram update object
+            update: Telegram update object (can be None for new member messages)
             command_name: Optional command name for command messages
+            is_new_member: Whether this is for a new member welcome
 
         Returns:
             TelegramMessage domain object
         """
         try:
+            # Handle new member case where update might be None
+            if is_new_member and update is None:
+                # Create a minimal message for new member processing
+                return TelegramMessage(
+                    user_id="",  # Will be set by caller
+                    chat_id="",  # Will be set by caller
+                    chat_type=ChatType.MAIN,  # Will be set by caller
+                    username="",  # Will be set by caller
+                    team_id=self.team_id,
+                    text="",  # Not needed for new member messages
+                    raw_update=None,
+                    contact_phone=None,
+                    contact_user_id=None,
+                    is_new_member=True,
+                )
+
+            # Standard update processing
+            if not update:
+                raise ValueError("Update object is required for non-new-member messages")
+
             user_id = str(update.effective_user.id)
             chat_id = str(update.effective_chat.id)
             username = update.effective_user.username or update.effective_user.first_name
@@ -552,12 +583,24 @@ Use /help to see available commands or ask me questions!"""
                 raw_update=update,
                 contact_phone=contact_phone,
                 contact_user_id=contact_user_id,
-                is_new_member=getattr(update.message, 'is_new_member', False),
+                is_new_member=is_new_member,
             )
 
         except Exception as e:
             logger.error(f"❌ Error converting Telegram update to message: {e}")
-            raise
+            # Return a minimal valid message for error cases
+            return TelegramMessage(
+                user_id="",
+                chat_id="",
+                chat_type=ChatType.MAIN,
+                username="",
+                team_id=self.team_id,
+                text="",
+                raw_update=None,
+                contact_phone=None,
+                contact_user_id=None,
+                is_new_member=is_new_member,
+            )
 
     def _determine_chat_type(self, chat_id: str) -> ChatType:
         """Determine the chat type based on chat ID."""
@@ -638,6 +681,34 @@ Use /help to see available commands or ask me questions!"""
                 success=False,
                 message="❌ Error processing your phone number. Please try again or contact team leadership.",
                 error=str(e),
+            )
+
+    def _create_fallback_welcome_message(self, username: str) -> AgentResponse:
+        """Create a fallback welcome message when the main flow fails."""
+        try:
+            # Sanitize username for safety
+            from kickai.utils.security_utils import sanitize_username
+            safe_username = sanitize_username(username)
+            
+            fallback_message = f"""👋 Welcome to the team, {safe_username}!
+
+🎉 We're excited to have you join our football community!
+
+📋 **Getting Started:**
+• Use `/help` to see available commands
+• Contact team leadership for assistance
+• Check pinned messages for important updates
+
+Welcome aboard! ⚽"""
+            
+            return AgentResponse(success=True, message=fallback_message)
+            
+        except Exception as e:
+            logger.error(f"❌ Error creating fallback welcome message: {e}")
+            # Ultimate fallback
+            return AgentResponse(
+                success=True, 
+                message="👋 Welcome to the team! Use /help to see available commands."
             )
 
     def _determine_chat_type_with_ids(self, chat_id: str) -> ChatType:
