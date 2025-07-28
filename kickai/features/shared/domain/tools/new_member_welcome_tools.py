@@ -13,6 +13,8 @@ from kickai.utils.tool_helpers import (
     validate_required_input,
 )
 from kickai.core.constants import normalize_chat_type
+from kickai.utils.security_utils import sanitize_username
+from kickai.core.welcome_message_templates import generate_welcome_message
 
 
 @tool("get_new_member_welcome_message")
@@ -52,81 +54,34 @@ def get_new_member_welcome_message(
         if validation_error:
             return format_tool_error(validation_error)
 
+        # Sanitize username to prevent injection attacks
+        safe_username = sanitize_username(username)
+        
         # Normalize chat type
         chat_type_enum = normalize_chat_type(chat_type)
         
-        # Generate welcome message based on chat type
-        if chat_type_enum == ChatTypeEnum.MAIN:
-            welcome_message = f"""
-🎉 **WELCOME TO THE TEAM, {username.upper()}!**
+        # Generate welcome message using configurable templates
+        try:
+            welcome_message = generate_welcome_message(
+                username=safe_username,
+                chat_type=chat_type_enum,
+                team_id=team_id,
+                user_id=user_id
+            )
+            return welcome_message
+        except Exception as template_error:
+            logger.error(f"❌ Error generating welcome message with template: {template_error}")
+            # Fallback to basic welcome message
+            return f"""👋 Welcome to the team, {safe_username}!
 
-👋 **Welcome to KICKAI!** We're excited to have you join our football community!
+🎉 We're excited to have you join our football community!
 
-⚽ **WHAT YOU CAN DO HERE:**
-• Register as a player with `/register [player_id]`
-• Check your status with `/myinfo`
-• See available commands with `/help`
-• View active players with `/list`
-
-🔗 **GETTING STARTED:**
-1. **Register as a player** - Use `/register` followed by your player ID
-2. **Check your status** - Use `/myinfo` to see your current registration
-3. **Explore commands** - Use `/help` to see all available options
-
-📱 **NEED HELP?**
-• Type `/help` for command information
+📋 **Getting Started:**
+• Use `/help` to see available commands
 • Contact team leadership for assistance
 • Check pinned messages for important updates
 
-Welcome aboard! Let's make this team amazing! ⚽🔥
-            """
-        elif chat_type_enum == ChatTypeEnum.LEADERSHIP:
-            welcome_message = f"""
-🎉 **WELCOME TO LEADERSHIP, {username.upper()}!**
-
-👥 **Welcome to the KICKAI Leadership Team!** You're now part of our administrative team.
-
-🛠️ **ADMINISTRATIVE FEATURES:**
-• Manage players with `/add`, `/approve`, `/listmembers`
-• View pending players with `/pending`
-• Schedule training with `/scheduletraining`
-• Manage matches with `/creatematch`, `/squadselect`
-• Send announcements with `/announce`
-
-📋 **QUICK START:**
-1. **View pending players** - Use `/pending` to see who needs approval
-2. **Add new players** - Use `/add [name] [phone] [position]`
-3. **Approve players** - Use `/approve [player_id]`
-4. **Explore admin commands** - Use `/help` for full list
-
-🎯 **TEAM MANAGEMENT:**
-• Player registration and approval
-• Training session management
-• Match scheduling and squad selection
-• Team communication and announcements
-
-Welcome to the leadership team! Let's build something great together! 👥🌟
-            """
-        else:  # PRIVATE
-            welcome_message = f"""
-🎉 **WELCOME, {username.upper()}!**
-
-👋 **Welcome to KICKAI!** You're now connected to our football management system.
-
-⚽ **AVAILABLE COMMANDS:**
-• Get help with `/help`
-• Check your status with `/myinfo`
-• Register as a player with `/register`
-
-🔗 **NEXT STEPS:**
-1. Join the main team chat for full access
-2. Register as a player or team member
-3. Start participating in team activities
-
-Welcome! We're glad to have you on board! ⚽
-            """
-
-        return welcome_message
+Welcome aboard! ⚽"""
 
     except Exception as e:
         logger.error(f"Error generating new member welcome message: {e}")

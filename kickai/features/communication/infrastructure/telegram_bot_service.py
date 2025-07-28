@@ -1,4 +1,5 @@
 from typing import Dict, Union
+from datetime import datetime
 
 from loguru import logger
 from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
@@ -8,6 +9,14 @@ from kickai.agents.agentic_message_router import AgenticMessageRouter
 from kickai.core.enums import ChatType
 from kickai.features.communication.domain.interfaces.telegram_bot_service_interface import (
     TelegramBotServiceInterface,
+)
+from kickai.utils.security_utils import (
+    sanitize_username,
+    validate_new_chat_members_update,
+    validate_chat_id,
+)
+from kickai.features.communication.domain.services.admin_notification_service import (
+    send_critical_error_notification,
 )
 
 
@@ -202,45 +211,110 @@ class TelegramBotService(TelegramBotServiceInterface):
     async def _handle_new_chat_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle new chat members joining the chat."""
         try:
-            if not update.message or not update.message.new_chat_members:
+            # Comprehensive input validation
+            is_valid, error_message = validate_new_chat_members_update(update)
+            if not is_valid:
+                logger.error(f"❌ Invalid new chat members update: {error_message}")
                 return
 
+            # Validate chat ID
             chat_id = str(update.effective_chat.id)
+            chat_id_valid, chat_error = validate_chat_id(chat_id)
+            if not chat_id_valid:
+                logger.error(f"❌ Invalid chat ID: {chat_error}")
+                return
+
             chat_type = self._determine_chat_type(chat_id)
             
-            logger.info(f"👋 New chat members detected in {chat_type.value} chat: {len(update.message.new_chat_members)} members")
+            logger.info(f"New chat members detected in {chat_type.value} chat: {len(update.message.new_chat_members)} members")
 
+            # Process each new member individually with error isolation
             for new_member in update.message.new_chat_members:
-                # Skip if the new member is the bot itself
-                if new_member.is_bot:
-                    logger.info(f"🤖 Bot joined chat, skipping welcome message")
+                try:
+                    await self._process_single_new_member(new_member, chat_id, chat_type)
+                except Exception as member_error:
+                    logger.error(f"❌ Error processing individual member: {member_error}")
+                    # Continue processing other members - don't fail the entire batch
                     continue
 
-                user_id = str(new_member.id)
-                username = new_member.username or new_member.first_name or "Unknown User"
-                
-                logger.info(f"👋 Processing new member: {username} (ID: {user_id})")
+        except Exception as e:
+            logger.error(f"❌ Critical error handling new chat members: {e}")
+            # Don't send error response to avoid spam, but log for monitoring
+            await self._log_critical_error("new_chat_members_handler", str(e))
 
-                # Convert to domain message for agentic processing
-                message = self.agentic_router.convert_telegram_update_to_message(update)
-                
-                # Add new member context to the message
-                message.user_id = user_id
-                message.username = username
-                message.chat_type = chat_type
-                message.is_new_member = True
+    async def _process_single_new_member(self, new_member, chat_id: str, chat_type: ChatType):
+        """Process a single new chat member with proper validation and sanitization."""
+        try:
+            # Skip if the new member is the bot itself
+            if new_member.is_bot:
+                logger.info("Bot joined chat, skipping welcome message")
+                return
 
-                # Route through agentic system for welcome message
-                response = await self.agentic_router.route_new_member_welcome(message)
+            # Validate member object
+            if not hasattr(new_member, 'id') or not hasattr(new_member, 'is_bot'):
+                logger.error("❌ Invalid member object structure")
+                return
 
-                # Send welcome message
-                if response and hasattr(response, 'message') and response.message:
-                    await self.send_message(chat_id, response.message)
-                    logger.info(f"✅ Welcome message sent to {username}")
+            user_id = str(new_member.id)
+            
+            # Sanitize username to prevent injection attacks
+            raw_username = new_member.username or new_member.first_name or "Unknown User"
+            username = sanitize_username(raw_username)
+            
+            logger.info(f"Processing new member: {username} (ID: {user_id})")
+
+            # Create new message instance to avoid race conditions
+            message = self.agentic_router.convert_telegram_update_to_message(
+                update=None,  # We'll set the context manually
+                command_name=None,
+                is_new_member=True
+            )
+            
+            # Set member-specific context
+            message.user_id = user_id
+            message.username = username
+            message.chat_type = chat_type
+
+            # Route through agentic system for welcome message
+            response = await self.agentic_router.route_new_member_welcome(message)
+
+            # Send welcome message if response is valid
+            if response and hasattr(response, 'message') and response.message:
+                await self.send_message(chat_id, response.message)
+                logger.info(f"Welcome message sent to {username}")
+            else:
+                logger.warning(f"No valid welcome message generated for {username}")
 
         except Exception as e:
-            logger.error(f"❌ Error handling new chat members: {e}")
-            # Don't send error response for new member events to avoid spam
+            logger.error(f"❌ Error processing single new member: {e}")
+            # Don't re-raise - let the caller continue with other members
+            raise
+
+    async def _log_critical_error(self, error_type: str, error_message: str):
+        """Log critical errors for monitoring and alerting."""
+        try:
+            # Log to file
+            logger.error(f"🚨 CRITICAL ERROR [{error_type}]: {error_message}")
+            
+            # Send admin notification
+            try:
+                await send_critical_error_notification(
+                    bot_service=self,
+                    team_id=self.team_id,
+                    error_type=error_type,
+                    error_message=error_message,
+                    context={
+                        "service": "TelegramBotService",
+                        "chat_type": "new_member_handler",
+                        "timestamp": datetime.now().isoformat()
+                    }
+                )
+            except Exception as notification_error:
+                logger.error(f"❌ Error sending admin notification: {notification_error}")
+                # Don't fail the main error logging if notification fails
+            
+        except Exception as e:
+            logger.error(f"❌ Error logging critical error: {e}")
 
     def _determine_chat_type(self, chat_id: str) -> ChatType:
         """Determine the chat type based on chat ID."""
