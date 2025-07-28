@@ -47,11 +47,12 @@
 - ✅ `/health` - System health monitoring
 - ✅ `/config` - Configuration information
 
-#### **2. Agent System (12/12)**
+#### **2. Agent System (13/13)**
 - ✅ **IntelligentSystemAgent** - Central orchestrator
 - ✅ **MessageProcessorAgent** - Message processing and routing
 - ✅ **PlayerCoordinatorAgent** - Player management
 - ✅ **TeamAdministratorAgent** - Team administration
+- ✅ **TrainingCoordinatorAgent** - Training session management
 - ✅ **HelpAssistantAgent** - Help system
 - ✅ **OnboardingAgent** - User onboarding
 - ✅ **SquadSelectorAgent** - Squad selection
@@ -80,7 +81,15 @@
 - 🔄 `/reject` - Player rejection system
 - 🔄 `/pending` - Pending registrations list
 
-#### **2. Advanced Features**
+#### **2. Training Management (6/6)**
+- ✅ `/scheduletraining` - Training session scheduling (leadership)
+- ✅ `/listtrainings` - Training session listing
+- ✅ `/marktraining` - Training attendance marking
+- ✅ `/canceltraining` - Training session cancellation (leadership)
+- ✅ `/trainingstats` - Training statistics and analytics
+- ✅ `/mytrainings` - Personal training schedule
+
+#### **3. Advanced Features**
 - 🔄 **Payment Integration**: Collectiv payment processing
 - 🔄 **Match Management**: Match scheduling and operations
 - 🔄 **Attendance Tracking**: Player attendance management

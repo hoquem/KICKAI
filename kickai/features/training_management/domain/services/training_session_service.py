@@ -15,6 +15,7 @@ from kickai.features.training_management.domain.entities.training_session import
     TrainingSession, TrainingSessionStatus, TrainingSessionType
 )
 from kickai.utils.football_id_generator import generate_football_training_id
+from kickai.features.training_management.infrastructure.firestore_training_repository import FirestoreTrainingRepository
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class TrainingSessionService:
 
     def __init__(self, data_store=None):
         if data_store is None:
-            self._data_store = get_firebase_client()
+            self._data_store = FirestoreTrainingRepository()
         else:
             self._data_store = data_store
 
@@ -70,19 +71,19 @@ class TrainingSessionService:
             logger.error(f"Failed to create training session: {e}")
             raise TrainingError(f"Failed to create training session: {e!s}", create_error_context("create_training_session"))
 
-    async def get_training_session(self, training_session_id: str) -> Optional[TrainingSession]:
+    async def get_training_session(self, training_session_id: str, team_id: str) -> Optional[TrainingSession]:
         """Retrieves a training session by its ID."""
         try:
-            training_session = await self._data_store.get_training_session(training_session_id)
+            training_session = await self._data_store.get_training_session(training_session_id, team_id)
             return training_session
         except Exception as e:
             logger.error(f"Failed to get training session {training_session_id}: {e}")
             raise TrainingError(f"Failed to get training session: {e!s}", create_error_context("get_training_session"))
 
-    async def update_training_session(self, training_session_id: str, **updates) -> TrainingSession:
+    async def update_training_session(self, training_session_id: str, team_id: str, **updates) -> TrainingSession:
         """Updates an existing training session."""
         try:
-            training_session = await self.get_training_session(training_session_id)
+            training_session = await self.get_training_session(training_session_id, team_id)
             if not training_session:
                 raise TrainingNotFoundError(
                     f"Training session not found: {training_session_id}", create_error_context("update_training_session")

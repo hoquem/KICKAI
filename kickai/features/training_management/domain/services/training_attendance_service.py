@@ -14,6 +14,7 @@ from kickai.database.firebase_client import get_firebase_client
 from kickai.features.training_management.domain.entities.training_attendance import (
     TrainingAttendance, TrainingAttendanceStatus, TrainingAttendanceResponseMethod, TrainingAttendanceSummary
 )
+from kickai.features.training_management.infrastructure.firestore_training_repository import FirestoreTrainingRepository
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ class TrainingAttendanceService:
 
     def __init__(self, data_store=None):
         if data_store is None:
-            self._data_store = get_firebase_client()
+            self._data_store = FirestoreTrainingRepository()
         else:
             self._data_store = data_store
 

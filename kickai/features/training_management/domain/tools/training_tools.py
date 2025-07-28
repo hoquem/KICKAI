@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 @tool("schedule_training_session")
-def schedule_training_session(
+async def schedule_training_session(
     team_id: str,
     session_type: str,
     date: str,
@@ -162,7 +162,7 @@ def schedule_training_session(
 
 
 @tool("list_training_sessions")
-def list_training_sessions(
+async def list_training_sessions(
     team_id: str,
     period: str = "upcoming"
 ) -> str:
@@ -233,7 +233,7 @@ def list_training_sessions(
 
 
 @tool("mark_training_attendance")
-def mark_training_attendance(
+async def mark_training_attendance(
     player_id: str,
     team_id: str,
     status: str,
@@ -353,7 +353,7 @@ def mark_training_attendance(
 
 
 @tool("get_training_attendance_summary")
-def get_training_attendance_summary(
+async def get_training_attendance_summary(
     training_session_id: str,
     team_id: str,
 ) -> str:
@@ -430,7 +430,7 @@ def get_training_attendance_summary(
 
 
 @tool("cancel_training_session")
-def cancel_training_session(
+async def cancel_training_session(
     training_session_id: str,
     team_id: str,
     reason: Optional[str] = None,

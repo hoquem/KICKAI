@@ -20,6 +20,7 @@ KICKAI is an AI-powered football team management system built with **12-agent Cr
 - **AVAILABILITY_MANAGER**: Player availability tracking
 - **HELP_ASSISTANT**: Help system and command guidance
 - **ONBOARDING_AGENT**: New user registration and onboarding
+- **TRAINING_COORDINATOR**: Training session management and coordination
 - **COMMUNICATION_MANAGER**: Team communications and announcements
 - **ANALYTICS_AGENT**: Analytics and reporting
 - **SYSTEM_INFRASTRUCTURE**: System health and maintenance
@@ -65,6 +66,7 @@ kickai/features/
 ├── team_administration/     # Team management and settings
 ├── match_management/        # Match scheduling and operations
 ├── attendance_management/   # Attendance tracking
+├── training_management/    # Training session management
 ├── payment_management/      # Payment processing and financials
 ├── communication/          # Messaging and notifications
 ├── health_monitoring/      # System health and monitoring
