@@ -257,6 +257,61 @@ MATCH_COMMANDS = {
 }
 
 # =============================================================================
+# TRAINING MANAGEMENT COMMANDS
+# =============================================================================
+
+TRAINING_COMMANDS = {
+    CommandDefinition(
+        name="/scheduletraining",
+        description="Schedule a training session (Leadership only)",
+        permission_level=PermissionLevel.LEADERSHIP,
+        chat_types=frozenset([ChatType.LEADERSHIP]),
+        examples=("/scheduletraining", "/scheduletraining Technical 2024-01-15 18:00 90"),
+        feature="training_management",
+    ),
+    CommandDefinition(
+        name="/listtrainings",
+        description="List upcoming training sessions",
+        permission_level=PermissionLevel.PLAYER,
+        chat_types=frozenset([ChatType.MAIN]),
+        examples=("/listtrainings", "/listtrainings this week", "/listtrainings today"),
+        feature="training_management",
+    ),
+    CommandDefinition(
+        name="/marktraining",
+        description="Mark attendance for a training session",
+        permission_level=PermissionLevel.PLAYER,
+        chat_types=frozenset([ChatType.MAIN]),
+        examples=("/marktraining", "/marktraining yes", "/marktraining no TRAIN123"),
+        feature="training_management",
+    ),
+    CommandDefinition(
+        name="/canceltraining",
+        description="Cancel a training session (Leadership only)",
+        permission_level=PermissionLevel.LEADERSHIP,
+        chat_types=frozenset([ChatType.LEADERSHIP]),
+        examples=("/canceltraining", "/canceltraining TRAIN123", "/canceltraining TRAIN123 Bad weather"),
+        feature="training_management",
+    ),
+    CommandDefinition(
+        name="/trainingstats",
+        description="Show training statistics and attendance",
+        permission_level=PermissionLevel.PLAYER,
+        chat_types=frozenset([ChatType.MAIN]),
+        examples=("/trainingstats", "/trainingstats this month", "/trainingstats TRAIN123"),
+        feature="training_management",
+    ),
+    CommandDefinition(
+        name="/mytrainings",
+        description="Show my training schedule and history",
+        permission_level=PermissionLevel.PLAYER,
+        chat_types=frozenset([ChatType.MAIN]),
+        examples=("/mytrainings", "/mytrainings upcoming", "/mytrainings history"),
+        feature="training_management",
+    ),
+}
+
+# =============================================================================
 # ATTENDANCE COMMANDS
 # =============================================================================
 
@@ -515,6 +570,7 @@ ALL_COMMANDS = (
     | LEADERSHIP_COMMANDS
     | SYSTEM_COMMANDS
     | MATCH_COMMANDS
+    | TRAINING_COMMANDS
     | ATTENDANCE_COMMANDS
     | PAYMENT_COMMANDS
     | COMMUNICATION_COMMANDS
