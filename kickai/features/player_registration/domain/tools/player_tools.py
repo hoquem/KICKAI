@@ -645,6 +645,75 @@ def validate_tool_output_integrity(original_output: str, agent_response: str) ->
     return False
 
 
+@tool("get_pending_players")
+async def get_pending_players(team_id: str, user_id: str) -> str:
+    """
+    Get all pending players awaiting approval in the team.
+
+    Args:
+        team_id: Team ID (required) - available from context
+        user_id: User ID (required) - available from context
+
+    Returns:
+        List of pending players or error message
+    """
+    try:
+        # Validate inputs using utility functions
+        validation_error = validate_required_input(team_id, "Team ID")
+        if validation_error:
+            return validation_error
+
+        validation_error = validate_required_input(user_id, "User ID")
+        if validation_error:
+            return validation_error
+
+        # Sanitize inputs
+        team_id = sanitize_input(team_id, max_length=20)
+        user_id = sanitize_input(user_id, max_length=20)
+
+        container = get_container()
+        player_service = container.get_service(PlayerService)
+
+        if not player_service:
+            raise ServiceNotAvailableError("PlayerService")
+
+        # Get pending players using the service
+        from kickai.features.player_registration.domain.services.player_registration_service import (
+            PlayerRegistrationService,
+        )
+        
+        registration_service = PlayerRegistrationService()
+        pending_players = await registration_service.get_pending_players(team_id=team_id)
+
+        if not pending_players:
+            return "📋 No pending players found in the team."
+
+        # Format response
+        result = "📋 Pending Players Awaiting Approval\n\n"
+
+        for player in pending_players:
+            result += f"⏳ **{player.full_name}**\n"
+            result += f"   • Player ID: {player.player_id or 'Not assigned'}\n"
+            result += f"   • Position: {player.position}\n"
+            result += f"   • Phone: {player.phone_number or 'Not provided'}\n"
+            result += f"   • Status: {player.status.title()}\n"
+            if player.created_at:
+                result += f"   • Registered: {player.created_at}\n"
+            result += "\n"
+
+        result += "💡 To approve a player, use: `/approve [player_id]`\n"
+        result += "💡 To reject a player, use: `/reject [player_id] [reason]`"
+
+        return result
+
+    except ServiceNotAvailableError as e:
+        logger.error(f"Service not available in get_pending_players: {e}")
+        return format_tool_error(f"Service temporarily unavailable: {e.message}")
+    except Exception as e:
+        logger.error(f"Failed to get pending players: {e}", exc_info=True)
+        return format_tool_error(f"Failed to get pending players: {e}")
+
+
 @tool("get_match")
 async def get_match(match_id: str, team_id: str) -> str:
     """

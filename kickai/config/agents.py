@@ -305,6 +305,7 @@ EXAMPLES:
                     "get_team_member_updatable_fields",
                     "validate_team_member_update_request",
                     "get_pending_team_member_approval_requests",
+                    "get_pending_players",
                 ],
                 behavioral_mixin=None,
                 memory_enabled=True,

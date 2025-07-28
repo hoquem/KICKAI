@@ -13,6 +13,7 @@ from .player_tools import (
     get_match,
     get_my_status,
     get_player_status,
+    get_pending_players,
 )
 
 # Import the parser tool
@@ -37,6 +38,7 @@ __all__ = [
     "get_player_status",
     "get_all_players",
     "get_match",
+    "get_pending_players",
 ]
 
 # Note: Removed unused tools: remove_player, get_player_info, list_players
