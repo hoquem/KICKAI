@@ -47,9 +47,10 @@ db = firestore.client()
 TEAM_ID = "SUNKAI"
 TEAM_NAME = "KickAI Testing"
 BOT_USERNAME = "KickAITesting_bot"
-BOT_TOKEN = "7693359073:AAEnLqhdbCOfnf0RDfjn71z8GLRooNKNYsM"
-MAIN_CHAT_ID = "-4889304885"
-LEADERSHIP_CHAT_ID = "-4814449926"
+# Bot token should come from environment variables, not hardcoded in source code
+BOT_TOKEN = os.getenv("TEST_BOT_TOKEN", "")  # Should be set in .env.test
+MAIN_CHAT_ID = os.getenv("TEST_MAIN_CHAT_ID", "-4889304885")  # Should come from Firestore
+LEADERSHIP_CHAT_ID = os.getenv("TEST_LEADERSHIP_CHAT_ID", "-4814449926")  # Should come from Firestore
 
 # Test data configuration
 TEST_PLAYERS = [

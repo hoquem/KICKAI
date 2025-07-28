@@ -26,7 +26,7 @@ class InviteLinkService:
 
     def __init__(self, bot_token: str = None, database: DataStoreInterface = None):
         self.database = database
-        self.collection_name = "kickai_invite_links"
+        self.collection_name = "kickai_invite_links"  # TODO: Use constant from firestore_constants.py
         self.bot_token = bot_token
         self._bot = None
         

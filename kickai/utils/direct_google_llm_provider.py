@@ -3,6 +3,7 @@
 Direct Google LLM Provider
 Uses google.generativeai directly instead of LiteLLM
 """
+import os
 from typing import Dict, List
 
 import asyncio
@@ -17,10 +18,10 @@ class DirectGoogleLLMConfig:
     """Configuration for Direct Google LLM."""
 
     api_key: str
-    model_name: str = "gemini-1.5-flash"
-    temperature: float = 0.7
-    timeout_seconds: int = 30
-    max_retries: int = 3
+    model_name: str = os.getenv("GOOGLE_MODEL_NAME", "gemini-1.5-flash")
+    temperature: float = float(os.getenv("GOOGLE_TEMPERATURE", "0.7"))
+    timeout_seconds: int = int(os.getenv("GOOGLE_TIMEOUT_SECONDS", "30"))
+    max_retries: int = int(os.getenv("GOOGLE_MAX_RETRIES", "3"))
 
 
 class DirectGoogleLLM:
@@ -121,10 +122,10 @@ class DirectGoogleLLMProvider:
 
 def create_direct_google_llm(
     api_key: str,
-    model_name: str = "gemini-1.5-flash",
-    temperature: float = 0.7,
-    timeout_seconds: int = 30,
-    max_retries: int = 3,
+    model_name: str = None,
+    temperature: float = None,
+    timeout_seconds: int = None,
+    max_retries: int = None,
 ) -> DirectGoogleLLM:
     """Factory function to create a Direct Google LLM instance."""
     config = DirectGoogleLLMConfig(

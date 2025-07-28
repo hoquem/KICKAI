@@ -98,7 +98,7 @@ class Settings(BaseSettings):
 
     # Security Configuration
     jwt_secret: str = Field(
-        default="default-secret-change-in-production", description="JWT secret key"
+        default="", description="JWT secret key (REQUIRED - must be set via JWT_SECRET environment variable)"
     )
     session_timeout: int = Field(default=3600, description="Session timeout in seconds")
     max_login_attempts: int = Field(default=5, description="Max login attempts")
@@ -222,8 +222,12 @@ class Settings(BaseSettings):
 
         # Production requirements
         if self.is_production:
-            if self.jwt_secret == "default-secret-change-in-production":
-                errors.append("JWT_SECRET must be changed in production")
+            if not self.jwt_secret:
+                errors.append("JWT_SECRET is required in production")
+        else:
+            # Development/testing requirements
+            if not self.jwt_secret:
+                errors.append("JWT_SECRET is required (set via JWT_SECRET environment variable)")
 
         return errors
 

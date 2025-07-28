@@ -25,7 +25,7 @@ except ImportError:
     # Fallback for testing
     def get_settings():
         class MockSettings:
-            firebase_project_id = "test_project"
+            firebase_project_id = os.getenv("FIREBASE_PROJECT_ID", "test_project")
             firebase_credentials_json = None
             firebase_credentials_path = None
 
@@ -87,8 +87,8 @@ class FirebaseClient:
         self._batch_operations: List[Dict[str, Any]] = []
 
         # Skip initialization in testing environment
-        if config.firebase_project_id == "test_project":
-            logger.info("Test environment detected, skipping Firebase initialization")
+        if config.firebase_project_id == "test_project" or not config.firebase_project_id:
+            logger.info("Test environment detected or no project ID, skipping Firebase initialization")
             return
 
         self._initialize_client()
