@@ -36,6 +36,7 @@ class TelegramMessage:
     raw_update: Any = None
     contact_phone: str = None
     contact_user_id: str = None
+    is_new_member: bool = False
 
 
 @dataclass

@@ -11,11 +11,11 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from crewai import tool
+from crewai.tools import tool
 
-from kickai.core.constants import get_players_collection
-from kickai.core.exceptions import ValidationError
-from kickai.database.firebase_service import FirebaseService
+from kickai.core.firestore_constants import get_team_players_collection
+from kickai.core.exceptions import InputValidationError
+from kickai.database.firebase_client import get_firebase_client
 
 logger = logging.getLogger(__name__)
 
@@ -193,8 +193,8 @@ def update_player_information(user_id: str, team_id: str, field: str, value: str
             return "❌ Update Failed: Missing required parameters (user_id, team_id, field, value)"
         
         # Initialize Firebase service
-        firebase_service = FirebaseService()
-        collection_name = get_players_collection(team_id)
+        firebase_service = get_firebase_client()
+        collection_name = get_team_players_collection(team_id)
         
         # Check if player exists
         logger.info(f"🔍 Checking if player exists: user_id={user_id}")
@@ -312,8 +312,8 @@ def get_player_updatable_fields(user_id: str, team_id: str) -> str:
         logger.info(f"📋 Getting updatable fields for player: user_id={user_id}")
         
         # Check if player exists
-        firebase_service = FirebaseService()
-        collection_name = get_players_collection(team_id)
+        firebase_service = get_firebase_client()
+        collection_name = get_team_players_collection(team_id)
         
         players = firebase_service.query_documents(
             collection_name, 
@@ -395,8 +395,8 @@ def validate_player_update_request(user_id: str, team_id: str, field: str, value
         logger.info(f"🔍 Validating player update: field={field}, value={value}")
         
         # Check if player exists
-        firebase_service = FirebaseService()
-        collection_name = get_players_collection(team_id)
+        firebase_service = get_firebase_client()
+        collection_name = get_team_players_collection(team_id)
         
         players = firebase_service.query_documents(
             collection_name, 

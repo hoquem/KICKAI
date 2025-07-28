@@ -232,3 +232,58 @@ async def handle_version_command(update, context, **kwargs):
     """Handle /version command."""
     # This will be handled by the agent system
     return None
+
+
+@command(
+    name="/update",
+    description="Update your information (context-aware)",
+    command_type=CommandType.SLASH_COMMAND,
+    permission_level=PermissionLevel.PUBLIC,
+    feature="shared",
+    examples=["/update phone 07123456789", "/update position midfielder", "/update email john@example.com"],
+    parameters={
+        "field": "Field to update (phone, position, email, emergency_contact, medical_notes, role)",
+        "value": "New value for the field"
+    },
+    help_text="""
+🔄 Update Information
+
+Update your personal information based on your current chat context.
+
+**Main Chat (Players):**
+• phone - Your contact phone number
+• position - Your football position
+• email - Your email address
+• emergency_contact - Emergency contact info
+• medical_notes - Medical information
+
+**Leadership Chat (Team Members):**
+• phone - Your contact phone number
+• email - Your email address
+• emergency_contact - Emergency contact info
+• role - Your administrative role
+
+Usage:
+• /update [field] [new value]
+• /update phone 07123456789
+• /update position midfielder
+• /update email john@example.com
+
+What happens:
+1. Your information is validated
+2. Database is updated with new value
+3. Change is logged for audit purposes
+4. You receive confirmation message
+
+🔒 Security:
+• Only you can update your own information
+• All changes are logged
+• Phone numbers must be unique within team
+
+💡 Tip: Use /update without arguments to see available fields for your context.
+    """,
+)
+async def handle_update_command(update, context, **kwargs):
+    """Handle /update command."""
+    # This will be handled by the agent system using UpdateCommandHandler
+    return None

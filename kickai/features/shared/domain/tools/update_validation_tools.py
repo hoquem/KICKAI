@@ -10,7 +10,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-from crewai import tool
+from crewai.tools import tool
 
 logger = logging.getLogger(__name__)
 
@@ -253,9 +253,9 @@ def check_field_uniqueness(collection_name: str, field_name: str, field_value: s
         Uniqueness check result message
     """
     try:
-        from kickai.database.firebase_service import FirebaseService
+        from kickai.database.firebase_client import get_firebase_client
         
-        firebase_service = FirebaseService()
+        firebase_service = get_firebase_client()
         
         # Query for existing records with this field value
         existing_records = firebase_service.query_documents(

@@ -465,14 +465,6 @@ TEAM_ADMIN_COMMANDS = {
         examples=("/updateteam", "/updateteam name New Team Name"),
         feature="team_administration",
     ),
-    CommandDefinition(
-        name="/listmembers",
-        description="List team members",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/listmembers",),
-        feature="team_administration",
-    ),
 }
 
 # =============================================================================

@@ -52,6 +52,9 @@ from kickai.features.shared.domain.tools.smart_recommendations_tools import (
     get_smart_position_recommendations,
     get_smart_role_recommendations,
 )
+from kickai.features.shared.domain.tools.new_member_welcome_tools import (
+    get_new_member_welcome_message,
+)
 
 __all__ = [
     # Help tools (from help_tools.py)
@@ -96,4 +99,5 @@ __all__ = [
     "get_onboarding_path_recommendation",
     "analyze_team_needs_for_recommendations",
     "get_personalized_welcome_message",
+    "get_new_member_welcome_message",
 ]
