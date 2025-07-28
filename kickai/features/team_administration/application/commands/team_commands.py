@@ -13,6 +13,7 @@ from kickai.core.enums import ChatType
 # TEAM MANAGEMENT COMMANDS
 # ============================================================================
 
+
 @command(
     name="/createteam",
     description="Create a new team (Leadership only)",
@@ -21,9 +22,7 @@ from kickai.core.enums import ChatType
     feature="team_administration",
     chat_type=ChatType.LEADERSHIP,
     examples=["/createteam", "/createteam My Team Name"],
-    parameters={
-        "team_name": "Name of the team to create"
-    },
+    parameters={"team_name": "Name of the team to create"},
     help_text="""
 🏆 Create Team (Leadership Only)
 
@@ -43,7 +42,7 @@ What happens:
 4. Team chat channels are set up
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_createteam_command(update, context, **kwargs):
     """Handle /createteam command."""
@@ -75,7 +74,7 @@ What you'll see:
 • Recent activity summary
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_teamstatus_command(update, context, **kwargs):
     """Handle /teamstatus command."""
@@ -93,7 +92,7 @@ async def handle_teamstatus_command(update, context, **kwargs):
     examples=["/updateteam name New Team Name", "/updateteam description Updated description"],
     parameters={
         "setting": "Setting to update (name, description, etc.)",
-        "value": "New value for the setting"
+        "value": "New value for the setting",
     },
     help_text="""
 ⚙️ Update Team (Leadership Only)
@@ -114,7 +113,7 @@ Available settings:
 • contact - Contact information
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_updateteam_command(update, context, **kwargs):
     """Handle /updateteam command."""
@@ -145,7 +144,7 @@ What you'll see:
 • Current status (active, inactive, etc.)
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_listmembers_command(update, context, **kwargs):
     """Handle /listmembers command."""

@@ -1,6 +1,6 @@
-from typing import Union
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 
 from kickai.utils.user_id_generator import generate_user_id
 
@@ -14,16 +14,17 @@ class TeamMember:
     This is separate from Players who represent football players.
     A person can be both a Team Member and a Player, linked by user_id.
     """
+
     # Core identification fields
     user_id: str = ""  # Generated from telegram_id using generate_user_id()
     team_id: str = ""
-    telegram_id: Union[str, None] = None
+    telegram_id: Optional[str] = None
 
     # Personal information
-    first_name: Union[str, None] = None
-    last_name: Union[str, None] = None
-    full_name: Union[str, None] = None
-    username: Union[str, None] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    full_name: Optional[str] = None
+    username: Optional[str] = None
 
     # Administrative role information
     role: str = "Team Member"  # e.g., "Club Administrator", "Team Manager", "Coach"
@@ -31,17 +32,17 @@ class TeamMember:
     status: str = "active"  # active, inactive, suspended
 
     # Contact information
-    phone_number: Union[str, None] = None
-    email: Union[str, None] = None
-    emergency_contact: Union[str, None] = None
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
+    emergency_contact: Optional[str] = None
 
     # Timestamps
-    created_at: Union[datetime, None] = None
-    updated_at: Union[datetime, None] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     # Metadata
-    source: Union[str, None] = None  # e.g., "telegram_sync", "manual_entry"
-    sync_version: Union[str, None] = None
+    source: Optional[str] = None  # e.g., "telegram_sync", "manual_entry"
+    sync_version: Optional[str] = None
 
     def __post_init__(self):
         """Validate and set defaults after initialization."""
@@ -78,9 +79,15 @@ class TeamMember:
             self.sync_version = "1.0"
 
     @classmethod
-    def create_from_telegram(cls, team_id: str, telegram_id: int,
-                           first_name: str = None, last_name: str = None,
-                           username: str = None, is_admin: bool = False) -> 'TeamMember':
+    def create_from_telegram(
+        cls,
+        team_id: str,
+        telegram_id: int,
+        first_name: str = None,
+        last_name: str = None,
+        username: str = None,
+        is_admin: bool = False,
+    ) -> "TeamMember":
         """
         Create a TeamMember from Telegram user data.
 
@@ -121,52 +128,56 @@ class TeamMember:
             username=username,
             role=role,
             is_admin=is_admin,
-            source="telegram_sync"
+            source="telegram_sync",
         )
 
     def to_dict(self) -> dict:
         """Convert to dictionary for storage."""
         return {
-            'user_id': self.user_id,
-            'team_id': self.team_id,
-            'telegram_id': self.telegram_id,
-            'first_name': self.first_name,
-            'last_name': self.last_name,
-            'full_name': self.full_name,
-            'username': self.username,
-            'role': self.role,
-            'is_admin': self.is_admin,
-            'status': self.status,
-            'phone_number': self.phone_number,
-            'email': self.email,
-            'emergency_contact': self.emergency_contact,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'source': self.source,
-            'sync_version': self.sync_version
+            "user_id": self.user_id,
+            "team_id": self.team_id,
+            "telegram_id": self.telegram_id,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "full_name": self.full_name,
+            "username": self.username,
+            "role": self.role,
+            "is_admin": self.is_admin,
+            "status": self.status,
+            "phone_number": self.phone_number,
+            "email": self.email,
+            "emergency_contact": self.emergency_contact,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "source": self.source,
+            "sync_version": self.sync_version,
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'TeamMember':
+    def from_dict(cls, data: dict) -> "TeamMember":
         """Create from dictionary."""
         return cls(
-            user_id=data.get('user_id', ''),
-            team_id=data.get('team_id', ''),
-            telegram_id=data.get('telegram_id'),
-            first_name=data.get('first_name'),
-            last_name=data.get('last_name'),
-            full_name=data.get('full_name'),
-            username=data.get('username'),
-            role=data.get('role', 'Team Member'),
-            is_admin=data.get('is_admin', False),
-            status=data.get('status', 'active'),
-            phone_number=data.get('phone_number'),
-            email=data.get('email'),
-            emergency_contact=data.get('emergency_contact'),
-            created_at=datetime.fromisoformat(data['created_at']) if data.get('created_at') else None,
-            updated_at=datetime.fromisoformat(data['updated_at']) if data.get('updated_at') else None,
-            source=data.get('source'),
-            sync_version=data.get('sync_version')
+            user_id=data.get("user_id", ""),
+            team_id=data.get("team_id", ""),
+            telegram_id=data.get("telegram_id"),
+            first_name=data.get("first_name"),
+            last_name=data.get("last_name"),
+            full_name=data.get("full_name"),
+            username=data.get("username"),
+            role=data.get("role", "Team Member"),
+            is_admin=data.get("is_admin", False),
+            status=data.get("status", "active"),
+            phone_number=data.get("phone_number"),
+            email=data.get("email"),
+            emergency_contact=data.get("emergency_contact"),
+            created_at=datetime.fromisoformat(data["created_at"])
+            if data.get("created_at")
+            else None,
+            updated_at=datetime.fromisoformat(data["updated_at"])
+            if data.get("updated_at")
+            else None,
+            source=data.get("source"),
+            sync_version=data.get("sync_version"),
         )
 
     def is_administrative_role(self) -> bool:
@@ -199,8 +210,9 @@ class TeamMember:
             return f"{self.role} (Admin)"
         return self.role
 
-    def update_contact_info(self, phone_number: str = None, email: str = None,
-                          emergency_contact: str = None):
+    def update_contact_info(
+        self, phone_number: str = None, email: str = None, emergency_contact: str = None
+    ):
         """Update contact information."""
         if phone_number is not None:
             self.phone_number = phone_number

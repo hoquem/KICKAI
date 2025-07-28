@@ -7,8 +7,8 @@ for console-only logging. File logging is handled through redirection
 in the startup scripts.
 """
 
-import sys
 import os
+import sys
 
 from loguru import logger
 
@@ -29,7 +29,7 @@ logger.add(
     backtrace=True,
     diagnose=True,
     colorize=True,
-    filter=lambda record: not is_test or record["level"].name in ["ERROR", "CRITICAL"]
+    filter=lambda record: not is_test or record["level"].name in ["ERROR", "CRITICAL"],
 )
 
 # Export the logger for use throughout the application

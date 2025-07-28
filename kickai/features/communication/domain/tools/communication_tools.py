@@ -5,7 +5,7 @@ Communication Tools
 This module provides tools for communication and messaging operations.
 """
 
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
@@ -33,38 +33,38 @@ async def send_message(message: str, chat_type: str, team_id: str) -> str:
     """
     try:
         # Handle JSON string input using utility functions
-        message = extract_single_value(message, 'message')
-        chat_type = extract_single_value(chat_type, 'chat_type')
-        team_id = extract_single_value(team_id, 'team_id')
-        
+        message = extract_single_value(message, "message")
+        chat_type = extract_single_value(chat_type, "chat_type")
+        team_id = extract_single_value(team_id, "team_id")
+
         # Validate inputs using utility functions
         validation_error = validate_required_input(message, "Message")
         if validation_error:
             return validation_error
-        
+
         validation_error = validate_required_input(chat_type, "Chat Type")
         if validation_error:
             return validation_error
-        
+
         validation_error = validate_required_input(team_id, "Team ID")
         if validation_error:
             return validation_error
-        
+
         # Get services from container
         container = get_container()
         communication_service = container.get_service("CommunicationService")
-        
+
         if not communication_service:
             raise ServiceNotAvailableError("CommunicationService")
-        
+
         # Send message
         success = await communication_service.send_message(message, chat_type, team_id)
-        
+
         if success:
             return format_tool_success("Message sent successfully")
         else:
             return format_tool_error("Failed to send message")
-    
+
     except ServiceNotAvailableError as e:
         logger.error(f"Service not available in send_message: {e}")
         return format_tool_error(f"Service temporarily unavailable: {e.message}")
@@ -87,33 +87,33 @@ async def send_announcement(announcement: str, team_id: str) -> str:
     """
     try:
         # Handle JSON string input using utility functions
-        announcement = extract_single_value(announcement, 'announcement')
-        team_id = extract_single_value(team_id, 'team_id')
-        
+        announcement = extract_single_value(announcement, "announcement")
+        team_id = extract_single_value(team_id, "team_id")
+
         # Validate inputs using utility functions
         validation_error = validate_required_input(announcement, "Announcement")
         if validation_error:
             return validation_error
-        
+
         validation_error = validate_required_input(team_id, "Team ID")
         if validation_error:
             return validation_error
-        
+
         # Get services from container
         container = get_container()
         communication_service = container.get_service("CommunicationService")
-        
+
         if not communication_service:
             raise ServiceNotAvailableError("CommunicationService")
-        
+
         # Send announcement
         success = await communication_service.send_announcement(announcement, team_id)
-        
+
         if success:
             return format_tool_success("Announcement sent successfully")
         else:
             return format_tool_error("Failed to send announcement")
-    
+
     except ServiceNotAvailableError as e:
         logger.error(f"Service not available in send_announcement: {e}")
         return format_tool_error(f"Service temporarily unavailable: {e.message}")
@@ -137,41 +137,41 @@ async def send_poll(question: str, options: str, team_id: str) -> str:
     """
     try:
         # Handle JSON string input using utility functions
-        question = extract_single_value(question, 'question')
-        options = extract_single_value(options, 'options')
-        team_id = extract_single_value(team_id, 'team_id')
-        
+        question = extract_single_value(question, "question")
+        options = extract_single_value(options, "options")
+        team_id = extract_single_value(team_id, "team_id")
+
         # Validate inputs using utility functions
         validation_error = validate_required_input(question, "Question")
         if validation_error:
             return validation_error
-        
+
         validation_error = validate_required_input(options, "Options")
         if validation_error:
             return validation_error
-        
+
         validation_error = validate_required_input(team_id, "Team ID")
         if validation_error:
             return validation_error
-        
+
         # Get services from container
         container = get_container()
         communication_service = container.get_service("CommunicationService")
-        
+
         if not communication_service:
             raise ServiceNotAvailableError("CommunicationService")
-        
+
         # Parse options
-        option_list = [opt.strip() for opt in options.split(',') if opt.strip()]
-        
+        option_list = [opt.strip() for opt in options.split(",") if opt.strip()]
+
         # Send poll
         success = await communication_service.send_poll(question, option_list, team_id)
-        
+
         if success:
             return format_tool_success("Poll sent successfully")
         else:
             return format_tool_error("Failed to send poll")
-    
+
     except ServiceNotAvailableError as e:
         logger.error(f"Service not available in send_poll: {e}")
         return format_tool_error(f"Service temporarily unavailable: {e.message}")

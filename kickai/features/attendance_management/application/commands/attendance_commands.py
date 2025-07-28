@@ -13,16 +13,16 @@ from kickai.core.enums import ChatType
 # ATTENDANCE MANAGEMENT COMMANDS
 # ============================================================================
 
+
 @command(
     name="/markattendance",
     description="Mark attendance for a match",
     command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PUBLIC,
+    permission_level=PermissionLevel.PLAYER,
+    chat_type=ChatType.MAIN,
     feature="attendance_management",
     examples=["/markattendance", "/markattendance yes", "/markattendance no"],
-    parameters={
-        "status": "Attendance status (yes, no, maybe)"
-    },
+    parameters={"status": "Attendance status (yes, no, maybe)"},
     help_text="""
 ✅ Mark Attendance
 
@@ -41,7 +41,7 @@ What happens:
 4. You receive confirmation
 
 💡 Tip: Mark attendance early to help with squad planning.
-    """
+    """,
 )
 async def handle_markattendance_command(update, context, **kwargs):
     """Handle /markattendance command."""
@@ -53,12 +53,11 @@ async def handle_markattendance_command(update, context, **kwargs):
     name="/attendance",
     description="View attendance for matches",
     command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PUBLIC,
+    permission_level=PermissionLevel.PLAYER,
+    chat_type=ChatType.MAIN,
     feature="attendance_management",
     examples=["/attendance", "/attendance MATCH123"],
-    parameters={
-        "match_id": "Optional match ID for specific match"
-    },
+    parameters={"match_id": "Optional match ID for specific match"},
     help_text="""
 📊 View Attendance
 
@@ -76,7 +75,7 @@ What you'll see:
 • List of players and their status
 
 💡 Tip: Use this to check team availability for matches.
-    """
+    """,
 )
 async def handle_attendance_command(update, context, **kwargs):
     """Handle /attendance command."""
@@ -88,12 +87,11 @@ async def handle_attendance_command(update, context, **kwargs):
     name="/attendancehistory",
     description="View your attendance history",
     command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PUBLIC,
+    permission_level=PermissionLevel.PLAYER,
+    chat_type=ChatType.MAIN,
     feature="attendance_management",
     examples=["/attendancehistory", "/attendancehistory 2024"],
-    parameters={
-        "year": "Optional year to filter (e.g., 2024)"
-    },
+    parameters={"year": "Optional year to filter (e.g., 2024)"},
     help_text="""
 📈 Attendance History
 
@@ -111,7 +109,7 @@ What you'll see:
 • Season statistics
 
 💡 Tip: Track your attendance to improve team reliability.
-    """
+    """,
 )
 async def handle_attendancehistory_command(update, context, **kwargs):
     """Handle /attendancehistory command."""
@@ -127,9 +125,7 @@ async def handle_attendancehistory_command(update, context, **kwargs):
     feature="attendance_management",
     chat_type=ChatType.LEADERSHIP,
     examples=["/attendanceexport", "/attendanceexport MATCH123"],
-    parameters={
-        "match_id": "Optional match ID for specific match"
-    },
+    parameters={"match_id": "Optional match ID for specific match"},
     help_text="""
 📋 Export Attendance (Leadership Only)
 
@@ -146,7 +142,7 @@ What you'll get:
 • Summary statistics
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_attendanceexport_command(update, context, **kwargs):
     """Handle /attendanceexport command."""
@@ -162,9 +158,7 @@ async def handle_attendanceexport_command(update, context, **kwargs):
     feature="attendance_management",
     chat_type=ChatType.LEADERSHIP,
     examples=["/attendancealerts", "/attendancealerts enable", "/attendancealerts disable"],
-    parameters={
-        "action": "Action to perform (enable, disable, configure)"
-    },
+    parameters={"action": "Action to perform (enable, disable, configure)"},
     help_text="""
 🔔 Attendance Alerts (Leadership Only)
 
@@ -182,7 +176,7 @@ Alert types:
 • Squad selection notifications
 
 💡 Note: This command is only available in the leadership chat.
-    """
+    """,
 )
 async def handle_attendancealerts_command(update, context, **kwargs):
     """Handle /attendancealerts command."""

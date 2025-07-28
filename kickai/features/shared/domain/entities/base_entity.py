@@ -3,17 +3,18 @@ BaseEntity for domain models.
 
 Provides common fields and logic for all domain entities.
 """
-from typing import Union
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
+from typing import Optional
+
 
 @dataclass
 class BaseEntity:
-    id: Union[str, None] = None
-    created_at: Union[datetime, None] = None
-    updated_at: Union[datetime, None] = None
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     def __post_init__(self):
         if not self.id:

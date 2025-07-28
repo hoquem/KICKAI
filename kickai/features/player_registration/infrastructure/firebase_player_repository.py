@@ -4,8 +4,8 @@ Firebase Player Repository Implementation
 
 This module provides the Firebase implementation of the player repository interface.
 """
+from typing import Optional, List
 
-from typing import Union
 import logging
 from datetime import datetime
 
@@ -53,18 +53,17 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             "created_at": player.created_at.isoformat() if player.created_at else None,
             "updated_at": player.updated_at.isoformat() if player.updated_at else None,
             "source": player.source,
-            "sync_version": player.sync_version
+            "sync_version": player.sync_version,
         }
 
         # Use team-specific collection naming
         from kickai.core.firestore_constants import get_team_players_collection
+
         collection_name = get_team_players_collection(player.team_id)
 
         try:
             await self.database.create_document(
-                collection=collection_name,
-                document_id=document_id,
-                data=player_data
+                collection=collection_name, document_id=document_id, data=player_data
             )
             logger.info(f"Successfully created player {document_id} in team {player.team_id}")
         except Exception as e:
@@ -81,21 +80,21 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             return player.user_id
         elif player.phone_number:
             # Clean phone number for use as document ID
-            phone_clean = player.phone_number.replace('+', '').replace(' ', '').replace('-', '')
+            phone_clean = player.phone_number.replace("+", "").replace(" ", "").replace("-", "")
             return f"player_{phone_clean}"
         else:
             raise ValueError("Player must have either player_id, user_id, or phone_number")
 
-    async def get_player_by_id(self, player_id: str, team_id: str) -> Union[Player, None]:
+    async def get_player_by_id(self, player_id: str, team_id: str) -> Optional[Player]:
         """Get a player by ID."""
         try:
             # Use team-specific collection naming
             from kickai.core.firestore_constants import get_team_players_collection
+
             collection_name = get_team_players_collection(team_id)
 
             doc = await self.database.get_document(
-                collection=collection_name,
-                document_id=player_id
+                collection=collection_name, document_id=player_id
             )
 
             if doc and doc.get("team_id") == team_id:
@@ -105,19 +104,20 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             logger.error(f"Failed to get player by ID {player_id} for team {team_id}: {e}")
             return None
 
-    async def get_player_by_phone(self, phone: str, team_id: str) -> Union[Player, None]:
+    async def get_player_by_phone(self, phone: str, team_id: str) -> Optional[Player]:
         """Get a player by phone number."""
         try:
             # Use team-specific collection naming
             from kickai.core.firestore_constants import get_team_players_collection
+
             collection_name = get_team_players_collection(team_id)
 
             docs = await self.database.query_documents(
                 collection=collection_name,
                 filters=[
                     {"field": "phone_number", "operator": "==", "value": phone},
-                    {"field": "team_id", "operator": "==", "value": team_id}
-                ]
+                    {"field": "team_id", "operator": "==", "value": team_id},
+                ],
             )
 
             if docs:
@@ -127,16 +127,17 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             logger.error(f"Failed to get player by phone {phone} for team {team_id}: {e}")
             return None
 
-    async def get_all_players(self, team_id: str) -> list[Player]:
+    async def get_all_players(self, team_id: str) -> List[Player]:
         """Get all players in a team."""
         try:
             # Use team-specific collection naming
             from kickai.core.firestore_constants import get_team_players_collection
+
             collection_name = get_team_players_collection(team_id)
 
             docs = await self.database.query_documents(
                 collection=collection_name,
-                filters=[{"field": "team_id", "operator": "==", "value": team_id}]
+                filters=[{"field": "team_id", "operator": "==", "value": team_id}],
             )
 
             return [self._doc_to_player(doc) for doc in docs]
@@ -170,18 +171,17 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             "created_at": player.created_at.isoformat() if player.created_at else None,
             "updated_at": player.updated_at.isoformat() if player.updated_at else None,
             "source": player.source,
-            "sync_version": player.sync_version
+            "sync_version": player.sync_version,
         }
 
         # Use team-specific collection naming
         from kickai.core.firestore_constants import get_team_players_collection
+
         collection_name = get_team_players_collection(player.team_id)
 
         try:
             await self.database.update_document(
-                collection=collection_name,
-                document_id=document_id,
-                data=player_data
+                collection=collection_name, document_id=document_id, data=player_data
             )
             logger.info(f"Successfully updated player {document_id} in team {player.team_id}")
         except Exception as e:
@@ -201,12 +201,10 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
 
             # Use team-specific collection naming
             from kickai.core.firestore_constants import get_team_players_collection
+
             collection_name = get_team_players_collection(team_id)
 
-            await self.database.delete_document(
-                collection=collection_name,
-                document_id=player_id
-            )
+            await self.database.delete_document(collection=collection_name, document_id=player_id)
 
             logger.info(f"Successfully deleted player {player_id} from team {team_id}")
             return True
@@ -214,19 +212,20 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             logger.error(f"Failed to delete player {player_id} from team {team_id}: {e}")
             return False
 
-    async def get_players_by_status(self, team_id: str, status: str) -> list[Player]:
+    async def get_players_by_status(self, team_id: str, status: str) -> List[Player]:
         """Get players by status."""
         try:
             # Use team-specific collection naming
             from kickai.core.firestore_constants import get_team_players_collection
+
             collection_name = get_team_players_collection(team_id)
 
             docs = await self.database.query_documents(
                 collection=collection_name,
                 filters=[
                     {"field": "team_id", "operator": "==", "value": team_id},
-                    {"field": "status", "operator": "==", "value": status}
-                ]
+                    {"field": "status", "operator": "==", "value": status},
+                ],
             )
 
             return [self._doc_to_player(doc) for doc in docs]
@@ -257,14 +256,14 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             created_at=self._parse_datetime(doc.get("created_at")),
             updated_at=self._parse_datetime(doc.get("updated_at")),
             source=doc.get("source"),
-            sync_version=doc.get("sync_version")
+            sync_version=doc.get("sync_version"),
         )
 
-    def _parse_datetime(self, dt_str: Union[str, None]) -> Union[datetime, None]:
+    def _parse_datetime(self, dt_str: Optional[str]) -> Optional[datetime]:
         """Parse datetime string to datetime object."""
         if not dt_str:
             return None
         try:
-            return datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+            return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
         except ValueError:
             return None

@@ -5,19 +5,20 @@ Team Repository Interface
 This module defines the interface for team data access operations.
 """
 
-from typing import Union
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Optional, List
 
 
 @dataclass
 class Team:
     """Team entity."""
+
     id: str
     name: str
-    description: Union[str, None] = None
-    created_at: Union[str, None] = None
-    updated_at: Union[str, None] = None
+    description: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 
 class TeamRepositoryInterface(ABC):
@@ -29,12 +30,12 @@ class TeamRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_team_by_id(self, team_id: str) -> Union[Team, None]:
+    async def get_team_by_id(self, team_id: str) -> Optional[Team]:
         """Get a team by ID."""
         pass
 
     @abstractmethod
-    async def get_all_teams(self) -> list[Team]:
+    async def get_all_teams(self) -> List[Team]:
         """Get all teams."""
         pass
 
@@ -49,6 +50,6 @@ class TeamRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def list_all(self, limit: int = 100) -> list[Team]:
+    async def list_all(self, limit: int = 100) -> List[Team]:
         """List all teams with optional limit."""
         pass

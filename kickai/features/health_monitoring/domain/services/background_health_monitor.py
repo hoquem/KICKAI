@@ -4,19 +4,14 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Union, Union
+from typing import Any
 
 # These should be updated to the correct feature-based paths
-# from kickai.features.health_monitoring.domain.entities.health_check_types import SystemHealthReport, HealthStatus, ComponentType
+# from kickai.features.health_monitoring.domain.entities.health_check_types import SystemHealthReport, ComponentType
 # from kickai.features.health_monitoring.domain.services.health_check_service import HealthCheckService
 from kickai.utils.async_utils import async_operation_context
+from kickai.core.enums import AlertLevel
 
-
-class AlertLevel(Enum):
-    INFO = "info"
-    WARNING = "warning"
-    ERROR = "error"
-    CRITICAL = "critical"
 
 @dataclass
 class HealthAlert:
@@ -25,9 +20,10 @@ class HealthAlert:
     component_type: str  # Use str for now; update to ComponentType if available
     message: str
     timestamp: datetime
-    details: dict[str, Any] = field(default_factory=dict)
+    details: Dict[str, Any] = field(default_factory=dict)
     resolved: bool = False
-    resolved_at: Union[datetime, None] = None
+    resolved_at: Optional[datetime] = None
+
 
 class BackgroundHealthMonitor:
     def __init__(self, team_id: str, check_interval: int = 300):
@@ -38,14 +34,14 @@ class BackgroundHealthMonitor:
         self._monitoring_task: asyncio.Union[Task, None] = None
         self._running = False
         self._shutdown_event = asyncio.Event()
-        self.active_alerts: dict[str, HealthAlert] = {}
-        self.alert_history: list[HealthAlert] = []
+        self.active_alerts: Dict[str, HealthAlert] = {}
+        self.alert_history: List[HealthAlert] = []
         self.max_alert_history = 1000
-        self._alert_handlers: list[Callable[[HealthAlert], None]] = []
-        self.performance_metrics: dict[str, list[float]] = {
+        self._alert_handlers: List[Callable[[HealthAlert], None]] = []
+        self.performance_metrics: Dict[str, List[float]] = {
             "response_times": [],
             "check_durations": [],
-            "alert_counts": []
+            "alert_counts": [],
         }
         self.logger.info(f"✅ BackgroundHealthMonitor initialized for team {team_id}")
 
@@ -91,13 +87,10 @@ class BackgroundHealthMonitor:
                         AlertLevel.ERROR,
                         "background_monitor",
                         "SERVICE",
-                        f"Monitoring loop error: {e!s}"
+                        f"Monitoring loop error: {e!s}",
                     )
                 try:
-                    await asyncio.wait_for(
-                        self._shutdown_event.wait(),
-                        timeout=self.check_interval
-                    )
+                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=self.check_interval)
                 except TimeoutError:
                     pass
         except asyncio.CancelledError:
@@ -116,7 +109,14 @@ class BackgroundHealthMonitor:
         self.performance_metrics["check_durations"].append(duration)
         self.performance_metrics["alert_counts"].append(len(self.active_alerts))
 
-    async def _create_alert(self, level: AlertLevel, component_name: str, component_type: str, message: str, details: Union[dict[str, Any], None] = None) -> None:
+    async def _create_alert(
+        self,
+        level: AlertLevel,
+        component_name: str,
+        component_type: str,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
         alert_id = f"{component_type}_{component_name}_{datetime.now().timestamp()}"
         alert = HealthAlert(
             level=level,
@@ -124,7 +124,7 @@ class BackgroundHealthMonitor:
             component_type=component_type,
             message=message,
             timestamp=datetime.now(),
-            details=details or {}
+            details=details or {},
         )
         self.active_alerts[alert_id] = alert
         self.alert_history.append(alert)
@@ -154,14 +154,14 @@ class BackgroundHealthMonitor:
     def remove_alert_handler(self, handler: Callable[[HealthAlert], None]) -> None:
         self._alert_handlers.remove(handler)
 
-    async def get_active_alerts(self) -> list[HealthAlert]:
+    async def get_active_alerts(self) -> List[HealthAlert]:
         return list(self.active_alerts.values())
 
-    async def get_alert_history(self, hours: int = 24) -> list[HealthAlert]:
+    async def get_alert_history(self, hours: int = 24) -> List[HealthAlert]:
         cutoff = datetime.now() - timedelta(hours=hours)
         return [alert for alert in self.alert_history if alert.timestamp >= cutoff]
 
-    async def get_performance_metrics(self) -> dict[str, Any]:
+    async def get_performance_metrics(self) -> Dict[str, Any]:
         return self.performance_metrics
 
     def set_check_interval(self, interval_seconds: int) -> None:
@@ -170,10 +170,10 @@ class BackgroundHealthMonitor:
     def is_monitoring(self) -> bool:
         return self._running
 
-    async def get_status_summary(self) -> dict[str, Any]:
+    async def get_status_summary(self) -> Dict[str, Any]:
         return {
             "active_alerts": len(self.active_alerts),
             "alert_history": len(self.alert_history),
             "performance_metrics": self.performance_metrics,
-            "is_monitoring": self._running
+            "is_monitoring": self._running,
         }

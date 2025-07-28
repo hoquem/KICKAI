@@ -13,8 +13,8 @@ echo "🚀 Starting KICKAI Bot (Local Mode)"
 echo "=================================="
 
 # Check if virtual environment exists
-if [ ! -d "venv" ]; then
-    echo "❌ Virtual environment not found. Please run: python -m venv venv"
+if [ ! -d "venv311" ]; then
+    echo "❌ Virtual environment not found. Please run: python3.11 -m venv venv311"
     exit 1
 fi
 
@@ -26,7 +26,7 @@ fi
 
 # Activate virtual environment
 echo "🔧 Activating virtual environment..."
-source venv/bin/activate
+source venv311/bin/activate
 
 # Package structure - no PYTHONPATH needed
 echo "🔧 Using package structure - imports work directly"

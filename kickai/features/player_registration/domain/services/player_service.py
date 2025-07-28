@@ -8,9 +8,17 @@ This module provides player management functionality.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Union
+from typing import Any, Dict, List, Optional
 
 from kickai.features.team_administration.domain.services.team_service import TeamService
+from kickai.utils.constants import (DEFAULT_CREATED_BY,
+    DEFAULT_PLAYER_POSITION,
+    DEFAULT_PLAYER_STATUS,
+    ERROR_MESSAGES,
+    PHONE_PATTERN,
+    SUCCESS_MESSAGES,
+    VALID_PLAYER_POSITIONS,
+)
 
 from ..entities.player import Player
 from ..repositories.player_repository_interface import PlayerRepositoryInterface
@@ -22,9 +30,9 @@ logger = logging.getLogger(__name__)
 class PlayerCreateParams:
     name: str
     phone: str
-    position: str
-    team_id: str
-    created_by: str
+    position: str = DEFAULT_PLAYER_POSITION
+    team_id: str = ""
+    created_by: str = DEFAULT_CREATED_BY
 
 
 class PlayerService:
@@ -48,22 +56,22 @@ class PlayerService:
 
         # Generate football-specific player ID
         from kickai.utils.football_id_generator import generate_football_player_id
-        
+
         # Parse name into first and last name
         name_parts = params.name.strip().split()
         first_name = name_parts[0] if name_parts else "Unknown"
         last_name = name_parts[-1] if len(name_parts) > 1 else "Player"
-        
+
         # Get existing player IDs for collision detection
         existing_players = await self.player_repository.get_all_players(params.team_id)
         existing_ids = {player.player_id for player in existing_players if player.player_id}
-        
+
         player_id = generate_football_player_id(
             first_name=first_name,
             last_name=last_name,
             position=params.position,
             team_id=params.team_id,
-            existing_ids=existing_ids
+            existing_ids=existing_ids,
         )
 
         player = Player(
@@ -73,30 +81,29 @@ class PlayerService:
             phone_number=params.phone,
             position=params.position,
             player_id=player_id,
-            status="pending"
+            status="pending",
         )
         return await self.player_repository.create_player(player)
 
     def _validate_player_input(self, name: str, phone: str, position: str, team_id: str) -> None:
         """Validate player input parameters."""
         if not name or not name.strip():
-            raise ValueError("Player name cannot be empty")
+            raise ValueError(ERROR_MESSAGES["NAME_REQUIRED"])
         if not phone or not phone.strip():
-            raise ValueError("Player phone cannot be empty")
-        if not position or not position.strip():
-            raise ValueError("Player position cannot be empty")
+            raise ValueError(ERROR_MESSAGES["PHONE_REQUIRED"])
         if not team_id or not team_id.strip():
-            raise ValueError("Team ID cannot be empty")
+            raise ValueError(ERROR_MESSAGES["TEAM_ID_REQUIRED"])
 
-        # Validate phone number format (basic validation)
-        phone_clean = phone.replace('+', '').replace(' ', '').replace('-', '')
-        if not phone_clean.isdigit() or len(phone_clean) < 10:
-            raise ValueError("Phone number must contain at least 10 digits")
+        # Validate phone number format (improved validation)
+        import re
 
-        # Validate position (basic validation)
-        valid_positions = ['goalkeeper', 'defender', 'midfielder', 'forward', 'utility']
-        if position.lower() not in valid_positions:
-            raise ValueError(f"Position must be one of: {', '.join(valid_positions)}")
+        if not re.match(PHONE_PATTERN, phone.strip()):
+            raise ValueError(ERROR_MESSAGES["INVALID_PHONE"])
+
+        # Validate position only if provided (not default)
+        if position and position.strip() and position.lower() != DEFAULT_PLAYER_POSITION.lower():
+            if position.lower() not in VALID_PLAYER_POSITIONS:
+                raise ValueError(ERROR_MESSAGES["INVALID_POSITION"])
 
         # Validate name length
         if len(name.strip()) < 2:
@@ -106,19 +113,20 @@ class PlayerService:
         if len(team_id.strip()) < 2:
             raise ValueError("Team ID must be at least 2 characters long")
 
-    async def get_player_by_id(self, player_id: str, team_id: str) -> Union[Player, None]:
+    async def get_player_by_id(self, player_id: str, team_id: str) -> Optional[Player]:
         """Get a player by ID."""
         return await self.player_repository.get_player_by_id(player_id, team_id)
 
-    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Union[Player, None]:
+    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Optional[Player]:
         """Get a player by phone number."""
         return await self.player_repository.get_player_by_phone(phone, team_id)
 
-    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Union[Player, None]:
+    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[Player]:
         """Get a player by Telegram ID."""
         try:
             # Use the database client directly since repository might not have this method
             from kickai.core.dependency_container import get_container
+
             container = get_container()
             database = container.get_database()
 
@@ -142,15 +150,19 @@ class PlayerService:
                     position=player_data.get("position"),
                     phone_number=player_data.get("phone_number"),
                     status=player_data.get("status", "pending"),
-                    created_at=datetime.fromisoformat(player_data["created_at"]) if player_data.get("created_at") else None,
-                    updated_at=datetime.fromisoformat(player_data["updated_at"]) if player_data.get("updated_at") else None
+                    created_at=datetime.fromisoformat(player_data["created_at"])
+                    if player_data.get("created_at")
+                    else None,
+                    updated_at=datetime.fromisoformat(player_data["updated_at"])
+                    if player_data.get("updated_at")
+                    else None,
                 )
             return None
         except Exception as e:
             logger.error(f"Error getting player by telegram_id {telegram_id}: {e}")
             return None
 
-    async def get_players_by_team(self, *, team_id: str, status: Union[str, None] = None) -> list[Player]:
+    async def get_players_by_team(self, *, team_id: str, status: Optional[str] = None) -> List[Player]:
         """Get players for a team, optionally filtered by status."""
         players = await self.player_repository.get_all_players(team_id)
 
@@ -159,11 +171,11 @@ class PlayerService:
 
         return players
 
-    async def get_all_players(self, team_id: str) -> list[Player]:
+    async def get_all_players(self, team_id: str) -> List[Player]:
         """Get all players for a team (alias for get_players_by_team)."""
         return await self.get_players_by_team(team_id=team_id)
 
-    async def get_active_players(self, team_id: str) -> list[Player]:
+    async def get_active_players(self, team_id: str) -> List[Player]:
         """Get active players for a team."""
         return await self.get_players_by_team(team_id=team_id, status="active")
 
@@ -178,7 +190,7 @@ class PlayerService:
 
         return await self.player_repository.update_player(player)
 
-    async def get_player_with_team_info(self, player_id: str, team_id: str) -> dict[str, Any]:
+    async def get_player_with_team_info(self, player_id: str, team_id: str) -> Dict[str, Any]:
         """Get player information including team details."""
         player = await self.get_player_by_id(player_id, team_id)
         if not player:
@@ -188,11 +200,7 @@ class PlayerService:
         team = await self.team_service.get_team_by_id(player.team_id)
         team_name = team.name if team else "Unknown Team"
 
-        return {
-            'player': player,
-            'team_name': team_name,
-            'team_id': player.team_id
-        }
+        return {"player": player, "team_name": team_name, "team_id": player.team_id}
 
     async def delete_player(self, player_id: str, team_id: str) -> bool:
         """Delete a player."""
@@ -235,7 +243,7 @@ class PlayerService:
             "approved": "✅",
             "active": "🟢",
             "inactive": "🔴",
-            "rejected": "❌"
+            "rejected": "❌",
         }
 
         emoji = status_emoji.get(player.status, "❓")
@@ -267,27 +275,53 @@ class PlayerService:
         player.updated_at = datetime.now()
         return await self.player_repository.update_player(player)
 
-    async def add_player(self, name: str, phone: str, position: str, team_id: str) -> tuple[bool, str]:
-        """Add a new player to the team."""
+    async def add_player(
+        self, name: str, phone: str, position: Optional[str] = None, team_id: Optional[str] = None
+    ) -> tuple[bool, str]:
+        """Add a new player to the team with simplified ID generation."""
         try:
             # Check if player already exists
             existing_player = await self.get_player_by_phone(phone=phone, team_id=team_id)
             if existing_player:
-                return False, f"Player with phone {phone} already exists in team {team_id}"
+                # Player already exists - return success with existing player info and invite link
+                player_id = existing_player.player_id or "Unknown"
+                status_info = f"Status: {existing_player.status.title()}" if existing_player.status else "Status: Unknown"
+                
+                success_message = f"""✅ Player Already Exists!
 
-            # Create player parameters
+📋 Name: {existing_player.full_name or name}
+📱 Phone: {phone}
+⚽ Position: {existing_player.position or position or DEFAULT_PLAYER_POSITION}  
+🏷️ Player ID: {player_id}
+🏢 Team: {team_id}
+📊 {status_info}
+
+💡 This player is already registered in the system. You can use the invite link below to add them to the chat."""
+                
+                return True, success_message
+
+            # Get existing player IDs for collision detection
+            existing_players = await self.player_repository.get_all_players(team_id)
+            existing_ids = {player.player_id for player in existing_players if player.player_id}
+
+            # Generate simple player ID using new generator
+            from kickai.utils.simple_id_generator import generate_simple_player_id
+
+            player_id = generate_simple_player_id(name, team_id, existing_ids)
+
+            # Create player parameters with the generated ID
             params = PlayerCreateParams(
                 name=name,
                 phone=phone,
-                position=position,
+                position=position or DEFAULT_PLAYER_POSITION,
                 team_id=team_id,
-                created_by="system"
+                created_by=DEFAULT_CREATED_BY,
             )
 
-            # Create the player
-            player = await self.create_player(params)
+            # Create the player directly with the correct ID
+            await self._create_player_with_id(params, player_id)
 
-            return True, f"✅ Player {name} added successfully with ID: {player.player_id}"
+            return True, SUCCESS_MESSAGES["PLAYER_ADDED"].format(name=name, player_id=player_id)
         except Exception as e:
             logger.error(f"Error adding player {name}: {e}")
             return False, f"❌ Failed to add player: {e!s}"
@@ -301,6 +335,29 @@ class PlayerService:
             logger.error(f"Error approving player {player_id}: {e}")
             return f"❌ Failed to approve player: {e!s}"
 
+    async def _create_player_with_id(self, params: PlayerCreateParams, player_id: str) -> Player:
+        """Create a new player with a specific ID."""
+        # Validate input parameters
+        self._validate_player_input(params.name, params.phone, params.position, params.team_id)
+
+        # Generate user_id from phone number as a fallback
+        import hashlib
+
+        phone_hash = hashlib.md5(params.phone.encode()).hexdigest()[:8]
+        user_id = f"user_{phone_hash}"
+
+        # Create player with the provided ID
+        player = Player(
+            user_id=user_id,
+            team_id=params.team_id,
+            full_name=params.name,
+            phone_number=params.phone,
+            position=params.position,
+            player_id=player_id,  # Use the provided ID
+            status=DEFAULT_PLAYER_STATUS,
+        )
+        return await self.player_repository.create_player(player)
+
     async def get_player_status(self, phone: str, team_id: str) -> str:
         """Get player status by phone number."""
         try:
@@ -312,5 +369,3 @@ class PlayerService:
         except Exception as e:
             logger.error(f"Error getting player status for phone {phone}: {e}")
             return f"❌ Error retrieving player status: {e!s}"
-
-

@@ -5,8 +5,8 @@ Centralized Permission Service for KICKAI
 This service provides a single source of truth for all permission checks,
 integrating chat-based role assignment with command permissions.
 """
+from typing import Dict, List, Optional
 
-from typing import Union
 import logging
 from dataclasses import dataclass
 
@@ -24,11 +24,12 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PermissionContext:
     """Context for permission checking."""
+
     user_id: str
     team_id: str
     chat_id: str
     chat_type: ChatType
-    username: Union[str, None] = None
+    username: Optional[str] = None
 
     def __post_init__(self):
         if self.chat_type is None:
@@ -44,10 +45,11 @@ class PermissionContext:
 @dataclass
 class UserPermissions:
     """User permissions information."""
+
     user_id: str
     team_id: str
-    roles: list[str]
-    chat_access: dict[str, bool]
+    roles: List[str]
+    chat_access: Dict[str, bool]
     is_admin: bool
     is_player: bool
     is_team_member: bool
@@ -92,6 +94,7 @@ class PermissionService:
 
     def _create_mock_team_member_service(self):
         """Create a mock team member service for fallback."""
+
         class MockTeamMemberService:
             async def get_team_member_by_telegram_id(self, user_id: str, team_id: str):
                 return None
@@ -103,8 +106,11 @@ class PermissionService:
 
     def _create_mock_chat_role_service(self):
         """Create a mock chat role service for fallback."""
+
         class MockChatRoleService:
-            async def assign_role_to_user(self, user_id: str, team_id: str, role: str, chat_type: str):
+            async def assign_role_to_user(
+                self, user_id: str, team_id: str, role: str, chat_type: str
+            ):
                 return True
 
             async def get_user_role_in_chat(self, user_id: str, team_id: str, chat_type: str):
@@ -120,7 +126,9 @@ class PermissionService:
         """
         try:
             # Get team member information
-            team_member = await self.team_member_service.get_team_member_by_telegram_id(user_id, team_id)
+            team_member = await self.team_member_service.get_team_member_by_telegram_id(
+                user_id, team_id
+            )
 
             if team_member:
                 # User exists as team member
@@ -143,7 +151,7 @@ class PermissionService:
                     is_team_member=is_team_member,
                     is_first_user=is_first_user,
                     can_access_main_chat=chat_access.get("main_chat", False),
-                    can_access_leadership_chat=chat_access.get("leadership_chat", False)
+                    can_access_leadership_chat=chat_access.get("leadership_chat", False),
                 )
             else:
                 # User not found - return default permissions
@@ -157,7 +165,7 @@ class PermissionService:
                     is_team_member=False,
                     is_first_user=False,
                     can_access_main_chat=False,
-                    can_access_leadership_chat=False
+                    can_access_leadership_chat=False,
                 )
 
         except Exception as e:
@@ -173,10 +181,12 @@ class PermissionService:
                 is_team_member=False,
                 is_first_user=False,
                 can_access_main_chat=False,
-                can_access_leadership_chat=False
+                can_access_leadership_chat=False,
             )
 
-    async def can_execute_command(self, permission_level: PermissionLevel, context: PermissionContext) -> bool:
+    async def can_execute_command(
+        self, permission_level: PermissionLevel, context: PermissionContext
+    ) -> bool:
         """
         Check if user can execute a command with given permission level.
 
@@ -242,17 +252,21 @@ class PermissionService:
             logger.error(f"Error getting user role for {user_id}: {e}")
             return "none"
 
-    async def require_permission(self, permission_level: PermissionLevel, context: PermissionContext) -> bool:
+    async def require_permission(
+        self, permission_level: PermissionLevel, context: PermissionContext
+    ) -> bool:
         """
         Require a specific permission level - throws exception if not met.
 
         Use this for critical operations that should fail fast.
         """
         if not await self.can_execute_command(permission_level, context):
-            raise PermissionError(f"User {context.user_id} lacks {permission_level.value} permission")
+            raise PermissionError(
+                f"User {context.user_id} lacks {permission_level.value} permission"
+            )
         return True
 
-    async def get_available_commands(self, context: PermissionContext) -> list[str]:
+    async def get_available_commands(self, context: PermissionContext) -> List[str]:
         """
         Get list of available commands for a user in the given context.
 
@@ -286,7 +300,9 @@ class PermissionService:
             logger.error(f"Error getting available commands: {e}")
             return ["/help", "/start"]
 
-    async def get_permission_denied_message(self, permission_level: PermissionLevel, context: PermissionContext) -> str:
+    async def get_permission_denied_message(
+        self, permission_level: PermissionLevel, context: PermissionContext
+    ) -> str:
         """
         Get a user-friendly message explaining why permission was denied.
         """
@@ -349,7 +365,7 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
         """Promote a user to admin role (only by existing admin)."""
         return await self.team_member_service.promote_to_admin(user_id, team_id, promoted_by)
 
-    async def handle_last_admin_leaving(self, team_id: str) -> Union[str, None]:
+    async def handle_last_admin_leaving(self, team_id: str) -> Optional[str]:
         """Handle when the last admin leaves - promote longest-tenured leadership member."""
         return await self.team_member_service.handle_last_admin_leaving(team_id)
 
@@ -364,7 +380,7 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
 
 
 # Global instance for easy access
-_permission_service: Union[PermissionService, None] = None
+_permission_service: Optional[PermissionService] = None
 
 
 def get_permission_service(firebase_client: FirebaseClient = None) -> PermissionService:
@@ -375,6 +391,7 @@ def get_permission_service(firebase_client: FirebaseClient = None) -> Permission
             # Get Firebase client from dependency container
             try:
                 from kickai.database.firebase_client import get_firebase_client
+
                 firebase_client = get_firebase_client()
             except Exception as e:
                 logger.warning(f"⚠️ Could not get Firebase client from dependency container: {e}")
