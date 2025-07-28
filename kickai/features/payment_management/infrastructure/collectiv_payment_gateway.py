@@ -9,6 +9,7 @@ of the Collectiv API without requiring actual API credentials.
 import asyncio
 import json
 import logging
+import os
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -84,14 +85,15 @@ class MockCollectivPaymentGateway(IPaymentGateway):
     """
 
     def __init__(
-        self, api_key: str = "mock_collectiv_key", base_url: str = "https://api.collectiv.com"
+        self, api_key: str = None, base_url: str = None
     ):
-        self.api_key = api_key
-        self.base_url = base_url
+        # Use environment variables or defaults for configuration
+        self.api_key = api_key or os.getenv("COLLECTIV_API_KEY", "mock_collectiv_key")
+        self.base_url = base_url or os.getenv("COLLECTIV_BASE_URL", "https://api.collectiv.com")
         self.payment_links: Dict[str, MockPaymentLink] = {}
         self.transactions: Dict[str, MockTransaction] = {}
         self.webhook_url: Optional[str] = None
-        self.webhook_secret: str = "mock_webhook_secret"
+        self.webhook_secret: str = os.getenv("COLLECTIV_WEBHOOK_SECRET", "mock_webhook_secret")
 
         logger.info("✅ MockCollectivPaymentGateway initialized")
 

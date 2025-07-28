@@ -24,6 +24,8 @@ COLLECTION_DAILY_STATUS = "daily_status"
 COLLECTION_MESSAGES = "messages"
 COLLECTION_HEALTH_CHECKS = "health_checks"
 COLLECTION_ATTENDANCE = "attendance"
+COLLECTION_NOTIFICATIONS = "notifications"
+COLLECTION_INVITE_LINKS = "invite_links"
 
 
 # Full collection names (with prefix)
@@ -74,4 +76,6 @@ FIRESTORE_COLLECTIONS = {
     "matches": get_collection_name(COLLECTION_MATCHES),
     "payments": get_collection_name(COLLECTION_PAYMENTS),
     "daily_status": get_collection_name(COLLECTION_DAILY_STATUS),
+    "notifications": get_collection_name(COLLECTION_NOTIFICATIONS),
+    "invite_links": get_collection_name(COLLECTION_INVITE_LINKS),
 }
