@@ -50,6 +50,16 @@ This document defines the expected behavior for all KICKAI bot commands across d
 | `/reject` | Reject player registration | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | 🔄 In Progress |
 | `/pending` | Show pending registrations | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | 🔄 In Progress |
 
+### Training Management Commands (✅ Implemented)
+| Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
+|---------|-------------|-----------|-----------------|------------------|-------|--------|
+| `/scheduletraining` | Schedule training session | ❌ | ✅ | LEADERSHIP | TrainingCoordinatorAgent | ✅ Implemented |
+| `/listtrainings` | List training sessions | ✅ | ✅ | PUBLIC | TrainingCoordinatorAgent | ✅ Implemented |
+| `/marktraining` | Mark training attendance | ✅ | ❌ | PUBLIC | TrainingCoordinatorAgent | ✅ Implemented |
+| `/canceltraining` | Cancel training session | ❌ | ✅ | LEADERSHIP | TrainingCoordinatorAgent | ✅ Implemented |
+| `/trainingstats` | Training statistics | ✅ | ✅ | PUBLIC | TrainingCoordinatorAgent | ✅ Implemented |
+| `/mytrainings` | Personal training schedule | ✅ | ❌ | PUBLIC | TrainingCoordinatorAgent | ✅ Implemented |
+
 ### Team Management Commands (📋 Planned)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|

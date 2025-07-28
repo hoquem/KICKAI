@@ -247,6 +247,28 @@ class AttendanceValidationError(AttendanceError):
         super().__init__(message, {"field": field, "value": value, "reason": reason})
 
 
+class TrainingError(KickAIError):
+    """Base exception for training-related errors."""
+
+    pass
+
+
+class TrainingNotFoundError(TrainingError):
+    """Raised when a training session is not found."""
+
+    def __init__(self, training_id: str, context: Optional[Dict[str, Any]] = None):
+        message = f"Training session {training_id} not found"
+        super().__init__(message, {"training_id": training_id, **(context or {})})
+
+
+class TrainingValidationError(TrainingError):
+    """Raised when training validation fails."""
+
+    def __init__(self, field: str, value: str, reason: str):
+        message = f"Training validation failed for field '{field}' with value '{value}': {reason}"
+        super().__init__(message, {"field": field, "value": value, "reason": reason})
+
+
 class MissingEnvironmentVariableError(ConfigurationError):
     """Raised when a required environment variable is missing."""
 
