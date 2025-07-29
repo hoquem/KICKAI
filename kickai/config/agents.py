@@ -523,7 +523,6 @@ TOOLS AND CAPABILITIES:
                     "register_player",
                     "add_player",
                     "send_message",
-                    "Parse Registration Command",
                     "update_player_information",
                     "get_player_updatable_fields",
                     "validate_player_update_request",
@@ -921,7 +920,6 @@ INTEGRATION SUPPORT:
                     "get_smart_role_recommendations",
                     "get_onboarding_path_recommendation",
                     "get_personalized_welcome_message",
-                    "Parse Registration Command",
                 ],
                 behavioral_mixin="onboarding",
                 memory_enabled=True,
@@ -1102,7 +1100,6 @@ VALIDATION REQUIREMENTS:
                     "get_match",
                     "get_all_players",
                     "send_message",
-                    "Parse Registration Command"
                 ],
                 behavioral_mixin="tactical_analysis",
                 memory_enabled=True,
@@ -1174,7 +1171,6 @@ VALIDATION REQUIREMENTS:
                     "get_available_players_for_match",
                     "get_all_players",
                     "send_message",
-                    "Parse Registration Command"
                 ],
                 behavioral_mixin="coordination_management",
                 memory_enabled=True,

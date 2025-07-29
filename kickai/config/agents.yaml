@@ -114,7 +114,6 @@ agents:
       - get_all_players
       - approve_player
       - send_message
-      - Parse Registration Command
 
   - name: onboarding_agent
     role: >
@@ -188,7 +187,6 @@ agents:
       - get_match
       - get_all_players
       - send_message
-      - Parse Registration Command
 
   - name: availability_manager
     role: >
@@ -215,7 +213,6 @@ agents:
       - get_available_players_for_match
       - get_all_players
       - send_message
-      - Parse Registration Command
 
   # Communication Agents
   - name: communication_manager
