@@ -9,9 +9,15 @@ Each feature maintains its own command definitions for clean separation.
 from kickai.core.command_registry import CommandType, PermissionLevel, command
 from kickai.core.enums import ChatType
 
-# ============================================================================
-# HEALTH MONITORING COMMANDS
-# ============================================================================
+# Note: System administration commands have been removed as they're not needed for now:
+# - /logs - Log viewing functionality
+# - /restart - System restart functionality  
+# - /config - Configuration management
+# - /backup - Backup functionality
+# - /maintenance - Maintenance mode management
+# - /diagnostics - System diagnostics
+
+# These commands can be added back later if system administration features are required
 
 
 @command(
@@ -81,78 +87,6 @@ What you'll see:
 )
 async def handle_systemstatus_command(update, context, **kwargs):
     """Handle /systemstatus command."""
-    # This will be handled by the agent system
-    return None
-
-
-@command(
-    name="/logs",
-    description="View system logs (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP,
-    feature="health_monitoring",
-    chat_type=ChatType.LEADERSHIP,
-    examples=["/logs", "/logs error", "/logs 50"],
-    parameters={
-        "level": "Optional log level (info, warning, error)",
-        "lines": "Optional number of lines to show",
-    },
-    help_text="""
-📝 System Logs (Leadership Only)
-
-View system logs for debugging and monitoring.
-
-Usage:
-• /logs - Show recent logs
-• /logs error - Show error logs only
-• /logs 50 - Show last 50 log lines
-• /logs warning 20 - Show last 20 warning logs
-
-Log levels:
-• info - General information
-• warning - Warning messages
-• error - Error messages
-• debug - Debug information
-
-💡 Note: This command is only available in the leadership chat.
-    """,
-)
-async def handle_logs_command(update, context, **kwargs):
-    """Handle /logs command."""
-    # This will be handled by the agent system
-    return None
-
-
-@command(
-    name="/restart",
-    description="Restart system services (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP,
-    feature="health_monitoring",
-    chat_type=ChatType.LEADERSHIP,
-    examples=["/restart", "/restart agents", "/restart llm"],
-    parameters={"service": "Optional service to restart (agents, llm, all)"},
-    help_text="""
-🔄 Restart Services (Leadership Only)
-
-Restart system services for maintenance or troubleshooting.
-
-Usage:
-• /restart - Restart all services
-• /restart agents - Restart agent system only
-• /restart llm - Restart LLM service only
-
-Available services:
-• agents - CrewAI agent system
-• llm - Language model service
-• database - Database connections
-• all - All services
-
-💡 Note: This command is only available in the leadership chat.
-    """,
-)
-async def handle_restart_command(update, context, **kwargs):
-    """Handle /restart command."""
     # This will be handled by the agent system
     return None
 

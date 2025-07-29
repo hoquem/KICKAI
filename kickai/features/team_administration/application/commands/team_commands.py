@@ -9,45 +9,8 @@ Each feature maintains its own command definitions for clean separation.
 from kickai.core.command_registry import CommandType, PermissionLevel, command
 from kickai.core.enums import ChatType
 
-# ============================================================================
-# TEAM MANAGEMENT COMMANDS
-# ============================================================================
-
-
-@command(
-    name="/createteam",
-    description="Create a new team (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP,
-    feature="team_administration",
-    chat_type=ChatType.LEADERSHIP,
-    examples=["/createteam", "/createteam My Team Name"],
-    parameters={"team_name": "Name of the team to create"},
-    help_text="""
-🏆 Create Team (Leadership Only)
-
-Create a new team in the KICKAI system.
-
-Usage:
-• /createteam - Start team creation process
-• /createteam [team_name] - Create team with specific name
-
-Example:
-/createteam My Team Name
-
-What happens:
-1. New team record is created in the database
-2. Team configuration is initialized
-3. You become the team administrator
-4. Team chat channels are set up
-
-💡 Note: This command is only available in the leadership chat.
-    """,
-)
-async def handle_createteam_command(update, context, **kwargs):
-    """Handle /createteam command."""
-    # This will be handled by the agent system
-    return None
+# Note: /createteam command has been removed as it's not needed for now
+# Teams are created through the setup process and configuration
 
 
 @command(

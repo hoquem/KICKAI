@@ -2,45 +2,16 @@
 """
 Shared Commands
 
-This module registers shared/common commands that are available across all features.
-These commands provide basic functionality that doesn't belong to a specific feature.
+This module registers all shared commands with the command registry.
+These are commands that are available across multiple features.
 """
 
 from kickai.core.command_registry import CommandType, PermissionLevel, command
+from kickai.core.enums import ChatType
 
-# ============================================================================
-# SHARED COMMANDS
-# ============================================================================
-
-
-@command(
-    name="/start",
-    description="Start the bot and show welcome message",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PUBLIC,
-    feature="shared",
-    examples=["/start"],
-    help_text="""
-🚀 Start Bot
-
-Start the KICKAI bot and get a welcome message.
-
-Usage:
-/start
-
-What happens:
-1. Bot welcomes you to the system
-2. Shows available commands for your role
-3. Provides basic usage instructions
-4. Sets up your user session
-
-💡 Tip: Use this command when you first join or need a refresher.
-    """,
-)
-async def handle_start_command(update, context, **kwargs):
-    """Handle /start command."""
-    # This will be handled by the agent system
-    return None
+# Note: /start command has been removed as it's not needed for now
+# The system will handle new member welcome messages automatically
+# when users join via invite links
 
 
 @command(
