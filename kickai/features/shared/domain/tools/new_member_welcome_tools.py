@@ -77,6 +77,7 @@ def get_new_member_welcome_message(
 🎉 We're excited to have you join our football community!
 
 📋 **Getting Started:**
+• Link your phone number to connect your account
 • Use `/help` to see available commands
 • Contact team leadership for assistance
 • Check pinned messages for important updates

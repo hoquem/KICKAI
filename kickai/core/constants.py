@@ -58,14 +58,6 @@ class CommandDefinition:
 
 PLAYER_COMMANDS = {
     CommandDefinition(
-        name="/register",
-        description="Register as a new player",
-        permission_level=PermissionLevel.PUBLIC,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/register", "/register John Smith 07123456789 midfielder"),
-        feature="player_registration",
-    ),
-    CommandDefinition(
         name="/myinfo",
         description="View your player information",
         permission_level=PermissionLevel.PLAYER,

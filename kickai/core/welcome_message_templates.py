@@ -55,14 +55,16 @@ DEFAULT_WELCOME_TEMPLATES = {
         title="🎉 **WELCOME TO THE TEAM, {username}!**",
         body="👋 **Welcome to KICKAI!** We're excited to have you join our football community!",
         features="""⚽ **WHAT YOU CAN DO HERE:**
-• Register as a player with `/register [player_id]`
+• Link your phone number to connect your account
 • Check your status with `/myinfo`
 • See available commands with `/help`
-• View active players with `/list`""",
+• View active players with `/list`
+• Update your details with `/update`""",
         getting_started="""🔗 **GETTING STARTED:**
-1. **Register as a player** - Use `/register` followed by your player ID
+1. **Link your account** - Share your phone number to connect to your player record
 2. **Check your status** - Use `/myinfo` to see your current registration
-3. **Explore commands** - Use `/help` to see all available options""",
+3. **Update details** - Use `/update` to modify your position and contact info
+4. **Explore commands** - Use `/help` to see all available options""",
         help_section="""📱 **NEED HELP?**
 • Type `/help` for command information
 • Contact team leadership for assistance

@@ -1,15 +1,15 @@
 # KICKAI Command Specifications
 
-**Version:** 4.4  
+**Version:** 4.5  
 **Status:** Production Ready  
 **Last Updated:** July 2025  
 **Architecture:** 12-Agent CrewAI System with Unified Processing
 
-**New in v4.4:** 
-- Removed `/listmembers` command (replaced by `/list`)
-- Updated all command specifications to match actual codebase implementation
-- Added missing command categories: Match Management, Attendance Management, Payment Management
-- Corrected permission levels and chat availability for all commands
+**New in v4.5:** 
+- **REMOVED**: `/register` command (replaced by `/addplayer` + invite link workflow)
+- **UPDATED**: Player onboarding workflow to use phone linking instead of self-registration
+- **SIMPLIFIED**: Player addition process with leadership control
+- **ENHANCED**: Security with invite link-based player addition
 
 This document defines the expected behavior for all KICKAI bot commands across different scenarios, chat types, and user states, using the latest 12-agent CrewAI architecture.
 
@@ -18,6 +18,7 @@ This document defines the expected behavior for all KICKAI bot commands across d
 - [Agentic Architecture](#agentic-architecture)
 - [Chat Types](#chat-types)
 - [User States](#user-states)
+- [Player Onboarding Workflow](#player-onboarding-workflow)
 - [Command Specifications](#command-specifications)
   - [Core Commands](#core-commands)
   - [Player Management Commands](#player-management-commands)
@@ -35,36 +36,92 @@ This document defines the expected behavior for all KICKAI bot commands across d
 
 ## Command Overview
 
+### **Simplified Player Onboarding Workflow**
+
+The KICKAI system uses a **leadership-controlled player onboarding process**:
+
+```mermaid
+graph TD
+    A[Leadership] -->|/addplayer [name] [phone]| B[Create Player Record]
+    B --> C[Generate Invite Link]
+    C --> D[Share Link with Player]
+    D --> E[Player Joins Main Chat]
+    E --> F[System Detects Pending Player]
+    F --> G[Phone Linking Prompt]
+    G --> H[Player Links Phone Number]
+    H --> I[Account Connected]
+    I --> J[Player Uses /update for Details]
+    J --> K[Leadership Approves with /approve]
+```
+
+### **Key Changes in v4.5**
+- ❌ **REMOVED**: `/register` command (self-registration)
+- ✅ **ENHANCED**: `/addplayer` command with invite link generation
+- ✅ **SIMPLIFIED**: Phone linking workflow for account connection
+- ✅ **CONTROLLED**: Leadership-only player addition process
+- ✅ **SECURE**: Invite link-based player onboarding
+
+## Player Onboarding Workflow
+
+### **Step 1: Leadership Adds Player**
+```bash
+/addplayer [name] [phone]
+```
+- Leadership creates player record
+- System generates unique invite link
+- Player record status: "pending"
+
+### **Step 2: Player Joins via Invite Link**
+- Player receives invite link from leadership
+- Player joins main chat using the link
+- System automatically detects pending player
+
+### **Step 3: Phone Linking Process**
+- System prompts player to link phone number
+- Player shares contact or types phone number
+- System connects Telegram account to player record
+
+### **Step 4: Player Updates Details**
+```bash
+/update [field] [value]
+```
+- Player can update position, contact info, etc.
+- All changes tracked in player record
+
+### **Step 5: Leadership Approval**
+```bash
+/approve [player_id]
+```
+- Leadership reviews and approves player
+- Player status changes to "active"
+
+## Command Specifications
+
 ### Core Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/help` | Show available commands | ✅ | ✅ | PUBLIC | HelpAssistantAgent | ✅ Implemented |
-| `/start` | Initialize bot interaction | ✅ | ✅ | PUBLIC | MessageProcessorAgent | ✅ Implemented |
-| `/info` | Show user information | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent | ✅ Implemented |
-| `/myinfo` | View your player information | ✅ | ❌ | PLAYER | PlayerCoordinatorAgent | ✅ Implemented |
-| `/list` | List players (context-dependent) | ✅ | ✅ | LEADERSHIP/PLAYER | MessageProcessorAgent | ✅ Implemented |
-| `/status` | Check your current status | ✅ | ❌ | PLAYER | PlayerCoordinatorAgent | ✅ Implemented |
-| `/ping` | Check bot status | ✅ | ✅ | PUBLIC | MessageProcessorAgent | ✅ Implemented |
-| `/version` | Show bot version | ✅ | ✅ | PUBLIC | MessageProcessorAgent | ✅ Implemented |
+| `/help` | Get help and command information | ✅ | ✅ | PUBLIC | HelpAssistant | ✅ Implemented |
+| `/start` | Start the bot and get welcome message | ✅ | ✅ | PUBLIC | HelpAssistant | ✅ Implemented |
 
 ### Player Management Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/register` | Register as a new player | ❌ | ✅ | PUBLIC | PlayerCoordinatorAgent | ✅ Implemented |
-| `/addplayer` | Add a player directly | ❌ | ✅ | LEADERSHIP | PlayerCoordinatorAgent | ✅ Implemented |
-| `/approve` | Approve a player for matches | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | ✅ Implemented |
-| `/reject` | Reject a player application | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | ✅ Implemented |
-| `/pending` | List players awaiting approval | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | ✅ Implemented |
-| `/update` | Update your player information | ✅ | ❌ | PLAYER | PlayerCoordinatorAgent | ✅ Implemented |
+| `/myinfo` | View your player information | ✅ | ❌ | PLAYER | PlayerCoordinator | ✅ Implemented |
+| `/status` | Check player status by phone/ID | ✅ | ✅ | PLAYER | PlayerCoordinator | ✅ Implemented |
+| `/update` | Update your player details | ✅ | ❌ | PLAYER | PlayerCoordinator | ✅ Implemented |
 
 ### Team Management Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/addmember` | Add a team member | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | ✅ Implemented |
-| `/createteam` | Create a new team | ❌ | ✅ | ADMIN | TeamAdministratorAgent | ✅ Implemented |
-| `/teamstatus` | View team status | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | ✅ Implemented |
-| `/updateteam` | Update team information | ❌ | ✅ | LEADERSHIP | TeamAdministratorAgent | ✅ Implemented |
-| `/announce` | Send announcement to team | ❌ | ✅ | LEADERSHIP | CommunicationManagerAgent | ✅ Implemented |
+| `/addplayer` | Add new player with invite link | ❌ | ✅ | LEADERSHIP | TeamManager | ✅ Implemented |
+| `/addmember` | Add new team member with invite link | ❌ | ✅ | LEADERSHIP | TeamManager | ✅ Implemented |
+| `/approve` | Approve pending player/member | ❌ | ✅ | LEADERSHIP | TeamManager | ✅ Implemented |
+| `/reject` | Reject pending player/member | ❌ | ✅ | LEADERSHIP | TeamManager | ✅ Implemented |
+| `/pending` | List pending approvals | ❌ | ✅ | LEADERSHIP | TeamManager | ✅ Implemented |
+| `/list` | List all players/members | ✅ | ✅ | PLAYER | TeamManager | ✅ Implemented |
+| `/team` | View team information | ❌ | ✅ | LEADERSHIP | TeamManager | ✅ Implemented |
+| `/invite` | Generate invite links | ❌ | ✅ | LEADERSHIP | TeamManager | ✅ Implemented |
+| `/announce` | Send team announcements | ❌ | ✅ | LEADERSHIP | TeamManager | ✅ Implemented |
 
 ### Training Management Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
