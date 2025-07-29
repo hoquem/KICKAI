@@ -15,43 +15,6 @@ from kickai.core.enums import ChatType
 
 
 @command(
-    name="/budget",
-    description="View budget information (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP,
-    feature="payment_management",
-    chat_type=ChatType.LEADERSHIP,
-    examples=["/budget", "/budget 2024"],
-    parameters={"year": "Year to view budget for (optional)"},
-    help_text="""
-💰 Budget Information (Leadership Only)
-
-View team budget and financial information.
-
-Usage:
-• /budget - Show current budget status
-• /budget [year] - Show budget for specific year
-
-Example:
-/budget 2024
-
-What you'll see:
-• Total budget allocated
-• Expenses incurred
-• Remaining budget
-• Payment status summary
-• Financial trends
-
-💡 Note: This command is only available in the leadership chat.
-    """,
-)
-async def handle_budget_command(update, context, **kwargs):
-    """Handle /budget command."""
-    # This will be handled by the agent system
-    return None
-
-
-@command(
     name="/createpayment",
     description="Create a new payment record (Leadership only)",
     command_type=CommandType.SLASH_COMMAND,
@@ -165,5 +128,5 @@ async def handle_markpaid_command(update, context, **kwargs):
     return None
 
 
-# Note: /paymentexport command has been removed as it's not needed for now
-# Export functionality can be added later if required
+# Note: /budget command has been removed as it's not needed for now
+# Budget information can be viewed through payment history if required
