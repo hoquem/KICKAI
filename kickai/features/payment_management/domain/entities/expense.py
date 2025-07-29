@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 from kickai.core.enums import ExpenseCategory
 
@@ -9,11 +8,11 @@ class Expense:
     team_id: str
     amount: float
     category: ExpenseCategory
-    id: Optional[str] = None
-    description: Optional[str] = None
-    receipt_url: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    id: str | None = None
+    description: str | None = None
+    receipt_url: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
     @staticmethod
     def from_dict(data: dict) -> "Expense":

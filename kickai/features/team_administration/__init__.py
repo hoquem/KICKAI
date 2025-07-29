@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 from loguru import logger
 
 
-def initialize_team_administration(config: Dict[str, Any]) -> None:
+def initialize_team_administration(config: dict[str, Any]) -> None:
     """Initialize the team administration feature."""
     logger.info("Initializing team administration feature")
     # Feature initialization logic would go here

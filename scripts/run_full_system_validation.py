@@ -17,6 +17,10 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv('.env')
+
 from kickai.core.startup_validation import run_startup_validation
 
 # Configure logging

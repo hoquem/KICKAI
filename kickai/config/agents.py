@@ -5,7 +5,6 @@ This module contains all agent configurations including roles, goals, backstorie
 and tool mappings. This allows for easy agent management and modification
 without writing new classes.
 """
-from typing import Dict, List, Optional
 
 from dataclasses import dataclass, field
 
@@ -20,17 +19,17 @@ class AgentConfig:
     role: AgentRole
     goal: str
     backstory: str
-    tools: List[str] = field(default_factory=list)
+    tools: list[str] = field(default_factory=list)
     enabled: bool = True
     max_iterations: int = 10
     allow_delegation: bool = True
     verbose: bool = True
-    custom_tools: List[str] = field(default_factory=list)
-    behavioral_mixin: Optional[str] = None
+    custom_tools: list[str] = field(default_factory=list)
+    behavioral_mixin: str | None = None
     memory_enabled: bool = True
     learning_enabled: bool = True
-    entity_types: List[EntityType] = field(default_factory=list)
-    primary_entity_type: Optional[EntityType] = None
+    entity_types: list[EntityType] = field(default_factory=list)
+    primary_entity_type: EntityType | None = None
 
 
 class AgentConfigurationManager:
@@ -39,7 +38,7 @@ class AgentConfigurationManager:
     def __init__(self):
         self._configs = self._initialize_configs()
 
-    def _initialize_configs(self) -> Dict[AgentRole, AgentConfig]:
+    def _initialize_configs(self) -> dict[AgentRole, AgentConfig]:
         """Initialize all agent configurations."""
         return {
             AgentRole.MESSAGE_PROCESSOR: AgentConfig(
@@ -95,6 +94,13 @@ ERROR HANDLING:
 
 CRITICAL COMMAND HANDLING:
 
+MYINFO COMMANDS:
+When users ask for their information (e.g., "/myinfo", "my info", "what's my status"), you MUST:
+1. ALWAYS use the get_my_status tool with the correct chat_type parameter
+2. Pass team_id, user_id, and chat_type from the available context
+3. The tool will automatically return player info for main_chat and team member info for leadership_chat
+4. Return the exact output from the tool - this provides accurate, context-aware information
+
 HELP COMMANDS:
 When users ask for help (e.g., "/help", "help", "what can you do", "show commands"), you MUST:
 1. ALWAYS use the get_available_commands tool to get the current list of available commands
@@ -112,6 +118,13 @@ When users use "/list" command, you MUST:
 2. In MAIN CHAT: Route to PLAYER_COORDINATOR who will use get_active_players tool
 3. NEVER ask clarifying questions for "/list" - use the appropriate tool immediately
 4. Return the exact output from the tool - this provides authoritative data
+
+MYINFO COMMAND EXAMPLES:
+✅ CORRECT: Use get_my_status tool with team_id, user_id, and chat_type parameters
+✅ CORRECT: Return the exact output from get_my_status tool
+✅ CORRECT: Tool automatically handles main_chat vs leadership_chat routing
+❌ INCORRECT: Not passing chat_type parameter to get_my_status
+❌ INCORRECT: Using different tools for different chat types manually
 
 HELP COMMAND EXAMPLES:
 ✅ CORRECT: Use get_available_commands tool with chat_type="leadership_chat", is_registered=True, is_player=False, is_team_member=True for leadership chats
@@ -135,6 +148,7 @@ TOOLS AND CAPABILITIES:
 - Error recovery and fallback handling
 - Command information retrieval via get_available_commands tool
 - Team member and player listing via list_team_members_and_players tool
+- User status retrieval via get_my_status tool (context-aware)
 - Direct messaging via send_message and send_announcement tools""",
                 tools=[
                     "send_message",
@@ -144,6 +158,7 @@ TOOLS AND CAPABILITIES:
                     "get_my_team_member_status",
                     "get_team_members",
                     "list_team_members_and_players",
+                    "get_version_info",
                 ],
                 behavioral_mixin="message_processor",
                 memory_enabled=True,
@@ -520,7 +535,6 @@ TOOLS AND CAPABILITIES:
                     "get_player_status",
                     "get_active_players",
                     "approve_player",
-                    "register_player",
                     "add_player",
                     "send_message",
                     "update_player_information",
@@ -891,11 +905,7 @@ INTEGRATION SUPPORT:
                 tools=[
                     "send_message",
                     "send_announcement",
-                    "register_player",
-                    "register_team_member",
-                    "registration_guidance",
                     "team_member_guidance",
-                    "validate_registration_data",
                     "progressive_onboarding_step",
                     "get_onboarding_progress",
                     "explain_player_position",
@@ -904,11 +914,10 @@ INTEGRATION SUPPORT:
                     "compare_roles",
                     "get_role_recommendations",
                     "validate_name_enhanced",
-                    "validate_phone_enhanced", 
+                    "validate_phone_enhanced",
                     "validate_position_enhanced",
                     "validate_role_enhanced",
                     "comprehensive_validation",
-                    "detect_registration_context",
                     "detect_existing_registrations",
                     "analyze_dual_role_potential",
                     "suggest_dual_registration",
@@ -1096,7 +1105,7 @@ VALIDATION REQUIREMENTS:
 {{ shared_backstory }}""",
                 tools=[
                     "get_available_players_for_match",
-                    "select_squad", 
+                    "select_squad",
                     "get_match",
                     "get_all_players",
                     "send_message",
@@ -1544,15 +1553,15 @@ SUCCESS METRICS:
             ),
         }
 
-    def get_agent_config(self, role: AgentRole) -> Optional[AgentConfig]:
+    def get_agent_config(self, role: AgentRole) -> AgentConfig | None:
         """Get configuration for a specific agent role."""
         return self._configs.get(role)
 
-    def get_all_configs(self) -> Dict[AgentRole, AgentConfig]:
+    def get_all_configs(self) -> dict[AgentRole, AgentConfig]:
         """Get all agent configurations."""
         return self._configs.copy()
 
-    def get_enabled_configs(self) -> Dict[AgentRole, AgentConfig]:
+    def get_enabled_configs(self) -> dict[AgentRole, AgentConfig]:
         """Get only enabled agent configurations."""
         return {role: config for role, config in self._configs.items() if config.enabled}
 
@@ -1569,7 +1578,7 @@ SUCCESS METRICS:
         if role in self._configs:
             del self._configs[role]
 
-    def get_agent_tools(self, role: AgentRole) -> List[str]:
+    def get_agent_tools(self, role: AgentRole) -> list[str]:
         """Get tools for a specific agent role."""
         config = self._configs.get(role)
         return config.tools if config else []
@@ -1597,16 +1606,16 @@ def get_agent_config_manager() -> AgentConfigurationManager:
     return _agent_config_manager
 
 
-def get_agent_config(role: AgentRole) -> Optional[AgentConfig]:
+def get_agent_config(role: AgentRole) -> AgentConfig | None:
     """Get configuration for a specific agent role."""
     return get_agent_config_manager().get_agent_config(role)
 
 
-def get_all_agent_configs() -> Dict[AgentRole, AgentConfig]:
+def get_all_agent_configs() -> dict[AgentRole, AgentConfig]:
     """Get all agent configurations."""
     return get_agent_config_manager().get_all_configs()
 
 
-def get_enabled_agent_configs() -> Dict[AgentRole, AgentConfig]:
+def get_enabled_agent_configs() -> dict[AgentRole, AgentConfig]:
     """Get only enabled agent configurations."""
     return get_agent_config_manager().get_enabled_configs()

@@ -6,13 +6,12 @@ This module provides tools for linking Telegram users to existing player records
 via phone number matching.
 """
 
-
-from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 
 from kickai.features.player_registration.domain.services.player_linking_service import (
     PlayerLinkingService,
 )
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.phone_validation import validate_phone_number
 
 

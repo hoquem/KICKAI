@@ -11,7 +11,7 @@ import traceback
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, List, Union
+from typing import Any
 
 from loguru import logger
 
@@ -46,7 +46,10 @@ class ErrorHandler:
         self.config = config or ErrorHandlingConfig()
 
     def handle_error(
-        self, error: Exception, context: Optional[Dict[str, Any]] = None, operation: Optional[str] = None
+        self,
+        error: Exception,
+        context: Optional[dict[str, Any]] = None,
+        operation: Optional[str] = None,
     ) -> str:
         """
         Handle an error and return a user-friendly message.
@@ -233,7 +236,7 @@ def handle_tool_errors(
 @contextmanager
 def error_context(
     operation: str,
-    context: Optional[Dict[str, Any]] = None,
+    context: Optional[dict[str, Any]] = None,
     config: Optional[ErrorHandlingConfig] = None,
     reraise: bool = False,
 ):
@@ -318,7 +321,7 @@ def safe_execute(
     func: Callable,
     *args,
     operation: str = "unknown",
-    context: Optional[Dict[str, Any]] = None,
+    context: Optional[dict[str, Any]] = None,
     config: Optional[ErrorHandlingConfig] = None,
     default_return: Any = None,
     **kwargs,
@@ -349,7 +352,7 @@ async def safe_execute_async(
     func: Callable,
     *args,
     operation: str = "unknown",
-    context: Optional[Dict[str, Any]] = None,
+    context: Optional[dict[str, Any]] = None,
     config: Optional[ErrorHandlingConfig] = None,
     default_return: Any = None,
     **kwargs,

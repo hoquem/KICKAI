@@ -100,7 +100,14 @@ class CommandRegistryCheck(BaseCheck):
                 )
 
             # Check for expected features
-            expected_features = ["player_registration", "team_administration", "shared"]
+            expected_features = [
+                "player_registration",
+                "shared",
+                "match_management",
+                "attendance_management",
+                "payment_management",
+                "communication",
+            ]
 
             missing_features = []
             for feature in expected_features:

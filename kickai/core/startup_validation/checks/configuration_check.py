@@ -6,7 +6,7 @@ This module provides configuration validation health checks.
 
 import asyncio
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from kickai.core.settings import get_settings
 
@@ -23,7 +23,7 @@ class ConfigurationCheck(BaseCheck):
     category = CheckCategory.CONFIGURATION
     description = "Validates that all required configuration is loaded and accessible"
 
-    async def execute(self, context: Dict[str, Any] = None) -> CheckResult:
+    async def execute(self, context: dict[str, Any] = None) -> CheckResult:
         start_time = asyncio.get_event_loop().time()
 
         try:

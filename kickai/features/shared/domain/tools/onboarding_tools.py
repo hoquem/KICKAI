@@ -6,10 +6,6 @@ This module provides comprehensive onboarding tools for both players and team me
 supporting the dual-entity ONBOARDING_AGENT functionality.
 """
 
-import logging
-from typing import Optional
-
-from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 from pydantic import BaseModel
 
@@ -21,25 +17,24 @@ from kickai.features.team_administration.domain.services.simplified_team_member_
     SimplifiedTeamMemberService,
 )
 from kickai.utils.constants import (
-    DEFAULT_MEMBER_ROLE,
-    DEFAULT_PLAYER_POSITION,
     VALID_PLAYER_POSITIONS,
     VALID_TEAM_MEMBER_ROLES,
 )
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.validation_utils import normalize_phone, sanitize_input
 
 
 class TeamMemberGuidanceInput(BaseModel):
     """Input model for team_member_guidance tool."""
-    
+
     user_id: str
     team_id: str
-    chat_type: Optional[str] = None
+    chat_type: str | None = None
 
 
-class ValidationInput(BaseModel):  
+class ValidationInput(BaseModel):
     """Input model for validate_registration_data tool."""
-    
+
     name: str
     phone: str
     role_or_position: str
@@ -51,20 +46,20 @@ class ValidationInput(BaseModel):
 def team_member_guidance(user_id: str, team_id: str, chat_type: str = None) -> str:
     """
     Provide team member registration guidance to a user.
-    
+
     Args:
         user_id: The user ID to provide guidance to
         team_id: Team ID (required)
         chat_type: Chat type context (optional)
-        
+
     Returns:
         Team member registration guidance message
     """
     try:
         container = get_container()
-        
+
         # Build comprehensive guidance message
-        guidance = f"""
+        guidance = """
 🎯 **TEAM MEMBER REGISTRATION GUIDE**
 
 Welcome! I'm here to help you join as a team member (administrative role).
@@ -90,23 +85,23 @@ Just say "I want to register as a team member" and I'll guide you through step b
 
 ℹ️ **Questions?** I'm here to help throughout the process.
         """
-        
+
         logger.info(f"✅ Team member guidance provided to user {user_id}")
         return guidance.strip()
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to provide team member guidance: {e}")
         return f"❌ Failed to provide team member guidance: {e!s}"
 
-
-@tool("validate_registration_data") 
-def validate_registration_data(
-    name: str, 
-    phone: str, 
-    role_or_position: str, 
-    entity_type: str,
-    team_id: str
-) -> str:
+    # Registration tools removed - /register command has been removed from the system
+    # @tool("validate_registration_data")
+    # def validate_registration_data(
+    #     name: str,
+    #     phone: str,
+    #     role_or_position: str,
+    #     entity_type: str,
+    #     team_id: str
+    # ) -> str:
     """
     Validate registration data for players or team members.
     
@@ -122,22 +117,22 @@ def validate_registration_data(
     """
     try:
         errors = []
-        
+
         # Sanitize inputs
         name = sanitize_input(name).strip()
         phone = normalize_phone(phone)
         role_or_position = sanitize_input(role_or_position).strip().lower()
-        
+
         # Validate name
         if not name or len(name.split()) < 2:
             errors.append("❌ Full name required (first and last name)")
-            
+
         # Validate phone
         if not phone:
             errors.append("❌ Phone number is required")
-        elif not (phone.startswith('+44') or phone.startswith('07')):
+        elif not (phone.startswith("+44") or phone.startswith("07")):
             errors.append("❌ Phone must be UK format (+447123456789 or 07123456789)")
-            
+
         # Validate role/position based on entity type
         if entity_type.lower() == "player":
             if role_or_position not in VALID_PLAYER_POSITIONS:
@@ -149,240 +144,27 @@ def validate_registration_data(
                 errors.append(f"❌ Role must be one of: {valid_roles}")
         else:
             errors.append("❌ Entity type must be 'player' or 'team_member'")
-            
+
         if errors:
             return "\n".join(errors)
-            
+
         # All validation passed
         entity_display = "player" if entity_type.lower() == "player" else "team member"
         return f"✅ All data validated successfully for {entity_display} registration!"
-        
+
     except Exception as e:
         logger.error(f"❌ Validation error: {e}")
         return f"❌ Validation failed: {e!s}"
 
-
-@tool("register_player")
-def register_player(player_name: str, phone_number: str, position: str, team_id: str) -> str:
-    """
-    Register a new player through the onboarding process.
-    
-    Args:
-        player_name: Full name of the player
-        phone_number: Phone number (UK format)
-        position: Playing position
-        team_id: Team ID (required)
-        
-    Returns:
-        Registration confirmation with next steps
-    """
-    try:
-        container = get_container()
-        registration_service = container.get_service(PlayerRegistrationService)
-        
-        if not registration_service:
-            logger.error("❌ No registration service available")
-            return "❌ Registration service not available. Please try again later."
-            
-        # Register using player service
-        import asyncio
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-        player = loop.run_until_complete(
-            registration_service.register_player(player_name, phone_number, position, team_id)
-        )
-        
-        if player:
-            logger.info(f"✅ Player registered via onboarding: {player_name} ({position})")
-            
-            # Enhanced success message with next steps
-            success_msg = f"""
-🎉 **REGISTRATION SUCCESSFUL!**
-
-✅ **Player Registered:**
-• **Name:** {player_name}
-• **Position:** {position.title()}
-• **Status:** Pending Approval
-
-📋 **WHAT'S NEXT:**
-• Your registration is pending leadership approval
-• You'll be notified when approved
-• Once approved, you can participate in matches
-• Contact leadership for any questions
-
-💬 **NEED HELP?**
-Type /help to see available commands or ask me anything!
-
-Welcome to the team! ⚽
-            """
-            return success_msg.strip()
-        else:
-            logger.error(f"❌ Failed to register player: {player_name}")
-            return f"❌ Registration failed for {player_name}. Please check the information and try again."
-            
-    except Exception as e:
-        logger.error(f"❌ Player registration error: {e}")
-        return f"❌ Registration failed: {e!s}"
-
-
-@tool("register_team_member")
-def register_team_member(player_name: str, phone_number: str, role: str, team_id: str) -> str:
-    """
-    Register a new team member through the onboarding process.
-    
-    Args:
-        player_name: Full name of the team member
-        phone_number: Phone number (UK format)
-        role: Administrative role
-        team_id: Team ID (required)
-        
-    Returns:
-        Registration confirmation with next steps
-    """
-    try:
-        container = get_container()
-        
-        # Try to get the simplified team member service first
-        team_member_service = container.get_service(SimplifiedTeamMemberService)
-        
-        if team_member_service:
-            # Use dedicated team member service
-            logger.info(f"🔧 Using SimplifiedTeamMemberService for team member registration")
-            
-            # Note: This would need to be implemented in the service
-            # For now, fall back to player registration service
-            
-        # Fall back to player registration service  
-        registration_service = container.get_service(PlayerRegistrationService)
-        
-        if not registration_service:
-            logger.error("❌ No registration service available")
-            return "❌ Registration service not available. Please try again later."
-            
-        # Register using player service (temporary solution)
-        import asyncio
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-        member = loop.run_until_complete(
-            registration_service.register_player(player_name, phone_number, role, team_id)
-        )
-        
-        if member:
-            logger.info(f"✅ Team member registered via onboarding: {player_name} ({role})")
-            
-            # Enhanced success message with next steps
-            success_msg = f"""
-🎉 **REGISTRATION SUCCESSFUL!**
-
-✅ **Team Member Registered:**
-• **Name:** {player_name}
-• **Role:** {role.title()}
-• **Status:** Active (immediate access)
-
-🚀 **WHAT'S NEXT:**
-• You now have administrative access
-• Explore team management features  
-• Contact leadership for orientation
-• Access leadership chat for admin functions
-
-💬 **NEED HELP?**
-Type /help to see available commands or ask me anything!
-
-Welcome to the team! 🤝
-            """
-            return success_msg.strip()
-        else:
-            logger.error(f"❌ Failed to register team member: {player_name}")
-            return f"❌ Registration failed for {player_name}. Please check the information and try again."
-            
-    except Exception as e:
-        logger.error(f"❌ Team member registration error: {e}")
-        return f"❌ Registration failed: {e!s}"
-
-
-@tool("registration_guidance")
-def registration_guidance(user_id: str, team_id: str) -> str:
-    """
-    Provide comprehensive registration guidance to a user.
-    
-    Args:
-        user_id: The user ID to provide guidance to
-        team_id: Team ID (required)
-        
-    Returns:
-        Registration guidance message
-    """
-    try:
-        # Build comprehensive guidance message
-        guidance = f"""
-🎯 **KICKAI REGISTRATION GUIDE**
-
-Welcome! I'm here to help you join our football team. I can help you register as either:
-
-👥 **PLAYER REGISTRATION** (Main Chat):
-1. **Full Name** - Your first and last name
-2. **Phone Number** - UK format (07123456789 or +447123456789)  
-3. **Position** - Choose from:
-   • **Goalkeeper** - Goal protection specialist
-   • **Defender** - Defense and ball distribution
-   • **Midfielder** - Central playmaker and support
-   • **Forward** - Attack and goal scoring
-   • **Utility** - Can play multiple positions
-
-✅ **PLAYER PROCESS:**
-• Registration submitted for approval
-• Leadership review and approval required
-• Notification when approved and activated
-• Participation in matches after approval
-
-👔 **TEAM MEMBER REGISTRATION** (Leadership Chat):
-1. **Full Name** - Your first and last name
-2. **Phone Number** - UK format (07123456789 or +447123456789)  
-3. **Administrative Role** - Choose from:
-   • **Coach** - Team coaching responsibilities
-   • **Manager** - Team management duties
-   • **Assistant** - Supporting role
-   • **Coordinator** - Event/logistics coordination
-   • **Volunteer** - General volunteer support
-   • **Admin** - Administrative privileges
-
-✅ **TEAM MEMBER PROCESS:**
-• No approval required - immediate activation
-• Direct access to administrative features
-• Orientation provided after registration
-
-🚀 **READY TO START?**
-Just tell me which type of registration you want:
-• "I want to register as a player"
-• "I want to register as a team member"
-
-ℹ️ **Questions?** I'm here to help throughout the process!
-        """
-        
-        logger.info(f"✅ Registration guidance provided to user {user_id}")
-        return guidance.strip()
-        
-    except Exception as e:
-        logger.error(f"❌ Failed to provide registration guidance: {e}")
-        return f"❌ Failed to provide registration guidance: {e!s}"
-
-
-@tool("register_team_member_onboarding")
-def register_team_member_onboarding(
-    name: str, 
-    phone: str, 
-    role: str, 
-    team_id: str,
-    user_id: str = None
-) -> str:
+    # Registration tools removed - /register command has been removed from the system
+    # @tool("register_team_member_onboarding")
+    # def register_team_member_onboarding(
+    #     name: str,
+    #     phone: str,
+    #     role: str,
+    #     team_id: str,
+    #     user_id: str = None
+    # ) -> str:
     """
     Register a new team member through the onboarding process.
     Optimized for ONBOARDING_AGENT with enhanced feedback.
@@ -399,30 +181,30 @@ def register_team_member_onboarding(
     """
     try:
         container = get_container()
-        
+
         # Try to get the simplified team member service first
         team_member_service = container.get_service(SimplifiedTeamMemberService)
-        
+
         if team_member_service:
             # Use dedicated team member service
-            logger.info(f"🔧 Using SimplifiedTeamMemberService for team member registration")
-            
+            logger.info("🔧 Using SimplifiedTeamMemberService for team member registration")
+
             # Note: This would need to be implemented in the service
             # For now, fall back to player registration service
-            
-        # Fall back to player registration service  
+
+        # Fall back to player registration service
         registration_service = container.get_service(PlayerRegistrationService)
-        
+
         if not registration_service:
             logger.error("❌ No registration service available")
             return "❌ Registration service not available. Please try again later."
-            
+
         # Register using player service (temporary solution)
         member = registration_service.register_player(name, phone, role, team_id)
-        
+
         if member:
             logger.info(f"✅ Team member registered via onboarding: {name} ({role})")
-            
+
             # Enhanced success message with next steps
             success_msg = f"""
 🎉 **REGISTRATION SUCCESSFUL!**
@@ -447,19 +229,19 @@ Welcome to the team! 🤝
         else:
             logger.error(f"❌ Failed to register team member: {name}")
             return f"❌ Registration failed for {name}. Please check the information and try again."
-            
+
     except Exception as e:
         logger.error(f"❌ Team member registration error: {e}")
         return f"❌ Registration failed: {e!s}"
 
-
-# Context detection helpers
-@tool("detect_registration_context")
-def detect_registration_context(
-    message: str,
-    chat_type: str = None,
-    user_context: str = None
-) -> str:
+    # Context detection helpers
+    # Registration tools removed - /register command has been removed from the system
+    # @tool("detect_registration_context")
+    # def detect_registration_context(
+    #     message: str,
+    #     chat_type: str = None,
+    #     user_context: str = None
+    # ) -> str:
     """
     Detect whether user wants player or team member registration.
     
@@ -473,37 +255,51 @@ def detect_registration_context(
     """
     try:
         message_lower = message.lower()
-        
+
         # Team member indicators
         team_member_keywords = [
-            'team member', 'admin', 'coach', 'manager', 'coordinator', 
-            'volunteer', 'staff', 'administrative', 'leadership'
+            "team member",
+            "admin",
+            "coach",
+            "manager",
+            "coordinator",
+            "volunteer",
+            "staff",
+            "administrative",
+            "leadership",
         ]
-        
-        # Player indicators  
+
+        # Player indicators
         player_keywords = [
-            'player', 'play', 'match', 'position', 'goalkeeper', 
-            'defender', 'midfielder', 'forward', 'football'
+            "player",
+            "play",
+            "match",
+            "position",
+            "goalkeeper",
+            "defender",
+            "midfielder",
+            "forward",
+            "football",
         ]
-        
+
         team_member_score = sum(1 for keyword in team_member_keywords if keyword in message_lower)
         player_score = sum(1 for keyword in player_keywords if keyword in message_lower)
-        
+
         # Chat type weighting
-        if chat_type == 'leadership' and team_member_score == 0 and player_score == 0:
+        if chat_type == "leadership" and team_member_score == 0 and player_score == 0:
             team_member_score += 1
-        elif chat_type == 'main' and team_member_score == 0 and player_score == 0:
+        elif chat_type == "main" and team_member_score == 0 and player_score == 0:
             player_score += 1
-            
+
         if team_member_score > player_score:
             confidence = "high" if team_member_score >= 2 else "medium"
             return f"team_member|{confidence}|Team member registration detected"
         elif player_score > team_member_score:
-            confidence = "high" if player_score >= 2 else "medium"  
+            confidence = "high" if player_score >= 2 else "medium"
             return f"player|{confidence}|Player registration detected"
         else:
             return "Union[ambiguous, low]|Cannot determine registration type - clarification needed"
-            
+
     except Exception as e:
         logger.error(f"❌ Context detection error: {e}")
         return "Union[error, low]|Context detection failed"

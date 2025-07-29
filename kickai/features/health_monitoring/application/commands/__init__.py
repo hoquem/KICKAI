@@ -4,7 +4,7 @@ Health Monitoring Commands
 This module contains commands for health monitoring.
 """
 
-# Import the actual command module that exists
-from . import health_commands
+# Health commands have been removed from the system
+# No commands are currently available in this module
 
-__all__ = ["health_commands"]
+__all__ = []

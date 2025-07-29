@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from kickai.features.match_management.domain.entities.match import Match
 from kickai.features.match_management.domain.repositories.match_repository_interface import (
     MatchRepositoryInterface,
@@ -15,13 +13,13 @@ class FirebaseMatchRepository(MatchRepositoryInterface):
         await self.firebase_client.set_document("matches", match.id, match.__dict__)
         return match
 
-    async def get_by_id(self, match_id: str) -> Optional[Match]:
+    async def get_by_id(self, match_id: str) -> Match | None:
         data = await self.firebase_client.get_document("matches", match_id)
         if data:
             return Match(**data)
         return None
 
-    async def get_by_team(self, team_id: str) -> List[Match]:
+    async def get_by_team(self, team_id: str) -> list[Match]:
         # Placeholder: Implement actual Firebase logic
         docs = await self.firebase_client.query_collection("matches", {"team_id": team_id})
         return [Match(**doc) for doc in docs]

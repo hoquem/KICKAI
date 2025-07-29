@@ -7,7 +7,11 @@ Each feature maintains its own command definitions for clean separation.
 """
 
 from kickai.core.command_registry import CommandType, PermissionLevel, command
-from kickai.core.enums import ChatType
+
+# ============================================================================
+# MAIN CHAT COMMANDS - For Player Registration
+# ============================================================================
+
 
 # ============================================================================
 # LEADERSHIP CHAT COMMANDS - For Team Member Registration

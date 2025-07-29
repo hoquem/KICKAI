@@ -263,7 +263,7 @@ Your KICKAI environment is now configured. Next steps:
    python run_bot_local.py
 
 3. Test the bot:
-   Send /start to your bot on Telegram
+   Send /help to your bot on Telegram
 
 📁 Files created:
    - .env (environment variables)

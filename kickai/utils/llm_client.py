@@ -6,7 +6,7 @@ in the KICKAI system.
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from loguru import logger
 
@@ -15,7 +15,7 @@ from kickai.utils.llm_factory import LLMFactory
 from kickai.utils.llm_intent import extract_intent
 
 
-async def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
+async def extract_intent(message: str, context: str = "") -> dict[str, Any]:
     """
     Async wrapper for intent extraction.
 
@@ -39,7 +39,7 @@ async def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
 class LLMClient:
     """LLM client for natural language processing."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
         self._llm_instance = None
         self._initialize_llm()
@@ -54,13 +54,13 @@ class LLMClient:
         except Exception as e:
             logger.warning(f"Failed to initialize LLM: {e}. Using fallback client.")
 
-    def _get_api_key_from_env(self) -> Optional[str]:
+    def _get_api_key_from_env(self) -> str | None:
         """Get API key from environment variables."""
         import os
 
-        return os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+        return os.getenv("GOOGLE_API_KEY")  # Use GOOGLE_API_KEY consistently
 
-    async def extract_intent(self, message: str, context: str = "") -> Dict[str, Any]:
+    async def extract_intent(self, message: str, context: str = "") -> dict[str, Any]:
         """
         Extract intent from a message using the LLM client.
 
@@ -73,7 +73,7 @@ class LLMClient:
         """
         return await extract_intent(message, context)
 
-    async def process_message(self, message: str, context: str = "") -> Dict[str, Any]:
+    async def process_message(self, message: str, context: str = "") -> dict[str, Any]:
         """
         Process a message and return structured information.
 
@@ -154,7 +154,7 @@ class LLMClient:
 
     @async_retry(max_attempts=3, delay=1.0)
     @async_timeout(30.0)
-    async def analyze_text(self, text: str, analysis_type: str) -> Dict[str, Any]:
+    async def analyze_text(self, text: str, analysis_type: str) -> dict[str, Any]:
         """
         Analyze text for specific purposes.
 
@@ -221,7 +221,7 @@ def get_llm_client() -> LLMClient:
     return _llm_client
 
 
-async def process_message_with_llm(message: str, context: str = "") -> Dict[str, Any]:
+async def process_message_with_llm(message: str, context: str = "") -> dict[str, Any]:
     """
     Process a message using the global LLM client.
 

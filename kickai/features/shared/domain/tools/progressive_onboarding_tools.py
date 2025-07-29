@@ -6,24 +6,22 @@ This module provides step-by-step progressive information collection tools
 that guide users through the onboarding process without overwhelming them.
 """
 
-import logging
 from enum import Enum
-from typing import Dict, List, Optional
 
-from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 from pydantic import BaseModel
 
 from kickai.utils.constants import VALID_PLAYER_POSITIONS, VALID_TEAM_MEMBER_ROLES
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.validation_utils import normalize_phone, sanitize_input
 
 
 class OnboardingStep(Enum):
     """Onboarding step enumeration."""
-    
+
     WELCOME = "welcome"
     ENTITY_TYPE = "entity_type"
-    NAME = "name" 
+    NAME = "name"
     PHONE = "phone"
     ROLE_POSITION = "role_position"
     OPTIONAL_INFO = "optional_info"
@@ -33,42 +31,42 @@ class OnboardingStep(Enum):
 
 class OnboardingState(BaseModel):
     """Onboarding state tracking."""
-    
+
     user_id: str
     team_id: str
     current_step: OnboardingStep
-    entity_type: Optional[str] = None  # "player" or "team_member"
-    collected_data: Dict[str, str] = {}
+    entity_type: str | None = None  # "player" or "team_member"
+    collected_data: dict[str, str] = {}
     validation_errors: list = []
-    chat_type: Optional[str] = None
+    chat_type: str | None = None
 
 
 @tool("progressive_onboarding_step")
 def progressive_onboarding_step(
     user_id: str,
-    team_id: str, 
+    team_id: str,
     current_step: str,
     user_input: str = None,
     entity_type: str = None,
-    chat_type: str = None
+    chat_type: str = None,
 ) -> str:
     """
     Handle progressive onboarding step-by-step.
-    
+
     Args:
         user_id: User ID
         team_id: Team ID
         current_step: Current onboarding step
         user_input: User's input for current step
-        entity_type: "player" or "team_member" 
+        entity_type: "player" or "team_member"
         chat_type: Chat context
-        
+
     Returns:
         Next step guidance or completion message
     """
     try:
         step = OnboardingStep(current_step)
-        
+
         if step == OnboardingStep.WELCOME:
             return _handle_welcome_step(user_id, chat_type, entity_type)
         elif step == OnboardingStep.ENTITY_TYPE:
@@ -85,7 +83,7 @@ def progressive_onboarding_step(
             return _handle_confirmation_step(user_input, entity_type)
         else:
             return "❌ Invalid onboarding step"
-            
+
     except Exception as e:
         logger.error(f"❌ Progressive onboarding error: {e}")
         return f"❌ Onboarding error: {e!s}"
@@ -93,9 +91,9 @@ def progressive_onboarding_step(
 
 def _handle_welcome_step(user_id: str, chat_type: str, entity_type: str = None) -> str:
     """Handle welcome step."""
-    
+
     if entity_type == "player":
-        return f"""
+        return """
 🎉 **WELCOME TO KICKAI PLAYER ONBOARDING!**
 
 Hi there! I'm excited to help you join our team as a player! ⚽
@@ -112,7 +110,7 @@ Hi there! I'm excited to help you join our team as a player! ⚽
 What's your full name? (First and last name please)
         """
     elif entity_type == "team_member":
-        return f"""
+        return """
 🎯 **WELCOME TO KICKAI TEAM MEMBER ONBOARDING!**
 
 Great! I'm here to help you join as a team member with administrative access! 
@@ -130,7 +128,7 @@ What's your full name? (First and last name please)
         """
     else:
         # Need to determine entity type
-        return f"""
+        return """
 👋 **WELCOME TO KICKAI ONBOARDING!**
 
 I'm here to help you join our team! First, I need to know:
@@ -145,14 +143,14 @@ Please reply with either "Player" or "Team Member"
 
 def _handle_entity_type_step(user_input: str, chat_type: str) -> str:
     """Handle entity type determination."""
-    
+
     if not user_input:
         return "❌ Please specify whether you're registering as a 'Player' or 'Team Member'"
-        
+
     input_lower = user_input.lower().strip()
-    
-    if any(word in input_lower for word in ['player', 'play', 'match', 'football']):
-        return f"""
+
+    if any(word in input_lower for word in ["player", "play", "match", "football"]):
+        return """
 ⚽ **PLAYER REGISTRATION SELECTED!**
 
 Perfect! You'll be registered as a player for matches.
@@ -167,8 +165,10 @@ What's your full name? (First and last name please)
 
 📨 **EXAMPLE:** "John Smith" or "Sarah Jones"
         """
-    elif any(word in input_lower for word in ['team member', 'member', 'admin', 'coach', 'manager']):
-        return f"""
+    elif any(
+        word in input_lower for word in ["team member", "member", "admin", "coach", "manager"]
+    ):
+        return """
 🎯 **TEAM MEMBER REGISTRATION SELECTED!**
 
 Excellent! You'll be registered with administrative access.
@@ -197,13 +197,13 @@ Please choose one:
 
 def _handle_name_step(user_input: str, entity_type: str) -> str:
     """Handle name collection step."""
-    
+
     if not user_input:
         return "❌ Please provide your full name (first and last name)"
-        
+
     name = sanitize_input(user_input).strip()
     name_parts = name.split()
-    
+
     if len(name_parts) < 2:
         return f"""
 ❌ **NEED FULL NAME**
@@ -213,10 +213,10 @@ You provided: "{name}"
 Please provide both first and last name:
 📨 **EXAMPLE:** "John Smith" or "Sarah Jones"
         """
-        
+
     # Valid name provided
     entity_display = "player" if entity_type == "player" else "team member"
-    
+
     return f"""
 ✅ **NAME CONFIRMED:** {name}
 
@@ -233,13 +233,13 @@ Please provide your phone number in UK format.
 
 def _handle_phone_step(user_input: str, entity_type: str) -> str:
     """Handle phone collection step."""
-    
+
     if not user_input:
         return "❌ Please provide your phone number"
-        
+
     try:
         phone = normalize_phone(user_input)
-        
+
         if not phone:
             return f"""
 ❌ **INVALID PHONE FORMAT**
@@ -252,8 +252,8 @@ You provided: "{user_input}"
 
 Try again with correct format.
             """
-            
-        if not (phone.startswith('+44') or phone.startswith('07')):
+
+        if not (phone.startswith("+44") or phone.startswith("07")):
             return f"""
 ❌ **UK FORMAT REQUIRED**
 
@@ -265,7 +265,7 @@ You provided: "{user_input}"
 
 Please try again.
             """
-            
+
         # Valid phone number
         if entity_type == "player":
             return f"""
@@ -300,22 +300,22 @@ What role will you take on?
 
 Please type your preferred role.
             """
-            
+
     except Exception as e:
         return f"❌ Phone validation error: {e!s}"
 
 
 def _handle_role_position_step(user_input: str, entity_type: str) -> str:
     """Handle role/position collection step."""
-    
+
     if not user_input:
         if entity_type == "player":
             return "❌ Please specify your preferred position"
         else:
             return "❌ Please specify your administrative role"
-            
+
     input_clean = sanitize_input(user_input).strip().lower()
-    
+
     if entity_type == "player":
         if input_clean not in VALID_PLAYER_POSITIONS:
             valid_positions = ", ".join([pos.title() for pos in VALID_PLAYER_POSITIONS])
@@ -329,7 +329,7 @@ You provided: "{user_input}"
 
 Please choose one of the above positions.
             """
-        
+
         # Valid position
         return f"""
 ✅ **POSITION CONFIRMED:** {input_clean.title()}
@@ -349,7 +349,7 @@ Would you like to provide additional details?
 
 Type **"skip"** to proceed to registration, or provide additional info.
         """
-        
+
     else:  # team_member
         if input_clean not in VALID_TEAM_MEMBER_ROLES:
             valid_roles = ", ".join([role.title() for role in VALID_TEAM_MEMBER_ROLES])
@@ -363,7 +363,7 @@ You provided: "{user_input}"
 
 Please choose one of the above roles.
             """
-            
+
         # Valid role
         return f"""
 ✅ **ROLE CONFIRMED:** {input_clean.title()}
@@ -386,9 +386,9 @@ Type **"skip"** to proceed to registration, or provide additional info.
 
 def _handle_optional_info_step(user_input: str, entity_type: str) -> str:
     """Handle optional information step."""
-    
+
     if not user_input or user_input.lower().strip() == "skip":
-        return f"""
+        return """
 ✅ **READY FOR REGISTRATION!**
 
 📋 **FINAL CONFIRMATION:**
@@ -400,10 +400,10 @@ Type **"NO"** to cancel or make changes
 
 Proceed with registration?
         """
-    
+
     # Process optional information
     entity_display = "player" if entity_type == "player" else "team member"
-    
+
     return f"""
 ✅ **ADDITIONAL INFO NOTED:** {user_input}
 
@@ -419,13 +419,13 @@ Proceed with registration?
 
 def _handle_confirmation_step(user_input: str, entity_type: str) -> str:
     """Handle final confirmation step."""
-    
+
     if not user_input:
         return "❌ Please confirm with 'YES' or 'NO'"
-        
+
     input_clean = user_input.lower().strip()
-    
-    if input_clean in ['yes', 'y', 'confirm', 'proceed']:
+
+    if input_clean in ["yes", "y", "confirm", "proceed"]:
         entity_display = "player" if entity_type == "player" else "team member"
         return f"""
 🎉 **CONFIRMATION RECEIVED!**
@@ -434,8 +434,8 @@ def _handle_confirmation_step(user_input: str, entity_type: str) -> str:
 
 ⏳ **PROCESSING:** Please wait while I complete your registration.
         """
-    elif input_clean in ['no', 'n', 'cancel', 'stop']:
-        return f"""
+    elif input_clean in ["no", "n", "cancel", "stop"]:
+        return """
 ❌ **REGISTRATION CANCELLED**
 
 No problem! You can restart the onboarding process anytime.
@@ -460,18 +460,18 @@ Please respond with:
 def get_onboarding_progress(user_id: str, team_id: str) -> str:
     """
     Get current onboarding progress for a user.
-    
+
     Args:
         user_id: User ID
         team_id: Team ID
-        
+
     Returns:
         Current progress status
     """
     try:
         # This would integrate with a state management system
         # For now, return generic progress message
-        
+
         return f"""
 📊 **ONBOARDING PROGRESS**
 
@@ -483,7 +483,7 @@ def get_onboarding_progress(user_id: str, team_id: str) -> str:
 
 💡 **TIP:** I'll guide you step by step through the process!
         """
-        
+
     except Exception as e:
         logger.error(f"❌ Progress check error: {e}")
         return f"❌ Could not check progress: {e!s}"

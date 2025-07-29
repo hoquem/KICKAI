@@ -5,80 +5,110 @@ This module provides a centralized dependency injection container that manages
 all service dependencies and ensures proper initialization order.
 """
 
-from typing import Any, Dict, Optional
+import os
+from typing import Any
 
-from loguru import logger
-
-from kickai.core.database.database_manager import DatabaseManager
-from kickai.core.interfaces.service_interfaces import (
-    IContainerLifecycle,
-    IContainerStatistics,
-    IDatabaseManager,
-    IServiceRegistry,
-)
-from kickai.core.registry.service_registry import ServiceRegistry
+from kickai.database.firebase_client import get_firebase_client
 from kickai.database.interfaces import DataStoreInterface
+from kickai.database.mock_data_store import MockDataStore
 from kickai.features.registry import ServiceFactory, create_service_factory
 
 
-class DependencyContainer(IContainerLifecycle, IContainerStatistics):
-    """Centralized dependency injection container with improved architecture."""
+class DependencyContainer:
+    """Centralized dependency injection container."""
 
     def __init__(self):
-        # Initialize specialized components
-        self._service_registry = ServiceRegistry()
-        self._database_manager = DatabaseManager()
-        self._factory: Optional[ServiceFactory] = None
+        self._services: dict[type, Any] = {}
+        self._database: DataStoreInterface | None = None
+        self._factory: ServiceFactory | None = None
         self._initialized = False
 
-    def initialize(self) -> None:
+    def initialize(self):
         """Initialize the container with all required services."""
         if self._initialized:
-            logger.info("🔧 DependencyContainer: Container already initialized")
             return
 
+        # Phase 1: Initialize database first
+        self._initialize_database()
+
+        # Phase 2: Create service factory, passing the database explicitly
+        self._factory = create_service_factory(self, self._database)
+
+        # Phase 3: Create all services through factory
+        self._factory.create_all_services()
+
+        self._initialized = True
+
+    def _initialize_database(self):
+        """Initialize the database connection."""
+        # Check if mock data store is enabled
+        use_mock_datastore = os.getenv("USE_MOCK_DATASTORE", "false").lower() == "true"
+
+        if use_mock_datastore:
+            # Use mock data store for testing/development
+            from kickai.core.logging_config import logger
+
+            logger.info("🔧 Using Mock DataStore for development/testing")
+            self._database = MockDataStore()
+
+            # Initialize mock data store with default configurations
+            self._initialize_mock_data()
+        else:
+            # Use real Firebase client
+            from kickai.core.logging_config import logger
+
+            logger.info("🔧 Using Firebase client for production/testing")
+            firebase_client = get_firebase_client()
+            self._database = firebase_client
+
+        self._services[DataStoreInterface] = self._database
+
+    def _initialize_mock_data(self):
+        """Initialize mock data store with default configurations."""
         try:
-            logger.info("🔧 DependencyContainer: Starting initialization...")
+            import asyncio
+            from datetime import datetime
 
-            # Phase 1: Initialize database first
-            self._database_manager.initialize_database()
-            database = self._database_manager.get_database()
-            self._service_registry.register_service(DataStoreInterface, database)
+            from kickai.core.logging_config import logger
+            from kickai.features.team_administration.domain.entities.team import Team, TeamStatus
 
-            # Phase 2: Create service factory, passing the database explicitly
-            self._factory = create_service_factory(self, database)
+            async def create_mock_team():
+                # Create a mock team with bot configuration
+                mock_team = Team(
+                    id="KAI",
+                    name="KickAI Testing",
+                    status=TeamStatus.ACTIVE,
+                    description="Test team for KICKAI bot",
+                    created_by="system",
+                    created_at=datetime.now(),
+                    settings={
+                        "bot_token": "mock-bot-token-for-qa-testing",
+                        "main_chat_id": "-1001234567890",
+                        "leadership_chat_id": "-1001234567891",
+                        "bot_username": "kickai_testing_bot",
+                    },
+                    bot_id="KAI",
+                    bot_token="mock-bot-token-for-qa-testing",
+                    main_chat_id="-1001234567890",
+                    leadership_chat_id="-1001234567891",
+                )
 
-            # Phase 3: Create all services through factory
-            self._factory.create_all_services()
+                await self._database.create_team(mock_team)
+                logger.info("✅ Mock team configuration created in data store")
 
-            # Mark as initialized before verification to prevent circular calls
-            self._initialized = True
-            logger.info("✅ DependencyContainer: Initialization completed successfully")
+            # Run the async function
+            asyncio.run(create_mock_team())
 
         except Exception as e:
-            logger.error(f"❌ DependencyContainer: Initialization failed: {e}")
-            self._initialized = False
-            raise
+            from kickai.core.logging_config import logger
 
-    def is_initialized(self) -> bool:
-        """Check if container is initialized."""
-        return self._initialized
-
-    def reset(self) -> None:
-        """Reset the container state."""
-        try:
-            self._service_registry.clear_services()
-            self._factory = None
-            self._initialized = False
-            logger.info("🔄 DependencyContainer: Container reset completed")
-        except Exception as e:
-            logger.error(f"❌ DependencyContainer: Reset failed: {e}")
-            raise
+            logger.warning(f"⚠️ Failed to initialize mock data: {e}")
+            # Continue without mock data - not critical for startup
 
     def verify_services_ready(self) -> bool:
         """Verify that all required services are registered and ready."""
+        # Import the actual service classes that are being registered
         try:
-            # Import the actual service classes that are being registered
             from kickai.database.interfaces import DataStoreInterface
             from kickai.features.player_registration.domain.services.player_service import (
                 PlayerService,
@@ -93,113 +123,90 @@ class DependencyContainer(IContainerLifecycle, IContainerStatistics):
             missing_services = []
             for service_class in required_services:
                 try:
-                    # Check directly in the registry instead of going through get_service
-                    if not self._service_registry.has_service(service_class):
+                    service = self.get_service(service_class)
+                    if service is None:
                         missing_services.append(service_class.__name__)
                 except Exception:
                     missing_services.append(service_class.__name__)
 
             if missing_services:
-                logger.error(f"❌ DependencyContainer: Missing required services: {missing_services}")
+                from kickai.core.logging_config import logger
+
+                logger.error(f"❌ Missing required services: {missing_services}")
                 return False
 
-            logger.info("✅ DependencyContainer: All required services verified")
             return True
 
         except Exception as e:
-            logger.error(f"❌ DependencyContainer: Service verification failed: {e}")
+            from kickai.core.logging_config import logger
+
+            logger.error(f"❌ Service verification failed: {e}")
             return False
 
-    # Database management methods
     def get_database(self) -> DataStoreInterface:
         """Get the database interface."""
-        return self._database_manager.get_database()
+        if not self._initialized and self._database is None:
+            raise RuntimeError("Container not initialized. Call initialize() first.")
+        return self._database
 
-    def verify_database_connection(self) -> bool:
-        """Verify database connection is working."""
-        return self._database_manager.verify_database_connection()
-
-    # Service factory methods
     def get_factory(self) -> ServiceFactory:
         """Get the service factory."""
         if not self._initialized:
             raise RuntimeError("Container not initialized. Call initialize() first.")
         return self._factory
 
-    # Service registry methods (delegated to ServiceRegistry)
-    def register_service(self, interface: type, implementation: Any) -> None:
+    def register_service(self, interface: type, implementation: Any):
         """Register a service implementation with its interface."""
-        self._service_registry.register_service(interface, implementation)
+        self._services[interface] = implementation
 
-    def get_service(self, interface) -> Any:
+    def update_service(self, interface: type, implementation: Any):
+        """Update an existing service implementation."""
+        if interface in self._services:
+            self._services[interface] = implementation
+        else:
+            self._services[interface] = implementation
+
+    def get_service(self, interface: type | str) -> Any:
         """Get a service by its interface or name."""
-        if not self._initialized:
-            raise RuntimeError("Container not initialized. Call initialize() first.")
-        return self._service_registry.get_service(interface)
+        # Handle string-based service lookup
+        if isinstance(interface, str):
+            # Try to find by name in registered services
+            for service_type, service in self._services.items():
+                if service_type.__name__ == interface:
+                    return service
+            # If not found and container is initialized, raise error
+            if self._initialized:
+                raise RuntimeError(f"Service '{interface}' not registered.")
+            else:
+                raise RuntimeError(
+                    f"Service '{interface}' not registered (container may not be fully initialized yet)."
+                )
+
+        # Handle type-based service lookup (original behavior)
+        if interface not in self._services:
+            if not self._initialized:
+                raise RuntimeError(
+                    f"Service for interface {interface} not registered (container may not be fully initialized yet)."
+                )
+            else:
+                raise RuntimeError(f"Service for interface {interface} not registered.")
+        return self._services[interface]
 
     def has_service(self, interface: type) -> bool:
         """Check if a service is registered."""
         if not self._initialized:
             raise RuntimeError("Container not initialized. Call initialize() first.")
-        return self._service_registry.has_service(interface)
+        return interface in self._services
 
-    def get_all_services(self) -> Dict[type, Any]:
+    def get_all_services(self) -> dict[type, Any]:
         """Get all registered services."""
         if not self._initialized:
             raise RuntimeError("Container not initialized. Call initialize() first.")
-        return self._service_registry.get_all_services()
-
-    # String-based service lookup methods
-    def get_service_by_name(self, service_name: str) -> Any:
-        """Get a service by its name."""
-        if not self._initialized:
-            raise RuntimeError("Container not initialized. Call initialize() first.")
-        return self._service_registry.get_service_by_name(service_name)
-
-    def get_singleton(self, name: str) -> Any:
-        """Get a singleton service by name."""
-        if not self._initialized:
-            raise RuntimeError("Container not initialized. Call initialize() first.")
-        return self._service_registry.get_singleton(name)
-
-    # Container statistics methods
-    def get_service_count(self) -> int:
-        """Get the number of registered services."""
-        return self._service_registry.get_service_count()
-
-    def get_service_names(self) -> list[str]:
-        """Get list of registered service names."""
-        return self._service_registry.get_service_names()
-
-    def get_container_status(self) -> Dict[str, Any]:
-        """Get container status information."""
-        try:
-            return {
-                "initialized": self._initialized,
-                "service_count": self.get_service_count(),
-                "service_names": self.get_service_names(),
-                "database_initialized": self._database_manager.is_initialized(),
-                "database_connection_verified": self._database_manager.verify_database_connection() if self._database_manager.is_initialized() else False,
-            }
-        except Exception as e:
-            logger.error(f"❌ DependencyContainer: Error getting container status: {e}")
-            return {
-                "initialized": self._initialized,
-                "service_count": 0,
-                "service_names": [],
-                "database_initialized": False,
-                "database_connection_verified": False,
-                "error": str(e)
-            }
-
-    # Backward compatibility methods
-    def update_service(self, interface: type, implementation: Any) -> None:
-        """Update an existing service implementation."""
-        self._service_registry.update_service(interface, implementation)
+        return self._services.copy()
 
 
 # Global container instance
-_container: Optional[DependencyContainer] = None
+_container: DependencyContainer | None = None
 
 
 def get_container() -> DependencyContainer:
@@ -227,12 +234,26 @@ def get_service(interface: type) -> Any:
 def get_singleton(name: str) -> Any:
     """Get a singleton service by name (backward compatibility)."""
     container = get_container()
-    return container.get_singleton(name)
+
+    # Map common singleton names to their interfaces
+    singleton_map = {
+        "data_store": DataStoreInterface,
+        "database": DataStoreInterface,
+    }
+
+    if name in singleton_map:
+        return container.get_service(singleton_map[name])
+
+    # Try to find by name in registered services
+    for service_type, service in container.get_all_services().items():
+        if service_type.__name__.lower() == name.lower():
+            return service
+
+    raise KeyError(f"Singleton '{name}' not found")
 
 
 def ensure_container_initialized():
     """Ensure the container is initialized (backward compatibility)."""
     container = get_container()
-    if not container.is_initialized():
-        container.initialize()
+    container.initialize()
     return container

@@ -6,14 +6,13 @@ This module defines the Player entity for the player registration domain.
 Players represent football players, separate from Team Members who are administrators.
 A person can be both a Player and a Team Member, linked by user_id.
 """
-from typing import Optional
 
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
-from kickai.utils.user_id_generator import generate_user_id
 from kickai.core.enums import PlayerPosition
+from kickai.utils.user_id_generator import generate_user_id
 
 
 class PreferredFoot(Enum):
@@ -47,37 +46,37 @@ class Player:
     # Core identification fields
     user_id: str = ""  # Generated from telegram_id using generate_user_id()
     team_id: str = ""
-    telegram_id: Optional[str] = None
-    player_id: Optional[str] = None  # Team-specific player identifier (e.g., "KTI_MH_001")
+    telegram_id: str | None = None
+    player_id: str | None = None  # Team-specific player identifier (e.g., "KTI_MH_001")
 
     # Personal information
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    full_name: Optional[str] = None
-    username: Optional[str] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    full_name: str | None = None
+    username: str | None = None
 
     # Football-specific information
-    position: Optional[str] = None  # e.g., "Midfielder", "Forward"
-    preferred_foot: Optional[str] = None  # "left", "right", "both"
-    jersey_number: Optional[str] = None
+    position: str | None = None  # e.g., "Midfielder", "Forward"
+    preferred_foot: str | None = None  # "left", "right", "both"
+    jersey_number: str | None = None
 
     # Contact and personal information
-    phone_number: Optional[str] = None
-    email: Optional[str] = None
-    date_of_birth: Optional[str] = None
-    emergency_contact: Optional[str] = None
-    medical_notes: Optional[str] = None
+    phone_number: str | None = None
+    email: str | None = None
+    date_of_birth: str | None = None
+    emergency_contact: str | None = None
+    medical_notes: str | None = None
 
     # Status and approval
     status: str = "pending"  # pending, approved, rejected, active, inactive
 
     # Timestamps
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     # Metadata
-    source: Optional[str] = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
-    sync_version: Optional[str] = None
+    source: str | None = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
+    sync_version: str | None = None
 
     def __post_init__(self):
         """Validate and set defaults after initialization."""

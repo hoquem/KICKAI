@@ -12,7 +12,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any
 
 from loguru import logger
 from telegram.error import TelegramError
@@ -26,14 +26,16 @@ class InviteLinkService:
 
     def __init__(self, bot_token: str = None, database: DataStoreInterface = None):
         self.database = database
-        self.collection_name = "kickai_invite_links"  # TODO: Use constant from firestore_constants.py
+        self.collection_name = (
+            "kickai_invite_links"  # TODO: Use constant from firestore_constants.py
+        )
         self.bot_token = bot_token
         self._bot = None
-        
+
         # Validate database is provided
         if self.database is None:
             raise ValueError("Database interface is required for InviteLinkService")
-        
+
         # Get secret key from environment variable
         self._secret_key = os.getenv("KICKAI_INVITE_SECRET_KEY")
         if not self._secret_key:
@@ -106,7 +108,7 @@ class InviteLinkService:
         # Base64 encode for URL safety
         return base64.urlsafe_b64encode(combined_data.encode("utf-8")).decode("utf-8")
 
-    def _validate_secure_invite_data(self, invite_data: str) -> Optional[dict]:
+    def _validate_secure_invite_data(self, invite_data: str) -> dict | None:
         """
         Validate and decode secure invite data.
 
@@ -161,7 +163,7 @@ class InviteLinkService:
         player_position: str,
         main_chat_id: str,
         player_id: str = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a secure invite link for a player to join the main chat.
 
@@ -265,7 +267,7 @@ class InviteLinkService:
         member_phone: str,
         member_role: str,
         leadership_chat_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a secure invite link for a team member to join the leadership chat.
 
@@ -331,7 +333,7 @@ class InviteLinkService:
 
             if self.database is None:
                 raise ValueError("Database is not initialized in InviteLinkService")
-            
+
             await self.database.create_document(self.collection_name, invite_data, invite_id)
 
             logger.info(f"✅ Created secure team member invite link: {invite_id} for {member_name}")
@@ -351,7 +353,7 @@ class InviteLinkService:
 
     async def validate_and_use_invite_link(
         self, invite_link: str, user_id: str, username: str = None, secure_data: str = None
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Validate an invite link and mark it as used.
 
@@ -492,7 +494,7 @@ class InviteLinkService:
             logger.error(f"❌ Error creating Telegram invite link: {e}")
             raise
 
-    def _extract_invite_id_from_link(self, invite_link: str) -> Optional[str]:
+    def _extract_invite_id_from_link(self, invite_link: str) -> str | None:
         """
         Extract invite ID from a Telegram invite link.
 

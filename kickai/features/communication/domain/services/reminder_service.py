@@ -7,7 +7,7 @@ This module handles automated and manual reminders for player onboarding.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from kickai.core.settings import Settings
 from kickai.features.communication.domain.interfaces.reminder_service_interface import (
@@ -49,7 +49,7 @@ class ReminderService(IReminderService):
             "max_reminders": 3,
         }
 
-    async def check_and_send_reminders(self) -> List[ReminderMessage]:
+    async def check_and_send_reminders(self) -> list[ReminderMessage]:
         """Check for players who need reminders and send them."""
         try:
             players = await self.player_service.get_players_by_team(team_id=self.team_id)
@@ -67,7 +67,7 @@ class ReminderService(IReminderService):
             logging.error(f"Error checking and sending reminders: {e}")
             return []
 
-    async def send_automated_reminder(self, player: Player) -> Optional[ReminderMessage]:
+    async def send_automated_reminder(self, player: Player) -> ReminderMessage | None:
         """Send an automated reminder to a player."""
         try:
             reminder_number = player.reminders_sent + 1
@@ -141,10 +141,10 @@ class ReminderService(IReminderService):
 📋 Reminder Details:
 • Type: Manual Admin Reminder
 • Message: Custom reminder message
-• Sent: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+• Sent: {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 📊 Current Status:
-• Onboarding Progress: {player.get_onboarding_progress()['completed_steps']}/4 steps completed
+• Onboarding Progress: {player.get_onboarding_progress()["completed_steps"]}/4 steps completed
 • Time Since Last Activity: {self._get_time_since_last_activity(player)}
 • Previous Reminders: {player.reminders_sent - 1} (automated)
 
@@ -186,9 +186,9 @@ You started your KICKAI Team onboarding yesterday but haven't completed it yet.
 
 📊 Your Progress:
 🔄 Step 1: Basic Registration ✅ Completed
-🔄 Step 2: Emergency Contact {'✅ Completed' if progress['steps']['emergency_contact']['completed'] else '⏳ Pending'}
-🔄 Step 3: Date of Birth {'✅ Completed' if progress['steps']['date_of_birth']['completed'] else '⏳ Pending'}
-🔄 Step 4: FA Registration {'✅ Completed' if progress['steps']['fa_registration']['completed'] else '⏳ Pending'}
+🔄 Step 2: Emergency Contact {"✅ Completed" if progress["steps"]["emergency_contact"]["completed"] else "⏳ Pending"}
+🔄 Step 3: Date of Birth {"✅ Completed" if progress["steps"]["date_of_birth"]["completed"] else "⏳ Pending"}
+🔄 Step 4: FA Registration {"✅ Completed" if progress["steps"]["fa_registration"]["completed"] else "⏳ Pending"}
 
 💡 Need Help?
 • Reply with "help" for assistance
@@ -206,9 +206,9 @@ Your KICKAI Team onboarding is still incomplete. Let's get you set up!
 
 📊 Your Progress:
 🔄 Step 1: Basic Registration ✅ Completed
-🔄 Step 2: Emergency Contact {'✅ Completed' if progress['steps']['emergency_contact']['completed'] else '⏳ Pending'}
-🔄 Step 3: Date of Birth {'✅ Completed' if progress['steps']['date_of_birth']['completed'] else '⏳ Pending'}
-🔄 Step 4: FA Registration {'✅ Completed' if progress['steps']['fa_registration']['completed'] else '⏳ Pending'}
+🔄 Step 2: Emergency Contact {"✅ Completed" if progress["steps"]["emergency_contact"]["completed"] else "⏳ Pending"}
+🔄 Step 3: Date of Birth {"✅ Completed" if progress["steps"]["date_of_birth"]["completed"] else "⏳ Pending"}
+🔄 Step 4: FA Registration {"✅ Completed" if progress["steps"]["fa_registration"]["completed"] else "⏳ Pending"}
 
 💡 Quick Start:
 • Emergency Contact: Reply with "emergency: [name] [phone]"
@@ -226,9 +226,9 @@ This is your final reminder to complete your KICKAI Team onboarding.
 
 📊 Your Progress:
 🔄 Step 1: Basic Registration ✅ Completed
-🔄 Step 2: Emergency Contact {'✅ Completed' if progress['steps']['emergency_contact']['completed'] else '⏳ Pending'}
-🔄 Step 3: Date of Birth {'✅ Completed' if progress['steps']['date_of_birth']['completed'] else '⏳ Pending'}
-🔄 Step 4: FA Registration {'✅ Completed' if progress['steps']['fa_registration']['completed'] else '⏳ Pending'}
+🔄 Step 2: Emergency Contact {"✅ Completed" if progress["steps"]["emergency_contact"]["completed"] else "⏳ Pending"}
+🔄 Step 3: Date of Birth {"✅ Completed" if progress["steps"]["date_of_birth"]["completed"] else "⏳ Pending"}
+🔄 Step 4: FA Registration {"✅ Completed" if progress["steps"]["fa_registration"]["completed"] else "⏳ Pending"}
 
 ⚠️ Action Required:
 Please complete your onboarding within 24 hours to avoid delays.
@@ -240,7 +240,7 @@ Please complete your onboarding within 24 hours to avoid delays.
 
 Let's get you fully registered!"""
 
-    async def _generate_payment_reminder_message(self, player: Player, payments: List[Any]) -> str:
+    async def _generate_payment_reminder_message(self, player: Player, payments: list[Any]) -> str:
         """Generate payment reminder message."""
         total_amount = sum(payment.amount for payment in payments)
 
@@ -276,9 +276,9 @@ Your team admin has sent you a reminder to complete your onboarding.
 
 📊 Your Progress:
 🔄 Step 1: Basic Registration ✅ Completed
-🔄 Step 2: Emergency Contact {'✅ Completed' if progress['steps']['emergency_contact']['completed'] else '⏳ Pending'}
-🔄 Step 3: Date of Birth {'✅ Completed' if progress['steps']['date_of_birth']['completed'] else '⏳ Pending'}
-🔄 Step 4: FA Registration {'✅ Completed' if progress['steps']['fa_registration']['completed'] else '⏳ Pending'}
+🔄 Step 2: Emergency Contact {"✅ Completed" if progress["steps"]["emergency_contact"]["completed"] else "⏳ Pending"}
+🔄 Step 3: Date of Birth {"✅ Completed" if progress["steps"]["date_of_birth"]["completed"] else "⏳ Pending"}
+🔄 Step 4: FA Registration {"✅ Completed" if progress["steps"]["fa_registration"]["completed"] else "⏳ Pending"}
 
 💡 Quick Commands:
 • /status - Check your progress
@@ -310,7 +310,7 @@ Please complete your onboarding as soon as possible!"""
         # This would send a notification to admin
         logging.info(f"Reminder #{reminder_number} sent to {player.full_name} ({player.player_id})")
 
-    async def get_players_needing_reminders(self) -> List[Player]:
+    async def get_players_needing_reminders(self) -> list[Player]:
         """Get list of players who need reminders."""
         try:
             players = await self.player_service.get_players_by_team(team_id=self.team_id)

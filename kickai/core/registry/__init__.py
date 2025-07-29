@@ -1,11 +1,18 @@
-#!/usr/bin/env python3
 """
-Registry Package
+Registry module for KICKAI system.
 
-This package contains service registry utilities following
-the Single Responsibility Principle.
+This module provides base classes and utilities for implementing
+consistent registry patterns across the system.
 """
 
-from .service_registry import ServiceRegistry
+from .base import BaseRegistry, RegistryItem, RegistryType
+from .discovery import EntryPointDiscovery
+from .validator import RegistryValidator
 
-__all__ = ["ServiceRegistry"]
+__all__ = [
+    "BaseRegistry",
+    "EntryPointDiscovery",
+    "RegistryItem",
+    "RegistryType",
+    "RegistryValidator",
+]
