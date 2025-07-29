@@ -5,7 +5,6 @@ Simplified Team Member Service
 This module provides simplified team member management functionality
 for the new /addmember command that only requires name and phone number.
 """
-from typing import Optional
 
 from datetime import datetime
 
@@ -82,14 +81,53 @@ class SimplifiedTeamMemberService:
             logger.error(f"Error adding team member {name}: {e}")
             return False, f"❌ Failed to add team member: {e!s}"
 
-    async def get_team_member_by_phone(self, phone: str, team_id: str) -> Optional[TeamMember]:
-        """Get team member by phone number."""
+    async def get_team_member_by_phone(self, phone: str, team_id: str) -> TeamMember | None:
+        """Get team member by phone number using phonenumbers library for flexible matching."""
         try:
+            # Use phonenumbers library for proper phone matching
+            from kickai.utils.phone_utils import get_phone_variants, normalize_phone
+
+            # Normalize the search phone number
+            normalized_search_phone = normalize_phone(phone)
+            if not normalized_search_phone:
+                logger.warning(f"Could not normalize phone number: {phone}")
+                return None
+
+            # Get all possible variants of the search phone number
+            search_variants = get_phone_variants(phone)
+
             members = await self.team_repository.get_team_members_by_team(team_id)
+
             for member in members:
-                if member.phone_number == phone:
+                if not member.phone_number:
+                    continue
+
+                # Normalize the member's phone number
+                normalized_member_phone = normalize_phone(member.phone_number)
+                if not normalized_member_phone:
+                    continue
+
+                # Check for exact match with normalized numbers
+                if normalized_member_phone == normalized_search_phone:
+                    logger.info(
+                        f"Found team member by phone: {member.full_name} ({normalized_member_phone})"
+                    )
                     return member
+
+                # Check for match with any variant
+                member_variants = get_phone_variants(member.phone_number)
+                for search_variant in search_variants:
+                    if search_variant in member_variants:
+                        logger.info(
+                            f"Found team member by phone variant: {member.full_name} ({normalized_member_phone})"
+                        )
+                        return member
+
+            logger.info(
+                f"No team member found for phone: {phone} (normalized: {normalized_search_phone})"
+            )
             return None
+
         except Exception as e:
             logger.error(f"Error getting team member by phone {phone}: {e}")
             return None

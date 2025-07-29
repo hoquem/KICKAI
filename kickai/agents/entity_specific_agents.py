@@ -10,7 +10,7 @@ at the orchestration level and ensures proper tool access control.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from loguru import logger
 
@@ -35,9 +35,9 @@ class EntityValidationResult:
     """Result of entity validation."""
 
     is_valid: bool
-    entity_type: Optional[EntityType] = None
-    error_message: Optional[str] = None
-    suggested_agent: Optional[AgentRole] = None
+    entity_type: EntityType | None = None
+    error_message: str | None = None
+    suggested_agent: AgentRole | None = None
 
 
 @dataclass
@@ -48,7 +48,7 @@ class EntityOperationContext:
     entity_type: EntityType
     agent_role: AgentRole
     tool_id: str
-    parameters: Dict[str, Any]
+    parameters: dict[str, Any]
     validation_result: EntityValidationResult
 
 
@@ -57,13 +57,13 @@ class EntityValidator(ABC):
 
     @abstractmethod
     def validate_operation(
-        self, operation: str, parameters: Dict[str, Any]
+        self, operation: str, parameters: dict[str, Any]
     ) -> EntityValidationResult:
         """Validate if an operation is appropriate for the given parameters."""
         pass
 
     @abstractmethod
-    def get_entity_type_from_parameters(self, parameters: Dict[str, Any]) -> Optional[EntityType]:
+    def get_entity_type_from_parameters(self, parameters: dict[str, Any]) -> EntityType | None:
         """Extract entity type from operation parameters."""
         pass
 
@@ -91,11 +91,11 @@ class PlayerTeamMemberValidator(EntityValidator):
         self.ambiguous_keywords = {"name", "phone", "email", "telegram_id", "user_id", "status"}
 
     def validate_operation(
-        self, operation: str, parameters: Dict[str, Any]
+        self, operation: str, parameters: dict[str, Any]
     ) -> EntityValidationResult:
         """Validate if an operation is appropriate for the given parameters."""
         # Check if this is a general command that doesn't require entity validation
-        general_commands = {"/start", "/help", "/ping", "/version", "/info"}
+        general_commands = {"/help", "/ping", "/version", "/info"}
         operation_lower = operation.lower().strip()
 
         if operation_lower in general_commands:
@@ -148,7 +148,7 @@ class PlayerTeamMemberValidator(EntityValidator):
 
         return EntityValidationResult(is_valid=True, entity_type=entity_type)
 
-    def get_entity_type_from_parameters(self, parameters: Dict[str, Any]) -> Optional[EntityType]:
+    def get_entity_type_from_parameters(self, parameters: dict[str, Any]) -> EntityType | None:
         """Extract entity type from operation parameters."""
         param_keys = set(parameters.keys())
 
@@ -170,7 +170,7 @@ class PlayerTeamMemberValidator(EntityValidator):
 
         return None
 
-    def _infer_entity_type_from_context(self, parameters: Dict[str, Any]) -> Optional[EntityType]:
+    def _infer_entity_type_from_context(self, parameters: dict[str, Any]) -> EntityType | None:
         """Infer entity type from context when parameters are ambiguous."""
         # Check for specific values that indicate entity type
         if "role" in parameters:
@@ -190,7 +190,7 @@ class PlayerTeamMemberValidator(EntityValidator):
 
     def get_entity_type_from_operation(
         self, operation: str, user_context: dict = None
-    ) -> Optional[EntityType]:
+    ) -> EntityType | None:
         """Extract entity type from operation name with simplified chat-based logic."""
         operation_lower = operation.lower().strip()
 
@@ -231,7 +231,6 @@ class PlayerTeamMemberValidator(EntityValidator):
                 elif command_name in [
                     "/addplayer",
                     "/add_player",
-                    "/register",
                     "/approve",
                     "/reject",
                     "/player",
@@ -251,7 +250,6 @@ class PlayerTeamMemberValidator(EntityValidator):
         player_operations = {
             "/addplayer",
             "/add_player",
-            "/register",
             "/approve",
             "/reject",
             "/player",
@@ -287,7 +285,7 @@ class EntitySpecificAgentManager:
 
         logger.info("🔧 EntitySpecificAgentManager initialized")
 
-    def _initialize_agent_entity_mappings(self) -> Dict[AgentRole, List[EntityType]]:
+    def _initialize_agent_entity_mappings(self) -> dict[AgentRole, list[EntityType]]:
         """Initialize mappings between agents and entity types they can handle."""
         return {
             AgentRole.PLAYER_COORDINATOR: [EntityType.PLAYER],
@@ -311,14 +309,14 @@ class EntitySpecificAgentManager:
 
     def get_appropriate_agent_for_entity(
         self, entity_type: EntityType, operation: str
-    ) -> Optional[AgentRole]:
+    ) -> AgentRole | None:
         """Get the most appropriate agent for a given entity type and operation."""
         # Extract just the command name (before any parameters) for proper routing
         operation_lower = operation.lower().strip()
         command_name = operation_lower.split()[0] if operation_lower else ""
 
         if entity_type == EntityType.PLAYER:
-            if any(keyword in command_name for keyword in ["/register", "/onboard", "/approve"]):
+            if any(keyword in command_name for keyword in ["/onboard", "/approve"]):
                 return AgentRole.ONBOARDING_AGENT
             elif any(keyword in command_name for keyword in ["/addplayer", "/add_player"]):
                 return AgentRole.PLAYER_COORDINATOR
@@ -369,7 +367,7 @@ class EntitySpecificAgentManager:
         return self.tool_registry.validate_tool_access(tool_id, agent_role.value, entity_type)
 
     def create_entity_operation_context(
-        self, operation: str, agent_role: AgentRole, tool_id: str, parameters: Dict[str, Any]
+        self, operation: str, agent_role: AgentRole, tool_id: str, parameters: dict[str, Any]
     ) -> EntityOperationContext:
         """Create a context for entity-specific operations."""
         validation_result = self.validator.validate_operation(operation, parameters)
@@ -386,7 +384,7 @@ class EntitySpecificAgentManager:
 
     def get_entity_specific_tools(
         self, agent_role: AgentRole, entity_type: EntityType
-    ) -> List[str]:
+    ) -> list[str]:
         """Get tools that are appropriate for a specific agent and entity type."""
         if not self.validate_agent_entity_access(agent_role, entity_type):
             return []
@@ -397,9 +395,9 @@ class EntitySpecificAgentManager:
     def route_operation_to_agent(
         self,
         operation: str,
-        parameters: Dict[str, Any],
-        available_agents: Dict[AgentRole, "ConfigurableAgent"],
-    ) -> Optional[AgentRole]:
+        parameters: dict[str, Any],
+        available_agents: dict[AgentRole, "ConfigurableAgent"],
+    ) -> AgentRole | None:
         """Route an operation to the most appropriate agent using simplified chat-based logic."""
         # Extract user context from parameters for simplified routing
         user_context = {}
@@ -428,7 +426,7 @@ class EntitySpecificAgentManager:
         return None
 
     def validate_agent_tool_combination(
-        self, agent_role: AgentRole, tool_id: str, parameters: Dict[str, Any]
+        self, agent_role: AgentRole, tool_id: str, parameters: dict[str, Any]
     ) -> bool:
         """Validate if an agent can use a specific tool with given parameters."""
         entity_type = self.validator.get_entity_type_from_parameters(parameters)
@@ -449,19 +447,19 @@ class EntityAwareAgentContext(AgentContext):
         tool_registry: ToolRegistry,
         team_memory: Any,
         config: Any = None,
-        entity_type: Optional[EntityType] = None,
+        entity_type: EntityType | None = None,
     ):
         super().__init__(role, team_id, llm, tool_registry, config, team_memory)
         self.entity_type = entity_type
         self.entity_manager = EntitySpecificAgentManager(tool_registry)
 
     def validate_entity_operation(
-        self, operation: str, parameters: Dict[str, Any]
+        self, operation: str, parameters: dict[str, Any]
     ) -> EntityValidationResult:
         """Validate if this agent can perform the given operation."""
         return self.entity_manager.validator.validate_operation(operation, parameters)
 
-    def get_entity_specific_tools(self) -> List[str]:
+    def get_entity_specific_tools(self) -> list[str]:
         """Get tools appropriate for this agent's entity type."""
         if self.entity_type is None:
             return []
@@ -476,13 +474,13 @@ def create_entity_specific_agent(
     tool_registry: ToolRegistry,
     team_memory: Any,
     config: Any = None,
-    entity_type: Optional[EntityType] = None,
+    entity_type: EntityType | None = None,
 ) -> "ConfigurableAgent":
     """Create an entity-specific agent with proper validation and temperature override."""
-    
+
     # Apply agent-specific temperature override for data-critical agents
     agent_specific_llm = _get_agent_specific_llm_with_temperature(llm, role)
-    
+
     context = EntityAwareAgentContext(
         team_id=team_id,
         role=role,
@@ -494,75 +492,50 @@ def create_entity_specific_agent(
     )
 
     from .configurable_agent import ConfigurableAgent
+
     return ConfigurableAgent(context)
 
 
 def _get_agent_specific_llm_with_temperature(base_llm: Any, role: AgentRole) -> Any:
-    """Apply agent-specific temperature settings to prevent hallucination."""
+    """Apply agent-specific model and temperature settings using configuration system."""
     try:
-        # Set temperature 0.1 for data-critical agents to prevent hallucination
-        data_critical_agents = [
-            AgentRole.PLAYER_COORDINATOR,
-            AgentRole.HELP_ASSISTANT,
-            AgentRole.MESSAGE_PROCESSOR,
-            AgentRole.FINANCE_MANAGER
-        ]
-        
-        # Set temperature 0.2 for onboarding agent
-        onboarding_agents = [
-            AgentRole.ONBOARDING_AGENT
-        ]
-        
-        # Set temperature 0.3 for administrative agents
-        administrative_agents = [
-            AgentRole.TEAM_MANAGER,
-            AgentRole.AVAILABILITY_MANAGER
-        ]
+        from kickai.config.agent_models import get_agent_model_config, get_fallback_config
+        from kickai.core.settings import get_settings
 
-        if role in data_critical_agents:
-            temperature = 0.1
-        elif role in onboarding_agents:
-            temperature = 0.2
-        elif role in administrative_agents:
-            temperature = 0.3
-        else:
-            # Return original LLM for creative agents (0.7 default)
-            logger.info(f"🌡️ Using default temperature for {role.value} agent")
-            return base_llm
+        settings = get_settings()
 
-        # Create a copy of the LLM with appropriate temperature
-        if hasattr(base_llm, 'temperature'):
-            # Check if this is our RobustLiteLLMChatModel
-            if hasattr(base_llm, 'model_name') and hasattr(base_llm, 'api_key'):
-                # For our RobustLiteLLMChatModel
-                agent_llm = type(base_llm)(
-                    model_name=base_llm.model_name,
-                    api_key=base_llm.api_key,
-                    temperature=temperature,
-                    timeout=base_llm.timeout,
-                    max_retries=base_llm.max_retries
-                )
-                logger.info(f"🌡️ CRITICAL FIX: Set temperature {temperature} for {role.value} agent (ENTITY-SPECIFIC PATH)")
-                return agent_llm
-            else:
-                # For other LLM types (OpenAI, etc.)
-                agent_llm = type(base_llm)(
-                    model_name=getattr(base_llm, 'model_name', 'gpt-4'),
-                    temperature=temperature,
-                    **{k: v for k, v in base_llm.__dict__.items()
-                       if k not in ['temperature', 'model_name']}
-                )
-                logger.info(f"🌡️ CRITICAL FIX: Set temperature {temperature} for {role.value} agent (ENTITY-SPECIFIC PATH)")
-                return agent_llm
-        else:
-            logger.warning(f"⚠️ Could not set temperature for LLM type: {type(base_llm)}")
+        # Get agent-specific model config
+        model_config = get_agent_model_config(role, settings.ai_provider)
 
-        # Return original LLM if temperature setting fails
-        return base_llm
+        if not model_config:
+            logger.warning(
+                f"No model config for {role.value} with {settings.ai_provider.value}, using fallback"
+            )
+            model_config = get_fallback_config(role)
+
+        # Create agent-specific LLM with proper model and temperature
+        from kickai.utils.llm_factory import LLMConfig, LLMFactory
+
+        agent_config = LLMConfig(
+            provider=settings.ai_provider,
+            model_name=model_config["model"],
+            api_key=settings.get_ai_api_key(),
+            temperature=model_config["temperature"],
+            timeout_seconds=settings.ai_timeout,
+            max_retries=settings.ai_max_retries,
+        )
+
+        agent_llm = LLMFactory.create_llm(agent_config)
+
+        logger.info(
+            f"🤖 Created {role.value} agent with {settings.ai_provider.value}:{model_config['model']} (temp={model_config['temperature']})"
+        )
+
+        return agent_llm
 
     except Exception as e:
-        logger.warning(f"⚠️ Failed to create agent-specific LLM for {role.value}: {e}")
-        # Return original LLM if creation fails
+        logger.error(f"Failed to create agent-specific LLM for {role.value}: {e}")
+        logger.info(f"Falling back to base LLM for {role.value}")
         return base_llm
 
 

@@ -1,57 +1,43 @@
 # KICKAI Codebase Index
 
-**Version:** 3.1  
-**Status:** Production Ready  
-**Last Updated:** December 2024  
-**Architecture:** CrewAI Agents Architecture First with 8-Agent CrewAI System
+## Overview
+KICKAI is a football team management bot built with agentic Clean Architecture using CrewAI. The system processes both slash commands and natural language through a unified 8-agent processing pipeline.
 
-## 🎯 Project Overview
+## Architecture Overview
 
-KICKAI is an AI-powered football team management system built **CrewAI agents architecture first**. The system uses a sophisticated 8-agent CrewAI architecture to provide intelligent, context-aware responses to team management needs through **CrewAI native features only**.
+### Agentic Clean Architecture with CrewAI
+KICKAI is built on a **unified processing pipeline** where both slash commands and natural language requests are processed through the same 8-agent CrewAI system.
 
-### 🚨 **Critical Architecture Principle**
-- **CrewAI Native Features Only**: Always use CrewAI's built-in capabilities
-- **No Custom Workarounds**: Avoid inventing custom solutions when CrewAI provides native support
-- **Agent-First Design**: All processing goes through CrewAI agents
-- **Native Tool Integration**: Use CrewAI's native tool registration and parameter passing
-- **Unified Agent Orchestration**: Single CrewAI orchestration pipeline for all requests
+#### Core Processing Flow
+1. **Input Processing** → Handle slash commands and natural language
+2. **Unified Processing** → Both paths converge to `_handle_crewai_processing`
+3. **CrewAI Orchestration** → Single processing pipeline for all requests
+4. **Agent Routing** → Context-aware agent selection
+5. **Task Execution** → Specialized agents execute domain-specific tasks
 
-### Core Technology Stack
-- **AI Engine**: CrewAI with Google Gemini/OpenAI/Ollama support (Native CrewAI features only)
-- **Database**: Firebase Firestore with real-time synchronization
-- **Bot Platform**: Telegram Bot API (python-telegram-bot)
-- **Payment Processing**: Collectiv API integration through CrewAI agents
-- **Deployment**: Railway with Docker
-- **Testing**: pytest with comprehensive test suite
-- **Architecture**: Clean Architecture with CrewAI agents architecture first
-- **Code Quality**: Ruff for linting/formatting, mypy for type checking
+#### 8-Agent System Architecture
+- **MESSAGE_PROCESSOR**: Primary interface, intent analysis, message routing
+- **PLAYER_COORDINATOR**: Player registration, status management, individual support
+- **TEAM_MANAGER**: Team administration, member management, leadership operations
+- **SQUAD_SELECTOR**: Match operations, squad selection, player availability
+- **AVAILABILITY_MANAGER**: Availability tracking, match availability management
+- **HELP_ASSISTANT**: Context-aware help, command guidance, user support
+- **ONBOARDING_AGENT**: Comprehensive dual-entity onboarding for both players and team members
+- **SYSTEM_INFRASTRUCTURE**: System health, monitoring, error logging
 
-## 🏗️ System Architecture
+### Context-Aware Command Processing
+Commands behave differently based on chat context:
 
-### High-Level Architecture
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Telegram Bot  │    │   CrewAI Agents │    │   Firebase      │
-│   Interface     │◄──►│   (8 Agents)    │◄──►│   Firestore     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Unified Input  │    │  CrewAI Native  │    │  Data Models    │
-│  Processing     │    │  Orchestration  │    │  (Clean Arch)   │
-│  (All → CrewAI) │    │  (Native Tools) │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
+**Main Chat:**
+- `/list` → Shows active players only (via PLAYER_COORDINATOR)
+- `/myinfo` → Player status information
+- `/status` → Player registration status
 
-### Architectural Principles
-- **CrewAI Native Features Only**: Always use CrewAI's built-in capabilities and avoid custom workarounds
-- **Agent-First Design**: All processing goes through CrewAI agents - no dedicated command handlers
-- **Clean Architecture**: Layered dependencies with clear separation of concerns
-- **Dependency Inversion**: High-level modules don't depend on low-level modules
-- **Interface Segregation**: Services depend on interfaces, not implementations
-- **Single Responsibility**: Each module has one clear purpose
-- **Feature-First Organization**: Related functionality grouped together
-- **Unified Agent Orchestration**: Single CrewAI orchestration pipeline for all requests
+**Leadership Chat:**
+- `/list` → Shows all players with detailed status (via MESSAGE_PROCESSOR)
+- `/approve` → Player approval workflow
+- `/addplayer` → Direct player addition
+- `/addmember` → Team member management
 
 ## 📁 Directory Structure
 

@@ -66,6 +66,7 @@ class AIProvider(Enum):
 
     OLLAMA = "ollama"
     GEMINI = "gemini"
+    HUGGINGFACE = "huggingface"
     OPENAI = "openai"
     MOCK = "mock"
 

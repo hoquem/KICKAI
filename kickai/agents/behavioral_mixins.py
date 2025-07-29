@@ -18,7 +18,6 @@ from kickai.core.exceptions import (
     InputValidationError,
     KICKAIError,
 )
-from typing import Dict, List, Optional, Union
 from kickai.features.team_administration.domain.interfaces.team_service_interface import (
     ITeamService,
 )
@@ -253,7 +252,7 @@ class CommandFallbackMixin(BaseBehavioralMixin):
         return []  # This mixin handles failed commands, not specific commands
 
     async def process_failed_command(
-        self, failed_command: str, error_message: str, user_context: Dict[str, Any]
+        self, failed_command: str, error_message: str, user_context: dict[str, Any]
     ) -> str:
         """Process a failed command and provide helpful suggestions."""
         try:
@@ -284,7 +283,7 @@ class CommandFallbackMixin(BaseBehavioralMixin):
             return "❌ Sorry, I encountered an unexpected error processing your request. Please try again later or contact support."
 
     async def _analyze_failed_command(
-        self, failed_command: str, error_message: str, user_context: Dict[str, Any]
+        self, failed_command: str, error_message: str, user_context: dict[str, Any]
     ) -> str:
         """Analyze a failed command and provide helpful suggestions."""
         try:
@@ -492,7 +491,7 @@ class LearningOptimizationMixin(BaseBehavioralMixin):
         return "learning_optimization"
 
     def get_supported_commands(self) -> list:
-        return ["/learn", "/optimize", "/patterns"]
+        return ["/optimize", "/patterns"]
 
     async def handle_learn_command(self, parameters: dict) -> str:
         """Handle learning commands."""
@@ -534,7 +533,7 @@ class OnboardingMixin(BaseBehavioralMixin):
         return "onboarding"
 
     def get_supported_commands(self) -> list:
-        return ["/onboard", "/progress", "/complete_registration"]
+        return ["/onboard", "/complete_registration"]
 
     async def handle_onboard_command(self, parameters: dict) -> str:
         """Handle onboarding commands."""
@@ -900,7 +899,7 @@ class PlayerAdditionMixin(BaseBehavioralMixin):
         return ["/addplayer"]
 
     async def handle_addplayer_command(
-        self, message_text: str, execution_context: Dict[str, Any]
+        self, message_text: str, execution_context: dict[str, Any]
     ) -> str:
         """
         Handle /addplayer command - this should be routed through the agent system.
@@ -926,7 +925,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
         return ["/addmember", "/add_member", "/addteammember"]
 
     async def handle_addmember_command(
-        self, message_text: str, execution_context: Dict[str, Any]
+        self, message_text: str, execution_context: dict[str, Any]
     ) -> str:
         """
         Handle /addmember command using agent-based processing.
@@ -1078,7 +1077,7 @@ class TeamMemberAdditionMixin(BaseBehavioralMixin):
 • Status: Active
 
 🔗 Unique Invite Link for Leadership Chat:
-{invite_result['invite_link']}
+{invite_result["invite_link"]}
 
 📋 Next Steps:
 1. Send the invite link to {name}
@@ -1121,7 +1120,7 @@ MIXIN_REGISTRY = {
 }
 
 
-def get_mixin_for_role(role) -> Optional[BaseBehavioralMixin]:
+def get_mixin_for_role(role) -> BaseBehavioralMixin | None:
     """Get the appropriate mixin for a given agent role."""
     # Handle both string and AgentRole enum
     if hasattr(role, "value"):

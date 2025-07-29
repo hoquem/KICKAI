@@ -8,7 +8,7 @@ lifecycle management, and auto-wiring capabilities.
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, TypeVar, Optional, Union, List, Dict
+from typing import Any, TypeVar
 
 from loguru import logger
 
@@ -28,19 +28,19 @@ class ServiceRegistration:
     """Service registration metadata."""
 
     interface: type
-    implementation: Optional[type] = None
+    implementation: type | None = None
     scope: ServiceScope = ServiceScope.SINGLETON
-    factory: Optional[Callable] = None
-    dependencies: Optional[List[type]] = None
+    factory: Callable | None = None
+    dependencies: list[type] | None = None
 
 
 class ModernDIContainer:
     """Modern dependency injection container with scoping and lifecycle management."""
 
     def __init__(self):
-        self._registrations: Dict[type, ServiceRegistration] = {}
-        self._singletons: Dict[type, Any] = {}
-        self._request_scope: Dict[type, Any] = {}
+        self._registrations: dict[type, ServiceRegistration] = {}
+        self._singletons: dict[type, Any] = {}
+        self._request_scope: dict[type, Any] = {}
         self._initialized = False
 
         logger.info("🔧 Modern DI Container initialized")
@@ -123,7 +123,7 @@ class ModernDIContainer:
         self._request_scope.clear()
         logger.debug("🔄 Request scope ended")
 
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """Validate container configuration."""
         errors = []
 
@@ -133,7 +133,7 @@ class ModernDIContainer:
 
         return errors
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get container statistics."""
         return {
             "total_registrations": len(self._registrations),

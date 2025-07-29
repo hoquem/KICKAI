@@ -6,10 +6,6 @@ This module provides intelligent linking between player and team member entities
 for users who have both roles, ensuring data consistency and unified profiles.
 """
 
-import logging
-from typing import Dict, List, Optional, Tuple
-
-from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 from pydantic import BaseModel
 
@@ -17,58 +13,57 @@ from kickai.core.dependency_container import get_container
 from kickai.features.player_registration.domain.services.player_registration_service import (
     PlayerRegistrationService,
 )
+from kickai.utils.crewai_tool_decorator import tool
 
 
 class EntityLinkage(BaseModel):
     """Entity linkage information."""
-    
+
     user_id: str
     team_id: str
-    player_data: Optional[Dict] = None
-    member_data: Optional[Dict] = None
+    player_data: dict | None = None
+    member_data: dict | None = None
     linked: bool = False
     sync_status: str = "none"  # none, partial, full
-    conflicts: List[str] = []
+    conflicts: list[str] = []
 
 
 @tool("link_player_member_profiles")
 def link_player_member_profiles(
-    user_id: str,
-    team_id: str,
-    merge_strategy: str = "preserve_both"
+    user_id: str, team_id: str, merge_strategy: str = "preserve_both"
 ) -> str:
     """
     Link existing player and team member profiles for the same user.
-    
+
     Args:
         user_id: User ID to link profiles for
         team_id: Team ID
         merge_strategy: "preserve_both", "prefer_player", "prefer_member"
-        
+
     Returns:
         Linking result and profile status
     """
     try:
         container = get_container()
         registration_service = container.get_service(PlayerRegistrationService)
-        
+
         if not registration_service:
             return "❌ Registration service not available for profile linking"
-            
+
         # In a real implementation, this would:
         # 1. Fetch both player and team member records
         # 2. Compare data for conflicts
         # 3. Merge according to strategy
         # 4. Update records with linkage
-        
+
         logger.info(f"🔗 Linking profiles for user {user_id} in team {team_id}")
-        
+
         return f"""
 🔗 **PROFILE LINKING INITIATED**
 
 👤 **User:** {user_id}
 🏆 **Team:** {team_id}
-🔄 **Strategy:** {merge_strategy.replace('_', ' ').title()}
+🔄 **Strategy:** {merge_strategy.replace("_", " ").title()}
 
 📊 **LINKING PROCESS:**
 ✅ Player profile found
@@ -87,7 +82,7 @@ def link_player_member_profiles(
 
 Your player and team member profiles are now connected! 🤝
         """
-        
+
     except Exception as e:
         logger.error(f"❌ Profile linking error: {e}")
         return f"❌ Could not link profiles: {e!s}"
@@ -95,38 +90,35 @@ Your player and team member profiles are now connected! 🤝
 
 @tool("detect_data_conflicts")
 def detect_data_conflicts(
-    user_id: str,
-    team_id: str,
-    player_data: str = None,
-    member_data: str = None
+    user_id: str, team_id: str, player_data: str = None, member_data: str = None
 ) -> str:
     """
     Detect conflicts between player and team member data.
-    
+
     Args:
         user_id: User ID to check
         team_id: Team ID
         player_data: Player data (JSON string)
         member_data: Member data (JSON string)
-        
+
     Returns:
         Conflict detection results and resolution suggestions
     """
     try:
         # In a real implementation, this would parse the JSON data
         # and compare fields for conflicts
-        
+
         # Simulate conflict detection
         conflicts_found = []
-        
+
         # Common conflict scenarios
         potential_conflicts = [
             "Phone number mismatch",
-            "Name spelling differences", 
+            "Name spelling differences",
             "Email address conflicts",
-            "Emergency contact differences"
+            "Emergency contact differences",
         ]
-        
+
         # For demo purposes, simulate some conflicts
         if user_id and team_id:
             return f"""
@@ -153,7 +145,7 @@ def detect_data_conflicts(
             """
         else:
             return "❌ Insufficient data for conflict analysis"
-            
+
     except Exception as e:
         logger.error(f"❌ Conflict detection error: {e}")
         return f"❌ Could not detect conflicts: {e!s}"
@@ -161,58 +153,56 @@ def detect_data_conflicts(
 
 @tool("synchronize_profile_data")
 def synchronize_profile_data(
-    user_id: str,
-    team_id: str,
-    sync_direction: str = "bidirectional"
+    user_id: str, team_id: str, sync_direction: str = "bidirectional"
 ) -> str:
     """
     Synchronize data between linked player and team member profiles.
-    
+
     Args:
         user_id: User ID to synchronize
         team_id: Team ID
         sync_direction: "player_to_member", "member_to_player", "bidirectional"
-        
+
     Returns:
         Synchronization results
     """
     try:
         container = get_container()
-        
+
         # In a real implementation, this would:
         # 1. Identify linked profiles
         # 2. Determine which data to sync based on direction
         # 3. Update records with synchronized data
         # 4. Log sync activities
-        
+
         if sync_direction == "bidirectional":
             sync_items = [
                 "Phone number",
                 "Email address",
                 "Emergency contact",
-                "Communication preferences"
+                "Communication preferences",
             ]
         elif sync_direction == "player_to_member":
             sync_items = [
                 "Player contact details → Team member profile",
-                "Player preferences → Administrative settings"
+                "Player preferences → Administrative settings",
             ]
         elif sync_direction == "member_to_player":
             sync_items = [
                 "Team member contact → Player profile",
-                "Administrative info → Player record"
+                "Administrative info → Player record",
             ]
         else:
             return "❌ Invalid sync direction"
-            
+
         sync_list = "\n".join([f"✅ {item}" for item in sync_items])
-        
+
         return f"""
 🔄 **PROFILE SYNCHRONIZATION COMPLETE**
 
 👤 **User:** {user_id}
 🏆 **Team:** {team_id}
-🔄 **Direction:** {sync_direction.replace('_', ' → ').title()}
+🔄 **Direction:** {sync_direction.replace("_", " → ").title()}
 
 📊 **SYNCHRONIZED DATA:**
 {sync_list}
@@ -231,7 +221,7 @@ def synchronize_profile_data(
 
 Your profiles are now perfectly synchronized! 🎉
         """
-        
+
     except Exception as e:
         logger.error(f"❌ Synchronization error: {e}")
         return f"❌ Could not synchronize profiles: {e!s}"
@@ -239,20 +229,17 @@ Your profiles are now perfectly synchronized! 🎉
 
 @tool("manage_unified_profile")
 def manage_unified_profile(
-    user_id: str,
-    team_id: str,
-    action: str = "view",
-    update_data: str = None
+    user_id: str, team_id: str, action: str = "view", update_data: str = None
 ) -> str:
     """
     Manage unified profile for users with both player and team member roles.
-    
+
     Args:
         user_id: User ID to manage
         team_id: Team ID
         action: "view", "update", "split", "merge"
         update_data: Update data (JSON string)
-        
+
     Returns:
         Profile management results
     """
@@ -288,7 +275,7 @@ def manage_unified_profile(
 
 🎯 **PROFILE HEALTH:** Excellent - Fully synchronized and active in both roles.
             """
-            
+
         elif action == "update":
             return f"""
 ✅ **PROFILE UPDATE COMPLETE**
@@ -308,7 +295,7 @@ def manage_unified_profile(
 
 ✅ Your unified profile has been successfully updated!
             """
-            
+
         elif action == "split":
             return f"""
 ⚠️ **PROFILE SPLIT INITIATED**
@@ -330,7 +317,7 @@ def manage_unified_profile(
 
 **Note:** You can re-link profiles anytime if needed.
             """
-            
+
         elif action == "merge":
             return f"""
 🔗 **PROFILE MERGE COMPLETE**
@@ -354,7 +341,7 @@ Welcome to unified profile management! 🎯
             """
         else:
             return "❌ Invalid action. Use: view, update, split, or merge"
-            
+
     except Exception as e:
         logger.error(f"❌ Profile management error: {e}")
         return f"❌ Could not manage profile: {e!s}"
@@ -364,11 +351,11 @@ Welcome to unified profile management! 🎯
 def get_cross_entity_insights(user_id: str, team_id: str) -> str:
     """
     Get insights about cross-entity relationships and usage patterns.
-    
+
     Args:
         user_id: User ID to analyze
         team_id: Team ID
-        
+
     Returns:
         Cross-entity insights and recommendations
     """
@@ -411,26 +398,22 @@ Consider mentoring others interested in multiple roles.
 • Share dual-role experience with newcomers
 • Maintain excellent work-life balance
         """
-        
+
     except Exception as e:
         logger.error(f"❌ Insights generation error: {e}")
         return f"❌ Could not generate insights: {e!s}"
 
 
 @tool("suggest_role_optimization")
-def suggest_role_optimization(
-    user_id: str,
-    team_id: str,
-    performance_data: str = None
-) -> str:
+def suggest_role_optimization(user_id: str, team_id: str, performance_data: str = None) -> str:
     """
     Suggest optimizations for users with multiple roles.
-    
+
     Args:
         user_id: User ID to optimize
-        team_id: Team ID  
+        team_id: Team ID
         performance_data: Performance data (JSON string)
-        
+
     Returns:
         Role optimization suggestions
     """
@@ -481,7 +464,7 @@ def suggest_role_optimization(
 
 Your commitment to both roles is exceptional! 🌟
         """
-        
+
     except Exception as e:
         logger.error(f"❌ Optimization suggestion error: {e}")
         return f"❌ Could not generate optimization suggestions: {e!s}"

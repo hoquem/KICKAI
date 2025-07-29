@@ -5,7 +5,6 @@ This module provides validation for registry items and configurations.
 """
 
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
@@ -21,7 +20,7 @@ class RegistryValidator:
     """Validates registry items and configurations."""
 
     @staticmethod
-    def validate_tool_registration(tool_metadata: dict) -> List[ValidationError]:
+    def validate_tool_registration(tool_metadata: dict) -> list[ValidationError]:
         """Validate tool registration metadata."""
         errors = []
 
@@ -38,7 +37,7 @@ class RegistryValidator:
         return errors
 
     @staticmethod
-    def validate_command_registration(command_metadata: dict) -> List[ValidationError]:
+    def validate_command_registration(command_metadata: dict) -> list[ValidationError]:
         """Validate command registration metadata."""
         errors = []
 
@@ -52,7 +51,7 @@ class RegistryValidator:
         return errors
 
     @staticmethod
-    def validate_service_registration(service_reg: dict) -> List[ValidationError]:
+    def validate_service_registration(service_reg: dict) -> list[ValidationError]:
         """Validate service registration."""
         errors = []
 

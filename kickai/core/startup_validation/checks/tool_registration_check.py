@@ -5,7 +5,7 @@ Tool Registration Check
 This module provides health checks for tool registration and discovery.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from loguru import logger
 
@@ -29,7 +29,7 @@ class ToolRegistrationCheck(BaseCheck):
         self.category = CheckCategory.TOOL
         self.description = "Validates tool registration and discovery"
 
-    async def execute(self, context: Dict[str, Any]) -> CheckResult:
+    async def execute(self, context: dict[str, Any]) -> CheckResult:
         """Execute the tool registration check."""
         try:
             logger.info("🔧 Starting tool registration check...")

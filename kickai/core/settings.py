@@ -8,7 +8,6 @@ the complex improved_config_system.py and all scattered configuration access.
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Optional, List
 
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -38,12 +37,12 @@ class Settings(BaseSettings):
 
     # Database Configuration
     firebase_project_id: str = Field(description="Firebase project ID (REQUIRED)")
-    firebase_credentials_path: Optional[str] = Field(
+    firebase_credentials_path: str | None = Field(
         default=None,
         alias="FIREBASE_CREDENTIALS_FILE",
         description="Path to Firebase credentials file (REQUIRED if firebase_credentials_json not provided)",
     )
-    firebase_credentials_json: Optional[str] = Field(
+    firebase_credentials_json: str | None = Field(
         default=None,
         description="Firebase credentials as JSON string (REQUIRED if firebase_credentials_path not provided)",
     )
@@ -53,7 +52,10 @@ class Settings(BaseSettings):
     # AI Configuration
     ai_provider: AIProvider = Field(default=AIProvider.GEMINI, description="AI provider to use")
     google_api_key: str = Field(description="Google API key for Gemini (REQUIRED)")
-    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
+    openai_api_key: str | None = Field(default=None, description="OpenAI API key")
+    huggingface_api_token: str | None = Field(
+        default=None, description="Hugging Face API token for inference"
+    )
     ai_model_name: str = Field(default="gemini-1.5-flash", description="AI model name")
     ai_temperature: float = Field(default=0.7, description="AI temperature setting")
     ai_max_tokens: int = Field(default=1000, description="AI max tokens")
@@ -61,7 +63,7 @@ class Settings(BaseSettings):
     ai_max_retries: int = Field(default=5, description="AI max retries")
 
     # Telegram Configuration (Bot config now comes from Firestore teams collection)
-    telegram_webhook_url: Optional[str] = Field(default=None, description="Telegram webhook URL")
+    telegram_webhook_url: str | None = Field(default=None, description="Telegram webhook URL")
     telegram_parse_mode: str = Field(default="MarkdownV2", description="Telegram parse mode")
     telegram_timeout: int = Field(default=30, description="Telegram timeout in seconds")
 
@@ -80,7 +82,7 @@ class Settings(BaseSettings):
     log_format: str = Field(
         default="%(asctime)s - %(name)s - %(levelname)s - %(message)s", description="Log format"
     )
-    log_file_path: Optional[str] = Field(
+    log_file_path: str | None = Field(
         default=None, description="Log file path (disabled - use redirection for file logging)"
     )
     log_max_file_size: int = Field(
@@ -98,7 +100,8 @@ class Settings(BaseSettings):
 
     # Security Configuration
     jwt_secret: str = Field(
-        default="", description="JWT secret key (REQUIRED - must be set via JWT_SECRET environment variable)"
+        default="",
+        description="JWT secret key (REQUIRED - must be set via JWT_SECRET environment variable)",
     )
     session_timeout: int = Field(default=3600, description="Session timeout in seconds")
     max_login_attempts: int = Field(default=5, description="Max login attempts")
@@ -120,10 +123,10 @@ class Settings(BaseSettings):
 
     # Test Configuration
     test_mode: bool = Field(default=False, description="Enable test mode")
-    admin_session_string: Optional[str] = Field(
+    admin_session_string: str | None = Field(
         default=None, description="Admin session string for testing"
     )
-    player_session_string: Optional[str] = Field(
+    player_session_string: str | None = Field(
         default=None, description="Player session string for testing"
     )
 
@@ -200,12 +203,14 @@ class Settings(BaseSettings):
         """Get the appropriate API key for the AI provider."""
         if self.ai_provider == AIProvider.GEMINI:
             return self.google_api_key
+        elif self.ai_provider == AIProvider.HUGGINGFACE:
+            return self.huggingface_api_token or ""
         elif self.ai_provider == AIProvider.OLLAMA:
             # Ollama doesn't use API keys
             return ""
         return ""
 
-    def validate_required_fields(self) -> List[str]:
+    def validate_required_fields(self) -> list[str]:
         """Validate required fields and return list of errors."""
         errors = []
 
@@ -216,6 +221,8 @@ class Settings(BaseSettings):
         # AI provider specific requirements
         if self.ai_provider == AIProvider.GEMINI and not self.google_api_key:
             errors.append("GOOGLE_API_KEY is required for Gemini")
+        elif self.ai_provider == AIProvider.HUGGINGFACE and not self.huggingface_api_token:
+            errors.append("HUGGINGFACE_API_TOKEN is required for Hugging Face")
         elif self.ai_provider == AIProvider.OLLAMA:
             # Ollama doesn't require an API key
             pass
@@ -233,7 +240,7 @@ class Settings(BaseSettings):
 
 
 # Global settings instance
-_settings: Optional[Settings] = None
+_settings: Settings | None = None
 
 
 def get_settings() -> Settings:
@@ -244,7 +251,7 @@ def get_settings() -> Settings:
     return _settings
 
 
-def initialize_settings(env_file: Optional[str] = None) -> Settings:
+def initialize_settings(env_file: str | None = None) -> Settings:
     """Initialize settings with optional custom env file."""
     global _settings
 

@@ -6,8 +6,8 @@ following clean architecture principles and dependency inversion.
 """
 
 from abc import ABC, abstractmethod
+from typing import Any
 
-from typing import Any, Dict, List, Optional
 from kickai.features.payment_management.domain.entities.budget import Budget
 
 
@@ -20,12 +20,12 @@ class BudgetRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_budget_by_id(self, budget_id: str) -> Optional[Budget]:
+    async def get_budget_by_id(self, budget_id: str) -> Budget | None:
         """Get budget by ID."""
         pass
 
     @abstractmethod
-    async def get_budget_by_team_id(self, team_id: str) -> Optional[Budget]:
+    async def get_budget_by_team_id(self, team_id: str) -> Budget | None:
         """Get budget by team ID."""
         pass
 
@@ -40,11 +40,11 @@ class BudgetRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def list_budgets(self, team_id: Optional[str] = None) -> List[Budget]:
+    async def list_budgets(self, team_id: str | None = None) -> list[Budget]:
         """List budgets, optionally filtered by team ID."""
         pass
 
     @abstractmethod
-    async def get_budget_summary(self, team_id: str) -> Dict[str, Any]:
+    async def get_budget_summary(self, team_id: str) -> dict[str, Any]:
         """Get budget summary for a team."""
         pass

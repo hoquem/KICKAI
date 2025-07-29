@@ -14,7 +14,6 @@ Features:
 - Collision detection and resolution
 - Stable IDs (same input = same ID)
 """
-from typing import Optional, Union, Dict
 
 import hashlib
 import re
@@ -23,13 +22,12 @@ from datetime import datetime
 from enum import Enum
 
 from loguru import logger
-from kickai.core.enums import PlayerPosition
 
 
 def get_position_code(position: str) -> str:
     """Get position code from centralized PlayerPosition enum."""
     position_lower = position.lower()
-    
+
     if any(word in position_lower for word in ["goalkeeper", "keeper", "gk"]):
         return "GK"
     elif any(word in position_lower for word in ["defender", "defence", "defense", "back"]):
@@ -68,8 +66,8 @@ class FootballIDGenerator:
         self.used_team_ids: set[str] = set()
         self.used_player_ids: set[str] = set()
         self.used_match_ids: set[str] = set()
-        self.team_mappings: Dict[str, str] = {}
-        self.player_mappings: Dict[str, str] = {}
+        self.team_mappings: dict[str, str] = {}
+        self.player_mappings: dict[str, str] = {}
 
     def _normalize_name(self, name: str) -> str:
         """Normalize a name for consistent processing."""
@@ -350,7 +348,7 @@ class FootballIDGenerator:
         last_name: str,
         position: str,
         team_id: str,
-        existing_ids: Optional[set[str]] = None,
+        existing_ids: set[str] | None = None,
     ) -> str:
         """Generate a football-contextual player ID with jersey number and position."""
         if not first_name or not last_name or not position:
@@ -541,11 +539,11 @@ class FootballIDGenerator:
         hash_suffix = hashlib.md5(base_id.encode()).hexdigest()[:2].upper()
         return f"{base_id}{hash_suffix}"
 
-    def get_team_mappings(self) -> Dict[str, str]:
+    def get_team_mappings(self) -> dict[str, str]:
         """Get all team name to ID mappings."""
         return self.team_mappings.copy()
 
-    def get_player_mappings(self) -> Dict[str, str]:
+    def get_player_mappings(self) -> dict[str, str]:
         """Get all player name to ID mappings."""
         return self.player_mappings.copy()
 
@@ -574,7 +572,7 @@ def generate_football_player_id(
     last_name: str,
     position: str,
     team_id: str,
-    existing_ids: Optional[set[str]] = None,
+    existing_ids: set[str] | None = None,
 ) -> str:
     """Generate a football-contextual player ID."""
     return football_id_generator.generate_player_id(

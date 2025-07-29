@@ -3,11 +3,10 @@
 Direct Google LLM Provider
 Uses google.generativeai directly instead of LiteLLM
 """
-import os
-from typing import Dict, List
 
 import asyncio
 import logging
+import os
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -53,7 +52,7 @@ class DirectGoogleLLM:
             logger.error(f"Failed to initialize Direct Google LLM: {e}")
             raise
 
-    def _format_messages_for_google(self, messages: List[Dict[str, str]]) -> str:
+    def _format_messages_for_google(self, messages: list[dict[str, str]]) -> str:
         """Format messages for Google Generative AI."""
         formatted_content = ""
 
@@ -74,7 +73,7 @@ class DirectGoogleLLM:
 
         return formatted_content.strip()
 
-    def invoke(self, messages: List[Dict[str, str]], **kwargs) -> str:
+    def invoke(self, messages: list[dict[str, str]], **kwargs) -> str:
         """Synchronous invocation."""
         start_time = asyncio.get_event_loop().time() * 1000
 
@@ -99,11 +98,11 @@ class DirectGoogleLLM:
             logger.error(f"[DIRECT GOOGLE LLM] Error: {e}")
             raise
 
-    async def ainvoke(self, messages: List[Dict[str, str]], **kwargs) -> str:
+    async def ainvoke(self, messages: list[dict[str, str]], **kwargs) -> str:
         """Asynchronous invocation (runs synchronously)."""
         return self.invoke(messages, **kwargs)
 
-    def __call__(self, messages: List[Dict[str, str]], **kwargs) -> str:
+    def __call__(self, messages: list[dict[str, str]], **kwargs) -> str:
         """Call interface for compatibility."""
         return self.invoke(messages, **kwargs)
 

@@ -7,14 +7,15 @@ ALL messages go through agents - no direct processing bypasses the agentic syste
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 from loguru import logger
 
 # Lazy imports to avoid circular dependencies
 # from kickai.agents.crew_agents import TeamManagementSystem
 # from kickai.agents.crew_lifecycle_manager import get_crew_lifecycle_manager
-from kickai.agents.user_flow_agent import (AgentResponse,
+from kickai.agents.user_flow_agent import (
+    AgentResponse,
     TelegramMessage,
     UserFlowAgent,
     UserFlowDecision,
@@ -29,7 +30,7 @@ class IntentResult:
 
     intent: str
     confidence: float
-    entities: Dict[str, Any]
+    entities: dict[str, Any]
 
 
 class AgenticMessageRouter:
@@ -46,6 +47,7 @@ class AgenticMessageRouter:
         self.user_flow_agent = UserFlowAgent(team_id=team_id)
         # Lazy initialization to avoid circular dependencies
         self._crew_lifecycle_manager = None
+        self._helper_agent = None
         self._setup_router()
 
     @property
@@ -53,8 +55,18 @@ class AgenticMessageRouter:
         """Lazy load crew lifecycle manager to avoid circular imports."""
         if self._crew_lifecycle_manager is None:
             from kickai.agents.crew_lifecycle_manager import get_crew_lifecycle_manager
+
             self._crew_lifecycle_manager = get_crew_lifecycle_manager()
         return self._crew_lifecycle_manager
+
+    @property
+    def helper_agent(self):
+        """Lazy load helper agent to avoid circular imports."""
+        if self._helper_agent is None:
+            from kickai.agents.helper_task_manager import HelperTaskManager
+
+            self._helper_agent = HelperTaskManager()
+        return self._helper_agent
 
     def _setup_router(self):
         """Set up the router configuration."""
@@ -81,6 +93,39 @@ class AgenticMessageRouter:
             if message.text.startswith("/"):
                 command = message.text.split()[0]  # Get the first word (the command)
                 logger.info(f"🔄 AgenticMessageRouter: Detected command: {command}")
+
+            # Check if this is a helper system command
+            if self._is_helper_command(command):
+                logger.info(f"🔄 AgenticMessageRouter: Routing to Helper Agent: {command}")
+                return await self.route_help_request(message)
+
+            # Check if command is available for this chat type (for registered users)
+            if command and not self._is_helper_command(command):
+                try:
+                    from kickai.core.command_registry_initializer import (
+                        get_initialized_command_registry,
+                    )
+
+                    registry = get_initialized_command_registry()
+                    chat_type_str = message.chat_type.value
+                    available_command = registry.get_command_for_chat(command, chat_type_str)
+
+                    if not available_command:
+                        logger.warning(f"⚠️ Command {command} not available in {chat_type_str} chat")
+                        return AgentResponse(
+                            message=self._get_unrecognized_command_message(
+                                command, message.chat_type
+                            ),
+                            success=False,
+                            error="Command not available in chat type",
+                        )
+                except RuntimeError as e:
+                    if "Command registry not initialized" in str(e):
+                        logger.warning(
+                            "⚠️ Command registry not accessible, proceeding without validation"
+                        )
+                    else:
+                        raise
 
             # Determine user flow
             user_flow_result = await self.user_flow_agent.determine_user_flow(
@@ -177,23 +222,6 @@ class AgenticMessageRouter:
                 error=str(e),
             )
 
-    def _parse_registration_command(self, text: str) -> Optional[Dict[str, str]]:
-        """Parse /register command and extract name, phone, and role."""
-        try:
-            parts = text.split()
-            if len(parts) < 4:
-                return None
-
-            # Extract components
-            name = parts[1]
-            phone = parts[2]
-            role = " ".join(parts[3:])
-
-            return {"name": name, "phone": phone, "role": role}
-        except Exception as e:
-            logger.error(f"Registration command parsing failed: {e}")
-            return None
-
     def _get_unregistered_user_message(self, chat_type: ChatType, username: str) -> str:
         """Get message for unregistered users based on chat type."""
         from kickai.core.constants import BOT_VERSION
@@ -205,28 +233,19 @@ class AgenticMessageRouter:
 
 🤔 You're not registered as a team member yet.
 
-📝 To register as a team member, please provide your details:
+📞 Contact Team Administrator
+You need to be added as a team member by the team administrator.
 
-💡 Use this command:
-/register [name] [phone] [role]
-
-Example:
-/register John Smith +1234567890 Assistant Coach
-
-🎯 Available roles:
-• Team Manager, Coach, Assistant Coach
-• Club Administrator, Treasurer
-• Volunteer Coordinator, etc.
-
-🚀 Once registered, you can:
-• Add other team members and players
-• Generate invite links for chats
-• Manage the team system
+💡 What to do:
+1. Contact the team administrator
+2. Ask them to add you as a team member using the /addmember command
+3. They'll send you an invite link to join the leadership chat
+4. Once added, you can access leadership functions
 
 ❓ Got here by mistake?
 If you're not part of the team leadership, please leave this chat.
 
-Ready to get started? Use the /register command above!"""
+Need help? Contact the team administrator."""
         else:
             return f"""👋 Welcome to KICKAI for {self.team_id}, {username}!
 
@@ -239,7 +258,7 @@ You need to be added as a player by someone in the team's leadership.
 
 💬 What to do:
 1. Reach out to someone in the team's leadership chat
-2. Ask them to add you as a player using the `/addplayer` command
+2. Ask them to add you as a player using the /addplayer command
 3. They'll send you an invite link to join the main chat
 4. Once added, you can register with your full details
 
@@ -356,94 +375,6 @@ Use /help to see available commands or ask me questions!"""
             logger.error(f"❌ Error routing to specialized agent: {e}")
             return AgentResponse(
                 message="I encountered an error processing your request. Please try again.",
-                success=False,
-                error=str(e),
-            )
-
-    async def route_command(self, command_name: str, message: TelegramMessage) -> AgentResponse:
-        """
-        Route command messages through the agentic system with chat-type awareness.
-
-        Args:
-            command_name: Name of the command (e.g., "/help", "/myinfo")
-            message: Telegram message to route
-
-        Returns:
-            AgentResponse with the processed result
-        """
-        try:
-            logger.info(
-                f"🔄 AgenticMessageRouter: Routing command {command_name} in {message.chat_type.value}"
-            )
-
-            # Check if command is available for this chat type
-            # Handle context isolation by ensuring registry is accessible
-            try:
-                from kickai.core.command_registry_initializer import (
-                    get_initialized_command_registry,
-                )
-
-                registry = get_initialized_command_registry()
-                chat_type_str = message.chat_type.value
-                available_command = registry.get_command_for_chat(command_name, chat_type_str)
-            except RuntimeError as e:
-                if "Command registry not initialized" in str(e):
-                    # Fallback: try to initialize the registry in this context
-                    logger.warning(
-                        "⚠️ Command registry not accessible in current context, attempting to initialize..."
-                    )
-                    try:
-                        from kickai.core.command_registry_initializer import (
-                            initialize_command_registry,
-                        )
-
-                        registry = initialize_command_registry()
-                        chat_type_str = message.chat_type.value
-                        available_command = registry.get_command_for_chat(
-                            command_name, chat_type_str
-                        )
-                        logger.info(
-                            "✅ Successfully initialized command registry in current context"
-                        )
-                    except Exception as init_error:
-                        logger.error(
-                            f"❌ Failed to initialize command registry in current context: {init_error}"
-                        )
-                        # Last resort: allow command to proceed without validation
-                        available_command = True
-                        logger.warning(
-                            f"⚠️ Allowing command {command_name} to proceed without registry validation"
-                        )
-                else:
-                    raise
-
-            if not available_command:
-                logger.warning(f"⚠️ Command {command_name} not available in {chat_type_str} chat")
-                return AgentResponse(
-                    message=f"❌ Command {command_name} is not available in this chat type.",
-                    success=False,
-                    error="Command not available in chat type",
-                )
-
-            # For commands, we still check user flow first
-            user_flow = await self.user_flow_agent.determine_user_flow(
-                message.user_id, message.chat_type, command_name
-            )
-
-            # Handle unregistered user flows
-            if user_flow == UserFlowDecision.UNREGISTERED_USER:
-                logger.info("🔄 AgenticMessageRouter: Unregistered user command flow")
-                return await self.user_flow_agent.handle_unregistered_user_flow(message)
-
-            else:  # REGISTERED_USER
-                # For registered users, route commands to CrewAI system
-                logger.info("🔄 AgenticMessageRouter: Registered user command flow")
-                return await self._process_with_crewai_system(message)
-
-        except Exception as e:
-            logger.error(f"❌ Error routing command: {e}")
-            return AgentResponse(
-                message="I encountered an error processing your command. Please try again.",
                 success=False,
                 error=str(e),
             )
@@ -596,3 +527,142 @@ Use /help to see available commands or ask me questions!"""
             return ChatType.LEADERSHIP
         else:
             return ChatType.PRIVATE
+
+    def _is_helper_command(self, command: str) -> bool:
+        """
+        Check if a command is a helper system command.
+
+        Args:
+            command: The command to check
+
+        Returns:
+            True if it's a helper command, False otherwise
+        """
+        # Helper system is now proactive - no command-driven interactions
+        return False
+
+    async def route_help_request(self, message: TelegramMessage) -> AgentResponse:
+        """
+        Route help requests to the Helper Agent using CrewAI tasks.
+
+        Args:
+            message: The Telegram message containing the help request
+
+        Returns:
+            AgentResponse with the helper's response
+        """
+        try:
+            logger.info("🔄 AgenticMessageRouter: Routing help request to Helper Agent")
+
+            # Extract the query from the message
+            query = message.text
+            if query.startswith("/"):
+                # Remove the command and get the rest as the query
+                parts = query.split(" ", 1)
+                if len(parts) > 1:
+                    query = parts[1]
+                else:
+                    query = "general help"
+
+            # Create context for the helper agent
+            context = {
+                "user_id": message.user_id,
+                "team_id": self.team_id,
+                "chat_type": message.chat_type.value,
+                "username": message.username,
+                "query": query,
+            }
+
+            # Execute help task using the task manager
+            response = await self.helper_agent.execute_help_task(
+                user_query=query, user_id=message.user_id, team_id=self.team_id, context=context
+            )
+
+            return AgentResponse(success=True, message=response, error=None)
+
+        except Exception as e:
+            logger.error(f"❌ Error routing help request: {e}")
+            return AgentResponse(
+                success=False,
+                message="❌ Sorry, I encountered an error while helping you. Please try again.",
+                error=str(e),
+            )
+
+    async def send_proactive_suggestions(self, user_id: str, team_id: str) -> None:
+        """
+        Send proactive suggestions based on user behavior.
+
+        Args:
+            user_id: The user's ID
+            team_id: The team's ID
+        """
+        try:
+            # Get the reminder service using the new interface
+            from kickai.core.dependency_container import get_container
+
+            container = get_container()
+            reminder_service = container.get_service("IReminderService")
+
+            if reminder_service:
+                # Schedule periodic reminders
+                await reminder_service.schedule_periodic_reminders(user_id, team_id)
+
+        except Exception as e:
+            logger.error(f"Error sending proactive suggestions to user {user_id}: {e}")
+
+    async def check_and_send_reminders(self, user_id: str, team_id: str) -> None:
+        """
+        Check and send pending reminders for a user.
+
+        Args:
+            user_id: The user's ID
+            team_id: The team's ID
+        """
+        try:
+            # Get the reminder service using the new interface
+            from kickai.core.dependency_container import get_container
+
+            container = get_container()
+            reminder_service = container.get_service("IReminderService")
+
+            if reminder_service:
+                # Get pending reminders
+                reminders = await reminder_service.get_pending_reminders(user_id, team_id)
+
+                # Send reminders (in a full implementation, this would send via Telegram)
+                for reminder in reminders:
+                    logger.info(f"Sending reminder to user {user_id}: {reminder.title}")
+                    # TODO: Implement actual Telegram message sending
+
+        except Exception as e:
+            logger.error(f"Error checking reminders for user {user_id}: {e}")
+
+    def _get_unrecognized_command_message(self, command: str, chat_type: ChatType) -> str:
+        """Get a courteous message for unrecognized commands."""
+        if chat_type == ChatType.LEADERSHIP:
+            return f"""🤔 I don't recognize the command `{command}` in the leadership chat.
+
+📋 Available commands in leadership chat:
+• /help - Show all available commands
+• /addplayer - Add a new player
+• /addmember - Add a team member
+• /approve - Approve a player
+• /reject - Reject a player
+• /pending - List pending approvals
+• /list - List all players and members
+• /update - Update your team member information
+• /myinfo - View your information
+• /status - Check player/team member status
+
+💡 Need help? Try /help to see all available commands."""
+        else:  # Main chat
+            return f"""🤔 I don't recognize the command `{command}` in the main chat.
+
+📋 Available commands in main chat:
+• /help - Show all available commands
+• /myinfo - View your player information
+• /status - Check your status
+• /list - List active players
+• /update - Update your player information
+
+💡 Need help? Try /help to see all available commands."""

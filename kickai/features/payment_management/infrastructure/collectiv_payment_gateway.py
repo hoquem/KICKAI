@@ -14,7 +14,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from kickai.features.payment_management.domain.interfaces.payment_gateway_interface import (
     IPaymentGateway,
@@ -54,8 +54,8 @@ class MockPaymentLink:
     payment_url: str
     expires_at: datetime
     created_at: datetime
-    paid_at: Optional[datetime] = None
-    transaction_id: Optional[str] = None
+    paid_at: datetime | None = None
+    transaction_id: str | None = None
 
 
 @dataclass
@@ -68,9 +68,9 @@ class MockTransaction:
     currency: str
     payment_method: str
     status: TransactionStatus
-    transaction_data: Dict[str, Any]
+    transaction_data: dict[str, Any]
     created_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
 
 class MockCollectivPaymentGateway(IPaymentGateway):
@@ -84,15 +84,13 @@ class MockCollectivPaymentGateway(IPaymentGateway):
     - Webhook simulation
     """
 
-    def __init__(
-        self, api_key: str = None, base_url: str = None
-    ):
+    def __init__(self, api_key: str = None, base_url: str = None):
         # Use environment variables or defaults for configuration
         self.api_key = api_key or os.getenv("COLLECTIV_API_KEY", "mock_collectiv_key")
         self.base_url = base_url or os.getenv("COLLECTIV_BASE_URL", "https://api.collectiv.com")
-        self.payment_links: Dict[str, MockPaymentLink] = {}
-        self.transactions: Dict[str, MockTransaction] = {}
-        self.webhook_url: Optional[str] = None
+        self.payment_links: dict[str, MockPaymentLink] = {}
+        self.transactions: dict[str, MockTransaction] = {}
+        self.webhook_url: str | None = None
         self.webhook_secret: str = os.getenv("COLLECTIV_WEBHOOK_SECRET", "mock_webhook_secret")
 
         logger.info("✅ MockCollectivPaymentGateway initialized")
@@ -104,7 +102,7 @@ class MockCollectivPaymentGateway(IPaymentGateway):
         description: str,
         reference: str,
         expires_in_days: int = 7,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a mock payment link.
 
@@ -149,7 +147,7 @@ class MockCollectivPaymentGateway(IPaymentGateway):
             "status": "pending",
         }
 
-    async def get_payment_link_status(self, link_id: str) -> Dict[str, Any]:
+    async def get_payment_link_status(self, link_id: str) -> dict[str, Any]:
         """
         Get the status of a payment link.
 
@@ -179,7 +177,7 @@ class MockCollectivPaymentGateway(IPaymentGateway):
             "expires_at": link.expires_at.isoformat(),
         }
 
-    async def process_payment(self, link_id: str, payment_method: str = "card") -> Dict[str, Any]:
+    async def process_payment(self, link_id: str, payment_method: str = "card") -> dict[str, Any]:
         """
         Simulate processing a payment for a payment link.
 
@@ -245,8 +243,8 @@ class MockCollectivPaymentGateway(IPaymentGateway):
         }
 
     async def refund_payment(
-        self, transaction_id: str, amount: Optional[float] = None
-    ) -> Dict[str, Any]:
+        self, transaction_id: str, amount: float | None = None
+    ) -> dict[str, Any]:
         """
         Simulate refunding a payment.
 
@@ -325,8 +323,8 @@ class MockCollectivPaymentGateway(IPaymentGateway):
         logger.info(f"✅ Webhook URL set to: {url}")
 
     async def create_charge(
-        self, amount: float, currency: str, source: str, description: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, amount: float, currency: str, source: str, description: str | None = None
+    ) -> dict[str, Any]:
         """
         Create a direct charge (not using payment links).
 
@@ -355,7 +353,7 @@ class MockCollectivPaymentGateway(IPaymentGateway):
             "created_at": datetime.now().isoformat(),
         }
 
-    async def create_refund(self, charge_id: str, amount: Optional[float] = None) -> Dict[str, Any]:
+    async def create_refund(self, charge_id: str, amount: float | None = None) -> dict[str, Any]:
         """Create a refund for a charge."""
         refund_id = f"rf_{uuid.uuid4().hex[:16]}"
         logger.info(f"✅ Created refund: {refund_id} for charge {charge_id}")
@@ -366,22 +364,22 @@ class MockCollectivPaymentGateway(IPaymentGateway):
         # Mock implementation - always returns succeeded
         return "succeeded"
 
-    def get_payment_link(self, link_id: str) -> Optional[MockPaymentLink]:
+    def get_payment_link(self, link_id: str) -> MockPaymentLink | None:
         """Get a payment link by ID."""
         return self.payment_links.get(link_id)
 
-    def get_transaction(self, transaction_id: str) -> Optional[MockTransaction]:
+    def get_transaction(self, transaction_id: str) -> MockTransaction | None:
         """Get a transaction by ID."""
         return self.transactions.get(transaction_id)
 
-    def list_payment_links(self, status: Optional[PaymentLinkStatus] = None) -> List[MockPaymentLink]:
+    def list_payment_links(self, status: PaymentLinkStatus | None = None) -> list[MockPaymentLink]:
         """List payment links with optional status filter."""
         links = list(self.payment_links.values())
         if status:
             links = [link for link in links if link.status == status]
         return links
 
-    def list_transactions(self, status: Optional[TransactionStatus] = None) -> List[MockTransaction]:
+    def list_transactions(self, status: TransactionStatus | None = None) -> list[MockTransaction]:
         """List transactions with optional status filter."""
         transactions = list(self.transactions.values())
         if status:
@@ -394,7 +392,7 @@ class MockCollectivPaymentGateway(IPaymentGateway):
         self.transactions.clear()
         logger.info("✅ Cleared all mock payment data")
 
-    def get_mock_statistics(self) -> Dict[str, Any]:
+    def get_mock_statistics(self) -> dict[str, Any]:
         """Get statistics about mock data."""
         return {
             "payment_links_count": len(self.payment_links),

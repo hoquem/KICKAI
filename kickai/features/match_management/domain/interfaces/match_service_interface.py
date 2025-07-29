@@ -1,19 +1,18 @@
 from abc import ABC, abstractmethod
-
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 
 class IMatchService(ABC):
     @abstractmethod
-    async def create_match(self, match_data: Dict[str, Any]) -> str:
+    async def create_match(self, match_data: dict[str, Any]) -> str:
         pass
 
     @abstractmethod
-    async def get_match(self, match_id: str) -> Optional[Dict[str, Any]]:
+    async def get_match(self, match_id: str) -> dict[str, Any] | None:
         pass
 
     @abstractmethod
-    async def update_match(self, match_id: str, updates: Dict[str, Any]) -> bool:
+    async def update_match(self, match_id: str, updates: dict[str, Any]) -> bool:
         pass
 
     @abstractmethod
@@ -21,5 +20,5 @@ class IMatchService(ABC):
         pass
 
     @abstractmethod
-    async def list_matches(self, team_id: str, status: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def list_matches(self, team_id: str, status: str | None = None) -> list[dict[str, Any]]:
         pass

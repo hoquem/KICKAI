@@ -5,10 +5,10 @@ This module provides tools for logging commands and errors.
 """
 
 import logging
-from typing import Optional
+
+from pydantic import BaseModel
 
 from kickai.utils.crewai_tool_decorator import tool
-from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -17,20 +17,20 @@ class LogCommandInput(BaseModel):
     """Input model for log_command tool."""
 
     command: str
-    user_id: Optional[str] = None
-    team_id: Optional[str] = None
+    user_id: str | None = None
+    team_id: str | None = None
 
 
 class LogErrorInput(BaseModel):
     """Input model for log_error tool."""
 
     error_message: str
-    context: Optional[str] = None
-    team_id: Optional[str] = None
+    context: str | None = None
+    team_id: str | None = None
 
 
 @tool("log_command")
-def log_command(command: str, user_id: Optional[str] = None, team_id: Optional[str] = None) -> str:
+def log_command(command: str, user_id: str | None = None, team_id: str | None = None) -> str:
     """
     Log a command execution. Requires: command
 
@@ -61,7 +61,7 @@ def log_command(command: str, user_id: Optional[str] = None, team_id: Optional[s
 
 @tool("log_error")
 def log_error(
-    error_message: str, error_context: Optional[str] = None, team_id: Optional[str] = None
+    error_message: str, error_context: str | None = None, team_id: str | None = None
 ) -> str:
     """
     Log an error message. Requires: error_message

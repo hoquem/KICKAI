@@ -148,37 +148,3 @@ async def handle_attendanceexport_command(update, context, **kwargs):
     """Handle /attendanceexport command."""
     # This will be handled by the agent system
     return None
-
-
-@command(
-    name="/attendancealerts",
-    description="Manage attendance alerts (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP,
-    feature="attendance_management",
-    chat_type=ChatType.LEADERSHIP,
-    examples=["/attendancealerts", "/attendancealerts enable", "/attendancealerts disable"],
-    parameters={"action": "Action to perform (enable, disable, configure)"},
-    help_text="""
-🔔 Attendance Alerts (Leadership Only)
-
-Manage automatic attendance reminders and alerts.
-
-Usage:
-• /attendancealerts - Show current alert settings
-• /attendancealerts enable - Enable automatic reminders
-• /attendancealerts disable - Disable automatic reminders
-
-Alert types:
-• Match reminders (24h before)
-• Attendance deadline reminders
-• Low attendance warnings
-• Squad selection notifications
-
-💡 Note: This command is only available in the leadership chat.
-    """,
-)
-async def handle_attendancealerts_command(update, context, **kwargs):
-    """Handle /attendancealerts command."""
-    # This will be handled by the agent system
-    return None
