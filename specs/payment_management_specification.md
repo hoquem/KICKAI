@@ -275,6 +275,48 @@ def generate_financial_summary(team_id: str, period: str) -> str:
     """Generate financial summary for specified period"""
 ```
 
+## ID Generation System
+
+### Payment ID Format
+- **Format**: `P{DD}{MM}-{TYPE}-{NUMBER}` (e.g., `P1501-FEE-01`)
+- **Examples**:
+  - Player fee on Jan 15 → `P1501-FEE-01`
+  - Equipment payment on Feb 20 → `P2002-EQP-01`
+  - Match fee on Mar 10 → `P1003-MAT-01`
+
+### Payment Type Codes
+- **FEE**: Player fees and subscriptions
+- **EQP**: Equipment and kit payments
+- **MAT**: Match-specific fees
+- **TOU**: Tournament entry fees
+- **ADM**: Administrative costs
+- **SOC**: Social event payments
+
+### Payment ID Generation Rules
+1. **Prefix**: Always starts with "P" for Payment
+2. **Date**: DD (day) + MM (month) format
+3. **Type**: 3-letter payment type code
+4. **Number**: Sequential number for that date/type (01, 02, 03...)
+5. **Separator**: Hyphen (-) between components
+6. **Collision Resolution**: Increment number automatically
+
+### Payment ID Examples
+```
+Payment Details → Generated IDs
+Player fee, Jan 15 → P1501-FEE-01
+Equipment payment, Jan 15 → P1501-EQP-01
+Match fee, Feb 20 → P2002-MAT-01
+Tournament fee, Mar 10 → P1003-TOU-01
+```
+
+### Benefits for Sunday League
+- ✅ **Simple**: Easy to read and understand
+- ✅ **Date Context**: Clear payment date information
+- ✅ **Type Context**: Obvious payment type identification
+- ✅ **Typable**: Short enough for quick entry (12-13 characters)
+- ✅ **Human-readable**: Meaningful to users
+- ✅ **Sequential**: Easy to track multiple payments per day
+
 ## Available Commands
 
 ### Leadership Commands (Leadership Chat)

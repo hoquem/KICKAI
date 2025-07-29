@@ -199,6 +199,46 @@ pending → approved → active
 4. **Leadership**: Selects players for match squad
 5. **System**: Notifies selected players
 
+## ID Generation System
+
+### Player ID Format
+- **Format**: `{Number}{Initials}` (e.g., `01MH`, `02JS`)
+- **Examples**:
+  - Mahmudul Hoque → `01MH`
+  - Second Mahmudul Hoque → `02MH`
+  - John Smith → `01JS`
+  - Second John Smith → `02JS`
+
+### Team Member ID Format
+- **Format**: `{Number}{Initials}` (same as players)
+- **Examples**:
+  - Coach John Smith → `01JS`
+  - Manager Jane Doe → `01JD`
+
+### ID Generation Rules
+1. **Initials**: First letter of first name + first letter of last name
+2. **Numbering**: Sequential numbering starting from 01
+3. **Collision Resolution**: If initials exist, increment number (01, 02, 03...)
+4. **Maximum**: 99 players per initials (sufficient for Sunday league teams)
+5. **Fallback**: If 99+ players with same initials, use hash-based suffix
+
+### ID Examples
+```
+Player Names → Generated IDs
+Mahmudul Hoque → 01MH
+John Smith → 01JS
+Jane Smith → 02JS
+Mike Johnson → 01MJ
+Sarah Johnson → 02MJ
+```
+
+### Benefits for Sunday League
+- ✅ **Simple**: Easy to remember and type
+- ✅ **Human-readable**: Clear meaning to users
+- ✅ **Scalable**: Supports up to 99 players per initials
+- ✅ **Consistent**: Same format for players and team members
+- ✅ **Typable**: Short enough for quick entry
+
 ## Available Commands
 
 ### Player Commands (Main Chat)

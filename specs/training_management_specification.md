@@ -404,6 +404,46 @@ def suggest_training_plan(team_id: str, focus_areas: List[str],
 - **Fitness Monitoring**: Ensure match readiness through training
 - **Performance Analysis**: Post-match analysis informing training needs
 
+## ID Generation System
+
+### Training Session ID Format
+- **Format**: `T{DD}{MM}-{TYPE}` (e.g., `T1501-TECH`)
+- **Examples**:
+  - Technical training on Jan 15 → `T1501-TECH`
+  - Fitness training on Feb 20 → `T2002-FIT`
+  - Match practice on Mar 10 → `T1003-MAT`
+
+### Training Type Codes
+- **TECH**: Technical Skills training
+- **TACT**: Tactical Awareness training
+- **FIT**: Fitness Conditioning training
+- **MAT**: Match Practice training
+- **REC**: Recovery Session training
+
+### Training ID Generation Rules
+1. **Prefix**: Always starts with "T" for Training
+2. **Date**: DD (day) + MM (month) format
+3. **Type**: 3-letter training type code
+4. **Separator**: Hyphen (-) between date and type
+5. **Collision Resolution**: Add number suffix if needed (T1501-TECH1)
+
+### Training ID Examples
+```
+Training Details → Generated IDs
+Technical Skills, Jan 15 → T1501-TECH
+Fitness Conditioning, Feb 20 → T2002-FIT
+Match Practice, Mar 10 → T1003-MAT
+Tactical Awareness, Apr 5 → T0504-TACT
+Recovery Session, May 12 → T1205-REC
+```
+
+### Benefits for Sunday League
+- ✅ **Simple**: Easy to read and understand
+- ✅ **Date Context**: Clear training date information
+- ✅ **Type Context**: Obvious training type identification
+- ✅ **Typable**: Short enough for quick entry (8-9 characters)
+- ✅ **Human-readable**: Meaningful to users
+
 ## Available Commands
 
 ### Leadership Commands (Leadership Chat)
