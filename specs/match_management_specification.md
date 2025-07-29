@@ -324,6 +324,37 @@ def get_squad_selection_history(team_id: str, limit: int = 10) -> str:
     """Get historical squad selections"""
 ```
 
+## ID Generation System
+
+### Match ID Format
+- **Format**: `M{DD}{MM}-{HOME}-{AWAY}` (e.g., `M1501-KAI-MAN`)
+- **Examples**:
+  - KickAI vs Manchester on Jan 15 → `M1501-KAI-MAN`
+  - Home vs Away on Feb 20 → `M2002-HOME-AWAY`
+  - Team A vs Team B on Mar 10 → `M1003-ALP-BET`
+
+### Match ID Generation Rules
+1. **Prefix**: Always starts with "M" for Match
+2. **Date**: DD (day) + MM (month) format
+3. **Teams**: Full team names or abbreviations (max 3-4 chars)
+4. **Separator**: Hyphen (-) between date and teams
+5. **Collision Resolution**: Add number suffix if needed (M1501-KAI-MAN1)
+
+### Match ID Examples
+```
+Match Details → Generated IDs
+KickAI vs Manchester, Jan 15 → M1501-KAI-MAN
+Home vs Away, Feb 20 → M2002-HOME-AWAY
+Team Alpha vs Team Beta, Mar 10 → M1003-ALP-BET
+```
+
+### Benefits for Sunday League
+- ✅ **Simple**: Easy to read and understand
+- ✅ **Date Context**: Clear match date information
+- ✅ **Team Context**: Obvious team identification
+- ✅ **Typable**: Short enough for quick entry
+- ✅ **Human-readable**: Meaningful to users
+
 ## User Experience Flows
 
 ### 1. Match Creation Flow
