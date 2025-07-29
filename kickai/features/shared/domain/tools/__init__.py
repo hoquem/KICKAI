@@ -8,7 +8,10 @@ This module provides shared tools used across multiple features.
 from kickai.features.shared.domain.tools.help_tools import *
 from kickai.features.shared.domain.tools.onboarding_tools import (
     detect_registration_context,
+    register_player,
+    register_team_member,
     register_team_member_onboarding,
+    registration_guidance,
     team_member_guidance,
     validate_registration_data,
 )
@@ -52,12 +55,18 @@ from kickai.features.shared.domain.tools.smart_recommendations_tools import (
     get_smart_position_recommendations,
     get_smart_role_recommendations,
 )
+from kickai.features.shared.domain.tools.new_member_welcome_tools import (
+    get_new_member_welcome_message,
+)
 
 __all__ = [
     # Help tools (from help_tools.py)
     "get_available_commands",
     "get_command_help",
     # Onboarding tools
+    "register_player",
+    "register_team_member", 
+    "registration_guidance",
     "team_member_guidance", 
     "validate_registration_data",
     "register_team_member_onboarding",
@@ -96,4 +105,5 @@ __all__ = [
     "get_onboarding_path_recommendation",
     "analyze_team_needs_for_recommendations",
     "get_personalized_welcome_message",
+    "get_new_member_welcome_message",
 ]

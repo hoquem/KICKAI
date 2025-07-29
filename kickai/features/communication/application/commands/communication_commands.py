@@ -7,6 +7,10 @@ Each feature maintains its own command definitions for clean separation.
 """
 
 from kickai.core.command_registry import CommandType, PermissionLevel, command
+from kickai.core.enums import ChatType
+
+# Note: /broadcast command has been removed as it's not needed for now
+# Team announcements can be made using /announce command instead
 
 
 @command(
@@ -73,39 +77,5 @@ What happens:
 )
 async def handle_remind_command(update, context, **kwargs):
     """Handle /remind command."""
-    # This will be handled by the agent system
-    return None
-
-
-@command(
-    name="/broadcast",
-    description="Broadcast message to all team chats (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP,
-    feature="communication",
-    examples=["/broadcast Team meeting tonight at 8pm"],
-    parameters={"message": "Message to broadcast to all chats"},
-    help_text="""
-📡 Broadcast Message (Leadership Only)
-
-Send a message to all team chats (main and leadership).
-
-Usage:
-/broadcast [message]
-
-Example:
-/broadcast Team meeting tonight at 8pm
-
-What happens:
-1. Message is sent to main team chat
-2. Message is sent to leadership chat
-3. All team members receive the message
-4. Broadcast is logged for record keeping
-
-💡 Note: This command is only available in the leadership chat.
-    """,
-)
-async def handle_broadcast_command(update, context, **kwargs):
-    """Handle /broadcast command."""
     # This will be handled by the agent system
     return None

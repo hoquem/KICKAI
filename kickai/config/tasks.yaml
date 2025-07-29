@@ -56,32 +56,6 @@ tasks:
     agent: intelligent_system
 
   # Player Management Tasks
-  - name: register_player
-    description: >
-      Guide new players through the registration process, collect required information,
-      and create player profiles in the system.
-      
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 🎉 Welcome, 👤 User)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
-      - Organize content in clear sections
-    expected_output: >
-      Complete player registration with all required information and confirmation,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
-    agent: onboarding_agent
-
   - name: check_player_status
     description: >
       Retrieve and display current player status, registration details, and

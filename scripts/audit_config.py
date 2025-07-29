@@ -37,6 +37,7 @@ class AuditConfig:
                 ".git",
                 ".pytest_cache",
                 "venv",
+                "venv311",
                 "node_modules",
                 "*.pyc",
                 "*.pyo",

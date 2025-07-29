@@ -36,6 +36,7 @@ class TelegramMessage:
     raw_update: Any = None
     contact_phone: str = None
     contact_user_id: str = None
+    is_new_member: bool = False
 
 
 @dataclass
@@ -98,7 +99,7 @@ class UserFlowAgent:
             formatted_message = await self._format_unregistered_user_message(
                 message.chat_type, message.team_id, message.username
             )
-            return AgentResponse(message=formatted_message)
+            return formatted_message
         except Exception as e:
             logger.error(f"❌ Error handling unregistered user flow: {e}")
             return AgentResponse(
@@ -113,7 +114,7 @@ class UserFlowAgent:
             formatted_message = await self._format_registered_user_message(
                 message.user_id, message.team_id, message.username
             )
-            return AgentResponse(message=formatted_message)
+            return formatted_message
         except Exception as e:
             logger.error(f"❌ Error handling registered user flow: {e}")
             return AgentResponse(
@@ -163,6 +164,8 @@ class UserFlowAgent:
         """Tool: Format unregistered user message based on chat type."""
         try:
             if chat_type == ChatType.MAIN.value:
+                # For main chat, always show linking instructions since we can't check async here
+                # The actual linking check happens in the async _format_unregistered_user_message method
                 message = (
                     f"👋 Welcome to KICKAI for {team_id}, {username}!\n\n"
                     f"🤖 KICKAI v{BOT_VERSION} - Your AI-powered football team assistant\n\n"
@@ -272,11 +275,11 @@ class UserFlowAgent:
             try:
                 return container.get_service(PlayerService)
             except RuntimeError as e:
-                logger.debug(f"PlayerService not available in container: {e}")
+                logger.debug(f"🔍 PlayerService not available in container: {e}")
                 return None
 
         except Exception as e:
-            logger.debug(f"PlayerService not available: {e}")
+            logger.debug(f"🔍 PlayerService not available: {e}")
             return None
 
     async def _get_team_service(self):
@@ -328,7 +331,7 @@ class UserFlowAgent:
                         logger.info(f"✅ User {user_id} found as registered player")
                         return True
                 except Exception as e:
-                    logger.debug(f"User {user_id} not found as player: {e}")
+                    logger.debug(f"🔍 User {user_id} not found as player: {e}")
 
             # Check if user exists as a team member
             if team_service:
@@ -391,7 +394,7 @@ class UserFlowAgent:
                             )
                             return True
                     except Exception as e:
-                        logger.debug(f"User {user_id} not found as player: {e}")
+                        logger.debug(f"🔍 User {user_id} not found as player: {e}")
 
                 # Check if there are pending players that could be linked
                 try:
@@ -410,7 +413,7 @@ class UserFlowAgent:
                         )
                         # Don't return True here - let the user flow handle the linking
                 except Exception as e:
-                    logger.debug(f"Could not check pending players: {e}")
+                    logger.debug(f"🔍 Could not check pending players: {e}")
 
                 logger.info(f"❌ User {user_id} not registered as player in main chat")
                 return False
@@ -451,12 +454,41 @@ class UserFlowAgent:
 
     async def _format_unregistered_user_message(
         self, chat_type: ChatType, team_id: str, username: str
-    ) -> str:
+    ) -> AgentResponse:
         """Format unregistered user message based on chat type."""
-        return self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
+        try:
+            if chat_type == ChatType.MAIN:
+                # Check for pending players that could be linked
+                try:
+                    from kickai.features.player_registration.domain.services.player_linking_service import (
+                        PlayerLinkingService,
+                    )
+                    
+                    linking_service = PlayerLinkingService(team_id)
+                    pending_players = await linking_service.get_pending_players_without_telegram_id()
+                    
+                    if pending_players:
+                        # Use the specific linking prompt message with contact button
+                        message = await linking_service.create_linking_prompt_message("")
+                        return AgentResponse(message=message, needs_contact_button=True)
+                except Exception as e:
+                    logger.debug(f"🔍 Could not check pending players for linking prompt: {e}")
+                
+                # Fallback to generic message if no pending players or error
+                fallback_message = self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
+                return AgentResponse(message=fallback_message)
+            else:
+                # For other chat types, use the tool method
+                fallback_message = self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
+                return AgentResponse(message=fallback_message)
+        except Exception as e:
+            logger.error(f"❌ Error formatting unregistered user message: {e}")
+            fallback_message = self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
+            return AgentResponse(message=fallback_message)
 
     async def _format_registered_user_message(
         self, user_id: str, team_id: str, username: str
-    ) -> str:
+    ) -> AgentResponse:
         """Format registered user message."""
-        return self._format_registered_user_message_tool(user_id, team_id, username)
+        message = self._format_registered_user_message_tool(user_id, team_id, username)
+        return AgentResponse(message=message, needs_contact_button=False)

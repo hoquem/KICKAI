@@ -90,6 +90,8 @@ class IntentClassificationStep(PipelineStep):
             return "creation_request"
         elif any(word in task_lower for word in ["approve", "reject", "update"]):
             return "approval_request"
+        elif any(word in task_lower for word in ["training", "practice", "session", "schedule", "attend"]):
+            return "training_request"
         else:
             return "general_query"
 
@@ -175,6 +177,25 @@ class AgentSelectionStep(PipelineStep):
                     # Leadership chat: Use MESSAGE_PROCESSOR for list_team_members_and_players
                     return available_agents.get(AgentRole.MESSAGE_PROCESSOR)
 
+            # Training commands - use TRAINING_COORDINATOR
+            if command in ["scheduletraining", "listtrainings", "marktraining", "canceltraining", "trainingstats", "mytrainings"]:
+                return available_agents.get(AgentRole.TRAINING_COORDINATOR) or available_agents.get(
+                    AgentRole.MESSAGE_PROCESSOR
+                )
+
+            # Update commands - context-aware selection
+            if command == "update":
+                if chat_type == "main_chat":
+                    # Main chat: Use PLAYER_COORDINATOR for player updates
+                    return available_agents.get(AgentRole.PLAYER_COORDINATOR) or available_agents.get(
+                        AgentRole.MESSAGE_PROCESSOR
+                    )
+                else:
+                    # Leadership chat: Use TEAM_MANAGER for team member updates
+                    return available_agents.get(AgentRole.TEAM_MANAGER) or available_agents.get(
+                        AgentRole.MESSAGE_PROCESSOR
+                    )
+
         # Intent-based selection with context awareness
         if intent == "help_request":
             return available_agents.get(AgentRole.HELP_ASSISTANT) or available_agents.get(
@@ -205,6 +226,10 @@ class AgentSelectionStep(PipelineStep):
                 # Approval not available in main chat
                 return available_agents.get(AgentRole.MESSAGE_PROCESSOR)
             return available_agents.get(AgentRole.PLAYER_COORDINATOR)
+        elif intent == "training_request":
+            return available_agents.get(AgentRole.TRAINING_COORDINATOR) or available_agents.get(
+                AgentRole.MESSAGE_PROCESSOR
+            )
 
         # Default to message processor
         return available_agents.get(AgentRole.MESSAGE_PROCESSOR)

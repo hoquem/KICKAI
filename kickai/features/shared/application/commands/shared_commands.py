@@ -2,45 +2,16 @@
 """
 Shared Commands
 
-This module registers shared/common commands that are available across all features.
-These commands provide basic functionality that doesn't belong to a specific feature.
+This module registers all shared commands with the command registry.
+These are commands that are available across multiple features.
 """
 
 from kickai.core.command_registry import CommandType, PermissionLevel, command
+from kickai.core.enums import ChatType
 
-# ============================================================================
-# SHARED COMMANDS
-# ============================================================================
-
-
-@command(
-    name="/start",
-    description="Start the bot and show welcome message",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PUBLIC,
-    feature="shared",
-    examples=["/start"],
-    help_text="""
-🚀 Start Bot
-
-Start the KICKAI bot and get a welcome message.
-
-Usage:
-/start
-
-What happens:
-1. Bot welcomes you to the system
-2. Shows available commands for your role
-3. Provides basic usage instructions
-4. Sets up your user session
-
-💡 Tip: Use this command when you first join or need a refresher.
-    """,
-)
-async def handle_start_command(update, context, **kwargs):
-    """Handle /start command."""
-    # This will be handled by the agent system
-    return None
+# Note: /start command has been removed as it's not needed for now
+# The system will handle new member welcome messages automatically
+# when users join via invite links
 
 
 @command(
@@ -231,4 +202,59 @@ What you'll see:
 async def handle_version_command(update, context, **kwargs):
     """Handle /version command."""
     # This will be handled by the agent system
+    return None
+
+
+@command(
+    name="/update",
+    description="Update your information (context-aware)",
+    command_type=CommandType.SLASH_COMMAND,
+    permission_level=PermissionLevel.PUBLIC,
+    feature="shared",
+    examples=["/update phone 07123456789", "/update position midfielder", "/update email john@example.com"],
+    parameters={
+        "field": "Field to update (phone, position, email, emergency_contact, medical_notes, role)",
+        "value": "New value for the field"
+    },
+    help_text="""
+🔄 Update Information
+
+Update your personal information based on your current chat context.
+
+**Main Chat (Players):**
+• phone - Your contact phone number
+• position - Your football position
+• email - Your email address
+• emergency_contact - Emergency contact info
+• medical_notes - Medical information
+
+**Leadership Chat (Team Members):**
+• phone - Your contact phone number
+• email - Your email address
+• emergency_contact - Emergency contact info
+• role - Your administrative role
+
+Usage:
+• /update [field] [new value]
+• /update phone 07123456789
+• /update position midfielder
+• /update email john@example.com
+
+What happens:
+1. Your information is validated
+2. Database is updated with new value
+3. Change is logged for audit purposes
+4. You receive confirmation message
+
+🔒 Security:
+• Only you can update your own information
+• All changes are logged
+• Phone numbers must be unique within team
+
+💡 Tip: Use /update without arguments to see available fields for your context.
+    """,
+)
+async def handle_update_command(update, context, **kwargs):
+    """Handle /update command."""
+    # This will be handled by the agent system using UpdateCommandHandler
     return None

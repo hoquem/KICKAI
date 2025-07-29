@@ -120,7 +120,7 @@ git clone https://github.com/your-org/KICKAI.git
 cd KICKAI
 
 # Create virtual environment
-python -m venv venv
+python -m venv venv311
 source venv311/bin/activate
 
 # Install dependencies
