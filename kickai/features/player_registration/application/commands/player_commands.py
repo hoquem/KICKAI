@@ -10,51 +10,6 @@ from kickai.core.command_registry import CommandType, PermissionLevel, command
 from kickai.core.enums import ChatType
 
 # ============================================================================
-# MAIN CHAT COMMANDS - For Player Registration
-# ============================================================================
-
-
-@command(
-    name="/register",
-    description="Register as a new player (Main Chat)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PUBLIC,
-    feature="player_registration",
-    chat_type=ChatType.MAIN,
-    examples=["/register", "/register John Smith +447123456789 Forward"],
-    parameters={
-        "name": "Player's full name",
-        "phone": "Phone number (e.g., +447123456789)",
-        "position": "Playing position (e.g., Forward, Midfielder, Defender, Goalkeeper)",
-    },
-    help_text="""
-📝 Player Registration (Main Chat)
-
-Register yourself as a new player in the team.
-
-Usage:
-• /register - Start registration process
-• /register [name] [phone] [position] - Register with details
-
-Example:
-/register John Smith +447123456789 Forward
-
-What happens:
-1. Your details are recorded in the team database
-2. You'll receive a welcome message
-3. Team leadership will be notified for approval
-4. You can start using player commands once approved
-
-💡 Need help? Contact the team admin in the leadership chat.
-    """,
-)
-async def handle_register_player_main_chat(update, context, **kwargs):
-    """Handle /register command in main chat - for player registration."""
-    # This will be handled by the agent system
-    return None
-
-
-# ============================================================================
 # LEADERSHIP CHAT COMMANDS - For Team Member Registration
 # ============================================================================
 
