@@ -14,17 +14,20 @@ The Payment Management system handles all financial operations for amateur Sunda
 
 ### Sunday League Financial Management
 - **Player Fees**: Weekly/monthly subscription fees for participation
-- **Match Expenses**: Referee fees, pitch rental, travel costs
+- **Match Fees**: Per-match fees for pitch rental, referee costs, and match expenses
+- **Training Fees**: Per-session fees for training ground rental and equipment
 - **Equipment Costs**: Jerseys, balls, training equipment
 - **Tournament Fees**: League registration, cup competition fees
 - **Administrative Costs**: Insurance, league memberships
 
 ### Core Financial Challenges
-1. **Manual Payment Tracking**: Eliminate spreadsheet-based financial management
-2. **Payment Collection**: Streamline player fee collection
-3. **Expense Management**: Track and categorize team expenses
-4. **Budget Control**: Monitor spending against allocated budgets
-5. **Financial Reporting**: Generate reports for committee and league requirements
+1. **Match Revenue Tracking**: Link player attendance to match fee collection
+2. **Training Revenue Tracking**: Link player attendance to training fee collection
+3. **Cost Recovery**: Ensure pitch and referee costs are covered by player fees
+4. **Payment Collection**: Streamline player fee collection for matches and training
+5. **Expense Management**: Track and categorize team expenses
+6. **Budget Control**: Monitor spending against allocated budgets
+7. **Financial Reporting**: Generate reports for committee and league requirements
 
 ## System Architecture
 
@@ -51,89 +54,131 @@ payment_management/
 
 ## Functional Requirements
 
-### 1. Payment Collection Flow
+### 1. Match Fee Management
 
-#### 1.1 Payment Creation
-1. **Leadership**: Uses `/createpayment` command with payment details
-2. **System**: Creates payment record with unique ID
-3. **System**: Generates Collectiv payment link
-4. **System**: Sends payment notification to player
-5. **Player**: Clicks payment link to complete transaction
+#### 1.1 Match Fee Structure
+- **Per-Match Fee**: Standard fee for each match (e.g., £5-10 per player)
+- **Cost Breakdown**: 
+  - Pitch rental (typically £50-100 per match)
+  - Referee fees (typically £30-50 per match)
+  - Match balls and equipment
+  - Travel costs (if applicable)
+- **Fee Calculation**: Total match costs ÷ number of players = per-player fee
+- **Variable Fees**: Different fees for home/away matches, cup games, friendlies
 
-#### 1.2 Payment Processing
-1. **Player**: Completes payment via Collectiv gateway
-2. **System**: Receives payment confirmation from Collectiv
-3. **System**: Updates payment status to "completed"
-4. **System**: Sends receipt to player
-5. **System**: Updates team financial records
+#### 1.2 Match Attendance Integration
+- **Automatic Fee Generation**: Create payment records for all confirmed match attendees
+- **Attendance Tracking**: Link payment status to actual match attendance
+- **Fee Collection**: Collect fees from players who attend matches
+- **No-Show Handling**: Handle players who don't attend despite confirming
+- **Late Cancellation**: Manage fees for last-minute withdrawals
 
-### 2. Payment Management Flow
+#### 1.3 Match Fee Workflow
+1. **Match Creation**: Set match fee when creating match
+2. **Attendance Confirmation**: Players confirm attendance via `/markattendance`
+3. **Fee Generation**: System creates payment records for confirmed attendees
+4. **Fee Collection**: Players pay via Collectiv or cash
+5. **Attendance Verification**: Confirm actual attendance after match
+6. **Revenue Reconciliation**: Match actual attendance with payments
 
-#### 2.1 Payment Tracking
-1. **Leadership**: Uses `/payments` to view payment history
-2. **System**: Shows all payments with status and details
-3. **Leadership**: Can filter by player, date, or status
-4. **System**: Highlights overdue payments
-5. **Leadership**: Can send payment reminders
+### 2. Training Fee Management
 
-#### 2.2 Manual Payment Recording
-1. **Leadership**: Records cash or bank transfer payment
-2. **Leadership**: Uses `/markpaid` to update payment status
-3. **System**: Validates payment details
-4. **System**: Updates payment record and financial totals
-5. **System**: Sends confirmation to player
+#### 2.1 Training Fee Structure
+- **Per-Session Fee**: Standard fee for each training session (e.g., £3-5 per player)
+- **Cost Breakdown**:
+  - Training ground rental (typically £30-60 per session)
+  - Equipment and balls
+  - Coach/trainer costs (if applicable)
+- **Fee Calculation**: Total training costs ÷ number of attendees = per-player fee
+- **Variable Fees**: Different fees for different training types
 
-### 3. Expense Management
+#### 2.2 Training Attendance Integration
+- **Automatic Fee Generation**: Create payment records for all confirmed training attendees
+- **Attendance Tracking**: Link payment status to actual training attendance
+- **Fee Collection**: Collect fees from players who attend training
+- **Commitment Rewards**: Discounts for regular attendees
+- **Drop-in Fees**: Higher fees for occasional attendees
 
-#### 3.1 Expense Categories
+#### 2.3 Training Fee Workflow
+1. **Training Creation**: Set training fee when scheduling session
+2. **Attendance Confirmation**: Players confirm attendance via `/marktraining`
+3. **Fee Generation**: System creates payment records for confirmed attendees
+4. **Fee Collection**: Players pay via Collectiv or cash
+5. **Attendance Verification**: Confirm actual attendance after training
+6. **Revenue Reconciliation**: Match actual attendance with payments
+
+### 3. Payment Collection
+
+#### 3.1 Payment Creation
+- **Command**: `/createpayment` - Create a new payment record
+- **Automatic Generation**: System creates payments for match/training attendance
+- **Manual Creation**: Leadership can create custom payment records
+- **Bulk Creation**: Create multiple payments for team events
+
+#### 3.2 Payment Processing
+- **Gateway Integration**: Collectiv API for secure payments
+- **Payment Methods**: Card payments, bank transfers, digital wallets
+- **Receipt Generation**: Automatic receipt creation and delivery
+- **Failed Payment Handling**: Retry logic and manual intervention
+
+#### 3.3 Payment Tracking
+- **Status Management**: Pending, completed, failed, refunded
+- **Player Payment History**: Complete payment record per player
+- **Outstanding Balances**: Track overdue payments
+- **Payment Verification**: Manual confirmation for cash/transfer payments
+
+### 4. Expense Management
+
+#### 4.1 Expense Categories
 - **Match Expenses**: Referee fees, pitch rental, travel
+- **Training Expenses**: Training ground rental, equipment, coach fees
 - **Equipment**: Jerseys, balls, training equipment, medical supplies
 - **Administrative**: Insurance, league fees, registration costs
 - **Social**: Team events, end-of-season celebrations
 - **Other**: Miscellaneous team-related expenses
 
-#### 3.2 Expense Recording
+#### 4.2 Expense Recording
 - **Receipt Upload**: Photo capture and storage
 - **Expense Approval**: Coach/treasurer approval workflow
 - **Automatic Categorization**: AI-powered expense categorization
 - **Recurring Expenses**: Set up recurring payments (pitch rental, insurance)
 
-#### 3.3 Expense Validation
+#### 4.3 Expense Validation
 - **Budget Constraints**: Validate against allocated budgets
 - **Approval Limits**: Different approval levels based on amount
 - **Receipt Requirements**: Mandatory receipts for expenses >£20
 - **VAT Handling**: VAT calculation and reporting for registered clubs
 
-### 4. Budget Management
+### 5. Budget Management
 
-#### 4.1 Budget Creation
+#### 5.1 Budget Creation
 - **Annual Budgets**: Season-long financial planning
 - **Category Budgets**: Allocation per expense category
 - **Match Budgets**: Per-match expense allocation
 - **Emergency Fund**: Reserve allocation for unexpected costs
 
-#### 4.2 Budget Monitoring
+#### 5.2 Budget Monitoring
 - **Real-time Tracking**: Budget utilization monitoring
 - **Overspend Alerts**: Automatic notifications when approaching limits
 - **Variance Analysis**: Budget vs actual spending comparison
 - **Forecasting**: Predictive spending based on historical data
 
-#### 4.3 Budget Controls
+#### 5.3 Budget Controls
 - **Approval Workflows**: Multi-level approval for budget changes
 - **Spending Limits**: Role-based spending authorization
 - **Budget Transfers**: Move allocation between categories
 - **Budget Reviews**: Regular budget performance reviews
 
-### 5. Financial Reporting
+### 6. Financial Reporting
 
-#### 5.1 Standard Reports
+#### 6.1 Standard Reports
 - **Income Statement**: Revenue vs expenses analysis
 - **Player Payment Report**: Individual payment status
 - **Expense Report**: Categorized expense breakdown
 - **Budget Performance**: Budget vs actual analysis
 - **Cash Flow**: Money in vs money out tracking
 
-#### 5.2 Analytics and Insights
+#### 6.2 Analytics and Insights
 - **Payment Trends**: Payment behavior analysis
 - **Cost per Player**: Per-player cost calculation
 - **Seasonal Analysis**: Year-over-year financial comparison
@@ -286,26 +331,20 @@ def generate_financial_summary(team_id: str, period: str) -> str:
 
 ### Payment Type Codes
 - **FEE**: Player fees and subscriptions
+- **MAT**: Match-specific fees (pitch rental, referee costs)
+- **TRA**: Training session fees (ground rental, equipment)
 - **EQP**: Equipment and kit payments
-- **MAT**: Match-specific fees
 - **TOU**: Tournament entry fees
 - **ADM**: Administrative costs
 - **SOC**: Social event payments
 
-### Payment ID Generation Rules
-1. **Prefix**: Always starts with "P" for Payment
-2. **Date**: DD (day) + MM (month) format
-3. **Type**: 3-letter payment type code
-4. **Number**: Sequential number for that date/type (01, 02, 03...)
-5. **Separator**: Hyphen (-) between components
-6. **Collision Resolution**: Increment number automatically
-
 ### Payment ID Examples
 ```
 Payment Details → Generated IDs
-Player fee, Jan 15 → P1501-FEE-01
+Match fee, Jan 15 → P1501-MAT-01
+Training fee, Jan 15 → P1501-TRA-01
 Equipment payment, Jan 15 → P1501-EQP-01
-Match fee, Feb 20 → P2002-MAT-01
+Player subscription, Feb 20 → P2002-FEE-01
 Tournament fee, Mar 10 → P1003-TOU-01
 ```
 
@@ -323,91 +362,186 @@ Tournament fee, Mar 10 → P1003-TOU-01
 - `/createpayment` - Create a new payment record
 - `/payments` - View payment history
 - `/markpaid` - Mark payment as paid
+- `/setmatchfee` - Set fee for a specific match
+- `/settrainingfee` - Set fee for a specific training session
+- `/matchrevenue` - View match revenue report
+- `/trainingrevenue` - View training revenue report
+- `/financialreport` - Generate comprehensive financial report
+
+### Player Commands (Main Chat)
+- `/mypayments` - View your payment history
+- `/outstanding` - Check your outstanding payments
+- `/paymentlink` - Get payment link for specific fee
 
 ## User Experience Flows
 
-### 1. Player Fee Payment Flow
+### 1. Match Fee Collection Flow
 
-#### 1.1 Happy Path
-1. **System**: Generates weekly fee payment request
-2. **Player**: Receives payment notification via Telegram
-3. **Player**: Clicks payment link or uses `/pay` command
-4. **System**: Redirects to Collectiv payment page
-5. **Player**: Completes payment using preferred method
-6. **Collectiv**: Processes payment and sends webhook
-7. **System**: Updates payment status to "completed"
-8. **Player**: Receives payment confirmation and receipt
-9. **System**: Updates player balance and team finances
+#### 1.1 Match Fee Setup
+1. **Leadership**: Creates match with `/creatematch` command
+2. **Leadership**: Sets match fee amount (e.g., £8 per player)
+3. **System**: Calculates total match costs (pitch + referee + equipment)
+4. **System**: Validates fee covers costs with reasonable margin
+5. **System**: Stores match fee configuration
 
-#### 1.2 Alternative Flows
-- **Failed Payment**: Retry mechanism with alternative payment methods
-- **Cash Payment**: Manual recording by coach/treasurer
-- **Partial Payment**: Handle partial payments with remaining balance
-- **Refund Request**: Process refunds through Collectiv API
+#### 1.2 Match Fee Generation
+1. **Players**: Confirm attendance via `/markattendance` command
+2. **System**: Creates payment records for all confirmed attendees
+3. **System**: Generates Collectiv payment links for each player
+4. **System**: Sends payment notifications to confirmed players
+5. **Players**: Pay via payment links or cash
 
-### 2. Expense Management Flow
+#### 1.3 Match Fee Reconciliation
+1. **Match Day**: Actual attendance is recorded
+2. **System**: Compares confirmed vs actual attendance
+3. **Leadership**: Handles no-shows and late cancellations
+4. **System**: Updates payment records based on actual attendance
+5. **System**: Generates match revenue report
 
-#### 2.1 Expense Submission
-1. **Coach/Player**: Incurs team-related expense
-2. **User**: Takes photo of receipt
-3. **User**: Uses `/expenses add` command with details
-4. **System**: Creates expense record with "pending" status
-5. **System**: Routes to appropriate approver based on amount
-6. **Approver**: Reviews expense and receipt
-7. **Approver**: Approves or rejects with comments
-8. **System**: Updates expense status and notifies submitter
+### 2. Training Fee Collection Flow
 
-#### 2.2 Budget Checking
-1. **System**: Validates expense against relevant budget
-2. **System**: Checks remaining budget allocation
-3. **System**: Warns if expense exceeds budget limits
-4. **Approver**: Can override budget limits with justification
-5. **System**: Updates budget utilization
+#### 2.1 Training Fee Setup
+1. **Leadership**: Schedules training with `/scheduletraining` command
+2. **Leadership**: Sets training fee amount (e.g., £4 per player)
+3. **System**: Calculates total training costs (ground + equipment)
+4. **System**: Validates fee covers costs with reasonable margin
+5. **System**: Stores training fee configuration
 
-### 3. Financial Reporting Flow
+#### 2.2 Training Fee Generation
+1. **Players**: Confirm attendance via `/marktraining` command
+2. **System**: Creates payment records for all confirmed attendees
+3. **System**: Generates Collectiv payment links for each player
+4. **System**: Sends payment notifications to confirmed players
+5. **Players**: Pay via payment links or cash
 
-#### 3.1 Regular Reports
-1. **Coach/Treasurer**: Requests financial report using `/financial_report`
-2. **ANALYTICS_AGENT**: Analyzes financial data
-3. **System**: Generates comprehensive report
-4. **System**: Delivers report via Telegram or email
-5. **Stakeholders**: Review financial performance
+#### 2.3 Training Fee Reconciliation
+1. **Training Day**: Actual attendance is recorded
+2. **System**: Compares confirmed vs actual attendance
+3. **Leadership**: Handles no-shows and late cancellations
+4. **System**: Updates payment records based on actual attendance
+5. **System**: Generates training revenue report
 
-#### 3.2 Real-time Monitoring
-1. **System**: Continuously monitors budget utilization
-2. **System**: Sends alerts when approaching budget limits
-3. **System**: Provides daily/weekly financial summaries
-4. **System**: Highlights unusual spending patterns
+### 3. Payment Management Flow
+
+#### 3.1 Payment Creation
+1. **Leadership**: Uses `/createpayment` command with payment details
+2. **System**: Creates payment record with unique ID
+3. **System**: Generates Collectiv payment link
+4. **System**: Sends payment notification to player
+5. **Player**: Clicks payment link to complete transaction
+
+#### 3.2 Payment Processing
+1. **Player**: Completes payment via Collectiv gateway
+2. **System**: Receives payment confirmation from Collectiv
+3. **System**: Updates payment status to "completed"
+4. **System**: Sends receipt to player
+5. **System**: Updates team financial records
+
+### 4. Payment Tracking Flow
+
+#### 4.1 Payment Monitoring
+1. **Leadership**: Uses `/payments` to view payment history
+2. **System**: Shows all payments with status and details
+3. **Leadership**: Can filter by player, date, or status
+4. **System**: Highlights overdue payments
+5. **Leadership**: Can send payment reminders
+
+#### 4.2 Manual Payment Recording
+1. **Leadership**: Records cash or bank transfer payment
+2. **Leadership**: Uses `/markpaid` to update payment status
+3. **System**: Validates payment details
+4. **System**: Updates payment record and financial totals
+5. **System**: Sends confirmation to player
 
 ## Integration Requirements
 
-### 1. External Services
+### 1. Match Management Integration
 
-#### 1.1 Collectiv Payment Gateway
-- **API Integration**: RESTful API for payment processing
-- **Webhook Handling**: Real-time payment status updates
-- **Security**: PCI DSS compliance and secure token handling
-- **Error Handling**: Comprehensive error handling and logging
+#### 1.1 Match Fee Configuration
+- **Fee Setting**: Set per-match fee when creating matches
+- **Cost Calculation**: Automatic calculation of total match costs
+- **Fee Validation**: Ensure fees cover costs with reasonable margin
+- **Variable Fees**: Support different fees for different match types
 
-#### 1.2 Banking Integration (Future)
-- **Open Banking**: Direct bank account integration
-- **Transaction Import**: Automatic transaction categorization
-- **Reconciliation**: Match payments with bank transactions
-- **Balance Monitoring**: Real-time account balance tracking
+#### 1.2 Attendance-Payment Linking
+- **Automatic Payment Creation**: Generate payment records for confirmed attendees
+- **Attendance Verification**: Link actual attendance to payment status
+- **No-Show Handling**: Manage fees for players who don't attend
+- **Late Cancellation**: Handle fees for last-minute withdrawals
 
-### 2. Internal System Integration
+#### 1.3 Match Revenue Tracking
+- **Revenue Calculation**: Track actual revenue from match fees
+- **Cost Recovery**: Ensure pitch and referee costs are covered
+- **Profit Analysis**: Calculate profit/loss per match
+- **Seasonal Analysis**: Track match revenue trends
 
-#### 2.1 Player Management Integration
-- **Player Linking**: Link payments to player records
-- **Status Updates**: Update player status based on payment history
-- **Contact Integration**: Use player contact info for payment reminders
-- **Reporting Integration**: Include payment data in player reports
+### 2. Training Management Integration
 
-#### 2.2 Match Management Integration
-- **Match Fees**: Automatic fee calculation for matches
-- **Squad Selection**: Consider payment status in squad selection
-- **Match Expenses**: Link expenses to specific matches
-- **Tournament Integration**: Handle tournament-specific payments
+#### 2.1 Training Fee Configuration
+- **Fee Setting**: Set per-session fee when scheduling training
+- **Cost Calculation**: Automatic calculation of total training costs
+- **Fee Validation**: Ensure fees cover costs with reasonable margin
+- **Variable Fees**: Support different fees for different training types
+
+#### 2.2 Attendance-Payment Linking
+- **Automatic Payment Creation**: Generate payment records for confirmed attendees
+- **Attendance Verification**: Link actual attendance to payment status
+- **Commitment Rewards**: Discounts for regular attendees
+- **Drop-in Fees**: Higher fees for occasional attendees
+
+#### 2.3 Training Revenue Tracking
+- **Revenue Calculation**: Track actual revenue from training fees
+- **Cost Recovery**: Ensure training ground costs are covered
+- **Attendance Analysis**: Track training attendance patterns
+- **Revenue Optimization**: Identify most profitable training types
+
+### 3. Collectiv Payment Gateway Integration
+
+#### 3.1 Payment Processing
+- **API Integration**: Secure integration with Collectiv API
+- **Payment Links**: Generate unique payment links for each transaction
+- **Webhook Handling**: Process payment confirmations and updates
+- **Error Handling**: Graceful handling of payment failures
+
+#### 3.2 Payment Methods
+- **Card Payments**: Support for major credit/debit cards
+- **Bank Transfers**: Direct bank transfer options
+- **Digital Wallets**: Support for digital payment methods
+- **Cash Payments**: Manual recording for cash transactions
+
+#### 3.3 Security and Compliance
+- **PCI Compliance**: Secure handling of payment data
+- **Data Encryption**: All payment data encrypted in transit and at rest
+- **Audit Logging**: Comprehensive logging of all payment activities
+- **Fraud Prevention**: Basic fraud detection and prevention measures
+
+### 4. Firebase Integration
+
+#### 4.1 Data Storage
+- **Payment Records**: Store all payment information securely
+- **Attendance Records**: Link attendance to payment status
+- **Financial Reports**: Generate and store financial reports
+- **Audit Trail**: Maintain complete audit trail of all transactions
+
+#### 4.2 Real-time Updates
+- **Payment Status**: Real-time payment status updates
+- **Revenue Tracking**: Live revenue and expense tracking
+- **Budget Monitoring**: Real-time budget utilization monitoring
+- **Alert System**: Automated alerts for financial events
+
+### 5. Agent System Integration
+
+#### 5.1 Financial Analysis
+- **ANALYTICS_AGENT**: Analyze payment patterns and trends
+- **Revenue Optimization**: Identify opportunities to increase revenue
+- **Cost Analysis**: Analyze cost patterns and optimization opportunities
+- **Financial Reporting**: Generate comprehensive financial reports
+
+#### 5.2 Payment Management
+- **TEAM_ADMINISTRATOR**: Handle payment-related requests and queries
+- **Payment Reminders**: Automated payment reminder system
+- **Overdue Payment Handling**: Manage overdue payment collections
+- **Financial Decision Support**: Provide financial insights for decision making
 
 ## Security and Compliance
 
