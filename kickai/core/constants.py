@@ -53,6 +53,21 @@ class CommandDefinition:
 
 
 # =============================================================================
+# CORE COMMANDS
+# =============================================================================
+
+CORE_COMMANDS = {
+    CommandDefinition(
+        name="/help",
+        description="Get help and command information",
+        permission_level=PermissionLevel.PUBLIC,
+        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP, ChatType.PRIVATE]),
+        examples=("/help", "/help /addplayer"),
+        feature="shared",
+    ),
+}
+
+# =============================================================================
 # PLAYER MANAGEMENT COMMANDS
 # =============================================================================
 
@@ -86,19 +101,35 @@ PLAYER_COMMANDS = {
         description="Update your player information",
         permission_level=PermissionLevel.PLAYER,
         chat_types=frozenset([ChatType.MAIN]),
-        examples=("/update phone 07123456789", "/update position midfielder", "/update email john@example.com"),
+        examples=("/update", "/update position Forward"),
         feature="player_registration",
     ),
 }
 
 # =============================================================================
-# LEADERSHIP COMMANDS
+# TEAM ADMINISTRATION COMMANDS
 # =============================================================================
 
-LEADERSHIP_COMMANDS = {
+TEAM_ADMINISTRATION_COMMANDS = {
+    CommandDefinition(
+        name="/addplayer",
+        description="Add a new player with invite link",
+        permission_level=PermissionLevel.LEADERSHIP,
+        chat_types=frozenset([ChatType.LEADERSHIP]),
+        examples=("/addplayer", "/addplayer John Smith +447123456789"),
+        feature="player_registration",
+    ),
+    CommandDefinition(
+        name="/addmember",
+        description="Add a new team member with invite link",
+        permission_level=PermissionLevel.LEADERSHIP,
+        chat_types=frozenset([ChatType.LEADERSHIP]),
+        examples=("/addmember", "/addmember Jane Doe +447123456789"),
+        feature="player_registration",
+    ),
     CommandDefinition(
         name="/approve",
-        description="Approve a player for matches",
+        description="Approve a pending player/member",
         permission_level=PermissionLevel.LEADERSHIP,
         chat_types=frozenset([ChatType.LEADERSHIP]),
         examples=("/approve", "/approve MH123"),
@@ -106,98 +137,82 @@ LEADERSHIP_COMMANDS = {
     ),
     CommandDefinition(
         name="/reject",
-        description="Reject a player application",
+        description="Reject a pending player/member",
         permission_level=PermissionLevel.LEADERSHIP,
         chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/reject", "/reject MH123 reason"),
+        examples=("/reject", "/reject MH123"),
         feature="player_registration",
     ),
     CommandDefinition(
         name="/pending",
-        description="List players awaiting approval",
+        description="List pending approvals",
         permission_level=PermissionLevel.LEADERSHIP,
         chat_types=frozenset([ChatType.LEADERSHIP]),
         examples=("/pending",),
         feature="player_registration",
     ),
     CommandDefinition(
-        name="/addplayer",
-        description="Add a player directly",
+        name="/announce",
+        description="Send team announcements",
         permission_level=PermissionLevel.LEADERSHIP,
         chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/addplayer", "/addplayer John Smith 07123456789 midfielder"),
-        feature="player_registration",
-    ),
-    CommandDefinition(
-        name="/addmember",
-        description="Add a team member",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/addmember", "/addmember John Smith 07123456789 manager"),
-        feature="team_administration",
-    ),
-    CommandDefinition(
-        name="/list",
-        description="List all players with status",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/list", "/list members"),
-        feature="shared",
-    ),
-    CommandDefinition(
-        name="/update",
-        description="Update your team member information",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/update phone 07123456789", "/update email admin@example.com", "/update role Assistant Coach"),
-        feature="team_administration",
+        examples=("/announce", "/announce Team meeting tonight"),
+        feature="communication",
     ),
 }
 
 # =============================================================================
-# SYSTEM COMMANDS
+# TRAINING MANAGEMENT COMMANDS
 # =============================================================================
 
-SYSTEM_COMMANDS = {
+TRAINING_COMMANDS = {
     CommandDefinition(
-        name="/start",
-        description="Start the bot",
-        permission_level=PermissionLevel.PUBLIC,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP, ChatType.PRIVATE]),
-        examples=("/start",),
-        feature="shared",
+        name="/scheduletraining",
+        description="Schedule a new training session",
+        permission_level=PermissionLevel.LEADERSHIP,
+        chat_types=frozenset([ChatType.LEADERSHIP]),
+        examples=("/scheduletraining", "/scheduletraining Technical 2024-01-15 19:00"),
+        feature="training_management",
     ),
     CommandDefinition(
-        name="/help",
-        description="Show available commands",
-        permission_level=PermissionLevel.PUBLIC,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP, ChatType.PRIVATE]),
-        examples=("/help", "/help register"),
-        feature="shared",
+        name="/listtrainings",
+        description="List upcoming training sessions",
+        permission_level=PermissionLevel.PLAYER,
+        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
+        examples=("/listtrainings", "/listtrainings 2024-01"),
+        feature="training_management",
     ),
     CommandDefinition(
-        name="/info",
-        description="Show user information",
-        permission_level=PermissionLevel.PUBLIC,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP, ChatType.PRIVATE]),
-        examples=("/info", "/myinfo"),
-        feature="shared",
+        name="/marktraining",
+        description="Mark attendance for training session",
+        permission_level=PermissionLevel.PLAYER,
+        chat_types=frozenset([ChatType.MAIN]),
+        examples=("/marktraining", "/marktraining TRAIN123 confirmed"),
+        feature="training_management",
     ),
     CommandDefinition(
-        name="/ping",
-        description="Check bot status",
-        permission_level=PermissionLevel.PUBLIC,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP, ChatType.PRIVATE]),
-        examples=("/ping",),
-        feature="shared",
+        name="/canceltraining",
+        description="Cancel a training session",
+        permission_level=PermissionLevel.LEADERSHIP,
+        chat_types=frozenset([ChatType.LEADERSHIP]),
+        examples=("/canceltraining", "/canceltraining TRAIN123"),
+        feature="training_management",
     ),
     CommandDefinition(
-        name="/version",
-        description="Show bot version",
-        permission_level=PermissionLevel.PUBLIC,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP, ChatType.PRIVATE]),
-        examples=("/version",),
-        feature="shared",
+        name="/trainingstats",
+        description="View training statistics",
+        permission_level=PermissionLevel.LEADERSHIP,
+        chat_types=frozenset([ChatType.LEADERSHIP]),
+        examples=("/trainingstats", "/trainingstats 2024"),
+        feature="training_management",
+    ),
+    CommandDefinition(
+        name="/mytrainings",
+        description="View your training history",
+        permission_level=PermissionLevel.PLAYER,
+        chat_types=frozenset([ChatType.MAIN]),
+        examples=("/mytrainings", "/mytrainings 2024"),
+        feature="training_management",
     ),
 }
 
@@ -211,166 +226,71 @@ MATCH_COMMANDS = {
         description="Create a new match",
         permission_level=PermissionLevel.LEADERSHIP,
         chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/creatematch", "/creatematch vs Team B 2024-01-15 14:00"),
+        examples=("/creatematch", "/creatematch Home vs Away 2024-01-20 15:00"),
         feature="match_management",
     ),
     CommandDefinition(
         name="/listmatches",
         description="List upcoming matches",
         permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/listmatches", "/listmatches upcoming"),
+        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
+        examples=("/listmatches", "/listmatches 2024"),
         feature="match_management",
     ),
     CommandDefinition(
-        name="/matchdetails",
-        description="Get match details",
+        name="/matchstatus",
+        description="Check match status",
         permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/matchdetails", "/matchdetails MATCH123"),
+        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
+        examples=("/matchstatus", "/matchstatus MATCH123"),
         feature="match_management",
     ),
     CommandDefinition(
         name="/selectsquad",
-        description="Select match squad",
+        description="Select squad for match",
         permission_level=PermissionLevel.LEADERSHIP,
         chat_types=frozenset([ChatType.LEADERSHIP]),
         examples=("/selectsquad", "/selectsquad MATCH123"),
         feature="match_management",
     ),
-    CommandDefinition(
-        name="/updatematch",
-        description="Update match information",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/updatematch", "/updatematch MATCH123"),
-        feature="match_management",
-    ),
 }
 
 # =============================================================================
-# TEAM ADMINISTRATION COMMANDS
-# =============================================================================
-
-TEAM_ADMINISTRATION_COMMANDS = {
-    CommandDefinition(
-        name="/scheduletraining",
-        description="Schedule a training session (Leadership only)",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/scheduletraining", "/scheduletraining Technical 2024-01-15 18:00 90"),
-        feature="team_administration",
-    ),
-    CommandDefinition(
-        name="/listtrainings",
-        description="List upcoming training sessions",
-        permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.MAIN]),
-        examples=("/listtrainings", "/listtrainings this week", "/listtrainings today"),
-        feature="team_administration",
-    ),
-    CommandDefinition(
-        name="/marktraining",
-        description="Mark attendance for a training session",
-        permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.MAIN]),
-        examples=("/marktraining", "/marktraining yes", "/marktraining no TRAIN123"),
-        feature="team_administration",
-    ),
-    CommandDefinition(
-        name="/canceltraining",
-        description="Cancel a training session (Leadership only)",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/canceltraining", "/canceltraining TRAIN123", "/canceltraining TRAIN123 Bad weather"),
-        feature="team_administration",
-    ),
-    CommandDefinition(
-        name="/trainingstats",
-        description="Show training statistics and attendance",
-        permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.MAIN]),
-        examples=("/trainingstats", "/trainingstats this month", "/trainingstats TRAIN123"),
-        feature="team_administration",
-    ),
-    CommandDefinition(
-        name="/mytrainings",
-        description="Show my training schedule and history",
-        permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.MAIN]),
-        examples=("/mytrainings", "/mytrainings upcoming", "/mytrainings history"),
-        feature="team_administration",
-    ),
-}
-
-# =============================================================================
-# ATTENDANCE COMMANDS
+# ATTENDANCE MANAGEMENT COMMANDS
 # =============================================================================
 
 ATTENDANCE_COMMANDS = {
     CommandDefinition(
-        name="/markattendance",
-        description="Mark attendance for a match",
-        permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
-        examples=("/markattendance", "/markattendance yes", "/markattendance no"),
-        feature="attendance_management",
-    ),
-    CommandDefinition(
         name="/attendance",
-        description="View match attendance",
+        description="View match attendance information",
         permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
+        chat_types=frozenset([ChatType.MAIN]),
         examples=("/attendance", "/attendance MATCH123"),
         feature="attendance_management",
     ),
     CommandDefinition(
-        name="/attendancehistory",
-        description="View attendance history",
+        name="/markattendance",
+        description="Mark your attendance for a match",
         permission_level=PermissionLevel.PLAYER,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
+        chat_types=frozenset([ChatType.MAIN]),
+        examples=("/markattendance", "/markattendance MATCH123 confirmed"),
+        feature="attendance_management",
+    ),
+    CommandDefinition(
+        name="/attendancehistory",
+        description="View your attendance history",
+        permission_level=PermissionLevel.PLAYER,
+        chat_types=frozenset([ChatType.MAIN]),
         examples=("/attendancehistory", "/attendancehistory 2024"),
-        feature="attendance_management",
-    ),
-    CommandDefinition(
-        name="/attendanceexport",
-        description="Export attendance data",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/attendanceexport", "/attendanceexport MATCH123"),
-        feature="attendance_management",
-    ),
-    CommandDefinition(
-        name="/attendancealerts",
-        description="Manage attendance alerts",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/attendancealerts", "/attendancealerts enable", "/attendancealerts disable"),
         feature="attendance_management",
     ),
 }
 
 # =============================================================================
-# PAYMENT COMMANDS
+# PAYMENT MANAGEMENT COMMANDS
 # =============================================================================
 
 PAYMENT_COMMANDS = {
-    CommandDefinition(
-        name="/createpayment",
-        description="Create a new payment",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/createpayment", "/createpayment Match Fee 25.00"),
-        feature="payment_management",
-    ),
-    CommandDefinition(
-        name="/payments",
-        description="View payment history",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/payments", "/payments pending", "/payments completed"),
-        feature="payment_management",
-    ),
     CommandDefinition(
         name="/budget",
         description="View budget information",
@@ -380,19 +300,27 @@ PAYMENT_COMMANDS = {
         feature="payment_management",
     ),
     CommandDefinition(
+        name="/createpayment",
+        description="Create a new payment record",
+        permission_level=PermissionLevel.LEADERSHIP,
+        chat_types=frozenset([ChatType.LEADERSHIP]),
+        examples=("/createpayment", "/createpayment John Smith 50.00 Match fee"),
+        feature="payment_management",
+    ),
+    CommandDefinition(
+        name="/payments",
+        description="View payment history",
+        permission_level=PermissionLevel.LEADERSHIP,
+        chat_types=frozenset([ChatType.LEADERSHIP]),
+        examples=("/payments", "/payments John Smith"),
+        feature="payment_management",
+    ),
+    CommandDefinition(
         name="/markpaid",
         description="Mark payment as paid",
         permission_level=PermissionLevel.LEADERSHIP,
         chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/markpaid", "/markpaid PAYMENT123"),
-        feature="payment_management",
-    ),
-    CommandDefinition(
-        name="/paymentexport",
-        description="Export payment data",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/paymentexport", "/paymentexport 2024"),
+        examples=("/markpaid", "/markpaid PAY123"),
         feature="payment_management",
     ),
 }
@@ -403,59 +331,12 @@ PAYMENT_COMMANDS = {
 
 COMMUNICATION_COMMANDS = {
     CommandDefinition(
-        name="/announce",
-        description="Send announcement to team",
+        name="/message",
+        description="Send a message to team",
         permission_level=PermissionLevel.LEADERSHIP,
         chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/announce", "/announce Important match tomorrow"),
+        examples=("/message", "/message Important team update"),
         feature="communication",
-    ),
-    CommandDefinition(
-        name="/remind",
-        description="Send reminder to players",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/remind", "/remind Match in 2 hours"),
-        feature="communication",
-    ),
-    CommandDefinition(
-        name="/broadcast",
-        description="Broadcast message to all chats",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/broadcast", "/broadcast Emergency message"),
-        feature="communication",
-    ),
-}
-
-# =============================================================================
-# TEAM ADMINISTRATION COMMANDS
-# =============================================================================
-
-TEAM_ADMIN_COMMANDS = {
-    CommandDefinition(
-        name="/createteam",
-        description="Create a new team",
-        permission_level=PermissionLevel.ADMIN,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/createteam", "/createteam My Team Name"),
-        feature="team_administration",
-    ),
-    CommandDefinition(
-        name="/teamstatus",
-        description="View team status",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/teamstatus",),
-        feature="team_administration",
-    ),
-    CommandDefinition(
-        name="/updateteam",
-        description="Update team information",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/updateteam", "/updateteam name New Team Name"),
-        feature="team_administration",
     ),
 }
 
@@ -465,102 +346,29 @@ TEAM_ADMIN_COMMANDS = {
 
 HEALTH_COMMANDS = {
     CommandDefinition(
-        name="/healthcheck",
-        description="Check system health",
-        permission_level=PermissionLevel.ADMIN,
+        name="/health",
+        description="Check system health status",
+        permission_level=PermissionLevel.LEADERSHIP,
         chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/healthcheck", "/healthcheck detailed"),
-        feature="health_monitoring",
-    ),
-    CommandDefinition(
-        name="/systemstatus",
-        description="View system status",
-        permission_level=PermissionLevel.ADMIN,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/systemstatus", "/systemstatus performance"),
-        feature="health_monitoring",
-    ),
-    CommandDefinition(
-        name="/logs",
-        description="View system logs",
-        permission_level=PermissionLevel.ADMIN,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/logs", "/logs error", "/logs 50"),
-        feature="health_monitoring",
-    ),
-    CommandDefinition(
-        name="/restart",
-        description="Restart system components",
-        permission_level=PermissionLevel.ADMIN,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/restart", "/restart agents", "/restart llm"),
-        feature="health_monitoring",
-    ),
-    CommandDefinition(
-        name="/alerts",
-        description="Manage system alerts",
-        permission_level=PermissionLevel.ADMIN,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/alerts", "/alerts enable", "/alerts disable"),
+        examples=("/health",),
         feature="health_monitoring",
     ),
 }
 
 # =============================================================================
-# SYSTEM INFRASTRUCTURE COMMANDS
-# =============================================================================
-
-SYSTEM_INFRA_COMMANDS = {
-    CommandDefinition(
-        name="/config",
-        description="View system configuration",
-        permission_level=PermissionLevel.ADMIN,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/config", "/config show", "/config validate"),
-        feature="system_infrastructure",
-    ),
-    CommandDefinition(
-        name="/backup",
-        description="Create system backup",
-        permission_level=PermissionLevel.ADMIN,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/backup", "/backup full", "/backup data"),
-        feature="system_infrastructure",
-    ),
-    CommandDefinition(
-        name="/maintenance",
-        description="Manage maintenance mode",
-        permission_level=PermissionLevel.ADMIN,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/maintenance", "/maintenance enable", "/maintenance disable"),
-        feature="system_infrastructure",
-    ),
-    CommandDefinition(
-        name="/diagnostics",
-        description="Run system diagnostics",
-        permission_level=PermissionLevel.ADMIN,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/diagnostics", "/diagnostics network", "/diagnostics performance"),
-        feature="system_infrastructure",
-    ),
-}
-
-# =============================================================================
-# ALL COMMANDS COLLECTION
+# ALL COMMANDS
 # =============================================================================
 
 ALL_COMMANDS = (
-    PLAYER_COMMANDS
-    | LEADERSHIP_COMMANDS
-    | SYSTEM_COMMANDS
-    | MATCH_COMMANDS
+    CORE_COMMANDS
+    | PLAYER_COMMANDS
     | TEAM_ADMINISTRATION_COMMANDS
+    | TRAINING_COMMANDS
+    | MATCH_COMMANDS
     | ATTENDANCE_COMMANDS
     | PAYMENT_COMMANDS
     | COMMUNICATION_COMMANDS
-    | TEAM_ADMIN_COMMANDS
     | HEALTH_COMMANDS
-    | SYSTEM_INFRA_COMMANDS
 )
 
 # =============================================================================

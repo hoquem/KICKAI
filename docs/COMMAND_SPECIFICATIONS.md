@@ -1,15 +1,24 @@
 # KICKAI Command Specifications
 
-**Version:** 4.5  
+**Version:** 4.6  
 **Status:** Production Ready  
 **Last Updated:** July 2025  
 **Architecture:** 12-Agent CrewAI System with Unified Processing
 
-**New in v4.5:** 
-- **REMOVED**: `/register` command (replaced by `/addplayer` + invite link workflow)
-- **UPDATED**: Player onboarding workflow to use phone linking instead of self-registration
-- **SIMPLIFIED**: Player addition process with leadership control
-- **ENHANCED**: Security with invite link-based player addition
+**New in v4.6:** 
+- **REMOVED**: `/start` command (replaced by automatic new member welcome messages)
+- **REMOVED**: `/createteam` command (teams created through setup process)
+- **REMOVED**: `/attendanceexport` command (export functionality not needed)
+- **REMOVED**: `/paymentexport` command (export functionality not needed)
+- **REMOVED**: `/logs` command (system administration not needed)
+- **REMOVED**: `/broadcast` command (replaced by `/announce`)
+- **REMOVED**: `/restart` command (system administration not needed)
+- **REMOVED**: `/config` command (system administration not needed)
+- **REMOVED**: `/backup` command (system administration not needed)
+- **REMOVED**: `/maintenance` command (system administration not needed)
+- **REMOVED**: `/diagnostics` command (system administration not needed)
+- **SIMPLIFIED**: Command set focused on core football team management
+- **STREAMLINED**: Removed unnecessary system administration commands
 
 This document defines the expected behavior for all KICKAI bot commands across different scenarios, chat types, and user states, using the latest 12-agent CrewAI architecture.
 
@@ -28,7 +37,6 @@ This document defines the expected behavior for all KICKAI bot commands across d
   - [Attendance Management Commands](#attendance-management-commands)
   - [Payment Management Commands](#payment-management-commands)
   - [Communication Commands](#communication-commands)
-  - [System Infrastructure Commands](#system-infrastructure-commands)
   - [Health Monitoring Commands](#health-monitoring-commands)
 - [Command Processing Flow](#command-processing-flow)
 - [Implementation Status](#implementation-status)
@@ -54,12 +62,12 @@ graph TD
     J --> K[Leadership Approves with /approve]
 ```
 
-### **Key Changes in v4.5**
-- ❌ **REMOVED**: `/register` command (self-registration)
-- ✅ **ENHANCED**: `/addplayer` command with invite link generation
-- ✅ **SIMPLIFIED**: Phone linking workflow for account connection
-- ✅ **CONTROLLED**: Leadership-only player addition process
-- ✅ **SECURE**: Invite link-based player onboarding
+### **Key Changes in v4.6**
+- ❌ **REMOVED**: `/start` command (automatic welcome messages)
+- ❌ **REMOVED**: System administration commands (not needed)
+- ❌ **REMOVED**: Export commands (functionality not required)
+- ✅ **SIMPLIFIED**: Focus on core football team management
+- ✅ **STREAMLINED**: Cleaner, more focused command set
 
 ## Player Onboarding Workflow
 
@@ -101,7 +109,6 @@ graph TD
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
 | `/help` | Get help and command information | ✅ | ✅ | PUBLIC | HelpAssistant | ✅ Implemented |
-| `/start` | Start the bot and get welcome message | ✅ | ✅ | PUBLIC | HelpAssistant | ✅ Implemented |
 
 ### Player Management Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
@@ -126,62 +133,40 @@ graph TD
 ### Training Management Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/scheduletraining` | Schedule a training session (Leadership only) | ❌ | ✅ | LEADERSHIP | TrainingCoordinatorAgent | ✅ Implemented |
-| `/listtrainings` | List upcoming training sessions | ✅ | ❌ | PLAYER | TrainingCoordinatorAgent | ✅ Implemented |
-| `/marktraining` | Mark attendance for a training session | ✅ | ❌ | PLAYER | TrainingCoordinatorAgent | ✅ Implemented |
-| `/canceltraining` | Cancel a training session (Leadership only) | ❌ | ✅ | LEADERSHIP | TrainingCoordinatorAgent | ✅ Implemented |
-| `/trainingstats` | Show training statistics and attendance | ✅ | ❌ | PLAYER | TrainingCoordinatorAgent | ✅ Implemented |
-| `/mytrainings` | Show my training schedule and history | ✅ | ❌ | PLAYER | TrainingCoordinatorAgent | ✅ Implemented |
+| `/scheduletraining` | Schedule new training session | ❌ | ✅ | LEADERSHIP | TrainingCoordinator | ✅ Implemented |
+| `/listtrainings` | List upcoming training sessions | ✅ | ✅ | PLAYER | TrainingCoordinator | ✅ Implemented |
+| `/marktraining` | Mark training attendance | ✅ | ❌ | PLAYER | TrainingCoordinator | ✅ Implemented |
+| `/canceltraining` | Cancel training session | ❌ | ✅ | LEADERSHIP | TrainingCoordinator | ✅ Implemented |
+| `/trainingstats` | View training statistics | ❌ | ✅ | LEADERSHIP | TrainingCoordinator | ✅ Implemented |
+| `/mytrainings` | View your training history | ✅ | ❌ | PLAYER | TrainingCoordinator | ✅ Implemented |
 
 ### Match Management Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/creatematch` | Create a new match | ❌ | ✅ | LEADERSHIP | MatchCoordinatorAgent | ✅ Implemented |
-| `/listmatches` | List upcoming matches | ❌ | ✅ | PLAYER | MatchCoordinatorAgent | ✅ Implemented |
-| `/matchdetails` | Get match details | ❌ | ✅ | PLAYER | MatchCoordinatorAgent | ✅ Implemented |
-| `/selectsquad` | Select match squad | ❌ | ✅ | LEADERSHIP | MatchCoordinatorAgent | ✅ Implemented |
-| `/updatematch` | Update match information | ❌ | ✅ | LEADERSHIP | MatchCoordinatorAgent | ✅ Implemented |
+| `/creatematch` | Create new match | ❌ | ✅ | LEADERSHIP | MatchManager | ✅ Implemented |
+| `/listmatches` | List upcoming matches | ✅ | ✅ | PLAYER | MatchManager | ✅ Implemented |
+| `/matchstatus` | Check match status | ✅ | ✅ | PLAYER | MatchManager | ✅ Implemented |
+| `/selectsquad` | Select squad for match | ❌ | ✅ | LEADERSHIP | MatchManager | ✅ Implemented |
 
 ### Attendance Management Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/attendance` | View match attendance | ✅ | ✅ | PLAYER | AttendanceCoordinatorAgent | ✅ Implemented |
-| `/markattendance` | Mark attendance for a match | ✅ | ✅ | PLAYER | AttendanceCoordinatorAgent | ✅ Implemented |
-| `/attendancehistory` | View attendance history | ✅ | ✅ | PLAYER | AttendanceCoordinatorAgent | ✅ Implemented |
-| `/attendancealerts` | Manage attendance alerts | ❌ | ✅ | LEADERSHIP | AttendanceCoordinatorAgent | ✅ Implemented |
-| `/attendanceexport` | Export attendance data | ❌ | ✅ | LEADERSHIP | AttendanceCoordinatorAgent | ✅ Implemented |
+| `/attendance` | View match attendance | ✅ | ❌ | PLAYER | AttendanceManager | ✅ Implemented |
 
 ### Payment Management Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/budget` | View budget information | ❌ | ✅ | LEADERSHIP | PaymentManagerAgent | ✅ Implemented |
-| `/createpayment` | Create a new payment | ❌ | ✅ | LEADERSHIP | PaymentManagerAgent | ✅ Implemented |
-| `/payments` | View payment history | ❌ | ✅ | LEADERSHIP | PaymentManagerAgent | ✅ Implemented |
-| `/markpaid` | Mark payment as paid | ❌ | ✅ | LEADERSHIP | PaymentManagerAgent | ✅ Implemented |
-| `/paymentexport` | Export payment data | ❌ | ✅ | LEADERSHIP | PaymentManagerAgent | ✅ Implemented |
+| `/budget` | View budget information | ❌ | ✅ | LEADERSHIP | PaymentManager | ✅ Implemented |
 
 ### Communication Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/broadcast` | Broadcast message to all chats | ❌ | ✅ | LEADERSHIP | CommunicationManagerAgent | ✅ Implemented |
-| `/remind` | Send reminder to players | ❌ | ✅ | LEADERSHIP | CommunicationManagerAgent | ✅ Implemented |
-
-### System Infrastructure Commands (✅ Implemented)
-| Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
-|---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/config` | View system configuration | ❌ | ✅ | ADMIN | SystemInfrastructureAgent | ✅ Implemented |
-| `/backup` | Create system backup | ❌ | ✅ | ADMIN | SystemInfrastructureAgent | ✅ Implemented |
-| `/diagnostics` | Run system diagnostics | ❌ | ✅ | ADMIN | SystemInfrastructureAgent | ✅ Implemented |
-| `/maintenance` | Manage maintenance mode | ❌ | ✅ | ADMIN | SystemInfrastructureAgent | ✅ Implemented |
+| `/message` | Send message to team | ❌ | ✅ | LEADERSHIP | CommunicationManager | ✅ Implemented |
 
 ### Health Monitoring Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/healthcheck` | Check system health | ❌ | ✅ | ADMIN | HealthMonitoringAgent | ✅ Implemented |
-| `/systemstatus` | View system status | ❌ | ✅ | ADMIN | HealthMonitoringAgent | ✅ Implemented |
-| `/logs` | View system logs | ❌ | ✅ | ADMIN | HealthMonitoringAgent | ✅ Implemented |
-| `/alerts` | Manage system alerts | ❌ | ✅ | ADMIN | HealthMonitoringAgent | ✅ Implemented |
-| `/restart` | Restart system components | ❌ | ✅ | ADMIN | HealthMonitoringAgent | ✅ Implemented |
+| `/health` | Check system health | ❌ | ✅ | LEADERSHIP | SystemInfrastructure | ✅ Implemented |
 
 ## Agentic Architecture
 

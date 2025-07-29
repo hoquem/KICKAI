@@ -10,71 +10,37 @@ from kickai.core.command_registry import CommandType, PermissionLevel, command
 from kickai.core.enums import ChatType
 
 # ============================================================================
-# ATTENDANCE MANAGEMENT COMMANDS
+# ATTENDANCE COMMANDS
 # ============================================================================
 
 
 @command(
-    name="/markattendance",
-    description="Mark attendance for a match",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PLAYER,
-    chat_type=ChatType.MAIN,
-    feature="attendance_management",
-    examples=["/markattendance", "/markattendance yes", "/markattendance no"],
-    parameters={"status": "Attendance status (yes, no, maybe)"},
-    help_text="""
-✅ Mark Attendance
-
-Mark your attendance for an upcoming match.
-
-Usage:
-• /markattendance - Start attendance marking process
-• /markattendance yes - Confirm attendance
-• /markattendance no - Decline attendance
-• /markattendance maybe - Mark as tentative
-
-What happens:
-1. Your attendance is recorded
-2. Team leadership is notified
-3. Squad selection is updated
-4. You receive confirmation
-
-💡 Tip: Mark attendance early to help with squad planning.
-    """,
-)
-async def handle_markattendance_command(update, context, **kwargs):
-    """Handle /markattendance command."""
-    # This will be handled by the agent system
-    return None
-
-
-@command(
     name="/attendance",
-    description="View attendance for matches",
+    description="View match attendance information",
     command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.PLAYER,
-    chat_type=ChatType.MAIN,
     feature="attendance_management",
     examples=["/attendance", "/attendance MATCH123"],
-    parameters={"match_id": "Optional match ID for specific match"},
+    parameters={"match_id": "Match ID to view attendance for"},
     help_text="""
-📊 View Attendance
+📊 Attendance Information
 
 View attendance information for matches.
 
 Usage:
-• /attendance - Show attendance for next match
-• /attendance MATCH123 - Show attendance for specific match
+• /attendance - Show your attendance history
+• /attendance [match_id] - Show attendance for specific match
+
+Example:
+/attendance MATCH123
 
 What you'll see:
-• Match details
-• Number of confirmed attendees
-• Number of declines
-• Number of tentative responses
-• List of players and their status
+• Match details and date
+• Attendance status (confirmed, declined, tentative)
+• Response timestamp
+• Any notes or comments
 
-💡 Tip: Use this to check team availability for matches.
+💡 Tip: Use this to check your attendance status for upcoming matches.
     """,
 )
 async def handle_attendance_command(update, context, **kwargs):
@@ -84,31 +50,76 @@ async def handle_attendance_command(update, context, **kwargs):
 
 
 @command(
+    name="/markattendance",
+    description="Mark your attendance for a match",
+    command_type=CommandType.SLASH_COMMAND,
+    permission_level=PermissionLevel.PLAYER,
+    feature="attendance_management",
+    examples=["/markattendance MATCH123 confirmed", "/markattendance MATCH123 declined"],
+    parameters={
+        "match_id": "Match ID to mark attendance for",
+        "status": "Attendance status (confirmed, declined, tentative)",
+    },
+    help_text="""
+✅ Mark Attendance
+
+Mark your attendance status for a specific match.
+
+Usage:
+/markattendance [match_id] [status]
+
+Examples:
+• /markattendance MATCH123 confirmed
+• /markattendance MATCH123 declined
+• /markattendance MATCH123 tentative
+
+Status Options:
+• confirmed - You will attend the match
+• declined - You cannot attend the match
+• tentative - You might attend (will confirm later)
+
+What happens:
+1. Your attendance is recorded for the match
+2. Team leadership is notified of your response
+3. You can update your status later if needed
+4. Your response is tracked for team planning
+
+💡 Tip: Respond early to help with team planning!
+    """,
+)
+async def handle_markattendance_command(update, context, **kwargs):
+    """Handle /markattendance command."""
+    # This will be handled by the agent system
+    return None
+
+
+@command(
     name="/attendancehistory",
     description="View your attendance history",
     command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.PLAYER,
-    chat_type=ChatType.MAIN,
     feature="attendance_management",
     examples=["/attendancehistory", "/attendancehistory 2024"],
-    parameters={"year": "Optional year to filter (e.g., 2024)"},
+    parameters={"year": "Year to view history for (optional)"},
     help_text="""
 📈 Attendance History
 
-View your personal attendance history and statistics.
+View your attendance history and statistics.
 
 Usage:
-• /attendancehistory - Show all your attendance history
-• /attendancehistory 2024 - Show history for specific year
+• /attendancehistory - Show your recent attendance
+• /attendancehistory [year] - Show attendance for specific year
+
+Example:
+/attendancehistory 2024
 
 What you'll see:
-• List of matches you attended
-• List of matches you missed
-• Attendance percentage
-• Performance trends
-• Season statistics
+• List of matches you've responded to
+• Your attendance rate and statistics
+• Response patterns and trends
+• Summary of your participation
 
-💡 Tip: Track your attendance to improve team reliability.
+💡 Tip: Use this to track your team participation over time.
     """,
 )
 async def handle_attendancehistory_command(update, context, **kwargs):
@@ -117,68 +128,5 @@ async def handle_attendancehistory_command(update, context, **kwargs):
     return None
 
 
-@command(
-    name="/attendanceexport",
-    description="Export attendance data (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP,
-    feature="attendance_management",
-    chat_type=ChatType.LEADERSHIP,
-    examples=["/attendanceexport", "/attendanceexport MATCH123"],
-    parameters={"match_id": "Optional match ID for specific match"},
-    help_text="""
-📋 Export Attendance (Leadership Only)
-
-Export attendance data for analysis and reporting.
-
-Usage:
-• /attendanceexport - Export all attendance data
-• /attendanceexport MATCH123 - Export data for specific match
-
-What you'll get:
-• CSV file with attendance data
-• Player names and attendance status
-• Match details and dates
-• Summary statistics
-
-💡 Note: This command is only available in the leadership chat.
-    """,
-)
-async def handle_attendanceexport_command(update, context, **kwargs):
-    """Handle /attendanceexport command."""
-    # This will be handled by the agent system
-    return None
-
-
-@command(
-    name="/attendancealerts",
-    description="Manage attendance alerts (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP,
-    feature="attendance_management",
-    chat_type=ChatType.LEADERSHIP,
-    examples=["/attendancealerts", "/attendancealerts enable", "/attendancealerts disable"],
-    parameters={"action": "Action to perform (enable, disable, configure)"},
-    help_text="""
-🔔 Attendance Alerts (Leadership Only)
-
-Manage automatic attendance reminders and alerts.
-
-Usage:
-• /attendancealerts - Show current alert settings
-• /attendancealerts enable - Enable automatic reminders
-• /attendancealerts disable - Disable automatic reminders
-
-Alert types:
-• Match reminders (24h before)
-• Attendance deadline reminders
-• Low attendance warnings
-• Squad selection notifications
-
-💡 Note: This command is only available in the leadership chat.
-    """,
-)
-async def handle_attendancealerts_command(update, context, **kwargs):
-    """Handle /attendancealerts command."""
-    # This will be handled by the agent system
-    return None
+# Note: /attendanceexport command has been removed as it's not needed for now
+# Export functionality can be added later if required
