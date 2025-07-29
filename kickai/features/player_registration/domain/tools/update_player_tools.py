@@ -171,7 +171,7 @@ class PlayerUpdateValidator:
             raise PlayerUpdateValidationError(f"Unknown field type: {field}")
 
 
-@tool
+@tool("update_player_information")
 def update_player_information(user_id: str, team_id: str, field: str, value: str, username: str = "Unknown") -> str:
     """
     Update specific player information field with validation and audit logging.
@@ -179,7 +179,7 @@ def update_player_information(user_id: str, team_id: str, field: str, value: str
     Args:
         user_id: Telegram user ID of the player
         team_id: Team ID
-        field: Field name to update (phone, position, email, emergency_contact, medical_notes)
+        field: Field name to update (phone, email, position, emergency_contact, medical_notes)
         value: New value for the field
         username: Username of the person making the update
         
@@ -297,7 +297,7 @@ def update_player_information(user_id: str, team_id: str, field: str, value: str
         return f"❌ Update Failed: An unexpected error occurred. Please try again or contact support."
 
 
-@tool
+@tool("get_player_updatable_fields")
 def get_player_updatable_fields(user_id: str, team_id: str) -> str:
     """
     Get list of fields that a player can update with examples and validation rules.
@@ -378,7 +378,7 @@ def get_player_updatable_fields(user_id: str, team_id: str) -> str:
         return "❌ Error retrieving updatable fields. Please try again."
 
 
-@tool
+@tool("validate_player_update_request")
 def validate_player_update_request(user_id: str, team_id: str, field: str, value: str) -> str:
     """
     Validate a player update request without actually performing the update.

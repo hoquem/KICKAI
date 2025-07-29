@@ -165,7 +165,7 @@ class TeamMemberUpdateValidator:
             raise TeamMemberUpdateValidationError(f"Unknown field type: {field}")
 
 
-@tool
+@tool("update_team_member_information")
 def update_team_member_information(user_id: str, team_id: str, field: str, value: str, username: str = "Unknown") -> str:
     """
     Update specific team member information field with validation and audit logging.
@@ -257,182 +257,118 @@ def update_team_member_information(user_id: str, team_id: str, field: str, value
             }
             
             # Store approval request
-            firebase_service.create_document(f"kickai_{team_id}_approval_requests", approval_data)
+            approval_collection = f"kickai_approval_requests_{team_id}"
+            firebase_service.add_document(approval_collection, approval_data)
             
-            logger.info(f"✅ Approval request created for {field} update")
-            
-            return f"""⏳ Role Change Request Submitted
-
-📋 Requested Change: {field} → {validated_value}
-👤 Requested By: {username}
-📅 Requested: {datetime.fromisoformat(current_time).strftime('%d %b %Y at %H:%M')}
-
-🔒 This change requires admin approval.
-📧 You'll be notified when the request is processed.
-
-💡 Contact a team admin to expedite the approval."""
+            logger.info(f"⏳ Approval request created for field '{field}'")
+            return f"⏳ Update request submitted for approval. Field '{field}' will be updated to '{validated_value}' once approved by team leadership."
         
         else:
-            # Direct update for non-approval fields
+            # Direct update for non-admin fields
             update_data = {
                 field: validated_value,
                 "updated_at": current_time,
-                "updated_by": username,
-                f"{field}_updated_at": current_time,
-                f"{field}_previous_value": old_value
+                "updated_by": username
             }
             
-            # Update team member record
+            # Update the document
             firebase_service.update_document(collection_name, member_id, update_data)
             
-            logger.info(f"✅ Team member information updated successfully: {field} = {validated_value}")
-        
-        # Create audit log
-        audit_data = {
-            "action": "team_member_info_update" if not requires_approval else "team_member_update_request",
-            "user_id": user_id,
-            "member_id": member_id,
-            "member_name": member_name,
-            "team_id": team_id,
-            "field": field,
-            "old_value": old_value,
-            "new_value": validated_value,
-            "updated_by": username,
-            "timestamp": current_time,
-            "requires_approval": requires_approval,
-            "source": "self_service_update"
-        }
-        
-        try:
-            firebase_service.create_document(f"kickai_{team_id}_audit_logs", audit_data)
-            logger.info(f"✅ Audit log created for team member update")
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to create audit log: {e}")
-        
-        # Return success message for direct updates
-        if not requires_approval:
-            field_description = validator.UPDATABLE_FIELDS.get(field, field)
+            logger.info(f"✅ Team member updated successfully: {field} = {validated_value}")
+            return f"✅ Team member information updated successfully! Field '{field}' changed to '{validated_value}'"
             
-            return f"""✅ Information Updated Successfully!
-
-📋 Team Member: {member_name}
-🔄 Updated Field: {field_description}
-🆕 New Value: {validated_value}
-🕐 Updated: {datetime.fromisoformat(current_time).strftime('%d %b %Y at %H:%M')}
-👤 Updated By: {username}
-
-💡 Use /myinfo to view your complete updated information."""
-        
     except TeamMemberUpdateValidationError as e:
-        logger.warning(f"❌ Validation error: {e}")
+        logger.error(f"❌ Validation error in team member update: {e}")
         return f"❌ Update Failed: {str(e)}"
         
     except Exception as e:
-        logger.error(f"❌ Error updating team member information: {e}", exc_info=True)
-        return f"❌ Update Failed: An unexpected error occurred. Please try again or contact support."
+        logger.error(f"❌ Error updating team member: {e}")
+        return f"❌ Update Failed: An unexpected error occurred. Please try again or contact team leadership."
 
 
-@tool
+@tool("get_team_member_updatable_fields")
 def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
     """
-    Get list of fields that a team member can update with examples and validation rules.
+    Get list of fields that a team member can update.
     
     Args:
         user_id: Telegram user ID of the team member
         team_id: Team ID
         
     Returns:
-        List of updatable fields with descriptions and examples
+        List of updatable fields with descriptions
     """
     try:
-        logger.info(f"📋 Getting updatable fields for team member: user_id={user_id}")
+        logger.info(f"📋 Getting updatable fields for team member: user_id={user_id}, team_id={team_id}")
         
-        # Check if team member exists
+        # Initialize Firebase service
         firebase_service = get_firebase_client()
         collection_name = get_team_members_collection(team_id)
         
+        # Check if team member exists
         members = firebase_service.query_documents(
             collection_name, 
             [("user_id", "==", user_id)]
         )
         
         if not members:
-            return """❌ Update Not Available
-
-🔍 You are not registered as a team member in this team.
-
-📝 To register as a team member:
-1. Use /register [name] [phone] [role]
-2. Example: /register John Smith +447123456789 Assistant Coach
-3. You'll be added to the team members collection
-
-💡 Need help? Use /help to see available commands."""
+            return "❌ You are not registered as a team member. Use /register to register."
         
-        member = members[0]
-        member_name = member.get('name', 'Unknown Member')
-        current_role = member.get('role', 'Not set')
+        # Get updatable fields
+        validator = TeamMemberUpdateValidator()
+        updatable_fields = validator.UPDATABLE_FIELDS
         
-        # Get valid roles for reference
-        roles = ", ".join(TeamMemberUpdateValidator.VALID_ROLES[:8]) + "..."
+        # Format the response
+        fields_list = []
+        for field, description in updatable_fields.items():
+            requires_approval = validator.requires_admin_approval(field)
+            approval_note = " (requires admin approval)" if requires_approval else ""
+            fields_list.append(f"• **{field.replace('_', ' ').title()}**: {description}{approval_note}")
         
-        return f"""✅ Team Member Information Update
+        response = f"""
+📋 **UPDATABLE FIELDS**
 
-👤 {member_name} (Current Role: {current_role})
+You can update the following information:
 
-📋 Available Fields to Update:
+{chr(10).join(fields_list)}
 
-📱 **phone** - Your contact phone number
-   Example: /update phone 07123456789
-   Format: UK numbers (+44 or 07xxx format)
-
-📧 **email** - Your email address
-   Example: /update email admin@example.com
-   Format: Valid email address
-
-🚨 **emergency_contact** - Emergency contact info
-   Example: /update emergency_contact +44787654321
-   Format: Phone number or contact details
-
-👔 **role** - Your administrative role ⚠️ ADMIN APPROVAL REQUIRED
-   Example: /update role Assistant Coach
-   Valid: {roles}
-
-📝 Usage: /update [field] [new value]
-
-🔒 Security:
-• You can update your own contact information immediately
-• Role changes require admin approval and will be pending
-• All changes are logged for audit purposes
-• Phone numbers must be unique within the team
-
-💡 Use /myinfo to view your current information before updating."""
+💡 **Usage:** /update [field_name] [new_value]
+📝 **Example:** /update phone +447123456789
+        """
+        
+        return response.strip()
         
     except Exception as e:
-        logger.error(f"❌ Error getting updatable fields: {e}", exc_info=True)
+        logger.error(f"❌ Error getting updatable fields: {e}")
         return "❌ Error retrieving updatable fields. Please try again."
 
 
-@tool
+@tool("validate_team_member_update_request")
 def validate_team_member_update_request(user_id: str, team_id: str, field: str, value: str) -> str:
     """
-    Validate a team member update request without actually performing the update.
+    Validate a team member update request before processing.
     
     Args:
         user_id: Telegram user ID of the team member
         team_id: Team ID
-        field: Field name to validate
-        value: Value to validate
+        field: Field name to update
+        value: New value for the field
         
     Returns:
         Validation result message
     """
     try:
-        logger.info(f"🔍 Validating team member update: field={field}, value={value}")
+        logger.info(f"🔍 Validating team member update request: user_id={user_id}, field={field}")
         
-        # Check if team member exists
+        # Validate inputs
+        if not user_id or not team_id or not field or not value:
+            return "❌ Validation Failed: Missing required parameters"
+        
+        # Initialize Firebase service
         firebase_service = get_firebase_client()
         collection_name = get_team_members_collection(team_id)
         
+        # Check if team member exists
         members = firebase_service.query_documents(
             collection_name, 
             [("user_id", "==", user_id)]
@@ -441,44 +377,47 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
         if not members:
             return "❌ Validation Failed: You are not registered as a team member"
         
-        # Validate field and value
+        # Validate field name
         validator = TeamMemberUpdateValidator()
-        validator.validate_field_name(field)
-        validated_value = validator.validate_field_value(field, value)
-        requires_approval = validator.requires_admin_approval(field)
+        try:
+            validator.validate_field_name(field)
+        except TeamMemberUpdateValidationError as e:
+            return f"❌ Validation Failed: {str(e)}"
         
-        # Check for duplicates if phone
+        # Validate field value
+        try:
+            validated_value = validator.validate_field_value(field, value)
+        except TeamMemberUpdateValidationError as e:
+            return f"❌ Validation Failed: {str(e)}"
+        
+        # Check for duplicate phone numbers (if updating phone)
         if field.lower() == "phone":
             existing_members = firebase_service.query_documents(
                 collection_name,
                 [("phone", "==", validated_value)]
             )
             
+            # Filter out the current member
             duplicate_members = [m for m in existing_members if m.get('user_id') != user_id]
             
             if duplicate_members:
-                return f"❌ Validation Failed: Phone number already in use"
+                duplicate_name = duplicate_members[0].get('name', 'Unknown')
+                return f"❌ Validation Failed: Phone number {validated_value} is already registered to another team member ({duplicate_name})"
         
-        field_description = validator.UPDATABLE_FIELDS.get(field, field)
-        approval_note = " (requires admin approval)" if requires_approval else ""
+        # Check if approval is required
+        requires_approval = validator.requires_admin_approval(field)
         
-        return f"""✅ Validation Successful
-
-🔄 Field: {field_description}{approval_note}
-🆕 Validated Value: {validated_value}
-📋 Status: Ready to update
-
-💡 Use /update {field} {validated_value} to apply this change."""
-        
-    except TeamMemberUpdateValidationError as e:
-        return f"❌ Validation Failed: {str(e)}"
-        
+        if requires_approval:
+            return f"✅ Validation passed. Field '{field}' with value '{validated_value}' requires admin approval."
+        else:
+            return f"✅ Validation passed. Field '{field}' with value '{validated_value}' can be updated immediately."
+            
     except Exception as e:
-        logger.error(f"❌ Error validating update request: {e}")
-        return "❌ Validation Error: Please check your input and try again"
+        logger.error(f"❌ Error validating team member update: {e}")
+        return f"❌ Validation Failed: An unexpected error occurred"
 
 
-@tool
+@tool("get_pending_team_member_approval_requests")
 def get_pending_team_member_approval_requests(team_id: str, user_id: str = None) -> str:
     """
     Get pending approval requests for team member updates.
@@ -493,61 +432,56 @@ def get_pending_team_member_approval_requests(team_id: str, user_id: str = None)
     try:
         logger.info(f"📋 Getting pending approval requests for team: {team_id}")
         
+        # Initialize Firebase service
         firebase_service = get_firebase_client()
+        approval_collection = f"kickai_approval_requests_{team_id}"
         
-        # Build query filters
-        filters = [("status", "==", "pending"), ("request_type", "==", "field_update")]
+        # Query for pending requests
+        query_filters = [("status", "==", "pending")]
         if user_id:
-            filters.append(("user_id", "==", user_id))
+            query_filters.append(("user_id", "==", user_id))
         
-        # Get pending requests
-        requests = firebase_service.query_documents(
-            f"kickai_{team_id}_approval_requests",
-            filters
-        )
+        pending_requests = firebase_service.query_documents(approval_collection, query_filters)
         
-        if not requests:
+        if not pending_requests:
             if user_id:
-                return "✅ No pending approval requests for your account."
+                return "✅ No pending approval requests found for your account."
             else:
-                return "✅ No pending approval requests."
+                return "✅ No pending approval requests found for this team."
         
-        # Format response
-        if user_id:
-            # Single user view
-            request_list = []
-            for req in requests:
-                request_time = datetime.fromisoformat(req['requested_at']).strftime('%d %b %Y at %H:%M')
-                request_list.append(
-                    f"• {req['field']}: {req['old_value']} → {req['new_value']} (Requested: {request_time})"
-                )
+        # Format the response
+        requests_list = []
+        for request in pending_requests:
+            request_id = request.get('id', 'unknown')
+            member_name = request.get('member_name', 'Unknown')
+            field = request.get('field', 'unknown')
+            new_value = request.get('new_value', 'unknown')
+            requested_by = request.get('requested_by', 'Unknown')
+            requested_at = request.get('requested_at', 'Unknown')
             
-            return f"""⏳ Your Pending Approval Requests:
-
-{chr(10).join(request_list)}
-
-🔒 These requests require admin approval.
-📧 You'll be notified when processed.
-💡 Contact a team admin for status updates."""
+            requests_list.append(f"""
+📋 **Request ID:** {request_id}
+👤 **Member:** {member_name}
+🔄 **Field:** {field.replace('_', ' ').title()}
+🆕 **New Value:** {new_value}
+👤 **Requested By:** {requested_by}
+📅 **Requested:** {requested_at}
+            """)
         
-        else:
-            # Admin view - all pending requests
-            request_list = []
-            for req in requests:
-                request_time = datetime.fromisoformat(req['requested_at']).strftime('%d %b %Y at %H:%M')
-                request_list.append(
-                    f"• {req['member_name']}: {req['field']} → {req['new_value']} (Requested: {request_time})"
-                )
-            
-            return f"""⏳ All Pending Approval Requests:
+        response = f"""
+⏳ **PENDING APPROVAL REQUESTS**
 
-{chr(10).join(request_list)}
+Found {len(pending_requests)} pending request(s):
 
-🔧 Admin Action Required:
-Use team admin tools to approve or reject these requests.
+{chr(10).join(requests_list)}
 
-📊 Total Requests: {len(requests)}"""
+💡 **Admin Actions:**
+• Use /approve [request_id] to approve a request
+• Use /reject [request_id] [reason] to reject a request
+        """
+        
+        return response.strip()
         
     except Exception as e:
-        logger.error(f"❌ Error getting approval requests: {e}", exc_info=True)
-        return "❌ Error retrieving approval requests. Please try again."
+        logger.error(f"❌ Error getting pending approval requests: {e}")
+        return "❌ Error retrieving pending approval requests. Please try again."

@@ -16,7 +16,7 @@ from kickai.features.player_registration.domain.services.player_linking_service 
 from kickai.utils.phone_validation import validate_phone_number
 
 
-@tool
+@tool("link_telegram_user_by_phone")
 async def link_telegram_user_by_phone(
     phone: str, telegram_id: str, team_id: str, username: str = None
 ) -> str:
@@ -72,7 +72,7 @@ async def link_telegram_user_by_phone(
         return f"❌ Error linking account: {e!s}"
 
 
-@tool
+@tool("get_pending_players_count")
 async def get_pending_players_count(team_id: str) -> str:
     """
     Get the count of pending players without telegram_id.
@@ -102,7 +102,7 @@ async def get_pending_players_count(team_id: str) -> str:
         return "0"
 
 
-@tool
+@tool("validate_phone_number_tool")
 async def validate_phone_number_tool(phone: str) -> str:
     """
     Validate phone number format using enhanced international validation.
@@ -132,7 +132,7 @@ async def validate_phone_number_tool(phone: str) -> str:
         return "invalid:Validation error occurred"
 
 
-@tool
+@tool("create_linking_prompt")
 async def create_linking_prompt(telegram_id: str, team_id: str) -> str:
     """
     Create a message prompting the user to provide their phone number for linking.

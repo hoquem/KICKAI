@@ -83,7 +83,7 @@ class CommandRegistryCheck(BaseCheck):
                 )
 
             # Check for expected commands
-            expected_commands = ["/help", "/start", "/register", "/myinfo", "/list", "/status"]
+            expected_commands = ["/help", "/myinfo", "/list", "/status"]
 
             missing_commands = []
             for cmd in expected_commands:

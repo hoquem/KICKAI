@@ -8,9 +8,11 @@ Note: The register_player tool has been removed in favor of the /addplayer + inv
 
 from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
+from pydantic import BaseModel
 
 from kickai.core.dependency_container import get_container
 from kickai.features.player_registration.domain.services.player_service import PlayerService
+from kickai.features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
 from kickai.utils.tool_helpers import (
     ERROR_MESSAGES,
     ServiceNotAvailableError,

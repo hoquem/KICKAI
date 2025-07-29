@@ -13,9 +13,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-# Minimal tool registry for compatibility
-class Tool:
-    pass
+# Import CrewAI's native tool decorator
+from crewai.tools import tool as crewai_tool
 from loguru import logger
 
 from kickai.core.entity_types import EntityType
@@ -75,135 +74,6 @@ class ToolMetadata:
     context_model: Optional[type[BaseContext]] = None  # Pydantic model for context validation
 
 
-class ContextAwareTool(Tool):
-    """Enhanced context-aware tool wrapper using Pydantic models."""
-
-    def __init__(
-        self, original_tool: Any, tool_name: str, context_model: Optional[type[BaseContext]] = None
-    ):
-        """Initialize context-aware tool wrapper."""
-
-        # Initialize Tool with required attributes
-        super().__init__(
-            name=tool_name,
-            description=getattr(
-                original_tool, "description", f"Context-aware wrapper for {tool_name}"
-            ),
-            func=self._run,
-            original_tool=original_tool,
-            tool_name=tool_name,
-            context_model=context_model,
-        )
-
-        # Copy all attributes from the original tool
-        for attr_name in dir(original_tool):
-            if not attr_name.startswith("_") and not hasattr(self, attr_name):
-                try:
-                    setattr(self, attr_name, getattr(original_tool, attr_name))
-                except Exception:
-                    pass
-
-    def _run(self, *args, **kwargs):
-        """Run the tool with validated context."""
-        try:
-            # Extract context from arguments
-            context_data = self._extract_context_from_args(args, kwargs)
-
-            # Validate context if model is provided
-            if self.context_model and context_data:
-                try:
-                    validated_context = validate_context_for_tool(
-                        context_data, self.context_model, self.tool_name
-                    )
-                    log_context_validation_success(self.tool_name, validated_context)
-                    # Call original tool with validated context
-                    return self.original_tool(validated_context)
-                except ContextError as e:
-                    log_context_validation_failure(self.tool_name, e)
-                    return f"Error: {e.message}"
-
-            # Fallback to original tool if no context model or no context data
-            return self.original_tool(*args, **kwargs)
-
-        except Exception as e:
-            logger.error(f"Error in context-aware tool {self.tool_name}: {e}")
-            return f"Error: {e!s}"
-
-    def _extract_context_from_args(self, args: tuple, kwargs: dict) -> Optional[Dict[str, Any]]:
-        """Extract context data from tool arguments."""
-        # With CrewAI's native approach, context is passed through task description
-        # and the LLM decides which parameters to pass to tools
-        # This method is kept for backward compatibility but simplified
-        return None
-
-    def _extract_context_from_task(self) -> Optional[Dict[str, Any]]:
-        """Extract context from CrewAI task description."""
-        # With CrewAI's native approach, context is included in task description
-        # and the LLM extracts and passes relevant parameters to tools
-        # This method is kept for backward compatibility but simplified
-        return None
-
-
-class ContextAwareToolWrapper(Tool):
-    """Legacy wrapper for backward compatibility."""
-
-    # Define Pydantic model fields
-    original_tool: Any  # Changed from Callable to Any to handle CrewAI Tool objects
-    tool_name: str
-
-    def __init__(self, original_tool: Any, tool_name: str):
-        # Initialize Tool with required attributes
-        super().__init__(
-            name=tool_name,
-            description=getattr(
-                original_tool, "description", f"Context-aware wrapper for {tool_name}"
-            ),
-            func=self._run,
-            original_tool=original_tool,
-            tool_name=tool_name,
-        )
-
-        # Copy all attributes from the original tool to make it compatible with CrewAI
-        for attr_name in dir(original_tool):
-            if not attr_name.startswith("_") and not hasattr(self, attr_name):
-                try:
-                    setattr(self, attr_name, getattr(original_tool, attr_name))
-                except Exception:
-                    pass
-
-    def _run(self, *args, **kwargs):
-        """Extract context from task description and call the original tool."""
-        try:
-            # Check if we have a context argument (either as first arg or in kwargs)
-            context = None
-            if args and isinstance(args[0], dict):
-                context = args[0]
-                args = args[1:]  # Remove context from args
-            elif "context" in kwargs:
-                context = kwargs.pop("context")
-
-            # If no context provided, try to extract from task description
-            if not context:
-                context = self._extract_context_from_task()
-
-            # Call the original tool with context
-            if context:
-                return self.original_tool(context, *args, **kwargs)
-            else:
-                return self.original_tool(*args, **kwargs)
-
-        except Exception as e:
-            logger.error(f"Error in context-aware wrapper for {self.tool_name}: {e}")
-            return f"Error: {e!s}"
-
-    def _extract_context_from_task(self) -> dict:
-        """Extract context from task description."""
-        # This is a simplified implementation
-        # In a real implementation, you would parse the task description
-        # to extract context information
-        return {}
-
-
 class ToolFactory(ABC):
     """Abstract base class for tool factories."""
 
@@ -219,7 +89,7 @@ class ToolFactory(ABC):
 
 
 class ToolRegistry:
-    """Enhanced tool registry with context support."""
+    """Enhanced tool registry with simplified architecture."""
 
     def __init__(self):
         """Initialize the tool registry."""
@@ -323,22 +193,6 @@ class ToolRegistry:
             requires_context=True,
             context_model=context_model,
             **kwargs,
-        )
-
-    def create_context_aware_tool(self, tool_id: str, **kwargs) -> Any:
-        """Create a context-aware tool instance."""
-        metadata = self._tools.get(tool_id)
-        if not metadata:
-            raise ValueError(f"Tool not found: {tool_id}")
-
-        if not metadata.tool_function:
-            raise ValueError(f"Tool function not available: {tool_id}")
-
-        # Create context-aware wrapper
-        return ContextAwareTool(
-            original_tool=metadata.tool_function,
-            tool_name=tool_id,
-            context_model=metadata.context_model,
         )
 
     def validate_tool_context(self, tool_id: str, context_data: Dict[str, Any]) -> bool:
