@@ -8,7 +8,7 @@ chat update team member info.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from kickai.core.enums import ChatType
 from kickai.features.shared.domain.services.command_processing_service import (
@@ -21,66 +21,62 @@ logger = logging.getLogger(__name__)
 
 class UpdateCommandHandler:
     """Context-aware handler for /update commands."""
-    
+
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-    
+
     async def handle_update_command(
-        self, 
-        user_context: UserContext, 
-        command_args: List[str],
-        crewai_system: Any = None
+        self, user_context: UserContext, command_args: list[str], crewai_system: Any = None
     ) -> CommandResponse:
         """
         Handle /update command with context-aware routing.
-        
+
         Args:
             user_context: Complete user context including chat type
             command_args: Command arguments [field, value]
             crewai_system: CrewAI system for agent execution
-            
+
         Returns:
             CommandResponse with success/error message
         """
         try:
-            self.logger.info(f"🔄 Processing /update command: chat_type={user_context.chat_type.value}, args={command_args}")
-            
+            self.logger.info(
+                f"🔄 Processing /update command: chat_type={user_context.chat_type.value}, args={command_args}"
+            )
+
             # Validate command arguments
             if len(command_args) < 2:
                 return self._get_usage_help_response(user_context.chat_type)
-            
+
             field = command_args[0].lower()
             value = " ".join(command_args[1:])  # Support multi-word values
-            
+
             # Route based on chat type
             if user_context.chat_type == ChatType.MAIN:
                 return await self._handle_player_update(user_context, field, value, crewai_system)
             elif user_context.chat_type == ChatType.LEADERSHIP:
-                return await self._handle_team_member_update(user_context, field, value, crewai_system)
+                return await self._handle_team_member_update(
+                    user_context, field, value, crewai_system
+                )
             else:
                 return CommandResponse(
-                    message="❌ Update command is not available in this chat type.",
-                    success=False
+                    message="❌ Update command is not available in this chat type.", success=False
                 )
-                
+
         except Exception as e:
             self.logger.error(f"❌ Error handling update command: {e}", exc_info=True)
             return CommandResponse(
                 message="❌ An error occurred processing your update request. Please try again.",
-                success=False
+                success=False,
             )
-    
+
     async def _handle_player_update(
-        self, 
-        user_context: UserContext, 
-        field: str, 
-        value: str,
-        crewai_system: Any
+        self, user_context: UserContext, field: str, value: str, crewai_system: Any
     ) -> CommandResponse:
         """Handle player information update in main chat."""
         try:
             self.logger.info(f"👤 Player update: user_id={user_context.user_id}, field={field}")
-            
+
             # Check if user is registered as a player
             if not user_context.is_registered or not user_context.is_player:
                 return CommandResponse(
@@ -95,55 +91,48 @@ class UpdateCommandHandler:
 4. Join the main chat and register with /register
 
 💡 Need help? Use /help to see available commands.""",
-                    success=False
+                    success=False,
                 )
-            
+
             # Create task for PlayerCoordinatorAgent
             task_description = f"/update {field} {value}"
-            
+
             execution_context = {
-                'user_id': user_context.user_id,
-                'team_id': user_context.team_id,
-                'chat_id': user_context.chat_id,
-                'is_leadership_chat': False,
-                'username': user_context.telegram_username or user_context.telegram_name,
-                'message_text': task_description,
-                'field': field,
-                'value': value,
-                'entity_type': 'player'
+                "user_id": user_context.user_id,
+                "team_id": user_context.team_id,
+                "chat_id": user_context.chat_id,
+                "is_leadership_chat": False,
+                "username": user_context.telegram_username or user_context.telegram_name,
+                "message_text": task_description,
+                "field": field,
+                "value": value,
+                "entity_type": "player",
             }
-            
+
             # Execute with PlayerCoordinatorAgent via CrewAI
             if crewai_system:
                 result = await crewai_system.execute_task(task_description, execution_context)
-                return CommandResponse(
-                    message=result,
-                    success="✅" in result
-                )
+                return CommandResponse(message=result, success="✅" in result)
             else:
                 return CommandResponse(
-                    message="❌ System temporarily unavailable. Please try again.",
-                    success=False
+                    message="❌ System temporarily unavailable. Please try again.", success=False
                 )
-                
+
         except Exception as e:
             self.logger.error(f"❌ Error handling player update: {e}", exc_info=True)
             return CommandResponse(
-                message="❌ Error updating player information. Please try again.",
-                success=False
+                message="❌ Error updating player information. Please try again.", success=False
             )
-    
+
     async def _handle_team_member_update(
-        self, 
-        user_context: UserContext, 
-        field: str, 
-        value: str,
-        crewai_system: Any
+        self, user_context: UserContext, field: str, value: str, crewai_system: Any
     ) -> CommandResponse:
         """Handle team member information update in leadership chat."""
         try:
-            self.logger.info(f"👔 Team member update: user_id={user_context.user_id}, field={field}")
-            
+            self.logger.info(
+                f"👔 Team member update: user_id={user_context.user_id}, field={field}"
+            )
+
             # Check if user is registered as a team member
             if not user_context.is_registered or not user_context.is_team_member:
                 return CommandResponse(
@@ -157,44 +146,40 @@ class UpdateCommandHandler:
 3. You'll be added to the team members collection
 
 💡 Need help? Use /help to see available commands.""",
-                    success=False
+                    success=False,
                 )
-            
+
             # Create task for TeamManagerAgent
             task_description = f"/update {field} {value}"
-            
+
             execution_context = {
-                'user_id': user_context.user_id,
-                'team_id': user_context.team_id,
-                'chat_id': user_context.chat_id,
-                'is_leadership_chat': True,
-                'username': user_context.telegram_username or user_context.telegram_name,
-                'message_text': task_description,
-                'field': field,
-                'value': value,
-                'entity_type': 'team_member'
+                "user_id": user_context.user_id,
+                "team_id": user_context.team_id,
+                "chat_id": user_context.chat_id,
+                "is_leadership_chat": True,
+                "username": user_context.telegram_username or user_context.telegram_name,
+                "message_text": task_description,
+                "field": field,
+                "value": value,
+                "entity_type": "team_member",
             }
-            
+
             # Execute with TeamManagerAgent via CrewAI
             if crewai_system:
                 result = await crewai_system.execute_task(task_description, execution_context)
-                return CommandResponse(
-                    message=result,
-                    success="✅" in result
-                )
+                return CommandResponse(message=result, success="✅" in result)
             else:
                 return CommandResponse(
-                    message="❌ System temporarily unavailable. Please try again.",
-                    success=False
+                    message="❌ System temporarily unavailable. Please try again.", success=False
                 )
-                
+
         except Exception as e:
             self.logger.error(f"❌ Error handling team member update: {e}", exc_info=True)
             return CommandResponse(
                 message="❌ Error updating team member information. Please try again.",
-                success=False
+                success=False,
             )
-    
+
     def _get_usage_help_response(self, chat_type: ChatType) -> CommandResponse:
         """Get usage help response based on chat type."""
         if chat_type == ChatType.MAIN:
@@ -216,7 +201,7 @@ class UpdateCommandHandler:
 • /update email john@example.com
 
 📖 For more details, try: /update (no arguments)"""
-        
+
         else:  # Leadership chat
             message = """❌ Invalid Usage
 
@@ -235,54 +220,53 @@ class UpdateCommandHandler:
 • /update role Assistant Coach
 
 📖 For more details, try: /update (no arguments)"""
-        
-        return CommandResponse(
-            message=message,
-            success=False
-        )
-    
-    async def get_update_help(self, user_context: UserContext, crewai_system: Any = None) -> CommandResponse:
+
+        return CommandResponse(message=message, success=False)
+
+    async def get_update_help(
+        self, user_context: UserContext, crewai_system: Any = None
+    ) -> CommandResponse:
         """Get detailed help for update command based on user context."""
         try:
             if user_context.chat_type == ChatType.MAIN:
                 # Route to PlayerCoordinatorAgent for player update help
                 task_description = "get_player_updatable_fields"
-                
+
                 execution_context = {
-                    'user_id': user_context.user_id,
-                    'team_id': user_context.team_id,
-                    'chat_id': user_context.chat_id,
-                    'is_leadership_chat': False,
-                    'username': user_context.telegram_username or user_context.telegram_name,
-                    'message_text': task_description,
-                    'entity_type': 'player'
+                    "user_id": user_context.user_id,
+                    "team_id": user_context.team_id,
+                    "chat_id": user_context.chat_id,
+                    "is_leadership_chat": False,
+                    "username": user_context.telegram_username or user_context.telegram_name,
+                    "message_text": task_description,
+                    "entity_type": "player",
                 }
-                
+
                 if crewai_system:
                     result = await crewai_system.execute_task(task_description, execution_context)
                     return CommandResponse(message=result, success=True)
-            
+
             elif user_context.chat_type == ChatType.LEADERSHIP:
                 # Route to TeamManagerAgent for team member update help
                 task_description = "get_team_member_updatable_fields"
-                
+
                 execution_context = {
-                    'user_id': user_context.user_id,
-                    'team_id': user_context.team_id,
-                    'chat_id': user_context.chat_id,
-                    'is_leadership_chat': True,
-                    'username': user_context.telegram_username or user_context.telegram_name,
-                    'message_text': task_description,
-                    'entity_type': 'team_member'
+                    "user_id": user_context.user_id,
+                    "team_id": user_context.team_id,
+                    "chat_id": user_context.chat_id,
+                    "is_leadership_chat": True,
+                    "username": user_context.telegram_username or user_context.telegram_name,
+                    "message_text": task_description,
+                    "entity_type": "team_member",
                 }
-                
+
                 if crewai_system:
                     result = await crewai_system.execute_task(task_description, execution_context)
                     return CommandResponse(message=result, success=True)
-            
+
             # Fallback response
             return self._get_usage_help_response(user_context.chat_type)
-                
+
         except Exception as e:
             self.logger.error(f"❌ Error getting update help: {e}", exc_info=True)
             return self._get_usage_help_response(user_context.chat_type)
@@ -292,9 +276,13 @@ class UpdateCommandHandler:
 update_command_handler = UpdateCommandHandler()
 
 
-async def handle_update_command(user_context: UserContext, command_args: List[str], crewai_system: Any = None) -> CommandResponse:
+async def handle_update_command(
+    user_context: UserContext, command_args: list[str], crewai_system: Any = None
+) -> CommandResponse:
     """Global function to handle update commands."""
-    return await update_command_handler.handle_update_command(user_context, command_args, crewai_system)
+    return await update_command_handler.handle_update_command(
+        user_context, command_args, crewai_system
+    )
 
 
 async def get_update_help(user_context: UserContext, crewai_system: Any = None) -> CommandResponse:

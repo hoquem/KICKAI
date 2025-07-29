@@ -7,9 +7,6 @@ ensuring all commands are properly registered before the registry is used.
 This eliminates the initialization order problem with the global singleton pattern.
 """
 
-
-from typing import Optional
-
 from kickai.core.command_registry import CommandRegistry
 from kickai.core.logging_config import logger
 
@@ -23,7 +20,7 @@ class CommandRegistryInitializer:
     """
 
     def __init__(self):
-        self.registry: Optional[CommandRegistry] = None
+        self.registry: CommandRegistry | None = None
         self._initialized = False
 
     def initialize(self) -> CommandRegistry:
@@ -80,13 +77,11 @@ class CommandRegistryInitializer:
             "kickai.features.payment_management.application.commands.payment_commands",
             # Communication commands
             "kickai.features.communication.application.commands.communication_commands",
-            # Health monitoring commands
-            "kickai.features.health_monitoring.application.commands.health_commands",
-            # System infrastructure commands
-            "kickai.features.system_infrastructure.application.commands.system_commands",
             # Shared commands
             "kickai.features.shared.application.commands.shared_commands",
             "kickai.features.shared.application.commands.help_commands",
+            # Helper system commands
+            "kickai.features.helper_system.application.commands.helper_commands",
         ]
 
         for module_name in command_modules:
@@ -137,7 +132,7 @@ class CommandRegistryInitializer:
         except Exception as e:
             logger.error(f"❌ Error copying commands from global registry: {e}")
 
-    def get_registry(self) -> Optional[CommandRegistry]:
+    def get_registry(self) -> CommandRegistry | None:
         """Get the initialized registry instance."""
         if not self._initialized:
             raise RuntimeError("Command registry not initialized. Call initialize() first.")

@@ -8,7 +8,7 @@ This module provides a simplified, maintainable orchestration pipeline that uses
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 from loguru import logger
 
@@ -25,8 +25,8 @@ class TaskContext:
     task_id: str
     user_id: str
     team_id: str
-    parameters: Dict[str, Any]
-    metadata: Dict[str, Any]
+    parameters: dict[str, Any]
+    metadata: dict[str, Any]
 
 
 @dataclass
@@ -44,7 +44,7 @@ class PipelineStep(ABC):
     """Abstract base class for pipeline steps."""
 
     @abstractmethod
-    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         """Execute the pipeline step."""
         pass
 
@@ -60,7 +60,7 @@ class IntentClassificationStep(PipelineStep):
     def get_step_name(self) -> str:
         return "Intent Classification"
 
-    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         """Execute intent classification with simplified logic."""
         task_description = context.get("task_description", "")
         execution_context = context.get("execution_context", {})
@@ -100,7 +100,7 @@ class AgentSelectionStep(PipelineStep):
     def get_step_name(self) -> str:
         return "Agent Selection"
 
-    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         """Execute agent selection with direct mapping."""
         intent_result = context.get("intent_result", {})
         execution_context = context.get("execution_context", {})
@@ -216,7 +216,7 @@ class TaskExecutionStep(PipelineStep):
     def get_step_name(self) -> str:
         return "Task Execution"
 
-    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         """Execute a task using the selected agent."""
         try:
             task_description = context.get("task_description", "")
@@ -452,7 +452,7 @@ class SimplifiedOrchestrationPipeline:
 
         logger.info("🚀 SimplifiedOrchestrationPipeline initialized with 3-step pipeline")
 
-    def get_pipeline_analytics(self) -> Dict[str, Any]:
+    def get_pipeline_analytics(self) -> dict[str, Any]:
         """Get pipeline performance analytics."""
         return {
             "pipeline_type": "SimplifiedOrchestrationPipeline",
@@ -467,7 +467,7 @@ class SimplifiedOrchestrationPipeline:
             "steps": [step.get_step_name() for step in self.steps],
         }
 
-    def get_pipeline_status(self) -> Dict[str, Any]:
+    def get_pipeline_status(self) -> dict[str, Any]:
         """Get the status of the orchestration pipeline."""
         return {
             "orchestration_pipeline": "SimplifiedOrchestrationPipeline",
@@ -480,8 +480,8 @@ class SimplifiedOrchestrationPipeline:
     async def execute_task(
         self,
         task_description: str,
-        execution_context: Dict[str, Any],
-        available_agents: Dict[str, Any] = None,
+        execution_context: dict[str, Any],
+        available_agents: dict[str, Any] = None,
     ) -> str:
         """Execute a task through the simplified orchestration pipeline."""
         try:

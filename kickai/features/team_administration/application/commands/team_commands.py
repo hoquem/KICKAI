@@ -15,138 +15,53 @@ from kickai.core.enums import ChatType
 
 
 @command(
-    name="/createteam",
-    description="Create a new team (Leadership only)",
+    name="/addmember",
+    description="Add a team member (Leadership only)",
     command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.LEADERSHIP,
     feature="team_administration",
     chat_type=ChatType.LEADERSHIP,
-    examples=["/createteam", "/createteam My Team Name"],
-    parameters={"team_name": "Name of the team to create"},
-    help_text="""
-🏆 Create Team (Leadership Only)
-
-Create a new team in the KICKAI system.
-
-Usage:
-• /createteam - Start team creation process
-• /createteam [team_name] - Create team with specific name
-
-Example:
-/createteam My Team Name
-
-What happens:
-1. New team record is created in the database
-2. Team configuration is initialized
-3. You become the team administrator
-4. Team chat channels are set up
-
-💡 Note: This command is only available in the leadership chat.
-    """,
-)
-async def handle_createteam_command(update, context, **kwargs):
-    """Handle /createteam command."""
-    # This will be handled by the agent system
-    return None
-
-
-@command(
-    name="/teamstatus",
-    description="Show team status and configuration (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP,
-    feature="team_administration",
-    chat_type=ChatType.LEADERSHIP,
-    examples=["/teamstatus"],
-    help_text="""
-📊 Team Status (Leadership Only)
-
-Show current team status, configuration, and statistics.
-
-Usage:
-/teamstatus
-
-What you'll see:
-• Team name and ID
-• Number of registered players
-• Number of team members
-• Team configuration settings
-• Recent activity summary
-
-💡 Note: This command is only available in the leadership chat.
-    """,
-)
-async def handle_teamstatus_command(update, context, **kwargs):
-    """Handle /teamstatus command."""
-    # This will be handled by the agent system
-    return None
-
-
-@command(
-    name="/updateteam",
-    description="Update team configuration (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP,
-    feature="team_administration",
-    chat_type=ChatType.LEADERSHIP,
-    examples=["/updateteam name New Team Name", "/updateteam description Updated description"],
+    examples=["/addmember", "/addmember Sarah Johnson +447987654321 Assistant Coach"],
     parameters={
-        "setting": "Setting to update (name, description, etc.)",
-        "value": "New value for the setting",
+        "name": "Team member's full name",
+        "phone": "Team member's phone number",
+        "role": "Team member's role (Coach, Assistant Coach, Manager, etc.)",
     },
     help_text="""
-⚙️ Update Team (Leadership Only)
+👔 Add Team Member (Leadership Only)
 
-Update team configuration settings.
+Add a new team member (coach, manager, etc.) to the team.
 
 Usage:
-/updateteam [setting] [value]
+/addmember [name] [phone] [role]
 
-Examples:
-• /updateteam name New Team Name
-• /updateteam description Updated team description
+Example:
+/addmember Sarah Johnson +447987654321 Assistant Coach
 
-Available settings:
-• name - Team name
-• description - Team description
-• location - Team location
-• contact - Contact information
+Valid Roles:
+• Coach
+• Assistant Coach
+• Manager
+• Assistant Manager
+• Admin
+• Coordinator
+• Volunteer
+
+What happens:
+1. Team member is added to the system
+2. Unique invite link is generated
+3. Member can join leadership chat
+4. Member gets access to admin commands
 
 💡 Note: This command is only available in the leadership chat.
     """,
 )
-async def handle_updateteam_command(update, context, **kwargs):
-    """Handle /updateteam command."""
+async def handle_addmember_command(update, context, **kwargs):
+    """Handle /addmember command."""
     # This will be handled by the agent system
     return None
 
 
-@command(
-    name="/listmembers",
-    description="List all team members (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP,
-    feature="team_administration",
-    chat_type=ChatType.LEADERSHIP,
-    examples=["/listmembers"],
-    help_text="""
-👥 List Team Members (Leadership Only)
-
-List all team members with their roles and status.
-
-Usage:
-/listmembers
-
-What you'll see:
-• All team members (players and staff)
-• Their roles and permissions
-• Registration dates
-• Current status (active, inactive, etc.)
-
-💡 Note: This command is only available in the leadership chat.
-    """,
-)
-async def handle_listmembers_command(update, context, **kwargs):
-    """Handle /listmembers command."""
-    # This will be handled by the agent system
-    return None
+# Commands removed: /createteam, /teamstatus, /updateteam, /listmembers
+# /list command will handle listing all players and members in leadership chat
+# /update command will handle updating team member information

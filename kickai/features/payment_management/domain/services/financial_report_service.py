@@ -193,7 +193,7 @@ Expense Breakdown:"""
                 if sleep_seconds < 0:
                     sleep_seconds = 60
                 logger.info(
-                    f"⏰ Financial report scheduled for {next_run.strftime('%Y-%m-%d %H:%M:%S')}. Sleeping for {sleep_seconds/3600:.1f} hours."
+                    f"⏰ Financial report scheduled for {next_run.strftime('%Y-%m-%d %H:%M:%S')}. Sleeping for {sleep_seconds / 3600:.1f} hours."
                 )
                 await asyncio.sleep(sleep_seconds)
                 await self.send_financial_report()

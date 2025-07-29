@@ -5,11 +5,11 @@ Communication Tools
 This module provides tools for communication and messaging operations.
 """
 
-from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
 from kickai.core.exceptions import ServiceNotAvailableError
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
     extract_single_value,
     format_tool_error,

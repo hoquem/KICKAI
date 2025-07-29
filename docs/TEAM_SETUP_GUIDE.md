@@ -170,7 +170,7 @@ PYTHONPATH=src python run_bot_local.py
 ### 5.2 Admin Registration
 
 1. **In Leadership Chat**:
-   - Admin types: `/start`
+   - Admin types: `/help`
    - Bot should respond with welcome message
    - Admin receives confirmation of successful registration
 
@@ -244,7 +244,7 @@ PYTHONPATH=src python scripts/run_health_checks.py --team-name "KickAI Testing"
 - **Check**: Admin has admin privileges in both chats
 - **Check**: Admin is registered in the system
 - **Check**: Bot recognizes admin's Telegram ID
-- **Solution**: Re-run admin registration with `/start`
+- **Solution**: Re-run admin registration with `/help`
 
 #### Database Errors
 - **Check**: Database connection is working
@@ -309,4 +309,4 @@ For additional support:
 
 ---
 
-**Note**: This guide assumes you have the necessary scripts (`bootstrap_team.py`, `verify_team_setup.py`, etc.) available. If these scripts don't exist, they need to be created first. 
+**Note**: This guide assumes you have the necessary scripts (`

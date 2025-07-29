@@ -4,7 +4,6 @@ Player Registration Service
 
 This module provides the business logic for player registration operations.
 """
-from typing import Optional, List
 
 from datetime import datetime
 
@@ -75,10 +74,13 @@ class PlayerRegistrationService:
         if not team_id or not team_id.strip():
             raise ValueError("Team ID cannot be empty")
 
-        # Validate phone number format (basic validation)
-        phone_clean = phone.replace("+", "").replace(" ", "").replace("-", "")
-        if not phone_clean.isdigit() or len(phone_clean) < 10:
-            raise ValueError("Phone number must contain at least 10 digits")
+        # Validate phone number format using phonenumbers library
+        from kickai.utils.phone_utils import is_valid_phone
+
+        if not is_valid_phone(phone.strip()):
+            raise ValueError(
+                "Phone number must be in valid UK format (e.g., +447123456789 or 07123456789)"
+            )
 
         # Validate position (basic validation)
         valid_positions = ["goalkeeper", "defender", "midfielder", "forward", "utility"]
@@ -111,31 +113,31 @@ class PlayerRegistrationService:
         player.reject()
         return await self.player_repository.update_player(player)
 
-    async def get_player(self, *, player_id: str, team_id: str) -> Optional[Player]:
+    async def get_player(self, *, player_id: str, team_id: str) -> Player | None:
         """Get a player by ID."""
         return await self.player_repository.get_player_by_id(player_id, team_id)
 
-    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Optional[Player]:
+    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Player | None:
         """Get a player by phone number."""
         return await self.player_repository.get_player_by_phone(phone, team_id)
 
-    async def get_all_players(self, *, team_id: str) -> List[Player]:
+    async def get_all_players(self, *, team_id: str) -> list[Player]:
         """Get all players in a team."""
         return await self.player_repository.get_all_players(team_id)
 
-    async def get_pending_players(self, *, team_id: str) -> List[Player]:
+    async def get_pending_players(self, *, team_id: str) -> list[Player]:
         """Get all pending players in a team."""
         return await self.player_repository.get_players_by_status(team_id, "pending")
 
-    async def get_approved_players(self, *, team_id: str) -> List[Player]:
+    async def get_approved_players(self, *, team_id: str) -> list[Player]:
         """Get all approved players in a team."""
         return await self.player_repository.get_players_by_status(team_id, "approved")
 
-    async def get_active_players(self, *, team_id: str) -> List[Player]:
+    async def get_active_players(self, *, team_id: str) -> list[Player]:
         """Get all active players in a team."""
         return await self.player_repository.get_players_by_status(team_id, "active")
 
-    async def get_all_players(self, *, team_id: str) -> List[Player]:
+    async def get_all_players(self, *, team_id: str) -> list[Player]:
         """Get all players for a team."""
         return await self.player_repository.get_all_players(team_id)
 

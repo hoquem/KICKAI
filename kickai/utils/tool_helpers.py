@@ -7,10 +7,10 @@ standardizing error messages across all tools.
 """
 
 import json
-from typing import Any, Dict, List
+from typing import Any
 
 
-def parse_crewai_json_input(input_value: str, expected_keys: List[str]) -> Dict[str, str]:
+def parse_crewai_json_input(input_value: str, expected_keys: list[str]) -> dict[str, str]:
     """
     Parse CrewAI JSON input and extract expected keys.
 
@@ -128,7 +128,7 @@ def validate_required_input(value: str, field_name: str) -> str:
     return ""
 
 
-def extract_context_from_task_description(task_description: str) -> Dict[str, str]:
+def extract_context_from_task_description(task_description: str) -> dict[str, str]:
     """
     Extract context information from CrewAI task description.
 
@@ -152,7 +152,7 @@ def extract_context_from_task_description(task_description: str) -> Dict[str, st
                     key, value = item.split(":", 1)
                     context[key.strip()] = value.strip()
 
-    except Exception as e:
+    except Exception:
         # Use logger from loguru if available, otherwise skip logging
         pass
 
@@ -172,25 +172,25 @@ def sanitize_input(value: str, max_length: int = 255) -> str:
     """
     if not value:
         return ""
-    
+
     # Convert to string if not already
     value = str(value)
-    
+
     # Strip whitespace
     value = value.strip()
-    
+
     # Remove or escape potentially dangerous characters
     # Remove null bytes, control characters, and other dangerous chars
     sanitized = ""
     for char in value:
         # Allow alphanumeric, spaces, and common punctuation
-        if char.isprintable() and char not in ['\x00', '\x08', '\x0b', '\x0c']:
+        if char.isprintable() and char not in ["\x00", "\x08", "\x0b", "\x0c"]:
             sanitized += char
-        elif char in [' ', '\t']:
+        elif char in [" ", "\t"]:
             sanitized += char
-    
+
     # Trim to max length
     if len(sanitized) > max_length:
         sanitized = sanitized[:max_length]
-    
+
     return sanitized

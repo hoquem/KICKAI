@@ -6,7 +6,7 @@ all service dependencies and ensures proper initialization order.
 """
 
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from kickai.database.firebase_client import get_firebase_client
 from kickai.database.interfaces import DataStoreInterface
@@ -18,9 +18,9 @@ class DependencyContainer:
     """Centralized dependency injection container."""
 
     def __init__(self):
-        self._services: Dict[type, Any] = {}
-        self._database: Optional[DataStoreInterface] = None
-        self._factory: Optional[ServiceFactory] = None
+        self._services: dict[type, Any] = {}
+        self._database: DataStoreInterface | None = None
+        self._factory: ServiceFactory | None = None
         self._initialized = False
 
     def initialize(self):
@@ -166,7 +166,7 @@ class DependencyContainer:
         else:
             self._services[interface] = implementation
 
-    def get_service(self, interface: Union[type, str]) -> Any:
+    def get_service(self, interface: type | str) -> Any:
         """Get a service by its interface or name."""
         # Handle string-based service lookup
         if isinstance(interface, str):
@@ -198,7 +198,7 @@ class DependencyContainer:
             raise RuntimeError("Container not initialized. Call initialize() first.")
         return interface in self._services
 
-    def get_all_services(self) -> Dict[type, Any]:
+    def get_all_services(self) -> dict[type, Any]:
         """Get all registered services."""
         if not self._initialized:
             raise RuntimeError("Container not initialized. Call initialize() first.")
@@ -206,7 +206,7 @@ class DependencyContainer:
 
 
 # Global container instance
-_container: Optional[DependencyContainer] = None
+_container: DependencyContainer | None = None
 
 
 def get_container() -> DependencyContainer:

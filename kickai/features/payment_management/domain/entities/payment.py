@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from typing import Optional
 
-from kickai.core.enums import PaymentType, PaymentStatus
+from kickai.core.enums import PaymentStatus, PaymentType
 
 
 @dataclass
@@ -10,12 +9,12 @@ class Payment:
     amount: float
     type: PaymentType
     status: PaymentStatus
-    id: Optional[str] = None
-    team_id: Optional[str] = None
-    description: Optional[str] = None
-    related_entity_id: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    id: str | None = None
+    team_id: str | None = None
+    description: str | None = None
+    related_entity_id: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
     @staticmethod
     def from_dict(data: dict) -> "Payment":

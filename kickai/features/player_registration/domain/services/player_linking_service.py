@@ -5,7 +5,6 @@ Player Linking Service
 This module provides phone number linking functionality to connect Telegram users
 to existing Firestore player records.
 """
-from typing import List, Optional
 
 from datetime import datetime
 
@@ -28,7 +27,7 @@ class PlayerLinkingService:
 
     async def link_telegram_user_by_phone(
         self, phone: str, telegram_id: str, username: str = None
-    ) -> Optional[Player]:
+    ) -> Player | None:
         """
         Link a Telegram user to an existing player record using phone number.
 
@@ -102,7 +101,7 @@ class PlayerLinkingService:
 
     async def _update_player_telegram_info(
         self, player_id: str, telegram_id: str, username: str = None
-    ) -> Optional[Player]:
+    ) -> Player | None:
         """Update player record with Telegram information."""
         try:
             # Get database client
@@ -179,7 +178,7 @@ class PlayerLinkingService:
         # Use the enhanced phone validation utility
         return normalize_phone_number(phone)
 
-    async def get_pending_players_without_telegram_id(self) -> List[Player]:
+    async def get_pending_players_without_telegram_id(self) -> list[Player]:
         """Get all pending players that don't have telegram_id set."""
         try:
             # Get player service from container using the correct method

@@ -6,7 +6,7 @@ This module provides shared types and data structures used across the agent syst
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from kickai.core.enums import AgentRole
 
@@ -14,9 +14,10 @@ from kickai.core.enums import AgentRole
 @dataclass
 class AgentContext:
     """Context for creating configurable agents."""
+
     role: AgentRole
     team_id: str
     llm: Any
     tool_registry: Any
-    config: Optional[Any] = None
-    team_memory: Optional[Any] = None  # Add team memory for context persistence 
+    config: Any | None = None
+    team_memory: Any | None = None  # Add team memory for context persistence

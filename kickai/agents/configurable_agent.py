@@ -7,12 +7,11 @@ configurations and behavioral mixins.
 
 import logging
 import traceback
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from crewai import Agent
 
-from kickai.config.agents import AgentConfig, get_agent_config
+from kickai.config.agents import get_agent_config
 from kickai.core.enums import AgentRole
 from kickai.core.exceptions import AgentInitializationError
 
@@ -30,8 +29,6 @@ class LoggingCrewAIAgent(Agent):
 
 
 from kickai.agents.agent_types import AgentContext
-
-
 from kickai.agents.tools_manager import AgentToolsManager
 
 
@@ -65,14 +62,17 @@ class ConfigurableAgent:
             # CrewAI best practices for preventing hallucination
             max_iter=1,  # Limit iterations to prevent elaboration
         )
-        
+
         # Log final agent LLM configuration for verification
-        final_temp = getattr(crew_agent.llm, 'temperature', 'unknown')
-        logger.info(f"🌡️ AGENT CREATED: {self.context.role.value} with LLM temperature: {final_temp}")
-        
+        final_temp = getattr(crew_agent.llm, "temperature", "unknown")
+        final_model = getattr(crew_agent.llm, "model_name", "unknown")
+        logger.info(
+            f"🌡️ AGENT CREATED: {self.context.role.value} with LLM temperature: {final_temp}, model: {final_model}"
+        )
+
         return crew_agent
 
-    def _get_tools_for_role(self, tool_names: List[str]) -> List[Any]:
+    def _get_tools_for_role(self, tool_names: list[str]) -> list[Any]:
         """Get tools for a specific role. Tools are validated at factory level."""
         return self._tools_manager.get_tools_for_role(self.context.role)
 
@@ -89,19 +89,14 @@ class ConfigurableAgent:
                 AgentRole.PLAYER_COORDINATOR,
                 AgentRole.HELP_ASSISTANT,
                 AgentRole.MESSAGE_PROCESSOR,
-                AgentRole.FINANCE_MANAGER
+                AgentRole.FINANCE_MANAGER,
             ]
-            
+
             # Set temperature 0.2 for onboarding agent
-            onboarding_agents = [
-                AgentRole.ONBOARDING_AGENT
-            ]
-            
+            onboarding_agents = [AgentRole.ONBOARDING_AGENT]
+
             # Set temperature 0.3 for administrative agents
-            administrative_agents = [
-                AgentRole.TEAM_MANAGER,
-                AgentRole.AVAILABILITY_MANAGER
-            ]
+            administrative_agents = [AgentRole.TEAM_MANAGER, AgentRole.AVAILABILITY_MANAGER]
 
             if self.context.role in data_critical_agents:
                 temperature = 0.1
@@ -114,28 +109,41 @@ class ConfigurableAgent:
                 return base_llm
 
             # Create a copy of the LLM with appropriate temperature
-            if hasattr(base_llm, 'temperature'):
+            if hasattr(base_llm, "temperature"):
                 # Check if this is our RobustLiteLLMChatModel
-                if hasattr(base_llm, 'model_name') and hasattr(base_llm, 'api_key'):
+                if hasattr(base_llm, "model_name") and hasattr(base_llm, "api_key"):
                     # For our RobustLiteLLMChatModel
                     agent_llm = type(base_llm)(
                         model_name=base_llm.model_name,
                         api_key=base_llm.api_key,
                         temperature=temperature,
                         timeout=base_llm.timeout,
-                        max_retries=base_llm.max_retries
+                        max_retries=base_llm.max_retries,
                     )
-                    logger.info(f"🌡️ Set temperature {temperature} for {self.context.role.value} agent")
+                    logger.info(
+                        f"🌡️ Set temperature {temperature} for {self.context.role.value} agent"
+                    )
                     return agent_llm
                 else:
-                    # For other LLM types (OpenAI, etc.)
+                    # For other LLM types, try to preserve the original model name
+                    model_name = getattr(base_llm, "model_name", None)
+                    if model_name is None:
+                        # If no model_name attribute, try to get it from the class name or other attributes
+                        model_name = getattr(base_llm, "__class__.__name__", "unknown-model")
+
+                    # Create new instance with same type but different temperature
                     agent_llm = type(base_llm)(
-                        model_name=getattr(base_llm, 'model_name', 'gpt-4'),
+                        model_name=model_name,
                         temperature=temperature,
-                        **{k: v for k, v in base_llm.__dict__.items()
-                           if k not in ['temperature', 'model_name']}
+                        **{
+                            k: v
+                            for k, v in base_llm.__dict__.items()
+                            if k not in ["temperature", "model_name"]
+                        },
                     )
-                    logger.info(f"🌡️ Set temperature {temperature} for {self.context.role.value} agent")
+                    logger.info(
+                        f"🌡️ Set temperature {temperature} for {self.context.role.value} agent"
+                    )
                     return agent_llm
             else:
                 logger.warning(f"⚠️ Could not set temperature for LLM type: {type(base_llm)}")
@@ -169,11 +177,11 @@ class ConfigurableAgent:
         return self._crew_agent.backstory
 
     @property
-    def tools(self) -> List[Any]:
+    def tools(self) -> list[Any]:
         """Get the agent's tools."""
         return self._crew_agent.tools
 
-    def get_config_summary(self) -> Dict[str, Any]:
+    def get_config_summary(self) -> dict[str, Any]:
         """Get a summary of the agent's configuration."""
         return {
             "role": self.role,
@@ -181,7 +189,7 @@ class ConfigurableAgent:
             "backstory": self.backstory,
             "tools_count": len(self.tools),
             "tool_names": [tool.name for tool in self.tools],
-            "team_id": self.context.team_id
+            "team_id": self.context.team_id,
         }
 
     def add_tool(self, tool: Any) -> None:
@@ -199,7 +207,7 @@ class ConfigurableAgent:
         logger.warning(f"⚠️ Tool '{tool_name}' not found in agent {self.role}")
         return False
 
-    def get_tools(self) -> List[Any]:
+    def get_tools(self) -> list[Any]:
         """Get all tools available to this agent."""
         return self._crew_agent.tools
 
@@ -207,21 +215,25 @@ class ConfigurableAgent:
         """Check if the agent is enabled."""
         return self.context.config.enabled if self.context.config else False
 
-    def _enhance_task_with_anti_hallucination_instructions(self, task_description: str, context: Optional[Dict[str, Any]] = None) -> str:
+    def _enhance_task_with_anti_hallucination_instructions(
+        self, task_description: str, context: dict[str, Any] | None = None
+    ) -> str:
         """Enhance task description with anti-hallucination instructions for data-critical tasks."""
         try:
             # Check if this is a task that requires strict factual adherence
-            requires_anti_hallucination = any([
-                "get_active_players" in task_description.lower(),
-                ("list" in task_description.lower() and "player" in task_description.lower()),
-                "/list" in task_description.lower(),
-                "show players" in task_description.lower(),
-                "team roster" in task_description.lower(),
-                "get_my_status" in task_description.lower(),
-                "myinfo" in task_description.lower(),
-                "/myinfo" in task_description.lower(),
-                "get_player_status" in task_description.lower()
-            ])
+            requires_anti_hallucination = any(
+                [
+                    "get_active_players" in task_description.lower(),
+                    ("list" in task_description.lower() and "player" in task_description.lower()),
+                    "/list" in task_description.lower(),
+                    "show players" in task_description.lower(),
+                    "team roster" in task_description.lower(),
+                    "get_my_status" in task_description.lower(),
+                    "myinfo" in task_description.lower(),
+                    "/myinfo" in task_description.lower(),
+                    "get_player_status" in task_description.lower(),
+                ]
+            )
 
             if not requires_anti_hallucination:
                 return task_description
@@ -242,7 +254,9 @@ CRITICAL: Your response MUST be EXACTLY what the tools return, nothing more, not
 
             enhanced_task = f"{task_description}\n\n{anti_hallucination_instructions}"
 
-            logger.info(f"🔧 Enhanced task with anti-hallucination instructions for {self.context.role.value}")
+            logger.info(
+                f"🔧 Enhanced task with anti-hallucination instructions for {self.context.role.value}"
+            )
             return enhanced_task
 
         except Exception as e:
@@ -259,7 +273,7 @@ CRITICAL: Your response MUST be EXACTLY what the tools return, nothing more, not
             "get_my_status",
             "myinfo",
             "get_player_status",
-            "status"
+            "status",
         ]
 
         task_lower = task_description.lower()
@@ -274,10 +288,12 @@ Do not add any additional information, players, or data that wasn't in the tool 
 """
         return "Provide a clear and helpful response based on the tool results."
 
-    async def execute(self, task: str, context: Optional[Dict[str, Any]] = None) -> str:
+    async def execute(self, task: str, context: dict[str, Any] | None = None) -> str:
         """Execute a task with this agent."""
         try:
-            logger.info(f"🚀 [CONFIGURABLE AGENT] Starting task execution for {self.context.role.value if self.context.role else 'Unknown'}")
+            logger.info(
+                f"🚀 [CONFIGURABLE AGENT] Starting task execution for {self.context.role.value if self.context.role else 'Unknown'}"
+            )
             logger.info(f"📝 Task: {task}")
             logger.info(f"🔧 Context: {context}")
 
@@ -289,7 +305,9 @@ Do not add any additional information, players, or data that wasn't in the tool 
             if not isinstance(task, str):
                 task = str(task)
 
-            logger.info(f"🚀 [CONFIGURABLE AGENT] Executing task for {self.context.role}: {task[:50]}...")
+            logger.info(
+                f"🚀 [CONFIGURABLE AGENT] Executing task for {self.context.role}: {task[:50]}..."
+            )
 
             # No need to clear tool captures - using CrewAI native tools_results
 
@@ -299,6 +317,8 @@ Do not add any additional information, players, or data that wasn't in the tool 
             enhanced_task = task
             if context:
                 context_info = []
+                tool_instructions = []
+
                 for key, value in context.items():
                     # Handle different value types robustly
                     if value is None:
@@ -306,21 +326,39 @@ Do not add any additional information, players, or data that wasn't in the tool 
                     elif isinstance(value, str):
                         if value.strip():
                             context_info.append(f"{key}: {value}")
+                            # Add specific instructions for chat_type
+                            if key == "chat_type":
+                                tool_instructions.append(
+                                    f"ALWAYS pass {key}='{value}' when calling tools that require it (like get_my_status, get_active_players)"
+                                )
                         else:
                             context_info.append(f"{key}: empty")
                     else:
                         context_info.append(f"{key}: {value!s}")
 
                 if context_info:
-                    enhanced_task = f"{task}\n\nAvailable context parameters: {', '.join(context_info)}\n\nPlease use these context parameters when calling tools that require them."
+                    enhanced_task = (
+                        f"{task}\n\nAvailable context parameters: {', '.join(context_info)}"
+                    )
+
+                    if tool_instructions:
+                        enhanced_task += "\n\nCRITICAL TOOL INSTRUCTIONS:\n" + "\n".join(
+                            tool_instructions
+                        )
+
+                    enhanced_task += "\n\nPlease use these context parameters when calling tools that require them."
 
             # Enhance task with anti-hallucination instructions for data-critical tasks
-            enhanced_task = self._enhance_task_with_anti_hallucination_instructions(enhanced_task, context)
-            
+            enhanced_task = self._enhance_task_with_anti_hallucination_instructions(
+                enhanced_task, context
+            )
+
             # CRITICAL: Double-check agent temperature for debugging
             agent_llm = self._crew_agent.llm
-            actual_temperature = getattr(agent_llm, 'temperature', 'unknown')
-            logger.info(f"🌡️ EXECUTION CHECK: {self.context.role.value} agent using temperature: {actual_temperature}")
+            actual_temperature = getattr(agent_llm, "temperature", "unknown")
+            logger.info(
+                f"🌡️ EXECUTION CHECK: {self.context.role.value} agent using temperature: {actual_temperature}"
+            )
 
             # Check if this is a data-critical task that requires memory disabled
             is_data_critical = self._is_data_critical_task(task)
@@ -339,39 +377,42 @@ Do not add any additional information, players, or data that wasn't in the tool 
                 human_input=False,  # No human input that could influence output
             )
 
-            # Import Process enum for CrewAI
             from crewai import Process
-            
-            # CRITICAL: Disable memory completely to prevent OpenAI API calls
-            # Memory system is causing OpenAI API calls despite Google configuration
-            memory_enabled = False  # Force disable memory until OpenAI issue is resolved
+
+            # Temporarily disable memory to resolve CrewAI + Gemini compatibility issues
+            memory_enabled = (
+                False  # Temporarily disabled - CrewAI + Gemini memory compatibility issue
+            )
             memory_config = None
-            
+
             if memory_enabled and not is_data_critical:
                 from kickai.core.settings import get_settings
+
                 settings = get_settings()
                 memory_config = {
                     "provider": "google",
-                    "config": {
-                        "api_key": settings.google_api_key,
-                        "model": "text-embedding-004"
-                    }
+                    "config": {"api_key": settings.google_api_key, "model": "text-embedding-004"},
                 }
-            
-            # Create a crew with memory completely disabled to prevent OpenAI calls
+
+            # Create a crew with properly configured memory using Google Gemini
             crew = Crew(
                 agents=[self._crew_agent],
                 tasks=[crew_task],
                 verbose=True,  # Ensure verbose logging is enabled
-                memory=False,  # Force disable memory to prevent OpenAI API calls
+                memory=memory_enabled,  # Enable memory with Google Gemini configuration
+                memory_config=memory_config,  # Use Google Gemini for embeddings
                 # CrewAI anti-hallucination settings
                 process=Process.sequential,  # Required: must be sequential or hierarchical
                 share_crew=False,  # Don't share crew state that could cause issues
             )
 
             # Log crew creation for debugging
-            logger.info(f"🚀 [CONFIGURABLE AGENT] Created crew with {len(crew.agents)} agents, verbose=True")
-            logger.info(f"🔧 [CONFIGURABLE AGENT] Agent tools: {[tool.name for tool in self._crew_agent.tools]}")
+            logger.info(
+                f"🚀 [CONFIGURABLE AGENT] Created crew with {len(crew.agents)} agents, verbose=True"
+            )
+            logger.info(
+                f"🔧 [CONFIGURABLE AGENT] Agent tools: {[tool.name for tool in self._crew_agent.tools]}"
+            )
 
             # Execute using CrewAI's kickoff method
             result = crew.kickoff()
@@ -381,8 +422,14 @@ Do not add any additional information, players, or data that wasn't in the tool 
             has_structured_output = "CRITICAL: Your response MUST be EXACTLY" in structured_output
             memory_status = "memory disabled" if is_data_critical else "memory enabled"
             structured_status = "structured output" if has_structured_output else "standard output"
-            anti_hallucination_status = "with anti-hallucination instructions" if has_anti_hallucination else "without special instructions"
-            logger.info(f"📊 [CONFIGURABLE AGENT] Execution completed successfully {anti_hallucination_status}, {memory_status}, {structured_status}")
+            anti_hallucination_status = (
+                "with anti-hallucination instructions"
+                if has_anti_hallucination
+                else "without special instructions"
+            )
+            logger.info(
+                f"📊 [CONFIGURABLE AGENT] Execution completed successfully {anti_hallucination_status}, {memory_status}, {structured_status}"
+            )
 
             return result
 
@@ -395,12 +442,14 @@ Do not add any additional information, players, or data that wasn't in the tool 
 class AgentFactory:
     """Factory for creating configurable agents."""
 
-    def __init__(self, team_id: str, llm: Any, tool_registry: Any):  # tool_registry is ToolRegistry object
+    def __init__(
+        self, team_id: str, llm: Any, tool_registry: Any
+    ):  # tool_registry is ToolRegistry object
         self.team_id = team_id
         self.llm = llm
         self.tool_registry = tool_registry
 
-    def _validate_agent_tools(self, role: AgentRole, required_tools: List[str]) -> None:
+    def _validate_agent_tools(self, role: AgentRole, required_tools: list[str]) -> None:
         """Validate that required tools are available for the agent."""
         available_tools = self.tool_registry.get_tools_for_role(role)
         available_tool_names = [tool.name for tool in available_tools]
@@ -425,7 +474,7 @@ class AgentFactory:
                 team_id=self.team_id,
                 llm=self.llm,
                 tool_registry=self.tool_registry,
-                config=config
+                config=config,
             )
 
             # Create and return the agent
@@ -435,9 +484,11 @@ class AgentFactory:
 
         except Exception as e:
             logger.error(f"❌ Failed to create agent for role {role.value}: {e}")
-            raise AgentInitializationError(f"Failed to create agent for role {role.value}: {e}") from e
+            raise AgentInitializationError(
+                f"Failed to create agent for role {role.value}: {e}"
+            ) from e
 
-    def create_all_agents(self) -> Dict[AgentRole, ConfigurableAgent]:
+    def create_all_agents(self) -> dict[AgentRole, ConfigurableAgent]:
         """Create all available agents."""
         agents = {}
 
@@ -451,7 +502,7 @@ class AgentFactory:
         logger.info(f"✅ Created {len(agents)} agents")
         return agents
 
-    def get_agent(self, role: AgentRole) -> Optional[ConfigurableAgent]:
+    def get_agent(self, role: AgentRole) -> ConfigurableAgent | None:
         """Get an agent for the specified role."""
         try:
             return self.create_agent(role)

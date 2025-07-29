@@ -6,12 +6,9 @@ This module contains the data structures and types used by the health check serv
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from kickai.core.enums import HealthStatus, ComponentType
-
-
-
+from kickai.core.enums import ComponentType, HealthStatus
 
 
 @dataclass
@@ -24,10 +21,10 @@ class HealthCheckResult:
     message: str
     response_time_ms: float
     timestamp: datetime
-    details: Dict[str, Any] = field(default_factory=dict)
-    error: Optional[Exception] = None
+    details: dict[str, Any] = field(default_factory=dict)
+    error: Exception | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "component_name": self.component_name,
@@ -48,11 +45,11 @@ class SystemHealthReport:
     timestamp: datetime
     team_id: str
     overall_status: HealthStatus
-    components: Dict[str, dict[str, Any]] = field(default_factory=dict)
-    recommendations: List[str] = field(default_factory=list)
+    components: dict[str, dict[str, Any]] = field(default_factory=dict)
+    recommendations: list[str] = field(default_factory=list)
     execution_time: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "timestamp": self.timestamp.isoformat(),

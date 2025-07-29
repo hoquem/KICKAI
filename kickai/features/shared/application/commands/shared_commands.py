@@ -1,46 +1,19 @@
 #!/usr/bin/env python3
 """
-Shared Commands
+Shared Commands Module
 
-This module registers shared/common commands that are available across all features.
-These commands provide basic functionality that doesn't belong to a specific feature.
+This module contains shared/common commands that are available across different chat types.
 """
 
+from loguru import logger
+
 from kickai.core.command_registry import CommandType, PermissionLevel, command
+from kickai.core.context_types import create_context_from_telegram_message
+from kickai.core.enums import ChatType
 
 # ============================================================================
 # SHARED COMMANDS
 # ============================================================================
-
-
-@command(
-    name="/start",
-    description="Start the bot and show welcome message",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PUBLIC,
-    feature="shared",
-    examples=["/start"],
-    help_text="""
-🚀 Start Bot
-
-Start the KICKAI bot and get a welcome message.
-
-Usage:
-/start
-
-What happens:
-1. Bot welcomes you to the system
-2. Shows available commands for your role
-3. Provides basic usage instructions
-4. Sets up your user session
-
-💡 Tip: Use this command when you first join or need a refresher.
-    """,
-)
-async def handle_start_command(update, context, **kwargs):
-    """Handle /start command."""
-    # This will be handled by the agent system
-    return None
 
 
 @command(
@@ -232,3 +205,86 @@ async def handle_version_command(update, context, **kwargs):
     """Handle /version command."""
     # This will be handled by the agent system
     return None
+
+
+@command(
+    name="/update",
+    description="Update your information (context-aware for players/team members)",
+    command_type=CommandType.SLASH_COMMAND,
+    permission_level=PermissionLevel.PUBLIC,
+    feature="shared",
+    examples=[
+        "/update phone 07123456789",
+        "/update position midfielder",
+        "/update email admin@example.com",
+    ],
+    parameters={
+        "field": "Field to update (phone, position, email, role, etc.)",
+        "value": "New value for the field",
+    },
+    help_text="""
+📝 Update Command (Context-Aware)
+
+Update your personal information. The available fields depend on your role and chat type.
+
+Main Chat (Players):
+• phone - Your contact phone number
+• position - Your football position
+• email - Your email address
+• emergency_contact - Emergency contact info
+• medical_notes - Medical information
+
+Leadership Chat (Team Members):
+• phone - Your contact phone number
+• email - Your email address
+• emergency_contact - Emergency contact info
+• role - Your administrative role (requires admin approval)
+
+Usage:
+/update [field] [new value]
+
+Examples:
+• /update phone 07123456789
+• /update position midfielder
+• /update email admin@example.com
+• /update role Assistant Coach
+
+💡 Need help? Try /update without arguments to see available fields.
+    """,
+)
+async def handle_update_command_wrapper(update, context, **kwargs):
+    """Handle /update command with context-aware routing."""
+    try:
+        # Extract command arguments
+        message_text = update.message.text
+        command_parts = message_text.split()
+        command_args = command_parts[1:] if len(command_parts) > 1 else []
+
+        # Create user context
+        user_context = create_context_from_telegram_message(
+            user_id=str(update.effective_user.id),
+            team_id=kwargs.get("team_id", "UNKNOWN"),
+            chat_id=str(update.effective_chat.id),
+            chat_type=kwargs.get("chat_type", ChatType.MAIN),
+            message_text=message_text,
+            username=update.effective_user.username or update.effective_user.first_name,
+            telegram_name=update.effective_user.first_name,
+            is_registered=True,  # Assuming registered users can use /update
+            is_player=kwargs.get("chat_type") == ChatType.MAIN,
+            is_team_member=kwargs.get("chat_type") == ChatType.LEADERSHIP,
+        )
+
+        # Route to the appropriate handler
+        from kickai.features.shared.domain.commands.update_command_handler import (
+            handle_update_command,
+        )
+
+        result = await handle_update_command(
+            user_context, command_args, kwargs.get("crewai_system")
+        )
+
+        return result.message if result.success else f"❌ {result.message}"
+
+    except Exception as e:
+        logger.error(f"Error handling /update command: {e}")
+        return "❌ Sorry, I encountered an error processing your update request. Please try again."

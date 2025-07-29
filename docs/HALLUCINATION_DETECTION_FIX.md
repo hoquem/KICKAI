@@ -23,7 +23,6 @@ System:
 • /info - Show user information
 • /list - List all active players
 • /ping - Check bot status
-• /start - Start the bot
 • /version - Show bot version
 
 💡 Use /help [command] for detailed help on any command.

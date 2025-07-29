@@ -7,7 +7,6 @@ Quick reference for testing command behavior across different scenarios in the u
 | Command | Main Chat | Leadership Chat | Unregistered | Registered Player | Team Member | Admin |
 |---------|-----------|-----------------|--------------|-------------------|-------------|-------|
 | `/help` | ✅ Player commands | ✅ All commands | ✅ Basic only | ✅ Player commands | ✅ All commands | ✅ All commands |
-| `/start` | ✅ Welcome message | ✅ Leadership welcome | ✅ Welcome message | ✅ Welcome message | ✅ Leadership welcome | ✅ Leadership welcome |
 | `/register` | ✅ Registration flow | ✅ Registration flow | ✅ Registration flow | ❌ Already registered | ❌ Already registered | ❌ Already registered |
 | `/myinfo` | ✅ Player info | ✅ Team member info | ❌ Not registered | ✅ Player info | ✅ Team member info | ✅ Full info |
 | `/status` | ✅ Own status | ✅ Any player status | ❌ Not registered | ✅ Own status | ✅ Any player status | ✅ Any player status |
@@ -21,9 +20,9 @@ Quick reference for testing command behavior across different scenarios in the u
 ## Quick Test Checklist
 
 ### ✅ Available Commands
-- **Main Chat**: `/help`, `/start`, `/register`, `/myinfo`, `/status`, `/list`
+- **Main Chat**: `/help`, `/register`, `/myinfo`, `/status`, `/list`
 - **Leadership Chat**: All commands based on user role
-- **Unregistered Users**: `/help`, `/start`, `/register`
+- **Unregistered Users**: `/help`, `/register`
 
 ### ❌ Restricted Commands
 - **Main Chat**: `/add`, `/approve`, `/reject`, `/pending`, `/announce`

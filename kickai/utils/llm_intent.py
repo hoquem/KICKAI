@@ -6,12 +6,12 @@ in the KICKAI system.
 """
 
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 from loguru import logger
 
 
-def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
+def extract_intent(message: str, context: str = "") -> dict[str, Any]:
     """
     Extract intent and entities from a natural language message.
 
@@ -83,7 +83,7 @@ def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
         return {"intent": "unknown", "entities": {}, "confidence": 0.0}
 
 
-def extract_entities(message: str, intent: str) -> Dict[str, Any]:
+def extract_entities(message: str, intent: str) -> dict[str, Any]:
     """
     Extract entities from the message based on the detected intent.
 
@@ -149,7 +149,7 @@ def extract_entities(message: str, intent: str) -> Dict[str, Any]:
     return entities
 
 
-def extract_intent_sync(message: str, context: str = "") -> Dict[str, Any]:
+def extract_intent_sync(message: str, context: str = "") -> dict[str, Any]:
     """
     Synchronous version of extract_intent for backward compatibility.
 
@@ -170,14 +170,14 @@ class LLMIntent:
         self.team_id = team_id
         logger.info(f"🤖 LLMIntent initialized for team: {team_id}")
 
-    async def extract_intent(self, message: str, context: str = "") -> Dict[str, Any]:
+    async def extract_intent(self, message: str, context: str = "") -> dict[str, Any]:
         """
         Extract intent using LLM-based approach.
-        
+
         Args:
             message: The input message to analyze
             context: Additional context about the conversation
-            
+
         Returns:
             Dictionary containing 'intent' and 'entities' keys
         """

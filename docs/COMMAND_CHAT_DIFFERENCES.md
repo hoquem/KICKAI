@@ -50,7 +50,6 @@ async def list_players_leadership(update, context):
 |---------|------------------------|-------------------------------|-----------------|
 | **📋 PUBLIC COMMANDS** |
 | `/help` | Player-focused help | Admin-focused help | Context-aware command filtering |
-| `/start` | Welcome message for new users | Welcome message for new users | Same behavior in both chats |
 | `/register` | Player registration process | Player registration process | Same behavior in both chats |
 | **👥 PLAYER COMMANDS** |
 | `/list` | Shows only active players | Shows all players with status | Leadership chat shows more detailed information |

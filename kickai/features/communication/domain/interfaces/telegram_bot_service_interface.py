@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Union
+from typing import Any
 
 
 class TelegramBotServiceInterface(ABC):
@@ -9,7 +9,7 @@ class TelegramBotServiceInterface(ABC):
         pass
 
     @abstractmethod
-    async def send_message(self, chat_id: Union[int, str], text: str, **kwargs) -> Any:
+    async def send_message(self, chat_id: int | str, text: str, **kwargs) -> Any:
         """Send a message to a Telegram chat."""
         pass
 

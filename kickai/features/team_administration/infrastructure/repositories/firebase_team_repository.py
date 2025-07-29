@@ -1,7 +1,7 @@
 """
 Firebase Team Repository Implementation
 """
-from typing import Optional, List
+
 import logging
 
 from firebase_admin import firestore
@@ -42,7 +42,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             self.logger.error(f"❌ Failed to create team: {e}")
             raise
 
-    async def get_by_id(self, team_id: str) -> Optional[Team]:
+    async def get_by_id(self, team_id: str) -> Team | None:
         """Get a team by ID from Firestore."""
         try:
             doc = self.db.collection("teams").document(team_id).get()
@@ -55,7 +55,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             self.logger.error(f"❌ Failed to get team by ID {team_id}: {e}")
             return None
 
-    async def update(self, team: Team) -> Optional[Team]:
+    async def update(self, team: Team) -> Team | None:
         """Update a team in Firestore."""
         try:
             team_data = {
@@ -86,7 +86,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             self.logger.error(f"❌ Failed to delete team {team_id}: {e}")
             return False
 
-    async def list_all(self) -> List[Team]:
+    async def list_all(self) -> list[Team]:
         """List all teams from Firestore."""
         try:
             teams_ref = self.db.collection("teams")
@@ -109,7 +109,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             self.logger.error(f"❌ Failed to list teams from Firestore: {e}")
             return []
 
-    async def get_by_status(self, status: TeamStatus) -> List[Team]:
+    async def get_by_status(self, status: TeamStatus) -> list[Team]:
         """Get teams by status from Firestore."""
         try:
             teams_ref = self.db.collection("teams")
@@ -131,7 +131,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             self.logger.error(f"❌ Failed to get teams by status {status.value}: {e}")
             return []
 
-    async def get_by_owner(self, owner_id: str) -> List[Team]:
+    async def get_by_owner(self, owner_id: str) -> list[Team]:
         """Get teams by owner ID from Firestore."""
         try:
             teams_ref = self.db.collection("teams")
@@ -156,14 +156,14 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
     async def create_team(self, team: Team) -> Team:
         return await self.create(team)
 
-    async def get_team_by_id(self, team_id: str) -> Optional[Team]:
+    async def get_team_by_id(self, team_id: str) -> Team | None:
         return await self.get_by_id(team_id)
 
-    async def update_team(self, team: Team) -> Optional[Team]:
+    async def update_team(self, team: Team) -> Team | None:
         return await self.update(team)
 
     async def delete_team(self, team_id: str) -> bool:
         return await self.delete(team_id)
 
-    async def get_all_teams(self) -> List[Team]:
+    async def get_all_teams(self) -> list[Team]:
         return await self.list_all()

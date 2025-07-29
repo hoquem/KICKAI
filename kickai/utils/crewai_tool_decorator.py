@@ -10,4 +10,4 @@ For CrewAI 0.150.0+, we can use the native tool decorator directly.
 from crewai.tools import tool
 
 # Export the tool decorator for compatibility
-__all__ = ['tool']
+__all__ = ["tool"]

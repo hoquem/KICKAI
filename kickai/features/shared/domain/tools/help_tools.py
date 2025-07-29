@@ -4,9 +4,7 @@ Help Tools
 
 This module provides tools for help and command information.
 """
-from typing import Dict
 
-from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 
 from kickai.core.constants import (
@@ -16,6 +14,7 @@ from kickai.core.constants import (
     normalize_chat_type,
 )
 from kickai.core.enums import ChatType as ChatTypeEnum
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
     extract_single_value,
     format_tool_error,
@@ -78,8 +77,31 @@ def final_help_response(chat_type: str, user_id: str, team_id: str, username: st
         # Normalize chat type to enum
         chat_type_enum = normalize_chat_type(chat_type)
 
-        # Get commands for this chat type
-        commands = get_commands_for_chat_type(chat_type_enum)
+        # Get commands from the command registry instead of constants
+        try:
+            from kickai.core.command_registry_initializer import get_initialized_command_registry
+
+            registry = get_initialized_command_registry()
+
+            # Get commands available for this chat type from the registry
+            commands = []
+            for cmd_name, cmd_metadata in registry._commands.items():
+                # Check if command is available for this chat type
+                if hasattr(cmd_metadata, "chat_type") and cmd_metadata.chat_type == chat_type_enum:
+                    commands.append(cmd_metadata)
+                elif hasattr(cmd_metadata, "feature"):
+                    # Fallback: check if command should be available based on feature
+                    if cmd_metadata.feature in ["shared"]:
+                        commands.append(cmd_metadata)
+
+            logger.info(
+                f"🔧 [TOOL DEBUG] Found {len(commands)} commands for {chat_type_enum.value}"
+            )
+
+        except Exception as e:
+            logger.warning(f"Failed to get commands from registry, falling back to constants: {e}")
+            # Fallback to constants if registry fails
+            commands = get_commands_for_chat_type(chat_type_enum)
 
         # Generate help message
         help_message = _format_help_message(chat_type_enum, commands, username)
@@ -136,13 +158,12 @@ def _format_help_message(chat_type: ChatTypeEnum, commands: list, username: str)
         return f"❌ Error formatting help message: {e!s}"
 
 
-def _group_commands_by_category(commands: list) -> Dict[str, list]:
+def _group_commands_by_category(commands: list) -> dict[str, list]:
     """Group commands by their feature/category."""
     categories = {
         "Player Commands": [],
         "Leadership Commands": [],
         "Match Management": [],
-        "Attendance": [],
         "Payments": [],
         "Communication": [],
         "Team Administration": [],
@@ -154,7 +175,7 @@ def _group_commands_by_category(commands: list) -> Dict[str, list]:
     feature_to_category = {
         "player_registration": "Player Commands",
         "match_management": "Match Management",
-        "attendance_management": "Attendance",
+        "attendance_management": "Team Administration",  # Move attendance commands to Team Administration
         "payment_management": "Payments",
         "communication": "Communication",
         "team_administration": "Team Administration",
@@ -164,7 +185,11 @@ def _group_commands_by_category(commands: list) -> Dict[str, list]:
     }
 
     for cmd in commands:
-        category = feature_to_category.get(cmd.feature, "System")
+        # Special handling for /update and /list commands - move to Team Administration
+        if cmd.name in ["/update", "/list"]:
+            category = "Team Administration"
+        else:
+            category = feature_to_category.get(cmd.feature, "System")
         categories[category].append(cmd)
 
     # Remove empty categories

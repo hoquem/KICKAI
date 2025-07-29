@@ -192,7 +192,6 @@ python scripts/validate_feature_deployment.py --feature=all --environment=testin
 ```
 
 #### Manual Validation Checklist
-- [ ] Bot responds to `/start` in main chat
 - [ ] Bot responds to `/help` in main chat
 - [ ] Player registration works (`/register`)
 - [ ] Leadership commands work in leadership chat
