@@ -218,12 +218,12 @@ class AgenticMessageRouter:
                 
                 elif user_flow_result == UserFlowDecision.REGISTERED_USER:
                     logger.info("New registered user - sending welcome back message")
-                    welcome_message = await self.user_flow_agent._format_registered_user_message(
+                    welcome_response = await self.user_flow_agent._format_registered_user_message(
                         user_id=message.user_id,
                         team_id=self.team_id,
                         username=message.username
                     )
-                    return AgentResponse(success=True, message=welcome_message)
+                    return welcome_response
                 
                 else:
                     logger.warning(f"Unknown user flow for new member: {user_flow_result}")

@@ -465,3 +465,24 @@ def normalize_chat_type(chat_type: str) -> ChatType:
     else:
         # Default to main chat for unknown types
         return ChatType.MAIN
+
+# =============================================================================
+# TELEGRAM CONFIGURATION CONSTANTS
+# =============================================================================
+
+class TelegramConfig:
+    """Telegram bot configuration constants."""
+    
+    # Polling configuration
+    POLL_INTERVAL = 1.0
+    TIMEOUT = 30
+    BOOTSTRAP_RETRIES = 5
+    
+    # Message formatting
+    MAX_MESSAGE_LENGTH = 4096
+    MAX_CAPTION_LENGTH = 1024
+    
+    # Contact sharing
+    CONTACT_BUTTON_TEXT = "📱 Share My Phone Number"
+    CONTACT_BUTTON_ONE_TIME = True
+    CONTACT_BUTTON_RESIZE = True

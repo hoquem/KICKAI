@@ -18,6 +18,7 @@ from kickai.utils.security_utils import (
 from kickai.features.communication.domain.services.admin_notification_service import (
     send_critical_error_notification,
 )
+from kickai.core.constants import TelegramConfig
 
 
 class TelegramBotService(TelegramBotServiceInterface):
@@ -425,9 +426,9 @@ class TelegramBotService(TelegramBotServiceInterface):
 
             # Start polling with basic parameters
             await self.app.updater.start_polling(
-                poll_interval=1.0,  # Poll every second
-                timeout=30,  # 30 second timeout
-                bootstrap_retries=5,  # Retry 5 times on startup
+                poll_interval=TelegramConfig.POLL_INTERVAL,
+                timeout=TelegramConfig.TIMEOUT,
+                bootstrap_retries=TelegramConfig.BOOTSTRAP_RETRIES,
             )
             self._running = True
             logger.info("Telegram bot polling started.")
@@ -473,9 +474,11 @@ class TelegramBotService(TelegramBotServiceInterface):
     async def send_contact_share_button(self, chat_id: Union[int, str], text: str):
         """Send a message with a contact sharing button."""
         try:
-            keyboard = [[KeyboardButton(text="📱 Share My Phone Number", request_contact=True)]]
+            keyboard = [[KeyboardButton(text=TelegramConfig.CONTACT_BUTTON_TEXT, request_contact=True)]]
             reply_markup = ReplyKeyboardMarkup(
-                keyboard, one_time_keyboard=True, resize_keyboard=True
+                keyboard, 
+                one_time_keyboard=TelegramConfig.CONTACT_BUTTON_ONE_TIME, 
+                resize_keyboard=TelegramConfig.CONTACT_BUTTON_RESIZE
             )
 
             await self.app.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
