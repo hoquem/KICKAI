@@ -211,10 +211,22 @@ class TelegramBotService(TelegramBotServiceInterface):
     async def _handle_new_chat_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle new chat members joining the chat."""
         try:
+            # Log the update structure for debugging
+            logger.debug(f"Received new chat members update: {type(update)}")
+            if hasattr(update, 'message') and update.message:
+                logger.debug(f"Message type: {type(update.message)}")
+                if hasattr(update.message, 'new_chat_members'):
+                    logger.debug(f"new_chat_members type: {type(update.message.new_chat_members)}")
+                    logger.debug(f"new_chat_members value: {update.message.new_chat_members}")
+            
             # Comprehensive input validation
             is_valid, error_message = validate_new_chat_members_update(update)
             if not is_valid:
                 logger.error(f"❌ Invalid new chat members update: {error_message}")
+                # Log additional debugging information
+                logger.debug(f"Update structure: {update}")
+                if hasattr(update, 'message') and update.message:
+                    logger.debug(f"Message attributes: {dir(update.message)}")
                 return
 
             # Validate chat ID
@@ -226,19 +238,28 @@ class TelegramBotService(TelegramBotServiceInterface):
 
             chat_type = self._determine_chat_type(chat_id)
             
-            logger.info(f"New chat members detected in {chat_type.value} chat: {len(update.message.new_chat_members)} members")
+            # Ensure new_chat_members is a list
+            new_members = update.message.new_chat_members
+            if not isinstance(new_members, list):
+                logger.warning(f"Converting new_chat_members to list: {type(new_members)}")
+                new_members = list(new_members) if hasattr(new_members, '__iter__') else [new_members]
+            
+            logger.info(f"New chat members detected in {chat_type.value} chat: {len(new_members)} members")
 
             # Process each new member individually with error isolation
-            for new_member in update.message.new_chat_members:
+            for i, new_member in enumerate(new_members):
                 try:
+                    logger.debug(f"Processing member {i}: {type(new_member)}")
                     await self._process_single_new_member(new_member, chat_id, chat_type)
                 except Exception as member_error:
-                    logger.error(f"❌ Error processing individual member: {member_error}")
+                    logger.error(f"❌ Error processing individual member {i}: {member_error}")
                     # Continue processing other members - don't fail the entire batch
                     continue
 
         except Exception as e:
             logger.error(f"❌ Critical error handling new chat members: {e}")
+            # Log the full update for debugging
+            logger.debug(f"Full update object: {update}")
             # Don't send error response to avoid spam, but log for monitoring
             await self._log_critical_error("new_chat_members_handler", str(e))
 

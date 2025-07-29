@@ -117,10 +117,9 @@ def validate_new_chat_members_update(update) -> tuple[bool, Optional[str]]:
         Tuple of (is_valid, error_message)
     """
     try:
-        # Basic update validation
-        is_valid, error = validate_telegram_update(update)
-        if not is_valid:
-            return False, error
+        # Check if update exists
+        if not update:
+            return False, "Update object is None or empty"
         
         # Check for message object
         if not hasattr(update, 'message') or not update.message:
@@ -130,17 +129,42 @@ def validate_new_chat_members_update(update) -> tuple[bool, Optional[str]]:
         if not hasattr(update.message, 'new_chat_members'):
             return False, "Message missing new_chat_members attribute"
         
-        # Validate new_chat_members list
+        # Validate new_chat_members - handle different possible types
         new_members = update.message.new_chat_members
-        if not new_members or not isinstance(new_members, list):
-            return False, "new_chat_members is not a valid list"
+        
+        # Check if it's None or empty
+        if new_members is None:
+            return False, "new_chat_members is None"
+        
+        # Check if it's a list
+        if not isinstance(new_members, list):
+            # Try to convert to list if it's not already
+            try:
+                if hasattr(new_members, '__iter__'):
+                    new_members = list(new_members)
+                else:
+                    return False, f"new_chat_members is not a list (type: {type(new_members)})"
+            except Exception as e:
+                return False, f"new_chat_members cannot be converted to list: {str(e)}"
+        
+        # Check if list is empty
+        if len(new_members) == 0:
+            return False, "new_chat_members list is empty"
         
         # Validate each member
         for i, member in enumerate(new_members):
+            if not member:
+                return False, f"Member {i} is None or empty"
+            
             if not hasattr(member, 'id'):
                 return False, f"Member {i} missing ID attribute"
+            
             if not hasattr(member, 'is_bot'):
                 return False, f"Member {i} missing is_bot attribute"
+            
+            # Additional validation for user attributes
+            if not hasattr(member, 'username') and not hasattr(member, 'first_name'):
+                return False, f"Member {i} missing username and first_name attributes"
         
         return True, None
         
