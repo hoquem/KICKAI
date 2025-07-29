@@ -12,7 +12,7 @@ import os
 import traceback
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 # Import the correct AIProvider enum from kickai.core.enums
 from kickai.core.enums import AIProvider
@@ -30,8 +30,8 @@ class LLMConfig:
     temperature: float = 0.7
     timeout_seconds: int = 30
     max_retries: int = 3
-    api_base: Optional[str] = None
-    additional_params: Optional[dict] = None
+    api_base: str | None = None
+    additional_params: dict | None = None
 
     def __post_init__(self):
         """Validate temperature range."""
@@ -44,7 +44,12 @@ class LLMConfig:
     ) -> "LLMConfig":
         """Create LLM config with agent-specific temperature settings."""
         # Use lower temperature for data-critical agents to prevent hallucination
-        if agent_type in ["player_coordinator", "help_assistant", "message_processor", "finance_manager"]:
+        if agent_type in [
+            "player_coordinator",
+            "help_assistant",
+            "message_processor",
+            "finance_manager",
+        ]:
             temperature = 0.1  # Very low temperature for precise, factual responses
         elif agent_type in ["team_manager", "availability_manager"]:
             temperature = 0.3  # Low temperature for administrative tasks
@@ -445,14 +450,159 @@ class OllamaProvider(LLMProvider):
             raise LLMProviderError(error_msg)
 
 
+class HuggingFaceProvider(LLMProvider):
+    """Hugging Face Inference API provider for free tier models."""
+
+    def validate_config(self, config: LLMConfig) -> bool:
+        """Validate Hugging Face configuration."""
+        if not config.api_key:
+            raise LLMProviderError("Hugging Face requires HUGGINGFACE_API_TOKEN")
+        if not config.model_name:
+            raise LLMProviderError("Hugging Face requires model_name")
+        return True
+
+    def create_llm(self, config: LLMConfig):
+        """Create Hugging Face LLM instance."""
+        self.validate_config(config)
+
+        try:
+            # Try to import huggingface_hub
+            try:
+                from huggingface_hub import InferenceClient
+            except ImportError:
+                raise LLMProviderError(
+                    "huggingface_hub package not installed. Run: pip install huggingface_hub"
+                )
+
+            class HuggingFaceLLM:
+                def __init__(self, model_name: str, api_key: str, temperature: float = 0.7):
+                    self.model_name = model_name
+                    self.api_key = api_key
+                    self.temperature = temperature
+
+                    # Initialize the client
+                    self.client = InferenceClient(model=model_name, token=api_key)
+
+                    # CrewAI compatibility attributes
+                    self.supports_functions = False
+                    self.supports_tools = False
+                    self.stop = None
+
+                    logger.info(
+                        f"✅ HuggingFace LLM created (model: {model_name}, temperature: {temperature})"
+                    )
+
+                def supports_stop_words(self) -> bool:
+                    """CrewAI compatibility method."""
+                    return False
+
+                def invoke(self, messages, **kwargs):
+                    """Synchronous invocation."""
+                    try:
+                        # Convert messages to chat format for conversational models
+                        formatted_messages = self._format_messages_for_chat(messages)
+
+                        # Try chat completion first (for conversational models)
+                        try:
+                            response = self.client.chat_completion(
+                                messages=formatted_messages,
+                                temperature=self.temperature,
+                                max_tokens=kwargs.get("max_tokens", 1000),
+                            )
+
+                            # Extract content from response
+                            if hasattr(response, "choices") and response.choices:
+                                content = response.choices[0].message.content
+                                logger.info(f"[HF SUCCESS] Chat completion for {self.model_name}")
+                                return content
+                            else:
+                                return str(response)
+
+                        except Exception as chat_error:
+                            # Fallback to text generation if chat completion fails
+                            logger.warning(
+                                f"Chat completion failed, trying text generation: {chat_error}"
+                            )
+
+                            prompt = self._format_messages_as_text(messages)
+                            response = self.client.text_generation(
+                                prompt=prompt,
+                                temperature=self.temperature,
+                                max_new_tokens=kwargs.get("max_tokens", 1000),
+                                do_sample=True if self.temperature > 0 else False,
+                                return_full_text=False,
+                            )
+
+                            logger.info(f"[HF SUCCESS] Text generation for {self.model_name}")
+                            return response
+
+                    except Exception as e:
+                        logger.error(f"[HF ERROR] Model {self.model_name} failed: {e}")
+                        raise
+
+                async def ainvoke(self, messages, **kwargs):
+                    """Async invocation (runs sync for now)."""
+                    return self.invoke(messages, **kwargs)
+
+                def __call__(self, messages, **kwargs):
+                    """Call interface for compatibility."""
+                    return self.invoke(messages, **kwargs)
+
+                def is_available(self) -> bool:
+                    """Check if the LLM is available."""
+                    return True
+
+                def _format_messages_for_chat(self, messages):
+                    """Format messages for chat completion API."""
+                    if isinstance(messages, list):
+                        formatted = []
+                        for msg in messages:
+                            if hasattr(msg, "content") and hasattr(msg, "role"):
+                                formatted.append({"role": msg.role, "content": msg.content})
+                            elif isinstance(msg, dict) and "content" in msg:
+                                role = msg.get("role", "user")
+                                formatted.append({"role": role, "content": msg["content"]})
+                            else:
+                                formatted.append({"role": "user", "content": str(msg)})
+                        return formatted
+                    return [{"role": "user", "content": str(messages)}]
+
+                def _format_messages_as_text(self, messages):
+                    """Format messages as text for text generation API."""
+                    if isinstance(messages, list):
+                        text_parts = []
+                        for msg in messages:
+                            if hasattr(msg, "content"):
+                                text_parts.append(msg.content)
+                            elif isinstance(msg, dict) and "content" in msg:
+                                text_parts.append(msg["content"])
+                            else:
+                                text_parts.append(str(msg))
+                        return "\n".join(text_parts)
+                    return str(messages)
+
+            llm = HuggingFaceLLM(
+                model_name=config.model_name, api_key=config.api_key, temperature=config.temperature
+            )
+
+            logger.info(f"✅ Hugging Face LLM created successfully (model: {config.model_name})")
+            return llm
+
+        except Exception as e:
+            error_msg = f"Failed to create Hugging Face LLM: {e}"
+            logger.error(error_msg)
+            raise LLMProviderError(error_msg)
+
+
 class LLMFactory:
     """
     Factory for creating LLM instances.
     Supports multiple AI providers with proper factory pattern.
     """
 
-    _providers: Dict[AIProvider, type[LLMProvider]] = {
+    _providers: dict[AIProvider, type[LLMProvider]] = {
         AIProvider.GEMINI: GoogleGeminiProvider,
+        AIProvider.HUGGINGFACE: HuggingFaceProvider,
         AIProvider.OLLAMA: OllamaProvider,
         AIProvider.MOCK: MockLLMProvider,
     }
@@ -492,7 +642,7 @@ class LLMFactory:
         return provider.create_llm(config)
 
     @classmethod
-    def create_from_environment(cls, model_name: Optional[str] = None) -> "Any":
+    def create_from_environment(cls, model_name: str | None = None) -> "Any":
         """
         Create an LLM instance from environment variables.
 
@@ -515,6 +665,11 @@ class LLMFactory:
         api_key = ""
         if provider == AIProvider.GEMINI:
             api_key = os.getenv("GOOGLE_API_KEY", "")
+        elif provider == AIProvider.HUGGINGFACE:
+            api_key = os.getenv("HUGGINGFACE_API_TOKEN", "")
+        elif provider == AIProvider.OLLAMA:
+            # Ollama doesn't need API key
+            api_key = ""
         elif provider == AIProvider.MOCK:
             api_key = "mock-key"  # Mock doesn't need real API key
 
@@ -528,6 +683,9 @@ class LLMFactory:
             if provider == AIProvider.GEMINI:
                 model_name = os.getenv("GOOGLE_AI_MODEL_NAME", "gemini-1.5-flash")
                 logger.debug(f"🔍 [DEBUG] LLMFactory: GOOGLE_AI_MODEL_NAME from env: {model_name}")
+            elif provider == AIProvider.HUGGINGFACE:
+                model_name = os.getenv("HUGGINGFACE_MODEL", "Qwen/Qwen2.5-1.5B-Instruct")
+                logger.debug(f"🔍 [DEBUG] LLMFactory: HUGGINGFACE_MODEL from env: {model_name}")
             elif provider == AIProvider.OLLAMA:
                 model_name = os.getenv("OLLAMA_MODEL", "llama2")
                 logger.debug(f"🔍 [DEBUG] LLMFactory: OLLAMA_MODEL from env: {model_name}")
@@ -541,7 +699,9 @@ class LLMFactory:
             provider=provider,
             model_name=model_name,
             api_key=api_key,
-            temperature=float(os.getenv("LLM_TEMPERATURE", "0.1")),  # Default to low temperature to prevent hallucination
+            temperature=float(
+                os.getenv("LLM_TEMPERATURE", "0.1")
+            ),  # Default to low temperature to prevent hallucination
             timeout_seconds=int(os.getenv("LLM_TIMEOUT", "30")),
             max_retries=int(os.getenv("LLM_MAX_RETRIES", "3")),
         )
@@ -549,6 +709,6 @@ class LLMFactory:
         return cls.create_llm(config)
 
     @classmethod
-    def get_supported_providers(cls) -> List[str]:
+    def get_supported_providers(cls) -> list[str]:
         """Get list of supported AI providers."""
         return [provider.value for provider in cls._providers.keys()]

@@ -4,7 +4,7 @@ System Infrastructure Commands
 This module contains commands for system infrastructure management.
 """
 
-# Import the actual command module that exists
-from . import system_commands
+# System commands have been removed from the system
+# No commands are currently available in this module
 
-__all__ = ["system_commands"]
+__all__ = []

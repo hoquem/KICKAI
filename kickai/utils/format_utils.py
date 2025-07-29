@@ -4,7 +4,6 @@ This module serves as the single source of truth for all user-facing formatting.
 """
 
 from datetime import datetime
-from typing import List
 
 from kickai.features.player_registration.domain.entities.player import Player
 
@@ -13,7 +12,7 @@ class PlayerFormattingService:
     """Single source of truth for all player-related formatting."""
 
     @staticmethod
-    def format_player_list(players: List[Player], team_name: str = "Team") -> str:
+    def format_player_list(players: list[Player], team_name: str = "Team") -> str:
         """
         Format a list of players in a clean, Telegram-friendly format.
 
@@ -64,7 +63,7 @@ class PlayerFormattingService:
         return "\n".join(output)
 
     @staticmethod
-    def format_player_list_for_leadership(players: List[Player], team_name: str = "Team") -> str:
+    def format_player_list_for_leadership(players: list[Player], team_name: str = "Team") -> str:
         """
         Format a list of players for leadership view - shows all players with detailed status.
 

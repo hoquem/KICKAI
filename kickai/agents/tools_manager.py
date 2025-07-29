@@ -6,9 +6,8 @@ This module provides the AgentToolsManager class for managing tool assignment
 for agents with entity-specific validation.
 """
 
-import logging
 from functools import wraps
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -45,8 +44,8 @@ class AgentToolsManager:
 
     @log_errors
     def get_tools_for_role(
-        self, role: AgentRole, entity_type: Optional[EntityType] = None
-    ) -> List[Any]:
+        self, role: AgentRole, entity_type: EntityType | None = None
+    ) -> list[Any]:
         """Get tools for a specific role with entity-specific filtering."""
         try:
             config = get_agent_config(role)
@@ -82,11 +81,11 @@ class AgentToolsManager:
             logger.error(f"Error getting tools for agent {role}: {e}")
             return []
 
-    def get_available_tools(self) -> List[str]:
+    def get_available_tools(self) -> list[str]:
         """Get list of available tool names."""
         return self._tool_registry.get_tool_names()
 
-    def get_tool_info(self, tool_name: str) -> Optional[Dict[str, Any]]:
+    def get_tool_info(self, tool_name: str) -> dict[str, Any] | None:
         """Get information about a specific tool."""
         tool = self._tool_registry.get_tool(tool_name)
         if tool:
@@ -98,4 +97,4 @@ class AgentToolsManager:
                 "feature": tool.feature_module,
                 "entity_types": [et.value for et in tool.entity_types],
             }
-        return None 
+        return None

@@ -10,7 +10,7 @@ from typing import Any, Dict
 from loguru import logger
 
 
-def initialize_player_registration(config: Dict[str, Any]) -> None:
+def initialize_player_registration(config: dict[str, Any]) -> None:
     """Initialize the player registration feature."""
     logger.info("Initializing player registration feature")
     # Feature initialization logic would go here

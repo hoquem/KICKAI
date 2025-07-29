@@ -1,12 +1,10 @@
 import logging
-from datetime import datetime
 
 from kickai.core.dependency_container import get_container
-from typing import Dict, List, Optional
 from kickai.features.attendance_management.domain.entities.attendance import (
     Attendance,
-    AttendanceStatus,
     AttendanceResponseMethod,
+    AttendanceStatus,
     AttendanceSummary,
 )
 from kickai.features.attendance_management.domain.repositories.attendance_repository_interface import (
@@ -34,7 +32,7 @@ class AttendanceService:
         team_id: str,
         status: AttendanceStatus,
         response_method: AttendanceResponseMethod = AttendanceResponseMethod.COMMAND,
-        notes: Optional[str] = None,
+        notes: str | None = None,
     ) -> Attendance:
         """
         Mark player attendance for a match.
@@ -78,7 +76,9 @@ class AttendanceService:
                 # Update existing record
                 existing_attendance.update_status(status, response_method, notes)
                 updated_attendance = await self.attendance_repository.update(existing_attendance)
-                logger.info(f"Updated attendance for player {player_id} and match {match_id}: {status.value}")
+                logger.info(
+                    f"Updated attendance for player {player_id} and match {match_id}: {status.value}"
+                )
                 return updated_attendance
             else:
                 # Create new record
@@ -94,44 +94,50 @@ class AttendanceService:
                     notes=notes,
                 )
                 created_attendance = await self.attendance_repository.create(new_attendance)
-                logger.info(f"Created attendance for player {player_id} and match {match_id}: {status.value}")
+                logger.info(
+                    f"Created attendance for player {player_id} and match {match_id}: {status.value}"
+                )
                 return created_attendance
 
         except Exception as e:
             logger.error(f"Failed to mark attendance: {e}")
             raise
 
-    async def get_attendance_by_id(self, attendance_id: str) -> Optional[Attendance]:
+    async def get_attendance_by_id(self, attendance_id: str) -> Attendance | None:
         """Get attendance record by ID."""
         return await self.attendance_repository.get_by_id(attendance_id)
 
-    async def get_attendance_by_team(self, team_id: str) -> List[Attendance]:
+    async def get_attendance_by_team(self, team_id: str) -> list[Attendance]:
         """Get all attendance records for a team."""
         return await self.attendance_repository.get_by_team(team_id)
 
-    async def get_attendance_by_match(self, match_id: str, team_id: str) -> List[Attendance]:
+    async def get_attendance_by_match(self, match_id: str, team_id: str) -> list[Attendance]:
         """Get all attendance records for a specific match."""
         return await self.attendance_repository.get_by_match(match_id, team_id)
 
-    async def get_attendance_by_player(self, player_id: str, team_id: str) -> List[Attendance]:
+    async def get_attendance_by_player(self, player_id: str, team_id: str) -> list[Attendance]:
         """Get all attendance records for a specific player."""
         return await self.attendance_repository.get_by_player(player_id, team_id)
 
     async def get_player_attendance_for_match(
         self, player_id: str, match_id: str, team_id: str
-    ) -> Optional[Attendance]:
+    ) -> Attendance | None:
         """Get attendance record for a specific player and match."""
-        return await self.attendance_repository.get_by_player_and_match(player_id, match_id, team_id)
+        return await self.attendance_repository.get_by_player_and_match(
+            player_id, match_id, team_id
+        )
 
     async def get_match_attendance_summary(self, match_id: str, team_id: str) -> AttendanceSummary:
         """Get attendance summary for a match."""
         return await self.attendance_repository.get_match_summary(match_id, team_id)
 
-    async def get_player_attendance_stats(self, player_id: str, team_id: str, year: Optional[int] = None) -> dict:
+    async def get_player_attendance_stats(
+        self, player_id: str, team_id: str, year: int | None = None
+    ) -> dict:
         """Get attendance statistics for a player."""
         return await self.attendance_repository.get_player_stats(player_id, team_id, year)
 
-    async def initialize_match_attendance(self, match_id: str, team_id: str) -> List[Attendance]:
+    async def initialize_match_attendance(self, match_id: str, team_id: str) -> list[Attendance]:
         """
         Initialize attendance records for all active players for a new match.
         Sets all players to NOT_RESPONDED status initially.
@@ -165,7 +171,7 @@ class AttendanceService:
                     existing = await self.get_player_attendance_for_match(
                         player.player_id, match_id, team_id
                     )
-                    
+
                     if not existing:
                         attendance = Attendance.create(
                             player_id=player.player_id,
@@ -185,7 +191,9 @@ class AttendanceService:
                 except Exception as e:
                     logger.error(f"Failed to create attendance for player {player.player_id}: {e}")
 
-            logger.info(f"Initialized attendance for {len(attendance_records)} players for match {match_id}")
+            logger.info(
+                f"Initialized attendance for {len(attendance_records)} players for match {match_id}"
+            )
             return attendance_records
 
         except Exception as e:
@@ -200,7 +208,7 @@ class AttendanceService:
         """Delete an attendance record."""
         await self.attendance_repository.delete(attendance_id)
 
-    async def get_available_players_for_match(self, match_id: str, team_id: str) -> List[dict]:
+    async def get_available_players_for_match(self, match_id: str, team_id: str) -> list[dict]:
         """Get list of players who are available for a specific match."""
         try:
             attendance_records = await self.get_attendance_by_match(match_id, team_id)
@@ -208,12 +216,14 @@ class AttendanceService:
 
             for attendance in attendance_records:
                 if attendance.status == AttendanceStatus.YES.value:
-                    available_players.append({
-                        "player_id": attendance.player_id,
-                        "player_name": attendance.player_name,
-                        "response_timestamp": attendance.response_timestamp,
-                        "notes": attendance.notes,
-                    })
+                    available_players.append(
+                        {
+                            "player_id": attendance.player_id,
+                            "player_name": attendance.player_name,
+                            "response_timestamp": attendance.response_timestamp,
+                            "notes": attendance.notes,
+                        }
+                    )
 
             return available_players
 
@@ -225,7 +235,7 @@ class AttendanceService:
         """Get overall attendance summary for the team."""
         try:
             all_attendance = await self.get_attendance_by_team(team_id)
-            
+
             if not all_attendance:
                 return {
                     "team_id": team_id,

@@ -2,8 +2,6 @@
 Communication Service for handling Telegram communication operations.
 """
 
-from typing import Optional
-
 from loguru import logger
 
 from kickai.features.communication.infrastructure.telegram_bot_service import TelegramBotService
@@ -12,7 +10,7 @@ from kickai.features.communication.infrastructure.telegram_bot_service import Te
 class CommunicationService:
     """Service for handling communication operations including Telegram messaging."""
 
-    def __init__(self, telegram_bot_service: Optional[TelegramBotService] = None):
+    def __init__(self, telegram_bot_service: TelegramBotService | None = None):
         self.telegram_bot_service = telegram_bot_service
 
     def set_telegram_bot_service(self, telegram_bot_service: TelegramBotService):

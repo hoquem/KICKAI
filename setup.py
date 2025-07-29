@@ -45,7 +45,6 @@ setup(
             'kickai-bot=kickai.cli:main',
         ],
         'kickai.tools': [
-            'register_player=kickai.features.player_registration.domain.tools.registration_tools:register_player',
             'add_team_member=kickai.features.team_administration.domain.tools.team_tools:add_team_member',
             'send_message=kickai.features.communication.domain.tools.communication_tools:send_message',
         ],

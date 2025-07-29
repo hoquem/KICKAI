@@ -182,7 +182,6 @@ Return UserPermissions object
 
 #### Public Commands
 - `/help` - Show help information
-- `/start` - Start the bot
 - `/register` - Register as a new player
 
 #### Player Commands

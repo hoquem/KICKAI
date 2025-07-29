@@ -3,14 +3,14 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum
 from typing import Any
+
+from kickai.core.enums import AlertLevel
 
 # These should be updated to the correct feature-based paths
 # from kickai.features.health_monitoring.domain.entities.health_check_types import SystemHealthReport, ComponentType
 # from kickai.features.health_monitoring.domain.services.health_check_service import HealthCheckService
 from kickai.utils.async_utils import async_operation_context
-from kickai.core.enums import AlertLevel
 
 
 @dataclass

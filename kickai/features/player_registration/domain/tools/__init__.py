@@ -10,46 +10,33 @@ from .player_tools import (
     add_player,
     approve_player,
     get_all_players,
-    get_match,
     get_my_status,
+    get_player_match,
     get_player_status,
-    get_pending_players,
 )
 
-# Import the parser tool
-from .registration_parser import parse_registration_command
-from .registration_tools import (
-    register_player,
-    register_team_member,
-    registration_guidance,
-    team_member_registration,
-)
-
-# Import player update tools
-from .update_player_tools import (
-    update_player_information,
-    get_player_updatable_fields,
-    validate_player_update_request,
-)
+# Registration tools removed - /register command has been removed from the system
+# from .registration_parser import parse_registration_command
+# from .registration_tools import (
+#     register_player,
+#     register_team_member,
+#     registration_guidance,
+#     team_member_registration,
+# )
 
 __all__ = [
-    # Registration tools
-    "register_player",
-    "team_member_registration",
-    "registration_guidance",
-    "parse_registration_command",
+    # Registration tools removed - /register command has been removed from the system
+    # "register_player",
+    # "team_member_registration",
+    # "registration_guidance",
+    # "parse_registration_command",
     # Player management tools (only the ones actually used by agents)
     "add_player",
     "approve_player",
     "get_my_status",
     "get_player_status",
     "get_all_players",
-    "get_match",
-    "get_pending_players",
-    # Player update tools
-    "update_player_information",
-    "get_player_updatable_fields",
-    "validate_player_update_request",
+    "get_player_match",
 ]
 
 # Note: Removed unused tools: remove_player, get_player_info, list_players

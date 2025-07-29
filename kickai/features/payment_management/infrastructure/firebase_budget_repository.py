@@ -3,7 +3,8 @@ FirebaseBudgetRepository for Payment Management.
 
 Implements BudgetRepositoryInterface using Firebase/Firestore as the backend.
 """
-from typing import Any, Dict, List, Optional
+
+from typing import Any
 
 from kickai.features.payment_management.domain.entities.budget import Budget
 from kickai.features.payment_management.domain.repositories.budget_repository_interface import (
@@ -21,11 +22,11 @@ class FirebaseBudgetRepository(BudgetRepositoryInterface):
         # TODO: Implement Firestore logic
         raise NotImplementedError
 
-    async def get_budget_by_id(self, budget_id: str) -> Optional[Budget]:
+    async def get_budget_by_id(self, budget_id: str) -> Budget | None:
         # TODO: Implement Firestore logic
         raise NotImplementedError
 
-    async def get_budget_by_team_id(self, team_id: str) -> Optional[Budget]:
+    async def get_budget_by_team_id(self, team_id: str) -> Budget | None:
         # TODO: Implement Firestore logic
         raise NotImplementedError
 
@@ -37,10 +38,10 @@ class FirebaseBudgetRepository(BudgetRepositoryInterface):
         # TODO: Implement Firestore logic
         raise NotImplementedError
 
-    async def list_budgets(self, team_id: Optional[str] = None) -> List[Budget]:
+    async def list_budgets(self, team_id: str | None = None) -> list[Budget]:
         # TODO: Implement Firestore logic
         raise NotImplementedError
 
-    async def get_budget_summary(self, team_id: str) -> Dict[str, Any]:
+    async def get_budget_summary(self, team_id: str) -> dict[str, Any]:
         # TODO: Implement Firestore logic
         raise NotImplementedError

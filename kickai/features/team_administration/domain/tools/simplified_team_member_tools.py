@@ -6,7 +6,6 @@ This module provides tools for simplified team member management
 for the new /addmember command that only requires name and phone number.
 """
 
-from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
@@ -26,6 +25,7 @@ from kickai.utils.constants import (
     MAX_TEAM_ID_LENGTH,
     MAX_USER_ID_LENGTH,
 )
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
     format_tool_error,
     validate_required_input,
@@ -118,7 +118,7 @@ async def add_team_member_simplified(
 • Status: Active
 
 🔗 Invite Link for Leadership Chat:
-{invite_result['invite_link']}
+{invite_result["invite_link"]}
 
 📋 Next Steps:
 1. Send the invite link to {name}
@@ -143,7 +143,7 @@ async def add_team_member_simplified(
 • Member ID: {member_id}
 • Status: Active
 
-⚠️ Note: Could not generate invite link - {invite_result.get('error', 'Unknown error')}.
+⚠️ Note: Could not generate invite link - {invite_result.get("error", "Unknown error")}.
 Please contact the system administrator.
 
 🎯 Member ID: {member_id}"""
