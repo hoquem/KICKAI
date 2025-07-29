@@ -172,7 +172,7 @@ class CommonUpdateValidator:
             return value_stripped
 
 
-@tool
+@tool("validate_update_field_generic")
 def validate_update_field_generic(field_type: str, field_value: str, validation_params: str = "{}") -> str:
     """
     Generic field validation tool that can be used by different entity types.
@@ -238,7 +238,7 @@ def validate_update_field_generic(field_type: str, field_value: str, validation_
         return f"❌ Validation Error: An unexpected error occurred during validation"
 
 
-@tool
+@tool("check_field_uniqueness")
 def check_field_uniqueness(collection_name: str, field_name: str, field_value: str, exclude_user_id: str = None) -> str:
     """
     Check if a field value is unique within a collection (excluding current user).
@@ -267,227 +267,201 @@ def check_field_uniqueness(collection_name: str, field_name: str, field_value: s
         if exclude_user_id:
             existing_records = [
                 record for record in existing_records 
-                if record.get('user_id') != exclude_user_id
+                if record.get("user_id") != exclude_user_id
             ]
         
         if existing_records:
-            # Field value is not unique
-            existing_name = existing_records[0].get('name', 'Unknown')
-            return f"❌ {field_name.title()} '{field_value}' is already in use by {existing_name}"
+            return f"❌ Field '{field_name}' with value '{field_value}' already exists in {collection_name}"
         else:
-            # Field value is unique
-            return f"✅ {field_name.title()} '{field_value}' is available"
+            return f"✅ Field '{field_name}' with value '{field_value}' is unique in {collection_name}"
             
     except Exception as e:
         logger.error(f"❌ Error checking field uniqueness: {e}")
-        return f"❌ Error checking uniqueness: Please try again"
+        return f"❌ Error checking field uniqueness: {str(e)}"
 
 
-@tool
+@tool("get_validation_rules_for_field")
 def get_validation_rules_for_field(entity_type: str, field_name: str) -> str:
     """
-    Get validation rules and examples for a specific field and entity type.
+    Get validation rules for a specific field in an entity type.
     
     Args:
         entity_type: Type of entity (player, team_member)
-        field_name: Name of the field
+        field_name: Name of the field to get rules for
         
     Returns:
-        Validation rules and examples for the field
+        JSON string with validation rules
     """
     try:
-        rules = {
+        import json
+        
+        # Define validation rules for different entity types and fields
+        validation_rules = {
             "player": {
+                "name": {
+                    "type": "text",
+                    "min_length": 2,
+                    "max_length": 50,
+                    "required": True,
+                    "pattern": r"^[a-zA-Z\s\-']+$"
+                },
                 "phone": {
-                    "description": "Contact phone number",
-                    "format": "UK phone numbers (+44 or 07xxx format)",
-                    "examples": ["+447123456789", "07123456789", "+441234567890"],
-                    "validation": "Must be valid UK phone number"
+                    "type": "phone",
+                    "required": True,
+                    "format": "UK"
                 },
                 "position": {
-                    "description": "Football position",
-                    "format": "Valid football position name",
-                    "examples": ["Goalkeeper", "Defender", "Midfielder", "Forward", "Striker"],
-                    "validation": "Must be from predefined list of positions"
+                    "type": "choice",
+                    "required": True,
+                    "valid_choices": ["goalkeeper", "defender", "midfielder", "forward", "utility"]
                 },
                 "email": {
-                    "description": "Email address",
-                    "format": "Valid email format",
-                    "examples": ["player@example.com", "john.smith@gmail.com"],
-                    "validation": "Must be valid email format (max 254 characters)"
+                    "type": "email",
+                    "required": False
                 },
                 "emergency_contact": {
-                    "description": "Emergency contact information",
-                    "format": "Phone number or contact details",
-                    "examples": ["+44787654321", "Parent: Jane Smith +44712345678"],
-                    "validation": "5-200 characters"
+                    "type": "text",
+                    "min_length": 5,
+                    "max_length": 200,
+                    "required": False
                 },
                 "medical_notes": {
-                    "description": "Medical information",
-                    "format": "Free text",
-                    "examples": ["Allergic to peanuts", "Asthma - carries inhaler"],
-                    "validation": "Max 500 characters"
+                    "type": "text",
+                    "min_length": 0,
+                    "max_length": 500,
+                    "required": False
                 }
             },
             "team_member": {
+                "name": {
+                    "type": "text",
+                    "min_length": 2,
+                    "max_length": 50,
+                    "required": True,
+                    "pattern": r"^[a-zA-Z\s\-']+$"
+                },
                 "phone": {
-                    "description": "Contact phone number",
-                    "format": "UK phone numbers (+44 or 07xxx format)",
-                    "examples": ["+447123456789", "07123456789"],
-                    "validation": "Must be valid UK phone number"
-                },
-                "email": {
-                    "description": "Email address",
-                    "format": "Valid email format",
-                    "examples": ["admin@example.com", "coach@teamname.com"],
-                    "validation": "Must be valid email format (max 254 characters)"
-                },
-                "emergency_contact": {
-                    "description": "Emergency contact information",
-                    "format": "Phone number or contact details",
-                    "examples": ["+44787654321", "Spouse: Sarah +44712345678"],
-                    "validation": "5-200 characters"
+                    "type": "phone",
+                    "required": True,
+                    "format": "UK"
                 },
                 "role": {
-                    "description": "Administrative role (requires admin approval)",
-                    "format": "Valid team role",
-                    "examples": ["Team Manager", "Coach", "Assistant Coach", "Volunteer"],
-                    "validation": "Must be from predefined list of roles, requires admin approval"
+                    "type": "choice",
+                    "required": True,
+                    "valid_choices": [
+                        "team manager", "coach", "assistant coach", "head coach",
+                        "club administrator", "treasurer", "secretary", 
+                        "volunteer coordinator", "volunteer", "parent helper",
+                        "first aid coordinator", "equipment manager", "transport coordinator"
+                    ]
+                },
+                "email": {
+                    "type": "email",
+                    "required": False
+                },
+                "emergency_contact": {
+                    "type": "text",
+                    "min_length": 5,
+                    "max_length": 200,
+                    "required": False
                 }
             }
         }
         
-        entity_rules = rules.get(entity_type)
-        if not entity_rules:
-            return f"❌ Unknown entity type: {entity_type}"
+        # Get rules for the specified entity type and field
+        entity_rules = validation_rules.get(entity_type.lower(), {})
+        field_rules = entity_rules.get(field_name.lower(), {})
         
-        field_rules = entity_rules.get(field_name)
         if not field_rules:
-            available_fields = ", ".join(entity_rules.keys())
-            return f"❌ Unknown field '{field_name}' for {entity_type}. Available fields: {available_fields}"
+            return json.dumps({
+                "error": f"No validation rules found for field '{field_name}' in entity type '{entity_type}'"
+            })
         
-        examples_text = "\n".join([f"   • {example}" for example in field_rules["examples"]])
-        
-        return f"""📋 Validation Rules for {entity_type.title()} - {field_name.title()}
-
-📝 Description: {field_rules["description"]}
-📐 Format: {field_rules["format"]}
-✅ Validation: {field_rules["validation"]}
-
-💡 Examples:
-{examples_text}
-
-📝 Usage: /update {field_name} [new_value]"""
+        return json.dumps(field_rules, indent=2)
         
     except Exception as e:
         logger.error(f"❌ Error getting validation rules: {e}")
-        return f"❌ Error retrieving validation rules for {field_name}"
+        return json.dumps({"error": f"Error getting validation rules: {str(e)}"})
 
 
-@tool
+@tool("format_update_success_message")
 def format_update_success_message(entity_type: str, entity_name: str, field_name: str, 
                                 new_value: str, updated_by: str, timestamp: str) -> str:
     """
-    Format a standardized success message for update operations.
+    Format a success message for field updates.
     
     Args:
         entity_type: Type of entity (player, team_member)
-        entity_name: Name of the entity being updated
-        field_name: Name of the field updated
-        new_value: New value that was set
-        updated_by: Username who performed the update
-        timestamp: ISO timestamp of the update
+        entity_name: Name of the entity
+        field_name: Name of the field that was updated
+        new_value: New value of the field
+        updated_by: Username of who made the update
+        timestamp: Timestamp of the update
         
     Returns:
         Formatted success message
     """
     try:
-        from datetime import datetime
-        
-        # Parse timestamp
-        try:
-            dt = datetime.fromisoformat(timestamp)
-            formatted_time = dt.strftime('%d %b %Y at %H:%M')
-        except:
-            formatted_time = timestamp
-        
-        # Determine entity icon
-        entity_icon = "👤" if entity_type == "player" else "👔"
-        
-        # Field descriptions
-        field_descriptions = {
-            "phone": "Contact Phone",
-            "email": "Email Address", 
-            "position": "Football Position",
-            "role": "Administrative Role",
-            "emergency_contact": "Emergency Contact",
-            "medical_notes": "Medical Information"
-        }
-        
-        field_desc = field_descriptions.get(field_name, field_name.title())
-        
-        return f"""✅ Information Updated Successfully!
+        # Format the success message
+        success_message = f"""
+✅ **UPDATE SUCCESSFUL!**
 
-{entity_icon} {entity_type.title()}: {entity_name}
-🔄 Updated Field: {field_desc}
-🆕 New Value: {new_value}
-🕐 Updated: {formatted_time}
-👤 Updated By: {updated_by}
+📝 **Details:**
+• **Entity:** {entity_type.title()} - {entity_name}
+• **Field Updated:** {field_name.replace('_', ' ').title()}
+• **New Value:** {new_value}
+• **Updated By:** {updated_by}
+• **Timestamp:** {timestamp}
 
-💡 Use /myinfo to view your complete updated information."""
+🎉 The {entity_type} information has been successfully updated!
+        """
+        
+        return success_message.strip()
         
     except Exception as e:
         logger.error(f"❌ Error formatting success message: {e}")
-        return f"✅ Update completed successfully!"
+        return f"✅ Update successful! Field '{field_name}' updated to '{new_value}'"
 
 
-@tool
+@tool("format_approval_request_message")
 def format_approval_request_message(entity_type: str, entity_name: str, field_name: str,
                                   new_value: str, requested_by: str, timestamp: str) -> str:
     """
-    Format a standardized approval request message for fields requiring admin approval.
+    Format an approval request message for field updates that require admin approval.
     
     Args:
         entity_type: Type of entity (player, team_member)
-        entity_name: Name of the entity requesting update
-        field_name: Name of the field to be updated
+        entity_name: Name of the entity
+        field_name: Name of the field that needs approval
         new_value: Requested new value
-        requested_by: Username who made the request
-        timestamp: ISO timestamp of the request
+        requested_by: Username of who requested the change
+        timestamp: Timestamp of the request
         
     Returns:
         Formatted approval request message
     """
     try:
-        from datetime import datetime
-        
-        # Parse timestamp
-        try:
-            dt = datetime.fromisoformat(timestamp)
-            formatted_time = dt.strftime('%d %b %Y at %H:%M')
-        except:
-            formatted_time = timestamp
-        
-        # Field descriptions
-        field_descriptions = {
-            "role": "Administrative Role",
-            "status": "Account Status",
-            "permissions": "Access Permissions"
-        }
-        
-        field_desc = field_descriptions.get(field_name, field_name.title())
-        
-        return f"""⏳ Approval Request Submitted
+        # Format the approval request message
+        approval_message = f"""
+⏳ **APPROVAL REQUEST PENDING**
 
-📋 Requested Change: {field_desc} → {new_value}
-👤 Requested By: {requested_by}
-📅 Requested: {formatted_time}
+📋 **Request Details:**
+• **Entity:** {entity_type.title()} - {entity_name}
+• **Field:** {field_name.replace('_', ' ').title()}
+• **Requested Value:** {new_value}
+• **Requested By:** {requested_by}
+• **Requested At:** {timestamp}
 
-🔒 This change requires admin approval.
-📧 You'll be notified when the request is processed.
+🔍 **Next Steps:**
+• This change requires admin approval
+• You'll be notified when the request is reviewed
+• Contact team leadership for urgent requests
 
-💡 Contact a team admin to expedite the approval."""
+⏰ **Status:** Pending Approval
+        """
+        
+        return approval_message.strip()
         
     except Exception as e:
-        logger.error(f"❌ Error formatting approval request message: {e}")
-        return f"⏳ Approval request submitted successfully!"
+        logger.error(f"❌ Error formatting approval message: {e}")
+        return f"⏳ Approval request submitted for field '{field_name}' with value '{new_value}'"

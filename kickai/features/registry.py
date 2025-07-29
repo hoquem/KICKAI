@@ -22,10 +22,32 @@ class ServiceFactory:
         self.container = container
         self.database = database
         self._cache: Dict[str, Any] = {}
+        self._created_services: Dict[type, Any] = {}  # Store created services
 
     def get_database(self) -> DataStoreInterface:
         """Get the database interface."""
         return self.database
+
+    def _get_or_create_service(self, service_type: type) -> Any:
+        """Get a service from cache or create it if not exists."""
+        # First check the cache
+        if service_type in self._created_services:
+            return self._created_services[service_type]
+        
+        # If not in cache, try to get from container's service registry
+        try:
+            # Access the service registry directly to avoid initialization checks
+            if service_type in self.container._service_registry._services:
+                return self.container._service_registry._services[service_type]
+        except Exception:
+            pass
+        
+        # If not found anywhere, return None
+        return None
+
+    def _store_service(self, service_type: type, service: Any) -> None:
+        """Store a service in the cache."""
+        self._created_services[service_type] = service
 
     def create_base_services(self):
         """Create base services that don't depend on other services."""
@@ -65,6 +87,11 @@ class ServiceFactory:
             TeamRepositoryInterface,
         )
 
+        # Store and register services
+        self._store_service(TeamRepositoryInterface, team_repo)
+        self._store_service(PlayerRepositoryInterface, player_repo)
+        self._store_service(ExpenseRepositoryInterface, expense_repo)
+        
         self.container.register_service(TeamRepositoryInterface, team_repo)
         self.container.register_service(PlayerRepositoryInterface, player_repo)
         self.container.register_service(ExpenseRepositoryInterface, expense_repo)
@@ -89,11 +116,18 @@ class ServiceFactory:
 
         logger.debug("🔍 Imported ExpenseRepositoryInterface")
 
-        expense_repo = self.container.get_service(ExpenseRepositoryInterface)
-        logger.debug("🔍 Got expense repository from container")
+        # Get expense repository from cache or container
+        expense_repo = self._get_or_create_service(ExpenseRepositoryInterface)
+        if expense_repo is None:
+            logger.error("❌ ExpenseRepositoryInterface not available")
+            raise RuntimeError("ExpenseRepositoryInterface not available")
+            
+        logger.debug("🔍 Got expense repository from cache")
         expense_service = ExpenseService(expense_repo)
         logger.debug("🔍 Created ExpenseService")
 
+        # Store and register the service
+        self._store_service(ExpenseService, expense_service)
         self.container.register_service(ExpenseService, expense_service)
 
         return {"expense_service": expense_service}
@@ -120,15 +154,23 @@ class ServiceFactory:
 
         logger.debug("🔍 Imported ExpenseService")
 
-        team_repo = self.container.get_service(TeamRepositoryInterface)
-        logger.debug("🔍 Got team repository from container")
-        expense_service = self.container.get_service(ExpenseService)
-        logger.debug("🔍 Got expense service from container")
-
+        # Get services from cache or container
+        team_repo = self._get_or_create_service(TeamRepositoryInterface)
+        if team_repo is None:
+            logger.error("❌ TeamRepositoryInterface not available")
+            raise RuntimeError("TeamRepositoryInterface not available")
+            
+        expense_service = self._get_or_create_service(ExpenseService)
+        if expense_service is None:
+            logger.error("❌ ExpenseService not available")
+            raise RuntimeError("ExpenseService not available")
+            
+        logger.debug("🔍 Got services from cache")
         team_service = TeamService(team_repo, expense_service)
         logger.debug("🔍 Created TeamService")
 
-        # Register both the concrete class and the interface
+        # Store and register the service
+        self._store_service(TeamService, team_service)
         self.container.register_service(TeamService, team_service)
         self.container.register_service(ITeamService, team_service)
 
@@ -160,68 +202,39 @@ class ServiceFactory:
 
         logger.debug("🔍 Imported TeamService")
 
-        player_repo = self.container.get_service(PlayerRepositoryInterface)
-        logger.debug("🔍 Got player repository from container")
-        team_service = self.container.get_service(TeamService)
-        logger.debug("🔍 Got team service from container")
-
+        # Get services from cache or container
+        player_repo = self._get_or_create_service(PlayerRepositoryInterface)
+        if player_repo is None:
+            logger.error("❌ PlayerRepositoryInterface not available")
+            raise RuntimeError("PlayerRepositoryInterface not available")
+            
+        team_service = self._get_or_create_service(TeamService)
+        if team_service is None:
+            logger.error("❌ TeamService not available")
+            raise RuntimeError("TeamService not available")
+            
+        logger.debug("🔍 Got services from cache")
         registration_service = PlayerRegistrationService(player_repo)
         logger.debug("🔍 Created PlayerRegistrationService")
         player_service = PlayerService(player_repo, team_service)
         logger.debug("🔍 Created PlayerService")
 
-        # Create a mock team member repository for now since we don't have a real one
-        class MockTeamMemberRepository:
-            async def create(self, team_member):
-                return team_member
-
-            async def get_by_team(self, team_id):
-                return []
-
-            async def get_by_player(self, player_id, team_id):
-                return None
-
-            async def update(self, team_member):
-                return team_member
-
-            async def delete_by_player(self, player_id, team_id):
-                return True
-
-        # Create TeamMemberService
-        from kickai.features.team_administration.domain.repositories.team_repository_interface import (
-            TeamRepositoryInterface,
-        )
-        from kickai.features.team_administration.domain.services.team_member_service import (
-            TeamMemberService,
-        )
-
-        logger.debug("🔍 Imported TeamMemberService")
-
-        # Get team repository from container
-        team_repo = self.container.get_service(TeamRepositoryInterface)
-        logger.debug("🔍 Got team repository from container for TeamMemberService")
-
-        team_member_service = TeamMemberService(team_repo)
-        logger.debug("🔍 Created TeamMemberService")
-
-        logger.debug("🔍 Registering PlayerRegistrationService...")
+        # Store and register services
+        self._store_service(PlayerRegistrationService, registration_service)
+        self._store_service(PlayerService, player_service)
         self.container.register_service(PlayerRegistrationService, registration_service)
-        logger.debug("🔍 Registering PlayerService...")
         self.container.register_service(PlayerService, player_service)
-        logger.debug("🔍 Registering IPlayerService...")
         self.container.register_service(IPlayerService, player_service)
-        logger.debug("🔍 Registering TeamMemberService...")
-        self.container.register_service(TeamMemberService, team_member_service)
 
         # Debug: Log what services are now in the container
         logger.debug(
-            f"🔍 Container services after player registration: {[cls.__name__ for cls in self.container._services.keys()]}"
+            f"🔍 Container services after player registration: {[cls.__name__ for cls in self.container._service_registry._services.keys()]}"
         )
-        logger.debug(f"🔍 Container service count: {len(self.container._services)}")
+        logger.debug(f"🔍 Container service count: {len(self.container._service_registry._services)}")
 
         return {
             "player_service": player_service,
-            "team_member_service": team_member_service,
+            "team_member_service": None, # No longer created here
             "registration_service": registration_service,
         }
 
@@ -249,18 +262,28 @@ class ServiceFactory:
 
         logger.debug("🔍 Imported ITeamService")
 
-        team_repo = self.container.get_service(TeamRepositoryInterface)
-        logger.debug("🔍 Got team repository from container")
-
+        # Get services from cache or container
+        team_repo = self._get_or_create_service(TeamRepositoryInterface)
+        if team_repo is None:
+            logger.error("❌ TeamRepositoryInterface not available")
+            raise RuntimeError("TeamRepositoryInterface not available")
+            
+        team_service = self._get_or_create_service(ITeamService)
+        if team_service is None:
+            logger.error("❌ ITeamService not available")
+            raise RuntimeError("ITeamService not available")
+            
+        logger.debug("🔍 Got services from cache")
         admin_service = TeamAdministrationService(team_repo)
         logger.debug("🔍 Created TeamAdministrationService")
 
         # Create MultiBotManager with database and team service
-        team_service = self.container.get_service(ITeamService)
         multi_bot_manager = MultiBotManager(self.database, team_service)
         logger.debug("🔍 Created MultiBotManager")
 
-        # Register services
+        # Store and register services
+        self._store_service(TeamAdministrationService, admin_service)
+        self._store_service(MultiBotManager, multi_bot_manager)
         self.container.register_service(TeamAdministrationService, admin_service)
         self.container.register_service(MultiBotManager, multi_bot_manager)
 

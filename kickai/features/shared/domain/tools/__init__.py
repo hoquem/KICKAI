@@ -8,7 +8,10 @@ This module provides shared tools used across multiple features.
 from kickai.features.shared.domain.tools.help_tools import *
 from kickai.features.shared.domain.tools.onboarding_tools import (
     detect_registration_context,
+    register_player,
+    register_team_member,
     register_team_member_onboarding,
+    registration_guidance,
     team_member_guidance,
     validate_registration_data,
 )
@@ -61,6 +64,9 @@ __all__ = [
     "get_available_commands",
     "get_command_help",
     # Onboarding tools
+    "register_player",
+    "register_team_member", 
+    "registration_guidance",
     "team_member_guidance", 
     "validate_registration_data",
     "register_team_member_onboarding",

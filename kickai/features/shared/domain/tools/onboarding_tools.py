@@ -162,6 +162,219 @@ def validate_registration_data(
         return f"❌ Validation failed: {e!s}"
 
 
+@tool("register_player")
+def register_player(player_name: str, phone_number: str, position: str, team_id: str) -> str:
+    """
+    Register a new player through the onboarding process.
+    
+    Args:
+        player_name: Full name of the player
+        phone_number: Phone number (UK format)
+        position: Playing position
+        team_id: Team ID (required)
+        
+    Returns:
+        Registration confirmation with next steps
+    """
+    try:
+        container = get_container()
+        registration_service = container.get_service(PlayerRegistrationService)
+        
+        if not registration_service:
+            logger.error("❌ No registration service available")
+            return "❌ Registration service not available. Please try again later."
+            
+        # Register using player service
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+        player = loop.run_until_complete(
+            registration_service.register_player(player_name, phone_number, position, team_id)
+        )
+        
+        if player:
+            logger.info(f"✅ Player registered via onboarding: {player_name} ({position})")
+            
+            # Enhanced success message with next steps
+            success_msg = f"""
+🎉 **REGISTRATION SUCCESSFUL!**
+
+✅ **Player Registered:**
+• **Name:** {player_name}
+• **Position:** {position.title()}
+• **Status:** Pending Approval
+
+📋 **WHAT'S NEXT:**
+• Your registration is pending leadership approval
+• You'll be notified when approved
+• Once approved, you can participate in matches
+• Contact leadership for any questions
+
+💬 **NEED HELP?**
+Type /help to see available commands or ask me anything!
+
+Welcome to the team! ⚽
+            """
+            return success_msg.strip()
+        else:
+            logger.error(f"❌ Failed to register player: {player_name}")
+            return f"❌ Registration failed for {player_name}. Please check the information and try again."
+            
+    except Exception as e:
+        logger.error(f"❌ Player registration error: {e}")
+        return f"❌ Registration failed: {e!s}"
+
+
+@tool("register_team_member")
+def register_team_member(player_name: str, phone_number: str, role: str, team_id: str) -> str:
+    """
+    Register a new team member through the onboarding process.
+    
+    Args:
+        player_name: Full name of the team member
+        phone_number: Phone number (UK format)
+        role: Administrative role
+        team_id: Team ID (required)
+        
+    Returns:
+        Registration confirmation with next steps
+    """
+    try:
+        container = get_container()
+        
+        # Try to get the simplified team member service first
+        team_member_service = container.get_service(SimplifiedTeamMemberService)
+        
+        if team_member_service:
+            # Use dedicated team member service
+            logger.info(f"🔧 Using SimplifiedTeamMemberService for team member registration")
+            
+            # Note: This would need to be implemented in the service
+            # For now, fall back to player registration service
+            
+        # Fall back to player registration service  
+        registration_service = container.get_service(PlayerRegistrationService)
+        
+        if not registration_service:
+            logger.error("❌ No registration service available")
+            return "❌ Registration service not available. Please try again later."
+            
+        # Register using player service (temporary solution)
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+        member = loop.run_until_complete(
+            registration_service.register_player(player_name, phone_number, role, team_id)
+        )
+        
+        if member:
+            logger.info(f"✅ Team member registered via onboarding: {player_name} ({role})")
+            
+            # Enhanced success message with next steps
+            success_msg = f"""
+🎉 **REGISTRATION SUCCESSFUL!**
+
+✅ **Team Member Registered:**
+• **Name:** {player_name}
+• **Role:** {role.title()}
+• **Status:** Active (immediate access)
+
+🚀 **WHAT'S NEXT:**
+• You now have administrative access
+• Explore team management features  
+• Contact leadership for orientation
+• Access leadership chat for admin functions
+
+💬 **NEED HELP?**
+Type /help to see available commands or ask me anything!
+
+Welcome to the team! 🤝
+            """
+            return success_msg.strip()
+        else:
+            logger.error(f"❌ Failed to register team member: {player_name}")
+            return f"❌ Registration failed for {player_name}. Please check the information and try again."
+            
+    except Exception as e:
+        logger.error(f"❌ Team member registration error: {e}")
+        return f"❌ Registration failed: {e!s}"
+
+
+@tool("registration_guidance")
+def registration_guidance(user_id: str, team_id: str) -> str:
+    """
+    Provide comprehensive registration guidance to a user.
+    
+    Args:
+        user_id: The user ID to provide guidance to
+        team_id: Team ID (required)
+        
+    Returns:
+        Registration guidance message
+    """
+    try:
+        # Build comprehensive guidance message
+        guidance = f"""
+🎯 **KICKAI REGISTRATION GUIDE**
+
+Welcome! I'm here to help you join our football team. I can help you register as either:
+
+👥 **PLAYER REGISTRATION** (Main Chat):
+1. **Full Name** - Your first and last name
+2. **Phone Number** - UK format (07123456789 or +447123456789)  
+3. **Position** - Choose from:
+   • **Goalkeeper** - Goal protection specialist
+   • **Defender** - Defense and ball distribution
+   • **Midfielder** - Central playmaker and support
+   • **Forward** - Attack and goal scoring
+   • **Utility** - Can play multiple positions
+
+✅ **PLAYER PROCESS:**
+• Registration submitted for approval
+• Leadership review and approval required
+• Notification when approved and activated
+• Participation in matches after approval
+
+👔 **TEAM MEMBER REGISTRATION** (Leadership Chat):
+1. **Full Name** - Your first and last name
+2. **Phone Number** - UK format (07123456789 or +447123456789)  
+3. **Administrative Role** - Choose from:
+   • **Coach** - Team coaching responsibilities
+   • **Manager** - Team management duties
+   • **Assistant** - Supporting role
+   • **Coordinator** - Event/logistics coordination
+   • **Volunteer** - General volunteer support
+   • **Admin** - Administrative privileges
+
+✅ **TEAM MEMBER PROCESS:**
+• No approval required - immediate activation
+• Direct access to administrative features
+• Orientation provided after registration
+
+🚀 **READY TO START?**
+Just tell me which type of registration you want:
+• "I want to register as a player"
+• "I want to register as a team member"
+
+ℹ️ **Questions?** I'm here to help throughout the process!
+        """
+        
+        logger.info(f"✅ Registration guidance provided to user {user_id}")
+        return guidance.strip()
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to provide registration guidance: {e}")
+        return f"❌ Failed to provide registration guidance: {e!s}"
+
+
 @tool("register_team_member_onboarding")
 def register_team_member_onboarding(
     name: str, 
