@@ -1,11 +1,16 @@
 # KICKAI Command Specifications
 
-**Version:** 4.6  
+**Version:** 4.7  
 **Status:** Production Ready  
 **Last Updated:** July 2025  
 **Architecture:** 12-Agent CrewAI System with Unified Processing
 
-**New in v4.6:** 
+**New in v4.7:** 
+- **REMOVED**: `/budget` command (redundant with payment history)
+- **SIMPLIFIED**: Payment management focused on core payment operations
+- **STREAMLINED**: Removed redundant budget tracking functionality
+
+**Previous Changes (v4.6):**
 - **REMOVED**: `/start` command (replaced by automatic new member welcome messages)
 - **REMOVED**: `/createteam` command (teams created through setup process)
 - **REMOVED**: `/attendanceexport` command (export functionality not needed)
@@ -61,6 +66,11 @@ graph TD
     I --> J[Player Uses /update for Details]
     J --> K[Leadership Approves with /approve]
 ```
+
+### **Key Changes in v4.7**
+- ❌ **REMOVED**: `/budget` command (redundant with payment history)
+- ✅ **SIMPLIFIED**: Payment management focused on core operations
+- ✅ **STREAMLINED**: Budget information available through `/payments`
 
 ### **Key Changes in v4.6**
 - ❌ **REMOVED**: `/start` command (automatic welcome messages)
@@ -152,11 +162,15 @@ graph TD
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
 | `/attendance` | View match attendance | ✅ | ❌ | PLAYER | AttendanceManager | ✅ Implemented |
+| `/markattendance` | Mark match attendance | ✅ | ❌ | PLAYER | AttendanceManager | ✅ Implemented |
+| `/attendancehistory` | View attendance history | ✅ | ❌ | PLAYER | AttendanceManager | ✅ Implemented |
 
 ### Payment Management Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |
 |---------|-------------|-----------|-----------------|------------------|-------|--------|
-| `/budget` | View budget information | ❌ | ✅ | LEADERSHIP | PaymentManager | ✅ Implemented |
+| `/createpayment` | Create payment record | ❌ | ✅ | LEADERSHIP | PaymentManager | ✅ Implemented |
+| `/payments` | View payment history | ❌ | ✅ | LEADERSHIP | PaymentManager | ✅ Implemented |
+| `/markpaid` | Mark payment as paid | ❌ | ✅ | LEADERSHIP | PaymentManager | ✅ Implemented |
 
 ### Communication Commands (✅ Implemented)
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent | Status |

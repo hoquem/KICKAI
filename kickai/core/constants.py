@@ -292,14 +292,6 @@ ATTENDANCE_COMMANDS = {
 
 PAYMENT_COMMANDS = {
     CommandDefinition(
-        name="/budget",
-        description="View budget information",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/budget", "/budget 2024"),
-        feature="payment_management",
-    ),
-    CommandDefinition(
         name="/createpayment",
         description="Create a new payment record",
         permission_level=PermissionLevel.LEADERSHIP,
