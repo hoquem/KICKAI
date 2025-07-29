@@ -89,7 +89,8 @@ class ConfigurableAgent:
                 AgentRole.PLAYER_COORDINATOR,
                 AgentRole.HELP_ASSISTANT,
                 AgentRole.MESSAGE_PROCESSOR,
-                AgentRole.FINANCE_MANAGER
+                AgentRole.FINANCE_MANAGER,
+                AgentRole.TRAINING_COORDINATOR
             ]
             
             # Set temperature 0.2 for onboarding agent

@@ -182,29 +182,21 @@ class PlayerLinkingService:
     async def get_pending_players_without_telegram_id(self) -> List[Player]:
         """Get all pending players that don't have telegram_id set."""
         try:
-            # Get player service from container using the correct method
-            from kickai.features.player_registration.domain.services.player_service import (
-                PlayerService,
-            )
-
-            try:
-                player_service = self.container.get_service(PlayerService)
-            except RuntimeError as e:
-                logger.error(f"❌ Player service not available: {e}")
-                return []
-            except Exception as e:
-                logger.error(f"❌ Unexpected error getting player service: {e}")
-                return []
+            # Get player service using factory method
+            player_service = self._get_player_service()
 
             if not player_service:
-                logger.error("❌ Player service returned None")
+                logger.error(f"❌ Player service returned None for team {self.team_id}")
                 return []
 
             # Get all players for the team
             try:
                 all_players = await player_service.get_all_players(self.team_id)
             except Exception as e:
-                logger.error(f"❌ Error fetching players for team {self.team_id}: {e}")
+                logger.error(
+                    f"❌ Error fetching players for team {self.team_id}, "
+                    f"operation: get_pending_players_without_telegram_id, error: {e}"
+                )
                 return []
 
             # Filter for pending players without telegram_id
@@ -234,6 +226,14 @@ class PlayerLinkingService:
         Returns:
             Formatted prompt message
         """
+        # Input validation
+        if not isinstance(telegram_id, str):
+            logger.warning(f"⚠️ Invalid telegram_id type: {type(telegram_id)}, expected str")
+            telegram_id = str(telegram_id) if telegram_id else ""
+        
+        # Sanitize telegram_id
+        telegram_id = telegram_id.strip()
+        
         pending_count = len(await self.get_pending_players_without_telegram_id())
 
         if pending_count == 0:
@@ -253,9 +253,9 @@ You need to be added as a player by someone in the team's leadership.
 💬 Need Help?
 Contact the team admin in the leadership chat."""
 
-        return f"""🔗 Link Your Account
+        return """🔗 Link Your Account
 
-I found {pending_count} pending player record(s) that need to be linked to your Telegram account.
+I found pending player record(s) that need to be linked to your Telegram account.
 
 📱 To link your account, please share your phone number:
 
@@ -270,3 +270,31 @@ Example: +447123456789
 
 💬 Need Help?
 Contact the team admin in the leadership chat."""
+
+    def _get_player_service(self):
+        """Get player service instance with proper error handling."""
+        try:
+            from kickai.features.player_registration.domain.services.player_service import (
+                PlayerService,
+            )
+            
+            try:
+                return self.container.get_service(PlayerService)
+            except RuntimeError as e:
+                logger.error(
+                    f"❌ Player service not available for team {self.team_id}, "
+                    f"operation: get_pending_players_without_telegram_id, error: {e}"
+                )
+                return None
+            except Exception as e:
+                logger.error(
+                    f"❌ Unexpected error getting player service for team {self.team_id}, "
+                    f"operation: get_pending_players_without_telegram_id, error: {e}"
+                )
+                return None
+        except Exception as e:
+            logger.error(
+                f"❌ Error importing PlayerService for team {self.team_id}, "
+                f"operation: get_pending_players_without_telegram_id, error: {e}"
+            )
+            return None

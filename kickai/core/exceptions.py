@@ -6,15 +6,65 @@ This module defines custom exceptions used throughout the KICKAI system.
 """
 
 from typing import Any, Optional, Dict, List
+from datetime import datetime
+from enum import Enum
+
+
+class ErrorSeverity(Enum):
+    """Error severity levels."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class ErrorCategory(Enum):
+    """Error categories for better organization."""
+    VALIDATION = "validation"
+    AUTHORIZATION = "authorization"
+    BUSINESS_LOGIC = "business_logic"
+    EXTERNAL_SERVICE = "external_service"
+    SYSTEM = "system"
+    DATA = "data"
 
 
 class KickAIError(Exception):
     """Base exception for all KICKAI errors."""
 
-    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self, 
+        message: str, 
+        context: Optional[Dict[str, Any]] = None,
+        error_code: Optional[str] = None,
+        severity: ErrorSeverity = ErrorSeverity.MEDIUM,
+        category: ErrorCategory = ErrorCategory.SYSTEM,
+        user_message: Optional[str] = None
+    ):
         super().__init__(message)
         self.message = message
         self.context = context or {}
+        self.error_code = error_code or self.__class__.__name__
+        self.severity = severity
+        self.category = category
+        self.user_message = user_message or self._generate_user_message()
+        self.timestamp = datetime.utcnow().isoformat()
+        
+    def _generate_user_message(self) -> str:
+        """Generate a user-friendly error message."""
+        return "An error occurred while processing your request. Please try again."
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert error to dictionary for logging and debugging."""
+        return {
+            "error_code": self.error_code,
+            "message": self.message,
+            "user_message": self.user_message,
+            "severity": self.severity.value,
+            "category": self.category.value,
+            "context": self.context,
+            "timestamp": self.timestamp,
+            "class": self.__class__.__name__
+        }
 
 
 class PlayerError(KickAIError):
@@ -28,7 +78,14 @@ class PlayerAlreadyExistsError(PlayerError):
 
     def __init__(self, phone: str, team_id: str):
         message = f"Player with phone {phone} already exists in team {team_id}"
-        super().__init__(message, {"phone": phone, "team_id": team_id})
+        super().__init__(
+            message, 
+            {"phone": phone, "team_id": team_id},
+            error_code="PLAYER_ALREADY_EXISTS",
+            severity=ErrorSeverity.MEDIUM,
+            category=ErrorCategory.BUSINESS_LOGIC,
+            user_message="A player with this phone number is already registered."
+        )
 
 
 class PlayerNotFoundError(PlayerError):
@@ -36,7 +93,14 @@ class PlayerNotFoundError(PlayerError):
 
     def __init__(self, player_id: str, team_id: str):
         message = f"Player {player_id} not found in team {team_id}"
-        super().__init__(message, {"player_id": player_id, "team_id": team_id})
+        super().__init__(
+            message, 
+            {"player_id": player_id, "team_id": team_id},
+            error_code="PLAYER_NOT_FOUND",
+            severity=ErrorSeverity.MEDIUM,
+            category=ErrorCategory.DATA,
+            user_message="Player not found. Please check the player ID and try again."
+        )
 
 
 class PlayerValidationError(PlayerError):
@@ -44,7 +108,14 @@ class PlayerValidationError(PlayerError):
 
     def __init__(self, errors: List[str]):
         message = f"Player validation failed: {'; '.join(errors)}"
-        super().__init__(message, {"validation_errors": errors})
+        super().__init__(
+            message, 
+            {"validation_errors": errors},
+            error_code="PLAYER_VALIDATION_FAILED",
+            severity=ErrorSeverity.MEDIUM,
+            category=ErrorCategory.VALIDATION,
+            user_message=f"Please correct the following: {'; '.join(errors)}"
+        )
 
 
 class TeamError(KickAIError):
@@ -118,7 +189,14 @@ class ServiceNotAvailableError(ServiceError):
 
     def __init__(self, service_name: str):
         message = f"Service {service_name} is not available"
-        super().__init__(message, {"service_name": service_name})
+        super().__init__(
+            message, 
+            {"service_name": service_name},
+            error_code="SERVICE_UNAVAILABLE",
+            severity=ErrorSeverity.HIGH,
+            category=ErrorCategory.SYSTEM,
+            user_message="Service temporarily unavailable. Please try again later."
+        )
 
 
 class ConfigurationError(KickAIError):
@@ -154,7 +232,14 @@ class AgentExecutionError(AgentError):
 
     def __init__(self, agent_name: str, task: str, error: str):
         message = f"Agent {agent_name} failed to execute task '{task}': {error}"
-        super().__init__(message, {"agent_name": agent_name, "task": task, "error": error})
+        super().__init__(
+            message, 
+            {"agent_name": agent_name, "task": task, "error": error},
+            error_code="AGENT_EXECUTION_FAILED",
+            severity=ErrorSeverity.HIGH,
+            category=ErrorCategory.SYSTEM,
+            user_message="Unable to process your request at the moment. Please try again."
+        )
 
 
 class AuthorizationError(KickAIError):
@@ -247,6 +332,28 @@ class AttendanceValidationError(AttendanceError):
         super().__init__(message, {"field": field, "value": value, "reason": reason})
 
 
+class TrainingError(KickAIError):
+    """Base exception for training-related errors."""
+
+    pass
+
+
+class TrainingNotFoundError(TrainingError):
+    """Raised when a training session is not found."""
+
+    def __init__(self, training_id: str, context: Optional[Dict[str, Any]] = None):
+        message = f"Training session {training_id} not found"
+        super().__init__(message, {"training_id": training_id, **(context or {})})
+
+
+class TrainingValidationError(TrainingError):
+    """Raised when training validation fails."""
+
+    def __init__(self, field: str, value: str, reason: str):
+        message = f"Training validation failed for field '{field}' with value '{value}': {reason}"
+        super().__init__(message, {"field": field, "value": value, "reason": reason})
+
+
 class MissingEnvironmentVariableError(ConfigurationError):
     """Raised when a required environment variable is missing."""
 
@@ -284,6 +391,51 @@ class DatabaseOperationError(DatabaseError):
         super().__init__(message, {"operation": operation, "error": error})
 
 
+class ToolExecutionError(KickAIError):
+    """Raised when a CrewAI tool execution fails."""
+    
+    def __init__(self, tool_name: str, error: str, parameters: Optional[Dict[str, Any]] = None):
+        message = f"Tool '{tool_name}' execution failed: {error}"
+        super().__init__(
+            message,
+            {"tool_name": tool_name, "error": error, "parameters": parameters or {}},
+            error_code="TOOL_EXECUTION_FAILED",
+            severity=ErrorSeverity.MEDIUM,
+            category=ErrorCategory.SYSTEM,
+            user_message="Unable to complete the requested action. Please try again."
+        )
+
+
+class DataIntegrityError(KickAIError):
+    """Raised when data integrity is compromised."""
+    
+    def __init__(self, entity_type: str, entity_id: str, integrity_issue: str):
+        message = f"Data integrity issue for {entity_type} {entity_id}: {integrity_issue}"
+        super().__init__(
+            message,
+            {"entity_type": entity_type, "entity_id": entity_id, "integrity_issue": integrity_issue},
+            error_code="DATA_INTEGRITY_ERROR",
+            severity=ErrorSeverity.CRITICAL,
+            category=ErrorCategory.DATA,
+            user_message="Data consistency issue detected. Please contact support."
+        )
+
+
+class RateLimitExceededError(KickAIError):
+    """Raised when rate limits are exceeded."""
+    
+    def __init__(self, user_id: str, action: str, limit: int, window: str):
+        message = f"Rate limit exceeded for user {user_id} on action '{action}': {limit} per {window}"
+        super().__init__(
+            message,
+            {"user_id": user_id, "action": action, "limit": limit, "window": window},
+            error_code="RATE_LIMIT_EXCEEDED",
+            severity=ErrorSeverity.MEDIUM,
+            category=ErrorCategory.AUTHORIZATION,
+            user_message="Too many requests. Please wait before trying again."
+        )
+
+
 def create_error_context(operation: str, **kwargs) -> Dict[str, Any]:
     """
     Create a standardized error context.
@@ -297,7 +449,50 @@ def create_error_context(operation: str, **kwargs) -> Dict[str, Any]:
     """
     context = {
         "operation": operation,
-        "timestamp": "2025-07-24T21:00:00Z",  # This should be dynamic in real usage
+        "timestamp": datetime.utcnow().isoformat(),
         **kwargs,
     }
     return context
+
+
+def handle_error_gracefully(error: Exception, operation: str, **context) -> KickAIError:
+    """
+    Convert any exception to a KickAI error with proper context.
+    
+    Args:
+        error: The original exception
+        operation: The operation that failed
+        **context: Additional context information
+        
+    Returns:
+        KickAIError instance with proper context
+    """
+    if isinstance(error, KickAIError):
+        return error
+        
+    # Convert common exceptions
+    if isinstance(error, ValueError):
+        return InputValidationError(
+            field="unknown",
+            value=str(context),
+            reason=str(error)
+        )
+    elif isinstance(error, KeyError):
+        return DataIntegrityError(
+            entity_type="unknown",
+            entity_id=str(context.get("entity_id", "unknown")),
+            integrity_issue=f"Missing key: {error}"
+        )
+    elif isinstance(error, ConnectionError):
+        return DatabaseConnectionError(
+            database_name=context.get("database", "unknown"),
+            error=str(error)
+        )
+    else:
+        return KickAIError(
+            message=f"Unexpected error in {operation}: {error}",
+            context=create_error_context(operation, original_error=str(error), **context),
+            error_code="UNEXPECTED_ERROR",
+            severity=ErrorSeverity.HIGH,
+            category=ErrorCategory.SYSTEM
+        )

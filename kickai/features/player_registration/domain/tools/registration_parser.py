@@ -1,30 +1,16 @@
-import re
-from typing import Dict, Optional
+#!/usr/bin/env python3
+"""
+Registration Parser Tools
 
-from kickai.utils.crewai_tool_decorator import tool
+This module provides tools for parsing registration-related commands.
+Note: The /register command has been removed in favor of the /addplayer + invite link workflow.
+"""
 
+# This file is kept for potential future use but the registration parser tool has been removed
+# as the /register command is no longer part of the system workflow.
 
-@tool("Parse Registration Command")
-def parse_registration_command(command: str) -> Optional[Dict[str, str]]:
-    """
-    Parses the /register command to extract the user's name, phone number, and role.
-    This tool is essential for the player registration process and should be used by the Registration Agent.
-
-    Args:
-        command: The full command string (e.g., "/register John Smith +1234567890 Team Manager").
-
-    Returns:
-        A dictionary containing the user's name, phone, and role, or None if parsing fails.
-    """
-    # Regex to capture the name, phone number, and role
-    match = re.match(
-        r"/register\s+(.+?)\s+((?:\+\d{1,3})?\s?\d{1,4}[-\s]?\d{1,4}[-\s]?\d{1,9})\s+(.+)" "",
-        command,
-    )
-    if match:
-        return {
-            "name": match.group(1).strip(),
-            "phone": match.group(2).strip(),
-            "role": match.group(3).strip(),
-        }
-    return None
+# The current workflow is:
+# 1. Leadership uses /addplayer to create player records
+# 2. Players join via invite links
+# 3. Players link their phone numbers to existing records
+# 4. Players use /update to modify their details

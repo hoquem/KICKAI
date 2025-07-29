@@ -6,6 +6,7 @@ This module provides tools for updating player information in the main chat cont
 Players can update their own information with proper validation and audit logging.
 """
 
+import asyncio
 import logging
 import re
 from datetime import datetime
@@ -13,9 +14,9 @@ from typing import Any, Dict, List, Optional
 
 from crewai.tools import tool
 
-from kickai.core.constants import get_players_collection
-from kickai.core.exceptions import ValidationError
-from kickai.database.firebase_service import FirebaseService
+from kickai.core.firestore_constants import get_team_players_collection
+from kickai.core.exceptions import InputValidationError
+from kickai.database.firebase_client import get_firebase_client
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,8 @@ class PlayerUpdateValidator:
             r'^44\d{10}$',    # 44xxxxxxxxxx  
             r'^07\d{9}$',     # 07xxxxxxxxx
             r'^01\d{9}$',     # 01xxxxxxxxx
-            r'^02\d{8}$',     # 02xxxxxxxx
+            r'^020\d{8}$',    # 020xxxxxxxx (London)
+            r'^011\d{8}$',    # 011xxxxxxxx (Northern Ireland)
         ]
         
         # Try to match patterns
@@ -169,7 +171,7 @@ class PlayerUpdateValidator:
             raise PlayerUpdateValidationError(f"Unknown field type: {field}")
 
 
-@tool
+@tool("update_player_information")
 def update_player_information(user_id: str, team_id: str, field: str, value: str, username: str = "Unknown") -> str:
     """
     Update specific player information field with validation and audit logging.
@@ -177,7 +179,7 @@ def update_player_information(user_id: str, team_id: str, field: str, value: str
     Args:
         user_id: Telegram user ID of the player
         team_id: Team ID
-        field: Field name to update (phone, position, email, emergency_contact, medical_notes)
+        field: Field name to update (phone, email, position, emergency_contact, medical_notes)
         value: New value for the field
         username: Username of the person making the update
         
@@ -192,15 +194,15 @@ def update_player_information(user_id: str, team_id: str, field: str, value: str
             return "❌ Update Failed: Missing required parameters (user_id, team_id, field, value)"
         
         # Initialize Firebase service
-        firebase_service = FirebaseService()
-        collection_name = get_players_collection(team_id)
+        firebase_service = get_firebase_client()
+        collection_name = get_team_players_collection(team_id)
         
         # Check if player exists
         logger.info(f"🔍 Checking if player exists: user_id={user_id}")
-        players = firebase_service.query_documents(
+        players = asyncio.run(firebase_service.query_documents(
             collection_name, 
-            [("user_id", "==", user_id)]
-        )
+            [{"field": "telegram_id", "operator": "==", "value": user_id}]
+        ))
         
         if not players:
             logger.warning(f"❌ Player not found: user_id={user_id}")
@@ -208,7 +210,7 @@ def update_player_information(user_id: str, team_id: str, field: str, value: str
         
         player = players[0]
         player_id = player.get('id', 'unknown')
-        player_name = player.get('name', 'Unknown Player')
+        player_name = player.get('full_name', 'Unknown Player')
         
         logger.info(f"✅ Found player: {player_name} (ID: {player_id})")
         
@@ -222,13 +224,13 @@ def update_player_information(user_id: str, team_id: str, field: str, value: str
         
         # Check for duplicate phone numbers (if updating phone)
         if field.lower() == "phone":
-            existing_players = firebase_service.query_documents(
+            existing_players = asyncio.run(firebase_service.query_documents(
                 collection_name,
-                [("phone", "==", validated_value)]
-            )
+                [{"field": "phone", "operator": "==", "value": validated_value}]
+            ))
             
             # Filter out the current player
-            duplicate_players = [p for p in existing_players if p.get('user_id') != user_id]
+            duplicate_players = [p for p in existing_players if p.get('telegram_id') != user_id]
             
             if duplicate_players:
                 duplicate_name = duplicate_players[0].get('name', 'Unknown')
@@ -248,7 +250,7 @@ def update_player_information(user_id: str, team_id: str, field: str, value: str
         }
         
         # Update player record
-        firebase_service.update_document(collection_name, player_id, update_data)
+        asyncio.run(firebase_service.update_document(collection_name, player_id, update_data))
         
         logger.info(f"✅ Player information updated successfully: {field} = {validated_value}")
         
@@ -268,7 +270,7 @@ def update_player_information(user_id: str, team_id: str, field: str, value: str
         }
         
         try:
-            firebase_service.create_document(f"kickai_{team_id}_audit_logs", audit_data)
+            asyncio.run(firebase_service.create_document(f"kickai_{team_id}_audit_logs", audit_data))
             logger.info(f"✅ Audit log created for player update")
         except Exception as e:
             logger.warning(f"⚠️ Failed to create audit log: {e}")
@@ -295,7 +297,7 @@ def update_player_information(user_id: str, team_id: str, field: str, value: str
         return f"❌ Update Failed: An unexpected error occurred. Please try again or contact support."
 
 
-@tool
+@tool("get_player_updatable_fields")
 def get_player_updatable_fields(user_id: str, team_id: str) -> str:
     """
     Get list of fields that a player can update with examples and validation rules.
@@ -311,13 +313,13 @@ def get_player_updatable_fields(user_id: str, team_id: str) -> str:
         logger.info(f"📋 Getting updatable fields for player: user_id={user_id}")
         
         # Check if player exists
-        firebase_service = FirebaseService()
-        collection_name = get_players_collection(team_id)
+        firebase_service = get_firebase_client()
+        collection_name = get_team_players_collection(team_id)
         
-        players = firebase_service.query_documents(
+        players = asyncio.run(firebase_service.query_documents(
             collection_name, 
-            [("user_id", "==", user_id)]
-        )
+            [{"field": "telegram_id", "operator": "==", "value": user_id}]
+        ))
         
         if not players:
             return """❌ Update Not Available
@@ -333,7 +335,7 @@ def get_player_updatable_fields(user_id: str, team_id: str) -> str:
 💡 Need help? Use /help to see available commands."""
         
         player = players[0]
-        player_name = player.get('name', 'Unknown Player')
+        player_name = player.get('full_name', 'Unknown Player')
         
         # Get valid positions for reference
         positions = ", ".join(PlayerUpdateValidator.VALID_POSITIONS[:10]) + "..."
@@ -376,7 +378,7 @@ def get_player_updatable_fields(user_id: str, team_id: str) -> str:
         return "❌ Error retrieving updatable fields. Please try again."
 
 
-@tool
+@tool("validate_player_update_request")
 def validate_player_update_request(user_id: str, team_id: str, field: str, value: str) -> str:
     """
     Validate a player update request without actually performing the update.
@@ -394,13 +396,13 @@ def validate_player_update_request(user_id: str, team_id: str, field: str, value
         logger.info(f"🔍 Validating player update: field={field}, value={value}")
         
         # Check if player exists
-        firebase_service = FirebaseService()
-        collection_name = get_players_collection(team_id)
+        firebase_service = get_firebase_client()
+        collection_name = get_team_players_collection(team_id)
         
-        players = firebase_service.query_documents(
+        players = asyncio.run(firebase_service.query_documents(
             collection_name, 
-            [("user_id", "==", user_id)]
-        )
+            [{"field": "telegram_id", "operator": "==", "value": user_id}]
+        ))
         
         if not players:
             return "❌ Validation Failed: You are not registered as a player"
@@ -412,12 +414,12 @@ def validate_player_update_request(user_id: str, team_id: str, field: str, value
         
         # Check for duplicates if phone
         if field.lower() == "phone":
-            existing_players = firebase_service.query_documents(
+            existing_players = asyncio.run(firebase_service.query_documents(
                 collection_name,
-                [("phone", "==", validated_value)]
-            )
+                [{"field": "phone", "operator": "==", "value": validated_value}]
+            ))
             
-            duplicate_players = [p for p in existing_players if p.get('user_id') != user_id]
+            duplicate_players = [p for p in existing_players if p.get('telegram_id') != user_id]
             
             if duplicate_players:
                 return f"❌ Validation Failed: Phone number already in use"

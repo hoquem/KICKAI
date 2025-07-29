@@ -300,6 +300,7 @@ class EntitySpecificAgentManager:
             AgentRole.COMMAND_FALLBACK_AGENT: [EntityType.NEITHER],
             AgentRole.AVAILABILITY_MANAGER: [EntityType.PLAYER],
             AgentRole.SQUAD_SELECTOR: [EntityType.PLAYER],
+            AgentRole.TRAINING_COORDINATOR: [EntityType.PLAYER, EntityType.TEAM_MEMBER],
             AgentRole.COMMUNICATION_MANAGER: [EntityType.NEITHER],
             AgentRole.HELP_ASSISTANT: [EntityType.NEITHER],
         }
@@ -328,6 +329,8 @@ class EntitySpecificAgentManager:
                 return AgentRole.PLAYER_COORDINATOR
             elif any(keyword in command_name for keyword in ["/availability", "/squad"]):
                 return AgentRole.AVAILABILITY_MANAGER
+            elif any(keyword in command_name for keyword in ["/scheduletraining", "/listtrainings", "/marktraining", "/canceltraining", "/trainingstats", "/mytrainings"]):
+                return AgentRole.TRAINING_COORDINATOR
             else:
                 return AgentRole.PLAYER_COORDINATOR
 

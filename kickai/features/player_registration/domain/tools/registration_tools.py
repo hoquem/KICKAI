@@ -1,20 +1,45 @@
+#!/usr/bin/env python3
 """
-Player registration tools for KICKAI system.
+Player Registration Tools
 
-This module provides tools for player registration and team member management.
+This module provides tools for player registration operations.
+Note: The register_player tool has been removed in favor of the /addplayer + invite link workflow.
 """
-
-import logging
 
 from kickai.utils.crewai_tool_decorator import tool
+from loguru import logger
 from pydantic import BaseModel
 
 from kickai.core.dependency_container import get_container
-from kickai.features.player_registration.domain.services.player_registration_service import (
-    PlayerRegistrationService,
+from kickai.features.player_registration.domain.services.player_service import PlayerService
+from kickai.features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
+from kickai.utils.tool_helpers import (
+    ERROR_MESSAGES,
+    ServiceNotAvailableError,
+    format_tool_error,
+    sanitize_input,
+    validate_required_input,
 )
 
-logger = logging.getLogger(__name__)
+# Constants for input validation
+MAX_NAME_LENGTH = 100
+MAX_PHONE_LENGTH = 20
+MAX_POSITION_LENGTH = 50
+MAX_TEAM_ID_LENGTH = 10
+MAX_USER_ID_LENGTH = 20
+DEFAULT_PLAYER_POSITION = "utility"
+
+# Note: The register_player tool has been removed as the /register command is no longer used.
+# The current workflow uses /addplayer (leadership) + invite links + phone linking.
+
+# This file is kept for potential future use but the register_player tool has been removed
+# as the /register command is no longer part of the system workflow.
+
+# The current workflow is:
+# 1. Leadership uses /addplayer to create player records
+# 2. Players join via invite links
+# 3. Players link their phone numbers to existing records
+# 4. Players use /update to modify their details
 
 
 class RegisterPlayerInput(BaseModel):

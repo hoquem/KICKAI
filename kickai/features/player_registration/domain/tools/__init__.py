@@ -13,6 +13,7 @@ from .player_tools import (
     get_match,
     get_my_status,
     get_player_status,
+    get_pending_players,
 )
 
 # Import the parser tool
@@ -22,6 +23,13 @@ from .registration_tools import (
     register_team_member,
     registration_guidance,
     team_member_registration,
+)
+
+# Import player update tools
+from .update_player_tools import (
+    update_player_information,
+    get_player_updatable_fields,
+    validate_player_update_request,
 )
 
 __all__ = [
@@ -37,6 +45,11 @@ __all__ = [
     "get_player_status",
     "get_all_players",
     "get_match",
+    "get_pending_players",
+    # Player update tools
+    "update_player_information",
+    "get_player_updatable_fields",
+    "validate_player_update_request",
 ]
 
 # Note: Removed unused tools: remove_player, get_player_info, list_players

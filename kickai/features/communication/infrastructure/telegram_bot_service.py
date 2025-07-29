@@ -1,4 +1,5 @@
 from typing import Dict, Union
+from datetime import datetime
 
 from loguru import logger
 from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
@@ -9,6 +10,15 @@ from kickai.core.enums import ChatType
 from kickai.features.communication.domain.interfaces.telegram_bot_service_interface import (
     TelegramBotServiceInterface,
 )
+from kickai.utils.security_utils import (
+    sanitize_username,
+    validate_new_chat_members_update,
+    validate_chat_id,
+)
+from kickai.features.communication.domain.services.admin_notification_service import (
+    send_critical_error_notification,
+)
+from kickai.core.constants import TelegramConfig
 
 
 class TelegramBotService(TelegramBotServiceInterface):
@@ -104,12 +114,15 @@ class TelegramBotService(TelegramBotServiceInterface):
             # Add contact handler for phone number sharing
             contact_handler = MessageHandler(filters.CONTACT, self._handle_contact_share)
 
+            # Add new chat members handler for welcome messages
+            new_chat_members_handler = MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self._handle_new_chat_members)
+
             # Add debug handler to log all updates
             debug_handler = MessageHandler(filters.ALL, self._debug_handler)
 
             # Add all handlers to the application
             self.app.add_handlers(
-                command_handlers + [message_handler, contact_handler, debug_handler]
+                command_handlers + [message_handler, contact_handler, new_chat_members_handler, debug_handler]
             )
 
             logger.info(
@@ -130,6 +143,7 @@ class TelegramBotService(TelegramBotServiceInterface):
                     filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message
                 ),
                 MessageHandler(filters.CONTACT, self._handle_contact_share),
+                MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self._handle_new_chat_members),
             ]
 
             self.app.add_handlers(handlers)
@@ -194,6 +208,135 @@ class TelegramBotService(TelegramBotServiceInterface):
             await self._send_error_response(
                 update, "I encountered an error processing your contact information."
             )
+
+    async def _handle_new_chat_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle new chat members joining the chat."""
+        try:
+            # Log the update structure for debugging
+            logger.debug(f"Received new chat members update: {type(update)}")
+            if hasattr(update, 'message') and update.message:
+                logger.debug(f"Message type: {type(update.message)}")
+                if hasattr(update.message, 'new_chat_members'):
+                    logger.debug(f"new_chat_members type: {type(update.message.new_chat_members)}")
+                    logger.debug(f"new_chat_members value: {update.message.new_chat_members}")
+            
+            # Comprehensive input validation
+            is_valid, error_message = validate_new_chat_members_update(update)
+            if not is_valid:
+                logger.error(f"❌ Invalid new chat members update: {error_message}")
+                # Log additional debugging information
+                logger.debug(f"Update structure: {update}")
+                if hasattr(update, 'message') and update.message:
+                    logger.debug(f"Message attributes: {dir(update.message)}")
+                return
+
+            # Validate chat ID
+            chat_id = str(update.effective_chat.id)
+            chat_id_valid, chat_error = validate_chat_id(chat_id)
+            if not chat_id_valid:
+                logger.error(f"❌ Invalid chat ID: {chat_error}")
+                return
+
+            chat_type = self._determine_chat_type(chat_id)
+            
+            # Ensure new_chat_members is a list
+            new_members = update.message.new_chat_members
+            if not isinstance(new_members, list):
+                logger.warning(f"Converting new_chat_members to list: {type(new_members)}")
+                new_members = list(new_members) if hasattr(new_members, '__iter__') else [new_members]
+            
+            logger.info(f"New chat members detected in {chat_type.value} chat: {len(new_members)} members")
+
+            # Process each new member individually with error isolation
+            for i, new_member in enumerate(new_members):
+                try:
+                    logger.debug(f"Processing member {i}: {type(new_member)}")
+                    await self._process_single_new_member(new_member, chat_id, chat_type)
+                except Exception as member_error:
+                    logger.error(f"❌ Error processing individual member {i}: {member_error}")
+                    # Continue processing other members - don't fail the entire batch
+                    continue
+
+        except Exception as e:
+            logger.error(f"❌ Critical error handling new chat members: {e}")
+            # Log the full update for debugging
+            logger.debug(f"Full update object: {update}")
+            # Don't send error response to avoid spam, but log for monitoring
+            await self._log_critical_error("new_chat_members_handler", str(e))
+
+    async def _process_single_new_member(self, new_member, chat_id: str, chat_type: ChatType):
+        """Process a single new chat member with proper validation and sanitization."""
+        try:
+            # Skip if the new member is the bot itself
+            if new_member.is_bot:
+                logger.info("Bot joined chat, skipping welcome message")
+                return
+
+            # Validate member object
+            if not hasattr(new_member, 'id') or not hasattr(new_member, 'is_bot'):
+                logger.error("❌ Invalid member object structure")
+                return
+
+            user_id = str(new_member.id)
+            
+            # Sanitize username to prevent injection attacks
+            raw_username = new_member.username or new_member.first_name or "Unknown User"
+            username = sanitize_username(raw_username)
+            
+            logger.info(f"Processing new member: {username} (ID: {user_id})")
+
+            # Create new message instance to avoid race conditions
+            message = self.agentic_router.convert_telegram_update_to_message(
+                update=None,  # We'll set the context manually
+                command_name=None,
+                is_new_member=True
+            )
+            
+            # Set member-specific context
+            message.user_id = user_id
+            message.username = username
+            message.chat_type = chat_type
+
+            # Route through agentic system for welcome message
+            response = await self.agentic_router.route_new_member_welcome(message)
+
+            # Send welcome message if response is valid
+            if response and hasattr(response, 'message') and response.message:
+                await self.send_message(chat_id, response.message)
+                logger.info(f"Welcome message sent to {username}")
+            else:
+                logger.warning(f"No valid welcome message generated for {username}")
+
+        except Exception as e:
+            logger.error(f"❌ Error processing single new member: {e}")
+            # Don't re-raise - let the caller continue with other members
+            raise
+
+    async def _log_critical_error(self, error_type: str, error_message: str):
+        """Log critical errors for monitoring and alerting."""
+        try:
+            # Log to file
+            logger.error(f"🚨 CRITICAL ERROR [{error_type}]: {error_message}")
+            
+            # Send admin notification
+            try:
+                await send_critical_error_notification(
+                    bot_service=self,
+                    team_id=self.team_id,
+                    error_type=error_type,
+                    error_message=error_message,
+                    context={
+                        "service": "TelegramBotService",
+                        "chat_type": "new_member_handler",
+                        "timestamp": datetime.now().isoformat()
+                    }
+                )
+            except Exception as notification_error:
+                logger.error(f"❌ Error sending admin notification: {notification_error}")
+                # Don't fail the main error logging if notification fails
+            
+        except Exception as e:
+            logger.error(f"❌ Error logging critical error: {e}")
 
     def _determine_chat_type(self, chat_id: str) -> ChatType:
         """Determine the chat type based on chat ID."""
@@ -283,9 +426,9 @@ class TelegramBotService(TelegramBotServiceInterface):
 
             # Start polling with basic parameters
             await self.app.updater.start_polling(
-                poll_interval=1.0,  # Poll every second
-                timeout=30,  # 30 second timeout
-                bootstrap_retries=5,  # Retry 5 times on startup
+                poll_interval=TelegramConfig.POLL_INTERVAL,
+                timeout=TelegramConfig.TIMEOUT,
+                bootstrap_retries=TelegramConfig.BOOTSTRAP_RETRIES,
             )
             self._running = True
             logger.info("Telegram bot polling started.")
@@ -331,9 +474,11 @@ class TelegramBotService(TelegramBotServiceInterface):
     async def send_contact_share_button(self, chat_id: Union[int, str], text: str):
         """Send a message with a contact sharing button."""
         try:
-            keyboard = [[KeyboardButton(text="📱 Share My Phone Number", request_contact=True)]]
+            keyboard = [[KeyboardButton(text=TelegramConfig.CONTACT_BUTTON_TEXT, request_contact=True)]]
             reply_markup = ReplyKeyboardMarkup(
-                keyboard, one_time_keyboard=True, resize_keyboard=True
+                keyboard, 
+                one_time_keyboard=TelegramConfig.CONTACT_BUTTON_ONE_TIME, 
+                resize_keyboard=TelegramConfig.CONTACT_BUTTON_RESIZE
             )
 
             await self.app.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
