@@ -99,7 +99,7 @@ class UserFlowAgent:
             formatted_message = await self._format_unregistered_user_message(
                 message.chat_type, message.team_id, message.username
             )
-            return AgentResponse(message=formatted_message)
+            return formatted_message
         except Exception as e:
             logger.error(f"❌ Error handling unregistered user flow: {e}")
             return AgentResponse(
@@ -454,7 +454,7 @@ class UserFlowAgent:
 
     async def _format_unregistered_user_message(
         self, chat_type: ChatType, team_id: str, username: str
-    ) -> str:
+    ) -> AgentResponse:
         """Format unregistered user message based on chat type."""
         try:
             if chat_type == ChatType.MAIN:
@@ -468,20 +468,23 @@ class UserFlowAgent:
                     pending_players = await linking_service.get_pending_players_without_telegram_id()
                     
                     if pending_players:
-                        # Use the specific linking prompt message
+                        # Use the specific linking prompt message with contact button
                         message = await linking_service.create_linking_prompt_message("")
-                        return message
+                        return AgentResponse(message=message, needs_contact_button=True)
                 except Exception as e:
                     logger.debug(f"Could not check pending players for linking prompt: {e}")
                 
                 # Fallback to generic message if no pending players or error
-                return self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
+                fallback_message = self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
+                return AgentResponse(message=fallback_message)
             else:
                 # For other chat types, use the tool method
-                return self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
+                fallback_message = self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
+                return AgentResponse(message=fallback_message)
         except Exception as e:
             logger.error(f"Error formatting unregistered user message: {e}")
-            return self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
+            fallback_message = self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
+            return AgentResponse(message=fallback_message)
 
     async def _format_registered_user_message(
         self, user_id: str, team_id: str, username: str

@@ -253,9 +253,9 @@ You need to be added as a player by someone in the team's leadership.
 💬 Need Help?
 Contact the team admin in the leadership chat."""
 
-        return f"""🔗 Link Your Account
+        return """🔗 Link Your Account
 
-I found {pending_count} pending player record(s) that need to be linked to your Telegram account.
+I found pending player record(s) that need to be linked to your Telegram account.
 
 📱 To link your account, please share your phone number:
 

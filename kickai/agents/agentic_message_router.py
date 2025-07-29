@@ -209,12 +209,12 @@ class AgenticMessageRouter:
             try:
                 if user_flow_result == UserFlowDecision.UNREGISTERED_USER:
                     logger.info("New unregistered user - sending welcome message")
-                    welcome_message = await self.user_flow_agent._format_unregistered_user_message(
+                    welcome_response = await self.user_flow_agent._format_unregistered_user_message(
                         chat_type=message.chat_type,
                         team_id=self.team_id,
                         username=message.username
                     )
-                    return AgentResponse(success=True, message=welcome_message)
+                    return welcome_response
                 
                 elif user_flow_result == UserFlowDecision.REGISTERED_USER:
                     logger.info("New registered user - sending welcome back message")
