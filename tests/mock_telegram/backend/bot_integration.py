@@ -16,6 +16,9 @@ from contextlib import asynccontextmanager
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# Initialize bot components availability flag
+BOT_COMPONENTS_AVAILABLE = False
+
 # Import bot components (optional - will be skipped if not available)
 try:
     from kickai.features.communication.infrastructure.telegram_bot_service import TelegramBotService
@@ -24,7 +27,6 @@ try:
     BOT_COMPONENTS_AVAILABLE = True
     logger.info("Bot components available")
 except ImportError as e:
-    BOT_COMPONENTS_AVAILABLE = False
     logger.warning(f"Bot components not available: {e}")
 
 

@@ -324,20 +324,20 @@ curl http://localhost:8001/health
 - ✅ Response format matches expected structure
 - ✅ Response content is appropriate
 
-### **TC-BI-002: Player Registration Flow**
-**Objective**: Test complete player registration process
+### **TC-BI-002: Player Addition Flow**
+**Objective**: Test complete player addition process
 
 **Test Steps**:
 1. Create user with `player` role
-2. Send `/register MH` command
-3. Verify registration process
+2. Send `/addplayer John Smith +1234567890 Forward` command
+3. Verify player addition process
 4. Check user status updates
 
 **Expected Results**:
-- ✅ Registration command processed
-- ✅ User registered in bot system
+- ✅ Player addition command processed
+- ✅ Player added to bot system
 - ✅ Status confirmation received
-- ✅ User data updated in bot system
+- ✅ Player data updated in bot system
 
 ### **TC-BI-003: Team Member Operations**
 **Objective**: Test team member specific functionality
@@ -756,18 +756,18 @@ curl http://localhost:8001/health
 
 ## 🎯 **End-to-End Test Scenarios**
 
-### **TC-E2E-001: Complete User Registration Flow**
-**Objective**: Test complete user registration process
+### **TC-E2E-001: Complete User Addition Flow**
+**Objective**: Test complete user addition process
 
 **Test Steps**:
 1. Create new user via Web UI
-2. Send registration command
+2. Send player/member addition command
 3. Verify user appears in bot system
 4. Test user-specific commands
 
 **Expected Results**:
 - ✅ Complete flow works end-to-end
-- ✅ User properly registered
+- ✅ User properly added to system
 - ✅ All subsequent commands work
 - ✅ Data consistency maintained
 
@@ -791,7 +791,9 @@ curl http://localhost:8001/health
 
 **Test Commands**:
 - `/help` - Help information
-- `/register [ID]` - Player registration
+- `/addplayer [name] [phone] [position]` - Add new player
+- `/addmember [name] [phone] [role]` - Add new team member
+- `/update [ID] [field] [value]` - Update player/member information
 - `/myinfo` - User information
 - `/list` - List players
 - `/status [phone]` - Check status

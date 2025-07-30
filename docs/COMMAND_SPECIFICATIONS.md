@@ -26,7 +26,9 @@ This document defines the expected behavior for all KICKAI bot commands across d
 | Command | Description | Main Chat | Leadership Chat | Permission Level | Agent |
 |---------|-------------|-----------|-----------------|------------------|-------|
 | `/help` | Show available commands | ✅ | ✅ | PUBLIC | HelpAssistantAgent |
-| `/register` | Register as a new player | ❌ | ✅ | PUBLIC | PlayerCoordinatorAgent |
+| `/addplayer` | Add a new player | ❌ | ✅ | LEADERSHIP | PlayerCoordinatorAgent |
+| `/addmember` | Add a new team member | ❌ | ✅ | LEADERSHIP | PlayerCoordinatorAgent |
+| `/update` | Update player/member information | ❌ | ✅ | LEADERSHIP | PlayerCoordinatorAgent |
 | `/myinfo` | Show personal information | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent (Main) / MessageProcessorAgent (Leadership) |
 | `/status` | Check player/team member status | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent (Main) / MessageProcessorAgent (Leadership) |
 | `/list` | List players/team members | ✅ | ✅ | PUBLIC | PlayerCoordinatorAgent (Main) / MessageProcessorAgent (Leadership) |
@@ -104,7 +106,7 @@ graph TD
 - **Tools**: Intent analysis, context extraction, message routing
 
 #### 3. **PlayerCoordinatorAgent**
-- **Primary Commands**: `/register`, `/myinfo`, `/status`, `/addplayer`, `/update`
+- **Primary Commands**: `/addplayer`, `/addmember`, `/update`, `/myinfo`, `/status`
 - **Responsibilities**:
   - Player registration and onboarding
   - Individual player support
@@ -391,25 +393,25 @@ The KICKAI system now uses a **simplified user type determination** based on cha
 - **Main Chat**: User is registered if they exist in `kickai_{team_id}_players` collection
 
 #### **Unregistered User Handling**
-- **Unregistered Team Member** (Leadership Chat): Prompted to register using `/register [name] [phone] [role]`
+- **Unregistered Team Member** (Leadership Chat): Prompted to add using `/addmember [ID] [name] [phone] [role]`
 - **Unregistered Player** (Main Chat): Prompted to contact team leadership to be added as a player
 
 ### Unregistered User
 **Status**: User not registered in the appropriate collection for their chat type  
-**Access**: Limited access - can only use `/register` command (leadership chat) or contact leadership (main chat)  
+**Access**: Limited access - can only use `/addmember` command (leadership chat) or contact leadership (main chat)  
 **Data**: No record in appropriate Firestore collection  
 **Registration**: Must register to gain access
 
-**Note**: Users who are not registered in the appropriate collection can only use the `/register` command (in leadership chat) or are guided to contact leadership (in main chat). All other commands will show appropriate guidance messages.
+**Note**: Users who are not registered in the appropriate collection can only use the `/addmember` command (in leadership chat) or are guided to contact leadership (in main chat). All other commands will show appropriate guidance messages.
 
 #### **Unregistered User Flow Processing**
 
-**Trigger**: Any command typed by an unregistered user (except `/register` in leadership chat)
+**Trigger**: Any command typed by an unregistered user (except `/addmember` in leadership chat)
 
 **Behavior**: 
 - **Leadership Chat**: Show message explaining they need to register as team member
 - **Main Chat**: Show message explaining they need to contact team leadership
-- Block all commands except `/register` (leadership chat only)
+- Block all commands except `/addmember` (leadership chat only)
 - Guide them to appropriate registration process
 
 #### **Implementation Flow**
@@ -421,12 +423,12 @@ if chat_type == ChatType.LEADERSHIP:
 else:  # Main chat
     is_registered = await self._check_player_registration(user_id, team_id)
 
-# 3. If not registered and NOT /register command (leadership chat), show message and block processing
-if not is_registered and (command != "/register" or chat_type != ChatType.LEADERSHIP):
+# 3. If not registered and NOT /addmember command (leadership chat), show message and block processing
+if not is_registered and (command != "/addmember" or chat_type != ChatType.LEADERSHIP):
     await self._show_unregistered_user_message(update, username, chat_type)
     return  # Block normal command processing
 
-# 4. If not registered and IS /register command in leadership chat, allow normal processing
+# 4. If not registered and IS /addmember command in leadership chat, allow normal processing
 # 5. After registration, user gains appropriate access based on chat type
 ```
 
@@ -467,17 +469,17 @@ Use /help to see available commands or ask me questions!
 📝 To register as a team member, please provide your details:
 
 💡 Use this command:
-/register [name] [phone] [role]
+/addmember [name] [phone] [role]
 
 Example:
-/register John Smith +1234567890 Assistant Coach
+/addmember John Smith +1234567890 Assistant Coach
 
 🎯 Available roles:
 • Team Manager, Coach, Assistant Coach
 • Club Administrator, Treasurer
 • Volunteer Coordinator, etc.
 
-🚀 Once registered, you can:
+🚀 Once added, you can:
 • Add other team members and players
 • Generate invite links for chats
 • Manage the team system
@@ -485,7 +487,7 @@ Example:
 ❓ Got here by mistake?
 If you're not part of the team leadership, please leave this chat.
 
-Ready to get started? Use the /register command above!
+Ready to get started? Use the /addmember command above!
 ```
 
 ### Registered Player (Main Chat)
@@ -578,7 +580,7 @@ async def approve_player(update, context):
 Role: {role} | Player: {is_player}
 
 Team Management:
-• /register - Register new player with name, phone, position
+• /addplayer - Add new player with name, phone, position
 • /addplayer - Add new player to team roster
 • /list - List all players with their status
 • /status - Check player status by phone number
@@ -774,7 +776,7 @@ https://t.me/joinchat/ABC123DEF456
 📋 Next Steps:
 1. Share this invite link with John Smith
 2. They can join the main chat using the link
-3. Once they join, they can register with /register
+3. Once they join, they can be added with /addplayer
 4. Use /approve to approve and activate their registration
 
 🔒 Security:
@@ -782,7 +784,7 @@ https://t.me/joinchat/ABC123DEF456
 • One-time use only
 • Automatically tracked in system
 
-💡 Tip: The player will need to register with /register after joining the chat.
+💡 Tip: The player will need to be added with /addplayer after joining the chat.
 ```
 
 **Error Responses:**
@@ -850,65 +852,73 @@ graph TD
     Q --> R[Return Success Response]
 ```
 
-### `/register` Command
+### `/addplayer` Command
 
 #### Agentic Implementation Overview
 
-The `/register` command is implemented using the **PlayerCoordinatorAgent** that handles player and team member registration.
+The `/addplayer` command is implemented using the **PlayerCoordinatorAgent** that handles player addition.
 
 **Key Components:**
-- **PlayerCoordinatorAgent**: Specialized agent for registration processing
-- **User Flow Detection**: Unregistered user detection
-- **Registration Service**: Handles both player and team member registration
-- **Role Assignment**: Standard role assignment based on registration type
-
-#### Special Command Handling
-
-**Unregistered User Scenario**: When an unregistered user uses the `/register` command, it should be allowed to proceed normally, bypassing the standard unregistered user blocking logic.
-
-**Implementation Logic:**
-```python
-# In user flow detection
-async def determine_user_flow(self, user_id: str, chat_type: str, command: str) -> UserFlow:
-    # Check if user is registered
-    is_registered = await self._check_user_registration(user_id)
-    if not is_registered:
-        # Special case: Allow /register command for unregistered users
-        if command == "/register":
-            return UserFlow.REGISTERED_USER  # Allow registration to proceed
-        else:
-            return UserFlow.UNREGISTERED_USER  # Show registration guidance
-    
-    # Regular user flow detection
-    return UserFlow.REGISTERED_USER
-```
+- **PlayerCoordinatorAgent**: Specialized agent for player addition processing
+- **ID Generation**: System generates unique player IDs using ID generator
+- **Player Service**: Handles player creation and validation
+- **Role Assignment**: Standard role assignment for new players
 
 #### Expected Behavior by Chat Type and User Status
 
-**Main Chat - Unregistered User (`/register` command):**
+**Leadership Chat - Registered Team Member (`/addplayer` command):**
 ```
 ✅ Command processed normally
-📝 Registration proceeds for player registration
-👤 User added as player with specified position
-🎯 Example: /register John Smith +447123456789 Forward
-💡 Note: This command bypasses the unregistered user flow and proceeds directly to registration
+📝 Player addition proceeds with system-generated ID
+👤 Player added with specified name, phone, and position
+🎯 Example: /addplayer John Smith +447123456789 Forward
+💡 Note: Player ID is automatically generated by the system
 ```
 
-**Leadership Chat - Unregistered User (other commands):**
-```
-👋 Welcome to KICKAI Leadership for {team_id}, {username}!
-🤔 I don't see you registered as a team member yet.
-📝 Please provide your details so I can add you to the team members collection.
-💡 Use: /register [name] [phone] [role]
-```
+### `/addmember` Command
 
-**Leadership Chat - Unregistered User (`/register` command):**
+#### Agentic Implementation Overview
+
+The `/addmember` command is implemented using the **PlayerCoordinatorAgent** that handles team member addition.
+
+**Key Components:**
+- **PlayerCoordinatorAgent**: Specialized agent for team member addition processing
+- **ID Generation**: System generates unique team member IDs using ID generator
+- **Team Member Service**: Handles team member creation and validation
+- **Role Assignment**: Standard role assignment for new team members
+
+#### Expected Behavior by Chat Type and User Status
+
+**Leadership Chat - Registered Team Member (`/addmember` command):**
 ```
 ✅ Command processed normally
-📝 Registration proceeds for team member registration
-👤 User added as team member with specified role
-🎯 Example: /register John Smith +447123456789 Manager
-💡 Note: This command bypasses the unregistered user flow and proceeds directly to registration
+📝 Team member addition proceeds with system-generated ID
+👤 Team member added with specified name, phone, and role
+🎯 Example: /addmember Jane Doe +447123456790 Coach
+💡 Note: Team member ID is automatically generated by the system
+```
+
+### `/update` Command
+
+#### Agentic Implementation Overview
+
+The `/update` command is implemented using the **PlayerCoordinatorAgent** that handles player and team member information updates.
+
+**Key Components:**
+- **PlayerCoordinatorAgent**: Specialized agent for update processing
+- **Entity Detection**: Automatically detects if updating player or team member
+- **Update Service**: Handles field validation and updates
+- **Permission Check**: Ensures user has permission to update the entity
+
+#### Expected Behavior by Chat Type and User Status
+
+**Leadership Chat - Registered Team Member (`/update` command):**
+```
+✅ Command processed normally
+📝 Update proceeds for specified entity (player or team member)
+👤 Entity information updated with new value
+🎯 Example: /update MH phone +447123456799
+💡 Note: System automatically detects if MH is a player or team member ID
 ```
 
 ### `/help` Command
@@ -975,7 +985,7 @@ The `/help` command provides **context-aware** information based on:
 👤 {telegram_name} (Player)
 
 Player Management:
-• /register - Register as a new player
+• /addplayer - Add as a new player
 • /list - List all team players
 • /status - Check player status by phone number
 • /myinfo - Check your player information
@@ -996,7 +1006,7 @@ You can also ask me questions in natural language!
 
 📝 Please provide your details so I can add you to the team members collection.
 
-💡 You can use: /register [name] [phone] [role]
+💡 You can use: /addmember [name] [phone] [role]
 ```
 
 **Leadership Chat - Unregistered User (Not First):**
@@ -1007,7 +1017,7 @@ You can also ask me questions in natural language!
 
 📝 Please provide your details so I can add you to the team members collection.
 
-💡 You can use: /register [name] [phone] [role]
+💡 You can use: /addmember [name] [phone] [role]
 ```
 
 **Leadership Chat - Registered User (Treated as Team Member):**
@@ -1249,7 +1259,7 @@ The `/update` command automatically adapts its behavior based on the chat contex
 1. Contact someone in the team's leadership
 2. Ask them to add you using /addplayer
 3. They'll send you an invite link
-4. Join the main chat and register with /register
+4. Join the main chat and be added with /addplayer
 
 💡 Need help? Use /help to see available commands.
 ```
@@ -1283,8 +1293,8 @@ The `/update` command automatically adapts its behavior based on the chat contex
 🔍 You are not registered as a team member in this team.
 
 📝 To register as a team member:
-1. Use /register [name] [phone] [role]
-2. Example: /register John Smith +447123456789 Assistant Coach
+1. Use /addmember [name] [phone] [role]
+2. Example: /addmember John Smith +447123456789 Assistant Coach
 3. You'll be added to the team members collection
 
 💡 Need help? Use /help to see available commands.
@@ -1485,7 +1495,7 @@ The KICKAI system has been updated to use a **simplified user type determination
 - **Main Chat Commands** (`/myinfo`, `/status`, `/list`) → `PLAYER_COORDINATOR` (player tools)
 
 #### **📝 Simplified Unregistered User Handling**
-- **Leadership Chat**: Prompted to register using `/register [name] [phone] [role]`
+- **Leadership Chat**: Prompted to add using `/addmember [name] [phone] [role]`
 - **Main Chat**: Prompted to contact team leadership to be added as a player
 
 #### **✅ Benefits Achieved**
