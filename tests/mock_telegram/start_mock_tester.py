@@ -13,9 +13,13 @@ import time
 import webbrowser
 from pathlib import Path
 import uvicorn
-from fastapi import FastAPI
+import logging
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent.parent
@@ -30,15 +34,32 @@ app = FastAPI(title="Mock Telegram Tester")
 # Mount the mock Telegram API
 app.mount("/api", mock_app)
 
-# Serve static files (frontend)
-frontend_path = Path(__file__).parent / "frontend"
-if frontend_path.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="static")
+# Add WebSocket endpoint at root level
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time updates"""
+    # Get the mock service from the imported module
+    from tests.mock_telegram.backend.mock_telegram_service import mock_service
+    await mock_service.connect_websocket(websocket)
+    try:
+        while True:
+            # Keep connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        await mock_service.disconnect_websocket(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        await mock_service.disconnect_websocket(websocket)
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "mock_telegram_tester"}
+
+# Serve static files (frontend) - but exclude WebSocket paths
+frontend_path = Path(__file__).parent / "frontend"
+if frontend_path.exists():
+    app.mount("/", StaticFiles(directory=str(frontend_path), html=True, check_dir=False), name="static")
 
 
 def main():
