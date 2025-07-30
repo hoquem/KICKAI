@@ -139,6 +139,7 @@ test_*.py
 *.original
 *.tmp
 *.temp
+*.lock
 
 # Railway configuration backups
 railway*.backup

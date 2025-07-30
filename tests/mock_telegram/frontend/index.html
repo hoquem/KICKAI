@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Telegram Tester</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #1a73e8;
+            margin-bottom: 10px;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+        
+        .sidebar {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+        
+        .chat-area {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+        }
+        
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            background: #f8f9fa;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        
+        .message.user {
+            background: #1a73e8;
+            color: white;
+            margin-left: auto;
+        }
+        
+        .message.bot {
+            background: #e8eaed;
+            color: #333;
+        }
+        
+        .message-info {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+        
+        .chat-input {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            background: #fff;
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .input-group input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .input-group button {
+            padding: 12px 20px;
+            background: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .input-group button:hover {
+            background: #1557b0;
+        }
+        
+        .user-list {
+            list-style: none;
+        }
+        
+        .user-item {
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .user-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .user-item.active {
+            background: #e3f2fd;
+            border-color: #1a73e8;
+        }
+        
+        .user-name {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        
+        .user-role {
+            font-size: 12px;
+            color: #666;
+            text-transform: capitalize;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .create-user-form {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-group button {
+            width: 100%;
+            padding: 10px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .form-group button:hover {
+            background: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Mock Telegram Tester</h1>
+            <p>Test your KICKAI bot system without real phone numbers or Telegram accounts</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="sidebar">
+                <div id="status" class="status disconnected">
+                    🔴 Disconnected
+                </div>
+                
+                <h3>👥 Test Users</h3>
+                <ul id="userList" class="user-list">
+                    <!-- Users will be populated here -->
+                </ul>
+                
+                <div class="create-user-form">
+                    <h4>➕ Create New User</h4>
+                    <div class="form-group">
+                        <label for="newUsername">Username:</label>
+                        <input type="text" id="newUsername" placeholder="test_user">
+                    </div>
+                    <div class="form-group">
+                        <label for="newFirstName">First Name:</label>
+                        <input type="text" id="newFirstName" placeholder="Test">
+                    </div>
+                    <div class="form-group">
+                        <label for="newLastName">Last Name:</label>
+                        <input type="text" id="newLastName" placeholder="User">
+                    </div>
+                    <div class="form-group">
+                        <label for="newRole">Role:</label>
+                        <select id="newRole">
+                            <option value="player">Player</option>
+                            <option value="team_member">Team Member</option>
+                            <option value="admin">Admin</option>
+                            <option value="leadership">Leadership</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPhone">Phone Number:</label>
+                        <input type="text" id="newPhone" placeholder="+1234567890">
+                    </div>
+                    <div class="form-group">
+                        <button onclick="createUser()">Create User</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-area">
+                <div class="chat-header">
+                    <h3 id="chatTitle">Select a user to start chatting</h3>
+                </div>
+                
+                <div id="chatMessages" class="chat-messages">
+                    <div class="message bot">
+                        <div class="message-info">🤖 KickAI Bot</div>
+                        Welcome to the Mock Telegram Tester! Select a user from the sidebar to start testing the bot system.
+                    </div>
+                </div>
+                
+                <div class="chat-input">
+                    <div class="input-group">
+                        <input 
+                            type="text" 
+                            id="messageInput" 
+                            placeholder="Type your message here..."
+                            onkeypress="handleKeyPress(event)"
+                        >
+                        <button onclick="sendMessage()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentUser = null;
+        let users = [];
+        let ws = null;
+        
+        // API base URL
+        const API_BASE = 'http://localhost:8001';
+        
+        // Initialize the application
+        async function init() {
+            await loadUsers();
+            connectWebSocket();
+        }
+        
+        // Load users from API
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_BASE}/users`);
+                users = await response.json();
+                renderUsers();
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+        
+        // Render users in sidebar
+        function renderUsers() {
+            const userList = document.getElementById('userList');
+            userList.innerHTML = '';
+            
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.className = 'user-item';
+                li.onclick = () => selectUser(user);
+                
+                li.innerHTML = `
+                    <div class="user-name">${user.first_name} ${user.last_name || ''}</div>
+                    <div class="user-role">@${user.username} • ${user.role}</div>
+                `;
+                
+                userList.appendChild(li);
+            });
+        }
+        
+        // Select a user for chatting
+        function selectUser(user) {
+            currentUser = user;
+            
+            // Update UI
+            document.querySelectorAll('.user-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.closest('.user-item').classList.add('active');
+            
+            document.getElementById('chatTitle').textContent = `Chat with ${user.first_name}`;
+            document.getElementById('messageInput').disabled = false;
+            document.getElementById('messageInput').placeholder = `Send message as ${user.first_name}...`;
+            
+            // Load chat history
+            loadChatHistory(user.id);
+        }
+        
+        // Load chat history for a user
+        async function loadChatHistory(userId) {
+            try {
+                const response = await fetch(`${API_BASE}/messages/${userId}`);
+                const messages = await response.json();
+                
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.innerHTML = '';
+                
+                messages.forEach(message => {
+                    addMessageToChat(message);
+                });
+                
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+            }
+        }
+        
+        // Send a message
+        async function sendMessage() {
+            if (!currentUser) {
+                alert('Please select a user first');
+                return;
+            }
+            
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            
+            if (!text) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/send_message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: currentUser.id,
+                        chat_id: currentUser.id,
+                        text: text
+                    })
+                });
+                
+                if (response.ok) {
+                    input.value = '';
+                } else {
+                    console.error('Error sending message');
+                }
+            } catch (error) {
+                console.error('Error sending message:', error);
+            }
+        }
+        
+        // Handle Enter key press
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        // Create a new user
+        async function createUser() {
+            const username = document.getElementById('newUsername').value;
+            const firstName = document.getElementById('newFirstName').value;
+            const lastName = document.getElementById('newLastName').value;
+            const role = document.getElementById('newRole').value;
+            const phone = document.getElementById('newPhone').value;
+            
+            if (!username || !firstName) {
+                alert('Username and First Name are required');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/users`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        first_name: firstName,
+                        last_name: lastName || null,
+                        role: role,
+                        phone_number: phone || null
+                    })
+                });
+                
+                if (response.ok) {
+                    await loadUsers();
+                    
+                    // Clear form
+                    document.getElementById('newUsername').value = '';
+                    document.getElementById('newFirstName').value = '';
+                    document.getElementById('newLastName').value = '';
+                    document.getElementById('newPhone').value = '';
+                } else {
+                    console.error('Error creating user');
+                }
+            } catch (error) {
+                console.error('Error creating user:', error);
+            }
+        }
+        
+        // Connect to WebSocket for real-time updates
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://localhost:8001/ws`);
+            
+            ws.onopen = function() {
+                document.getElementById('status').className = 'status connected';
+                document.getElementById('status').innerHTML = '🟢 Connected';
+            };
+            
+            ws.onclose = function() {
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('status').innerHTML = '🔴 Disconnected';
+                
+                // Try to reconnect after 5 seconds
+                setTimeout(connectWebSocket, 5000);
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        // Handle WebSocket messages
+        function handleWebSocketMessage(data) {
+            if (data.type === 'new_message') {
+                addMessageToChat(data.message);
+            } else if (data.type === 'bot_response') {
+                addBotMessageToChat(data.message);
+            }
+        }
+        
+        // Add a user message to the chat
+        function addMessageToChat(message) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user';
+            
+            const time = new Date(message.date * 1000).toLocaleTimeString();
+            messageDiv.innerHTML = `
+                <div class="message-info">${message.from.first_name} • ${time}</div>
+                ${message.text}
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Add a bot message to the chat
+        function addBotMessageToChat(message) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot';
+            
+            const time = new Date(message.date * 1000).toLocaleTimeString();
+            messageDiv.innerHTML = `
+                <div class="message-info">🤖 KickAI Bot • ${time}</div>
+                ${message.text}
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html> 
