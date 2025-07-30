@@ -381,18 +381,36 @@ Do not add any additional information, players, or data that wasn't in the tool 
 
             # Temporarily disable memory to resolve CrewAI + Gemini compatibility issues
             memory_enabled = (
-                False  # Temporarily disabled - CrewAI + Gemini memory compatibility issue
+                settings.crewai_memory_enabled  # Use setting-based memory enablement
             )
             memory_config = None
 
             if memory_enabled and not is_data_critical:
                 from kickai.core.settings import get_settings
-
                 settings = get_settings()
-                memory_config = {
-                    "provider": "google",
-                    "config": {"api_key": settings.google_api_key, "model": "text-embedding-004"},
-                }
+                
+                # Use settings-based memory configuration
+                if settings.crewai_memory_provider == "huggingface":
+                    # Use Hugging Face API token for embeddings
+                    memory_config = {
+                        "provider": "huggingface",
+                        "config": {
+                            "api_key": settings.huggingface_api_token,
+                            "model": settings.crewai_memory_model
+                        },
+                    }
+                else:
+                    # Use Google API key for other providers (google, openai)
+                    memory_config = {
+                        "provider": settings.crewai_memory_provider,
+                        "config": {
+                            "api_key": settings.google_api_key, 
+                            "model": settings.crewai_memory_model
+                        },
+                    }
+                
+                # Log memory configuration for debugging
+                logger.info(f"🧠 Memory enabled with provider: {settings.crewai_memory_provider}, model: {settings.crewai_memory_model}")
 
             # Create a crew with properly configured memory using Google Gemini
             crew = Crew(

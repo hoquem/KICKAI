@@ -116,6 +116,12 @@ class Settings(BaseSettings):
     memory_pattern_learning: bool = Field(default=True, description="Enable pattern learning")
     memory_preference_learning: bool = Field(default=True, description="Enable preference learning")
     memory_cleanup_interval: int = Field(default=24, description="Memory cleanup interval in hours")
+    
+    # CrewAI Memory Configuration
+    crewai_memory_enabled: bool = Field(default=True, description="Enable CrewAI memory system")
+    crewai_memory_provider: str = Field(default="huggingface", description="CrewAI memory embedding provider")
+    crewai_memory_model: str = Field(default="sentence-transformers/all-MiniLM-L6-v2", description="CrewAI memory embedding model")
+    crewai_memory_max_items: int = Field(default=1000, description="Max memory items per crew")
 
     # Development Configuration
     debug: bool = Field(default=False, description="Enable debug mode")

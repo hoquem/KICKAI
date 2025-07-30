@@ -184,29 +184,40 @@ class TeamManagementSystem:
             # Import Process enum for CrewAI
             from crewai import Process
 
-            # Temporarily disable memory to resolve CrewAI + Gemini compatibility issues
-            # Known issue: CrewAI memory with Gemini models can fallback to OpenAI
-            # Re-enable after CrewAI fixes Gemini + memory compatibility
-            memory_enabled = False  # Temporarily disabled for debugging
+            # Memory configuration for CrewAI - compatibility resolved
+            # CrewAI v0.150.0+ has improved memory support with multiple providers
+            memory_enabled = settings.crewai_memory_enabled  # Use setting-based memory enablement
 
             memory_config = None
             if memory_enabled:
-                # Configure memory to use Google Gemini embeddings instead of OpenAI
-                memory_config = {
-                    "provider": "google",
-                    "config": {
-                        "api_key": settings.google_api_key,
-                        "model": "text-embedding-004",  # Google's latest embedding model
-                    },
-                }
+                # Configure memory using settings
+                if settings.crewai_memory_provider == "huggingface":
+                    # Use Hugging Face API token for embeddings
+                    memory_config = {
+                        "provider": "huggingface",
+                        "config": {
+                            "api_key": settings.huggingface_api_token,
+                            "model": settings.crewai_memory_model,
+                        },
+                    }
+                else:
+                    # Use Google API key for other providers (google, openai)
+                    memory_config = {
+                        "provider": settings.crewai_memory_provider,
+                        "config": {
+                            "api_key": settings.google_api_key,
+                            "model": settings.crewai_memory_model,
+                        },
+                    }
+                logger.info(f"🧠 Crew memory enabled with {settings.crewai_memory_provider} embeddings")
 
             self.crew = Crew(
                 agents=crew_agents,
                 tasks=[],
                 process=Process.sequential,  # Required: must be sequential or hierarchical
                 verbose=verbose_mode,  # Use environment-based verbose setting
-                memory=memory_enabled,  # Temporarily disabled - known CrewAI + Gemini issue
-                memory_config=memory_config,  # Use Google Gemini for embeddings when re-enabled
+                memory=memory_enabled,  # Memory enabled - CrewAI compatibility resolved
+                memory_config=memory_config,  # Use Google Gemini for embeddings
             )
 
             logger.info(f"✅ Created crew with {len(crew_agents)} entity-aware agents")

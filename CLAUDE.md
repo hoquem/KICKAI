@@ -44,6 +44,9 @@ python -m pytest tests/ --cov=src --cov-report=html
 
 # Run specific test file
 python -m pytest tests/unit/test_specific.py::test_function -v -s
+
+# Test LLM connectivity
+source venv311/bin/activate && PYTHONPATH=. python test_hf_connectivity.py  # Test Hugging Face connectivity
 ```
 
 ### Code Quality
@@ -200,6 +203,26 @@ from .domain.tools.player_tools import get_player_status
 - Collections: `kickai_teams`, `kickai_players`, `kickai_matches`, etc.
 - Use async patterns for all database operations
 
+### LLM Provider Architecture
+The system supports multiple LLM providers with agent-specific model optimization:
+
+#### Supported Providers
+- **Hugging Face** (`AIProvider.HUGGINGFACE`) - Primary provider with free tier
+- **Google Gemini** (`AIProvider.GOOGLE`) - Fallback provider
+- **OpenAI** (`AIProvider.OPENAI`) - Optional provider
+- **Ollama** (`AIProvider.OLLAMA`) - Local deployment option
+
+#### Agent-Specific Models
+Each agent uses optimized models based on task requirements:
+- **Data-critical agents** (temp 0.1): `Qwen2.5-1.5B-Instruct` for anti-hallucination
+- **Administrative agents** (temp 0.3): `Gemma-2-2B-IT` for balanced performance
+- **Creative agents** (temp 0.7): Larger models for complex reasoning
+
+#### Configuration Files
+- `kickai/config/agent_models.py` - Agent-specific model mappings
+- `kickai/utils/llm_factory.py` - Multi-provider LLM factory
+- `kickai/core/settings.py` - Provider API token configuration
+
 ### Security & Permissions
 - **Role-Based Access Control**: PUBLIC, PLAYER, LEADERSHIP, ADMIN, SYSTEM
 - **Chat-Based Permissions**: Different permissions for main chat vs leadership chat
@@ -207,6 +230,7 @@ from .domain.tools.player_tools import get_player_status
 
 ### Configuration
 - **Environment Files**: `.env`, `.env.development`, `.env.testing`, `.env.production`
+- **LLM API Keys**: `HUGGINGFACE_API_TOKEN`, `GOOGLE_API_KEY`, `OPENAI_API_KEY`
 - **Bot Configs**: `config/bot_config.json` for different environments
 - **Firebase**: `credentials/firebase_credentials_*.json`
 
