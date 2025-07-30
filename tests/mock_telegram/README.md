@@ -73,7 +73,9 @@ Open your browser and go to: **http://localhost:8001**
 2. **Send Messages**: Type messages in the input field and press Enter or click Send
 3. **Test Commands**: Try bot commands like:
    - `/help` - Get help information
-   - `/register MH` - Register a player
+   - `/addplayer John Smith +1234567890 Forward` - Add a new player
+- `/addmember Jane Doe +1234567891 Coach` - Add a new team member
+- `/update MH phone +1234567899` - Update player/member information
    - `/myinfo` - Get user information
    - `/list` - List players
    - `/status +1234567890` - Check player status
@@ -104,7 +106,7 @@ The mock service provides these REST API endpoints:
 
 ### **Player Registration Flow**
 1. Create a new user with "player" role
-2. Send `/register MH` (or any player ID)
+2. Send `/addplayer John Smith +1234567890 Forward`
 3. Verify bot response and registration process
 
 ### **Team Member Operations**
@@ -227,7 +229,7 @@ def test_player_registration():
     # Send registration message
     response = process_mock_message_sync({
         "user_id": 1001,
-        "text": "/register MH"
+        "text": "/addplayer John Smith +1234567890 Forward"
     })
     
     # Assert expected response
