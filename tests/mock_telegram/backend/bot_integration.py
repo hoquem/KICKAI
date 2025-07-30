@@ -44,12 +44,16 @@ class MockTelegramIntegration:
         self._lock = asyncio.Lock()
         
         # Initialize bot components if available
+        global BOT_COMPONENTS_AVAILABLE
         if BOT_COMPONENTS_AVAILABLE:
             try:
                 self.settings = get_settings()
-                self.agentic_router = AgenticMessageRouter()
-                self.telegram_service = TelegramBotService()
-                logger.info("Bot integration initialized successfully")
+                # Use the default team ID from settings or fallback to 'KTI'
+                team_id = getattr(self.settings, 'default_team_id', 'KTI')
+                self.agentic_router = AgenticMessageRouter(team_id=team_id)
+                # Skip TelegramBotService for mock integration - we don't need real Telegram
+                self.telegram_service = None
+                logger.info(f"Bot integration initialized successfully with team_id: {team_id}")
             except Exception as e:
                 logger.error(f"Failed to initialize bot components: {e}")
                 BOT_COMPONENTS_AVAILABLE = False
@@ -77,11 +81,11 @@ class MockTelegramIntegration:
         
         async with self._lock:
             try:
-                # Convert mock message to format expected by bot system
-                telegram_update = self._convert_mock_to_telegram_update(message_data)
+                # Convert mock message to TelegramMessage format expected by bot system
+                telegram_message = self._convert_mock_to_telegram_message(message_data)
                 
                 # Process through the agentic message router
-                response = await self.agentic_router.route_message(telegram_update)
+                response = await self.agentic_router.route_message(telegram_message)
                 
                 # Convert bot response to mock format
                 mock_response = self._convert_bot_response_to_mock(response, message_data)
@@ -97,52 +101,45 @@ class MockTelegramIntegration:
                     "timestamp": datetime.now().isoformat()
                 }
     
-    def _convert_mock_to_telegram_update(self, message_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _convert_mock_to_telegram_message(self, message_data: Dict[str, Any]) -> Any:
         """
-        Convert mock message format to Telegram update format expected by bot system.
+        Convert mock message format to TelegramMessage format expected by bot system.
         """
+        from kickai.agents.user_flow_agent import TelegramMessage
+        from kickai.core.enums import ChatType
+        
         text = message_data.get("text", "")
         chat_context = message_data.get("chat_context", "private")
         
-        # Determine if this is a command
-        is_command = text.startswith("/") if text else False
+        # Extract user information
+        from_data = message_data.get("from", {})
+        user_id = str(from_data.get("id", 0))
+        username = from_data.get("username") or from_data.get("first_name", "unknown")
         
-        # Create entities for commands
-        entities = []
-        if is_command:
-            command_length = len(text.split()[0]) if text else 0
-            entities.append({
-                "type": "bot_command",
-                "offset": 0,
-                "length": command_length
-            })
-        
-        # Add chat context information for bot routing
+        # Extract chat information
         chat_data = message_data.get("chat", {})
-        if chat_context == "leadership":
-            # Add leadership chat identifier
-            chat_data["is_leadership_chat"] = True
-            chat_data["chat_type"] = "leadership"
-        elif chat_context == "main":
-            # Add main chat identifier
-            chat_data["is_main_chat"] = True
-            chat_data["chat_type"] = "main"
-        else:
-            # Private chat
-            chat_data["chat_type"] = "private"
+        chat_id = str(chat_data.get("id", 0))
         
-        return {
-            "update_id": message_data.get("message_id", 0),
-            "message": {
-                "message_id": message_data.get("message_id", 0),
-                "from": message_data.get("from", {}),
-                "chat": chat_data,
-                "date": message_data.get("date", int(datetime.now().timestamp())),
-                "text": text,
-                "entities": entities
-            },
-            "chat_context": chat_context  # Pass context to bot system
-        }
+        # Determine chat type based on context
+        if chat_context == "leadership":
+            chat_type = ChatType.LEADERSHIP
+        elif chat_context == "main":
+            chat_type = ChatType.MAIN
+        else:
+            chat_type = ChatType.PRIVATE
+        
+        # Create TelegramMessage object
+        return TelegramMessage(
+            user_id=user_id,
+            chat_id=chat_id,
+            chat_type=chat_type,
+            username=username,
+            team_id=self.agentic_router.team_id,
+            text=text,
+            raw_update=message_data,  # Pass the original message data
+            contact_phone=None,
+            contact_user_id=None
+        )
     
     def _convert_bot_response_to_mock(self, bot_response: Any, original_message: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -193,7 +190,7 @@ class MockTelegramIntegration:
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.post(
-                    f"{self.mock_service_url}/bot_response",
+                    f"{self.mock_service_url}/api/bot_response",
                     json=response_data,
                     timeout=5.0
                 )
