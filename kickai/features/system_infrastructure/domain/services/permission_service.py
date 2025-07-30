@@ -5,7 +5,6 @@ Centralized Permission Service for KICKAI
 This service provides a single source of truth for all permission checks,
 integrating chat-based role assignment with command permissions.
 """
-from typing import Dict, List, Optional
 
 import logging
 from dataclasses import dataclass
@@ -29,7 +28,7 @@ class PermissionContext:
     team_id: str
     chat_id: str
     chat_type: ChatType
-    username: Optional[str] = None
+    username: str | None = None
 
     def __post_init__(self):
         if self.chat_type is None:
@@ -48,8 +47,8 @@ class UserPermissions:
 
     user_id: str
     team_id: str
-    roles: List[str]
-    chat_access: Dict[str, bool]
+    roles: list[str]
+    chat_access: dict[str, bool]
     is_admin: bool
     is_player: bool
     is_team_member: bool
@@ -266,7 +265,7 @@ class PermissionService:
             )
         return True
 
-    async def get_available_commands(self, context: PermissionContext) -> List[str]:
+    async def get_available_commands(self, context: PermissionContext) -> list[str]:
         """
         Get list of available commands for a user in the given context.
 
@@ -298,7 +297,7 @@ class PermissionService:
 
         except Exception as e:
             logger.error(f"Error getting available commands: {e}")
-            return ["/help", "/start"]
+            return ["/help"]
 
     async def get_permission_denied_message(
         self, permission_level: PermissionLevel, context: PermissionContext
@@ -316,7 +315,7 @@ class PermissionService:
 🔒 This command requires player access.
 💡 Contact your team admin for access.
 
-Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
+Your Role: {", ".join(user_perms.roles) if user_perms.roles else "None"}"""
                 else:
                     return """❌ Access Denied
 
@@ -335,7 +334,7 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
 🔒 This command requires leadership access.
 💡 Contact your team admin for access.
 
-Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
+Your Role: {", ".join(user_perms.roles) if user_perms.roles else "None"}"""
 
             elif permission_level == PermissionLevel.ADMIN:
                 if context.chat_type != ChatType.LEADERSHIP:
@@ -349,7 +348,7 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
 🔒 This command requires admin access.
 💡 Contact your team admin for access.
 
-Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
+Your Role: {", ".join(user_perms.roles) if user_perms.roles else "None"}"""
 
             return "❌ Access denied for this command."
 
@@ -365,7 +364,7 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
         """Promote a user to admin role (only by existing admin)."""
         return await self.team_member_service.promote_to_admin(user_id, team_id, promoted_by)
 
-    async def handle_last_admin_leaving(self, team_id: str) -> Optional[str]:
+    async def handle_last_admin_leaving(self, team_id: str) -> str | None:
         """Handle when the last admin leaves - promote longest-tenured leadership member."""
         return await self.team_member_service.handle_last_admin_leaving(team_id)
 
@@ -380,7 +379,7 @@ Your Role: {', '.join(user_perms.roles) if user_perms.roles else 'None'}"""
 
 
 # Global instance for easy access
-_permission_service: Optional[PermissionService] = None
+_permission_service: PermissionService | None = None
 
 
 def get_permission_service(firebase_client: FirebaseClient = None) -> PermissionService:

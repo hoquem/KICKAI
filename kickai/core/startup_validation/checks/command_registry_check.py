@@ -83,7 +83,7 @@ class CommandRegistryCheck(BaseCheck):
                 )
 
             # Check for expected commands
-            expected_commands = ["/help", "/start", "/register", "/myinfo", "/list", "/status"]
+            expected_commands = ["/help", "/myinfo", "/list", "/status"]
 
             missing_commands = []
             for cmd in expected_commands:
@@ -100,7 +100,14 @@ class CommandRegistryCheck(BaseCheck):
                 )
 
             # Check for expected features
-            expected_features = ["player_registration", "team_administration", "shared"]
+            expected_features = [
+                "player_registration",
+                "shared",
+                "match_management",
+                "attendance_management",
+                "payment_management",
+                "communication",
+            ]
 
             missing_features = []
             for feature in expected_features:

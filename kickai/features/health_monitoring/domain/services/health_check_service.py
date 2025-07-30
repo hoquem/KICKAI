@@ -18,7 +18,8 @@ from typing import Any
 from kickai.database.interfaces import DataStoreInterface
 
 # IDailyStatusService interface removed - no concrete implementation
-from kickai.features.communication.domain.interfaces.reminder_service_interface import (IReminderService,
+from kickai.features.communication.domain.interfaces.reminder_service_interface import (
+    IReminderService,
 )
 from kickai.features.health_monitoring.domain.entities.health_check_types import (
     ComponentType,

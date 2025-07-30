@@ -2,11 +2,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
-from typing import Optional
-
 
 class MatchStatus(Enum):
     """Match status enumeration."""
+
     SCHEDULED = "scheduled"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -17,33 +16,33 @@ class MatchStatus(Enum):
 @dataclass
 class Match:
     """Match entity representing a football match."""
-    
+
     id: str
     team_id: str
     opponent: str
     date: str  # ISO format string
-    location: Optional[str] = None
+    location: str | None = None
     status: str = "scheduled"
-    home_away: Optional[str] = None
-    competition: Optional[str] = None
-    score: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    
+    home_away: str | None = None
+    competition: str | None = None
+    score: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
     @classmethod
     def create(
         cls,
         team_id: str,
         opponent: str,
         date: datetime,
-        location: Optional[str] = None,
+        location: str | None = None,
         status: MatchStatus = MatchStatus.SCHEDULED,
         home_away: str = "home",
-        competition: Optional[str] = None,
+        competition: str | None = None,
     ) -> "Match":
         """Create a new match instance."""
         now = datetime.utcnow().isoformat()
-        
+
         return cls(
             id="",  # Will be set by service layer
             team_id=team_id,
@@ -56,15 +55,15 @@ class Match:
             created_at=now,
             updated_at=now,
         )
-    
+
     def update(self, **updates):
         """Update match fields."""
         for field, value in updates.items():
             if hasattr(self, field):
                 setattr(self, field, value)
-        
+
         self.updated_at = datetime.utcnow().isoformat()
-    
+
     def to_dict(self) -> dict:
         """Convert match to dictionary."""
         return {
@@ -80,7 +79,7 @@ class Match:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "Match":
         """Create match from dictionary."""

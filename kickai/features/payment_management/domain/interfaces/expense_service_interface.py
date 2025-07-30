@@ -27,7 +27,9 @@ class ExpenseServiceInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_expenses_by_team(self, team_id: str, limit: Optional[int] = None) -> List[Expense]:
+    async def get_expenses_by_team(
+        self, team_id: str, limit: Optional[int] = None
+    ) -> List[Expense]:
         """Get expenses for a team."""
         pass
 
@@ -40,7 +42,10 @@ class ExpenseServiceInterface(ABC):
 
     @abstractmethod
     async def get_total_expenses(
-        self, team_id: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None
+        self,
+        team_id: str,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
     ) -> float:
         """Get total expenses for a team within a date range."""
         pass

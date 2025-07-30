@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from kickai.core.enums import CommandType, PermissionLevel
 
@@ -28,11 +28,11 @@ class CommandMetadata:
     permission_level: PermissionLevel
     feature: str
     handler: Callable
-    aliases: List[str] = field(default_factory=list)
-    examples: List[str] = field(default_factory=list)
-    parameters: Dict[str, str] = field(default_factory=dict)
-    help_text: Optional[str] = None
-    chat_type: Optional[str] = None  # ChatType.MAIN, ChatType.LEADERSHIP, or None for all
+    aliases: list[str] = field(default_factory=list)
+    examples: list[str] = field(default_factory=list)
+    parameters: dict[str, str] = field(default_factory=dict)
+    help_text: str | None = None
+    chat_type: str | None = None  # ChatType.MAIN, ChatType.LEADERSHIP, or None for all
 
 
 class CommandHandler(ABC):
@@ -57,13 +57,13 @@ class CommandRegistry:
     """
 
     def __init__(self):
-        self._commands: Dict[str, CommandMetadata] = {}
-        self._command_aliases: Dict[str, str] = {}
-        self._feature_commands: Dict[str, List[str]] = {}
+        self._commands: dict[str, CommandMetadata] = {}
+        self._command_aliases: dict[str, str] = {}
+        self._feature_commands: dict[str, list[str]] = {}
         self._discovered = False
 
         # Support for chat-specific commands with same name
-        self._chat_specific_commands: Dict[str, dict[str, CommandMetadata]] = {}
+        self._chat_specific_commands: dict[str, dict[str, CommandMetadata]] = {}
 
     def register_command(
         self,
@@ -73,11 +73,11 @@ class CommandRegistry:
         command_type: CommandType = CommandType.SLASH_COMMAND,
         permission_level: PermissionLevel = PermissionLevel.PUBLIC,
         feature: str = "unknown",
-        aliases: Optional[List[str]] = None,
-        examples: Optional[List[str]] = None,
-        parameters: Optional[Dict[str, str]] = None,
-        help_text: Optional[str] = None,
-        chat_type: Optional[str] = None,
+        aliases: list[str] | None = None,
+        examples: list[str] | None = None,
+        parameters: dict[str, str] | None = None,
+        help_text: str | None = None,
+        chat_type: str | None = None,
     ) -> None:
         """
         Register a command with the registry.
@@ -196,7 +196,7 @@ class CommandRegistry:
 
         logger.info(f"Registered command: {name} ({feature})")
 
-    def get_command(self, name: str) -> Optional[CommandMetadata]:
+    def get_command(self, name: str) -> CommandMetadata | None:
         """Get command metadata by name or alias."""
         # Check direct name
         if name in self._commands:
@@ -209,22 +209,22 @@ class CommandRegistry:
 
         return None
 
-    def get_commands_by_feature(self, feature: str) -> List[CommandMetadata]:
+    def get_commands_by_feature(self, feature: str) -> list[CommandMetadata]:
         """Get all commands for a specific feature."""
         command_names = self._feature_commands.get(feature, [])
         return [self._commands[name] for name in command_names if name in self._commands]
 
     def get_commands_by_permission(
         self, permission_level: PermissionLevel
-    ) -> List[CommandMetadata]:
+    ) -> list[CommandMetadata]:
         """Get all commands for a specific permission level."""
         return [cmd for cmd in self._commands.values() if cmd.permission_level == permission_level]
 
-    def get_commands_by_type(self, command_type: CommandType) -> List[CommandMetadata]:
+    def get_commands_by_type(self, command_type: CommandType) -> list[CommandMetadata]:
         """Get all commands of a specific type."""
         return [cmd for cmd in self._commands.values() if cmd.command_type == command_type]
 
-    def get_commands_by_chat_type(self, chat_type: str) -> List[CommandMetadata]:
+    def get_commands_by_chat_type(self, chat_type: str) -> list[CommandMetadata]:
         """Get all commands available in a specific chat type."""
         commands = []
 
@@ -240,7 +240,7 @@ class CommandRegistry:
 
         return commands
 
-    def get_command_for_chat(self, name: str, chat_type: str) -> Optional[CommandMetadata]:
+    def get_command_for_chat(self, name: str, chat_type: str) -> CommandMetadata | None:
         """Get a specific command for a chat type, considering chat-specific and universal commands."""
         # First check for chat-specific command
         if name in self._chat_specific_commands:
@@ -276,11 +276,11 @@ class CommandRegistry:
 
         return None
 
-    def list_all_commands(self) -> List[CommandMetadata]:
+    def list_all_commands(self) -> list[CommandMetadata]:
         """Get all registered commands."""
         return list(self._commands.values())
 
-    def search_commands(self, query: str) -> List[CommandMetadata]:
+    def search_commands(self, query: str) -> list[CommandMetadata]:
         """Search commands by name, description, or feature."""
         query_lower = query.lower()
         results = []
@@ -296,7 +296,7 @@ class CommandRegistry:
 
         return results
 
-    def generate_help_text(self, command_name: str) -> Optional[str]:
+    def generate_help_text(self, command_name: str) -> str | None:
         """Generate help text for a specific command."""
         cmd = self.get_command(command_name)
         if not cmd:
@@ -325,7 +325,7 @@ class CommandRegistry:
 
         return "\n".join(help_parts)
 
-    def generate_feature_help(self, feature: str) -> Optional[str]:
+    def generate_feature_help(self, feature: str) -> str | None:
         """Generate help text for all commands in a feature."""
         commands = self.get_commands_by_feature(feature)
         if not commands:
@@ -450,7 +450,7 @@ class CommandRegistry:
         # Default to public
         return PermissionLevel.PUBLIC
 
-    def get_command_statistics(self) -> Dict[str, Any]:
+    def get_command_statistics(self) -> dict[str, Any]:
         """Get statistics about registered commands."""
         total_commands = len(self._commands)
         total_aliases = len(self._command_aliases)
@@ -480,7 +480,7 @@ class CommandRegistry:
 
 
 # Global command registry instance (DEPRECATED - use CommandRegistryInitializer instead)
-_command_registry: Optional[CommandRegistry] = None
+_command_registry: CommandRegistry | None = None
 
 
 def get_command_registry() -> CommandRegistry:
@@ -512,7 +512,7 @@ def command(
     command_type: CommandType = CommandType.SLASH_COMMAND,
     permission_level: PermissionLevel = PermissionLevel.PUBLIC,
     feature: str = "unknown",
-    chat_type: Optional[str] = None,
+    chat_type: str | None = None,
     **kwargs,
 ):
     """

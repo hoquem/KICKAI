@@ -5,13 +5,13 @@ Custom Exceptions for KICKAI
 This module defines custom exceptions used throughout the KICKAI system.
 """
 
-from typing import Any, Optional, Dict, List
+from typing import Any
 
 
 class KickAIError(Exception):
     """Base exception for all KICKAI errors."""
 
-    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, context: dict[str, Any] | None = None):
         super().__init__(message)
         self.message = message
         self.context = context or {}
@@ -42,7 +42,7 @@ class PlayerNotFoundError(PlayerError):
 class PlayerValidationError(PlayerError):
     """Raised when player data validation fails."""
 
-    def __init__(self, errors: List[str]):
+    def __init__(self, errors: list[str]):
         message = f"Player validation failed: {'; '.join(errors)}"
         super().__init__(message, {"validation_errors": errors})
 
@@ -212,7 +212,7 @@ class MatchError(KickAIError):
 class MatchNotFoundError(MatchError):
     """Raised when a match is not found."""
 
-    def __init__(self, match_id: str, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, match_id: str, context: dict[str, Any] | None = None):
         message = f"Match {match_id} not found"
         super().__init__(message, {"match_id": match_id, **(context or {})})
 
@@ -234,7 +234,7 @@ class AttendanceError(KickAIError):
 class AttendanceNotFoundError(AttendanceError):
     """Raised when an attendance record is not found."""
 
-    def __init__(self, attendance_id: str, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, attendance_id: str, context: dict[str, Any] | None = None):
         message = f"Attendance record {attendance_id} not found"
         super().__init__(message, {"attendance_id": attendance_id, **(context or {})})
 
@@ -284,7 +284,7 @@ class DatabaseOperationError(DatabaseError):
         super().__init__(message, {"operation": operation, "error": error})
 
 
-def create_error_context(operation: str, **kwargs) -> Dict[str, Any]:
+def create_error_context(operation: str, **kwargs) -> dict[str, Any]:
     """
     Create a standardized error context.
 

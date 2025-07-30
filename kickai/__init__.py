@@ -20,12 +20,12 @@ from .utils.football_id_generator import (
 )
 
 __all__ = [
-    "get_settings",
-    "initialize_settings",
-    "get_service",
-    "get_singleton",
-    "get_firebase_client",
-    "generate_football_team_id",
-    "generate_football_player_id",
     "generate_football_match_id",
+    "generate_football_player_id",
+    "generate_football_team_id",
+    "get_firebase_client",
+    "get_service",
+    "get_settings",
+    "get_singleton",
+    "initialize_settings",
 ]

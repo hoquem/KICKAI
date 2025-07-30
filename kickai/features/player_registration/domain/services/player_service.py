@@ -8,14 +8,14 @@ This module provides player management functionality.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from kickai.features.team_administration.domain.services.team_service import TeamService
-from kickai.utils.constants import (DEFAULT_CREATED_BY,
+from kickai.utils.constants import (
+    DEFAULT_CREATED_BY,
     DEFAULT_PLAYER_POSITION,
     DEFAULT_PLAYER_STATUS,
     ERROR_MESSAGES,
-    PHONE_PATTERN,
     SUCCESS_MESSAGES,
     VALID_PLAYER_POSITIONS,
 )
@@ -94,10 +94,10 @@ class PlayerService:
         if not team_id or not team_id.strip():
             raise ValueError(ERROR_MESSAGES["TEAM_ID_REQUIRED"])
 
-        # Validate phone number format (improved validation)
-        import re
+        # Validate phone number format using phonenumbers library
+        from kickai.utils.phone_utils import is_valid_phone
 
-        if not re.match(PHONE_PATTERN, phone.strip()):
+        if not is_valid_phone(phone.strip()):
             raise ValueError(ERROR_MESSAGES["INVALID_PHONE"])
 
         # Validate position only if provided (not default)
@@ -113,15 +113,15 @@ class PlayerService:
         if len(team_id.strip()) < 2:
             raise ValueError("Team ID must be at least 2 characters long")
 
-    async def get_player_by_id(self, player_id: str, team_id: str) -> Optional[Player]:
+    async def get_player_by_id(self, player_id: str, team_id: str) -> Player | None:
         """Get a player by ID."""
         return await self.player_repository.get_player_by_id(player_id, team_id)
 
-    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Optional[Player]:
+    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Player | None:
         """Get a player by phone number."""
         return await self.player_repository.get_player_by_phone(phone, team_id)
 
-    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[Player]:
+    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Player | None:
         """Get a player by Telegram ID."""
         try:
             # Use the database client directly since repository might not have this method
@@ -162,7 +162,7 @@ class PlayerService:
             logger.error(f"Error getting player by telegram_id {telegram_id}: {e}")
             return None
 
-    async def get_players_by_team(self, *, team_id: str, status: Optional[str] = None) -> List[Player]:
+    async def get_players_by_team(self, *, team_id: str, status: str | None = None) -> list[Player]:
         """Get players for a team, optionally filtered by status."""
         players = await self.player_repository.get_all_players(team_id)
 
@@ -171,11 +171,11 @@ class PlayerService:
 
         return players
 
-    async def get_all_players(self, team_id: str) -> List[Player]:
+    async def get_all_players(self, team_id: str) -> list[Player]:
         """Get all players for a team (alias for get_players_by_team)."""
         return await self.get_players_by_team(team_id=team_id)
 
-    async def get_active_players(self, team_id: str) -> List[Player]:
+    async def get_active_players(self, team_id: str) -> list[Player]:
         """Get active players for a team."""
         return await self.get_players_by_team(team_id=team_id, status="active")
 
@@ -190,7 +190,7 @@ class PlayerService:
 
         return await self.player_repository.update_player(player)
 
-    async def get_player_with_team_info(self, player_id: str, team_id: str) -> Dict[str, Any]:
+    async def get_player_with_team_info(self, player_id: str, team_id: str) -> dict[str, Any]:
         """Get player information including team details."""
         player = await self.get_player_by_id(player_id, team_id)
         if not player:
@@ -250,15 +250,15 @@ class PlayerService:
 
         return f"""👤 Player Information
 
-📋 Name: {player.full_name or player.first_name or 'Not set'}
-📱 Phone: {player.phone_number or 'Not set'}
-⚽ Position: {player.position or 'Not set'}
-🏷️ Player ID: {player.player_id or 'Not assigned'}
+📋 Name: {player.full_name or player.first_name or "Not set"}
+📱 Phone: {player.phone_number or "Not set"}
+⚽ Position: {player.position or "Not set"}
+🏷️ Player ID: {player.player_id or "Not assigned"}
 {emoji} Status: {player.status.title()}
 🏢 Team: {player.team_id}
 
-📅 Created: {player.created_at.strftime('%Y-%m-%d') if player.created_at else 'Unknown'}
-🔄 Updated: {player.updated_at.strftime('%Y-%m-%d') if player.updated_at else 'Unknown'}"""
+📅 Created: {player.created_at.strftime("%Y-%m-%d") if player.created_at else "Unknown"}
+🔄 Updated: {player.updated_at.strftime("%Y-%m-%d") if player.updated_at else "Unknown"}"""
 
     # Methods needed by reminder service and other components
     async def update_player(self, player_id: str, team_id: str, **updates) -> Player:
@@ -276,7 +276,7 @@ class PlayerService:
         return await self.player_repository.update_player(player)
 
     async def add_player(
-        self, name: str, phone: str, position: Optional[str] = None, team_id: Optional[str] = None
+        self, name: str, phone: str, position: str | None = None, team_id: str | None = None
     ) -> tuple[bool, str]:
         """Add a new player to the team with simplified ID generation."""
         try:
@@ -285,8 +285,12 @@ class PlayerService:
             if existing_player:
                 # Player already exists - return success with existing player info and invite link
                 player_id = existing_player.player_id or "Unknown"
-                status_info = f"Status: {existing_player.status.title()}" if existing_player.status else "Status: Unknown"
-                
+                status_info = (
+                    f"Status: {existing_player.status.title()}"
+                    if existing_player.status
+                    else "Status: Unknown"
+                )
+
                 success_message = f"""✅ Player Already Exists!
 
 📋 Name: {existing_player.full_name or name}
@@ -297,7 +301,7 @@ class PlayerService:
 📊 {status_info}
 
 💡 This player is already registered in the system. You can use the invite link below to add them to the chat."""
-                
+
                 return True, success_message
 
             # Get existing player IDs for collision detection

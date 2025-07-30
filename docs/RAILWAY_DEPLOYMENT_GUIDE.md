@@ -370,7 +370,6 @@ python run_e2e_tests.py --suite=smoke --environment=production
 ### Manual Validation
 
 #### Testing Environment Checklist
-- [ ] Bot responds to `/start` in test chat
 - [ ] Bot responds to `/help` in test chat
 - [ ] Player registration works (`/register`)
 - [ ] Leadership commands work in leadership chat

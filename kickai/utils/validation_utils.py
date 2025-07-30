@@ -6,7 +6,6 @@ This module provides comprehensive input validation for the KICKAI system.
 """
 
 import re
-from typing import List
 
 # Valid football positions
 VALID_POSITIONS = {
@@ -47,7 +46,7 @@ VALID_POSITIONS = {
 import phonenumbers
 
 
-def validate_player_input(name: str, phone: str, position: str, team_id: str) -> List[str]:
+def validate_player_input(name: str, phone: str, position: str, team_id: str) -> list[str]:
     """
     Validate player input parameters.
 
@@ -113,7 +112,7 @@ def is_valid_phone(phone: str) -> bool:
     try:
         # Parse the phone number (default to GB for UK numbers)
         number = phonenumbers.parse(phone.strip(), "GB")
-        
+
         # Check if it's a valid number
         return phonenumbers.is_valid_number(number)
     except phonenumbers.NumberParseException:
@@ -138,11 +137,11 @@ def normalize_phone(phone: str) -> str:
     try:
         # Parse the phone number (default to GB for UK numbers)
         number = phonenumbers.parse(phone.strip(), "GB")
-        
+
         # Check if it's a valid number
         if not phonenumbers.is_valid_number(number):
             return phone  # Return original if invalid
-            
+
         # Format to E.164 (international format with +)
         return phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.E164)
     except phonenumbers.NumberParseException:
@@ -151,7 +150,7 @@ def normalize_phone(phone: str) -> str:
         return phone  # Return original if any other error
 
 
-def validate_team_member_input(name: str, phone: str, role: str, team_id: str) -> List[str]:
+def validate_team_member_input(name: str, phone: str, role: str, team_id: str) -> list[str]:
     """
     Validate team member input parameters.
 

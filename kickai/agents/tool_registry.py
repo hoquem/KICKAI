@@ -11,11 +11,14 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
+
 
 # Minimal tool registry for compatibility
 class Tool:
     pass
+
+
 from loguru import logger
 
 from kickai.core.entity_types import EntityType
@@ -62,24 +65,24 @@ class ToolMetadata:
     description: str
     version: str = "1.0.0"
     enabled: bool = True
-    dependencies: List[str] = field(default_factory=list)
-    required_permissions: List[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
+    required_permissions: list[str] = field(default_factory=list)
     feature_module: str = "unknown"
-    tags: List[str] = field(default_factory=list)
-    tool_function: Optional[Callable] = None
-    entity_types: List[EntityType] = field(default_factory=lambda: [EntityType.NEITHER])
-    access_control: Dict[str, List[str]] = field(
+    tags: list[str] = field(default_factory=list)
+    tool_function: Callable | None = None
+    entity_types: list[EntityType] = field(default_factory=lambda: [EntityType.NEITHER])
+    access_control: dict[str, list[str]] = field(
         default_factory=dict
     )  # agent_role -> allowed_entity_types
     requires_context: bool = False  # Whether the tool requires context parameter
-    context_model: Optional[type[BaseContext]] = None  # Pydantic model for context validation
+    context_model: type[BaseContext] | None = None  # Pydantic model for context validation
 
 
 class ContextAwareTool(Tool):
     """Enhanced context-aware tool wrapper using Pydantic models."""
 
     def __init__(
-        self, original_tool: Any, tool_name: str, context_model: Optional[type[BaseContext]] = None
+        self, original_tool: Any, tool_name: str, context_model: type[BaseContext] | None = None
     ):
         """Initialize context-aware tool wrapper."""
 
@@ -129,14 +132,14 @@ class ContextAwareTool(Tool):
             logger.error(f"Error in context-aware tool {self.tool_name}: {e}")
             return f"Error: {e!s}"
 
-    def _extract_context_from_args(self, args: tuple, kwargs: dict) -> Optional[Dict[str, Any]]:
+    def _extract_context_from_args(self, args: tuple, kwargs: dict) -> dict[str, Any] | None:
         """Extract context data from tool arguments."""
         # With CrewAI's native approach, context is passed through task description
         # and the LLM decides which parameters to pass to tools
         # This method is kept for backward compatibility but simplified
         return None
 
-    def _extract_context_from_task(self) -> Optional[Dict[str, Any]]:
+    def _extract_context_from_task(self) -> dict[str, Any] | None:
         """Extract context from CrewAI task description."""
         # With CrewAI's native approach, context is included in task description
         # and the LLM extracts and passes relevant parameters to tools
@@ -213,7 +216,7 @@ class ToolFactory(ABC):
         pass
 
     @abstractmethod
-    def get_tool_info(self) -> Dict[str, Any]:
+    def get_tool_info(self) -> dict[str, Any]:
         """Get information about the tool."""
         pass
 
@@ -223,12 +226,12 @@ class ToolRegistry:
 
     def __init__(self):
         """Initialize the tool registry."""
-        self._tools: Dict[str, ToolMetadata] = {}
-        self._factories: Dict[str, ToolFactory] = {}
+        self._tools: dict[str, ToolMetadata] = {}
+        self._factories: dict[str, ToolFactory] = {}
         self._context_aware_tools: set[str] = set()
-        self._tool_aliases: Dict[str, str] = {}  # alias -> tool_id mapping
-        self._feature_tools: Dict[str, List[str]] = {}  # feature_module -> list of tool_ids
-        self._entity_tools: Dict[EntityType, List[str]] = {
+        self._tool_aliases: dict[str, str] = {}  # alias -> tool_id mapping
+        self._feature_tools: dict[str, list[str]] = {}  # feature_module -> list of tool_ids
+        self._entity_tools: dict[EntityType, list[str]] = {
             entity_type: [] for entity_type in EntityType
         }  # entity_type -> list of tool_ids
         self._discovered = False  # Track if tools have been auto-discovered
@@ -243,16 +246,16 @@ class ToolRegistry:
         description: str,
         version: str = "1.0.0",
         enabled: bool = True,
-        dependencies: Optional[List[str]] = None,
-        required_permissions: Optional[List[str]] = None,
-        tool_function: Optional[Callable] = None,
+        dependencies: list[str] | None = None,
+        required_permissions: list[str] | None = None,
+        tool_function: Callable | None = None,
         feature_module: str = "unknown",
-        tags: Optional[List[str]] = None,
-        aliases: Optional[List[str]] = None,
-        entity_types: Optional[List[EntityType]] = None,
-        access_control: Optional[Dict[str, List[str]]] = None,
+        tags: list[str] | None = None,
+        aliases: list[str] | None = None,
+        entity_types: list[EntityType] | None = None,
+        access_control: dict[str, list[str]] | None = None,
         requires_context: bool = False,
-        context_model: Optional[type[BaseContext]] = None,
+        context_model: type[BaseContext] | None = None,
     ) -> None:
         """Register a tool with enhanced context support."""
 
@@ -341,7 +344,7 @@ class ToolRegistry:
             context_model=metadata.context_model,
         )
 
-    def validate_tool_context(self, tool_id: str, context_data: Dict[str, Any]) -> bool:
+    def validate_tool_context(self, tool_id: str, context_data: dict[str, Any]) -> bool:
         """Validate context data for a specific tool."""
         metadata = self._tools.get(tool_id)
         if not metadata or not metadata.context_model:
@@ -349,11 +352,11 @@ class ToolRegistry:
 
         return validate_context_data(context_data, metadata.context_model.__name__.lower())
 
-    def get_context_aware_tools(self) -> List[str]:
+    def get_context_aware_tools(self) -> list[str]:
         """Get list of context-aware tools."""
         return list(self._context_aware_tools)
 
-    def get_tools_by_context_type(self, context_type: str) -> List[ToolMetadata]:
+    def get_tools_by_context_type(self, context_type: str) -> list[ToolMetadata]:
         """Get tools that use a specific context type."""
         context_tools = []
         for metadata in self._tools.values():
@@ -369,7 +372,7 @@ class ToolRegistry:
         self._factories[tool_id] = factory
         logger.info(f"✅ Registered factory for tool: {tool_id}")
 
-    def get_tool(self, tool_id: str) -> Optional[ToolMetadata]:
+    def get_tool(self, tool_id: str) -> ToolMetadata | None:
         """Get tool metadata by ID."""
         # Check direct match first
         if tool_id in self._tools:
@@ -382,12 +385,12 @@ class ToolRegistry:
 
         return None
 
-    def get_tool_function(self, tool_id: str) -> Optional[Callable]:
+    def get_tool_function(self, tool_id: str) -> Callable | None:
         """Get the actual tool function by ID."""
         tool_metadata = self.get_tool(tool_id)
         return tool_metadata.tool_function if tool_metadata else None
 
-    def get_factory(self, tool_id: str) -> Optional[ToolFactory]:
+    def get_factory(self, tool_id: str) -> ToolFactory | None:
         """Get tool factory by ID."""
         return self._factories.get(tool_id)
 
@@ -400,35 +403,35 @@ class ToolRegistry:
             logger.error(f"❌ No factory found for tool: {tool_id}")
             return None
 
-    def get_tools_by_feature(self, feature_module: str) -> List[ToolMetadata]:
+    def get_tools_by_feature(self, feature_module: str) -> list[ToolMetadata]:
         """Get all tools for a specific feature module."""
         tool_ids = self._feature_tools.get(feature_module, [])
         return [self._tools[tool_id] for tool_id in tool_ids if tool_id in self._tools]
 
-    def get_tools_by_type(self, tool_type: ToolType) -> List[ToolMetadata]:
+    def get_tools_by_type(self, tool_type: ToolType) -> list[ToolMetadata]:
         """Get all tools of a specific type."""
         return [tool for tool in self._tools.values() if tool.tool_type == tool_type]
 
-    def get_tools_by_category(self, category: ToolCategory) -> List[ToolMetadata]:
+    def get_tools_by_category(self, category: ToolCategory) -> list[ToolMetadata]:
         """Get all tools of a specific category."""
         return [tool for tool in self._tools.values() if tool.category == category]
 
-    def get_tools_by_entity_type(self, entity_type: EntityType) -> List[ToolMetadata]:
+    def get_tools_by_entity_type(self, entity_type: EntityType) -> list[ToolMetadata]:
         """Get all tools for a specific entity type."""
         tool_ids = self._entity_tools.get(entity_type, [])
         return [self._tools[tool_id] for tool_id in tool_ids if tool_id in self._tools]
 
-    def get_enabled_tools(self) -> List[ToolMetadata]:
+    def get_enabled_tools(self) -> list[ToolMetadata]:
         """Get all enabled tools."""
         return [tool for tool in self._tools.values() if tool.enabled]
 
-    def get_tools_with_permission(self, permission: str) -> List[ToolMetadata]:
+    def get_tools_with_permission(self, permission: str) -> list[ToolMetadata]:
         """Get all tools that require a specific permission."""
         return [tool for tool in self._tools.values() if permission in tool.required_permissions]
 
     def get_tools_for_agent(
-        self, agent_role: str, entity_type: Optional[EntityType] = None
-    ) -> List[ToolMetadata]:
+        self, agent_role: str, entity_type: EntityType | None = None
+    ) -> list[ToolMetadata]:
         """Get tools available for a specific agent role and entity type."""
         available_tools = []
 
@@ -443,7 +446,7 @@ class ToolRegistry:
         return available_tools
 
     def validate_tool_access(
-        self, tool_id: str, agent_role: str, entity_type: Optional[EntityType] = None
+        self, tool_id: str, agent_role: str, entity_type: EntityType | None = None
     ) -> bool:
         """Validate if an agent can access a specific tool."""
         tool = self.get_tool(tool_id)
@@ -563,7 +566,6 @@ class ToolRegistry:
             # Import the module with proper context
             import importlib.util
             import sys
-            from pathlib import Path
 
             # Add the parent directory to sys.path to ensure proper imports
             parent_dir = file_path.parent.parent.parent.parent
@@ -691,7 +693,7 @@ class ToolRegistry:
         else:
             return ToolCategory.FEATURE
 
-    def _determine_entity_types(self, tool_name: str) -> List[EntityType]:
+    def _determine_entity_types(self, tool_name: str) -> list[EntityType]:
         """Determine entity types based on tool name."""
         tool_lower = tool_name.lower()
 
@@ -704,53 +706,55 @@ class ToolRegistry:
         else:
             return [EntityType.NEITHER]
 
-    def _determine_access_control(self, tool_name: str) -> Dict[str, List[str]]:
+    def _determine_access_control(self, tool_name: str) -> dict[str, list[str]]:
         """Determine access control based on tool name."""
         tool_lower = tool_name.lower()
 
         # Default access control
-        access_control: Dict[str, List[str]] = {}
+        access_control: dict[str, list[str]] = {}
 
         # Admin tools - accessible by team administrators and managers
         if any(keyword in tool_lower for keyword in ["admin", "manage", "control"]):
             access_control["team_administrator"] = ["both"]
             access_control["team_manager"] = ["both"]
-        
+
         # Player management tools - accessible by team managers and coordinators
-        elif any(keyword in tool_lower for keyword in ["player", "register", "approve", "remove", "add"]):
+        elif any(
+            keyword in tool_lower for keyword in ["player", "register", "approve", "remove", "add"]
+        ):
             access_control["team_manager"] = ["both"]
             access_control["player_coordinator"] = ["both"]
             access_control["team_administrator"] = ["both"]
-        
+
         # Team management tools - accessible by team administrators and managers
         elif any(keyword in tool_lower for keyword in ["team", "member", "squad"]):
             access_control["team_administrator"] = ["both"]
             access_control["team_manager"] = ["both"]
-        
+
         # Match management tools - accessible by match coordinators and team managers
         elif any(keyword in tool_lower for keyword in ["match", "game", "fixture"]):
             access_control["match_coordinator"] = ["both"]
             access_control["team_manager"] = ["both"]
-        
+
         # Communication tools - accessible by communication managers
         elif any(keyword in tool_lower for keyword in ["message", "notification", "communication"]):
             access_control["communication_manager"] = ["both"]
-        
+
         # Finance tools - accessible by finance managers
         elif any(keyword in tool_lower for keyword in ["payment", "finance", "budget", "expense"]):
             access_control["finance_manager"] = ["both"]
-        
+
         # Help tools - accessible by help assistants
         elif any(keyword in tool_lower for keyword in ["help", "assist", "guide"]):
             access_control["help_assistant"] = ["both"]
-        
+
         # System tools - accessible by intelligent system
         elif any(keyword in tool_lower for keyword in ["system", "health", "status"]):
             access_control["intelligent_system"] = ["both"]
 
         return access_control
 
-    def get_tool_statistics(self) -> Dict[str, Any]:
+    def get_tool_statistics(self) -> dict[str, Any]:
         """Get statistics about registered tools."""
         total_tools = len(self._tools)
         total_aliases = len(self._tool_aliases)
@@ -783,11 +787,11 @@ class ToolRegistry:
             "discovered": self._discovered,
         }
 
-    def list_all_tools(self) -> List[ToolMetadata]:
+    def list_all_tools(self) -> list[ToolMetadata]:
         """Get all registered tools."""
         return list(self._tools.values())
 
-    def search_tools(self, query: str) -> List[ToolMetadata]:
+    def search_tools(self, query: str) -> list[ToolMetadata]:
         """Search tools by name or description."""
         query_lower = query.lower()
         results = []
@@ -802,11 +806,11 @@ class ToolRegistry:
 
         return results
 
-    def get_tool_names(self) -> List[str]:
+    def get_tool_names(self) -> list[str]:
         """Get list of all tool names."""
         return list(self._tools.keys())
 
-    def get_tool_functions(self) -> Dict[str, Callable]:
+    def get_tool_functions(self) -> dict[str, Callable]:
         """Get dictionary of tool names to their functions."""
         return {
             tool_id: tool.tool_function
@@ -814,13 +818,13 @@ class ToolRegistry:
             if tool.tool_function is not None
         }
 
-    def get_context_aware_tools(self) -> List[str]:
+    def get_context_aware_tools(self) -> list[str]:
         """Get list of tools that require context."""
         return [tool_id for tool_id, tool in self._tools.items() if tool.requires_context]
 
 
 # Global tool registry instance - True singleton
-_tool_registry: Optional[ToolRegistry] = None
+_tool_registry: ToolRegistry | None = None
 _tool_registry_initialized = False
 
 
@@ -858,19 +862,19 @@ def reset_tool_registry() -> None:
     logger.info("🔄 Global ToolRegistry reset")
 
 
-def get_tool(tool_name: str) -> Optional[Callable]:
+def get_tool(tool_name: str) -> Callable | None:
     """Get a tool function by name."""
     registry = get_tool_registry()
     return registry.get_tool_function(tool_name)
 
 
-def get_tool_names() -> List[str]:
+def get_tool_names() -> list[str]:
     """Get list of all available tool names."""
     registry = get_tool_registry()
     return registry.get_tool_names()
 
 
-def get_all_tools() -> List[Callable]:
+def get_all_tools() -> list[Callable]:
     """Get all available tool functions."""
     registry = get_tool_registry()
     return list(registry.get_tool_functions().values())

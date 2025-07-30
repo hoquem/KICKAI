@@ -6,10 +6,9 @@ This module provides reporting structures for startup validation results.
 
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from kickai.core.enums import CheckStatus, CheckCategory
+from kickai.core.enums import CheckCategory, CheckStatus
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +21,9 @@ class CheckResult:
     category: CheckCategory
     status: CheckStatus
     message: str
-    details: Optional[Dict[str, Any]] = None
-    duration_ms: Optional[float] = None
-    error: Optional[Exception] = None
+    details: dict[str, Any] | None = None
+    duration_ms: float | None = None
+    error: Exception | None = None
 
 
 @dataclass
@@ -32,11 +31,11 @@ class ValidationReport:
     """Complete validation report."""
 
     overall_status: CheckStatus
-    checks: List[CheckResult] = field(default_factory=list)
-    summary: Dict[CheckCategory, dict[CheckStatus, int]] = field(default_factory=dict)
-    critical_failures: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    recommendations: List[str] = field(default_factory=list)
+    checks: list[CheckResult] = field(default_factory=list)
+    summary: dict[CheckCategory, dict[CheckStatus, int]] = field(default_factory=dict)
+    critical_failures: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
     def add_check(self, check: CheckResult) -> None:
         """Add a check result to the report."""
@@ -79,7 +78,7 @@ class ValidationReport:
             return 0.0
         return (self.get_passed_count() / self.get_total_count()) * 100
 
-    def get_failures_by_category(self) -> Dict[CheckCategory, List[CheckResult]]:
+    def get_failures_by_category(self) -> dict[CheckCategory, list[CheckResult]]:
         """Get failed checks grouped by category."""
         failures = {}
         for check in self.checks:
@@ -89,7 +88,7 @@ class ValidationReport:
                 failures[check.category].append(check)
         return failures
 
-    def get_warnings_by_category(self) -> Dict[CheckCategory, List[CheckResult]]:
+    def get_warnings_by_category(self) -> dict[CheckCategory, list[CheckResult]]:
         """Get warning checks grouped by category."""
         warnings = {}
         for check in self.checks:
@@ -99,7 +98,7 @@ class ValidationReport:
                 warnings[check.category].append(check)
         return warnings
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert report to dictionary for serialization."""
         return {
             "overall_status": self.overall_status.value,

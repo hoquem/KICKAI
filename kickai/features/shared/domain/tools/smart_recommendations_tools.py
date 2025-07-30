@@ -6,35 +6,31 @@ This module provides intelligent recommendations for roles, positions,
 and onboarding paths based on user characteristics, team needs, and preferences.
 """
 
-import logging
-from typing import Dict, List, Optional, Tuple
-
-from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 from pydantic import BaseModel
 
-from kickai.utils.constants import VALID_PLAYER_POSITIONS, VALID_TEAM_MEMBER_ROLES
+from kickai.utils.crewai_tool_decorator import tool
 
 
 class UserProfile(BaseModel):
     """User profile for recommendations."""
-    
+
     experience_level: str = "beginner"  # beginner, intermediate, experienced
-    time_availability: str = "medium"   # low, medium, high
-    interests: List[str] = []          # coaching, playing, admin, logistics
-    skills: List[str] = []             # technical, leadership, organization
-    preferences: Dict[str, str] = {}    # various preferences
+    time_availability: str = "medium"  # low, medium, high
+    interests: list[str] = []  # coaching, playing, admin, logistics
+    skills: list[str] = []  # technical, leadership, organization
+    preferences: dict[str, str] = {}  # various preferences
 
 
 class RecommendationResult(BaseModel):
     """Recommendation result structure."""
-    
+
     primary_recommendation: str
-    alternatives: List[str]
+    alternatives: list[str]
     reasoning: str
     confidence: str  # low, medium, high
-    benefits: List[str]
-    considerations: List[str]
+    benefits: list[str]
+    considerations: list[str]
 
 
 @tool("get_smart_position_recommendations")
@@ -42,23 +38,23 @@ def get_smart_position_recommendations(
     experience: str = "beginner",
     physical_attributes: str = "average",
     playing_style: str = "versatile",
-    availability: str = "medium"
+    availability: str = "medium",
 ) -> str:
     """
     Get smart position recommendations based on user characteristics.
-    
+
     Args:
         experience: "beginner", "intermediate", "experienced"
         physical_attributes: "tall", "fast", "strong", "agile", "average"
         playing_style: "attacking", "defensive", "versatile", "technical"
         availability: "low", "medium", "high"
-        
+
     Returns:
         Smart position recommendations with reasoning
     """
     try:
         recommendations = []
-        
+
         # Algorithm for position recommendation
         if experience == "beginner":
             if playing_style == "defensive":
@@ -83,11 +79,11 @@ def get_smart_position_recommendations(
                 recommendations = [("forward", 0.9), ("midfielder", 0.8)]
             else:
                 recommendations = [("midfielder", 0.9), ("utility", 0.7)]
-                
+
         # Sort by confidence and take top 3
         recommendations.sort(key=lambda x: x[1], reverse=True)
         top_recs = recommendations[:3]
-        
+
         # Build response
         response = f"""
 🎯 **SMART POSITION RECOMMENDATIONS**
@@ -101,24 +97,26 @@ def get_smart_position_recommendations(
 🏆 **TOP RECOMMENDATIONS:**
 
 """
-        
+
         for i, (position, confidence) in enumerate(top_recs, 1):
-            confidence_level = "High" if confidence > 0.8 else "Medium" if confidence > 0.6 else "Moderate"
-            
+            confidence_level = (
+                "High" if confidence > 0.8 else "Medium" if confidence > 0.6 else "Moderate"
+            )
+
             response += f"""**{i}. {position.upper()}** ⭐ ({confidence_level} match)
 {_get_position_benefits(position, experience, playing_style)}
 
 """
-        
+
         response += f"""
 💡 **REASONING:**
 {_get_position_reasoning(top_recs[0][0], experience, physical_attributes, playing_style)}
 
 ❓ **WANT MORE DETAILS?** Ask me to explain any of these positions in detail!
         """
-        
+
         return response.strip()
-        
+
     except Exception as e:
         logger.error(f"❌ Position recommendation error: {e}")
         return f"❌ Could not generate position recommendations: {e!s}"
@@ -130,24 +128,24 @@ def get_smart_role_recommendations(
     technical_skills: str = "basic",
     organization_skills: str = "average",
     time_commitment: str = "medium",
-    interests: str = "general"
+    interests: str = "general",
 ) -> str:
     """
     Get smart role recommendations based on skills and preferences.
-    
+
     Args:
         leadership_experience: "none", "some", "experienced"
         technical_skills: "basic", "intermediate", "advanced"
         organization_skills: "poor", "average", "good", "excellent"
         time_commitment: "low", "medium", "high"
         interests: "coaching", "admin", "logistics", "general"
-        
+
     Returns:
         Smart role recommendations with reasoning
     """
     try:
         recommendations = []
-        
+
         # Algorithm for role recommendation
         if leadership_experience == "experienced":
             if interests == "coaching":
@@ -172,11 +170,11 @@ def get_smart_role_recommendations(
                 recommendations = [("admin", 0.7), ("volunteer", 0.8)]
             else:
                 recommendations = [("volunteer", 0.9), ("assistant", 0.6)]
-                
+
         # Sort and format
         recommendations.sort(key=lambda x: x[1], reverse=True)
         top_recs = recommendations[:3]
-        
+
         response = f"""
 🎯 **SMART ROLE RECOMMENDATIONS**
 
@@ -190,24 +188,26 @@ def get_smart_role_recommendations(
 🏆 **TOP RECOMMENDATIONS:**
 
 """
-        
+
         for i, (role, confidence) in enumerate(top_recs, 1):
-            confidence_level = "High" if confidence > 0.8 else "Medium" if confidence > 0.6 else "Moderate"
-            
+            confidence_level = (
+                "High" if confidence > 0.8 else "Medium" if confidence > 0.6 else "Moderate"
+            )
+
             response += f"""**{i}. {role.upper()}** ⭐ ({confidence_level} match)
 {_get_role_benefits(role, leadership_experience, time_commitment)}
 
 """
-        
+
         response += f"""
 💡 **REASONING:**
 {_get_role_reasoning(top_recs[0][0], leadership_experience, technical_skills, organization_skills)}
 
 ❓ **WANT MORE DETAILS?** Ask me to explain any of these roles in detail!
         """
-        
+
         return response.strip()
-        
+
     except Exception as e:
         logger.error(f"❌ Role recommendation error: {e}")
         return f"❌ Could not generate role recommendations: {e!s}"
@@ -218,17 +218,17 @@ def get_onboarding_path_recommendation(
     primary_interest: str,
     secondary_interest: str = None,
     urgency: str = "normal",
-    complexity_preference: str = "simple"
+    complexity_preference: str = "simple",
 ) -> str:
     """
     Recommend optimal onboarding path based on interests and preferences.
-    
+
     Args:
         primary_interest: "playing", "administration", "both"
         secondary_interest: Optional secondary interest
         urgency: "low", "normal", "high"
         complexity_preference: "simple", "moderate", "comprehensive"
-        
+
     Returns:
         Onboarding path recommendations
     """
@@ -241,7 +241,7 @@ def get_onboarding_path_recommendation(
             path = _get_admin_path_recommendation(urgency, complexity_preference)
         else:
             path = _get_default_path_recommendation()
-            
+
         return f"""
 🛤️ **RECOMMENDED ONBOARDING PATH**
 
@@ -260,7 +260,7 @@ def get_onboarding_path_recommendation(
 
 🚀 **READY TO START?** Just say "begin onboarding" and I'll guide you!
         """
-        
+
     except Exception as e:
         logger.error(f"❌ Path recommendation error: {e}")
         return f"❌ Could not recommend onboarding path: {e!s}"
@@ -273,7 +273,7 @@ def _get_position_benefits(position: str, experience: str, style: str) -> str:
         "defender": "• Solid foundation for learning\n• Important tactical role\n• Good for defensive-minded players",
         "midfielder": "• Central to team play\n• Develops all-around skills\n• High involvement in games",
         "forward": "• Exciting attacking role\n• Goal-scoring opportunities\n• Dynamic and fast-paced",
-        "utility": "• Learn multiple positions\n• High flexibility and value\n• Great for beginners"
+        "utility": "• Learn multiple positions\n• High flexibility and value\n• Great for beginners",
     }
     return benefits.get(position, "• Excellent football position")
 
@@ -286,7 +286,7 @@ def _get_role_benefits(role: str, experience: str, commitment: str) -> str:
         "assistant": "• Support without full responsibility\n• Learning opportunity\n• Flexible involvement level",
         "coordinator": "• Organizational skills development\n• Event planning experience\n• Important team function",
         "volunteer": "• Flexible contribution level\n• Great way to start\n• Community building focus",
-        "admin": "• Technical skills utilization\n• System management\n• Behind-the-scenes impact"
+        "admin": "• Technical skills utilization\n• System management\n• Behind-the-scenes impact",
     }
     return benefits.get(role, "• Valuable team contribution")
 
@@ -418,17 +418,17 @@ def _get_default_path_recommendation() -> str:
 def analyze_team_needs_for_recommendations(team_id: str) -> str:
     """
     Analyze current team needs to provide contextual recommendations.
-    
+
     Args:
         team_id: Team ID to analyze
-        
+
     Returns:
         Team needs analysis with recommendations
     """
     try:
         # In a real implementation, this would query the database
         # for current team composition and identify gaps
-        
+
         return f"""
 📊 **TEAM NEEDS ANALYSIS**
 
@@ -470,7 +470,7 @@ def analyze_team_needs_for_recommendations(team_id: str) -> str:
 💡 **TEAM BENEFITS:**
 Joining now means immediate impact and rapid integration!
         """
-        
+
     except Exception as e:
         logger.error(f"❌ Team needs analysis error: {e}")
         return f"❌ Could not analyze team needs: {e!s}"
@@ -478,26 +478,25 @@ Joining now means immediate impact and rapid integration!
 
 @tool("get_personalized_welcome_message")
 def get_personalized_welcome_message(
-    name: str,
-    recommended_role: str,
-    registration_type: str,
-    confidence_level: str = "high"
+    name: str, recommended_role: str, registration_type: str, confidence_level: str = "high"
 ) -> str:
     """
     Generate personalized welcome message based on recommendations.
-    
+
     Args:
         name: User's name
         recommended_role: Recommended role/position
         registration_type: "player", "team_member", "dual"
         confidence_level: Recommendation confidence
-        
+
     Returns:
         Personalized welcome message
     """
     try:
-        confidence_emoji = "🎯" if confidence_level == "high" else "👍" if confidence_level == "medium" else "💡"
-        
+        confidence_emoji = (
+            "🎯" if confidence_level == "high" else "👍" if confidence_level == "medium" else "💡"
+        )
+
         if registration_type == "dual":
             return f"""
 🎉 **WELCOME {name.upper()}!**
@@ -505,8 +504,8 @@ def get_personalized_welcome_message(
 {confidence_emoji} **PERSONALIZED RECOMMENDATION:** Based on your interests and our analysis, you're perfectly suited for **DUAL ROLES**!
 
 ⚽👥 **YOUR RECOMMENDED PATH:**
-• **Player:** {recommended_role.split('+')[0].strip().title()}
-• **Team Member:** {recommended_role.split('+')[1].strip().title()}
+• **Player:** {recommended_role.split("+")[0].strip().title()}
+• **Team Member:** {recommended_role.split("+")[1].strip().title()}
 
 🌟 **WHY THIS WORKS FOR YOU:**
 • Best of both worlds - playing AND contributing administratively
@@ -574,7 +573,7 @@ Ready to show what you can do on the pitch! ⚽🔥
 
 Thank you for stepping up to help lead our team! 👥🌟
             """
-            
+
     except Exception as e:
         logger.error(f"❌ Welcome message generation error: {e}")
         return f"❌ Could not generate welcome message: {e!s}"

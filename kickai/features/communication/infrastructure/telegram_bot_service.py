@@ -1,5 +1,3 @@
-from typing import Dict, Union
-
 from loguru import logger
 from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
@@ -213,7 +211,7 @@ class TelegramBotService(TelegramBotServiceInterface):
             message = self.agentic_router.convert_telegram_update_to_message(update, command_name)
 
             # Route through agentic system (NO direct processing)
-            response = await self.agentic_router.route_command(command_name, message)
+            response = await self.agentic_router.route_message(message)
 
             # Send response
             await self._send_response(update, response)
@@ -319,7 +317,7 @@ class TelegramBotService(TelegramBotServiceInterface):
         except Exception as e:
             logger.error(f"❌ Error in debug handler: {e}")
 
-    async def send_message(self, chat_id: Union[int, str], text: str, **kwargs):
+    async def send_message(self, chat_id: int | str, text: str, **kwargs):
         """Send a message to a specific chat."""
         try:
             logger.info(f"Sending message to chat_id={chat_id}: {text}")
@@ -328,7 +326,7 @@ class TelegramBotService(TelegramBotServiceInterface):
             logger.error(f"❌ Error sending message: {e}")
             raise
 
-    async def send_contact_share_button(self, chat_id: Union[int, str], text: str):
+    async def send_contact_share_button(self, chat_id: int | str, text: str):
         """Send a message with a contact sharing button."""
         try:
             keyboard = [[KeyboardButton(text="📱 Share My Phone Number", request_contact=True)]]

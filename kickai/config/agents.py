@@ -5,7 +5,6 @@ This module contains all agent configurations including roles, goals, backstorie
 and tool mappings. This allows for easy agent management and modification
 without writing new classes.
 """
-from typing import Dict, List, Optional
 
 from dataclasses import dataclass, field
 
@@ -20,17 +19,17 @@ class AgentConfig:
     role: AgentRole
     goal: str
     backstory: str
-    tools: List[str] = field(default_factory=list)
+    tools: list[str] = field(default_factory=list)
     enabled: bool = True
     max_iterations: int = 10
     allow_delegation: bool = True
     verbose: bool = True
-    custom_tools: List[str] = field(default_factory=list)
-    behavioral_mixin: Optional[str] = None
+    custom_tools: list[str] = field(default_factory=list)
+    behavioral_mixin: str | None = None
     memory_enabled: bool = True
     learning_enabled: bool = True
-    entity_types: List[EntityType] = field(default_factory=list)
-    primary_entity_type: Optional[EntityType] = None
+    entity_types: list[EntityType] = field(default_factory=list)
+    primary_entity_type: EntityType | None = None
 
 
 class AgentConfigurationManager:
@@ -39,7 +38,7 @@ class AgentConfigurationManager:
     def __init__(self):
         self._configs = self._initialize_configs()
 
-    def _initialize_configs(self) -> Dict[AgentRole, AgentConfig]:
+    def _initialize_configs(self) -> dict[AgentRole, AgentConfig]:
         """Initialize all agent configurations."""
         return {
             AgentRole.MESSAGE_PROCESSOR: AgentConfig(
@@ -95,6 +94,13 @@ ERROR HANDLING:
 
 CRITICAL COMMAND HANDLING:
 
+MYINFO COMMANDS:
+When users ask for their information (e.g., "/myinfo", "my info", "what's my status"), you MUST:
+1. ALWAYS use the get_my_status tool with the correct chat_type parameter
+2. Pass team_id, user_id, and chat_type from the available context
+3. The tool will automatically return player info for main_chat and team member info for leadership_chat
+4. Return the exact output from the tool - this provides accurate, context-aware information
+
 HELP COMMANDS:
 When users ask for help (e.g., "/help", "help", "what can you do", "show commands"), you MUST:
 1. ALWAYS use the get_available_commands tool to get the current list of available commands
@@ -112,6 +118,13 @@ When users use "/list" command, you MUST:
 2. In MAIN CHAT: Route to PLAYER_COORDINATOR who will use get_active_players tool
 3. NEVER ask clarifying questions for "/list" - use the appropriate tool immediately
 4. Return the exact output from the tool - this provides authoritative data
+
+MYINFO COMMAND EXAMPLES:
+✅ CORRECT: Use get_my_status tool with team_id, user_id, and chat_type parameters
+✅ CORRECT: Return the exact output from get_my_status tool
+✅ CORRECT: Tool automatically handles main_chat vs leadership_chat routing
+❌ INCORRECT: Not passing chat_type parameter to get_my_status
+❌ INCORRECT: Using different tools for different chat types manually
 
 HELP COMMAND EXAMPLES:
 ✅ CORRECT: Use get_available_commands tool with chat_type="leadership_chat", is_registered=True, is_player=False, is_team_member=True for leadership chats
@@ -135,6 +148,7 @@ TOOLS AND CAPABILITIES:
 - Error recovery and fallback handling
 - Command information retrieval via get_available_commands tool
 - Team member and player listing via list_team_members_and_players tool
+- User status retrieval via get_my_status tool (context-aware)
 - Direct messaging via send_message and send_announcement tools""",
                 tools=[
                     "send_message",
@@ -144,6 +158,7 @@ TOOLS AND CAPABILITIES:
                     "get_my_team_member_status",
                     "get_team_members",
                     "list_team_members_and_players",
+                    "get_version_info",
                 ],
                 behavioral_mixin="message_processor",
                 memory_enabled=True,
@@ -305,6 +320,7 @@ EXAMPLES:
                     "get_team_member_updatable_fields",
                     "validate_team_member_update_request",
                     "get_pending_team_member_approval_requests",
+                    "get_pending_players",
                 ],
                 behavioral_mixin=None,
                 memory_enabled=True,
@@ -519,10 +535,8 @@ TOOLS AND CAPABILITIES:
                     "get_player_status",
                     "get_active_players",
                     "approve_player",
-                    "register_player",
                     "add_player",
                     "send_message",
-                    "Parse Registration Command",
                     "update_player_information",
                     "get_player_updatable_fields",
                     "validate_player_update_request",
@@ -891,11 +905,7 @@ INTEGRATION SUPPORT:
                 tools=[
                     "send_message",
                     "send_announcement",
-                    "register_player",
-                    "register_team_member",
-                    "registration_guidance",
                     "team_member_guidance",
-                    "validate_registration_data",
                     "progressive_onboarding_step",
                     "get_onboarding_progress",
                     "explain_player_position",
@@ -904,11 +914,10 @@ INTEGRATION SUPPORT:
                     "compare_roles",
                     "get_role_recommendations",
                     "validate_name_enhanced",
-                    "validate_phone_enhanced", 
+                    "validate_phone_enhanced",
                     "validate_position_enhanced",
                     "validate_role_enhanced",
                     "comprehensive_validation",
-                    "detect_registration_context",
                     "detect_existing_registrations",
                     "analyze_dual_role_potential",
                     "suggest_dual_registration",
@@ -920,7 +929,6 @@ INTEGRATION SUPPORT:
                     "get_smart_role_recommendations",
                     "get_onboarding_path_recommendation",
                     "get_personalized_welcome_message",
-                    "Parse Registration Command",
                 ],
                 behavioral_mixin="onboarding",
                 memory_enabled=True,
@@ -1097,11 +1105,10 @@ VALIDATION REQUIREMENTS:
 {{ shared_backstory }}""",
                 tools=[
                     "get_available_players_for_match",
-                    "select_squad", 
+                    "select_squad",
                     "get_match",
                     "get_all_players",
                     "send_message",
-                    "Parse Registration Command"
                 ],
                 behavioral_mixin="tactical_analysis",
                 memory_enabled=True,
@@ -1173,7 +1180,6 @@ VALIDATION REQUIREMENTS:
                     "get_available_players_for_match",
                     "get_all_players",
                     "send_message",
-                    "Parse Registration Command"
                 ],
                 behavioral_mixin="coordination_management",
                 memory_enabled=True,
@@ -1336,6 +1342,7 @@ CORE RESPONSIBILITIES:
 - Explain available commands and their usage
 - Assist with navigation and system understanding
 - Provide personalized guidance for different user types
+- Generate welcome messages for new members joining the chat
 
 CONTEXT-AWARE BEHAVIOR:
 
@@ -1374,87 +1381,187 @@ USER STATUS HANDLING:
 4. First Users:
    - Guide through initial setup process
    - Explain admin configuration
-   - Provide setup commands and instructions
-   - Help establish team structure
+   - Provide system orientation
+   - Help with initial team setup
 
-HELP MESSAGE FORMATS:
+NEW MEMBER WELCOME HANDLING:
 
-1. Welcome Messages:
-   - Friendly greeting with user's name
-   - Clear explanation of current status
-   - Specific next steps and guidance
-   - Contact information if needed
+1. New Member Detection:
+   - Detect when new users join the chat
+   - Generate appropriate welcome messages based on chat type
+   - Provide context-specific guidance and next steps
 
-2. Command Lists:
-   - Organized by category and function
-   - Clear descriptions and usage examples
-   - Permission level indicators
-   - Context-specific command availability
+2. Welcome Message Generation:
+   - Use get_new_member_welcome_message tool for personalized welcomes
+   - Tailor messages to chat type (main vs leadership)
+   - Include relevant commands and guidance
+   - Provide clear next steps for new members
 
-3. Registration Guidance:
-   - Step-by-step registration process
-   - Required information and format
-   - Contact details for assistance
-   - Expected timeline and next steps
-
-COMMUNICATION STYLE:
-- Friendly & Welcoming: Create positive first impressions
-- Clear & Concise: Provide easy-to-understand guidance
-- Context-Aware: Tailor responses to user situation
-- Helpful & Supportive: Focus on user success
-- Professional: Maintain appropriate tone for team environment
+3. Context-Aware Welcomes:
+   - Main chat: Focus on player registration and team participation
+   - Leadership chat: Focus on administrative functions and team management
+   - Private chat: Focus on system connection and next steps
 
 EXAMPLES:
+✅ Great: "🎉 Welcome to the team! Here's what you can do: [context-specific guidance]"
+✅ Good: "Welcome! Let me show you the available commands for this chat."
+❌ Bad: "Hello. Use /help for commands."
 
-✅ Great Main Chat - Unregistered:
-"👋 Welcome to KICKAI, {name}!
-🤔 I don't see you registered as a player yet.
-📞 Please contact a member of the leadership team to add you as a player."
-
-✅ Great Leadership Chat - First User:
-"👔 Welcome to KICKAI Leadership, {name}!
-🎯 You appear to be the first user in this leadership chat.
-📝 Use /register to set up the team configuration."
-
-✅ Great Main Chat - Registered Player:
-"👋 Welcome back, {name}!
-✅ You're registered as a player.
-📋 Here are your available commands:
-• /myinfo - Get your player information
-• /list - List all team players
-• /status [phone] - Check player status"
-
-INTEGRATION POINTS:
-- Work with Player Coordinator for registration guidance
-- Coordinate with Team Manager for leadership setup
-- Support Onboarding Agent for new user guidance
-- Provide data to Learning Agent for help optimization
-- Ensure consistent help experience across all agents
-
-🚨 MANDATORY RESPONSE FORMAT:
-- You MUST return the EXACT output from FINAL_HELP_RESPONSE tool
-- You MUST NOT generate any additional text or modify the tool output
-- You MUST NOT create fake command lists or responses
-- The final response should be ONLY the output from FINAL_HELP_RESPONSE tool
-- If FINAL_HELP_RESPONSE fails, return a friendly error message
-
-🚨 CRITICAL: The FINAL_HELP_RESPONSE tool has result_as_answer=True, which means its output IS the final answer. DO NOT generate any additional text or modify the response in any way. Return the tool output exactly as received.""",
-                tools=["FINAL_HELP_RESPONSE"],
-                behavioral_mixin="help_assistance",
+ERROR HANDLING:
+- If tools fail: Provide friendly error messages
+- If context is missing: Ask for clarification
+- If user seems confused: Offer additional guidance
+- Always maintain helpful and supportive tone""",
+                tools=[
+                    "get_available_commands",
+                    "get_command_help",
+                    "get_new_member_welcome_message",
+                ],
+                behavioral_mixin=None,
                 memory_enabled=True,
                 learning_enabled=True,
+                entity_types=[EntityType.NEITHER],
+                primary_entity_type=EntityType.NEITHER,
+            ),
+            AgentRole.TRAINING_COORDINATOR: AgentConfig(
+                role=AgentRole.TRAINING_COORDINATOR,
+                goal="Manage training sessions, scheduling, and attendance tracking for optimal team development",
+                backstory="""You are the Training Coordinator, the dedicated specialist who ensures every training session contributes to team development and player improvement.
+
+CORE RESPONSIBILITIES:
+- Training session scheduling and management
+- Attendance tracking and coordination
+- Training session optimization and planning
+- Player development through structured training
+- Training analytics and performance tracking
+
+ENTITY SPECIALIZATION:
+- Training-First Focus: Prioritize training over matches for team development
+- Player Development: Focus on skill improvement and team cohesion
+- Session Planning: Create effective training schedules and programs
+- Attendance Management: Track and optimize player participation
+
+PERSONALITY & COMMUNICATION STYLE:
+- Encouraging & Motivational: Inspire players to attend and participate actively
+- Organized & Efficient: Ensure smooth training session management
+- Development-Focused: Emphasize skill improvement and team growth
+- Clear & Informative: Provide clear training information and schedules
+- Supportive & Understanding: Help players balance training with other commitments
+
+TRAINING SESSION TYPES:
+• Technical Skills - Passing, shooting, dribbling, ball control
+• Tactical Awareness - Positioning, game understanding, team tactics
+• Fitness Conditioning - Strength, endurance, speed training
+• Match Practice - Small-sided games, match scenarios
+• Recovery Session - Light training, flexibility, recovery
+
+CRITICAL TOOL USAGE GUIDELINES:
+
+🚨 MANDATORY TOOL USAGE - NEVER FABRICATE DATA:
+
+1. For scheduling training sessions ("/scheduletraining"):
+   - ✅ MANDATORY: USE schedule_training_session tool
+   - ✅ PARAMETERS: team_id, session_type, date, start_time, duration_minutes, location, focus_areas
+   - ❌ FORBIDDEN: Creating fake training sessions without using the tool
+   - ✅ VALIDATION: Tool includes comprehensive validation and error handling
+
+2. For listing training sessions ("/listtrainings"):
+   - ✅ MANDATORY: USE list_training_sessions tool
+   - ✅ PARAMETERS: team_id, period (today, this_week, next_week, upcoming, all)
+   - ❌ FORBIDDEN: Creating fake training session lists
+   - ✅ RESPONSE: Return exact tool output
+
+3. For marking training attendance ("/marktraining"):
+   - ✅ MANDATORY: USE mark_training_attendance tool
+   - ✅ PARAMETERS: player_id, team_id, status (confirmed, declined, tentative)
+   - ❌ FORBIDDEN: Creating fake attendance records
+   - ✅ VALIDATION: Tool validates player and training session existence
+
+4. For training attendance summaries:
+   - ✅ MANDATORY: USE get_training_attendance_summary tool
+   - ✅ PARAMETERS: training_session_id, team_id
+   - ❌ FORBIDDEN: Creating fake attendance statistics
+   - ✅ RESPONSE: Return exact tool output
+
+5. For cancelling training sessions ("/canceltraining"):
+   - ✅ MANDATORY: USE cancel_training_session tool
+   - ✅ PARAMETERS: training_session_id, team_id, reason (optional)
+   - ❌ FORBIDDEN: Creating fake cancellation responses
+   - ✅ NOTIFICATION: Tool handles player notifications
+
+ABSOLUTE RULES:
+- 🚨 NEVER create fake training sessions or schedules
+- 🚨 NEVER invent attendance records or statistics
+- 🚨 ALWAYS use tools for all training operations
+- 🚨 ALWAYS validate training session existence before operations
+- 🚨 ALWAYS provide accurate training information
+- 🚨 NEVER modify tool output - return exactly as received
+- 🚨 ALWAYS emphasize training-first approach for team development
+
+TRAINING-FIRST PHILOSOPHY:
+- Training sessions occur 2-3 times per week vs matches 1-2 times per month
+- Training is critical for skill development and team cohesion
+- More players attend training than matches
+- Training success directly impacts match performance
+- Focus on player development and improvement
+
+EXAMPLES OF CORRECT TOOL USAGE:
+
+✅ CORRECT for scheduling training:
+- User says: "/scheduletraining Technical 2024-01-15 18:00 90 Main Pitch Passing, Shooting"
+- Agent response: Use schedule_training_session tool with all required parameters
+
+✅ CORRECT for listing training:
+- User says: "/listtrainings this week"
+- Agent response: Use list_training_sessions tool with team_id and period="this_week"
+
+✅ CORRECT for marking attendance:
+- User says: "/marktraining yes"
+- Agent response: Use mark_training_attendance tool with player_id, team_id, status="confirmed"
+
+❌ INCORRECT:
+- Creating fake training sessions without tools
+- Inventing attendance records
+- Providing inaccurate training information
+- Modifying tool output
+
+INTEGRATION POINTS:
+- Work with Player Coordinator for player information
+- Coordinate with Team Manager for leadership decisions
+- Support Match Coordinator for pre-match training
+- Provide data to Analytics Agent for performance insights
+- Ensure training supports overall team development
+
+SUCCESS METRICS:
+- High training attendance rates
+- Player skill improvement
+- Team cohesion development
+- Training session effectiveness
+- Player satisfaction with training program""",
+                tools=[
+                    "schedule_training_session",
+                    "list_training_sessions",
+                    "mark_training_attendance",
+                    "get_training_attendance_summary",
+                    "cancel_training_session",
+                ],
+                behavioral_mixin="training_coordination",
+                memory_enabled=True,
+                learning_enabled=True,
+                entity_types=[EntityType.PLAYER, EntityType.TEAM_MEMBER],
+                primary_entity_type=EntityType.PLAYER,
             ),
         }
 
-    def get_agent_config(self, role: AgentRole) -> Optional[AgentConfig]:
+    def get_agent_config(self, role: AgentRole) -> AgentConfig | None:
         """Get configuration for a specific agent role."""
         return self._configs.get(role)
 
-    def get_all_configs(self) -> Dict[AgentRole, AgentConfig]:
+    def get_all_configs(self) -> dict[AgentRole, AgentConfig]:
         """Get all agent configurations."""
         return self._configs.copy()
 
-    def get_enabled_configs(self) -> Dict[AgentRole, AgentConfig]:
+    def get_enabled_configs(self) -> dict[AgentRole, AgentConfig]:
         """Get only enabled agent configurations."""
         return {role: config for role, config in self._configs.items() if config.enabled}
 
@@ -1471,7 +1578,7 @@ INTEGRATION POINTS:
         if role in self._configs:
             del self._configs[role]
 
-    def get_agent_tools(self, role: AgentRole) -> List[str]:
+    def get_agent_tools(self, role: AgentRole) -> list[str]:
         """Get tools for a specific agent role."""
         config = self._configs.get(role)
         return config.tools if config else []
@@ -1499,16 +1606,16 @@ def get_agent_config_manager() -> AgentConfigurationManager:
     return _agent_config_manager
 
 
-def get_agent_config(role: AgentRole) -> Optional[AgentConfig]:
+def get_agent_config(role: AgentRole) -> AgentConfig | None:
     """Get configuration for a specific agent role."""
     return get_agent_config_manager().get_agent_config(role)
 
 
-def get_all_agent_configs() -> Dict[AgentRole, AgentConfig]:
+def get_all_agent_configs() -> dict[AgentRole, AgentConfig]:
     """Get all agent configurations."""
     return get_agent_config_manager().get_all_configs()
 
 
-def get_enabled_agent_configs() -> Dict[AgentRole, AgentConfig]:
+def get_enabled_agent_configs() -> dict[AgentRole, AgentConfig]:
     """Get only enabled agent configurations."""
     return get_agent_config_manager().get_enabled_configs()

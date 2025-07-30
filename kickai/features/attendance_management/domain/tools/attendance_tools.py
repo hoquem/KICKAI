@@ -9,22 +9,20 @@ with the ability to track and manage player availability for matches.
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-
-from kickai.utils.crewai_tool_decorator import tool
 
 from kickai.core.dependency_container import get_container
 from kickai.features.attendance_management.domain.entities.attendance import (
-    AttendanceStatus,
     AttendanceResponseMethod,
+    AttendanceStatus,
 )
-from kickai.features.attendance_management.domain.services.attendance_service import AttendanceService
+from kickai.features.attendance_management.domain.services.attendance_service import (
+    AttendanceService,
+)
 from kickai.features.match_management.domain.services.match_service import MatchService
 from kickai.features.player_registration.domain.services.player_service import PlayerService
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
-    extract_single_value,
     format_tool_error,
-    format_tool_success,
     sanitize_input,
     validate_required_input,
 )
@@ -34,22 +32,18 @@ logger = logging.getLogger(__name__)
 
 @tool("mark_attendance")
 def mark_attendance(
-    team_id: str,
-    user_id: str,
-    status: str,
-    match_id: str = None,
-    notes: str = None
+    team_id: str, user_id: str, status: str, match_id: str = None, notes: str = None
 ) -> str:
     """
     Mark player attendance for a match.
-    
+
     Args:
         team_id: Team ID (required) - available from context
-        user_id: User ID (required) - available from context  
+        user_id: User ID (required) - available from context
         status: Attendance status (yes, no, maybe)
         match_id: Optional specific match ID (defaults to next match)
         notes: Optional notes about availability
-    
+
     Returns:
         Confirmation message with attendance details
     """
@@ -116,17 +110,22 @@ def mark_attendance(
                 # Get next upcoming match
                 matches = match_service.list_matches(team_id)
                 upcoming_matches = [
-                    m for m in matches 
-                    if m.status == "scheduled" and 
-                    datetime.fromisoformat(m.date.replace('Z', '+00:00')) > datetime.utcnow()
+                    m
+                    for m in matches
+                    if m.status == "scheduled"
+                    and datetime.fromisoformat(m.date.replace("Z", "+00:00")) > datetime.utcnow()
                 ]
-                
+
                 if upcoming_matches:
                     # Sort by date and get the next match
-                    upcoming_matches.sort(key=lambda m: datetime.fromisoformat(m.date.replace('Z', '+00:00')))
+                    upcoming_matches.sort(
+                        key=lambda m: datetime.fromisoformat(m.date.replace("Z", "+00:00"))
+                    )
                     match_id = upcoming_matches[0].id
                 else:
-                    return format_tool_error("No upcoming matches found. Please specify a match ID.")
+                    return format_tool_error(
+                        "No upcoming matches found. Please specify a match ID."
+                    )
             else:
                 return format_tool_error("Match service not available. Please specify a match ID.")
 
@@ -150,14 +149,14 @@ def mark_attendance(
 👤 **Player:** {player.full_name}
 📋 **Match ID:** {match_id}
 {status_emoji} **Status:** {status_display}
-🕐 **Recorded:** {datetime.utcnow().strftime('%H:%M on %d/%m/%Y')}
+🕐 **Recorded:** {datetime.utcnow().strftime("%H:%M on %d/%m/%Y")}
 """
 
         if attendance.match_opponent:
             response += f"⚽ **Match:** vs {attendance.match_opponent}\n"
 
         if attendance.match_date:
-            match_date = datetime.fromisoformat(attendance.match_date.replace('Z', '+00:00'))
+            match_date = datetime.fromisoformat(attendance.match_date.replace("Z", "+00:00"))
             response += f"📅 **Date:** {match_date.strftime('%A, %d %B %Y at %H:%M')}\n"
 
         if notes:
@@ -184,12 +183,12 @@ def mark_attendance(
 def get_match_attendance(team_id: str, user_id: str, match_id: str = None) -> str:
     """
     Get attendance summary for a match.
-    
+
     Args:
         team_id: Team ID (required) - available from context
         user_id: User ID (required) - available from context
         match_id: Optional specific match ID (defaults to next match)
-    
+
     Returns:
         Detailed attendance summary for the match
     """
@@ -221,16 +220,21 @@ def get_match_attendance(team_id: str, user_id: str, match_id: str = None) -> st
             if match_service:
                 matches = match_service.list_matches(team_id)
                 upcoming_matches = [
-                    m for m in matches 
-                    if m.status == "scheduled" and 
-                    datetime.fromisoformat(m.date.replace('Z', '+00:00')) > datetime.utcnow()
+                    m
+                    for m in matches
+                    if m.status == "scheduled"
+                    and datetime.fromisoformat(m.date.replace("Z", "+00:00")) > datetime.utcnow()
                 ]
-                
+
                 if upcoming_matches:
-                    upcoming_matches.sort(key=lambda m: datetime.fromisoformat(m.date.replace('Z', '+00:00')))
+                    upcoming_matches.sort(
+                        key=lambda m: datetime.fromisoformat(m.date.replace("Z", "+00:00"))
+                    )
                     match_id = upcoming_matches[0].id
                 else:
-                    return format_tool_error("No upcoming matches found. Please specify a match ID.")
+                    return format_tool_error(
+                        "No upcoming matches found. Please specify a match ID."
+                    )
             else:
                 return format_tool_error("Match service not available. Please specify a match ID.")
 
@@ -244,16 +248,16 @@ def get_match_attendance(team_id: str, user_id: str, match_id: str = None) -> st
         attendance_records = attendance_service.get_attendance_by_match(match_id, team_id)
 
         # Format response
-        response = f"📊 **MATCH ATTENDANCE SUMMARY**\n\n"
+        response = "📊 **MATCH ATTENDANCE SUMMARY**\n\n"
 
         if match:
-            match_date = datetime.fromisoformat(match.date.replace('Z', '+00:00'))
+            match_date = datetime.fromisoformat(match.date.replace("Z", "+00:00"))
             response += f"""📋 **Match Details:**
 • **Match ID:** {match_id}
 • **Opponent:** {match.opponent}
-• **Date:** {match_date.strftime('%A, %d %B %Y')}
-• **Time:** {match_date.strftime('%H:%M')}
-• **Venue:** {match.home_away or 'TBD'}
+• **Date:** {match_date.strftime("%A, %d %B %Y")}
+• **Time:** {match_date.strftime("%H:%M")}
+• **Venue:** {match.home_away or "TBD"}
 
 """
 
@@ -270,7 +274,7 @@ def get_match_attendance(team_id: str, user_id: str, match_id: str = None) -> st
 
         if attendance_records:
             response += "👥 **Player Responses:**\n"
-            
+
             # Group by status
             by_status = {}
             for attendance in attendance_records:
@@ -330,12 +334,12 @@ def get_match_attendance(team_id: str, user_id: str, match_id: str = None) -> st
 def get_player_attendance_history(team_id: str, user_id: str, year: str = None) -> str:
     """
     Get player's attendance history and statistics.
-    
+
     Args:
         team_id: Team ID (required) - available from context
         user_id: User ID (required) - available from context
         year: Optional year filter (e.g., "2024")
-    
+
     Returns:
         Player's attendance history and statistics
     """
@@ -385,8 +389,7 @@ def get_player_attendance_history(team_id: str, user_id: str, year: str = None) 
         if year_filter:
             year_str = str(year_filter)
             attendance_records = [
-                a for a in attendance_records
-                if a.match_date and a.match_date.startswith(year_str)
+                a for a in attendance_records if a.match_date and a.match_date.startswith(year_str)
             ]
 
         # Format response
@@ -395,50 +398,51 @@ def get_player_attendance_history(team_id: str, user_id: str, year: str = None) 
 
 👤 **Player:** {player.full_name}
 📊 **Statistics:**
-• **Total Matches:** {stats.get('total_matches', 0)}
-• **Attended:** {stats.get('attended', 0)} matches
-• **Missed:** {stats.get('missed', 0)} matches
-• **Maybe Responses:** {stats.get('maybe_responses', 0)}
-• **No Responses:** {stats.get('no_responses', 0)}
-• **Attendance Rate:** {stats.get('attendance_rate', 0)}%
-• **Response Rate:** {stats.get('response_rate', 0)}%
+• **Total Matches:** {stats.get("total_matches", 0)}
+• **Attended:** {stats.get("attended", 0)} matches
+• **Missed:** {stats.get("missed", 0)} matches
+• **Maybe Responses:** {stats.get("maybe_responses", 0)}
+• **No Responses:** {stats.get("no_responses", 0)}
+• **Attendance Rate:** {stats.get("attendance_rate", 0)}%
+• **Response Rate:** {stats.get("response_rate", 0)}%
 
 """
 
         if attendance_records:
             # Sort by match date (most recent first)
-            attendance_records.sort(
-                key=lambda a: a.match_date or "0000-00-00", 
-                reverse=True
-            )
+            attendance_records.sort(key=lambda a: a.match_date or "0000-00-00", reverse=True)
 
             response += "📋 **Recent Matches:**\n"
             for attendance in attendance_records[:10]:  # Show last 10 matches
                 status_emoji = attendance.get_status_emoji()
                 status_display = attendance.get_status_display()
-                
+
                 match_info = ""
                 if attendance.match_opponent:
                     match_info += f"vs {attendance.match_opponent}"
                 if attendance.match_date:
                     try:
-                        match_date = datetime.fromisoformat(attendance.match_date.replace('Z', '+00:00'))
+                        match_date = datetime.fromisoformat(
+                            attendance.match_date.replace("Z", "+00:00")
+                        )
                         match_info += f" on {match_date.strftime('%d/%m/%Y')}"
                     except:
                         pass
 
-                response += f"• {status_emoji} {status_display} - {match_info or attendance.match_id}\n"
+                response += (
+                    f"• {status_emoji} {status_display} - {match_info or attendance.match_id}\n"
+                )
 
             if len(attendance_records) > 10:
                 response += f"\n... and {len(attendance_records) - 10} more matches\n"
 
-        response += f"""
+        response += """
 🎯 **Performance Insights:**
 """
 
         # Add performance insights
-        if stats.get('total_matches', 0) > 0:
-            attendance_rate = stats.get('attendance_rate', 0)
+        if stats.get("total_matches", 0) > 0:
+            attendance_rate = stats.get("attendance_rate", 0)
             if attendance_rate >= 80:
                 response += "• 🌟 Excellent attendance! You're a reliable team player.\n"
             elif attendance_rate >= 60:
@@ -448,13 +452,13 @@ def get_player_attendance_history(team_id: str, user_id: str, year: str = None) 
             else:
                 response += "• 📉 Low attendance. Consider improving your availability.\n"
 
-            response_rate = stats.get('response_rate', 0)
+            response_rate = stats.get("response_rate", 0)
             if response_rate >= 90:
                 response += "• 📱 Great at responding! You help with match planning.\n"
             elif response_rate < 70:
                 response += "• ⏰ Try to respond to match invitations more quickly.\n"
 
-        response += f"""
+        response += """
 📋 **Actions:**
 • Use `/markattendance` to mark availability for upcoming matches
 • Use `/attendance` to see team attendance for matches
@@ -472,12 +476,12 @@ def initialize_match_attendance(team_id: str, user_id: str, match_id: str) -> st
     """
     Initialize attendance tracking for a match (Leadership only).
     Creates attendance records for all active players.
-    
+
     Args:
         team_id: Team ID (required) - available from context
         user_id: User ID (required) - available from context
         match_id: Match ID to initialize attendance for
-    
+
     Returns:
         Confirmation message with initialization details
     """
@@ -529,10 +533,10 @@ def initialize_match_attendance(team_id: str, user_id: str, match_id: str) -> st
 """
 
         if match:
-            match_date = datetime.fromisoformat(match.date.replace('Z', '+00:00'))
+            match_date = datetime.fromisoformat(match.date.replace("Z", "+00:00"))
             response += f"""• **Opponent:** {match.opponent}
-• **Date:** {match_date.strftime('%A, %d %B %Y')}
-• **Time:** {match_date.strftime('%H:%M')}
+• **Date:** {match_date.strftime("%A, %d %B %Y")}
+• **Time:** {match_date.strftime("%H:%M")}
 """
 
         response += f"""
@@ -550,7 +554,9 @@ def initialize_match_attendance(team_id: str, user_id: str, match_id: str) -> st
 💡 **Tip:** Players will be automatically notified to mark their attendance.
         """
 
-        logger.info(f"Attendance initialized for match {match_id} with {len(attendance_records)} players")
+        logger.info(
+            f"Attendance initialized for match {match_id} with {len(attendance_records)} players"
+        )
         return response.strip()
 
     except Exception as e:
@@ -562,11 +568,11 @@ def initialize_match_attendance(team_id: str, user_id: str, match_id: str) -> st
 def get_team_attendance_summary(team_id: str, user_id: str) -> str:
     """
     Get overall team attendance summary and statistics.
-    
+
     Args:
         team_id: Team ID (required) - available from context
         user_id: User ID (required) - available from context
-    
+
     Returns:
         Team attendance summary with key metrics
     """
@@ -594,7 +600,7 @@ def get_team_attendance_summary(team_id: str, user_id: str) -> str:
         # Get team attendance summary
         summary = attendance_service.get_team_attendance_summary(team_id)
 
-        if not summary or summary.get('total_records', 0) == 0:
+        if not summary or summary.get("total_records", 0) == 0:
             return format_tool_error("No attendance data found for this team.")
 
         # Format response
@@ -602,18 +608,18 @@ def get_team_attendance_summary(team_id: str, user_id: str) -> str:
 
 🏆 **Team:** {team_id.upper()}
 📈 **Overall Statistics:**
-• **Total Records:** {summary.get('total_records', 0)}
-• **Responded:** {summary.get('responded_count', 0)} responses
-• **Available:** {summary.get('available_count', 0)} attendances
-• **Response Rate:** {summary.get('overall_response_rate', 0)}%
-• **Attendance Rate:** {summary.get('overall_attendance_rate', 0)}%
+• **Total Records:** {summary.get("total_records", 0)}
+• **Responded:** {summary.get("responded_count", 0)} responses
+• **Available:** {summary.get("available_count", 0)} attendances
+• **Response Rate:** {summary.get("overall_response_rate", 0)}%
+• **Attendance Rate:** {summary.get("overall_attendance_rate", 0)}%
 
 🎯 **Team Performance:**
 """
 
         # Add performance insights
-        response_rate = summary.get('overall_response_rate', 0)
-        attendance_rate = summary.get('overall_attendance_rate', 0)
+        response_rate = summary.get("overall_response_rate", 0)
+        attendance_rate = summary.get("overall_attendance_rate", 0)
 
         if response_rate >= 80:
             response += "• 📱 Excellent response rate! Team is very engaged.\n"
@@ -629,7 +635,7 @@ def get_team_attendance_summary(team_id: str, user_id: str) -> str:
         else:
             response += "• 📉 Low attendance rate. May need to address availability issues.\n"
 
-        response += f"""
+        response += """
 📋 **Management Actions:**
 • Use `/attendance MATCH_ID` to check specific match attendance
 • Use `/remind` to send attendance reminders
