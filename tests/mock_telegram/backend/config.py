@@ -8,7 +8,8 @@ testing system, including environment variable support and validation.
 import os
 from typing import Optional
 from dataclasses import dataclass
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 @dataclass
@@ -85,6 +86,7 @@ class MockTelegramSettings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"  # Ignore extra fields from environment
     
     def to_config(self) -> MockTelegramConfig:
         """Convert settings to MockTelegramConfig"""

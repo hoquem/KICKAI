@@ -231,15 +231,23 @@ class MockTelegramWebhook:
         return response
 
 
-# Global webhook instance
-mock_webhook = MockTelegramWebhook()
+# Global webhook instance (lazy initialization)
+mock_webhook = None
+
+def get_mock_webhook():
+    """Get or create the global webhook instance"""
+    global mock_webhook
+    if mock_webhook is None:
+        mock_webhook = MockTelegramWebhook()
+    return mock_webhook
 
 
 async def process_mock_message_async(message_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Async wrapper for processing mock messages.
     """
-    return await mock_webhook.handle_mock_message(message_data)
+    webhook = get_mock_webhook()
+    return await webhook.handle_mock_message(message_data)
 
 
 def process_mock_message_sync(message_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -276,6 +284,8 @@ class MockTelegramConfig:
         self.mock_service_url = "http://localhost:8001"
         self.timeout_seconds = 5.0
         self.max_retries = 3
+        # Use global flag safely
+        global BOT_COMPONENTS_AVAILABLE
         self.enable_bot_integration = BOT_COMPONENTS_AVAILABLE
     
     @classmethod

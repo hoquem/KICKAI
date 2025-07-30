@@ -71,14 +71,16 @@ class MockUser:
     role: UserRole = UserRole.PLAYER
     phone_number: Optional[str] = None
     is_bot: bool = False
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = None
     
     def __post_init__(self):
-        """Validate user data after initialization"""
+        """Validate user data after initialization and set defaults"""
         if not self.username or not self.first_name:
             raise ValueError("Username and first_name are required")
         if self.id <= 0:
             raise ValueError("User ID must be positive")
+        if self.created_at is None:
+            self.created_at = datetime.now(timezone.utc)
 
 
 @dataclass
@@ -167,7 +169,7 @@ class CreateUserRequest(BaseModel):
     first_name: str = Field(..., min_length=1, max_length=64, description="First name")
     last_name: Optional[str] = Field(None, max_length=64, description="Last name")
     role: UserRole = UserRole.PLAYER
-    phone_number: Optional[str] = Field(None, regex=r'^\+?[1-9]\d{1,14}$', description="Phone number")
+    phone_number: Optional[str] = Field(None, pattern=r'^\+?[1-9]\d{1,14}$', description="Phone number")
     
     @validator('username')
     def validate_username(cls, v):
@@ -537,33 +539,93 @@ async def get_stats():
 @app.get("/users")
 async def get_users():
     """Get all test users"""
-    return [asdict(user) for user in mock_service.get_all_users()]
+    users = mock_service.get_all_users()
+    return [
+        {
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "role": user.role,
+            "phone_number": user.phone_number,
+            "is_bot": user.is_bot,
+            "created_at": user.created_at.isoformat() if user.created_at else None
+        }
+        for user in users
+    ]
 
 
 @app.post("/users")
 async def create_user(request: CreateUserRequest):
     """Create a new test user"""
     user = mock_service.create_user(request)
-    return asdict(user)
+    return {
+        "id": user.id,
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "role": user.role,
+        "phone_number": user.phone_number,
+        "is_bot": user.is_bot,
+        "created_at": user.created_at.isoformat() if user.created_at else None
+    }
 
 
 @app.get("/chats")
 async def get_chats():
     """Get all chats"""
-    return [asdict(chat) for chat in mock_service.get_all_chats()]
+    chats = mock_service.get_all_chats()
+    return [
+        {
+            "id": chat.id,
+            "type": chat.type,
+            "title": chat.title,
+            "username": chat.username,
+            "first_name": chat.first_name,
+            "last_name": chat.last_name,
+            "is_main_chat": chat.is_main_chat,
+            "is_leadership_chat": chat.is_leadership_chat
+        }
+        for chat in chats
+    ]
 
 
 @app.get("/chats/group")
 async def get_group_chats():
     """Get group chats (main and leadership)"""
-    return [asdict(chat) for chat in mock_service.get_group_chats()]
+    chats = mock_service.get_group_chats()
+    return [
+        {
+            "id": chat.id,
+            "type": chat.type,
+            "title": chat.title,
+            "username": chat.username,
+            "first_name": chat.first_name,
+            "last_name": chat.last_name,
+            "is_main_chat": chat.is_main_chat,
+            "is_leadership_chat": chat.is_leadership_chat
+        }
+        for chat in chats
+    ]
 
 
 @app.get("/users/{user_id}/chats")
 async def get_user_chats(user_id: int):
     """Get all chats accessible to a specific user"""
     accessible_chats = mock_service.get_accessible_chats_for_user(user_id)
-    return [asdict(chat) for chat in accessible_chats]
+    return [
+        {
+            "id": chat.id,
+            "type": chat.type,
+            "title": chat.title,
+            "username": chat.username,
+            "first_name": chat.first_name,
+            "last_name": chat.last_name,
+            "is_main_chat": chat.is_main_chat,
+            "is_leadership_chat": chat.is_leadership_chat
+        }
+        for chat in accessible_chats
+    ]
 
 
 @app.post("/send_message")
