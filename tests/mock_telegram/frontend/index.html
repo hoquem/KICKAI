@@ -236,6 +236,11 @@
                     🔴 Disconnected
                 </div>
                 
+                <h3>💬 Select Chat</h3>
+                <select id="chatSelector" onchange="selectChatFromSelector()">
+                    <option value="">Select a chat...</option>
+                </select>
+                
                 <h3>👥 Test Users</h3>
                 <ul id="userList" class="user-list">
                     <!-- Users will be populated here -->
@@ -304,7 +309,9 @@
     <script>
         // Global variables
         let currentUser = null;
+        let currentChat = null;
         let users = [];
+        let chats = [];
         let ws = null;
         
         // API base URL
@@ -313,6 +320,7 @@
         // Initialize the application
         async function init() {
             await loadUsers();
+            await loadChats();
             connectWebSocket();
         }
         
@@ -325,6 +333,40 @@
             } catch (error) {
                 console.error('Error loading users:', error);
             }
+        }
+        
+        // Load chats from API
+        async function loadChats() {
+            try {
+                const response = await fetch(`${API_BASE}/chats`);
+                chats = await response.json();
+                renderChatSelector();
+            } catch (error) {
+                console.error('Error loading chats:', error);
+            }
+        }
+        
+        // Render chat selector
+        function renderChatSelector() {
+            const chatSelector = document.getElementById('chatSelector');
+            chatSelector.innerHTML = '<option value="">Select a chat...</option>';
+            
+            chats.forEach(chat => {
+                const option = document.createElement('option');
+                option.value = chat.id;
+                
+                if (chat.is_main_chat) {
+                    option.textContent = `🏠 ${chat.title} (Main Chat)`;
+                } else if (chat.is_leadership_chat) {
+                    option.textContent = `👑 ${chat.title} (Leadership)`;
+                } else if (chat.type === 'private') {
+                    option.textContent = `💬 ${chat.first_name} ${chat.last_name || ''} (Private)`;
+                } else {
+                    option.textContent = `💬 ${chat.title || 'Unknown Chat'}`;
+                }
+                
+                chatSelector.appendChild(option);
+            });
         }
         
         // Render users in sidebar
@@ -356,18 +398,62 @@
             });
             event.target.closest('.user-item').classList.add('active');
             
-            document.getElementById('chatTitle').textContent = `Chat with ${user.first_name}`;
-            document.getElementById('messageInput').disabled = false;
-            document.getElementById('messageInput').placeholder = `Send message as ${user.first_name}...`;
-            
-            // Load chat history
-            loadChatHistory(user.id);
+            // If no chat is selected, select user's private chat
+            if (!currentChat) {
+                const privateChat = chats.find(chat => chat.id === user.id);
+                if (privateChat) {
+                    selectChat(privateChat);
+                }
+            }
         }
         
-        // Load chat history for a user
-        async function loadChatHistory(userId) {
+        // Select a chat for messaging
+        function selectChat(chat) {
+            currentChat = chat;
+            
+            // Update chat selector
+            document.getElementById('chatSelector').value = chat.id;
+            
+            // Update chat title
+            let chatTitle = '';
+            if (chat.is_main_chat) {
+                chatTitle = `🏠 ${chat.title} (Main Chat)`;
+            } else if (chat.is_leadership_chat) {
+                chatTitle = `👑 ${chat.title} (Leadership)`;
+            } else if (chat.type === 'private') {
+                chatTitle = `💬 ${chat.first_name} ${chat.last_name || ''} (Private)`;
+            } else {
+                chatTitle = `💬 ${chat.title || 'Unknown Chat'}`;
+            }
+            
+            document.getElementById('chatTitle').textContent = chatTitle;
+            document.getElementById('messageInput').disabled = false;
+            
+            if (currentUser) {
+                document.getElementById('messageInput').placeholder = `Send message as ${currentUser.first_name}...`;
+            } else {
+                document.getElementById('messageInput').placeholder = 'Select a user first...';
+            }
+            
+            // Load chat history
+            loadChatHistory(chat.id);
+        }
+        
+        // Handle chat selector change
+        function selectChatFromSelector() {
+            const chatId = parseInt(document.getElementById('chatSelector').value);
+            if (chatId) {
+                const chat = chats.find(c => c.id === chatId);
+                if (chat) {
+                    selectChat(chat);
+                }
+            }
+        }
+        
+        // Load chat history for a chat
+        async function loadChatHistory(chatId) {
             try {
-                const response = await fetch(`${API_BASE}/messages/${userId}`);
+                const response = await fetch(`${API_BASE}/chats/${chatId}/messages`);
                 const messages = await response.json();
                 
                 const chatMessages = document.getElementById('chatMessages');
@@ -390,6 +476,11 @@
                 return;
             }
             
+            if (!currentChat) {
+                alert('Please select a chat first');
+                return;
+            }
+            
             const input = document.getElementById('messageInput');
             const text = input.value.trim();
             
@@ -403,7 +494,7 @@
                     },
                     body: JSON.stringify({
                         user_id: currentUser.id,
-                        chat_id: currentUser.id,
+                        chat_id: currentChat.id,
                         text: text
                     })
                 });
@@ -411,7 +502,9 @@
                 if (response.ok) {
                     input.value = '';
                 } else {
-                    console.error('Error sending message');
+                    const errorData = await response.json();
+                    console.error('Error sending message:', errorData);
+                    alert(`Error: ${errorData.detail || 'Failed to send message'}`);
                 }
             } catch (error) {
                 console.error('Error sending message:', error);
