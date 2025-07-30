@@ -28,6 +28,7 @@ try:
     logger.info("Bot components available")
 except ImportError as e:
     logger.warning(f"Bot components not available: {e}")
+    BOT_COMPONENTS_AVAILABLE = False
 
 
 class MockTelegramIntegration:
@@ -285,7 +286,6 @@ class MockTelegramConfig:
         self.timeout_seconds = 5.0
         self.max_retries = 3
         # Use global flag safely
-        global BOT_COMPONENTS_AVAILABLE
         self.enable_bot_integration = BOT_COMPONENTS_AVAILABLE
     
     @classmethod
