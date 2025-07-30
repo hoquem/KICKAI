@@ -11,8 +11,8 @@ from .validator import RegistryValidator
 
 __all__ = [
     "BaseRegistry",
-    "RegistryType",
-    "RegistryItem",
     "EntryPointDiscovery",
+    "RegistryItem",
+    "RegistryType",
     "RegistryValidator",
 ]

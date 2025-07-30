@@ -51,6 +51,7 @@ class AgentRole(Enum):
     AVAILABILITY_MANAGER = "availability_manager"
     SQUAD_SELECTOR = "squad_selector"
     MATCH_COORDINATOR = "match_coordinator"
+    TRAINING_COORDINATOR = "training_coordinator"
     COMMUNICATION_MANAGER = "communication_manager"
     HELP_ASSISTANT = "help_assistant"
     ANALYTICS_AGENT = "analytics_agent"
@@ -66,6 +67,7 @@ class AIProvider(Enum):
 
     OLLAMA = "ollama"
     GEMINI = "gemini"
+    HUGGINGFACE = "huggingface"
     OPENAI = "openai"
     MOCK = "mock"
 

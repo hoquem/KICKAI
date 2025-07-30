@@ -2,324 +2,331 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Overview
+
+KICKAI is an AI-powered football team management system built with a **12-agent CrewAI architecture** and clean architecture principles. The system processes ALL user interactions through specialized AI agents, ensuring intelligent, context-aware responses.
+
+**Version:** 3.1  
+**Status:** Production Ready  
+**Architecture:** Agentic Clean Architecture with CrewAI  
+**Python Version:** 3.11+
+
 ## Development Commands
 
-### Build and Test Commands
+### Environment Setup
 ```bash
-# Development workflow
-make dev-workflow         # Run clean, test, lint sequence
-make setup-dev           # Set up development environment with Python 3.11 venv and dependencies
+# Set up development environment
+make setup-dev
 
-# Testing
-make test                # Run all tests (unit + integration + e2e)
-make test-unit           # Run unit tests only
-make test-integration    # Run integration tests only  
-make test-e2e            # Run E2E tests only
-source venv311/bin/activate && PYTHONPATH=. pytest tests/unit/       # Run specific test directory
-source venv311/bin/activate && PYTHONPATH=. pytest tests/unit/agents/ # Run agent-specific tests
+# Start development server
+make dev
+# OR
+python run_bot_local.py
 
-# Code quality
-make lint                # Run ruff check, format, and mypy
-source venv311/bin/activate && ruff check kickai/       # Lint code
-source venv311/bin/activate && ruff format kickai/      # Format code
-source venv311/bin/activate && mypy kickai/             # Type checking
-
-# Development server
-make dev                 # Start local bot with Python 3.11
-source venv311/bin/activate && PYTHONPATH=. python run_bot_local.py  # Direct bot startup
-./start_bot_safe.sh      # Safe startup with process management (uses Python 3.11)
-
-# Health and validation
-make health-check        # Run system health checks
-source venv311/bin/activate && PYTHONPATH=. python scripts/run_health_checks.py
-source venv311/bin/activate && PYTHONPATH=. python scripts/validate_feature_deployment.py --feature=all
+# Activate virtual environment
+source venv311/bin/activate
 ```
 
-### Deployment Commands
+### Testing Commands
 ```bash
-# Railway deployment
-make deploy-testing      # Deploy to testing environment
-make deploy-production   # Deploy to production environment
-make validate-testing    # Validate testing deployment
-make validate-production # Validate production deployment
+# Run all tests
+make test
+# OR
+python -m pytest tests/ -v
 
-# Environment setup
-make bootstrap-testing   # Bootstrap testing environment
-make bootstrap-production # Bootstrap production environment
+# Run specific test types
+make test-unit          # Unit tests only
+make test-integration   # Integration tests only  
+make test-e2e          # E2E tests only
+
+# Run with coverage
+python -m pytest tests/ --cov=src --cov-report=html
+
+# Run specific test file
+python -m pytest tests/unit/test_specific.py::test_function -v -s
+
+# Test LLM connectivity
+source venv311/bin/activate && PYTHONPATH=. python test_hf_connectivity.py  # Test Hugging Face connectivity
 ```
 
-### Test Execution Notes
-- All tests require `PYTHONPATH=src` environment variable
-- E2E tests use real Firestore database in test environment
-- Tests are configured with pytest.ini and pyproject.toml
-- Test coverage target is 70% minimum
+### Code Quality
+```bash
+# Run linting and formatting
+make lint
+# OR
+scripts/lint.sh
+
+# Individual tools
+ruff check kickai/              # Linting
+ruff format kickai/            # Formatting  
+mypy kickai/                   # Type checking
+pre-commit run --all-files     # All pre-commit hooks
+```
+
+### Deployment
+```bash
+# Deploy to testing
+make deploy-testing
+
+# Deploy to production
+make deploy-production
+
+# Validate deployment
+make validate-testing
+make validate-production
+
+# Health checks
+make health-check
+```
 
 ## Architecture Overview
 
-### Agentic Clean Architecture with CrewAI
-KICKAI is built on a **unified processing pipeline** where both slash commands and natural language requests are processed through the same 8-agent CrewAI system.
+### 12-Agent CrewAI System
 
-#### Core Processing Flow
-1. **Input Processing** → Handle slash commands and natural language
-2. **Unified Processing** → Both paths converge to `_handle_crewai_processing`
-3. **CrewAI Orchestration** → Single processing pipeline for all requests
-4. **Agent Routing** → Context-aware agent selection
-5. **Task Execution** → Specialized agents execute domain-specific tasks
+The system uses 12 specialized AI agents organized in logical layers:
 
-#### 8-Agent System Architecture
-- **MESSAGE_PROCESSOR**: Primary interface, intent analysis, message routing
-- **PLAYER_COORDINATOR**: Player registration, status management, individual support
-- **TEAM_MANAGER**: Team administration, member management, leadership operations
-- **SQUAD_SELECTOR**: Match operations, squad selection, player availability
-- **AVAILABILITY_MANAGER**: Availability tracking, match availability management
-- **HELP_ASSISTANT**: Context-aware help, command guidance, user support
-- **ONBOARDING_AGENT**: Comprehensive dual-entity onboarding for both players and team members
-- **SYSTEM_INFRASTRUCTURE**: System health, monitoring, error logging
+#### Primary Interface Layer
+- **MESSAGE_PROCESSOR**: Primary interface for user interactions and routing
+- **INTELLIGENT_SYSTEM**: Central orchestrator for task decomposition and routing
 
-### Feature-First Modular Design
+#### Operational Layer  
+- **PLAYER_COORDINATOR**: Player registration, status, and management
+- **TEAM_ADMINISTRATOR**: Team administration and member management
+- **SQUAD_SELECTOR**: Match squad selection and availability
+- **AVAILABILITY_MANAGER**: Player availability tracking
+
+#### Specialized Layer
+- **HELP_ASSISTANT**: Help system and command guidance
+- **ONBOARDING_AGENT**: New user registration and onboarding
+- **COMMUNICATION_MANAGER**: Team communications and announcements
+- **ANALYTICS_AGENT**: Analytics and reporting
+
+#### Infrastructure Layer
+- **SYSTEM_INFRASTRUCTURE**: System health and maintenance
+- **COMMAND_FALLBACK_AGENT**: Fallback for unhandled requests
+
+### Unified Processing Pipeline
+
+Both slash commands and natural language use the **exact same processing pipeline**:
+
+1. **Input Processing** → Handle both slash commands and natural language
+2. **Command Registry** → Auto-discovery and metadata for slash commands  
+3. **Unified Processing** → Both paths converge to `_handle_crewai_processing`
+4. **CrewAI System** → Single orchestration pipeline for all requests
+5. **Intent Classification** → Determine user intent (for both input types)
+6. **Complexity Assessment** → Analyze request complexity
+7. **Task Decomposition** → Break down into subtasks with agent assignments
+8. **Agent Routing** → Route subtasks to appropriate agents
+9. **Task Execution** → Execute tasks through specialized agents
+10. **Result Aggregation** → Combine results and format response
+
+## Code Architecture
+
+### Feature-First Clean Architecture
 ```
 kickai/
-├── features/                    # Feature-based modules (Clean Architecture)
+├── features/                    # Feature-based modules (domain-driven)
 │   ├── player_registration/     # Player onboarding and management
-│   ├── team_administration/     # Team and member management  
-│   ├── match_management/        # Match operations
+│   ├── team_administration/     # Team management and roles
+│   ├── match_management/        # Match operations and squad selection
 │   ├── attendance_management/   # Attendance tracking
 │   ├── payment_management/      # Payment processing with Collectiv
 │   ├── communication/           # Messaging and notifications
-│   ├── health_monitoring/       # System health and monitoring
-│   └── shared/                  # Shared components across features
-├── agents/                      # CrewAI agent system
+│   ├── health_monitoring/       # System health checks
+│   ├── system_infrastructure/   # Core system services
+│   └── shared/                  # Shared domain logic
+├── agents/                      # 12-Agent CrewAI System
+│   ├── crew_agents.py          # Main agent definitions
+│   ├── configurable_agent.py   # Base agent class
+│   ├── agentic_message_router.py # Central message routing
+│   └── behavioral_mixins.py    # Agent behavior patterns
 ├── core/                        # Core utilities and registries
-├── database/                    # Firebase/Firestore data layer
+│   ├── command_registry.py     # Command registration system
+│   ├── dependency_container.py # Dependency injection
+│   └── startup_validation/     # System validation checks
+├── database/                    # Data layer with Firebase/Firestore
+│   ├── firebase_client.py      # Firebase client setup
+│   └── interfaces.py           # Repository interfaces
 └── utils/                       # Utilities and helpers
 ```
 
-Each feature follows Clean Architecture:
-- `application/commands/` - Command definitions
-- `domain/entities/` - Domain models
-- `domain/services/` - Business logic
-- `domain/repositories/` - Data access interfaces
-- `infrastructure/` - External service implementations
+### Each Feature Module Structure
+```
+feature_name/
+├── application/
+│   ├── commands/               # Command definitions with @command decorator
+│   └── handlers/               # Command handlers (minimal - delegate to agents)
+├── domain/
+│   ├── entities/               # Domain entities and business objects
+│   ├── repositories/           # Repository interfaces
+│   ├── services/               # Business logic services
+│   └── tools/                  # CrewAI tools for agents (@tool decorator)
+├── infrastructure/             # External integrations
+│   └── firebase_*_repository.py # Firestore repository implementations
+└── tests/
+    ├── unit/                   # Unit tests
+    ├── integration/            # Integration tests
+    └── e2e/                    # End-to-end tests
+```
 
-### Context-Aware Command Processing
-Commands behave differently based on chat context:
+## Critical CrewAI Rules
 
-**Main Chat:**
-- `/list` → Shows active players only (via PLAYER_COORDINATOR)
-- `/myinfo` → Player status information
-- `/status` → Player registration status
+**MANDATORY**: Follow these CrewAI patterns strictly:
 
-**Leadership Chat:**
-- `/list` → Shows all players with detailed status (via MESSAGE_PROCESSOR)
-- `/approve` → Player approval workflow
-- `/addplayer` → Direct player addition
-- `/addmember` → Team member management
+### Tool Independence
+- **❌ NEVER**: Tools calling other tools or services
+- **✅ ALWAYS**: Tools are simple, independent functions
+- **✅ ALWAYS**: Parameters passed directly via Task.config
+- **✅ ALWAYS**: Tools return simple string responses
 
-### Tool Architecture
-- Tools are **independent functions** with `@tool` decorator from `crewai.tools`
-- Tools **MUST NOT** call other tools or services (CrewAI requirement)
-- Parameters passed directly via `Task.config`
-- Tools return simple string responses
-- Tool discovery is automatic from feature directories
+### Native CrewAI Features Only
+- **✅ REQUIRED**: `@tool` decorator from `crewai.tools`
+- **✅ REQUIRED**: `Agent` class from `crewai`
+- **✅ REQUIRED**: `Task` class with `config` parameter
+- **✅ REQUIRED**: `Crew` orchestration
+- **❌ FORBIDDEN**: Custom tool wrappers or parameter passing mechanisms
 
-## Critical Development Rules
+### Absolute Imports with PYTHONPATH
+All code uses absolute imports with `PYTHONPATH=.` or `PYTHONPATH=src`:
+```python
+# ✅ Correct
+from kickai.features.player_registration.domain.tools.player_tools import get_player_status
 
-### CrewAI Best Practices (CRITICAL)
-Based on `.cursor/rules/13_crewai_best_practices.md`:
+# ❌ Wrong
+from .domain.tools.player_tools import get_player_status
+```
 
-1. **Tool Independence**: Tools cannot call other tools or services
-2. **Native CrewAI Only**: Use only `@tool`, `Agent`, `Task`, `Crew` from CrewAI
-3. **Absolute Imports**: Always use `PYTHONPATH=src` and absolute imports
-4. **Parameter Passing**: Use `Task.config` for parameter passing
-5. **Simple Responses**: Tools return simple string responses only
+## Database & Infrastructure
 
-### Architecture Rules
-Based on `.cursor/rules/01_architecture.md`:
+### Firestore Collections
+- Prefix: `kickai_` for all collections
+- Collections: `kickai_teams`, `kickai_players`, `kickai_matches`, etc.
+- Use async patterns for all database operations
 
-1. **Clean Architecture**: Presentation → Application → Domain → Infrastructure
-2. **No Circular Dependencies**: Strict layer separation
-3. **Feature-First**: Organize by business features, not technical layers
-4. **Dependency Injection**: Use DI container for service resolution
-5. **Async-First**: Prefer async/await for I/O operations
+### LLM Provider Architecture
+The system supports multiple LLM providers with agent-specific model optimization:
 
-### Database Design
-- **Firestore Collections**: Use `kickai_` prefix with team-specific naming for multi-tenant isolation
-  - **Global Collections**: `kickai_teams`, `kickai_system_config` (team-independent data)
-  - **Team-Specific Collections**: `kickai_{TEAM_ID}_{entity}` format for team-isolated data
-    - `kickai_KTI_players` (players for team KTI)
-    - `kickai_KTI_members` (team members for team KTI)  
-    - `kickai_KTI_matches` (matches for team KTI)
-    - `kickai_KTI_attendance` (attendance records for team KTI)
-    - `kickai_KTI_payments` (payment records for team KTI)
-- **Repository Pattern**: Each feature has interface + implementation
-- **Team Context**: Complete data isolation using team_id in collection names
-- **Collection Naming Helper**: Use `get_team_members_collection(team_id)` from `kickai/core/constants.py`
+#### Supported Providers
+- **Hugging Face** (`AIProvider.HUGGINGFACE`) - Primary provider with free tier
+- **Google Gemini** (`AIProvider.GOOGLE`) - Fallback provider
+- **OpenAI** (`AIProvider.OPENAI`) - Optional provider
+- **Ollama** (`AIProvider.OLLAMA`) - Local deployment option
 
-### Permission System
-- **Role-Based Access**: PUBLIC, PLAYER, LEADERSHIP, ADMIN, SYSTEM levels
-- **Chat-Based Control**: Different permissions for main vs leadership chat
-- **Unified Security**: Same permission checking for commands and natural language
+#### Agent-Specific Models
+Each agent uses optimized models based on task requirements:
+- **Data-critical agents** (temp 0.1): `Qwen2.5-1.5B-Instruct` for anti-hallucination
+- **Administrative agents** (temp 0.3): `Gemma-2-2B-IT` for balanced performance
+- **Creative agents** (temp 0.7): Larger models for complex reasoning
 
-## Configuration Files
+#### Configuration Files
+- `kickai/config/agent_models.py` - Agent-specific model mappings
+- `kickai/utils/llm_factory.py` - Multi-provider LLM factory
+- `kickai/core/settings.py` - Provider API token configuration
 
-### Key Configuration Files
-- `pyproject.toml` - Python project configuration, dependencies, linting rules
-- `pytest.ini` - Test configuration with markers and execution settings
-- `Makefile` - Development workflow commands
-- `kickai/core/constants.py` - Centralized command definitions and constants
-- `kickai/core/enums.py` - System enums (ChatType, PermissionLevel, etc.)
-- `.cursor/rules/` - Cursor AI rules for architecture and development patterns
+### Security & Permissions
+- **Role-Based Access Control**: PUBLIC, PLAYER, LEADERSHIP, ADMIN, SYSTEM
+- **Chat-Based Permissions**: Different permissions for main chat vs leadership chat
+- **Unified Security**: Same permission checking for slash commands and natural language
 
-### Environment Files
-- `.env.example` - Environment template for system-level configuration
-- `credentials/` - Firebase service account credentials (template provided)
-  - `firebase_credentials_template.json` - Template for Firebase credentials
-  - `firebase_credentials_testing.json` - Testing environment credentials
-
-### Bot Configuration
-- **Team-Specific Configuration**: Bot configuration is stored in Firestore, NOT in local files
-- **Database Location**: Each team document in `kickai_teams` collection contains bot configuration
-- **Configuration Fields**: Team documents include bot tokens, chat IDs, and team-specific settings
-- **Dynamic Loading**: Bot configuration is loaded dynamically from Firestore at runtime
-- **Multi-Team Support**: Different teams can have different bot configurations within the same deployment
+### Configuration
+- **Environment Files**: `.env`, `.env.development`, `.env.testing`, `.env.production`
+- **LLM API Keys**: `HUGGINGFACE_API_TOKEN`, `GOOGLE_API_KEY`, `OPENAI_API_KEY`
+- **Bot Configs**: `config/bot_config.json` for different environments
+- **Firebase**: `credentials/firebase_credentials_*.json`
 
 ## Testing Strategy
 
-### Test Structure
+### Test Pyramid
+- **Unit Tests**: Individual components with mocked dependencies
+- **Integration Tests**: Service interactions with mock external services
+- **E2E Tests**: Complete user workflows with real APIs
+
+### Test Commands by Type
+```bash
+# Unit tests (fast, isolated)
+python -m pytest tests/unit/ -v
+
+# Integration tests (service interactions)  
+python -m pytest tests/integration/ -v
+
+# E2E tests (full workflows)
+python -m pytest tests/e2e/ -v
+
+# Agent-specific tests
+python -m pytest tests/unit/agents/ -v
+
+# Feature-specific tests
+python -m pytest tests/unit/features/player_registration/ -v
 ```
-tests/
-├── unit/                # Unit tests for individual components
-├── integration/         # Integration tests for service interactions  
-├── e2e/                # End-to-end tests for complete workflows
-├── frameworks/         # Test frameworks and utilities
-└── conftest.py         # Shared test configuration
-```
 
-### Test Markers (pytest)
-- `@pytest.mark.unit` - Unit tests
-- `@pytest.mark.integration` - Integration tests
-- `@pytest.mark.async` - Asynchronous tests
-- `@pytest.mark.slow` - Tests that take longer to run
-- `@pytest.mark.smoke` - Basic smoke tests
-
-### Test Data Management
-- Use separate test environment configuration
-- E2E tests use real Firestore with test data
-- Mock external services in unit tests
-- Test data cleanup scripts in `setup/cleanup/`
-
-## Key Development Workflows
+## Development Workflow
 
 ### Adding New Features
-1. Create feature directory in `kickai/features/`
-2. Follow Clean Architecture structure (application/domain/infrastructure)
-3. Define commands in feature's `commands/` directory
-4. Implement tools following CrewAI independence rules
-5. Add agent assignment in agent configuration
-6. Write comprehensive tests (unit, integration, e2e)
-
-### Agent Development
-1. Define agent role and responsibilities in agent configuration
-2. Create domain-specific tools (independent functions only)
-3. Configure context and routing rules
-4. Test agent behavior with both slash commands and natural language
-5. Update registry and tool discovery
+1. **Follow Feature-First Architecture**: Create in `kickai/features/`
+2. **Implement Clean Architecture**: Domain → Application → Infrastructure layers
+3. **Use Agentic Patterns**: Delegate to CrewAI agents for user interactions
+4. **Write Comprehensive Tests**: Unit, integration, and E2E tests
+5. **Update Agent Tools**: Add new tools to appropriate agents
 
 ### Command Development
-1. Define command in `kickai/core/constants.py`
-2. Set appropriate permission level and chat types
-3. Implement command delegation to appropriate agent
-4. Test command registration and agent routing
-5. Update documentation and help system
+1. **Register Command**: Use `@command` decorator in feature module
+2. **Delegate to Agent**: No direct implementation - delegate to CrewAI agent
+3. **Define Permissions**: Set appropriate permission levels
+4. **Add Tests**: Test command registration and agent routing
 
-## Debugging and Monitoring
+### Agent Development
+1. **Define Agent Role**: Clear responsibility and primary commands
+2. **Implement Tools**: Create domain-specific tools for the agent
+3. **Configure Context**: Ensure proper context configuration
+4. **Test Agent Behavior**: Verify agent responses and tool usage
 
-### Logging
-- Structured logging with loguru
-- Log levels: DEBUG, INFO, WARNING, ERROR
-- Logs stored in `logs/` directory
-- Agent performance and tool usage tracking
+## Key Implementation Files
 
-### Health Monitoring
-```bash
-# System health checks
-python scripts/run_health_checks.py
-python scripts/validate_feature_deployment.py
+### Core System Files
+- `kickai/agents/agentic_message_router.py` - Central message routing
+- `kickai/core/command_registry.py` - Command registration system
+- `kickai/core/dependency_container.py` - Dependency injection container
 
-# Check bot status
-./check_bot_status.sh
+### Agent System Files
+- `kickai/agents/crew_agents.py` - 12 specialized agents
+- `kickai/agents/configurable_agent.py` - Base agent class
+- `kickai/agents/tool_registry.py` - Tool discovery and registration
 
-# Monitor logs
-tail -f logs/kickai.log
-```
+### Entry Points
+- `run_bot_local.py` - Local development entry point
+- `run_bot_railway.py` - Production deployment entry point
 
-## Enhanced ONBOARDING_AGENT Features
+## Common Issues & Solutions
 
-### Dual-Entity Onboarding System
-The ONBOARDING_AGENT now supports comprehensive onboarding for both players and team members:
+### CrewAI Tool Issues
+- **Tool not found**: Check tool registration in feature `__init__.py`
+- **Import errors**: Ensure absolute imports with `PYTHONPATH=.`
+- **Tool parameter issues**: Pass parameters via `Task.config`, not tool arguments
 
-**Phase 1 - Core Expansion:**
-- **EntityType.TEAM_MEMBER** support added alongside EntityType.PLAYER
-- **Dual workflow routing** with context-aware detection
-- **Enhanced register_team_member tool** with better feedback
+### Testing Issues
+- **Test isolation**: Use separate test environment and cleanup between tests
+- **Async test issues**: Use `pytest-asyncio` and proper async test patterns
+- **Mock issues**: Mock external services but use real Firebase for E2E tests
 
-**Phase 2 - Enhanced Experience:**
-- **Progressive information collection** with step-by-step guidance
-- **Role-specific guidance** with detailed explanations for positions/roles
-- **Enhanced validation** with smart suggestions and error correction
+### Development Issues
+- **Environment setup**: Run `make setup-dev` for complete environment setup
+- **Dependency issues**: Check `requirements.txt` and `requirements-local.txt`
+- **Type checking**: Use `mypy kickai/` to catch type issues early
 
-**Phase 3 - Intelligence Features:**
-- **Dual role detection** for users wanting both player and admin roles
-- **Cross-entity linking** for unified profiles and data synchronization
-- **Smart recommendations** based on user characteristics and team needs
+## Production Considerations
 
-### Key Onboarding Tools
+### Deployment
+- **Railway**: Used for production deployment
+- **Environment Variables**: Set in Railway dashboard
+- **Health Checks**: Automatic health monitoring via agents
+- **Logging**: Structured logging with proper context
 
-**Progressive Collection:**
-- `progressive_onboarding_step` - Step-by-step user guidance
-- `get_onboarding_progress` - Track onboarding status
+### Monitoring
+- **System Health**: Via `SYSTEM_INFRASTRUCTURE` agent
+- **Agent Performance**: Track response times and success rates
+- **Error Handling**: Comprehensive error logging and user feedback
 
-**Role Guidance:**
-- `explain_player_position` - Detailed position explanations
-- `explain_team_role` - Administrative role guidance
-- `compare_positions/roles` - Help users choose between options
-
-**Enhanced Validation:**
-- `validate_name_enhanced` - Smart name validation with suggestions
-- `validate_phone_enhanced` - UK phone format with corrections
-- `validate_position/role_enhanced` - Smart suggestions for typos
-
-**Dual Role Management:**
-- `detect_existing_registrations` - Check for existing user records
-- `analyze_dual_role_potential` - Determine if user wants both roles
-- `execute_dual_registration` - Register for both player and team member
-
-**Smart Recommendations:**
-- `get_smart_position_recommendations` - AI-powered position suggestions
-- `get_onboarding_path_recommendation` - Personalized onboarding paths
-- `get_personalized_welcome_message` - Custom welcome based on choices
-
-### Usage Examples
-
-**Dual Role Registration:**
-```
-User: "I want to help coach and also play midfielder"
-→ ONBOARDING_AGENT detects dual intent
-→ Suggests dual registration path
-→ Registers as team member (immediate) + player (pending approval)
-```
-
-**Smart Position Recommendation:**
-```
-User: "I'm new to football, what position should I play?"
-→ Agent asks about experience, physical attributes, playing style
-→ Provides personalized recommendations with reasoning
-→ Explains each position in detail
-```
-
-### Common Issues
-- **Import Errors**: Ensure `PYTHONPATH=src` is set
-- **Tool Registration**: Check tool discovery in feature directories  
-- **Agent Routing**: Verify agent configuration and context rules
-- **Database Access**: Validate Firebase credentials and collection naming
-- **Onboarding Tools**: Ensure shared/domain/tools are properly imported
+### Security
+- **Access Control**: Multi-layered permission system
+- **Data Validation**: Pydantic models for all data structures
+- **Secret Management**: Environment variables and Firebase credentials

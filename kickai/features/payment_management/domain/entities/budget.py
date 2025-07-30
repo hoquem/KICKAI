@@ -8,8 +8,8 @@ and business logic encapsulation.
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
-from typing import Any, Dict, Optional
 from kickai.features.shared.domain.entities.base_entity import BaseEntity
 
 
@@ -17,16 +17,16 @@ from kickai.features.shared.domain.entities.base_entity import BaseEntity
 class Budget(BaseEntity):
     """Budget entity for managing team financial budgets."""
 
-    team_id: Optional[str] = None
-    total_amount: Optional[Decimal] = None
+    team_id: str | None = None
+    total_amount: Decimal | None = None
     allocated_amount: Decimal = Decimal("0")
     spent_amount: Decimal = Decimal("0")
     currency: str = "USD"
     start_date: datetime = field(default_factory=datetime.now)
-    end_date: Optional[datetime] = None
-    description: Optional[str] = None
+    end_date: datetime | None = None
+    description: str | None = None
     status: str = "active"  # active, inactive, exceeded
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         super().__post_init__()
@@ -109,7 +109,7 @@ class Budget(BaseEntity):
 
         return True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert budget to dictionary."""
         return {
             "id": self.id,
@@ -128,7 +128,7 @@ class Budget(BaseEntity):
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Budget":
+    def from_dict(cls, data: dict[str, Any]) -> "Budget":
         """Create budget from dictionary."""
         return cls(
             id=data.get("id"),

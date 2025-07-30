@@ -2,11 +2,11 @@ import logging
 from datetime import datetime, timedelta
 
 from kickai.core.exceptions import MatchError, MatchNotFoundError, create_error_context
-from typing import List, Optional
 from kickai.database.firebase_client import get_firebase_client
 from kickai.features.match_management.domain.entities.match import Match, MatchStatus
 from kickai.features.match_management.domain.interfaces.match_service_interface import IMatchService
 from kickai.utils.football_id_generator import generate_football_match_id
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,10 +24,10 @@ class MatchService(IMatchService):
         team_id: str,
         opponent: str,
         date: datetime,
-        location: Optional[str] = None,
+        location: str | None = None,
         status: MatchStatus = MatchStatus.SCHEDULED,
         home_away: str = "home",
-        competition: Optional[str] = None,
+        competition: str | None = None,
     ) -> Match:
         """Creates a new match."""
         try:
@@ -65,7 +65,7 @@ class MatchService(IMatchService):
             logger.error(f"Failed to create match: {e}")
             raise MatchError(f"Failed to create match: {e!s}", create_error_context("create_match"))
 
-    async def get_match(self, match_id: str) -> Optional[Match]:
+    async def get_match(self, match_id: str) -> Match | None:
         """Retrieves a match by its ID."""
         try:
             match = await self._data_store.get_match(match_id)
@@ -109,7 +109,7 @@ class MatchService(IMatchService):
             logger.error(f"Failed to delete match {match_id}: {e}")
             raise MatchError(f"Failed to delete match: {e!s}", create_error_context("delete_match"))
 
-    async def list_matches(self, team_id: str, status: Optional[MatchStatus] = None) -> List[Match]:
+    async def list_matches(self, team_id: str, status: MatchStatus | None = None) -> list[Match]:
         """Lists matches for a team, with optional filters."""
         try:
             filters = [{"field": "team_id", "operator": "==", "value": team_id}]
@@ -123,8 +123,8 @@ class MatchService(IMatchService):
             raise MatchError(f"Failed to list matches: {e!s}", create_error_context("list_matches"))
 
     async def generate_fixtures(
-        self, team_id: str, num_matches: int, opponents: List[str]
-    ) -> List[Match]:
+        self, team_id: str, num_matches: int, opponents: list[str]
+    ) -> list[Match]:
         """Generates a set of fixtures for the team (placeholder for complex logic)."""
         logger.info(f"Generating {num_matches} fixtures for team {team_id} against {opponents}")
         generated_matches = []

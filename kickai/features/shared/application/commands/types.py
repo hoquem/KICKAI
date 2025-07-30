@@ -5,7 +5,7 @@ This module provides type definitions and enums for the command system.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -23,7 +23,7 @@ class CommandContext:
     user_id: str
     message_text: str
     permission_level: PermissionLevel
-    additional_data: Optional[Dict[str, Any]] = None
+    additional_data: dict[str, Any] | None = None
 
 
 @dataclass
@@ -32,8 +32,8 @@ class CommandResult:
 
     success: bool
     message: str
-    error: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
+    error: str | None = None
+    data: dict[str, Any] | None = None
 
 
 @dataclass
@@ -45,7 +45,7 @@ class CommandMetadata:
     command_type: CommandType
     permission_level: PermissionLevel
     feature: str
-    aliases: List[str]
-    examples: List[str]
-    parameters: Dict[str, str]
-    help_text: Optional[str] = None
+    aliases: list[str]
+    examples: list[str]
+    parameters: dict[str, str]
+    help_text: str | None = None

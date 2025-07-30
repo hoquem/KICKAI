@@ -4,11 +4,7 @@ Player Tools
 
 This module provides tools for player management operations.
 """
-from typing import Optional
 
-
-
-from kickai.utils.crewai_tool_decorator import tool
 from loguru import logger
 from pydantic import BaseModel
 
@@ -26,6 +22,7 @@ from kickai.utils.constants import (
     MAX_TEAM_ID_LENGTH,
     MAX_USER_ID_LENGTH,
 )
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
     extract_single_value,
     format_tool_error,
@@ -66,7 +63,7 @@ class GetMatchInput(BaseModel):
 
 @tool("add_player")
 async def add_player(
-    team_id: str, user_id: str, name: str, phone: str, position: Optional[str] = None
+    team_id: str, user_id: str, name: str, phone: str, position: str | None = None
 ) -> str:
     """
     Add a new player to the team with simplified ID generation.
@@ -125,9 +122,11 @@ async def add_player(
             import re
 
             # Try different patterns for player ID extraction
-            player_id_match = re.search(r"ID: (\w+)", message) or re.search(r"Player ID: (\w+)", message)
+            player_id_match = re.search(r"ID: (\w+)", message) or re.search(
+                r"Player ID: (\w+)", message
+            )
             player_id = player_id_match.group(1) if player_id_match else "Unknown"
-            
+
             # Check if this is an existing player
             is_existing_player = "Already Exists" in message
 
@@ -153,7 +152,7 @@ async def add_player(
                             return f"""{message}
 
 🔗 Invite Link for Main Chat:
-{invite_result['invite_link']}
+{invite_result["invite_link"]}
 
 📋 Next Steps:
 1. Share this invite link with {name}
@@ -176,7 +175,7 @@ async def add_player(
 • Status: Pending Approval
 
 🔗 Invite Link for Main Chat:
-{invite_result['invite_link']}
+{invite_result["invite_link"]}
 
 📋 Next Steps:
 1. Share this invite link with {name}
@@ -327,22 +326,25 @@ async def approve_player(team_id: str, user_id: str, player_id: str) -> str:
 
 
 @tool("get_my_status")
-async def get_my_status(team_id: str, user_id: str) -> str:
+async def get_my_status(team_id: str, user_id: str, chat_type: str) -> str:
     """
-    Get the current status of the requesting user.
+    Get the current status of the requesting user based on chat type.
 
-    This tool requires team_id and user_id parameters which should be provided from the available context.
+    This tool routes to the appropriate service based on chat type:
+    - main_chat: Returns player information
+    - leadership_chat: Returns team member information
 
     Args:
         team_id: Team ID from the available context parameters
         user_id: User ID (telegram user ID) from the available context parameters
+        chat_type: Chat type ("main_chat" or "leadership_chat")
 
     Returns:
-        User's current status or error message
+        User's current status (player or team member) or error message
 
     Example:
-        If context provides "team_id: TEST, user_id: 12345",
-        call this tool with team_id="TEST" and user_id="12345"
+        If context provides "team_id: TEST, user_id: 12345, chat_type: leadership_chat",
+        call this tool with team_id="TEST", user_id="12345", chat_type="leadership_chat"
     """
     try:
         # Validate inputs - these should NOT be None, they must come from context
@@ -358,45 +360,83 @@ async def get_my_status(team_id: str, user_id: str) -> str:
                 "User ID is required and must be provided from available context"
             )
 
+        validation_error = validate_required_input(chat_type, "Chat Type")
+        if validation_error:
+            return format_tool_error(
+                "Chat Type is required and must be provided from available context"
+            )
+
         # Sanitize inputs
         team_id = sanitize_input(team_id, max_length=20)
         user_id = sanitize_input(user_id, max_length=20)
+        chat_type = sanitize_input(chat_type, max_length=20)
 
-        container = get_container()
-        player_service = container.get_service(PlayerService)
+        # Route based on chat type
+        if chat_type == "leadership_chat":
+            # Get team member information
+            try:
+                container = get_container()
+                team_member_service = container.get_service("TeamMemberService")
 
-        if not player_service:
-            raise ServiceNotAvailableError("PlayerService")
+                if not team_member_service:
+                    raise ServiceNotAvailableError("TeamMemberService")
 
-        # Get player status
-        player = await player_service.get_player_by_telegram_id(user_id, team_id)
+                # Get team member status
+                status = await team_member_service.get_my_status(user_id, team_id)
+                logger.info(f"✅ Retrieved team member status for {user_id} in leadership chat")
+                return status
 
-        if not player:
-            return format_tool_error(f"Player not found for user ID {user_id} in team {team_id}")
+            except Exception as e:
+                logger.error(f"Failed to get team member status: {e}")
+                return format_tool_error(f"Failed to get team member status: {e}")
 
-        # Format response
-        status_emoji = "✅" if player.status.lower() == "active" else "⏳"
-        status_text = player.status.title()
+        else:
+            # Get player information (main_chat or other)
+            try:
+                container = get_container()
+                player_service = container.get_service(PlayerService)
 
-        result = f"""👤 Player Information
+                if not player_service:
+                    raise ServiceNotAvailableError("PlayerService")
+
+                # Get player status
+                player = await player_service.get_player_by_telegram_id(user_id, team_id)
+
+                if not player:
+                    return format_tool_error(
+                        f"Player not found for user ID {user_id} in team {team_id}"
+                    )
+
+                # Format response
+                status_emoji = "✅" if player.status.lower() == "active" else "⏳"
+                status_text = player.status.title()
+
+                result = f"""👤 Player Information
 
 Name: {player.full_name}
 Position: {player.position}
 Status: {status_emoji} {status_text}
-Player ID: {player.player_id or 'Not assigned'}
-Phone: {player.phone_number or 'Not provided'}"""
+Player ID: {player.player_id or "Not assigned"}
+Phone: {player.phone_number or "Not provided"}"""
 
-        if player.status.lower() == "pending":
-            result += "\n\n⏳ Note: Your registration is pending approval by team leadership."
+                if player.status.lower() == "pending":
+                    result += (
+                        "\n\n⏳ Note: Your registration is pending approval by team leadership."
+                    )
 
-        return result
+                logger.info(f"✅ Retrieved player status for {user_id} in main chat")
+                return result
 
-    except ServiceNotAvailableError as e:
-        logger.error(f"Service not available in get_my_status: {e}")
-        return format_tool_error(f"Service temporarily unavailable: {e.message}")
+            except ServiceNotAvailableError as e:
+                logger.error(f"Service not available in get_my_status: {e}")
+                return format_tool_error(f"Service temporarily unavailable: {e.message}")
+            except Exception as e:
+                logger.error(f"Failed to get player status: {e}", exc_info=True)
+                return format_tool_error(f"Failed to get player status: {e}")
+
     except Exception as e:
-        logger.error(f"Failed to get player status: {e}", exc_info=True)
-        return format_tool_error(f"Failed to get player status: {e}")
+        logger.error(f"Failed to get user status: {e}", exc_info=True)
+        return format_tool_error(f"Failed to get user status: {e}")
 
 
 @tool("get_player_status")
@@ -452,8 +492,8 @@ async def get_player_status(team_id: str, user_id: str, phone: str) -> str:
 Name: {player.full_name}
 Position: {player.position}
 Status: {status_emoji} {status_text}
-Player ID: {player.player_id or 'Not assigned'}
-Phone: {player.phone_number or 'Not provided'}"""
+Player ID: {player.player_id or "Not assigned"}
+Phone: {player.phone_number or "Not provided"}"""
 
         if player.status.lower() == "pending":
             result += (
@@ -570,9 +610,11 @@ async def get_active_players(team_id: str, user_id: str) -> str:
 
         # Get active players from database
         players = await player_service.get_active_players(team_id)
-        
+
         # Log the actual database results for debugging
-        logger.info(f"🔍 DATABASE QUERY RESULT: Found {len(players) if players else 0} active players in team {team_id}")
+        logger.info(
+            f"🔍 DATABASE QUERY RESULT: Found {len(players) if players else 0} active players in team {team_id}"
+        )
         if players:
             player_names = [p.full_name for p in players]
             logger.info(f"🔍 ACTUAL PLAYER NAMES FROM DB: {player_names}")
@@ -582,7 +624,9 @@ async def get_active_players(team_id: str, user_id: str) -> str:
         if not players:
             # 🚨 CRITICAL: If database has no players, DO NOT INVENT ANY
             result = "📋 No active players found in the team."
-            logger.info(f"🚨 ANTI-HALLUCINATION: Returning 'no players found' message - DO NOT ADD FAKE PLAYERS")
+            logger.info(
+                "🚨 ANTI-HALLUCINATION: Returning 'no players found' message - DO NOT ADD FAKE PLAYERS"
+            )
             return result
 
         # Format response with actual database data only
@@ -598,16 +642,25 @@ async def get_active_players(team_id: str, user_id: str) -> str:
 
         # 🚨 CRITICAL: This exact output must be returned by the agent without any modifications
         logger.info(f"🚨 FINAL TOOL OUTPUT (EXACT): {result!r}")
-        logger.info(f"🚨 AGENT MUST RETURN THIS EXACTLY - NO FAKE PLAYERS ALLOWED")
-        
+        logger.info("🚨 AGENT MUST RETURN THIS EXACTLY - NO FAKE PLAYERS ALLOWED")
+
         # Additional validation: Check for specific fake players in the result
-        fake_player_indicators = ["Farhan Fuad", "03FF", "+447479958935", "Saim", "John Smith", "Jane Doe"]
+        fake_player_indicators = [
+            "Farhan Fuad",
+            "03FF",
+            "+447479958935",
+            "Saim",
+            "John Smith",
+            "Jane Doe",
+        ]
         for fake_indicator in fake_player_indicators:
             if fake_indicator in result:
-                logger.error(f"🚨 CRITICAL ERROR: Tool output contains fake player indicator: {fake_indicator}")
-                logger.error(f"🚨 THIS SHOULD NEVER HAPPEN - TOOL IS ONLY RETURNING DATABASE DATA")
+                logger.error(
+                    f"🚨 CRITICAL ERROR: Tool output contains fake player indicator: {fake_indicator}"
+                )
+                logger.error("🚨 THIS SHOULD NEVER HAPPEN - TOOL IS ONLY RETURNING DATABASE DATA")
                 logger.error(f"🚨 Result: {result!r}")
-        
+
         return result
 
     except ServiceNotAvailableError as e:
@@ -645,8 +698,8 @@ def validate_tool_output_integrity(original_output: str, agent_response: str) ->
     return False
 
 
-@tool("get_match")
-async def get_match(match_id: str, team_id: str) -> str:
+@tool("get_player_match")
+async def get_player_match(match_id: str, team_id: str) -> str:
     """
     Get match details by match ID. Requires: match_id, team_id
 
@@ -691,12 +744,12 @@ async def get_match(match_id: str, team_id: str) -> str:
         # Format match details
         return f"""📋 Match Details
 
-🏆 Match ID: {match.get('match_id', 'N/A')}
-📅 Date: {match.get('date', 'N/A')}
-⏰ Time: {match.get('time', 'N/A')}
-📍 Location: {match.get('location', 'N/A')}
-👥 Opponent: {match.get('opponent', 'N/A')}
-📊 Status: {match.get('status', 'N/A')}"""
+🏆 Match ID: {match.get("match_id", "N/A")}
+📅 Date: {match.get("date", "N/A")}
+⏰ Time: {match.get("time", "N/A")}
+📍 Location: {match.get("location", "N/A")}
+👥 Opponent: {match.get("opponent", "N/A")}
+📊 Status: {match.get("status", "N/A")}"""
 
     except ServiceNotAvailableError as e:
         logger.error(f"Service not available in get_match: {e}")

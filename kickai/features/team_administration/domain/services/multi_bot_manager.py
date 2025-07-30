@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -21,9 +21,9 @@ class MultiBotManager:
         logger.debug("DEBUG: MultiBotManager.__init__ called")
         self.data_store = data_store
         self.team_service = team_service
-        self.bots: Dict[str, Any] = {}
-        self.bot_configs: List[Dict[str, Any]] = []
-        self.crewai_systems: Dict[str, Any] = {}  # Store CrewAI systems for each team
+        self.bots: dict[str, Any] = {}
+        self.bot_configs: list[dict[str, Any]] = []
+        self.crewai_systems: dict[str, Any] = {}  # Store CrewAI systems for each team
         self.crew_lifecycle_manager = get_crew_lifecycle_manager()
         self._running = False
         self.logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ class MultiBotManager:
             logger.error(f"❌ Failed to initialize MultiBotManager: {e}")
             raise
 
-    async def load_bot_configurations(self) -> List[Any]:
+    async def load_bot_configurations(self) -> list[Any]:
         """Load bot configurations from the data store (e.g., Firestore)."""
         try:
             self.logger.info("🔍 Loading bot configurations from data store...")
@@ -55,7 +55,7 @@ class MultiBotManager:
 
             # Debug: Print each team's bot configuration
             for i, team in enumerate(teams):
-                self.logger.info(f"Team {i+1}: {team.name} (ID: {getattr(team, 'id', 'None')})")
+                self.logger.info(f"Team {i + 1}: {team.name} (ID: {getattr(team, 'id', 'None')})")
                 self.logger.info(f"  - bot_token: {getattr(team, 'bot_token', 'None')}")
                 self.logger.info(f"  - main_chat_id: {getattr(team, 'main_chat_id', 'None')}")
                 self.logger.info(
@@ -308,7 +308,7 @@ class MultiBotManager:
             leadership_chat_id = getattr(team, "leadership_chat_id", None)
 
             # Compose the shutdown message
-            message = f"🛑 KICKAI for {team_name} is shutting down.\n" f"See you next time! 👋"
+            message = f"🛑 KICKAI for {team_name} is shutting down.\nSee you next time! 👋"
 
             # Send to main chat if available
             if main_chat_id and team_id in self.bots:
@@ -346,22 +346,22 @@ class MultiBotManager:
         """Return True if bots are running."""
         return self._running
 
-    def get_bot(self, team_id: str) -> Optional[Any]:
+    def get_bot(self, team_id: str) -> Any | None:
         """Get the bot instance for a given team ID."""
         return self.bots.get(team_id)
 
-    def get_crewai_system(self, team_id: str) -> Optional[Any]:
+    def get_crewai_system(self, team_id: str) -> Any | None:
         """Get the CrewAI system for a given team ID."""
         return self.crewai_systems.get(team_id)
 
-    async def get_crew_metrics(self, team_id: str = None) -> Dict[str, Any]:
+    async def get_crew_metrics(self, team_id: str = None) -> dict[str, Any]:
         """Get crew metrics for a specific team or all teams."""
         if team_id:
             return await self.crew_lifecycle_manager.get_crew_metrics(team_id)
         else:
             return await self.crew_lifecycle_manager.get_all_crew_metrics()
 
-    async def get_crew_health_status(self) -> Dict[str, Any]:
+    async def get_crew_health_status(self) -> dict[str, Any]:
         """Get health status of all crews."""
         return await self.crew_lifecycle_manager.health_check()
 

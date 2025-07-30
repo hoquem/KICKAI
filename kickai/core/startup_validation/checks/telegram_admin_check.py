@@ -5,7 +5,7 @@ This module provides validation to ensure the bot has proper admin permissions
 in Telegram group chats to receive natural language messages.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from loguru import logger
 from telegram import Bot
@@ -27,7 +27,7 @@ class TelegramAdminCheck(BaseCheck):
         self.category = CheckCategory.CONFIGURATION
         self.description = "Validates bot admin permissions in Telegram chats"
 
-    async def execute(self, context: Dict[str, Any]) -> CheckResult:
+    async def execute(self, context: dict[str, Any]) -> CheckResult:
         """
         Execute the Telegram admin permission validation.
 

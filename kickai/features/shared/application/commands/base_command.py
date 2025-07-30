@@ -7,7 +7,7 @@ in the KICKAI system.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -25,7 +25,7 @@ class CommandContext:
     user_id: str
     message_text: str
     permission_level: PermissionLevel
-    additional_data: Dict[str, Any] = None
+    additional_data: dict[str, Any] = None
 
 
 @dataclass
@@ -34,8 +34,8 @@ class CommandResult:
 
     success: bool
     message: str
-    error: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
+    error: str | None = None
+    data: dict[str, Any] | None = None
 
 
 class Command(ABC):

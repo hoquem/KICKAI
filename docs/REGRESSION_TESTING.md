@@ -19,10 +19,9 @@ The regression testing system ensures that all KICKAI bot commands work correctl
 
 ### Test Categories
 
-#### 1. Public Commands (4 tests)
+#### 1. Public Commands (3 tests)
 Available to everyone:
 - `/help` (slash + NLP)
-- `/start` (slash + NLP)
 - `/register` (slash + NLP)
 
 #### 2. Player Commands (14 tests)

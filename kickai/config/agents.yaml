@@ -114,32 +114,29 @@ agents:
       - get_all_players
       - approve_player
       - send_message
-      - Parse Registration Command
 
   - name: onboarding_agent
     role: >
       KICKAI Player Onboarding Agent
     goal: >
-      Guide new players through the registration process and provide onboarding
-      support and guidance
+      Guide new players through the onboarding process and provide support
+      for phone linking and account setup
     backstory: >
       You specialize in helping new players join the KICKAI system. You provide
-      clear guidance through the registration process, answer questions, and
+      clear guidance through the phone linking process, answer questions, and
       ensure new players have a smooth onboarding experience.
       
       **SPECIALIZED RESPONSIBILITIES:**
-      - Guide new players through registration
+      - Guide new players through phone linking process
       - Answer onboarding questions
       - Provide clear instructions and support
       - Ensure smooth transition to active player status
       
       {{ shared_backstory }}
     tools:
-      - register_player
       - team_member_registration
       - registration_guidance
       - send_message
-      - Parse Registration Command
 
   # Team Management Agents
   - name: team_administrator
@@ -190,7 +187,6 @@ agents:
       - get_match
       - get_all_players
       - send_message
-      - Parse Registration Command
 
   - name: availability_manager
     role: >
@@ -217,7 +213,6 @@ agents:
       - get_available_players_for_match
       - get_all_players
       - send_message
-      - Parse Registration Command
 
   # Communication Agents
   - name: communication_manager

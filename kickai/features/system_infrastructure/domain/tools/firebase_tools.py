@@ -5,13 +5,12 @@ This module provides tools for Firebase/Firestore operations.
 """
 
 import logging
-from typing import Optional
 
-from kickai.utils.crewai_tool_decorator import tool
 from pydantic import BaseModel
 
 from kickai.core.dependency_container import get_container
 from kickai.database.firebase_client import FirebaseClient
+from kickai.utils.crewai_tool_decorator import tool
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +20,11 @@ class GetFirebaseDocumentInput(BaseModel):
 
     collection: str
     document_id: str
-    team_id: Optional[str] = None
+    team_id: str | None = None
 
 
 @tool("get_firebase_document")
-def get_firebase_document(collection: str, document_id: str, team_id: Optional[str] = None) -> str:
+def get_firebase_document(collection: str, document_id: str, team_id: str | None = None) -> str:
     """
     Get a document from Firebase/Firestore. Requires: collection, document_id
 
