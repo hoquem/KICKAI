@@ -5,13 +5,14 @@
 1. [Test Environment Setup](#test-environment-setup)
 2. [User Management Test Cases](#user-management-test-cases)
 3. [Message System Test Cases](#message-system-test-cases)
-4. [Bot Integration Test Cases](#bot-integration-test-cases)
-5. [WebSocket Test Cases](#websocket-test-cases)
-6. [API Endpoint Test Cases](#api-endpoint-test-cases)
-7. [Performance Test Cases](#performance-test-cases)
-8. [Error Handling Test Cases](#error-handling-test-cases)
-9. [Security Test Cases](#security-test-cases)
-10. [End-to-End Test Scenarios](#end-to-end-test-scenarios)
+4. [Group Chat Test Cases](#group-chat-test-cases)
+5. [Bot Integration Test Cases](#bot-integration-test-cases)
+6. [WebSocket Test Cases](#websocket-test-cases)
+7. [API Endpoint Test Cases](#api-endpoint-test-cases)
+8. [Performance Test Cases](#performance-test-cases)
+9. [Error Handling Test Cases](#error-handling-test-cases)
+10. [Security Test Cases](#security-test-cases)
+11. [End-to-End Test Scenarios](#end-to-end-test-scenarios)
 
 ---
 
@@ -186,6 +187,122 @@ curl http://localhost:8001/health
 
 ---
 
+## 🏠 **Group Chat Test Cases**
+
+### **TC-GC-001: Group Chat Initialization**
+**Objective**: Verify group chats are properly initialized
+
+**Test Steps**:
+1. Start the mock service
+2. Check that main chat and leadership chat are created
+3. Verify chat properties
+
+**Expected Results**:
+- ✅ Main chat created with ID 2001
+- ✅ Leadership chat created with ID 2002
+- ✅ Chat titles set correctly
+- ✅ Chat types set to "group"
+- ✅ Chat flags set correctly (is_main_chat, is_leadership_chat)
+
+### **TC-GC-002: Main Chat Access**
+**Objective**: Verify all users can access main chat
+
+**Test Steps**:
+1. Create users with different roles (player, team_member, admin, leadership)
+2. Attempt to send messages to main chat from each user
+3. Verify access is granted
+
+**Expected Results**:
+- ✅ All users can send messages to main chat
+- ✅ Messages appear in main chat history
+- ✅ No access restrictions for main chat
+
+### **TC-GC-003: Leadership Chat Access Control**
+**Objective**: Verify leadership chat access restrictions
+
+**Test Steps**:
+1. Create users with different roles
+2. Attempt to send messages to leadership chat from each user
+3. Verify access control
+
+**Expected Results**:
+- ✅ Players cannot access leadership chat (403 error)
+- ✅ Team members can access leadership chat
+- ✅ Admins can access leadership chat
+- ✅ Leadership can access leadership chat
+
+### **TC-GC-004: Chat Context Routing**
+**Objective**: Verify chat context is properly passed to bot system
+
+**Test Steps**:
+1. Send messages to different chat types (private, main, leadership)
+2. Verify chat context is included in bot integration
+3. Check bot routing based on chat context
+
+**Expected Results**:
+- ✅ Private chat messages have "private" context
+- ✅ Main chat messages have "main" context
+- ✅ Leadership chat messages have "leadership" context
+- ✅ Bot receives correct chat context for routing
+
+### **TC-GC-005: Chat Message History**
+**Objective**: Verify chat-specific message history
+
+**Test Steps**:
+1. Send messages to different chats
+2. Retrieve message history for each chat
+3. Verify messages are isolated per chat
+
+**Expected Results**:
+- ✅ Main chat history contains only main chat messages
+- ✅ Leadership chat history contains only leadership chat messages
+- ✅ Private chat history contains only private chat messages
+- ✅ No cross-contamination between chats
+
+### **TC-GC-006: User Chat Access List**
+**Objective**: Verify users can see only accessible chats
+
+**Test Steps**:
+1. Create users with different roles
+2. Get accessible chats for each user via `/api/users/{user_id}/chats`
+3. Verify correct chat access
+
+**Expected Results**:
+- ✅ Players see: private chat + main chat
+- ✅ Team members see: private chat + main chat + leadership chat
+- ✅ Admins see: private chat + main chat + leadership chat
+- ✅ Leadership see: private chat + main chat + leadership chat
+
+### **TC-GC-007: Multi-User Group Chat**
+**Objective**: Test multiple users in group chats
+
+**Test Steps**:
+1. Create multiple users
+2. Have users send messages to main chat simultaneously
+3. Verify all messages appear in chat history
+
+**Expected Results**:
+- ✅ All users can send messages to group chat
+- ✅ Messages appear in correct order
+- ✅ All users can see all messages
+- ✅ Real-time updates work via WebSocket
+
+### **TC-GC-008: Chat Permission Validation**
+**Objective**: Verify chat access permissions are enforced
+
+**Test Steps**:
+1. Create a player user
+2. Attempt to send message to leadership chat
+3. Verify permission denied
+
+**Expected Results**:
+- ✅ 403 Forbidden error returned
+- ✅ Appropriate error message
+- ✅ No message stored in system
+- ✅ WebSocket broadcast not sent
+
+---
+
 ## 🤖 **Bot Integration Test Cases**
 
 ### **TC-BI-001: Basic Bot Command Processing**
@@ -261,6 +378,20 @@ curl http://localhost:8001/health
 - ✅ Appropriate fallback responses
 - ✅ Error logging occurs
 - ✅ System remains stable
+
+### **TC-BI-006: Chat Context Bot Routing**
+**Objective**: Test bot routing based on chat context
+
+**Test Steps**:
+1. Send same command from different chat contexts
+2. Verify bot responds appropriately for each context
+3. Test context-specific bot behavior
+
+**Expected Results**:
+- ✅ Bot receives correct chat context
+- ✅ Different responses for different contexts
+- ✅ Context-aware routing works
+- ✅ Leadership commands work in leadership chat
 
 ---
 
@@ -371,7 +502,22 @@ curl http://localhost:8001/health
 - ✅ Data format consistent
 - ✅ CRUD operations work
 
-### **TC-API-004: Message Endpoints**
+### **TC-API-004: Chat Endpoints**
+**Objective**: Test all chat-related endpoints
+
+**Test Steps**:
+1. GET `/chats` - List all chats
+2. GET `/chats/group` - List group chats
+3. GET `/users/{user_id}/chats` - Get user accessible chats
+4. GET `/chats/{chat_id}/messages` - Get chat messages
+
+**Expected Results**:
+- ✅ All endpoints respond correctly
+- ✅ Chat data consistent
+- ✅ Access control enforced
+- ✅ Message isolation works
+
+### **TC-API-005: Message Endpoints**
 **Objective**: Test all message-related endpoints
 
 **Test Steps**:
@@ -384,7 +530,7 @@ curl http://localhost:8001/health
 - ✅ Message data consistent
 - ✅ Pagination works (if implemented)
 
-### **TC-API-005: Error Handling**
+### **TC-API-006: Error Handling**
 **Objective**: Verify API error handling
 
 **Test Steps**:
@@ -428,7 +574,21 @@ curl http://localhost:8001/health
 - ✅ Consistent performance
 - ✅ Memory usage controlled
 
-### **TC-PERF-003: WebSocket Performance**
+### **TC-PERF-003: Group Chat Performance**
+**Objective**: Test group chat performance under load
+
+**Test Steps**:
+1. Create multiple users
+2. Send messages to group chats simultaneously
+3. Monitor broadcast performance
+
+**Expected Results**:
+- ✅ All users receive group chat messages
+- ✅ Broadcast latency < 50ms
+- ✅ No message loss in group chats
+- ✅ System remains responsive
+
+### **TC-PERF-004: WebSocket Performance**
 **Objective**: Test WebSocket performance under load
 
 **Test Steps**:
@@ -442,7 +602,7 @@ curl http://localhost:8001/health
 - ✅ No connection drops
 - ✅ Memory usage stable
 
-### **TC-PERF-004: Memory Usage**
+### **TC-PERF-005: Memory Usage**
 **Objective**: Verify memory usage remains controlled
 
 **Test Steps**:
@@ -578,6 +738,20 @@ curl http://localhost:8001/health
 - ✅ Safe output rendering
 - ✅ Data integrity maintained
 
+### **TC-SEC-005: Chat Access Control**
+**Objective**: Verify chat access permissions are enforced
+
+**Test Steps**:
+1. Attempt unauthorized access to leadership chat
+2. Test permission bypass attempts
+3. Verify access control integrity
+
+**Expected Results**:
+- ✅ Unauthorized access blocked
+- ✅ Permission checks enforced
+- ✅ No security bypasses possible
+- ✅ Access logs maintained
+
 ---
 
 ## 🎯 **End-to-End Test Scenarios**
@@ -597,17 +771,17 @@ curl http://localhost:8001/health
 - ✅ All subsequent commands work
 - ✅ Data consistency maintained
 
-### **TC-E2E-002: Multi-User Conversation**
-**Objective**: Test system with multiple users
+### **TC-E2E-002: Multi-User Group Chat**
+**Objective**: Test system with multiple users in group chats
 
 **Test Steps**:
 1. Create multiple users with different roles
-2. Have users send messages simultaneously
+2. Have users send messages to group chats simultaneously
 3. Verify all messages processed correctly
 4. Test role-specific functionality
 
 **Expected Results**:
-- ✅ All users work correctly
+- ✅ All users work correctly in group chats
 - ✅ No message conflicts
 - ✅ Role-specific features work
 - ✅ System remains stable
@@ -629,7 +803,22 @@ curl http://localhost:8001/health
 - ✅ Data consistency maintained
 - ✅ Error handling works
 
-### **TC-E2E-004: System Recovery**
+### **TC-E2E-004: Leadership Chat Workflow**
+**Objective**: Test complete leadership chat workflow
+
+**Test Steps**:
+1. Create team member and leadership users
+2. Send administrative commands in leadership chat
+3. Verify proper access control and responses
+4. Test leadership-specific features
+
+**Expected Results**:
+- ✅ Leadership chat accessible to authorized users
+- ✅ Administrative commands work
+- ✅ Access control enforced
+- ✅ Leadership features functional
+
+### **TC-E2E-005: System Recovery**
 **Objective**: Test system recovery after failures
 
 **Test Steps**:
@@ -643,7 +832,7 @@ curl http://localhost:8001/health
 - ✅ Service restored
 - ✅ No data loss
 
-### **TC-E2E-005: Performance Under Load**
+### **TC-E2E-006: Performance Under Load**
 **Objective**: Test system performance under realistic load
 
 **Test Steps**:
@@ -716,6 +905,31 @@ curl -X POST http://localhost:8001/api/send_message \
 echo "✅ Basic tests completed successfully"
 ```
 
+### **Group Chat Test Script**
+```bash
+#!/bin/bash
+# Run group chat tests
+
+echo "🏠 Running Group Chat Tests..."
+
+# Test main chat access
+curl -X POST http://localhost:8001/api/send_message \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":1001,"chat_id":2001,"text":"Hello main chat!"}' || exit 1
+
+# Test leadership chat access (should work for team members)
+curl -X POST http://localhost:8001/api/send_message \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":1002,"chat_id":2002,"text":"Hello leadership!"}' || exit 1
+
+# Test leadership chat access (should fail for players)
+curl -X POST http://localhost:8001/api/send_message \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":1001,"chat_id":2002,"text":"Should fail"}' && exit 1
+
+echo "✅ Group chat tests completed"
+```
+
 ### **Performance Test Script**
 ```bash
 #!/bin/bash
@@ -727,7 +941,7 @@ echo "⚡ Running Performance Tests..."
 for i in {1..100}; do
   curl -X POST http://localhost:8001/api/send_message \
     -H "Content-Type: application/json" \
-    -d "{\"user_id\":1001,\"chat_id\":1001,\"text\":\"Test message $i\"}" &
+    -d "{\"user_id\":1001,\"chat_id\":2001,\"text\":\"Test message $i\"}" &
 done
 
 wait
@@ -757,6 +971,12 @@ echo "✅ Performance tests completed"
 - **Error Rate**: < 0.1%
 - **User Satisfaction**: > 4.5/5
 
+### **Group Chat Metrics**
+- **Chat Access Control**: 100% accuracy
+- **Message Isolation**: 100% separation
+- **Context Routing**: 100% accuracy
+- **Multi-user Support**: > 50 concurrent users
+
 ---
 
 ## 🔄 **Continuous Testing Strategy**
@@ -781,6 +1001,13 @@ echo "✅ Performance tests completed"
 
 ## 📚 **Conclusion**
 
-This comprehensive test suite ensures the Mock Telegram Testing System is robust, reliable, and ready for production use. The test cases cover all aspects of the system from basic functionality to complex scenarios, ensuring high quality and reliability.
+This comprehensive test suite ensures the Mock Telegram Testing System is robust, reliable, and ready for production use. The test cases cover all aspects of the system from basic functionality to complex group chat scenarios, ensuring high quality and reliability.
+
+The addition of group chat test cases specifically addresses the KICKAI system's two-group chat model (main chat and leadership chat), ensuring that:
+- ✅ **Main Chat**: All users can access and participate
+- ✅ **Leadership Chat**: Only authorized users (team members, admins, leadership) can access
+- ✅ **Chat Context**: Proper routing to bot system based on chat type
+- ✅ **Access Control**: Enforced permissions and security
+- ✅ **Message Isolation**: Proper separation between different chat contexts
 
 Regular execution of these test cases will help maintain system quality and catch issues early in the development cycle. 

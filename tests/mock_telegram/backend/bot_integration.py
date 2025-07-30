@@ -99,6 +99,7 @@ class MockTelegramIntegration:
         Convert mock message format to Telegram update format expected by bot system.
         """
         text = message_data.get("text", "")
+        chat_context = message_data.get("chat_context", "private")
         
         # Determine if this is a command
         is_command = text.startswith("/") if text else False
@@ -113,16 +114,31 @@ class MockTelegramIntegration:
                 "length": command_length
             })
         
+        # Add chat context information for bot routing
+        chat_data = message_data.get("chat", {})
+        if chat_context == "leadership":
+            # Add leadership chat identifier
+            chat_data["is_leadership_chat"] = True
+            chat_data["chat_type"] = "leadership"
+        elif chat_context == "main":
+            # Add main chat identifier
+            chat_data["is_main_chat"] = True
+            chat_data["chat_type"] = "main"
+        else:
+            # Private chat
+            chat_data["chat_type"] = "private"
+        
         return {
             "update_id": message_data.get("message_id", 0),
             "message": {
                 "message_id": message_data.get("message_id", 0),
                 "from": message_data.get("from", {}),
-                "chat": message_data.get("chat", {}),
+                "chat": chat_data,
                 "date": message_data.get("date", int(datetime.now().timestamp())),
                 "text": text,
                 "entities": entities
-            }
+            },
+            "chat_context": chat_context  # Pass context to bot system
         }
     
     def _convert_bot_response_to_mock(self, bot_response: Any, original_message: Dict[str, Any]) -> Dict[str, Any]:

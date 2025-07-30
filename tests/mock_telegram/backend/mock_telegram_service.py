@@ -53,6 +53,14 @@ class UserRole(str, Enum):
     LEADERSHIP = "leadership"
 
 
+class ChatType(str, Enum):
+    """Chat types supported by the system"""
+    PRIVATE = "private"
+    GROUP = "group"
+    SUPERGROUP = "supergroup"
+    CHANNEL = "channel"
+
+
 @dataclass
 class MockUser:
     """Represents a mock Telegram user"""
@@ -77,18 +85,29 @@ class MockUser:
 class MockChat:
     """Represents a mock Telegram chat"""
     id: int
-    type: str  # "private", "group", "supergroup", "channel"
+    type: ChatType
     title: Optional[str] = None
     username: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    is_main_chat: bool = False
+    is_leadership_chat: bool = False
     
     def __post_init__(self):
         """Validate chat data after initialization"""
         if self.id <= 0:
             raise ValueError("Chat ID must be positive")
-        if self.type not in ["private", "group", "supergroup", "channel"]:
+        if self.type not in [e.value for e in ChatType]:
             raise ValueError("Invalid chat type")
+    
+    def get_chat_context(self) -> str:
+        """Get the chat context for bot routing"""
+        if self.is_leadership_chat:
+            return "leadership"
+        elif self.is_main_chat:
+            return "main"
+        else:
+            return "private"
 
 
 @dataclass
@@ -119,7 +138,9 @@ class MockMessage:
                 "title": self.chat.title,
                 "username": self.chat.username,
                 "first_name": self.chat.first_name,
-                "last_name": self.chat.last_name
+                "last_name": self.chat.last_name,
+                "is_main_chat": self.chat.is_main_chat,
+                "is_leadership_chat": self.chat.is_leadership_chat
             },
             "date": int(self.date.timestamp()),
             "text": self.text
@@ -158,7 +179,7 @@ class CreateUserRequest(BaseModel):
 class MockTelegramService:
     """Main service class for mock Telegram functionality"""
     
-    def __init__(self, max_messages: int = 1000, max_users: int = 100):
+    def __init__(self, max_messages: int = 1000, max_users: int = 100, team_name: str = "KickAI Testing"):
         self._lock = threading.RLock()  # Thread safety
         self.users: Dict[int, MockUser] = {}
         self.chats: Dict[int, MockChat] = {}
@@ -167,10 +188,12 @@ class MockTelegramService:
         self.message_counter = 1
         self.max_messages = max_messages
         self.max_users = max_users
+        self.team_name = team_name
         
-        # Initialize with some default test users
+        # Initialize with some default test users and group chats
         self._initialize_default_users()
-        logger.info(f"MockTelegramService initialized with {len(self.users)} default users")
+        self._initialize_group_chats()
+        logger.info(f"MockTelegramService initialized with {len(self.users)} default users and group chats")
     
     def _initialize_default_users(self):
         """Initialize with default test users"""
@@ -188,11 +211,80 @@ class MockTelegramService:
                 # Create private chat for each user
                 chat = MockChat(
                     id=user.id,
-                    type="private",
+                    type=ChatType.PRIVATE,
                     first_name=user.first_name,
                     last_name=user.last_name
                 )
                 self.chats[chat.id] = chat
+    
+    def _initialize_group_chats(self):
+        """Initialize group chats for the team"""
+        with self._lock:
+            # Main chat (all users can access)
+            main_chat = MockChat(
+                id=2001,  # Group chat IDs start from 2000
+                type=ChatType.GROUP,
+                title=self.team_name,
+                is_main_chat=True
+            )
+            self.chats[main_chat.id] = main_chat
+            
+            # Leadership chat (only team members, admins, and leadership can access)
+            leadership_chat = MockChat(
+                id=2002,
+                type=ChatType.GROUP,
+                title=f"{self.team_name} - Leadership",
+                is_leadership_chat=True
+            )
+            self.chats[leadership_chat.id] = leadership_chat
+            
+            logger.info(f"Created group chats: Main ({main_chat.id}), Leadership ({leadership_chat.id})")
+    
+    def get_accessible_chats_for_user(self, user_id: int) -> List[MockChat]:
+        """Get all chats accessible to a specific user"""
+        if user_id not in self.users:
+            return []
+        
+        user = self.users[user_id]
+        accessible_chats = []
+        
+        with self._lock:
+            for chat in self.chats.values():
+                # Private chat - only for the user
+                if chat.type == ChatType.PRIVATE and chat.id == user_id:
+                    accessible_chats.append(chat)
+                
+                # Main chat - accessible to all users
+                elif chat.is_main_chat:
+                    accessible_chats.append(chat)
+                
+                # Leadership chat - only for team members, admins, and leadership
+                elif chat.is_leadership_chat and user.role in [UserRole.TEAM_MEMBER, UserRole.ADMIN, UserRole.LEADERSHIP]:
+                    accessible_chats.append(chat)
+        
+        return accessible_chats
+    
+    def can_user_access_chat(self, user_id: int, chat_id: int) -> bool:
+        """Check if a user can access a specific chat"""
+        if user_id not in self.users or chat_id not in self.chats:
+            return False
+        
+        user = self.users[user_id]
+        chat = self.chats[chat_id]
+        
+        # Private chat - only for the user
+        if chat.type == ChatType.PRIVATE:
+            return chat.id == user_id
+        
+        # Main chat - accessible to all users
+        if chat.is_main_chat:
+            return True
+        
+        # Leadership chat - only for team members, admins, and leadership
+        if chat.is_leadership_chat:
+            return user.role in [UserRole.TEAM_MEMBER, UserRole.ADMIN, UserRole.LEADERSHIP]
+        
+        return False
     
     async def connect_websocket(self, websocket: WebSocket):
         """Connect a new WebSocket client"""
@@ -265,7 +357,7 @@ class MockTelegramService:
                 # Create private chat for the user
                 chat = MockChat(
                     id=user_id,
-                    type="private",
+                    type=ChatType.PRIVATE,
                     first_name=user.first_name,
                     last_name=user.last_name
                 )
@@ -286,6 +378,10 @@ class MockTelegramService:
             if request.chat_id not in self.chats:
                 raise HTTPException(status_code=404, detail="Chat not found")
             
+            # Check if user can access this chat
+            if not self.can_user_access_chat(request.user_id, request.chat_id):
+                raise HTTPException(status_code=403, detail="User cannot access this chat")
+            
             user = self.users[request.user_id]
             chat = self.chats[request.chat_id]
             
@@ -304,23 +400,30 @@ class MockTelegramService:
             # Cleanup old messages
             self._cleanup_old_messages()
             
-            logger.info(f"Message sent: {user.first_name} -> {request.text[:50]}...")
+            chat_context = chat.get_chat_context()
+            logger.info(f"Message sent: {user.first_name} -> {chat_context} chat -> {request.text[:50]}...")
             
             # Broadcast the message to WebSocket clients
             asyncio.create_task(self.broadcast_message({
                 "type": "new_message",
-                "message": message.to_dict()
+                "message": message.to_dict(),
+                "chat_context": chat_context
             }))
             
-            # Process message through bot system
+            # Process message through bot system with chat context
             if BOT_INTEGRATION_AVAILABLE:
                 try:
-                    bot_response = process_mock_message_sync(message.to_dict())
+                    # Add chat context to message data for bot routing
+                    message_data = message.to_dict()
+                    message_data["chat_context"] = chat_context
+                    
+                    bot_response = process_mock_message_sync(message_data)
                     if bot_response and bot_response.get("status") != "processing":
                         # Broadcast bot response
                         asyncio.create_task(self.broadcast_message({
                             "type": "bot_response",
-                            "message": bot_response
+                            "message": bot_response,
+                            "chat_context": chat_context
                         }))
                 except Exception as e:
                     logger.error(f"Error processing message through bot: {e}")
@@ -328,22 +431,51 @@ class MockTelegramService:
             return message
     
     def get_user_messages(self, user_id: int, limit: int = 50) -> List[MockMessage]:
-        """Get messages for a specific user"""
+        """Get messages for a specific user (from all accessible chats)"""
         with self._lock:
             if user_id not in self.users:
                 raise HTTPException(status_code=404, detail="User not found")
             
+            # Get all chats accessible to the user
+            accessible_chat_ids = [chat.id for chat in self.get_accessible_chats_for_user(user_id)]
+            
             user_messages = [
                 msg for msg in self.messages 
-                if msg.chat.id == user_id
+                if msg.chat.id in accessible_chat_ids
             ]
             
             return user_messages[-limit:]
+    
+    def get_chat_messages(self, chat_id: int, limit: int = 50) -> List[MockMessage]:
+        """Get messages for a specific chat"""
+        with self._lock:
+            if chat_id not in self.chats:
+                raise HTTPException(status_code=404, detail="Chat not found")
+            
+            chat_messages = [
+                msg for msg in self.messages 
+                if msg.chat.id == chat_id
+            ]
+            
+            return chat_messages[-limit:]
     
     def get_all_users(self) -> List[MockUser]:
         """Get all test users"""
         with self._lock:
             return list(self.users.values())
+    
+    def get_all_chats(self) -> List[MockChat]:
+        """Get all chats"""
+        with self._lock:
+            return list(self.chats.values())
+    
+    def get_group_chats(self) -> List[MockChat]:
+        """Get all group chats (main and leadership)"""
+        with self._lock:
+            return [
+                chat for chat in self.chats.values()
+                if chat.is_main_chat or chat.is_leadership_chat
+            ]
     
     def get_all_messages(self, limit: int = 100) -> List[MockMessage]:
         """Get all messages"""
@@ -356,10 +488,12 @@ class MockTelegramService:
             return {
                 "total_users": len(self.users),
                 "total_chats": len(self.chats),
+                "group_chats": len([c for c in self.chats.values() if c.is_main_chat or c.is_leadership_chat]),
                 "total_messages": len(self.messages),
                 "active_websockets": len(self.websocket_connections),
                 "message_counter": self.message_counter,
-                "bot_integration_available": BOT_INTEGRATION_AVAILABLE
+                "bot_integration_available": BOT_INTEGRATION_AVAILABLE,
+                "team_name": self.team_name
             }
 
 
@@ -389,7 +523,8 @@ async def root():
     return {
         "message": "Mock Telegram Bot Service",
         "version": "1.0.0",
-        "status": "running"
+        "status": "running",
+        "team_name": mock_service.team_name
     }
 
 
@@ -412,6 +547,25 @@ async def create_user(request: CreateUserRequest):
     return asdict(user)
 
 
+@app.get("/chats")
+async def get_chats():
+    """Get all chats"""
+    return [asdict(chat) for chat in mock_service.get_all_chats()]
+
+
+@app.get("/chats/group")
+async def get_group_chats():
+    """Get group chats (main and leadership)"""
+    return [asdict(chat) for chat in mock_service.get_group_chats()]
+
+
+@app.get("/users/{user_id}/chats")
+async def get_user_chats(user_id: int):
+    """Get all chats accessible to a specific user"""
+    accessible_chats = mock_service.get_accessible_chats_for_user(user_id)
+    return [asdict(chat) for chat in accessible_chats]
+
+
 @app.post("/send_message")
 async def send_message(request: SendMessageRequest):
     """Send a message as a user"""
@@ -431,8 +585,15 @@ async def bot_response(response_data: dict):
 
 @app.get("/messages/{user_id}")
 async def get_user_messages(user_id: int, limit: int = 50):
-    """Get messages for a specific user"""
+    """Get messages for a specific user (from all accessible chats)"""
     messages = mock_service.get_user_messages(user_id, limit)
+    return [msg.to_dict() for msg in messages]
+
+
+@app.get("/chats/{chat_id}/messages")
+async def get_chat_messages(chat_id: int, limit: int = 50):
+    """Get messages for a specific chat"""
+    messages = mock_service.get_chat_messages(chat_id, limit)
     return [msg.to_dict() for msg in messages]
 
 
