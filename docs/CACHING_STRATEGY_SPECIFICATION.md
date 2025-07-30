@@ -114,11 +114,11 @@ class CachedPlayerService(PlayerService):
 ```python
 # Format: {entity_type}:{team_id}:{entity_id}:{operation}
 # Examples:
-"player:KTI:MH123:basic"           # Player basic info
-"team:KTI:info"                    # Team information
-"team_players:KTI:list"            # Team player list
-"match:KTI:M001:details"           # Match details
-"attendance:KTI:M001:summary"      # Match attendance summary
+"player:team_id:MH123:basic"       # Player basic info
+"team:team_id:info"                # Team information
+"team_players:team_id:list"        # Team player list
+"match:team_id:M001:details"       # Match details
+"attendance:team_id:M001:summary"  # Match attendance summary
 ```
 
 #### **Cache Key Generation**

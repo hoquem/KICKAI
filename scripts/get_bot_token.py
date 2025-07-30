@@ -31,6 +31,42 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from loguru import logger
 
+async def get_team_id_from_firestore() -> str:
+    """
+    Get the first available team_id from Firestore.
+    This ensures we use a real team from the database instead of hardcoded values.
+    """
+    try:
+        # Initialize Firebase if not already done
+        if not firebase_admin._apps:
+            firebase_creds_file = os.getenv('FIREBASE_CREDENTIALS_FILE')
+            if firebase_creds_file:
+                cred = credentials.Certificate(firebase_creds_file)
+                firebase_admin.initialize_app(cred)
+            else:
+                raise RuntimeError("No Firebase credentials found.")
+        
+        db = firestore.client()
+        
+        # Get all teams from Firestore
+        teams_ref = db.collection('kickai_teams')
+        teams = teams_ref.stream()
+        
+        teams_list = list(teams)
+        if not teams_list:
+            logger.warning("No teams found in Firestore, using fallback team_id")
+            return "fallback_team"
+        
+        # Use the first available team
+        team_id = teams_list[0].id
+        logger.info(f"Using team_id from Firestore: {team_id}")
+        return team_id
+        
+    except Exception as e:
+        logger.error(f"Failed to get team_id from Firestore: {e}")
+        logger.warning("Using fallback team_id due to error")
+        return "fallback_team"
+
 
 async def get_bot_config():
     """Get bot configuration from Firestore teams collection."""
@@ -53,8 +89,11 @@ async def get_bot_config():
         
         db = firestore.client()
         
-        # Get team ID from environment
-        team_id = os.getenv('TEAM_ID', 'KTI')
+        # Get team ID from Firestore or environment
+        team_id = await get_team_id_from_firestore()
+        if team_id == "fallback_team":
+            # Fallback to environment variable
+            team_id = os.getenv('TEAM_ID', 'fallback_team')
         
         # Query team document
         team_doc = db.collection('kickai_teams').document(team_id).get()

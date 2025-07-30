@@ -60,9 +60,9 @@ KICKAI is built using **cutting-edge AI agent architecture** with CrewAI - think
          ▼
 🔥 FIREBASE FIRESTORE DATABASE
 ┌─────────────────────────────────────┐
-│ kickai_KTI_players    │ kickai_KTI_matches  │
-│ kickai_KTI_members    │ kickai_KTI_payments │
-│ kickai_KTI_attendance │ kickai_KTI_training │
+│ kickai_team_players   │ kickai_team_matches │
+│ kickai_team_members   │ kickai_team_payments│
+│ kickai_team_attendance│ kickai_team_training│
 └─────────────────────────────────────────────┘
 ```
 
@@ -82,13 +82,13 @@ KICKAI is built using **cutting-edge AI agent architecture** with CrewAI - think
 ```
 Firebase Firestore (Real-time Database)
 ├── kickai_teams/              # Team configurations and bot settings
-├── kickai_KTI_players/        # All player data (team-specific)
-├── kickai_KTI_members/        # Team administrators (team-specific)
-├── kickai_KTI_matches/        # Match information (team-specific)
-├── kickai_KTI_training/       # Training sessions (team-specific)
-├── kickai_KTI_attendance/     # Who attended what (team-specific)
-├── kickai_KTI_payments/       # Payment tracking (team-specific)
-└── kickai_KTI_notifications/  # Communication logs (team-specific)
+├── kickai_team_players/       # All player data (team-specific)
+├── kickai_team_members/       # Team administrators (team-specific)
+├── kickai_team_matches/       # Match information (team-specific)
+├── kickai_team_training/      # Training sessions (team-specific)
+├── kickai_team_attendance/    # Who attended what (team-specific)
+├── kickai_team_payments/      # Payment tracking (team-specific)
+└── kickai_team_notifications/ # Communication logs (team-specific)
 ```
 
 ---
@@ -107,7 +107,7 @@ Progressive Collection: Name, Phone, Position, Experience
          ↓
 PLAYER_COORDINATOR: Creates player profile
          ↓
-Database: Stores in kickai_KTI_players
+Database: Stores in kickai_team_players
          ↓
 Response: "Welcome to BP Hatters FC! Your registration is pending approval."
 ```
@@ -278,7 +278,7 @@ cp .env.example .env
 - **Bot**: `@KickAITesting_bot` (ID: 7958401227) - OPERATIONAL
 - **Main Chat**: KickAI Testing main group
 - **Leadership Chat**: KickAI Testing leadership group (-4969733370)
-- **Team ID**: `KTI` (KickAI Testing)
+- **Team ID**: `team_id` (Dynamic from Firestore)
 - **Database**: Testing environment in Firebase
 
 **For Production Trial (Mac Mini):**
@@ -702,7 +702,7 @@ pytest tests/unit/agents/    # Test CrewAI agents
 🤖 Bot: @KickAITesting_bot (ID: 7958401227) - OPERATIONAL
 📱 Main Chat: "KickAI Testing" group
 👥 Leadership Chat: "KickAI Testing Leadership" group (-4969733370)
-🏷️ Team ID: KTI (KickAI Testing)
+🏷️ Team ID: Dynamic from Firestore
 🔥 Database: kickai-testing environment
 💻 Hardware: Your individual laptops
 🔄 Updates: Immediate when you push code changes

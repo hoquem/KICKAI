@@ -25,10 +25,38 @@ from kickai.core.logging_config import logger
 from kickai.core.settings import get_settings, initialize_settings
 from kickai.database.firebase_client import initialize_firebase_client
 from kickai.features.team_administration.domain.services.multi_bot_manager import MultiBotManager
+from kickai.features.team_administration.domain.services.team_service import TeamService
 
 # Global state
 multi_bot_manager: Optional[MultiBotManager] = None
 shutdown_event = asyncio.Event()
+
+
+async def get_team_id_from_firestore() -> str:
+    """
+    Get the first available team_id from Firestore.
+    This ensures we use a real team from the database instead of hardcoded values.
+    """
+    try:
+        # Get team service from dependency container
+        team_service = get_service(TeamService)
+        
+        # Get all teams from Firestore
+        teams = await team_service.get_all_teams()
+        
+        if not teams:
+            logger.warning("No teams found in Firestore, using fallback team_id")
+            return "fallback_team"
+        
+        # Use the first available team
+        team_id = teams[0].id
+        logger.info(f"Using team_id from Firestore: {team_id}")
+        return team_id
+        
+    except Exception as e:
+        logger.error(f"Failed to get team_id from Firestore: {e}")
+        logger.warning("Using fallback team_id due to error")
+        return "fallback_team"
 
 
 def setup_logging():
@@ -126,10 +154,13 @@ async def run_system_validation():
     try:
         logger.info("🔍 Running full system validation...")
 
+        # Get team_id from Firestore
+        team_id = await get_team_id_from_firestore()
+        
         # Use the centralized startup validation function
         from kickai.core.startup_validation import run_startup_validation
 
-        report = await run_startup_validation(team_id="KTI")
+        report = await run_startup_validation(team_id=team_id)
 
         # Check if system is healthy
         if not report.is_healthy():

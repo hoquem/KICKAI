@@ -42,23 +42,34 @@ class MockTelegramIntegration:
     def __init__(self, mock_service_url: str = "http://localhost:8001"):
         self.mock_service_url = mock_service_url
         self._lock = asyncio.Lock()
-        
+        self.settings = None
+        self.agentic_router = None
+        self.telegram_service = None
+        self._initialized = False
+    
+    async def _initialize(self):
+        """Initialize bot components asynchronously."""
+        if self._initialized:
+            return
+            
         # Initialize bot components if available
         global BOT_COMPONENTS_AVAILABLE
         if BOT_COMPONENTS_AVAILABLE:
             try:
                 self.settings = get_settings()
-                # Use the default team ID from settings or fallback to 'KTI'
-                team_id = getattr(self.settings, 'default_team_id', 'KTI')
+                # Get team_id from Firestore - use first available team
+                team_id = await self._get_team_id_from_firestore()
                 self.agentic_router = AgenticMessageRouter(team_id=team_id)
                 # Skip TelegramBotService for mock integration - we don't need real Telegram
                 self.telegram_service = None
                 logger.info(f"Bot integration initialized successfully with team_id: {team_id}")
+                self._initialized = True
             except Exception as e:
                 logger.error(f"Failed to initialize bot components: {e}")
                 BOT_COMPONENTS_AVAILABLE = False
         else:
             logger.warning("Bot integration running in mock-only mode")
+            self._initialized = True
         
     async def process_mock_message(self, message_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -70,6 +81,9 @@ class MockTelegramIntegration:
         Returns:
             Bot response data
         """
+        # Initialize if not already done
+        await self._initialize()
+        
         if not BOT_COMPONENTS_AVAILABLE:
             return {
                 "type": "mock_response",
@@ -179,6 +193,36 @@ class MockTelegramIntegration:
             },
             "timestamp": datetime.now().isoformat()
         }
+    
+    async def _get_team_id_from_firestore(self) -> str:
+        """
+        Get the first available team_id from Firestore.
+        This ensures we use a real team from the database instead of hardcoded values.
+        """
+        try:
+            # Import team service
+            from kickai.features.team_administration.domain.services.team_service import TeamService
+            from kickai.core.dependency_container import get_service
+            
+            # Get team service from dependency container
+            team_service = get_service(TeamService)
+            
+            # Get all teams from Firestore
+            teams = await team_service.get_all_teams()
+            
+            if not teams:
+                logger.warning("No teams found in Firestore, using fallback team_id")
+                return "fallback_team"
+            
+            # Use the first available team
+            team_id = teams[0].id
+            logger.info(f"Using team_id from Firestore: {team_id}")
+            return team_id
+            
+        except Exception as e:
+            logger.error(f"Failed to get team_id from Firestore: {e}")
+            logger.warning("Using fallback team_id due to error")
+            return "fallback_team"
     
     async def send_bot_response_to_mock(self, response_data: Dict[str, Any]) -> bool:
         """
