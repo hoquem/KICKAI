@@ -22,6 +22,7 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from tests.mock_telegram.backend.mock_telegram_service import app as mock_app
+from tests.mock_telegram.backend.config import get_config, validate_config
 
 # Create a combined FastAPI app
 app = FastAPI(title="Mock Telegram Tester")
@@ -53,9 +54,21 @@ def main():
     # Set up environment
     os.environ["PYTHONPATH"] = str(project_root)
     
+    # Load and validate configuration
+    try:
+        config = get_config()
+        validate_config(config)
+        print("✅ Configuration loaded and validated")
+    except Exception as e:
+        print(f"⚠️  Configuration error: {e}")
+        print("Using default configuration")
+        config = get_config()
+    
     print("📁 Project root:", project_root)
-    print("🔧 Mock service will run on: http://localhost:8001")
-    print("🌐 Frontend will be available at: http://localhost:8001")
+    print(f"🔧 Mock service will run on: http://{config.host}:{config.port}")
+    print(f"🌐 Frontend will be available at: http://{config.host}:{config.port}")
+    print(f"📊 Max messages: {config.max_messages}, Max users: {config.max_users}")
+    print(f"🤖 Bot integration: {'Enabled' if config.enable_bot_integration else 'Disabled'}")
     print("=" * 50)
     
     # Start the server
@@ -63,10 +76,10 @@ def main():
         print("🔄 Starting server...")
         uvicorn.run(
             "start_mock_tester:app",
-            host="0.0.0.0",
-            port=8001,
-            reload=True,
-            log_level="info"
+            host=config.host,
+            port=config.port,
+            reload=config.debug,
+            log_level=config.log_level.lower()
         )
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")

@@ -7,23 +7,31 @@ without requiring real phone numbers or Telegram accounts.
 
 import asyncio
 import json
-import uuid
+import logging
+import threading
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Set
 from dataclasses import dataclass, asdict
 from enum import Enum
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 import uvicorn
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Import bot integration (optional - will be skipped if not available)
 try:
     from .bot_integration import process_mock_message_sync
     BOT_INTEGRATION_AVAILABLE = True
+    logger.info("Bot integration available")
 except ImportError:
     BOT_INTEGRATION_AVAILABLE = False
+    logger.warning("Bot integration not available - running in standalone mode")
     def process_mock_message_sync(message_data):
         return {"status": "bot_integration_not_available"}
 
@@ -56,6 +64,13 @@ class MockUser:
     phone_number: Optional[str] = None
     is_bot: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    
+    def __post_init__(self):
+        """Validate user data after initialization"""
+        if not self.username or not self.first_name:
+            raise ValueError("Username and first_name are required")
+        if self.id <= 0:
+            raise ValueError("User ID must be positive")
 
 
 @dataclass
@@ -67,6 +82,13 @@ class MockChat:
     username: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    
+    def __post_init__(self):
+        """Validate chat data after initialization"""
+        if self.id <= 0:
+            raise ValueError("Chat ID must be positive")
+        if self.type not in ["private", "group", "supergroup", "channel"]:
+            raise ValueError("Invalid chat type")
 
 
 @dataclass
@@ -106,33 +128,49 @@ class MockMessage:
 
 class SendMessageRequest(BaseModel):
     """Request model for sending messages"""
-    user_id: int
-    chat_id: int
-    text: str
+    user_id: int = Field(..., gt=0, description="User ID must be positive")
+    chat_id: int = Field(..., gt=0, description="Chat ID must be positive")
+    text: str = Field(..., min_length=1, max_length=4096, description="Message text")
     message_type: MessageType = MessageType.TEXT
+    
+    @validator('text')
+    def validate_text(cls, v):
+        if not v.strip():
+            raise ValueError("Message text cannot be empty")
+        return v.strip()
 
 
 class CreateUserRequest(BaseModel):
     """Request model for creating test users"""
-    username: str
-    first_name: str
-    last_name: Optional[str] = None
+    username: str = Field(..., min_length=1, max_length=32, description="Username")
+    first_name: str = Field(..., min_length=1, max_length=64, description="First name")
+    last_name: Optional[str] = Field(None, max_length=64, description="Last name")
     role: UserRole = UserRole.PLAYER
-    phone_number: Optional[str] = None
+    phone_number: Optional[str] = Field(None, regex=r'^\+?[1-9]\d{1,14}$', description="Phone number")
+    
+    @validator('username')
+    def validate_username(cls, v):
+        if not v.replace('_', '').replace('-', '').isalnum():
+            raise ValueError("Username must contain only letters, numbers, underscores, and hyphens")
+        return v.lower()
 
 
 class MockTelegramService:
     """Main service class for mock Telegram functionality"""
     
-    def __init__(self):
+    def __init__(self, max_messages: int = 1000, max_users: int = 100):
+        self._lock = threading.RLock()  # Thread safety
         self.users: Dict[int, MockUser] = {}
         self.chats: Dict[int, MockChat] = {}
         self.messages: List[MockMessage] = []
-        self.websocket_connections: List[WebSocket] = []
+        self.websocket_connections: Set[WebSocket] = set()  # Use set for O(1) operations
         self.message_counter = 1
+        self.max_messages = max_messages
+        self.max_users = max_users
         
         # Initialize with some default test users
         self._initialize_default_users()
+        logger.info(f"MockTelegramService initialized with {len(self.users)} default users")
     
     def _initialize_default_users(self):
         """Initialize with default test users"""
@@ -143,29 +181,32 @@ class MockTelegramService:
             MockUser(1004, "test_leadership", "Test Leadership", role=UserRole.LEADERSHIP, phone_number="+1234567893"),
         ]
         
-        for user in default_users:
-            self.users[user.id] = user
-            
-            # Create private chat for each user
-            chat = MockChat(
-                id=user.id,
-                type="private",
-                first_name=user.first_name,
-                last_name=user.last_name
-            )
-            self.chats[chat.id] = chat
+        with self._lock:
+            for user in default_users:
+                self.users[user.id] = user
+                
+                # Create private chat for each user
+                chat = MockChat(
+                    id=user.id,
+                    type="private",
+                    first_name=user.first_name,
+                    last_name=user.last_name
+                )
+                self.chats[chat.id] = chat
     
     async def connect_websocket(self, websocket: WebSocket):
         """Connect a new WebSocket client"""
         await websocket.accept()
-        self.websocket_connections.append(websocket)
-        print(f"WebSocket connected. Total connections: {len(self.websocket_connections)}")
+        with self._lock:
+            self.websocket_connections.add(websocket)
+        logger.info(f"WebSocket connected. Total connections: {len(self.websocket_connections)}")
     
     async def disconnect_websocket(self, websocket: WebSocket):
         """Disconnect a WebSocket client"""
-        if websocket in self.websocket_connections:
-            self.websocket_connections.remove(websocket)
-        print(f"WebSocket disconnected. Total connections: {len(self.websocket_connections)}")
+        with self._lock:
+            if websocket in self.websocket_connections:
+                self.websocket_connections.remove(websocket)
+        logger.info(f"WebSocket disconnected. Total connections: {len(self.websocket_connections)}")
     
     async def broadcast_message(self, message: Dict[str, Any]):
         """Broadcast message to all connected WebSocket clients"""
@@ -173,106 +214,153 @@ class MockTelegramService:
             return
             
         message_json = json.dumps(message)
-        disconnected = []
+        disconnected = set()
         
-        for websocket in self.websocket_connections:
+        # Create a copy to avoid modification during iteration
+        connections = list(self.websocket_connections)
+        
+        for websocket in connections:
             try:
                 await websocket.send_text(message_json)
-            except WebSocketDisconnect:
-                disconnected.append(websocket)
+            except (WebSocketDisconnect, ConnectionResetError, Exception) as e:
+                logger.warning(f"WebSocket error during broadcast: {e}")
+                disconnected.add(websocket)
         
         # Clean up disconnected websockets
         for websocket in disconnected:
             await self.disconnect_websocket(websocket)
     
+    def _cleanup_old_messages(self):
+        """Remove old messages to prevent memory leaks"""
+        with self._lock:
+            if len(self.messages) > self.max_messages:
+                # Keep only the most recent messages
+                self.messages = self.messages[-self.max_messages:]
+                logger.info(f"Cleaned up messages. Current count: {len(self.messages)}")
+    
     def create_user(self, request: CreateUserRequest) -> MockUser:
         """Create a new test user"""
-        user_id = max(self.users.keys()) + 1 if self.users else 1001
-        
-        user = MockUser(
-            id=user_id,
-            username=request.username,
-            first_name=request.first_name,
-            last_name=request.last_name,
-            role=request.role,
-            phone_number=request.phone_number
-        )
-        
-        self.users[user_id] = user
-        
-        # Create private chat for the user
-        chat = MockChat(
-            id=user_id,
-            type="private",
-            first_name=user.first_name,
-            last_name=user.last_name
-        )
-        self.chats[chat.id] = chat
-        
-        return user
+        with self._lock:
+            if len(self.users) >= self.max_users:
+                raise HTTPException(status_code=400, detail="Maximum number of users reached")
+            
+            # Check for duplicate username
+            if any(user.username == request.username for user in self.users.values()):
+                raise HTTPException(status_code=400, detail="Username already exists")
+            
+            user_id = max(self.users.keys()) + 1 if self.users else 1001
+            
+            try:
+                user = MockUser(
+                    id=user_id,
+                    username=request.username,
+                    first_name=request.first_name,
+                    last_name=request.last_name,
+                    role=request.role,
+                    phone_number=request.phone_number
+                )
+                
+                self.users[user_id] = user
+                
+                # Create private chat for the user
+                chat = MockChat(
+                    id=user_id,
+                    type="private",
+                    first_name=user.first_name,
+                    last_name=user.last_name
+                )
+                self.chats[chat.id] = chat
+                
+                logger.info(f"Created new user: {user.first_name} (@{user.username})")
+                return user
+                
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
     
     def send_message(self, request: SendMessageRequest) -> MockMessage:
         """Send a message as if from a user"""
-        if request.user_id not in self.users:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        if request.chat_id not in self.chats:
-            raise HTTPException(status_code=404, detail="Chat not found")
-        
-        user = self.users[request.user_id]
-        chat = self.chats[request.chat_id]
-        
-        message = MockMessage(
-            message_id=self.message_counter,
-            from_user=user,
-            chat=chat,
-            date=datetime.now(timezone.utc),
-            text=request.text,
-            message_type=request.message_type
-        )
-        
-        self.messages.append(message)
-        self.message_counter += 1
-        
-        # Broadcast the message to WebSocket clients
-        asyncio.create_task(self.broadcast_message({
-            "type": "new_message",
-            "message": message.to_dict()
-        }))
-        
-        # Process message through bot system
-        try:
-            bot_response = process_mock_message_sync(message.to_dict())
-            if bot_response and bot_response.get("status") != "processing":
-                # Broadcast bot response
-                asyncio.create_task(self.broadcast_message({
-                    "type": "bot_response",
-                    "message": bot_response
-                }))
-        except Exception as e:
-            print(f"Error processing message through bot: {e}")
-        
-        return message
+        with self._lock:
+            if request.user_id not in self.users:
+                raise HTTPException(status_code=404, detail="User not found")
+            
+            if request.chat_id not in self.chats:
+                raise HTTPException(status_code=404, detail="Chat not found")
+            
+            user = self.users[request.user_id]
+            chat = self.chats[request.chat_id]
+            
+            message = MockMessage(
+                message_id=self.message_counter,
+                from_user=user,
+                chat=chat,
+                date=datetime.now(timezone.utc),
+                text=request.text,
+                message_type=request.message_type
+            )
+            
+            self.messages.append(message)
+            self.message_counter += 1
+            
+            # Cleanup old messages
+            self._cleanup_old_messages()
+            
+            logger.info(f"Message sent: {user.first_name} -> {request.text[:50]}...")
+            
+            # Broadcast the message to WebSocket clients
+            asyncio.create_task(self.broadcast_message({
+                "type": "new_message",
+                "message": message.to_dict()
+            }))
+            
+            # Process message through bot system
+            if BOT_INTEGRATION_AVAILABLE:
+                try:
+                    bot_response = process_mock_message_sync(message.to_dict())
+                    if bot_response and bot_response.get("status") != "processing":
+                        # Broadcast bot response
+                        asyncio.create_task(self.broadcast_message({
+                            "type": "bot_response",
+                            "message": bot_response
+                        }))
+                except Exception as e:
+                    logger.error(f"Error processing message through bot: {e}")
+            
+            return message
     
     def get_user_messages(self, user_id: int, limit: int = 50) -> List[MockMessage]:
         """Get messages for a specific user"""
-        if user_id not in self.users:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        user_messages = [
-            msg for msg in self.messages 
-            if msg.chat.id == user_id
-        ]
-        
-        return user_messages[-limit:]
+        with self._lock:
+            if user_id not in self.users:
+                raise HTTPException(status_code=404, detail="User not found")
+            
+            user_messages = [
+                msg for msg in self.messages 
+                if msg.chat.id == user_id
+            ]
+            
+            return user_messages[-limit:]
     
     def get_all_users(self) -> List[MockUser]:
         """Get all test users"""
-        return list(self.users.values())
+        with self._lock:
+            return list(self.users.values())
     
     def get_all_messages(self, limit: int = 100) -> List[MockMessage]:
         """Get all messages"""
-        return self.messages[-limit:]
+        with self._lock:
+            return self.messages[-limit:]
+    
+    def get_service_stats(self) -> Dict[str, Any]:
+        """Get service statistics"""
+        with self._lock:
+            return {
+                "total_users": len(self.users),
+                "total_chats": len(self.chats),
+                "total_messages": len(self.messages),
+                "active_websockets": len(self.websocket_connections),
+                "message_counter": self.message_counter,
+                "bot_integration_available": BOT_INTEGRATION_AVAILABLE
+            }
 
 
 # Global service instance
@@ -303,6 +391,12 @@ async def root():
         "version": "1.0.0",
         "status": "running"
     }
+
+
+@app.get("/stats")
+async def get_stats():
+    """Get service statistics"""
+    return mock_service.get_service_stats()
 
 
 @app.get("/users")
@@ -358,6 +452,9 @@ async def websocket_endpoint(websocket: WebSocket):
             # Keep connection alive
             await websocket.receive_text()
     except WebSocketDisconnect:
+        await mock_service.disconnect_websocket(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
         await mock_service.disconnect_websocket(websocket)
 
 
