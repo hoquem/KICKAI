@@ -8,6 +8,7 @@ the complex improved_config_system.py and all scattered configuration access.
 import os
 from enum import Enum
 from pathlib import Path
+from typing import Union
 
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -49,18 +50,34 @@ class Settings(BaseSettings):
     firebase_batch_size: int = Field(default=500, description="Firebase batch size for operations")
     firebase_timeout: int = Field(default=30, description="Firebase timeout in seconds")
 
-    # AI Configuration
-    ai_provider: AIProvider = Field(default=AIProvider.GEMINI, description="AI provider to use")
-    google_api_key: str = Field(description="Google API key for Gemini (REQUIRED)")
-    openai_api_key: str | None = Field(default=None, description="OpenAI API key")
-    huggingface_api_token: str | None = Field(
-        default=None, description="Hugging Face API token for inference"
-    )
-    ai_model_name: str = Field(default="gemini-1.5-flash", description="AI model name")
-    ai_temperature: float = Field(default=0.7, description="AI temperature setting")
-    ai_max_tokens: int = Field(default=1000, description="AI max tokens")
+    # AI Configuration - Using Ollama local models (Simplified Configuration)
+    ai_provider: AIProvider = Field(default=AIProvider.OLLAMA, description="AI provider to use")
+    ollama_base_url: str = Field(description="Ollama base URL (REQUIRED)")
+    ai_model_name: str = Field(default="llama3.2:3b", description="AI model name")
+    ai_temperature: float = Field(default=0.3, description="Default AI temperature setting")
+    ai_temperature_tools: float = Field(default=0.1, description="AI temperature for tool calling")
+    ai_temperature_creative: float = Field(default=0.7, description="AI temperature for creative tasks")
+    ai_max_tokens: int = Field(default=800, description="Default AI max tokens")
+    ai_max_tokens_tools: int = Field(default=500, description="AI max tokens for tool calling")
+    ai_max_tokens_creative: int = Field(default=1000, description="AI max tokens for creative tasks")
     ai_timeout: int = Field(default=120, description="AI timeout in seconds")
     ai_max_retries: int = Field(default=5, description="AI max retries")
+    
+    # Enhanced Ollama Configuration for Production Resilience
+    ollama_connection_timeout: float = Field(default=30.0, description="Ollama connection timeout in seconds")
+    ollama_request_timeout: float = Field(default=120.0, description="Ollama request timeout in seconds")
+    ollama_retry_attempts: int = Field(default=3, description="Number of retry attempts for Ollama requests")
+    ollama_retry_min_wait: float = Field(default=1.0, description="Minimum wait time between retries in seconds")
+    ollama_retry_max_wait: float = Field(default=10.0, description="Maximum wait time between retries in seconds")
+    ollama_circuit_breaker_failure_threshold: int = Field(default=5, description="Circuit breaker failure threshold")
+    ollama_circuit_breaker_recovery_timeout: float = Field(default=60.0, description="Circuit breaker recovery timeout in seconds")
+    ollama_circuit_breaker_half_open_max_calls: int = Field(default=3, description="Max calls in half-open state")
+    ollama_health_check_interval: float = Field(default=30.0, description="Health check interval in seconds")
+    ollama_metrics_enabled: bool = Field(default=True, description="Enable Prometheus metrics for Ollama client")
+    
+    # Simplified LLM Configuration (CrewAI Best Practices)
+    enable_simplified_llm: bool = Field(default=True, description="Enable simplified LLM configuration system")
+    validate_llm_on_startup: bool = Field(default=True, description="Validate LLM configuration on startup")
 
     # Telegram Configuration (Bot config now comes from Firestore teams collection)
     telegram_webhook_url: str | None = Field(default=None, description="Telegram webhook URL")
@@ -117,11 +134,11 @@ class Settings(BaseSettings):
     memory_preference_learning: bool = Field(default=True, description="Enable preference learning")
     memory_cleanup_interval: int = Field(default=24, description="Memory cleanup interval in hours")
     
-    # CrewAI Memory Configuration
-    crewai_memory_enabled: bool = Field(default=True, description="Enable CrewAI memory system")
-    crewai_memory_provider: str = Field(default="huggingface", description="CrewAI memory embedding provider")
-    crewai_memory_model: str = Field(default="sentence-transformers/all-MiniLM-L6-v2", description="CrewAI memory embedding model")
-    crewai_memory_max_items: int = Field(default=1000, description="Max memory items per crew")
+    # CrewAI Memory Configuration - Disabled for Ollama-only setup
+    crewai_memory_enabled: bool = Field(default=False, description="Enable CrewAI memory system (disabled for Ollama compatibility)")
+    crewai_memory_provider: str = Field(default="disabled", description="CrewAI memory embedding provider (disabled for Ollama)")
+    crewai_memory_model: str = Field(default="disabled", description="CrewAI memory embedding model (disabled for Ollama)")
+    crewai_memory_max_items: int = Field(default=0, description="Max memory items per crew (disabled for Ollama)")
 
     # Development Configuration
     debug: bool = Field(default=False, description="Enable debug mode")
@@ -163,7 +180,7 @@ class Settings(BaseSettings):
             try:
                 return AIProvider(v.lower())
             except ValueError:
-                return AIProvider.GEMINI
+                return AIProvider.OLLAMA
         return v
 
     @validator("firebase_credentials_path", "firebase_credentials_json")
@@ -207,13 +224,7 @@ class Settings(BaseSettings):
 
     def get_ai_api_key(self) -> str:
         """Get the appropriate API key for the AI provider."""
-        if self.ai_provider == AIProvider.GEMINI:
-            return self.google_api_key
-        elif self.ai_provider == AIProvider.HUGGINGFACE:
-            return self.huggingface_api_token or ""
-        elif self.ai_provider == AIProvider.OLLAMA:
-            # Ollama doesn't use API keys
-            return ""
+        # Ollama doesn't use API keys
         return ""
 
     def validate_required_fields(self) -> list[str]:
@@ -225,13 +236,10 @@ class Settings(BaseSettings):
             errors.append("FIREBASE_PROJECT_ID is required")
 
         # AI provider specific requirements
-        if self.ai_provider == AIProvider.GEMINI and not self.google_api_key:
-            errors.append("GOOGLE_API_KEY is required for Gemini")
-        elif self.ai_provider == AIProvider.HUGGINGFACE and not self.huggingface_api_token:
-            errors.append("HUGGINGFACE_API_TOKEN is required for Hugging Face")
-        elif self.ai_provider == AIProvider.OLLAMA:
-            # Ollama doesn't require an API key
-            pass
+        if self.ai_provider == AIProvider.OLLAMA:
+            # Ollama doesn't require an API key but needs base URL
+            if not self.ollama_base_url:
+                errors.append("OLLAMA_BASE_URL is required for Ollama and must be set in your environment or .env file.")
 
         # Production requirements
         if self.is_production:
