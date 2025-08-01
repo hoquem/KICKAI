@@ -547,3 +547,38 @@ class InviteLinkService:
         except Exception as e:
             logger.error(f"❌ Error cleaning up expired links: {e}")
             return 0
+
+    # Synchronous methods for CrewAI tools
+    def create_player_invite_link_sync(
+        self,
+        team_id: str,
+        player_name: str,
+        player_phone: str,
+        player_position: str,
+        main_chat_id: str,
+        player_id: str = None,
+    ) -> dict[str, Any]:
+        """Synchronous version of create_player_invite_link for CrewAI tools."""
+        try:
+            # Import here to avoid circular imports
+            import asyncio
+            
+            # Check if we're already in an event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # We're in an event loop, create a task
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self.create_player_invite_link(
+                        team_id, player_name, player_phone, player_position, main_chat_id, player_id
+                    ))
+                    return future.result()
+            except RuntimeError:
+                # No event loop running, we can use asyncio.run
+                return asyncio.run(self.create_player_invite_link(
+                    team_id, player_name, player_phone, player_position, main_chat_id, player_id
+                ))
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to create player invite link: {e}")
+            return {"error": f"Failed to create invite link: {e!s}"}

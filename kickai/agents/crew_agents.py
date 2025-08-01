@@ -24,7 +24,7 @@ from kickai.agents.tool_registry import initialize_tool_registry
 from kickai.config.agents import get_agent_config, get_enabled_agent_configs
 from kickai.core.enums import AgentRole
 from kickai.core.settings import get_settings
-from kickai.utils.llm_factory import LLMFactory
+from kickai.config.llm_config import get_llm_config
 
 
 class ConfigurationError(Exception):
@@ -105,8 +105,14 @@ class TeamManagementSystem:
     def _initialize_llm(self):
         """Initialize the LLM using the factory pattern with robust error handling."""
         try:
-            # Use the new factory method that reads from environment
-            self.llm = LLMFactory.create_from_environment()
+            # Get base URL from settings to ensure we use the correct Ollama URL
+            from kickai.core.settings import get_settings
+            settings = get_settings()
+            base_url = settings.ollama_base_url
+            
+            # Use the new simplified LLM configuration
+            llm_config = get_llm_config()
+            self.llm = llm_config.main_llm
 
             # Wrap the LLM with our robust error handling for CrewAI
             self.llm = self._wrap_llm_with_error_handling(self.llm)
@@ -188,28 +194,10 @@ class TeamManagementSystem:
             # CrewAI v0.150.0+ has improved memory support with multiple providers
             memory_enabled = settings.crewai_memory_enabled  # Use setting-based memory enablement
 
+            # Memory is disabled for all providers to ensure compatibility with Ollama
+            memory_enabled = False
             memory_config = None
-            if memory_enabled:
-                # Configure memory using settings
-                if settings.crewai_memory_provider == "huggingface":
-                    # Use Hugging Face API token for embeddings
-                    memory_config = {
-                        "provider": "huggingface",
-                        "config": {
-                            "api_key": settings.huggingface_api_token,
-                            "model": settings.crewai_memory_model,
-                        },
-                    }
-                else:
-                    # Use Google API key for other providers (google, openai)
-                    memory_config = {
-                        "provider": settings.crewai_memory_provider,
-                        "config": {
-                            "api_key": settings.google_api_key,
-                            "model": settings.crewai_memory_model,
-                        },
-                    }
-                logger.info(f"🧠 Crew memory enabled with {settings.crewai_memory_provider} embeddings")
+            logger.info(f"🧠 Crew memory disabled for Ollama compatibility")
 
             self.crew = Crew(
                 agents=crew_agents,
