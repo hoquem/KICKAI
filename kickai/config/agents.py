@@ -320,7 +320,6 @@ EXAMPLES:
                     "get_team_member_updatable_fields",
                     "validate_team_member_update_request",
                     "get_pending_team_member_approval_requests",
-                    "get_pending_players",
                 ],
                 behavioral_mixin=None,
                 memory_enabled=True,
@@ -631,7 +630,14 @@ COMPLIANCE REQUIREMENTS:
 - Provide audit trail for all transactions
 - Ensure financial transparency
 - Protect sensitive financial information""",
-                tools=["send_message", "send_announcement"],
+                tools=[
+                    "send_message", 
+                    "send_announcement",
+                    "create_payment",
+                    "get_payment_history",
+                    "mark_payment_paid",
+                    "export_payment_data",
+                ],
                 behavioral_mixin="financial_management",
                 memory_enabled=True,
                 learning_enabled=True,
@@ -701,7 +707,14 @@ DEVELOPMENT FOCUS:
 - Track progress over time
 - Suggest training and practice strategies
 - Support goal setting and achievement tracking""",
-                tools=["send_message", "send_announcement"],
+                tools=[
+                    "send_message", 
+                    "send_announcement",
+                    "get_match_statistics",
+                    "get_player_performance",
+                    "get_team_performance",
+                    "analyze_performance_trends",
+                ],
                 behavioral_mixin="performance_analysis",
                 memory_enabled=True,
                 learning_enabled=True,
@@ -779,7 +792,12 @@ CONTINUOUS IMPROVEMENT:
 - Provide actionable improvement recommendations
 - Track the impact of implemented changes
 - Foster a culture of continuous learning and adaptation""",
-                tools=["send_message"],
+                tools=[
+                    "send_message",
+                    "analyze_interaction_patterns",
+                    "get_system_performance_metrics",
+                    "generate_learning_insights",
+                ],
                 behavioral_mixin="learning_optimization",
                 memory_enabled=True,
                 learning_enabled=True,
@@ -1030,7 +1048,7 @@ SUCCESS METRICS:
 - Reduction in user frustration
 - Improved user understanding of system capabilities
 - Positive user experience during confusion""",
-                tools=["send_message", "get_available_commands"],
+                tools=["send_message", "FINAL_HELP_RESPONSE"],
                 behavioral_mixin="command_fallback",
                 memory_enabled=True,
                 learning_enabled=True,
@@ -1305,36 +1323,39 @@ INTEGRATION POINTS:
             ),
             AgentRole.HELP_ASSISTANT: AgentConfig(
                 role=AgentRole.HELP_ASSISTANT,
-                goal="Provide context-aware help and guidance to users based on their status and chat context. ALWAYS use tool outputs as the final response - NEVER generate fake responses.",
+                goal="Provide context-aware help and guidance to users based on their status and chat context. ALWAYS use FINAL_HELP_RESPONSE tool - NEVER generate fake responses.",
                 backstory="""You are the Help Assistant, the dedicated specialist who provides personalized, context-aware help and guidance to all KICKAI team members.
 
 🚨 CRITICAL RULES - NEVER VIOLATE:
 
 1. MANDATORY TOOL USAGE:
-   - ✅ ALWAYS use FINAL_HELP_RESPONSE tool with context
+   - ✅ ALWAYS use FINAL_HELP_RESPONSE tool for help requests
+   - ✅ Pass ALL context parameters: chat_type, user_id, team_id, username
    - ✅ Return the EXACT output from FINAL_HELP_RESPONSE tool
+   - ❌ NEVER use get_available_commands directly
    - ❌ NEVER create fake command lists or responses
    - ❌ NEVER ignore tool outputs and generate made-up content
    - ❌ NEVER return placeholder values like "current_user" or "123"
 
 2. STRICT TOOL EXECUTION:
-   - ✅ ALWAYS use FINAL_HELP_RESPONSE tool with context
+   - ✅ ALWAYS use FINAL_HELP_RESPONSE tool with ALL context parameters
    - ✅ Return the EXACT output from FINAL_HELP_RESPONSE tool
    - ❌ NEVER generate your own response or modify the tool output
    - ❌ NEVER create fake command lists or responses
 
-3. ERROR HANDLING:
+3. CONTEXT PARAMETER USAGE:
+   - ✅ ALWAYS pass chat_type from execution context
+   - ✅ ALWAYS pass user_id from execution context
+   - ✅ ALWAYS pass team_id from execution context
+   - ✅ ALWAYS pass username from execution context
+   - ❌ NEVER omit any of these parameters
+   - ❌ NEVER use default or placeholder values
+
+4. ERROR HANDLING:
    - If FINAL_HELP_RESPONSE tool fails, return a friendly error message to the user
    - Log the actual error details for debugging
    - NEVER generate fake responses when tools fail
    - Example: "❌ I'm having trouble accessing the help system right now. Please try again in a moment."
-
-4. CONTEXT USAGE:
-   - Use the actual values from the execution context
-   - user_id: The actual user ID from context
-   - team_id: The actual team ID from context  
-   - chat_type: The actual chat type from context
-   - username: The actual username from context
 
 CORE RESPONSIBILITIES:
 - Provide context-aware help based on user status and chat type
@@ -1403,9 +1424,9 @@ NEW MEMBER WELCOME HANDLING:
    - Private chat: Focus on system connection and next steps
 
 EXAMPLES:
-✅ Great: "🎉 Welcome to the team! Here's what you can do: [context-specific guidance]"
-✅ Good: "Welcome! Let me show you the available commands for this chat."
-❌ Bad: "Hello. Use /help for commands."
+✅ Great: Use FINAL_HELP_RESPONSE tool with all context parameters
+✅ Good: Return exact output from FINAL_HELP_RESPONSE tool
+❌ Bad: Using get_available_commands or creating fake responses
 
 ERROR HANDLING:
 - If tools fail: Provide friendly error messages
@@ -1413,13 +1434,14 @@ ERROR HANDLING:
 - If user seems confused: Offer additional guidance
 - Always maintain helpful and supportive tone""",
                 tools=[
-                    "get_available_commands",
+                    "FINAL_HELP_RESPONSE",
                     "get_command_help",
                     "get_new_member_welcome_message",
                 ],
                 behavioral_mixin=None,
                 memory_enabled=True,
                 learning_enabled=True,
+                max_iterations=2,  # Allow only 2 iterations for help tasks to prevent loops
                 entity_types=[EntityType.NEITHER],
                 primary_entity_type=EntityType.NEITHER,
             ),

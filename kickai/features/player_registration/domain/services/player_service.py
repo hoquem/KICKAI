@@ -373,3 +373,158 @@ class PlayerService:
         except Exception as e:
             logger.error(f"Error getting player status for phone {phone}: {e}")
             return f"❌ Error retrieving player status: {e!s}"
+
+    # Synchronous methods for CrewAI tools
+    def get_player_by_telegram_id_sync(self, telegram_id: str, team_id: str) -> Player | None:
+        """Synchronous version of get_player_by_telegram_id for CrewAI tools."""
+        try:
+            # Import here to avoid circular imports
+            import asyncio
+            
+            # Check if we're already in an event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # We're in an event loop, create a task
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self.get_player_by_telegram_id(telegram_id, team_id))
+                    return future.result()
+            except RuntimeError:
+                # No event loop running, we can use asyncio.run
+                return asyncio.run(self.get_player_by_telegram_id(telegram_id, team_id))
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to get player by Telegram ID {telegram_id}: {e}")
+            return None
+
+    def get_my_status_sync(self, user_id: str, team_id: str) -> str:
+        """Synchronous version of get_my_status for CrewAI tools."""
+        try:
+            # Import here to avoid circular imports
+            import asyncio
+            
+            # Check if we're already in an event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # We're in an event loop, create a task
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self.get_my_status(user_id, team_id))
+                    return future.result()
+            except RuntimeError:
+                # No event loop running, we can use asyncio.run
+                return asyncio.run(self.get_my_status(user_id, team_id))
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to get status for user {user_id}: {e}")
+            return f"❌ Error retrieving status: {e!s}"
+
+    def get_all_players_sync(self, team_id: str) -> list[Player]:
+        """Synchronous version of get_all_players for CrewAI tools."""
+        try:
+            # Import here to avoid circular imports
+            import asyncio
+            
+            # Check if we're already in an event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # We're in an event loop, create a task
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self.get_all_players(team_id))
+                    return future.result()
+            except RuntimeError:
+                # No event loop running, we can use asyncio.run
+                return asyncio.run(self.get_all_players(team_id))
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to get all players for team {team_id}: {e}")
+            return []
+
+    def get_active_players_sync(self, team_id: str) -> list[Player]:
+        """Synchronous version of get_active_players for CrewAI tools."""
+        try:
+            # Import here to avoid circular imports
+            import asyncio
+            
+            # Check if we're already in an event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # We're in an event loop, create a task
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self.get_active_players(team_id))
+                    return future.result()
+            except RuntimeError:
+                # No event loop running, we can use asyncio.run
+                return asyncio.run(self.get_active_players(team_id))
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to get active players for team {team_id}: {e}")
+            return []
+
+    def add_player_sync(self, name: str, phone: str, position: str | None = None, team_id: str | None = None) -> tuple[bool, str]:
+        """Synchronous version of add_player for CrewAI tools."""
+        try:
+            # Import here to avoid circular imports
+            import asyncio
+            
+            # Check if we're already in an event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # We're in an event loop, create a task
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self.add_player(name, phone, position, team_id))
+                    return future.result()
+            except RuntimeError:
+                # No event loop running, we can use asyncio.run
+                return asyncio.run(self.add_player(name, phone, position, team_id))
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to add player {name}: {e}")
+            return False, f"❌ Failed to add player: {e!s}"
+
+    def approve_player_sync(self, player_id: str, team_id: str) -> str:
+        """Synchronous version of approve_player for CrewAI tools."""
+        try:
+            # Import here to avoid circular imports
+            import asyncio
+            
+            # Check if we're already in an event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # We're in an event loop, create a task
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self.approve_player(player_id, team_id))
+                    return future.result()
+            except RuntimeError:
+                # No event loop running, we can use asyncio.run
+                return asyncio.run(self.approve_player(player_id, team_id))
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to approve player {player_id}: {e}")
+            return f"❌ Failed to approve player: {e!s}"
+
+    def get_player_by_phone_sync(self, phone: str, team_id: str) -> Player | None:
+        """Synchronous version of get_player_by_phone for CrewAI tools."""
+        try:
+            # Import here to avoid circular imports
+            import asyncio
+            
+            # Check if we're already in an event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # We're in an event loop, create a task
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self.get_player_by_phone(phone=phone, team_id=team_id))
+                    return future.result()
+            except RuntimeError:
+                # No event loop running, we can use asyncio.run
+                return asyncio.run(self.get_player_by_phone(phone=phone, team_id=team_id))
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to get player by phone {phone}: {e}")
+            return None
