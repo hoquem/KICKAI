@@ -208,7 +208,7 @@ print('Available tools:', registry.get_tool_names())
 ```bash
 source venv311/bin/activate && PYTHONPATH=src python -c "
 from src.features.shared.domain.tools.help_tools import get_available_commands
-result = get_available_commands.func('12345', 'main_chat', 'KTI')
+result = get_available_commands.func('12345', 'main_chat', 'team_id')
 print('Tool result:', result)
 "
 ```

@@ -62,7 +62,7 @@ class GetMatchInput(BaseModel):
 
 
 @tool("add_player")
-async def add_player(
+def add_player(
     team_id: str, user_id: str, name: str, phone: str, position: str | None = None
 ) -> str:
     """
@@ -115,7 +115,7 @@ async def add_player(
             )
 
         # Add player with simplified ID generation
-        success, message = await player_service.add_player(name, phone, position, team_id)
+        success, message = player_service.add_player_sync(name, phone, position, team_id)
 
         if success:
             # Extract player ID from message - handle both new and existing player formats
@@ -136,10 +136,10 @@ async def add_player(
                 try:
                     # Get team configuration for main chat ID
                     team_service = container.get_service(TeamService)
-                    team = await team_service.get_team(team_id=team_id)
+                    team = team_service.get_team_sync(team_id=team_id)
 
                     if team and team.main_chat_id:
-                        invite_result = await invite_service.create_player_invite_link(
+                        invite_result = invite_service.create_player_invite_link_sync(
                             team_id=team_id,
                             player_name=name,
                             player_phone=phone,
@@ -256,7 +256,7 @@ Please contact the system administrator."""
 
 
 @tool("approve_player")
-async def approve_player(team_id: str, user_id: str, player_id: str) -> str:
+def approve_player(team_id: str, user_id: str, player_id: str) -> str:
     """
     Approve a player for match squad selection.
 
@@ -294,7 +294,7 @@ async def approve_player(team_id: str, user_id: str, player_id: str) -> str:
             raise ServiceNotAvailableError("PlayerService")
 
         # Approve player
-        result = await player_service.approve_player(player_id, team_id)
+        result = player_service.approve_player_sync(player_id, team_id)
 
         # Check if result indicates success (starts with ✅)
         if result.startswith("✅"):
@@ -326,7 +326,7 @@ async def approve_player(team_id: str, user_id: str, player_id: str) -> str:
 
 
 @tool("get_my_status")
-async def get_my_status(team_id: str, user_id: str, chat_type: str) -> str:
+def get_my_status(team_id: str, user_id: str, chat_type: str) -> str:
     """
     Get the current status of the requesting user based on chat type.
 
@@ -382,7 +382,7 @@ async def get_my_status(team_id: str, user_id: str, chat_type: str) -> str:
                     raise ServiceNotAvailableError("TeamMemberService")
 
                 # Get team member status
-                status = await team_member_service.get_my_status(user_id, team_id)
+                status = team_member_service.get_my_status_sync(user_id, team_id)
                 logger.info(f"✅ Retrieved team member status for {user_id} in leadership chat")
                 return status
 
@@ -400,7 +400,7 @@ async def get_my_status(team_id: str, user_id: str, chat_type: str) -> str:
                     raise ServiceNotAvailableError("PlayerService")
 
                 # Get player status
-                player = await player_service.get_player_by_telegram_id(user_id, team_id)
+                player = player_service.get_player_by_telegram_id_sync(user_id, team_id)
 
                 if not player:
                     return format_tool_error(
@@ -440,7 +440,7 @@ Phone: {player.phone_number or "Not provided"}"""
 
 
 @tool("get_player_status")
-async def get_player_status(team_id: str, user_id: str, phone: str) -> str:
+def get_player_status(team_id: str, user_id: str, phone: str) -> str:
     """
     Get player status by phone number.
 
@@ -478,7 +478,7 @@ async def get_player_status(team_id: str, user_id: str, phone: str) -> str:
             raise ServiceNotAvailableError("PlayerService")
 
         # Get player status
-        player = await player_service.get_player_by_phone(phone, team_id)
+        player = player_service.get_player_by_phone_sync(phone, team_id)
 
         if not player:
             return format_tool_error(f"Player not found for phone {phone} in team {team_id}")
@@ -511,7 +511,7 @@ Phone: {player.phone_number or "Not provided"}"""
 
 
 @tool("get_all_players")
-async def get_all_players(team_id: str, user_id: str) -> str:
+def get_all_players(team_id: str, user_id: str) -> str:
     """
     Get all players in the team.
 
@@ -543,7 +543,7 @@ async def get_all_players(team_id: str, user_id: str) -> str:
             raise ServiceNotAvailableError("PlayerService")
 
         # Get all players
-        players = await player_service.get_all_players(team_id)
+        players = player_service.get_all_players_sync(team_id)
 
         if not players:
             return "📋 No players found in the team."
@@ -570,7 +570,7 @@ async def get_all_players(team_id: str, user_id: str) -> str:
 
 
 @tool("get_active_players")
-async def get_active_players(team_id: str, user_id: str) -> str:
+def get_active_players(team_id: str, user_id: str) -> str:
     """
     Get all active players in the team.
 
@@ -609,7 +609,7 @@ async def get_active_players(team_id: str, user_id: str) -> str:
             raise ServiceNotAvailableError("PlayerService")
 
         # Get active players from database
-        players = await player_service.get_active_players(team_id)
+        players = player_service.get_active_players_sync(team_id)
 
         # Log the actual database results for debugging
         logger.info(
@@ -699,7 +699,7 @@ def validate_tool_output_integrity(original_output: str, agent_response: str) ->
 
 
 @tool("get_player_match")
-async def get_player_match(match_id: str, team_id: str) -> str:
+def get_player_match(match_id: str, team_id: str) -> str:
     """
     Get match details by match ID. Requires: match_id, team_id
 
@@ -736,7 +736,7 @@ async def get_player_match(match_id: str, team_id: str) -> str:
             raise ServiceNotAvailableError("MatchService")
 
         # Get match details
-        match = await match_service.get_match(match_id, team_id)
+        match = match_service.get_match_sync(match_id, team_id)
 
         if not match:
             return format_tool_error(f"Match {match_id} not found in team {team_id}")
@@ -760,7 +760,7 @@ async def get_player_match(match_id: str, team_id: str) -> str:
 
 
 @tool("list_team_members_and_players")
-async def list_team_members_and_players(team_id: str) -> str:
+def list_team_members_and_players(team_id: str) -> str:
     """
     List all team members and players for a team. Requires: team_id
 
@@ -794,8 +794,8 @@ async def list_team_members_and_players(team_id: str) -> str:
             raise ServiceNotAvailableError("TeamService")
 
         # Get players and team members
-        players = await player_service.get_all_players(team_id)
-        team_members = await team_service.get_team_members(team_id)
+        players = player_service.get_all_players_sync(team_id)
+        team_members = team_service.get_team_members_sync(team_id)
 
         result = f"📋 Team Overview for {team_id}\n\n"
 

@@ -47,7 +47,7 @@ class Player:
     user_id: str = ""  # Generated from telegram_id using generate_user_id()
     team_id: str = ""
     telegram_id: str | None = None
-    player_id: str | None = None  # Team-specific player identifier (e.g., "KTI_MH_001")
+    player_id: str | None = None  # Team-specific player identifier (e.g., "team_id_MH_001")
 
     # Personal information
     first_name: str | None = None
