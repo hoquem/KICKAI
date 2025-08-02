@@ -59,8 +59,8 @@ class ConfigurableAgent:
             tools=tools,
             llm=agent_llm,
             verbose=True,
-            # CrewAI best practices for preventing hallucination
-            max_iter=1,  # Limit iterations to prevent elaboration
+            # Use agent config max_iterations instead of hardcoded value
+            max_iter=self.context.config.max_iterations,
         )
 
         # Log final agent LLM configuration for verification
@@ -77,84 +77,22 @@ class ConfigurableAgent:
         return self._tools_manager.get_tools_for_role(self.context.role)
 
     def _get_agent_specific_llm(self) -> Any:
-        """Get agent-specific LLM with appropriate temperature."""
+        """Get agent-specific LLM using the simplified factory."""
         try:
-            from kickai.core.enums import AgentRole
+            from kickai.config.llm_config import get_llm_config
 
-            # Default LLM from context
-            base_llm = self.context.llm
-
-            # Set temperature 0.1 for data-critical agents to prevent hallucination
-            data_critical_agents = [
-                AgentRole.PLAYER_COORDINATOR,
-                AgentRole.HELP_ASSISTANT,
-                AgentRole.MESSAGE_PROCESSOR,
-                AgentRole.FINANCE_MANAGER,
-            ]
-
-            # Set temperature 0.2 for onboarding agent
-            onboarding_agents = [AgentRole.ONBOARDING_AGENT]
-
-            # Set temperature 0.3 for administrative agents
-            administrative_agents = [AgentRole.TEAM_MANAGER, AgentRole.AVAILABILITY_MANAGER]
-
-            if self.context.role in data_critical_agents:
-                temperature = 0.1
-            elif self.context.role in onboarding_agents:
-                temperature = 0.2
-            elif self.context.role in administrative_agents:
-                temperature = 0.3
-            else:
-                # Return original LLM for creative agents (0.7 default)
-                return base_llm
-
-            # Create a copy of the LLM with appropriate temperature
-            if hasattr(base_llm, "temperature"):
-                # Check if this is our RobustLiteLLMChatModel
-                if hasattr(base_llm, "model_name") and hasattr(base_llm, "api_key"):
-                    # For our RobustLiteLLMChatModel
-                    agent_llm = type(base_llm)(
-                        model_name=base_llm.model_name,
-                        api_key=base_llm.api_key,
-                        temperature=temperature,
-                        timeout=base_llm.timeout,
-                        max_retries=base_llm.max_retries,
-                    )
-                    logger.info(
-                        f"🌡️ Set temperature {temperature} for {self.context.role.value} agent"
-                    )
-                    return agent_llm
-                else:
-                    # For other LLM types, try to preserve the original model name
-                    model_name = getattr(base_llm, "model_name", None)
-                    if model_name is None:
-                        # If no model_name attribute, try to get it from the class name or other attributes
-                        model_name = getattr(base_llm, "__class__.__name__", "unknown-model")
-
-                    # Create new instance with same type but different temperature
-                    agent_llm = type(base_llm)(
-                        model_name=model_name,
-                        temperature=temperature,
-                        **{
-                            k: v
-                            for k, v in base_llm.__dict__.items()
-                            if k not in ["temperature", "model_name"]
-                        },
-                    )
-                    logger.info(
-                        f"🌡️ Set temperature {temperature} for {self.context.role.value} agent"
-                    )
-                    return agent_llm
-            else:
-                logger.warning(f"⚠️ Could not set temperature for LLM type: {type(base_llm)}")
-
-            # Return original LLM for other agents
-            return base_llm
+            # Use simplified LLM configuration
+            llm_config = get_llm_config()
+            agent_llm, _ = llm_config.get_llm_for_agent(self.context.role)
+            
+            return agent_llm
 
         except Exception as e:
             logger.warning(f"⚠️ Failed to create agent-specific LLM: {e}")
-            # Return original LLM if creation fails
-            return self.context.llm
+            # Return fallback LLM if creation fails
+            # Fallback to default LLM
+            llm_config = get_llm_config()
+            return llm_config.main_llm
 
     @property
     def crew_agent(self) -> Agent:
@@ -347,6 +285,15 @@ Do not add any additional information, players, or data that wasn't in the tool 
                         )
 
                     enhanced_task += "\n\nPlease use these context parameters when calling tools that require them."
+                
+                # Add specific completion instructions for help tasks
+                if "/help" in task.lower():
+                    enhanced_task += "\n\n🚨 CRITICAL COMPLETION INSTRUCTIONS:\n"
+                    enhanced_task += "1. Call FINAL_HELP_RESPONSE tool ONCE with the provided context parameters\n"
+                    enhanced_task += "2. Return the EXACT output from FINAL_HELP_RESPONSE tool\n"
+                    enhanced_task += "3. DO NOT call the tool multiple times\n"
+                    enhanced_task += "4. DO NOT modify or add to the tool output\n"
+                    enhanced_task += "5. The tool output IS your final answer\n"
 
             # Enhance task with anti-hallucination instructions for data-critical tasks
             enhanced_task = self._enhance_task_with_anti_hallucination_instructions(
@@ -379,50 +326,43 @@ Do not add any additional information, players, or data that wasn't in the tool 
 
             from crewai import Process
 
+            # Get settings first
+            from kickai.core.settings import get_settings
+            settings = get_settings()
+
             # Temporarily disable memory to resolve CrewAI + Gemini compatibility issues
             memory_enabled = (
                 settings.crewai_memory_enabled  # Use setting-based memory enablement
             )
             memory_config = None
 
+            # Memory is disabled for all providers to ensure compatibility with Ollama
             if memory_enabled and not is_data_critical:
-                from kickai.core.settings import get_settings
-                settings = get_settings()
-                
-                # Use settings-based memory configuration
-                if settings.crewai_memory_provider == "huggingface":
-                    # Use Hugging Face API token for embeddings
-                    memory_config = {
-                        "provider": "huggingface",
-                        "config": {
-                            "api_key": settings.huggingface_api_token,
-                            "model": settings.crewai_memory_model
-                        },
-                    }
-                else:
-                    # Use Google API key for other providers (google, openai)
-                    memory_config = {
-                        "provider": settings.crewai_memory_provider,
-                        "config": {
-                            "api_key": settings.google_api_key, 
-                            "model": settings.crewai_memory_model
-                        },
-                    }
+                logger.info(f"🧠 Memory disabled for compatibility with Ollama provider")
+                memory_enabled = False
+                memory_config = None
                 
                 # Log memory configuration for debugging
-                logger.info(f"🧠 Memory enabled with provider: {settings.crewai_memory_provider}, model: {settings.crewai_memory_model}")
+                logger.info(f"🧠 Memory disabled for Ollama compatibility")
 
-            # Create a crew with properly configured memory using Google Gemini
-            crew = Crew(
-                agents=[self._crew_agent],
-                tasks=[crew_task],
-                verbose=True,  # Ensure verbose logging is enabled
-                memory=memory_enabled,  # Enable memory with Google Gemini configuration
-                memory_config=memory_config,  # Use Google Gemini for embeddings
-                # CrewAI anti-hallucination settings
-                process=Process.sequential,  # Required: must be sequential or hierarchical
-                share_crew=False,  # Don't share crew state that could cause issues
-            )
+            # Create a crew with properly configured memory
+            crew_kwargs = {
+                "agents": [self._crew_agent],
+                "tasks": [crew_task],
+                "verbose": True,  # Ensure verbose logging is enabled
+                "process": Process.sequential,  # Required: must be sequential or hierarchical
+                "share_crew": False,  # Don't share crew state that could cause issues
+            }
+            
+            # Only add memory configuration if it's properly configured
+            if memory_enabled and memory_config is not None:
+                crew_kwargs["memory"] = True
+                crew_kwargs["memory_config"] = memory_config
+            else:
+                # Explicitly disable memory to prevent CrewAI from using defaults
+                crew_kwargs["memory"] = False
+            
+            crew = Crew(**crew_kwargs)
 
             # Log crew creation for debugging
             logger.info(
@@ -434,6 +374,28 @@ Do not add any additional information, players, or data that wasn't in the tool 
 
             # Execute using CrewAI's kickoff method
             result = crew.kickoff()
+            
+            # For help tasks, ensure we return a clean result
+            if "/help" in task.lower():
+                # Clean up the result if it contains tool execution artifacts
+                if isinstance(result, str):
+                    # Remove any CrewAI execution artifacts
+                    if "Tool Output:" in result:
+                        # Extract the actual tool output
+                        tool_output_start = result.find("Tool Output:")
+                        if tool_output_start != -1:
+                            result = result[tool_output_start + 12:].strip()
+                    
+                    # Remove any thinking artifacts
+                    if "Thought:" in result:
+                        # Find the last actual response
+                        thought_parts = result.split("Thought:")
+                        if len(thought_parts) > 1:
+                            # Take the last part that's not a thought
+                            for part in reversed(thought_parts):
+                                if part.strip() and "Tool Output:" not in part:
+                                    result = part.strip()
+                                    break
 
             # Log execution completion with anti-hallucination, memory, and structured output status
             has_anti_hallucination = "🚨 CRITICAL ANTI-HALLUCINATION INSTRUCTIONS:" in enhanced_task

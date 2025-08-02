@@ -44,7 +44,9 @@
 - ✅ `/version` - Version information
 - ✅ `/health` - System health monitoring
 - ✅ `/config` - Configuration information
-- ✅ `/register` - Player registration system
+- ✅ `/addplayer` - Player addition system
+- ✅ `/addmember` - Team member addition system
+- ✅ `/update` - Player/member update system
 - ✅ `/addplayer` - Player addition (leadership)
 - ✅ `/addmember` - Team member addition (leadership)
 - ✅ `/approve` - Player approval system

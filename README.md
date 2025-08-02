@@ -158,7 +158,7 @@ graph TB
 - **Responsibilities**: Message parsing, intent classification, agent routing
 
 #### 3. **PlayerCoordinatorAgent**
-- **Primary Commands**: `/register`, `/myinfo`, `/status`
+- **Primary Commands**: `/addplayer`, `/addmember`, `/update`, `/myinfo`, `/status`
 - **Responsibilities**: Player registration, individual support, status tracking
 
 #### 4. **TeamManagerAgent**

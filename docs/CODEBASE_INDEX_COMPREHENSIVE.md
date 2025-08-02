@@ -514,7 +514,9 @@ Services that span multiple features:
 - `/help` - Context-aware help system
 - `/myinfo` - Personal information (context-aware)
 - `/list` - Team member/player listing (context-aware)
-- `/register` - Player registration
+- `/addplayer` - Add new player
+- `/addmember` - Add new team member
+- `/update` - Update player/member information
 - `/addplayer` - Player addition (leadership)
 - `/addmember` - Team member addition (leadership)
 - `/approve` - Player approval

@@ -3,10 +3,11 @@
 Team member management tools for KICKAI system.
 
 This module provides tools for team member management and information retrieval.
+All tools are synchronous to conform to CrewAI best practices.
 """
 
-import asyncio
 import logging
+from typing import Optional
 
 from kickai.core.dependency_container import get_container
 from kickai.features.team_administration.domain.services.team_member_service import (
@@ -23,15 +24,15 @@ def get_my_team_member_status(team_id: str, user_id: str) -> str:
     Get current user's team member status and information.
     This tool is for team members in the leadership chat.
     For players in main chat, use get_my_status.
-    Uses context information from the task description.
+
+    Args:
+        team_id: The team ID
+        user_id: The user's Telegram ID
 
     Returns:
         Team member status information or error message
     """
     try:
-        # For now, we'll use a simplified approach that works with the current system
-        # The agent system should provide this information in the task description
-
         # Lazy-load services only when needed
         try:
             container = get_container()
@@ -40,13 +41,12 @@ def get_my_team_member_status(team_id: str, user_id: str) -> str:
             logger.error(f"❌ Failed to get TeamMemberService from container: {e}")
             return "❌ Service temporarily unavailable. Please try again in a moment."
 
-        # Parameters are now passed explicitly - no context extraction needed
         logger.info(
             f"🔧 get_my_team_member_status called with team_id: {team_id}, user_id: {user_id}"
         )
 
-        # Get team member status
-        status = asyncio.run(team_member_service.get_my_status(user_id, team_id))
+        # Use synchronous service method
+        status = team_member_service.get_my_status_sync(user_id, team_id)
         logger.info(f"✅ Retrieved team member status for {user_id}")
         return status
 
@@ -56,7 +56,7 @@ def get_my_team_member_status(team_id: str, user_id: str) -> str:
 
 
 @tool("get_team_members")
-def get_team_members(team_id: str, role: str | None = None) -> str:
+def get_team_members(team_id: str, role: Optional[str] = None) -> str:
     """
     Get team members for a team, optionally filtered by role.
 
@@ -76,10 +76,11 @@ def get_team_members(team_id: str, role: str | None = None) -> str:
             logger.error(f"❌ Failed to get TeamMemberService from container: {e}")
             return "❌ Service temporarily unavailable. Please try again in a moment."
 
+        # Use synchronous service methods
         if role:
-            members = asyncio.run(team_member_service.get_team_members_by_role(team_id, role))
+            members = team_member_service.get_team_members_by_role_sync(team_id, role)
         else:
-            members = asyncio.run(team_member_service.get_team_members_by_team(team_id))
+            members = team_member_service.get_team_members_by_team_sync(team_id)
 
         if not members:
             return f"👥 No team members found for team {team_id}."
