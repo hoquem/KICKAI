@@ -29,6 +29,32 @@ from kickai.database.firebase_client import get_firebase_client
 from kickai.features.team_administration.domain.entities.team_member import TeamMember
 from kickai.utils.user_id_generator import generate_user_id
 
+async def get_team_id_from_firestore() -> str:
+    """
+    Get the first available team_id from Firestore.
+    This ensures we use a real team from the database instead of hardcoded values.
+    """
+    try:
+        # Get Firebase client
+        firebase_client = get_firebase_client()
+        
+        # Get all teams from Firestore
+        teams = await firebase_client.get_collection('kickai_teams')
+        
+        if not teams:
+            logger.warning("No teams found in Firestore, using fallback team_id")
+            return "fallback_team"
+        
+        # Use the first available team
+        team_id = teams[0].get('id') or list(teams[0].keys())[0]
+        logger.info(f"Using team_id from Firestore: {team_id}")
+        return team_id
+        
+    except Exception as e:
+        logger.error(f"Failed to get team_id from Firestore: {e}")
+        logger.warning("Using fallback team_id due to error")
+        return "fallback_team"
+
 
 class LeadershipAdminAdder:
     """Handles adding leadership chat admins to Firestore."""
@@ -245,11 +271,14 @@ async def main():
     logger.info("🤖 Leadership Admin Addition Script")
     logger.info("=" * 50)
     
-    # Get team ID from command line argument or use default
+    # Get team ID from command line argument, Firestore, or use default
     if len(sys.argv) > 1:
         team_id = sys.argv[1]
     else:
-        team_id = 'KTI'  # Default to KTI if not specified
+        # Try to get from Firestore first
+        team_id = await get_team_id_from_firestore()
+        if team_id == "fallback_team":
+            team_id = 'fallback_team'  # Use fallback if no teams found
     
     logger.info(f"Team ID: {team_id}")
     

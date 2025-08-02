@@ -45,6 +45,41 @@ from loguru import logger
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+async def get_team_id_from_firestore() -> str:
+    """
+    Get the first available team_id from Firestore.
+    This ensures we use a real team from the database instead of hardcoded values.
+    """
+    try:
+        # Initialize Firebase if not already done
+        if not firebase_admin._apps:
+            cred = credentials.Certificate('credentials/firebase_credentials_testing.json')
+            firebase_admin.initialize_app(cred)
+        
+        db = firestore.client()
+        
+        # Get all teams from Firestore
+        teams_ref = db.collection('kickai_teams')
+        teams = teams_ref.stream()
+        
+        teams_list = list(teams)
+        if not teams_list:
+            logger.warning("No teams found in Firestore, using fallback team_id")
+            return "fallback_team"
+        
+        # Use the first available team
+        team_id = teams_list[0].id
+        logger.info(f"Using team_id from Firestore: {team_id}")
+        return team_id
+        
+    except Exception as e:
+        logger.error(f"Failed to get team_id from Firestore: {e}")
+        logger.warning("Using fallback team_id due to error")
+        return "fallback_team"
+
 
 @dataclass
 class ChatMember:
@@ -270,8 +305,11 @@ class LeadershipAdminAdder:
 async def main():
     """Main function."""
     try:
-        # Get team ID from environment or use default
-        team_id = os.getenv('TELEGRAM_TEAM_ID', 'KTI')
+        # Get team ID from Firestore or environment
+        team_id = await get_team_id_from_firestore()
+        if team_id == "fallback_team":
+            # Fallback to environment variable
+            team_id = os.getenv('TELEGRAM_TEAM_ID', 'fallback_team')
         
         logger.info(f"🎯 Starting Leadership Admin Addition for Team: {team_id}")
         

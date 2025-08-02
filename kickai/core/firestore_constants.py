@@ -9,7 +9,7 @@ This module contains Firestore-specific constants and collection naming utilitie
 FIRESTORE_COLLECTION_PREFIX = "kickai"
 
 # Team ID - Should be read from Firestore, not hardcoded
-# DEFAULT_TEAM_ID = "KTI"  # REMOVED: Team ID should come from context
+# Team ID is now dynamically read from Firestore teams collection
 
 # Bot Version
 BOT_VERSION = "1.0.0"
@@ -40,7 +40,7 @@ def get_team_specific_collection_name(team_id: str, collection_type: str) -> str
     Get team-specific collection name.
 
     Args:
-        team_id: The team ID (e.g., 'KTI', 'KAI')
+        team_id: The team ID (dynamically read from Firestore)
         collection_type: The collection type (e.g., 'team_members', 'players')
 
     Returns:
