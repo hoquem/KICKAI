@@ -87,17 +87,15 @@ class Player:
         """Validate player data."""
         if not self.team_id:
             raise ValueError("Team ID cannot be empty")
-        if not self.user_id:
-            raise ValueError("User ID cannot be empty")
+        
+        # Only validate user_id if it's provided (allow empty for database retrieval)
+        if self.user_id and not self.user_id.startswith("user_"):
+            raise ValueError(f"Invalid user_id format: {self.user_id}. Must start with 'user_'")
 
         # Validate status
         valid_statuses = ["pending", "approved", "rejected", "active", "inactive"]
         if self.status not in valid_statuses:
             raise ValueError(f"Invalid status: {self.status}. Must be one of {valid_statuses}")
-
-        # Validate user_id format
-        if not self.user_id.startswith("user_"):
-            raise ValueError(f"Invalid user_id format: {self.user_id}. Must start with 'user_'")
 
         # Validate position if provided
         if self.position:
@@ -231,6 +229,52 @@ class Player:
             source=data.get("source"),
             sync_version=data.get("sync_version"),
         )
+
+    @classmethod
+    def from_database_dict(cls, data: dict) -> "Player":
+        """Create from database dictionary with relaxed validation for retrieval."""
+        # Create player without triggering validation
+        player = cls.__new__(cls)
+        
+        # Set attributes directly
+        player.user_id = data.get("user_id", "")
+        player.team_id = data.get("team_id", "")
+        player.telegram_id = data.get("telegram_id")
+        player.player_id = data.get("player_id")
+        player.first_name = data.get("first_name")
+        player.last_name = data.get("last_name")
+        player.full_name = data.get("full_name")
+        player.username = data.get("username")
+        player.position = data.get("position")
+        player.preferred_foot = data.get("preferred_foot")
+        player.jersey_number = data.get("jersey_number")
+        player.phone_number = data.get("phone_number")
+        player.email = data.get("email")
+        player.date_of_birth = data.get("date_of_birth")
+        player.emergency_contact = data.get("emergency_contact")
+        player.medical_notes = data.get("medical_notes")
+        player.status = data.get("status", "pending")
+        player.source = data.get("source")
+        player.sync_version = data.get("sync_version")
+        
+        # Parse datetime fields
+        if data.get("created_at"):
+            try:
+                player.created_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
+            except ValueError:
+                player.created_at = None
+        else:
+            player.created_at = None
+            
+        if data.get("updated_at"):
+            try:
+                player.updated_at = datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00"))
+            except ValueError:
+                player.updated_at = None
+        else:
+            player.updated_at = None
+        
+        return player
 
     def approve(self):
         """Approve the player."""

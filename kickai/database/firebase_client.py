@@ -428,7 +428,8 @@ class FirebaseClient:
                         operator = filter_item["operator"]
                         value = filter_item["value"]
                         logger.debug(f"Applying filter: {field} {operator} {value}")
-                        query = query.where(field, operator, value)
+                        # Use where method with keyword arguments to avoid deprecation warning
+                        query = query.where(field_path=field, op_string=operator, value=value)
 
                 # Apply ordering
                 if order_by:
