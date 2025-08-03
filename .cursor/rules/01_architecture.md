@@ -1,142 +1,353 @@
-# Architecture Rules
+# KICKAI Architecture
 
-## Core Principles
+## Overview
 
-### Clean Architecture
-- Follow Clean Architecture principles with clear layer separation
-- Presentation → Application → Domain → Infrastructure
-- No circular dependencies
-- Domain layer has no external dependencies
+KICKAI follows a **Clean Architecture** pattern with **Domain-Driven Design** principles, implemented as a **feature-based modular system** with **8-agent CrewAI orchestration**. The system is designed for scalability, maintainability, and extensibility.
 
-### Feature-First Modular Design
-- Organize code by business features, not technical layers
-- Each feature is self-contained with its own domain, application, and infrastructure
-- Shared code goes in `kickai/features/shared/`
-- Core system code goes in `kickai/core/`
+## 🏗️ **Current Architecture Status**
 
-### Dependency Injection
-- Use dependency injection container for service resolution
-- Services are registered in the container and resolved at runtime
-- Avoid direct instantiation of services in business logic
+### ✅ **Fully Implemented Components**
+- **Core System**: Complete with dependency injection, command registry, and agent orchestration
+- **Player Management**: Full player registration, approval, and management system
+- **Match Management**: Complete match creation, scheduling, and attendance tracking
+- **Attendance Management**: Full attendance tracking and reporting system
+- **Payment Management**: Complete payment creation and tracking system
+- **Communication**: Full team messaging and announcement system
+- **Agent System**: 8-agent CrewAI orchestration working correctly
 
-### Async-First Design
-- Prefer async/await patterns for I/O operations
-- Use async services and repositories
-- Handle async operations properly with proper error handling
+### 🚧 **Partially Implemented Components**
+- **Training Management**: Domain entities and tools implemented, commands defined but not integrated
+- **E2E Testing**: Framework exists but requires telethon dependency
+- **Advanced Analytics**: Basic implementation, needs enhancement
 
-### Type Safety
-- Use type hints throughout the codebase
-- Use Pydantic models for data validation
-- Prefer dataclasses for simple data structures
+## System Architecture Layers
 
-## Agentic Architecture
+### 1. **Presentation Layer** (Telegram Integration)
+```
+kickai/telegram/
+├── modular_message_handler.py    # Unified message handling
+├── handlers/                     # Message type handlers
+└── integration/                  # Telegram API integration
+```
+
+**Responsibilities**:
+- Handle Telegram message reception
+- Route messages to appropriate agents
+- Format and send responses
+- Manage chat-specific behavior
+
+### 2. **Application Layer** (Feature Commands)
+```
+kickai/features/{feature_name}/application/
+├── commands/                     # Command definitions with @command decorator
+└── handlers/                     # Command handlers (delegate to agents)
+```
+
+**Responsibilities**:
+- Define command interfaces
+- Handle command registration
+- Delegate execution to domain layer
+- Manage command metadata and help
+
+### 3. **Domain Layer** (Business Logic)
+```
+kickai/features/{feature_name}/domain/
+├── entities/                     # Business entities (Player, Match, etc.)
+├── services/                     # Business logic services
+├── tools/                       # CrewAI tools for agent integration
+└── interfaces/                  # Repository interfaces
+```
+
+**Responsibilities**:
+- Define business entities and rules
+- Implement business logic
+- Provide CrewAI tools for agents
+- Define repository contracts
+
+### 4. **Infrastructure Layer** (External Dependencies)
+```
+kickai/features/{feature_name}/infrastructure/
+├── firestore_*_repository.py    # Firebase implementations
+└── external_integrations/       # Third-party service integrations
+```
+
+**Responsibilities**:
+- Implement data persistence
+- Handle external API integrations
+- Manage configuration and secrets
+- Provide logging and monitoring
+
+## Feature-Based Modular Design
+
+### Current Feature Modules
+
+#### ✅ **Fully Implemented Features**
+
+**Player Registration** (`kickai/features/player_registration/`)
+```
+├── application/commands/
+│   ├── player_commands.py       # /addplayer, /approve, /reject
+│   └── info_commands.py         # /myinfo, /status
+├── domain/
+│   ├── entities/                # Player, TeamMember entities
+│   ├── services/                # Player management services
+│   └── tools/                   # CrewAI tools for player operations
+└── infrastructure/
+    └── firestore_player_repository.py
+```
+
+**Match Management** (`kickai/features/match_management/`)
+```
+├── application/commands/
+│   └── match_commands.py        # /creatematch, /listmatches, etc.
+├── domain/
+│   ├── entities/                # Match entity
+│   ├── services/                # Match management services
+│   └── tools/                   # CrewAI tools for match operations
+└── infrastructure/
+    └── firestore_match_repository.py
+```
+
+**Attendance Management** (`kickai/features/attendance_management/`)
+```
+├── application/commands/
+│   └── attendance_commands.py   # /markattendance, /attendance, etc.
+├── domain/
+│   ├── entities/                # Attendance entity
+│   ├── services/                # Attendance services
+│   └── tools/                   # CrewAI tools for attendance
+└── infrastructure/
+    └── firestore_attendance_repository.py
+```
+
+**Payment Management** (`kickai/features/payment_management/`)
+```
+├── application/commands/
+│   └── payment_commands.py      # /createpayment, /payments, etc.
+├── domain/
+│   ├── entities/                # Payment entity
+│   ├── services/                # Payment services
+│   └── tools/                   # CrewAI tools for payments
+└── infrastructure/
+    └── firestore_payment_repository.py
+```
+
+**Communication** (`kickai/features/communication/`)
+```
+├── application/commands/
+│   └── communication_commands.py # /announce, /remind, /broadcast
+├── domain/
+│   ├── entities/                # Message entity
+│   ├── services/                # Communication services
+│   └── tools/                   # CrewAI tools for messaging
+└── infrastructure/
+    └── firebase_message_repository.py
+```
+
+#### 🚧 **Partially Implemented Features**
+
+**Training Management** (`kickai/features/training_management/`)
+```
+├── application/commands/
+│   └── training_commands.py     # Commands defined but not integrated
+├── domain/
+│   ├── entities/                # ✅ TrainingSession, TrainingAttendance
+│   ├── services/                # 🚧 Basic services implemented
+│   └── tools/                   # ✅ Training tools implemented
+└── infrastructure/
+    └── firestore_training_repository.py  # ✅ Implemented
+```
+
+**Missing Integration**:
+- Training commands not added to `constants.py`
+- Training commands not registered in command registry
+- Training tools not integrated with agent system
+
+## Agent Architecture
 
 ### 8-Agent CrewAI System
-- ALL user interactions processed through 8 specialized CrewAI agents
-- No dedicated command handlers - commands delegate to agents
-- Agents are specialized for specific domains:
-  - **MESSAGE_PROCESSOR**: Primary interface and routing
-  - **PLAYER_COORDINATOR**: Player registration and management
-  - **TEAM_MANAGER**: Team administration
-  - **SQUAD_SELECTOR**: Match squad selection
-  - **AVAILABILITY_MANAGER**: Player availability tracking
-  - **HELP_ASSISTANT**: Help system and guidance
-  - **ONBOARDING_AGENT**: New user registration
-  - **SYSTEM_INFRASTRUCTURE**: System health and maintenance
 
-### Context-Aware Agent Selection
-- Agent selection based on chat type and intent
-- Main chat vs leadership chat routing
-- Command-specific agent assignment
-- Intent-based routing for natural language
+The system uses 8 specialized agents for intelligent task processing:
 
-### Tool Management
-- Tools are independent functions with @tool decorator
-- Tools must not call other tools or services (see CrewAI best practices)
-- Tools are discovered automatically from feature directories
-- Tools are assigned to agents based on role configuration
-- Parameters passed directly via Task.config
+#### 1. **MessageProcessorAgent**
+- **Primary Role**: Message parsing and intent classification
+- **Commands**: `/version`, general natural language
+- **Tools**: Intent analysis, context extraction, message routing
 
-### Message Processing Flow
-- ALL messages go through AgenticMessageRouter
-- Unified processing for both slash commands and natural language
-- Context-aware routing based on chat type
-- No direct processing bypasses the agentic system
+#### 2. **PlayerCoordinatorAgent**
+- **Primary Role**: Player registration and individual support
+- **Commands**: `/addplayer`, `/addmember`, `/update`, `/myinfo`, `/status`
+- **Tools**: Player management, registration, status tracking
 
-## Database Design
+#### 3. **TeamManagerAgent**
+- **Primary Role**: Team administration and coordination
+- **Commands**: `/list`, `/approve`, `/reject`, `/team`, `/invite`, `/announce`
+- **Tools**: Team management, player administration, team coordination
+
+#### 4. **FinanceManagerAgent**
+- **Primary Role**: Financial management and payments
+- **Commands**: `/createpayment`, `/payments`, `/budget`, `/markpaid`
+- **Tools**: Payment management, budget tracking, financial reporting
+
+#### 5. **PerformanceAnalystAgent**
+- **Primary Role**: Analytics and performance tracking
+- **Commands**: `/stats`, `/analytics`, performance reports
+- **Tools**: Data analysis, performance metrics, reporting
+
+#### 6. **LearningAgent**
+- **Primary Role**: System learning and improvement
+- **Commands**: Learning-related operations
+- **Tools**: Pattern recognition, system optimization
+
+#### 7. **OnboardingAgent**
+- **Primary Role**: User onboarding and guidance
+- **Commands**: `/start`, onboarding flows
+- **Tools**: User guidance, onboarding assistance
+
+#### 8. **CommandFallbackAgent**
+- **Primary Role**: Handle unrecognized commands
+- **Commands**: Fallback for unknown commands
+- **Tools**: Error handling, user guidance
+
+## Core System Components
+
+### Command Registry System
+```
+kickai/core/
+├── command_registry.py          # Central command registry
+├── command_registry_initializer.py  # Command discovery and initialization
+├── constants.py                 # Command definitions and constants
+└── enums.py                     # System enums (PermissionLevel, ChatType)
+```
+
+**Features**:
+- Automatic command discovery from feature modules
+- Permission-based command filtering
+- Chat-specific command handling
+- Command metadata and help system
+
+### Dependency Injection Container
+```
+kickai/core/di/
+└── modern_container.py          # Dependency injection container
+```
+
+**Features**:
+- Service registration and resolution
+- Singleton and transient service management
+- Interface-based dependency injection
+- Clean architecture enforcement
+
+### Agent System
+```
+kickai/agents/
+├── agent_types.py               # Agent type definitions
+├── agentic_message_router.py    # Agent routing and orchestration
+└── handlers/                    # Agent-specific handlers
+```
+
+**Features**:
+- Intelligent message routing
+- Agent capability matching
+- Task decomposition and orchestration
+- Context-aware processing
+
+## Data Architecture
 
 ### Firestore Collections
-- Use `kickai_` prefix for all collections
-- Collections: `kickai_teams`, `kickai_players`, `kickai_matches`, etc.
-- Follow Firestore best practices for data modeling
+```
+kickai_{team_id}_players         # Player records
+kickai_{team_id}_team_members    # Team member records
+kickai_{team_id}_matches         # Match records
+kickai_{team_id}_attendance      # Attendance records
+kickai_{team_id}_payments        # Payment records
+kickai_{team_id}_training_sessions  # Training session records
+kickai_{team_id}_training_attendance  # Training attendance records
+```
 
-### Repository Pattern
-- Each feature has its own repository interface and implementation
-- Repositories handle data access and persistence
-- Use async patterns for database operations
+### Entity Relationships
+```
+Team
+├── Players (1:N)
+├── Team Members (1:N)
+├── Matches (1:N)
+├── Training Sessions (1:N)
+└── Payments (1:N)
 
-## Testing Strategy
+Match
+├── Attendance Records (1:N)
+└── Squad Selection (1:N)
 
-### Test Pyramid
-- Unit tests for business logic
-- Integration tests for service interactions
-- E2E tests for complete user workflows
+Training Session
+└── Training Attendance Records (1:N)
+```
 
-### Test Data
-- Use separate test environment (.env.test)
-- Use real Firestore for E2E tests
-- Mock external services in unit tests
+## Security and Access Control
 
-## Error Handling
+### Permission Levels
+- **PUBLIC**: Available to everyone
+- **PLAYER**: Available to team members
+- **LEADERSHIP**: Available in leadership chat
+- **ADMIN**: Available to admins only
 
-### Exception Strategy
-- Use custom exceptions for business logic errors
-- Log all exceptions with proper context
-- Return meaningful error messages to users
-- Handle async exceptions properly
+### Chat-Based Access Control
+- **Main Chat**: Read-only commands for players
+- **Leadership Chat**: Full administrative access
+- **Private Messages**: Limited command set
 
-## Logging
+## Integration Points
 
-### Logging Strategy
-- Use structured logging with loguru
-- Log at appropriate levels (DEBUG, INFO, WARNING, ERROR)
-- Include context in log messages
-- Use consistent log format
+### External Services
+- **Telegram Bot API**: Message handling and responses
+- **Firebase Firestore**: Data persistence
+- **CrewAI**: Agent orchestration and LLM integration
 
-## Security
+### Internal Integrations
+- **Command Registry**: Centralized command management
+- **Agent System**: Intelligent task processing
+- **Dependency Injection**: Service management
+- **Event Bus**: Inter-feature communication
 
-### Access Control
-- Implement role-based access control
-- Validate user permissions for all operations
-- Use team context for multi-tenant isolation
-- Sanitize all user inputs
+## Scalability Considerations
 
-## Performance
+### Horizontal Scaling
+- Stateless agent design
+- Database connection pooling
+- Caching strategies
+- Load balancing ready
 
-### Optimization
-- Use async operations for I/O
-- Implement caching where appropriate
-- Optimize database queries
-- Monitor performance metrics
+### Vertical Scaling
+- Modular feature architecture
+- Lazy loading of components
+- Efficient resource management
+- Performance monitoring
 
-## Documentation
+## Monitoring and Observability
 
-### Code Documentation
-- Document all public APIs
-- Use docstrings for complex functions
-- Keep documentation up to date
-- Use type hints for better documentation
+### Logging
+- Structured logging with loguru
+- Feature-specific loggers
+- Performance metrics
+- Error tracking
 
-## Critical CrewAI Requirements
+### Health Checks
+- System health monitoring
+- Agent status tracking
+- Database connectivity
+- External service status
 
-**IMPORTANT**: For CrewAI integration, see `.cursor/rules/13_crewai_best_practices.md` for critical rules that must be followed:
+## Future Architecture Enhancements
 
-- Tool independence (tools cannot call other tools or services)
-- Absolute imports with PYTHONPATH=src
-- Proper tool discovery and registration patterns
-- Common error solutions and debugging procedures
-- Native CrewAI features only (no custom workarounds)
-- Context-aware agent selection
-- Direct parameter passing via Task.config
+### Planned Improvements
+1. **Training Management Integration**: Complete training feature integration
+2. **Advanced Analytics**: Enhanced reporting and analytics
+3. **Real-time Notifications**: WebSocket-based real-time updates
+4. **API Gateway**: REST API for external integrations
+5. **Microservices**: Service decomposition for large-scale deployment
 
-**These CrewAI rules are CRITICAL for system stability and must be followed strictly.**
+### Architecture Principles
+- **Single Responsibility**: Each module has one clear purpose
+- **Open/Closed**: Open for extension, closed for modification
+- **Dependency Inversion**: Depend on abstractions, not concretions
+- **Interface Segregation**: Small, focused interfaces
+- **Liskov Substitution**: Subtypes are substitutable for base types

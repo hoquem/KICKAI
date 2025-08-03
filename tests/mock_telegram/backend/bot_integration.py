@@ -24,6 +24,7 @@ try:
     from kickai.features.communication.infrastructure.telegram_bot_service import TelegramBotService
     from kickai.agents.agentic_message_router import AgenticMessageRouter
     from kickai.core.settings import get_settings
+    from kickai.core.dependency_container import initialize_container, get_container
     BOT_COMPONENTS_AVAILABLE = True
     logger.info("Bot components available")
 except ImportError as e:
@@ -56,16 +57,25 @@ class MockTelegramIntegration:
         global BOT_COMPONENTS_AVAILABLE
         if BOT_COMPONENTS_AVAILABLE:
             try:
+                # Initialize the dependency container first
+                logger.info("🔧 Initializing dependency container...")
+                initialize_container()
+                container = get_container()
+                
+                # Verify services are ready
+                if not container.verify_services_ready():
+                    logger.warning("⚠️ Some services not ready, but continuing...")
+                
                 self.settings = get_settings()
                 # Get team_id from Firestore - use first available team
                 team_id = await self._get_team_id_from_firestore()
                 self.agentic_router = AgenticMessageRouter(team_id=team_id)
                 # Skip TelegramBotService for mock integration - we don't need real Telegram
                 self.telegram_service = None
-                logger.info(f"Bot integration initialized successfully with team_id: {team_id}")
+                logger.info(f"✅ Bot integration initialized successfully with team_id: {team_id}")
                 self._initialized = True
             except Exception as e:
-                logger.error(f"Failed to initialize bot components: {e}")
+                logger.error(f"❌ Failed to initialize bot components: {e}")
                 BOT_COMPONENTS_AVAILABLE = False
         else:
             logger.warning("Bot integration running in mock-only mode")
