@@ -363,7 +363,7 @@ class InitializationSequenceCheck(BaseCheck):
         return CheckStatus.PASSED, "Registry sequence validation passed", details
 
     async def _validate_service_sequence(self) -> Tuple[CheckStatus, str, List[str]]:
-        """Validate service layer initialization sequence."""
+        """Validate service layer initialization sequence using dynamic service discovery."""
         issues = []
         details = []
         
@@ -384,39 +384,90 @@ class InitializationSequenceCheck(BaseCheck):
             except Exception as e:
                 issues.append(f"Service factory access failed: {str(e)}")
             
-            # 2. Core Service Creation
+            # 2. Dynamic Service Discovery and Validation
             try:
-                from kickai.core.dependency_container import get_container
+                from kickai.core.service_discovery.registry import get_service_registry
+                from kickai.core.service_discovery.discovery import get_service_discovery
+                from kickai.core.service_discovery.health_checkers import register_default_health_checkers
+                from kickai.core.service_discovery.interfaces import ServiceType
                 
-                container = get_container()
+                # Initialize service registry and discovery
+                registry = get_service_registry()
+                discovery = get_service_discovery()
                 
-                # Check that critical services are available
-                critical_services = [
-                    'DataStoreInterface',
-                ]
+                # Register health checkers
+                register_default_health_checkers(registry)
                 
-                missing_services = []
-                for service_name in critical_services:
-                    try:
-                        service = container.get_service(service_name)
-                        if service:
-                            details.append(f"✅ Service {service_name} available")
+                # Auto-discover and register services
+                discovery.auto_register_services(registry)
+                
+                # Get core services that should be available
+                core_services = registry.list_services(ServiceType.CORE)
+                feature_services = registry.list_services(ServiceType.FEATURE)
+                
+                details.append(f"✅ Discovered {len(core_services)} core services")
+                details.append(f"✅ Discovered {len(feature_services)} feature services")
+                
+                # Validate core services health
+                core_service_health = await registry.check_all_services_health()
+                
+                healthy_services = []
+                unhealthy_services = []
+                
+                for service_name, health in core_service_health.items():
+                    service_def = registry.get_service_definition(service_name)
+                    if service_def and service_def.service_type == ServiceType.CORE:
+                        if health.status.value == "healthy":
+                            healthy_services.append(service_name)
+                            details.append(f"✅ Core service {service_name} is healthy")
                         else:
-                            missing_services.append(service_name)
-                    except Exception:
-                        missing_services.append(service_name)
+                            unhealthy_services.append(service_name)
+                            details.append(f"❌ Core service {service_name} is unhealthy: {health.error_message}")
                 
-                if missing_services:
-                    issues.append(f"Missing critical services: {missing_services}")
+                # Report validation results
+                if unhealthy_services:
+                    issues.append(f"Unhealthy core services: {unhealthy_services}")
+                
+                details.append(f"✅ Service health check completed: {len(healthy_services)} healthy, {len(unhealthy_services)} unhealthy")
+                
+                # Get service statistics
+                stats = registry.get_service_statistics()
+                details.append(f"✅ Service registry statistics: {stats}")
                 
             except Exception as e:
-                issues.append(f"Service creation validation failed: {str(e)}")
+                issues.append(f"Dynamic service discovery failed: {str(e)}")
+                
+                # Fallback to legacy validation
+                try:
+                    from kickai.core.dependency_container import get_container
+                    
+                    container = get_container()
+                    
+                    # Check minimal critical services as fallback
+                    critical_services = ['DataStoreInterface']
+                    
+                    missing_services = []
+                    for service_name in critical_services:
+                        try:
+                            service = container.get_service(service_name)
+                            if service:
+                                details.append(f"✅ Fallback: Service {service_name} available")
+                            else:
+                                missing_services.append(service_name)
+                        except Exception:
+                            missing_services.append(service_name)
+                    
+                    if missing_services:
+                        issues.append(f"Missing critical services (fallback check): {missing_services}")
+                    
+                except Exception as fallback_error:
+                    issues.append(f"Both dynamic discovery and fallback validation failed: {fallback_error}")
             
             service_time = time.time() - start_time
-            details.append(f"✅ Service layer initialized in {service_time:.2f}s")
+            details.append(f"✅ Service layer validation completed in {service_time:.2f}s")
             
             if service_time > 30.0:  # 30 second threshold
-                issues.append(f"Service initialization too slow: {service_time:.2f}s")
+                issues.append(f"Service validation too slow: {service_time:.2f}s")
             
         except Exception as e:
             issues.append(f"Service sequence validation failed: {str(e)}")

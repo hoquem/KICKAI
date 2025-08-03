@@ -5,10 +5,32 @@ Test configuration and fixtures for KICKAI tests.
 import os
 import sys
 import pytest
-from unittest.mock import Mock, patch
-from typing import Dict, Any
+import asyncio
+from unittest.mock import Mock, patch, AsyncMock
+from typing import Dict, Any, List
 
 # Package imports work directly now
+
+# Import service discovery components for fixtures
+try:
+    from kickai.core.service_discovery import (
+        ServiceRegistry,
+        ServiceDefinition,
+        ServiceType,
+        ServiceConfiguration,
+        ServiceHealth,
+        ServiceStatus,
+        reset_service_registry,
+    )
+except ImportError:
+    # Graceful fallback if service discovery is not available
+    ServiceRegistry = None
+    ServiceDefinition = None
+    ServiceType = None
+    ServiceConfiguration = None
+    ServiceHealth = None
+    ServiceStatus = None
+    reset_service_registry = lambda: None
 
 # Set up test environment variables
 os.environ.update({
@@ -233,4 +255,262 @@ def create_test_update(message_text: str = "test message", user_id: str = "12345
     return {
         "update_id": 123456789,
         "message": create_test_message(message_text, user_id, chat_id)
-    } 
+    }
+
+
+# Service Discovery Test Fixtures (only if service discovery is available)
+if ServiceRegistry is not None:
+    
+    class TestServiceBase:
+        """Base class for test services with common functionality."""
+        
+        def __init__(self, name: str, should_fail: bool = False, delay: float = 0.0):
+            self.name = name
+            self.should_fail = should_fail
+            self.delay = delay
+            self._health_check_calls = 0
+            self._operation_calls = 0
+        
+        async def health_check(self) -> bool:
+            """Standard health check method."""
+            self._health_check_calls += 1
+            
+            if self.delay > 0:
+                await asyncio.sleep(self.delay)
+            
+            if self.should_fail:
+                raise Exception(f"Health check failed for {self.name}")
+            
+            return True
+        
+        def get_health_check_calls(self) -> int:
+            return self._health_check_calls
+        
+        def get_operation_calls(self) -> int:
+            return self._operation_calls
+        
+        def reset_counters(self):
+            self._health_check_calls = 0
+            self._operation_calls = 0
+
+
+    class MockPlayerService(TestServiceBase):
+        """Mock player service for testing."""
+        
+        async def get_player(self, player_id: str):
+            self._operation_calls += 1
+            return {"id": player_id, "name": f"Player {player_id}"}
+        
+        async def create_player(self, data: dict):
+            self._operation_calls += 1
+            return {"id": "new_player", **data}
+        
+        async def update_player(self, player_id: str, data: dict):
+            self._operation_calls += 1
+            return {"id": player_id, **data}
+
+
+    class MockDatabaseService(TestServiceBase):
+        """Mock database service for testing."""
+        
+        async def ping(self) -> bool:
+            return await self.health_check()
+        
+        async def test_connection(self) -> bool:
+            return await self.health_check()
+        
+        async def create_document(self, collection: str, data: dict, document_id: str = None):
+            self._operation_calls += 1
+            return {"id": document_id or "new_doc", **data}
+        
+        async def get_document(self, collection: str, document_id: str):
+            self._operation_calls += 1
+            return {"id": document_id, "collection": collection}
+        
+        async def update_document(self, collection: str, document_id: str, data: dict):
+            self._operation_calls += 1
+            return {"id": document_id, **data}
+
+
+    class MockExternalService(TestServiceBase):
+        """Mock external service for testing."""
+        
+        async def test_connection(self) -> bool:
+            return await self.health_check()
+        
+        async def ping(self) -> bool:
+            return await self.health_check()
+        
+        async def send_message(self, message: str):
+            self._operation_calls += 1
+            return {"message_id": f"msg_{self._operation_calls}", "status": "sent"}
+
+
+    class MockAgentService(TestServiceBase):
+        """Mock agent service for testing."""
+        
+        def create_agent(self, agent_type: str):
+            self._operation_calls += 1
+            return Mock(name=f"Agent_{agent_type}_{self._operation_calls}")
+        
+        async def route_message(self, message: str):
+            self._operation_calls += 1
+            return {"routed_to": "test_agent", "message": message}
+
+
+    @pytest.fixture
+    def service_discovery_registry():
+        """Fixture providing a fresh service registry."""
+        if ServiceConfiguration is None:
+            pytest.skip("Service discovery not available")
+        
+        config = ServiceConfiguration(
+            health_check_enabled=True,
+            circuit_breaker_enabled=True,
+            circuit_breaker_threshold=3
+        )
+        return ServiceRegistry(config)
+
+
+    @pytest.fixture
+    def mock_player_service():
+        """Fixture providing a mock player service."""
+        return MockPlayerService("PlayerService")
+
+
+    @pytest.fixture
+    def mock_database_service():
+        """Fixture providing a mock database service."""
+        return MockDatabaseService("DataStoreInterface")
+
+
+    @pytest.fixture
+    def mock_external_service():
+        """Fixture providing a mock external service."""
+        return MockExternalService("TelegramBot")
+
+
+    @pytest.fixture
+    def mock_agent_service():
+        """Fixture providing a mock agent service."""
+        return MockAgentService("AgentFactory")
+
+
+    @pytest.fixture
+    def sample_service_definitions():
+        """Fixture providing sample service definitions."""
+        if ServiceDefinition is None or ServiceType is None:
+            pytest.skip("Service discovery not available")
+        
+        return [
+            ServiceDefinition(
+                name="DataStoreInterface",
+                service_type=ServiceType.CORE,
+                interface_name="test.IDataStore",
+                implementation_class="test.DataStore",
+                dependencies=[],
+                timeout=10.0,
+                metadata={"priority": "critical"}
+            ),
+            ServiceDefinition(
+                name="PlayerService",
+                service_type=ServiceType.FEATURE,
+                interface_name="test.IPlayerService",
+                implementation_class="test.PlayerService",
+                dependencies=["DataStoreInterface"],
+                timeout=15.0,
+                metadata={"feature": "player_management"}
+            ),
+            ServiceDefinition(
+                name="TelegramBot",
+                service_type=ServiceType.EXTERNAL,
+                interface_name="test.ITelegramBot",
+                implementation_class="test.TelegramBot",
+                dependencies=[],
+                timeout=20.0,
+                metadata={"external_provider": "telegram"}
+            ),
+            ServiceDefinition(
+                name="AgentFactory",
+                service_type=ServiceType.CORE,
+                interface_name="test.IAgentFactory",
+                implementation_class="test.AgentFactory",
+                dependencies=["DataStoreInterface"],
+                timeout=12.0,
+                metadata={"agent_system": True}
+            )
+        ]
+
+
+    @pytest.fixture(autouse=True)
+    def reset_global_service_registry():
+        """Auto-reset global service registry between tests."""
+        if reset_service_registry is not None:
+            reset_service_registry()
+        yield
+        if reset_service_registry is not None:
+            reset_service_registry()
+
+
+    @pytest.fixture
+    def mock_health_checker():
+        """Fixture providing a mock health checker."""
+        if ServiceHealth is None or ServiceStatus is None:
+            pytest.skip("Service discovery not available")
+        
+        class MockHealthChecker:
+            def __init__(self, supported_services: List[str] = None):
+                self.supported_services = supported_services or []
+                self.check_called = False
+                self.last_service_name = None
+                self.last_service_instance = None
+            
+            async def check_health(self, service_name: str, service_instance: Any) -> ServiceHealth:
+                self.check_called = True
+                self.last_service_name = service_name
+                self.last_service_instance = service_instance
+                
+                # Simulate health check based on service instance
+                if hasattr(service_instance, 'should_fail') and service_instance.should_fail:
+                    return ServiceHealth(
+                        service_name=service_name,
+                        status=ServiceStatus.UNHEALTHY,
+                        error_message="Mock service configured to fail"
+                    )
+                
+                return ServiceHealth(
+                    service_name=service_name,
+                    status=ServiceStatus.HEALTHY,
+                    response_time=0.1,
+                    metadata={"mock_checker": True}
+                )
+            
+            def supports_service(self, service_name: str) -> bool:
+                if not self.supported_services:
+                    return True
+                return service_name in self.supported_services
+        
+        return MockHealthChecker()
+
+
+# Pytest configuration for service discovery tests
+def pytest_configure(config):
+    """Configure custom pytest markers."""
+    config.addinivalue_line(
+        "markers", "unit: mark test as a unit test"
+    )
+    config.addinivalue_line(
+        "markers", "integration: mark test as an integration test"
+    )
+    config.addinivalue_line(
+        "markers", "e2e: mark test as an end-to-end test"
+    )
+    config.addinivalue_line(
+        "markers", "slow: mark test as slow running"
+    )
+    config.addinivalue_line(
+        "markers", "performance: mark test as a performance test"
+    )
+    config.addinivalue_line(
+        "markers", "service_discovery: mark test as service discovery related"
+    )
