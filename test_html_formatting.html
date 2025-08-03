@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Formatting Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-output {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 10px 0;
+            background: #f9f9f9;
+        }
+        .emoji-highlight {
+            font-size: 1.2em;
+            margin: 0 2px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <h1>HTML Formatting Test</h1>
+    
+    <h2>Test Input:</h2>
+    <div class="test-output" id="input">
+        🤖 KICKAI Help System<br>
+        Your Context: MAIN CHAT (User: test_admin)<br>
+        📋 Available Commands for Main Chat:<br>
+        <br>
+        💡 Use /help [command] for detailed help on any command.
+    </div>
+    
+    <h2>Formatted Output:</h2>
+    <div class="test-output" id="output"></div>
+    
+    <h2>Debug Info:</h2>
+    <div class="test-output" id="debug"></div>
+
+    <script>
+        // Format message text for better display (improved version)
+        function formatMessageText(text) {
+            if (!text) return '';
+            
+            console.log('Input text:', JSON.stringify(text));
+            
+            // Escape HTML entities to prevent injection and display issues
+            text = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+            
+            console.log('After escaping:', JSON.stringify(text));
+            
+            // Convert line breaks to HTML
+            text = text.replace(/\n/g, '<br>');
+            
+            // Highlight command-like text first (before emoji processing)
+            text = text.replace(/(\/[a-zA-Z]+)/g, '<code style="background: #f0f0f0; padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>');
+            
+            // Highlight important sections with better regex patterns
+            text = text.replace(/^(❓.*?)$/gm, '<strong style="color: #1a73e8;">$1</strong>');
+            text = text.replace(/^(💡.*?)$/gm, '<strong style="color: #34a853;">$1</strong>');
+            text = text.replace(/^(📞.*?)$/gm, '<strong style="color: #ea4335;">$1</strong>');
+            
+            // Enhanced emoji highlighting using a more robust approach
+            // Use a simpler approach that doesn't risk creating invalid HTML
+            text = text.replace(/([\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}])/gu, 
+                '<span class="emoji-highlight">$1</span>');
+            
+            // Highlight special KICKAI formatting
+            text = text.replace(/(\*\*.*?\*\*)/g, '<strong>$1</strong>');
+            text = text.replace(/(\*.*?\*)/g, '<em>$1</em>');
+            
+            console.log('Final output:', JSON.stringify(text));
+            
+            return text;
+        }
+        
+        // Test the formatting
+        const testInput = `🤖 KICKAI Help System
+Your Context: MAIN CHAT (User: test_admin)
+📋 Available Commands for Main Chat:
+
+💡 Use /help [command] for detailed help on any command.`;
+        
+        const formattedOutput = formatMessageText(testInput);
+        
+        document.getElementById('input').innerHTML = testInput.replace(/\n/g, '<br>');
+        document.getElementById('output').innerHTML = formattedOutput;
+        document.getElementById('debug').innerHTML = `
+            <strong>Original:</strong><br>
+            <code>${JSON.stringify(testInput)}</code><br><br>
+            <strong>Formatted:</strong><br>
+            <code>${JSON.stringify(formattedOutput)}</code>
+        `;
+    </script>
+</body>
+</html>
