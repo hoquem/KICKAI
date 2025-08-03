@@ -1,0 +1,230 @@
+# Quick Test Scenarios Configuration
+# This file defines the configuration for all quick test scenarios
+
+test_framework:
+  version: "1.0.0"
+  default_timeout: 60
+  max_concurrent_tests: 3
+  retry_attempts: 3
+  retry_delay_seconds: 2
+  log_level: "DEBUG"
+  
+  # Enhanced logging configuration
+  logging:
+    enable_structured_logs: true
+    log_to_file: true
+    log_retention_days: 7
+    log_compression: true
+
+# Test scenario configurations
+test_scenarios:
+  player_registration:
+    enabled: true
+    timeout: 60
+    description: "Test complete player onboarding flow"
+    prerequisites:
+      - clean_database
+      - leadership_user_available
+      - main_chat_available
+    cleanup_policy: "always"
+    validation_rules:
+      - invite_link_created
+      - player_record_created
+      - telegram_link_established
+      - welcome_message_sent
+    retry_on_failure: true
+    
+  invite_link_validation:
+    enabled: true
+    timeout: 45
+    description: "Test invite link security and edge cases"
+    prerequisites:
+      - test_invite_links_created
+    cleanup_policy: "on_success"
+    validation_rules:
+      - valid_link_accepted
+      - expired_link_rejected
+      - used_link_rejected
+      - invalid_signature_rejected
+    retry_on_failure: false
+    
+  command_testing:
+    enabled: true
+    timeout: 90
+    description: "Test bot commands across user roles"
+    prerequisites:
+      - multiple_test_users
+      - various_chat_types
+    cleanup_policy: "always"
+    validation_rules:
+      - player_commands_work
+      - leadership_commands_work
+      - admin_commands_work
+      - permissions_enforced
+    retry_on_failure: true
+    
+  natural_language_processing:
+    enabled: true
+    timeout: 60
+    description: "Test natural language understanding"
+    prerequisites:
+      - test_users_available
+      - nlp_test_cases
+    cleanup_policy: "on_success"
+    validation_rules:
+      - intent_recognition_accurate
+      - response_relevance_good
+      - response_time_acceptable
+    retry_on_failure: true
+    
+  error_handling:
+    enabled: true
+    timeout: 75
+    description: "Test system resilience and error handling"
+    prerequisites:
+      - error_test_scenarios
+    cleanup_policy: "always"
+    validation_rules:
+      - graceful_error_messages
+      - system_stability_maintained
+      - no_data_corruption
+    retry_on_failure: false
+    
+  performance_load:
+    enabled: true
+    timeout: 120
+    description: "Test system performance under load"
+    prerequisites:
+      - performance_test_setup
+      - concurrent_users_available
+    cleanup_policy: "always"
+    validation_rules:
+      - response_time_within_limits
+      - success_rate_above_threshold
+      - resource_usage_acceptable
+    retry_on_failure: true
+
+# Test data configurations
+test_data:
+  default_users:
+    leadership:
+      id: 1004
+      username: "test_leadership"
+      first_name: "Test"
+      last_name: "Leadership"
+      role: "leadership"
+      phone_number: "+1234567893"
+    
+    player:
+      id: 1001
+      username: "test_player"
+      first_name: "Test"
+      last_name: "Player"
+      role: "player"
+      phone_number: "+1234567890"
+    
+    admin:
+      id: 1003
+      username: "test_admin"
+      first_name: "Test"
+      last_name: "Admin"
+      role: "admin"
+      phone_number: "+1234567892"
+  
+  test_chats:
+    main_chat_id: 2001
+    leadership_chat_id: 2002
+  
+  test_player_data:
+    name: "John Doe"
+    phone: "+44123456789"
+    position: "Forward"
+  
+  performance_test:
+    concurrent_users: 5
+    messages_per_user: 10
+    test_duration_seconds: 60
+
+# Validation thresholds
+validation_thresholds:
+  response_time:
+    max_seconds: 10
+    warning_seconds: 5
+  
+  success_rate:
+    min_percentage: 95
+    warning_percentage: 90
+  
+  performance:
+    max_response_time_seconds: 5
+    min_success_rate_percent: 95
+    max_memory_usage_mb: 512
+    max_cpu_usage_percent: 80
+
+# Environment configurations
+environments:
+  development:
+    api_base_url: "http://localhost:8001/api"
+    mock_mode: true
+    debug_logging: true
+    skip_cleanup: false
+    
+  testing:
+    api_base_url: "http://localhost:8001/api"
+    mock_mode: true
+    debug_logging: false
+    skip_cleanup: false
+    
+  ci:
+    api_base_url: "http://localhost:8001/api"
+    mock_mode: true
+    debug_logging: false
+    skip_cleanup: true
+    timeout_multiplier: 2.0
+
+# Security settings
+security:
+  enable_safety_checks: true
+  prevent_production_access: true
+  require_test_markers: true
+  max_cleanup_retries: 3
+
+# Reporting configuration
+reporting:
+  enable_detailed_logs: true
+  enable_performance_metrics: true
+  enable_json_export: true
+  enable_html_reports: false
+  
+  export_formats:
+    - "json"
+    - "log"
+  
+  metrics_to_track:
+    - "execution_time"
+    - "success_rate"
+    - "error_count"
+    - "performance_metrics"
+
+# Notification settings (for future implementation)
+notifications:
+  enable_slack_notifications: false
+  enable_email_notifications: false
+  notify_on_failure: true
+  notify_on_completion: false
+
+# Advanced settings
+advanced:
+  enable_parallel_execution: false
+  enable_test_isolation: true
+  enable_automatic_retry: true
+  enable_smart_cleanup: true
+  
+  database:
+    connection_timeout: 30
+    query_timeout: 10
+    
+  api:
+    request_timeout: 30
+    max_retries: 3
+    backoff_factor: 2

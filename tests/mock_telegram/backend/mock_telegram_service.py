@@ -681,6 +681,131 @@ async def websocket_endpoint(websocket: WebSocket):
         await mock_service.disconnect_websocket(websocket)
 
 
+# =============================================================================
+# FIREBASE ENDPOINTS (Mock implementations for enhanced frontend)
+# =============================================================================
+
+@app.get("/firebase/users")
+async def get_firebase_users():
+    """Mock Firebase users endpoint - returns mock users in Firebase format"""
+    users = mock_service.get_all_users()
+    # Convert mock users to Firebase-like format
+    firebase_users = []
+    for user in users:
+        firebase_user = {
+            "id": str(user.id),  # Firebase uses string IDs
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "role": user.role.value,
+            "phone_number": user.phone_number,
+            "is_bot": user.is_bot,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "status": "active",  # Mock status
+            "team_id": "TEST_TEAM",  # Mock team ID
+            "is_active": True,
+            "is_approved": True if user.role in [UserRole.ADMIN, UserRole.LEADERSHIP] else False
+        }
+        firebase_users.append(firebase_user)
+    
+    return {
+        "users": firebase_users,
+        "total": len(firebase_users),
+        "status": "success"
+    }
+
+
+@app.get("/firebase/players")
+async def get_firebase_players():
+    """Mock Firebase players endpoint - returns players only"""
+    users = mock_service.get_all_users()
+    # Filter for players only
+    players = [user for user in users if user.role == UserRole.PLAYER]
+    
+    firebase_players = []
+    for player in players:
+        firebase_player = {
+            "id": str(player.id),
+            "username": player.username,
+            "first_name": player.first_name,
+            "last_name": player.last_name,
+            "phone_number": player.phone_number,
+            "position": "Unknown",  # Mock position
+            "status": "active",
+            "team_id": "TEST_TEAM",
+            "is_active": True,
+            "is_approved": True,
+            "created_at": player.created_at.isoformat() if player.created_at else None
+        }
+        firebase_players.append(firebase_player)
+    
+    return {
+        "players": firebase_players,
+        "total": len(firebase_players),
+        "status": "success"
+    }
+
+
+@app.get("/firebase/team_members")
+async def get_firebase_team_members():
+    """Mock Firebase team members endpoint - returns team members only"""
+    users = mock_service.get_all_users()
+    # Filter for team members only
+    team_members = [user for user in users if user.role == UserRole.TEAM_MEMBER]
+    
+    firebase_team_members = []
+    for member in team_members:
+        firebase_member = {
+            "id": str(member.id),
+            "username": member.username,
+            "first_name": member.first_name,
+            "last_name": member.last_name,
+            "phone_number": member.phone_number,
+            "role": member.role.value,
+            "status": "active",
+            "team_id": "TEST_TEAM",
+            "is_active": True,
+            "created_at": member.created_at.isoformat() if member.created_at else None
+        }
+        firebase_team_members.append(firebase_member)
+    
+    return {
+        "team_members": firebase_team_members,
+        "total": len(firebase_team_members),
+        "status": "success"
+    }
+
+
+@app.get("/firebase/status")
+async def get_firebase_status():
+    """Mock Firebase status endpoint"""
+    return {
+        "status": "connected",
+        "database": "firestore",
+        "project_id": "kickai-testing",
+        "collections": [
+            "kickai_TEST_TEAM_players",
+            "kickai_TEST_TEAM_team_members",
+            "kickai_TEST_TEAM_matches",
+            "kickai_TEST_TEAM_attendance"
+        ],
+        "last_sync": datetime.now(timezone.utc).isoformat()
+    }
+
+
+# =============================================================================
+# QUICK TEST SCENARIOS API INTEGRATION
+# =============================================================================
+
+# Include Quick Test API routes
+try:
+    from ..quick_tests.api_integration import router as quick_test_router
+    app.include_router(quick_test_router)
+    logger.info("✅ Quick Test Scenarios API routes included")
+except ImportError as e:
+    logger.warning(f"⚠️ Quick Test Scenarios API not available: {e}")
+
+
 if __name__ == "__main__":
     uvicorn.run(
         "mock_telegram_service:app",
