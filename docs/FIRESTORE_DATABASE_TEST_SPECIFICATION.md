@@ -17,21 +17,21 @@ This document provides a comprehensive test specification for the Firestore data
 ### 1.1 Collection Structure
 The KICKAI system uses the following Firestore collection naming convention:
 - **Prefix**: `kickai_`
-- **Team-specific collections**: `kickai_{team_id}_{collection_type}`
-- **Global collections**: `kickai_{collection_type}`
+- **Team-specific collections**: `kickai_{team_id}_{collection_type}` (most collections)
+- **Global collections**: `kickai_{collection_type}` (teams only)
 
 ### 1.2 Core Collections Identified
 1. **Teams**: `kickai_teams` (global)
 2. **Players**: `kickai_{team_id}_players` (team-specific)
 3. **Team Members**: `kickai_{team_id}_team_members` (team-specific)
 4. **Matches**: `kickai_{team_id}_matches` (team-specific)
-5. **Payments**: `kickai_payments` (global)
-6. **Daily Status**: `kickai_daily_status` (global)
-7. **Messages**: `kickai_messages` (global)
-8. **Health Checks**: `kickai_health_checks` (global)
+5. **Payments**: `kickai_{team_id}_payments` (team-specific)
+6. **Daily Status**: `kickai_{team_id}_daily_status` (team-specific)
+7. **Messages**: `kickai_{team_id}_messages` (team-specific)
+8. **Health Checks**: `kickai_{team_id}_health_checks` (team-specific)
 9. **Attendance**: `kickai_{team_id}_attendance` (team-specific)
-10. **Notifications**: `kickai_notifications` (global)
-11. **Invite Links**: `kickai_invite_links` (global)
+10. **Notifications**: `kickai_{team_id}_notifications` (team-specific)
+11. **Invite Links**: `kickai_{team_id}_invite_links` (team-specific)
 
 ## 2. Database Operations by Feature
 
@@ -183,7 +183,7 @@ The KICKAI system uses the following Firestore collection naming convention:
 #### 2.4.1 Expense Operations
 - **Create Expense**
   - Operation: `create_expense(expense: Expense) -> Expense`
-  - Collection: `kickai_payments`
+  - Collection: `kickai_{team_id}_payments`
   - Test Cases:
     - Create expense with valid data
     - Create expense with invalid amount (should fail)
@@ -285,15 +285,15 @@ The KICKAI system uses the following Firestore collection naming convention:
 #### 2.6.1 Message Operations
 - **Save Message**
   - Operation: `save(message: dict[str, Any]) -> str`
-  - Collection: `kickai_messages`
+  - Collection: `kickai_{team_id}_messages`
   - Test Cases:
     - Save message with valid data
     - Save message with invalid data (should fail)
 
 - **Read Message Operations**
-  - `get_by_id(message_id: str) -> dict[str, Any] | None`
-  - `get_by_conversation(conversation_id: str, limit: int = 50) -> list[dict[str, Any]]`
-  - `get_by_user(user_id: str, limit: int = 50) -> list[dict[str, Any]]`
+  - `get_by_id(message_id: str, team_id: str) -> dict[str, Any] | None`
+  - `get_by_conversation(conversation_id: str, team_id: str, limit: int = 50) -> list[dict[str, Any]]`
+  - `get_by_user(user_id: str, team_id: str, limit: int = 50) -> list[dict[str, Any]]`
   - Test Cases:
     - Get message by ID
     - Get messages by conversation
@@ -316,15 +316,15 @@ The KICKAI system uses the following Firestore collection naming convention:
 #### 2.6.2 Notification Operations
 - **Create Notification**
   - Operation: `create_notification(notification: Notification) -> str`
-  - Collection: `kickai_notifications`
+  - Collection: `kickai_{team_id}_notifications`
   - Test Cases:
     - Create notification with valid data
     - Create notification with invalid recipient (should fail)
 
 - **Read Notification Operations**
-  - `get_notification_by_id(notification_id: str) -> Notification | None`
-  - `get_notifications_by_user(user_id: str) -> list[Notification]`
-  - `get_unread_notifications(user_id: str) -> list[Notification]`
+  - `get_notification_by_id(notification_id: str, team_id: str) -> Notification | None`
+  - `get_notifications_by_user(user_id: str, team_id: str) -> list[Notification]`
+  - `get_unread_notifications(user_id: str, team_id: str) -> list[Notification]`
   - Test Cases:
     - Get notification by ID
     - Get notifications by user
@@ -346,7 +346,7 @@ The KICKAI system uses the following Firestore collection naming convention:
 #### 2.6.3 Invite Link Operations
 - **Create Invite Link**
   - Operation: `create_invite_link(invite_data: dict[str, Any]) -> str`
-  - Collection: `kickai_invite_links`
+  - Collection: `kickai_{team_id}_invite_links`
   - Test Cases:
     - Create player invite link
     - Create team member invite link
@@ -354,7 +354,7 @@ The KICKAI system uses the following Firestore collection naming convention:
     - Create invite link with invalid data (should fail)
 
 - **Read Invite Link Operations**
-  - `get_invite_link(invite_id: str) -> dict[str, Any] | None`
+  - `get_invite_link(invite_id: str, team_id: str) -> dict[str, Any] | None`
   - `get_invite_links_by_team(team_id: str) -> list[dict[str, Any]]`
   - `get_active_invite_links(team_id: str) -> list[dict[str, Any]]`
   - Test Cases:
@@ -381,13 +381,13 @@ The KICKAI system uses the following Firestore collection naming convention:
 #### 2.7.1 Health Check Operations
 - **Create Health Check**
   - Operation: `create_health_check(health_check: HealthCheck) -> str`
-  - Collection: `kickai_health_checks`
+  - Collection: `kickai_{team_id}_health_checks`
   - Test Cases:
     - Create health check with valid data
     - Create health check with invalid status (should fail)
 
 - **Read Health Check Operations**
-  - `get_health_check_by_id(health_check_id: str) -> HealthCheck | None`
+  - `get_health_check_by_id(health_check_id: str, team_id: str) -> HealthCheck | None`
   - `get_health_checks_by_team(team_id: str) -> list[HealthCheck]`
   - `get_recent_health_checks(team_id: str, hours: int = 24) -> list[HealthCheck]`
   - Test Cases:
@@ -414,14 +414,14 @@ The KICKAI system uses the following Firestore collection naming convention:
 #### 2.8.1 Daily Status CRUD Operations
 - **Create Daily Status**
   - Operation: `create_daily_status(daily_status: DailyStatus) -> str`
-  - Collection: `kickai_daily_status`
+  - Collection: `kickai_{team_id}_daily_status`
   - Test Cases:
     - Create daily status with valid data
     - Create daily status for same team/date (should fail)
     - Create daily status with invalid data (should fail)
 
 - **Read Daily Status Operations**
-  - `get_daily_status_by_id(daily_status_id: str) -> DailyStatus | None`
+  - `get_daily_status_by_id(daily_status_id: str, team_id: str) -> DailyStatus | None`
   - `get_daily_status_by_team_date(team_id: str, date: datetime) -> DailyStatus | None`
   - `get_daily_status_by_team(team_id: str, start_date: datetime, end_date: datetime) -> list[DailyStatus]`
   - Test Cases:
