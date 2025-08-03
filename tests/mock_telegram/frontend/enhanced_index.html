@@ -664,6 +664,71 @@
     </div>
 
     <script>
+        // Application Constants (Fail-Fast Configuration)
+        const CONFIG = {
+            // Network configuration
+            API: {
+                DEFAULT_HOST: 'localhost',
+                DEFAULT_PORT: 8001,
+                BASE_PATH: '/api',
+                WS_PATH: '/ws'
+            },
+            
+            // Timeout configuration (in milliseconds)
+            TIMEOUTS: {
+                HTTP_REQUEST: 30000,       // 30 seconds
+                WS_CONNECT: 10000,         // 10 seconds
+                WS_MESSAGE: 5000,          // 5 seconds
+                WS_RECONNECT: 5000         // 5 seconds
+            },
+            
+            // Status messages
+            STATUS: {
+                ONLINE: 'Online',
+                OFFLINE: 'Offline',
+                ERROR: 'Error',
+                CHECKING: 'Checking...',
+                CONNECTED: 'Connected',
+                DISCONNECTED: 'Disconnected'
+            },
+            
+            // UI Configuration
+            UI: {
+                SEARCH_DEBOUNCE: 300,      // milliseconds
+                MAX_MESSAGE_LENGTH: 4096,   // characters
+                RECONNECT_ATTEMPTS: 3
+            }
+        };
+        
+        // Validate configuration on load (fail-fast)
+        function validateConfig() {
+            if (!CONFIG.API.DEFAULT_HOST || !CONFIG.API.DEFAULT_PORT) {
+                throw new Error('Invalid API configuration: host and port are required');
+            }
+            
+            if (CONFIG.API.DEFAULT_PORT < 1 || CONFIG.API.DEFAULT_PORT > 65535) {
+                throw new Error(`Invalid port: ${CONFIG.API.DEFAULT_PORT}. Must be between 1-65535`);
+            }
+            
+            Object.values(CONFIG.TIMEOUTS).forEach((timeout, index) => {
+                if (timeout <= 0) {
+                    throw new Error(`Invalid timeout configuration at index ${index}: ${timeout}`);
+                }
+            });
+        }
+        
+        // Build URLs from configuration
+        function buildApiUrl() {
+            return `http://${CONFIG.API.DEFAULT_HOST}:${CONFIG.API.DEFAULT_PORT}${CONFIG.API.BASE_PATH}`;
+        }
+        
+        function buildWebSocketUrl() {
+            return `ws://${CONFIG.API.DEFAULT_HOST}:${CONFIG.API.DEFAULT_PORT}${CONFIG.API.WS_PATH}`;
+        }
+        
+        // Validate configuration immediately (fail-fast principle)
+        validateConfig();
+        
         // Global variables
         let currentUser = null;
         let currentChat = null;
@@ -674,7 +739,7 @@
         let currentCategory = 'all';
         
         // API base URL - Single source of truth
-        const API_BASE = 'http://localhost:8001/api';
+        const API_BASE = buildApiUrl();
         
         // Initialize the application
         async function init() {
@@ -694,31 +759,31 @@
                 if (botResponse.ok) {
                     const stats = await botResponse.json();
                     if (stats.bot_integration_available) {
-                        document.getElementById('botStatus').textContent = 'Online';
+                        document.getElementById('botStatus').textContent = CONFIG.STATUS.ONLINE;
                         document.getElementById('botStatus').className = 'status-value online';
                     } else {
-                        document.getElementById('botStatus').textContent = 'Offline';
+                        document.getElementById('botStatus').textContent = CONFIG.STATUS.OFFLINE;
                         document.getElementById('botStatus').className = 'status-value offline';
                     }
                 } else {
-                    document.getElementById('botStatus').textContent = 'Offline';
+                    document.getElementById('botStatus').textContent = CONFIG.STATUS.OFFLINE;
                     document.getElementById('botStatus').className = 'status-value offline';
                 }
                 
                 // Check Firebase status
-                const firebaseResponse = await fetch(`${API_BASE}/api/firebase/users`);
+                const firebaseResponse = await fetch(`${API_BASE}/firebase/users`);
                 if (firebaseResponse.ok) {
-                    document.getElementById('firebaseStatus').textContent = 'Connected';
+                    document.getElementById('firebaseStatus').textContent = CONFIG.STATUS.CONNECTED;
                     document.getElementById('firebaseStatus').className = 'status-value online';
                 } else {
-                    document.getElementById('firebaseStatus').textContent = 'Disconnected';
+                    document.getElementById('firebaseStatus').textContent = CONFIG.STATUS.DISCONNECTED;
                     document.getElementById('firebaseStatus').className = 'status-value offline';
                 }
             } catch (error) {
                 console.error('Error checking system status:', error);
-                document.getElementById('botStatus').textContent = 'Error';
+                document.getElementById('botStatus').textContent = CONFIG.STATUS.ERROR;
                 document.getElementById('botStatus').className = 'status-value offline';
-                document.getElementById('firebaseStatus').textContent = 'Error';
+                document.getElementById('firebaseStatus').textContent = CONFIG.STATUS.ERROR;
                 document.getElementById('firebaseStatus').className = 'status-value offline';
             }
         }
@@ -726,17 +791,20 @@
         // Load Firebase users
         async function loadFirebaseUsers() {
             try {
-                const response = await fetch(`${API_BASE}/api/firebase/users`);
+                const response = await fetch(`${API_BASE}/firebase/users`);
                 if (response.ok) {
-                    firebaseUsers = await response.json();
-                    console.log('Loaded Firebase users:', firebaseUsers);
+                    const data = await response.json();
+                    firebaseUsers = data.users || []; // Extract the users array from the response
+                    renderUsers();
                 } else {
                     console.error('Failed to load Firebase users');
                     firebaseUsers = [];
+                    renderUsers(); // Render empty state
                 }
             } catch (error) {
                 console.error('Error loading Firebase users:', error);
                 firebaseUsers = [];
+                renderUsers(); // Render empty state
             }
         }
         
@@ -747,7 +815,6 @@
                 if (response.ok) {
                     const data = await response.json();
                     mockUsers = data.users || []; // Extract the users array from the response
-                    console.log('Loaded mock users:', mockUsers);
                 } else {
                     mockUsers = [];
                 }
@@ -763,8 +830,7 @@
                 const response = await fetch(`${API_BASE}/chats`);
                 if (response.ok) {
                     const data = await response.json();
-                    chats = data.chats || []; // Extract the chats array from the response
-                    console.log('Loaded chats:', chats);
+                    chats = data.chats || data || []; // Handle both nested and direct array responses
                 } else {
                     chats = [];
                 }
@@ -812,10 +878,9 @@
                 const userItem = e.target.closest('.user-item');
                 if (userItem) {
                     const telegramId = userItem.dataset.telegramId;
-                    const userId = userItem.dataset.userId;
                     
                     // Find the user data from firebaseUsers
-                    const user = firebaseUsers.find(u => u.telegram_id === telegramId);
+                    const user = firebaseUsers.find(u => u.id === telegramId);
                     if (user) {
                         selectUser(user);
                     }
@@ -845,11 +910,12 @@
             // Filter users by category and search
             let filteredUsers = firebaseUsers.filter(user => {
                 const matchesCategory = currentCategory === 'all' || 
-                    (currentCategory === 'players' && user.type === 'player') ||
-                    (currentCategory === 'team-members' && user.type === 'team_member') ||
-                    (currentCategory === 'admins' && (user.role === 'club administrator' || user.is_admin));
+                    (currentCategory === 'players' && user.role === 'player') ||
+                    (currentCategory === 'team-members' && user.role === 'team_member') ||
+                    (currentCategory === 'admins' && (user.role === 'admin' || user.role === 'leadership'));
                 
-                const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm) ||
+                const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
+                const matchesSearch = fullName.toLowerCase().includes(searchTerm) ||
                     user.username?.toLowerCase().includes(searchTerm) ||
                     user.role?.toLowerCase().includes(searchTerm);
                 
@@ -877,12 +943,13 @@
         function createUserElement(user) {
             const li = document.createElement('li');
             li.className = 'user-item';
-            li.dataset.telegramId = user.telegram_id; // Add data attribute for selection
-            li.dataset.userId = user.user_id; // Add user_id for reference
+            li.dataset.telegramId = user.id; // Use user.id as telegram_id
+            li.dataset.userId = user.id; // Use user.id as user_id
             
-            const initials = user.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
-            const roleColor = user.type === 'player' ? 'var(--role-player)' : 
-                            user.role === 'club administrator' ? 'var(--role-admin)' : 
+            const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
+            const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+            const roleColor = user.role === 'player' ? 'var(--role-player)' : 
+                            user.role === 'admin' || user.role === 'leadership' ? 'var(--role-admin)' : 
                             'var(--role-member)';
             
             li.innerHTML = `
@@ -890,17 +957,17 @@
                     ${initials}
                 </div>
                 <div class="user-info">
-                    <div class="user-name">${user.full_name || `${user.first_name} ${user.last_name || ''}`}</div>
+                    <div class="user-name">${fullName}</div>
                     <div class="user-role">
                         <span>@${user.username}</span>
                         <span>•</span>
-                        <span>${user.role || user.type}</span>
+                        <span>${user.role}</span>
                     </div>
                     <div class="user-phone">${user.phone_number || 'No phone'}</div>
                 </div>
                 <div class="user-permissions">
                     <span class="permission-badge main-chat">Main Chat</span>
-                    ${user.role === 'club administrator' || user.role === 'team manager' ? 
+                    ${user.role === 'admin' || user.role === 'leadership' ? 
                         '<span class="permission-badge leadership-chat">Leadership</span>' : ''}
                 </div>
             `;
@@ -915,8 +982,6 @@
         
         // Select a user
         function selectUser(user) {
-            console.log('Selecting user:', user);
-            
             currentUser = user;
             
             // Update UI - remove active class from all users
@@ -925,7 +990,7 @@
             });
             
             // Add active class to the clicked user
-            const userElement = document.querySelector(`[data-telegram-id="${user.telegram_id}"]`);
+            const userElement = document.querySelector(`[data-telegram-id="${user.id}"]`);
             if (userElement) {
                 userElement.classList.add('active');
             }
@@ -935,7 +1000,8 @@
             const sendButton = document.getElementById('sendButton');
             messageInput.disabled = false;
             sendButton.disabled = false;
-            messageInput.placeholder = `Send message as ${user.full_name || user.first_name}...`;
+            const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
+            messageInput.placeholder = `Send message as ${fullName}...`;
             
             // Update chat title to show selected user
             updateChatTitle();
@@ -944,9 +1010,6 @@
             if (!currentChat) {
                 selectChat('main');
             }
-            
-            console.log('User selected:', user);
-            console.log('Current user:', currentUser);
         }
         
         // Update chat title based on current selection
@@ -961,9 +1024,11 @@
                 } else {
                     chatType = 'Private';
                 }
-                chatTitle.textContent = `Chat with ${currentUser.full_name || currentUser.first_name} (${chatType})`;
+                const fullName = `${currentUser.first_name} ${currentUser.last_name || ''}`.trim();
+                chatTitle.textContent = `Chat with ${fullName} (${chatType})`;
             } else if (currentUser) {
-                chatTitle.textContent = `Select a chat for ${currentUser.full_name || currentUser.first_name}`;
+                const fullName = `${currentUser.first_name} ${currentUser.last_name || ''}`.trim();
+                chatTitle.textContent = `Select a chat for ${fullName}`;
             } else {
                 chatTitle.textContent = 'Select a user to start chatting';
             }
@@ -971,24 +1036,18 @@
         
         // Select a chat
         function selectChat(chatType) {
-            console.log('Selecting chat type:', chatType);
-            console.log('Available chats:', chats);
-            
             const chat = chats.find(c => {
                 if (chatType === 'main') return c.is_main_chat;
                 if (chatType === 'leadership') return c.is_leadership_chat;
                 return false;
             });
             
-            console.log('Found chat:', chat);
-            
             if (!chat) {
-                console.log('No chat found for type:', chatType);
+                console.warn('No chat found for type:', chatType);
                 return;
             }
             
             currentChat = chat;
-            console.log('Current chat set to:', currentChat);
             
             // Update chat title
             updateChatTitle();
@@ -1038,14 +1097,7 @@
         
         // Send a message
         async function sendMessage() {
-            console.log('Send message called');
-            console.log('Current user:', currentUser);
-            console.log('Current chat:', currentChat);
-            
             if (!currentUser || !currentChat) {
-                console.log('Missing user or chat selection');
-                console.log('currentUser:', currentUser);
-                console.log('currentChat:', currentChat);
                 alert('Please select a user and chat first');
                 return;
             }
@@ -1056,12 +1108,10 @@
             if (!text) return;
             
             const messageData = {
-                user_id: parseInt(currentUser.telegram_id),
+                user_id: parseInt(currentUser.id),
                 chat_id: currentChat.id,
                 text: text
             };
-            
-            console.log('Sending message with data:', messageData);
             
             try {
                 const response = await fetch(`${API_BASE}/send_message`, {
@@ -1074,7 +1124,6 @@
                 
                 if (response.ok) {
                     input.value = '';
-                    console.log('Message sent successfully');
                 } else {
                     const errorData = await response.json();
                     console.error('Error sending message:', errorData);
@@ -1082,6 +1131,7 @@
                 }
             } catch (error) {
                 console.error('Error sending message:', error);
+                alert('Failed to send message. Please try again.');
             }
         }
         
@@ -1131,45 +1181,63 @@
             }
         }
         
-        // Connect to WebSocket
+        // Connect to WebSocket with fail-fast validation
         function connectWebSocket() {
-            ws = new WebSocket(`ws://localhost:8001/ws`);
+            const wsUrl = buildWebSocketUrl();
             
-            ws.onopen = function() {
-                console.log('WebSocket connected');
-            };
-            
-            ws.onclose = function() {
-                console.log('WebSocket disconnected');
-                setTimeout(connectWebSocket, 5000);
-            };
-            
-            ws.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                handleWebSocketMessage(data);
-            };
-            
-            ws.onerror = function(error) {
-                console.error('WebSocket error:', error);
-            };
+            try {
+                ws = new WebSocket(wsUrl);
+                
+                // Set timeout for connection
+                const connectTimeout = setTimeout(() => {
+                    if (ws.readyState === WebSocket.CONNECTING) {
+                        ws.close();
+                        console.error(`WebSocket connection timeout after ${CONFIG.TIMEOUTS.WS_CONNECT}ms`);
+                    }
+                }, CONFIG.TIMEOUTS.WS_CONNECT);
+                
+                ws.onopen = function() {
+                    clearTimeout(connectTimeout);
+                    console.log(`WebSocket connected to ${wsUrl}`);
+                };
+                
+                ws.onclose = function() {
+                    clearTimeout(connectTimeout);
+                    // WebSocket disconnected, attempt reconnection
+                    setTimeout(connectWebSocket, CONFIG.TIMEOUTS.WS_RECONNECT);
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleWebSocketMessage(data);
+                    } catch (error) {
+                        console.error('Error parsing WebSocket message:', error);
+                    }
+                };
+                
+                ws.onerror = function(error) {
+                    clearTimeout(connectTimeout);
+                    console.error('WebSocket error:', error);
+                };
+                
+            } catch (error) {
+                console.error('Failed to create WebSocket connection:', error);
+                // Retry after timeout
+                setTimeout(connectWebSocket, CONFIG.TIMEOUTS.WS_RECONNECT);
+            }
         }
         
         // Handle WebSocket messages
         function handleWebSocketMessage(data) {
-            console.log('WebSocket message received:', data);
-            
             try {
                 if (data.type === 'new_message') {
                     addMessageToChat(data.message);
                 } else if (data.type === 'bot_response') {
-                    console.log('Bot response data:', data.message);
                     addBotMessageToChat(data.message);
-                } else {
-                    console.log('Unknown message type:', data.type);
                 }
             } catch (error) {
                 console.error('Error handling WebSocket message:', error);
-                console.error('Message data:', data);
             }
         }
         
