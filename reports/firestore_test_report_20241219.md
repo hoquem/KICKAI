@@ -110,6 +110,7 @@
 - **Test Team ID**: TEST_TEAM_001
 - **Test Data**: Isolated test data with proper cleanup
 - **Collection Pattern**: Team-specific collections (kickai_{team_id}_{collection_type})
+- **Team Data**: Minimal team structure (no bot config, chat IDs, or league info)
 
 ## Database Operations Tested
 

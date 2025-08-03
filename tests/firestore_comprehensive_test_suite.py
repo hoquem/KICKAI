@@ -286,7 +286,7 @@ class FirestoreComprehensiveTestSuite:
         """Test team-related operations."""
         collection_name = "kickai_teams"
         
-        # Test Create Team
+        # Test Create Team (Minimal - No Bot Config or Extra Data)
         start_time = time.time()
         try:
             team_data = {
@@ -294,6 +294,8 @@ class FirestoreComprehensiveTestSuite:
                 "name": "Test Team",
                 "status": "active",
                 "created_at": datetime.now().isoformat()
+                # Note: Excluding bot configuration, chat IDs, league info, etc.
+                # Only essential team identification and status
             }
             doc_id = await self.firebase_client.create_document(collection_name, team_data, self.team_id)
             duration = time.time() - start_time
