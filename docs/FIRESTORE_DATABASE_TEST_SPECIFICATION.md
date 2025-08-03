@@ -604,6 +604,10 @@ The KICKAI system uses the following Firestore collection naming convention:
   - Isolated test environment
   - Clean state between tests
   - Mock data setup
+- **Minimal Test Data**
+  - Test teams contain only essential fields (id, name, status, timestamps)
+  - Exclude bot configuration, chat IDs, league information, and other production data
+  - Focus on core database operations without sensitive configuration
 
 ### 7.2 Test Data Management
 - **Test Data Sets**
