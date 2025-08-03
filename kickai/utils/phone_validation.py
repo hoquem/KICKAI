@@ -269,10 +269,12 @@ class PhoneValidator:
         # Remove common separators but keep + for country code
         cleaned = re.sub(r"[^\d+]", "", phone.strip())
 
+        from kickai.core.constants import ValidationConstants, LimitConstants
+        
         # Handle common UK number patterns
-        if cleaned.startswith("0") and len(cleaned) >= 10:
+        if cleaned.startswith("0") and len(cleaned) >= LimitConstants.MIN_PHONE_DIGITS:
             # Convert UK local format to international
-            cleaned = "+44" + cleaned[1:]
+            cleaned = ValidationConstants.UK_COUNTRY_CODE + cleaned[1:]
 
         return cleaned
 
@@ -295,26 +297,28 @@ class PhoneValidator:
                 error_message="Phone number cannot be empty",
             )
 
-        # Basic validation: must have at least 10 digits
+        from kickai.core.constants import ValidationConstants, LimitConstants
+        
+        # Basic validation: must have at least minimum required digits
         digits_only = re.sub(r"[^\d]", "", phone)
 
-        if len(digits_only) < 10:
+        if len(digits_only) < LimitConstants.MIN_PHONE_DIGITS:
             return PhoneValidationResult(
                 is_valid=False,
                 normalized_number="",
                 country_code="",
                 national_number="",
-                error_message="Phone number must have at least 10 digits",
+                error_message=ValidationConstants.PHONE_TOO_SHORT_MSG.format(min=LimitConstants.MIN_PHONE_DIGITS),
             )
 
         # Basic normalization
         if phone.startswith("+"):
             normalized = phone
-            country_code = phone[:3] if phone.startswith("+44") else phone[:4]
+            country_code = phone[:3] if phone.startswith(ValidationConstants.UK_COUNTRY_CODE) else phone[:4]
         else:
             # Assume UK number
-            normalized = f"+44{phone.lstrip('0')}"
-            country_code = "+44"
+            normalized = f"{ValidationConstants.UK_COUNTRY_CODE}{phone.lstrip('0')}"
+            country_code = ValidationConstants.UK_COUNTRY_CODE
 
         return PhoneValidationResult(
             is_valid=True,
