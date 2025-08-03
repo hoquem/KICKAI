@@ -26,7 +26,7 @@ class RegistryStartupValidator:
     def __init__(self):
         self.validation_results: list[RegistryValidationResult] = []
 
-    def validate_all_registries(self) -> bool:
+    def validate_all_registries(self) -> RegistryValidationResult:
         """Validate all registries and return success status."""
         logger.info("🔍 Validating all registries...")
 
@@ -44,6 +44,12 @@ class RegistryStartupValidator:
 
         # Check overall success
         all_success = all(result.success for result in self.validation_results)
+        all_errors = []
+        all_warnings = []
+        
+        for result in self.validation_results:
+            all_errors.extend(result.errors)
+            all_warnings.extend(result.warnings)
 
         if all_success:
             logger.info("✅ All registries validated successfully")
@@ -53,7 +59,12 @@ class RegistryStartupValidator:
                 if not result.success:
                     logger.error(f"❌ {result.registry_name}: {result.errors}")
 
-        return all_success
+        return RegistryValidationResult(
+            success=all_success,
+            errors=all_errors,
+            warnings=all_warnings,
+            registry_name="All Registries"
+        )
 
     def _validate_tool_registry(self) -> RegistryValidationResult:
         """Validate tool registry."""
@@ -99,9 +110,9 @@ class RegistryStartupValidator:
         warnings = []
 
         try:
-            from kickai.core.command_registry_initializer import get_initialized_command_registry
+            from kickai.core.command_registry_initializer import initialize_command_registry
 
-            registry = get_initialized_command_registry()
+            registry = initialize_command_registry()
 
             # Check if commands are registered
             if not registry._commands:
@@ -136,20 +147,25 @@ class RegistryStartupValidator:
             from kickai.core.dependency_container import get_container
 
             container = get_container()
+            container.initialize()
 
-            # Check if container is initialized
-            if not container._initialized:
-                errors.append("Service container not initialized")
-
-            # Check if required services are available
-            required_services = ["PlayerService", "TeamService", "DataStoreInterface"]
+            # Check required services
+            required_services = [
+                "DataStoreInterface",
+                "PlayerRepositoryInterface",
+                "TeamRepositoryInterface",
+                "ExpenseRepositoryInterface"
+            ]
 
             for service_name in required_services:
                 try:
-                    # This is a simplified check - in practice you'd check actual interfaces
-                    pass
-                except Exception:
-                    errors.append(f"Required service {service_name} not available")
+                    service = container.get_service(service_name)
+                    if service is None:
+                        errors.append(f"Service {service_name} is None")
+                    else:
+                        logger.info(f"✅ Service {service_name} available")
+                except Exception as e:
+                    errors.append(f"Service {service_name} failed: {e}")
 
             return RegistryValidationResult(
                 success=len(errors) == 0,
