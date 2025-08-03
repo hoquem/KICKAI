@@ -465,32 +465,23 @@ class ServiceFactory:
 
     def create_system_infrastructure_services(self):
         """Create system infrastructure services."""
-        from kickai.features.system_infrastructure.domain.services.configuration_service import (
-            ConfigurationService,
-        )
-        from kickai.features.system_infrastructure.domain.services.logging_service import (
-            LoggingService,
+        from kickai.features.system_infrastructure.domain.services.bot_status_service import (
+            BotStatusService,
         )
         from kickai.features.system_infrastructure.domain.services.permission_service import (
             PermissionService,
         )
 
         # Create services
-        config_service = ConfigurationService()
-        logging_service = LoggingService()
-
-        # Create permission service with database
-        # Use the existing database instance instead of creating a new FirebaseClient
+        bot_status_service = BotStatusService()
         permission_service = PermissionService(self.database)
 
         # Register with container
-        self.container.register_service(ConfigurationService, config_service)
-        self.container.register_service(LoggingService, logging_service)
+        self.container.register_service(BotStatusService, bot_status_service)
         self.container.register_service(PermissionService, permission_service)
 
         return {
-            "config_service": config_service,
-            "logging_service": logging_service,
+            "bot_status_service": bot_status_service,
             "permission_service": permission_service,
         }
 
