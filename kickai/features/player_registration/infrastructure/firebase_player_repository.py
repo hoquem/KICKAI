@@ -234,29 +234,7 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
 
     def _doc_to_player(self, doc: dict) -> Player:
         """Convert a Firestore document to a Player entity."""
-        return Player(
-            user_id=doc.get("user_id", ""),
-            team_id=doc.get("team_id", ""),
-            telegram_id=doc.get("telegram_id"),
-            player_id=doc.get("player_id"),
-            first_name=doc.get("first_name"),
-            last_name=doc.get("last_name"),
-            full_name=doc.get("full_name"),
-            username=doc.get("username"),
-            position=doc.get("position"),
-            preferred_foot=doc.get("preferred_foot"),
-            jersey_number=doc.get("jersey_number"),
-            phone_number=doc.get("phone_number"),
-            email=doc.get("email"),
-            date_of_birth=doc.get("date_of_birth"),
-            emergency_contact=doc.get("emergency_contact"),
-            medical_notes=doc.get("medical_notes"),
-            status=doc.get("status", "pending"),
-            created_at=self._parse_datetime(doc.get("created_at")),
-            updated_at=self._parse_datetime(doc.get("updated_at")),
-            source=doc.get("source"),
-            sync_version=doc.get("sync_version"),
-        )
+        return Player.from_database_dict(doc)
 
     def _parse_datetime(self, dt_str: str | None) -> datetime | None:
         """Parse datetime string to datetime object."""
