@@ -4,6 +4,70 @@
 
 The KICKAI system implements a clean, maintainable command architecture using proven design patterns. This replaces multiple overlapping routing systems with a single, clean architecture that provides consistent command processing, permission management, and error handling.
 
+## Current Implementation Status
+
+### ✅ **Fully Implemented Commands**
+
+#### Core Commands
+- `/help` - Show available commands (PUBLIC)
+- `/myinfo` - Show personal information (PUBLIC)
+- `/status` - Check player/team member status (PUBLIC)
+- `/list` - List players/team members (context-aware) (PUBLIC)
+- `/update` - Update personal information (PUBLIC)
+- `/ping` - Check bot status (PUBLIC)
+- `/version` - Show bot version (PUBLIC)
+
+#### Leadership Commands
+- `/addplayer` - Add a new player (LEADERSHIP)
+- `/addmember` - Add a team member (LEADERSHIP)
+- `/approve` - Approve a player (LEADERSHIP)
+- `/reject` - Reject a player application (LEADERSHIP)
+- `/pending` - List players awaiting approval (LEADERSHIP)
+
+#### Match Management Commands
+- `/creatematch` - Create a new match (LEADERSHIP)
+- `/listmatches` - List upcoming matches (PLAYER)
+- `/matchdetails` - Get match details (PLAYER)
+- `/selectsquad` - Select match squad (LEADERSHIP)
+- `/updatematch` - Update match information (LEADERSHIP)
+- `/deletematch` - Delete a match (LEADERSHIP)
+- `/availableplayers` - Get available players for match (LEADERSHIP)
+
+#### Attendance Management Commands
+- `/markattendance` - Mark attendance for a match (PLAYER)
+- `/attendance` - View match attendance (PLAYER)
+- `/attendancehistory` - View attendance history (PLAYER)
+- `/attendanceexport` - Export attendance data (LEADERSHIP)
+
+#### Payment Management Commands
+- `/createpayment` - Create a new payment (LEADERSHIP)
+- `/payments` - View payment history (LEADERSHIP)
+- `/budget` - View budget information (LEADERSHIP)
+- `/markpaid` - Mark payment as paid (LEADERSHIP)
+- `/paymentexport` - Export payment data (LEADERSHIP)
+
+#### Communication Commands
+- `/announce` - Send announcement to team (LEADERSHIP)
+- `/remind` - Send reminder to players (LEADERSHIP)
+- `/broadcast` - Broadcast message to all chats (LEADERSHIP)
+
+### 🚧 **Partially Implemented Commands**
+
+#### Training Management Commands
+**Status**: Commands defined in `training_commands.py` but not integrated into main command system
+
+- `/scheduletraining` - Schedule a training session (LEADERSHIP)
+- `/listtrainings` - List upcoming training sessions (PLAYER)
+- `/marktraining` - Mark attendance for training session (PLAYER)
+- `/canceltraining` - Cancel a training session (LEADERSHIP)
+- `/trainingstats` - Show training statistics (PLAYER)
+- `/mytrainings` - Show personal training schedule (PLAYER)
+
+**Missing Integration**:
+- Training commands not added to `constants.py` command definitions
+- Training commands not registered in main command registry
+- Training tools not integrated with agent system
+
 ## Design Patterns Used
 
 ### 1. Command Pattern - Command Objects
@@ -98,153 +162,65 @@ class CommandRegistry:
     def __init__(self):
         self._commands = {}
         self._register_default_commands()
-    
-    def register_command(self, command: Command):
-        self._commands[command.name] = command
 ```
 
-### 5. Observer Pattern - Command Logging
+## Command Registration Pattern
 
-**Purpose**: Log and monitor command execution.
+### Current Implementation
 
-**Implementation**: Command logging and monitoring system.
+Commands are registered using decorators and delegate to CrewAI agents:
 
-**Benefits**:
-- Comprehensive command tracking
-- Performance monitoring
-- Error tracking
-- Audit trails
-
-## Command Architecture
-
-### Command Context
 ```python
-@dataclass
-class CommandContext:
-    user_id: str
-    chat_id: str
-    chat_type: ChatType
-    user_role: str
-    team_id: str
-    message_text: str
-    username: Optional[str] = None
-    raw_update: Optional[Any] = None
+@command(
+    name="/help",
+    description="Show available commands",
+    command_type=CommandType.SLASH_COMMAND,
+    permission_level=PermissionLevel.PUBLIC,
+    feature="shared",
+    chat_type=ChatType.MAIN,
+)
+async def handle_help_command(update, context, **kwargs):
+    """Handle /help command."""
+    # This will be handled by the agent system
+    return None
 ```
 
-### Command Result
+### Command Definition Structure
+
+Commands are defined in `kickai/core/constants.py` using `CommandDefinition` dataclass:
+
 ```python
-@dataclass
-class CommandResult:
-    success: bool
-    message: str
-    error: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+@dataclass(frozen=True)
+class CommandDefinition:
+    name: str
+    description: str
+    permission_level: PermissionLevel
+    chat_types: frozenset[ChatType]
+    examples: tuple[str, ...] = field(default_factory=tuple)
+    feature: str = "shared"
 ```
 
-### Permission Levels
+### Example Command Definitions
+
 ```python
-class PermissionLevel(Enum):
-    PUBLIC = "public"      # Available to everyone
-    PLAYER = "player"      # Available to team members
-    LEADERSHIP = "leadership"  # Available in leadership chat
-    ADMIN = "admin"        # Available to admins only
-```
-
-### Chat Types
-```python
-class ChatType(Enum):
-    MAIN = "main"          # Main team chat
-    LEADERSHIP = "leadership"  # Leadership chat
-    PRIVATE = "private"    # Private messages
-```
-
-## Command Categories
-
-### Player Management Commands
-- **`/add`** - Add a new player to the team
-- **`/remove`** - Remove a player from the team
-- **`/list`** - List all team players
-- **`/status`** - Check player status
-- **`/approve`** - Approve player for match squad
-- **`/reject`** - Reject player from match squad
-- **`/pending`** - List players pending approval
-
-### Registration Commands
-- **`/register`** - Start player registration process
-- **`/invite`** - Generate invitation link for player
-
-### Match Management Commands
-- **`/creatematch`** - Create a new match
-- **`/listmatches`** - List upcoming matches
-- **`/getmatch`** - Get match details
-- **`/updatematch`** - Update match information
-- **`/deletematch`** - Delete a match
-
-### Communication Commands
-- **`/broadcast`** - Send message to team
-- **`/invite`** - Invite player to team
-
-### System Commands
-- **`/start`** - Start the bot
-- **`/help`** - Show help information
-- **`/myinfo`** - Show user information
-- **`/stats`** - Show team statistics
-- **`/background`** - Check background tasks status
-- **`/remind`** - Send manual reminder to player
-
-## Command Implementation Examples
-
-### Start Command
-```python
-class StartCommand(Command):
-    def __init__(self):
-        super().__init__("/start", "Start the bot", PermissionLevel.PUBLIC)
-    
-    async def execute(self, context: CommandContext) -> CommandResult:
-        try:
-            message = f"""🤖 WELCOME TO KICKAI BOT!
-
-👋 Hello! I'm your AI-powered football team management assistant.
-
-💡 WHAT I CAN HELP YOU WITH:
-• Player registration and management
-• Match scheduling and coordination
-• Team statistics and analytics
-• Communication and notifications"""
-            
-            return CommandResult(
-                success=True,
-                message=message
-            )
-        except Exception as e:
-            return CommandResult(
-                success=False,
-                message="❌ Error starting bot",
-                error=str(e)
-            )
-```
-
-### Add Player Command
-```python
-class AddPlayerCommand(Command):
-    def __init__(self):
-        super().__init__("/add", "Add a new player", PermissionLevel.LEADERSHIP)
-    
-    async def execute(self, context: CommandContext) -> CommandResult:
-        try:
-            # Extract player information from message
-            # Create player in database
-            # Return success result
-            return CommandResult(
-                success=True,
-                message="✅ Player added successfully"
-            )
-        except Exception as e:
-            return CommandResult(
-                success=False,
-                message="❌ Error adding player",
-                error=str(e)
-            )
+SYSTEM_COMMANDS = {
+    CommandDefinition(
+        name="/help",
+        description="Show available commands",
+        permission_level=PermissionLevel.PUBLIC,
+        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP, ChatType.PRIVATE]),
+        examples=("/help", "/help register"),
+        feature="shared",
+    ),
+    CommandDefinition(
+        name="/list",
+        description="List team members or players (context-aware)",
+        permission_level=PermissionLevel.PUBLIC,
+        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
+        examples=("/list", "/list players", "/list members"),
+        feature="shared",
+    ),
+}
 ```
 
 ## Permission Strategies
@@ -401,4 +377,46 @@ Return Error Result
 2. **Update Tests**: Update existing tests
 3. **Update Documentation**: Update command documentation
 4. **Test Integration**: Test with other commands
-5. **Validate Permissions**: Ensure permissions still work correctly 
+5. **Validate Permissions**: Ensure permissions still work correctly
+
+## Next Steps for Training Management Integration
+
+### 1. Add Training Commands to Constants
+```python
+TRAINING_COMMANDS = {
+    CommandDefinition(
+        name="/scheduletraining",
+        description="Schedule a training session",
+        permission_level=PermissionLevel.LEADERSHIP,
+        chat_types=frozenset([ChatType.LEADERSHIP]),
+        examples=("/scheduletraining", "/scheduletraining Technical 2024-01-15 18:00"),
+        feature="training_management",
+    ),
+    # ... other training commands
+}
+```
+
+### 2. Update ALL_COMMANDS Collection
+```python
+ALL_COMMANDS = (
+    PLAYER_COMMANDS
+    | LEADERSHIP_COMMANDS
+    | SYSTEM_COMMANDS
+    | MATCH_COMMANDS
+    | ATTENDANCE_COMMANDS
+    | PAYMENT_COMMANDS
+    | COMMUNICATION_COMMANDS
+    | TEAM_ADMIN_COMMANDS
+    | TRAINING_COMMANDS  # Add this line
+)
+```
+
+### 3. Integrate Training Tools with Agents
+- Register training tools with agent system
+- Update agent configurations to include training tools
+- Test training command execution through agents
+
+### 4. Add E2E Tests
+- Create training management E2E test suite
+- Test training session creation and management
+- Test attendance tracking functionality 
