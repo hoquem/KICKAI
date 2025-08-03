@@ -131,6 +131,23 @@ class ServiceFactory:
         # Register both the concrete class and the interface
         self.container.register_service(TeamService, team_service)
         self.container.register_service(ITeamService, team_service)
+        
+        # Debug: Verify registration
+        logger.debug(f"✅ Registered TeamService: {type(team_service)}")
+        logger.debug(f"✅ Registered ITeamService: {type(team_service)}")
+        
+        # Debug: Check if services are available immediately after registration
+        try:
+            team_service_check = self.container.get_service(TeamService)
+            logger.debug(f"✅ TeamService immediately available: {type(team_service_check)}")
+        except Exception as e:
+            logger.error(f"❌ TeamService not immediately available: {e}")
+            
+        try:
+            team_service_interface_check = self.container.get_service(ITeamService)
+            logger.debug(f"✅ ITeamService immediately available: {type(team_service_interface_check)}")
+        except Exception as e:
+            logger.error(f"❌ ITeamService not immediately available: {e}")
 
         return {"team_service": team_service}
 
@@ -162,8 +179,16 @@ class ServiceFactory:
 
         player_repo = self.container.get_service(PlayerRepositoryInterface)
         logger.debug("🔍 Got player repository from container")
-        team_service = self.container.get_service(TeamService)
-        logger.debug("🔍 Got team service from container")
+        
+        # Try to get TeamService by interface first, then by concrete class
+        try:
+            from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
+            team_service = self.container.get_service(ITeamService)
+            logger.debug("🔍 Got team service from container by interface")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not get TeamService by interface: {e}")
+            team_service = self.container.get_service(TeamService)
+            logger.debug("🔍 Got team service from container by concrete class")
 
         registration_service = PlayerRegistrationService(player_repo)
         logger.debug("🔍 Created PlayerRegistrationService")
@@ -218,6 +243,20 @@ class ServiceFactory:
             f"🔍 Container services after player registration: {[cls.__name__ for cls in self.container._services.keys()]}"
         )
         logger.debug(f"🔍 Container service count: {len(self.container._services)}")
+        
+        # Debug: Check if TeamService is available
+        try:
+            team_service_check = self.container.get_service(TeamService)
+            logger.debug(f"✅ TeamService is available in container: {type(team_service_check)}")
+        except Exception as e:
+            logger.error(f"❌ TeamService not available in container: {e}")
+            
+        try:
+            from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
+            team_service_interface_check = self.container.get_service(ITeamService)
+            logger.debug(f"✅ ITeamService is available in container: {type(team_service_interface_check)}")
+        except Exception as e:
+            logger.error(f"❌ ITeamService not available in container: {e}")
 
         return {
             "player_service": player_service,
@@ -555,20 +594,50 @@ class ServiceFactory:
     def create_all_services(self) -> dict[str, Any]:
         """Create all feature services in the correct dependency order."""
         services = {}
+        
+        logger.info("🚀 Starting service creation in dependency order...")
 
         # Create services in dependency order
+        logger.info("📦 Creating base services...")
         services.update(self.create_base_services())
+        
+        logger.info("💰 Creating payment services...")
         services.update(self.create_payment_services())
+        
+        logger.info("🏆 Creating team services...")
         services.update(self.create_team_services())
+        
+        logger.info("👤 Creating player registration services...")
         services.update(self.create_player_registration_services())
+        
+        logger.info("⚙️ Creating team administration services...")
         services.update(self.create_team_administration_services())
+        
+        logger.info("⚽ Creating match management services...")
         services.update(self.create_match_management_services())
+        
+        logger.info("📊 Creating attendance management services...")
         services.update(self.create_attendance_management_services())
+        
+        logger.info("💳 Creating payment management services...")
         services.update(self.create_payment_management_services())
+        
+        logger.info("💬 Creating communication services...")
         services.update(self.create_communication_services())
+        
+        logger.info("🏥 Creating health monitoring services...")
         services.update(self.create_health_monitoring_services())
+        
+        logger.info("🔧 Creating system infrastructure services...")
         services.update(self.create_system_infrastructure_services())
+        
+        logger.info("🤝 Creating helper system services...")
         services.update(self.create_helper_system_services())
+        
+        logger.info(f"✅ All services created successfully. Total services: {len(services)}")
+        
+        # Debug: List all services in container
+        logger.debug(f"🔍 Final container services: {[cls.__name__ for cls in self.container._services.keys()]}")
 
         return services
 

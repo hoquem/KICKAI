@@ -56,15 +56,39 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "mock_telegram_tester"}
 
-# Serve static files (frontend) - but exclude WebSocket paths
+# Serve the enhanced frontend by default
+@app.get("/")
+async def serve_enhanced_frontend():
+    """Serve the enhanced mock Telegram tester frontend"""
+    frontend_path = Path(__file__).parent / "frontend" / "enhanced_index.html"
+    if frontend_path.exists():
+        return FileResponse(str(frontend_path))
+    else:
+        # Fallback to regular index.html if enhanced version doesn't exist
+        fallback_path = Path(__file__).parent / "frontend" / "index.html"
+        if fallback_path.exists():
+            return FileResponse(str(fallback_path))
+        else:
+            return {"error": "Frontend files not found"}
+
+@app.get("/legacy")
+async def serve_legacy_frontend():
+    """Serve the legacy mock Telegram tester frontend"""
+    frontend_path = Path(__file__).parent / "frontend" / "index.html"
+    if frontend_path.exists():
+        return FileResponse(str(frontend_path))
+    else:
+        return {"error": "Legacy frontend not found"}
+
+# Serve static files (frontend) - but exclude WebSocket paths and root
 frontend_path = Path(__file__).parent / "frontend"
 if frontend_path.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_path), html=True, check_dir=False), name="static")
+    app.mount("/static", StaticFiles(directory=str(frontend_path), html=True, check_dir=False), name="static")
 
 
 def main():
     """Main startup function"""
-    print("🚀 Starting Mock Telegram Tester...")
+    print("🚀 Starting Enhanced Mock Telegram Tester...")
     print("=" * 50)
     
     # Check if we're in the right directory
@@ -74,6 +98,17 @@ def main():
     
     # Set up environment
     os.environ["PYTHONPATH"] = str(project_root)
+    
+    # Load test environment variables
+    test_env_file = project_root / ".env.test"
+    if test_env_file.exists():
+        print(f"📄 Loading test environment from: {test_env_file}")
+        from dotenv import load_dotenv
+        load_dotenv(test_env_file)
+        print("✅ Test environment loaded")
+    else:
+        print(f"⚠️  Test environment file not found: {test_env_file}")
+        print("Using default environment variables")
     
     # Load and validate configuration
     try:
@@ -87,7 +122,8 @@ def main():
     
     print("📁 Project root:", project_root)
     print(f"🔧 Mock service will run on: http://{config.host}:{config.port}")
-    print(f"🌐 Frontend will be available at: http://{config.host}:{config.port}")
+    print(f"🌐 Enhanced frontend will be available at: http://{config.host}:{config.port}")
+    print(f"📄 Legacy frontend available at: http://{config.host}:{config.port}/legacy")
     print(f"📊 Max messages: {config.max_messages}, Max users: {config.max_users}")
     print(f"🤖 Bot integration: {'Enabled' if config.enable_bot_integration else 'Disabled'}")
     print("=" * 50)

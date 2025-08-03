@@ -35,7 +35,6 @@ except ImportError:
 try:
     from kickai.core.constants import (
         FIRESTORE_COLLECTION_PREFIX,
-        get_team_members_collection,
     )
     from kickai.core.exceptions import (
         ConnectionError,
@@ -47,6 +46,7 @@ try:
     from kickai.core.firestore_constants import (
         COLLECTION_PLAYERS,
         get_collection_name,
+        get_team_members_collection,
     )
 
     # Import entity classes
@@ -57,7 +57,6 @@ except ImportError:
     # Fallback for when running from scripts directory
     from kickai.core.constants import (
         FIRESTORE_COLLECTION_PREFIX,
-        get_team_members_collection,
     )
     from kickai.core.exceptions import (
         ConnectionError,
@@ -69,6 +68,7 @@ except ImportError:
     from kickai.core.firestore_constants import (
         COLLECTION_PLAYERS,
         get_collection_name,
+        get_team_members_collection,
     )
 
     # Import entity classes
