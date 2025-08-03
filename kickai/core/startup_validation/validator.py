@@ -12,6 +12,9 @@ from .checks import (
     AgentInitializationCheck,
     CommandRegistryCheck,
     ConfigurationCheck,
+    CrewAIAgentHealthCheck,
+    EnhancedRegistryCheck,
+    InitializationSequenceCheck,
     LLMProviderCheck,
     StubDetectionCheck,
     TelegramAdminCheck,
@@ -38,18 +41,30 @@ class StartupValidator:
         logger.info(f"StartupValidator initialized with {len(self.checks)} checks")
 
     def _load_default_checks(self) -> None:
-        """Load default health checks."""
+        """Load default health checks following fail-fast enterprise patterns."""
         self.checks = [
-            ConfigurationCheck(),
-            LLMProviderCheck(),
-            StubDetectionCheck(),  # Check for stub classes first
-            ToolRegistrationCheck(),  # Check tool registration before agent initialization
-            CommandRegistryCheck(),  # Check command registry initialization
-            AgentInitializationCheck(),  # Enabled to catch agent initialization failures
-            TelegramAdminCheck(),
+            # Phase 1: Critical Prerequisites (fail-fast)
+            InitializationSequenceCheck(),  # Comprehensive initialization validation
+            ConfigurationCheck(),           # Basic configuration validation
+            
+            # Phase 2: Core Infrastructure  
+            LLMProviderCheck(),             # LLM connectivity and configuration
+            StubDetectionCheck(),           # Check for placeholder implementations
+            
+            # Phase 3: Registry and Discovery
+            EnhancedRegistryCheck(),        # Comprehensive registry validation
+            ToolRegistrationCheck(),        # Tool discovery and registration
+            CommandRegistryCheck(),         # Command registry initialization
+            
+            # Phase 4: Agent System Health
+            CrewAIAgentHealthCheck(),       # CrewAI agent health and performance
+            AgentInitializationCheck(),     # Agent creation and configuration
+            
+            # Phase 5: External Dependencies
+            TelegramAdminCheck(),           # Telegram integration validation
         ]
 
-        # Add registry validation
+        # Add registry validation (legacy support)
         self.registry_validator = RegistryStartupValidator()
 
     def add_check(self, check: Any) -> None:
