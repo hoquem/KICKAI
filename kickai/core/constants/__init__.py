@@ -19,24 +19,30 @@ from kickai.core.firestore_constants import (
     FIRESTORE_COLLECTION_PREFIX,
 )
 
-# Note: get_players_collection and get_team_members_collection are available in kickai.core.constants
-# Import them directly where needed to avoid circular imports
-
 # Export commonly used constants for backward compatibility
 BOT_VERSION = SystemConstants.BOT_VERSION
 normalize_chat_type = SystemConstants.normalize_chat_type
 get_chat_type_display_name = SystemConstants.get_chat_type_display_name
+
+# Create aliases for backward compatibility
+LimitConstants = ValidationConstants  # Use ValidationConstants as LimitConstants
+get_players_collection = get_team_players_collection  # Alias for backward compatibility
+get_team_members_collection = get_team_players_collection  # Alias for backward compatibility
+
+# Note: get_command_by_name is available in kickai.core.constants.py
+# Import it directly where needed to avoid circular imports
 
 __all__ = [
     "SystemConstants",
     "AgentConstants", 
     "ValidationConstants",
     "TimeoutConstants",
+    "LimitConstants",
     "BOT_VERSION",
     "normalize_chat_type",
     "get_chat_type_display_name",
-    # "get_players_collection",  # Available in kickai.core.constants
-    # "get_team_members_collection",  # Available in kickai.core.constants
+    "get_players_collection",
+    "get_team_members_collection",
     "get_team_players_collection",
     "get_team_matches_collection",
     "get_collection_name",

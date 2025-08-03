@@ -9,10 +9,10 @@ from loguru import logger
 
 from kickai.core.constants import (
     get_chat_type_display_name,
-    get_command_by_name,
-    get_commands_for_chat_type,
     normalize_chat_type,
 )
+# Import command-related functions directly from the constants.py file to avoid circular imports
+import kickai.core.constants as constants_module
 from kickai.core.enums import ChatType as ChatTypeEnum
 from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
@@ -101,7 +101,7 @@ def final_help_response(chat_type: str, user_id: str, team_id: str, username: st
         except Exception as e:
             logger.warning(f"Failed to get commands from registry, falling back to constants: {e}")
             # Fallback to constants if registry fails
-            commands = get_commands_for_chat_type(chat_type_enum)
+            commands = constants_module.get_commands_for_chat_type(chat_type_enum)
 
         # Generate help message
         help_message = _format_help_message(chat_type_enum, commands, username)
@@ -220,7 +220,7 @@ def get_available_commands(chat_type: str) -> str:
         chat_type_enum = normalize_chat_type(chat_type)
 
         # Get commands
-        commands = get_commands_for_chat_type(chat_type_enum)
+        commands = constants_module.get_commands_for_chat_type(chat_type_enum)
 
         # Format response
         if not commands:
@@ -268,7 +268,7 @@ def get_command_help(command_name: str, chat_type: str = "main") -> str:
         chat_type_enum = normalize_chat_type(chat_type)
 
         # Get command details
-        command = get_command_by_name(command_name, chat_type_enum)
+        command = constants_module.get_command_by_name(command_name, chat_type_enum)
 
         if not command:
             return f"❌ Command {command_name} not found or not available in {chat_type} chat."
