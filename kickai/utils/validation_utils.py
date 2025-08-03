@@ -6,6 +6,7 @@ This module provides comprehensive input validation for the KICKAI system.
 """
 
 import re
+from kickai.core.constants import LimitConstants, ValidationConstants
 
 # Valid football positions
 VALID_POSITIONS = {
@@ -64,10 +65,10 @@ def validate_player_input(name: str, phone: str, position: str, team_id: str) ->
     # Validate name
     if not name or not name.strip():
         errors.append("Name is required")
-    elif len(name.strip()) < 2:
-        errors.append("Name must be at least 2 characters")
-    elif len(name.strip()) > 100:
-        errors.append("Name must be less than 100 characters")
+    elif len(name.strip()) < LimitConstants.MIN_NAME_LENGTH:
+        errors.append(ValidationConstants.NAME_TOO_SHORT_MSG.format(min=LimitConstants.MIN_NAME_LENGTH))
+    elif len(name.strip()) > LimitConstants.MAX_NAME_LENGTH:
+        errors.append(ValidationConstants.NAME_TOO_LONG_MSG.format(max=LimitConstants.MAX_NAME_LENGTH))
     elif not re.match(r"^[a-zA-Z\s\-\.\']+$", name.strip()):
         errors.append("Name can only contain letters, spaces, hyphens, dots, and apostrophes")
 
@@ -86,11 +87,11 @@ def validate_player_input(name: str, phone: str, position: str, team_id: str) ->
     # Validate team_id
     if not team_id or not team_id.strip():
         errors.append("Team ID is required")
-    elif len(team_id.strip()) < 2:
-        errors.append("Team ID must be at least 2 characters")
-    elif len(team_id.strip()) > 20:
-        errors.append("Team ID must be less than 20 characters")
-    elif not re.match(r"^[A-Z0-9]+$", team_id.strip()):
+    elif len(team_id.strip()) < LimitConstants.MIN_TEAM_ID_LENGTH:
+        errors.append(ValidationConstants.TEAM_ID_TOO_SHORT_MSG.format(min=LimitConstants.MIN_TEAM_ID_LENGTH))
+    elif len(team_id.strip()) > LimitConstants.MAX_TEAM_ID_LENGTH:
+        errors.append(ValidationConstants.TEAM_ID_TOO_LONG_MSG.format(max=LimitConstants.MAX_TEAM_ID_LENGTH))
+    elif not re.match(ValidationConstants.TEAM_ID_PATTERN, team_id.strip()):
         errors.append("Team ID can only contain uppercase letters and numbers")
 
     return errors
@@ -261,13 +262,13 @@ def validate_team_id(team_id: str) -> tuple[bool, str]:
     if not team_id:
         return False, "Team ID is required"
 
-    if len(team_id) < 2:
-        return False, "Team ID must be at least 2 characters"
+    if len(team_id) < LimitConstants.MIN_TEAM_ID_LENGTH:
+        return False, ValidationConstants.TEAM_ID_TOO_SHORT_MSG.format(min=LimitConstants.MIN_TEAM_ID_LENGTH)
 
-    if len(team_id) > 20:
-        return False, "Team ID must be less than 20 characters"
+    if len(team_id) > LimitConstants.MAX_TEAM_ID_LENGTH:
+        return False, ValidationConstants.TEAM_ID_TOO_LONG_MSG.format(max=LimitConstants.MAX_TEAM_ID_LENGTH)
 
-    if not re.match(r"^[A-Z0-9]+$", team_id):
+    if not re.match(ValidationConstants.TEAM_ID_PATTERN, team_id):
         return False, "Team ID can only contain uppercase letters and numbers"
 
     return True, ""
