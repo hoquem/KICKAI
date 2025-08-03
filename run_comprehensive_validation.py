@@ -9,6 +9,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "kickai"))
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ Environment variables loaded from .env file")
+except ImportError:
+    print("⚠️ python-dotenv not available, using system environment variables")
+except Exception as e:
+    print(f"⚠️ Failed to load .env file: {e}")
+
 from kickai.core.startup_validation.comprehensive_validator import (
     ComprehensiveStartupValidator,
     validate_system_startup,
@@ -59,7 +69,7 @@ def main():
     # Display detailed report
     print(f"\n📋 DETAILED REPORT:")
     print("=" * 60)
-    report = validator.get_validation_report()
+    report = validator.get_validation_report(result)
     print(report)
     
     # Exit with appropriate code

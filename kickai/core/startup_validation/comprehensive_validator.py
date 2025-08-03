@@ -92,6 +92,7 @@ class ComprehensiveStartupValidator:
             
             if env_result.success:
                 logger.info("✅ Environment validation passed")
+                all_results.append(("environment", True))
             else:
                 logger.error(f"❌ Environment validation failed: {len(env_result.errors)} errors")
                 all_results.append(("environment", False))
@@ -115,6 +116,7 @@ class ComprehensiveStartupValidator:
             
             if db_result.success:
                 logger.info("✅ Database validation passed")
+                all_results.append(("database", True))
             else:
                 logger.error(f"❌ Database validation failed: {len(db_result.errors)} errors")
                 all_results.append(("database", False))
@@ -136,8 +138,9 @@ class ComprehensiveStartupValidator:
             registry_duration = time.time() - registry_start_time
             check_durations["registry"] = registry_duration
             
-            if registry_result:
+            if registry_result.success:
                 logger.info("✅ Registry validation passed")
+                all_results.append(("registry", True))
             else:
                 logger.error("❌ Registry validation failed")
                 all_results.append(("registry", False))
@@ -180,6 +183,7 @@ class ComprehensiveStartupValidator:
             
             if not service_errors:
                 logger.info("✅ Service dependencies validation passed")
+                all_results.append(("services", True))
             else:
                 logger.error(f"❌ Service dependencies validation failed: {len(service_errors)} errors")
                 all_results.append(("services", False))
@@ -223,11 +227,12 @@ class ComprehensiveStartupValidator:
             
             if not fs_errors:
                 logger.info("✅ File system validation passed")
+                all_results.append(("filesystem", True))
             else:
                 logger.error(f"❌ File system validation failed: {len(fs_errors)} errors")
                 all_results.append(("filesystem", False))
                 warnings.extend(fs_errors)
-                
+        
         except Exception as e:
             logger.error(f"❌ File system validation crashed: {e}")
             all_results.append(("filesystem", False))
@@ -261,9 +266,10 @@ class ComprehensiveStartupValidator:
             check_durations=check_durations
         )
     
-    def get_validation_report(self) -> str:
+    def get_validation_report(self, result: ComprehensiveValidationResult | None = None) -> str:
         """Generate a comprehensive validation report."""
-        result = self.validate_system_startup()
+        if result is None:
+            result = self.validate_system_startup()
         
         report = []
         report.append("🔧 COMPREHENSIVE SYSTEM VALIDATION REPORT")

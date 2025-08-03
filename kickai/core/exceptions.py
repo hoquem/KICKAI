@@ -240,10 +240,32 @@ class AttendanceNotFoundError(AttendanceError):
 
 
 class AttendanceValidationError(AttendanceError):
-    """Raised when attendance validation fails."""
+    """Raised when attendance data validation fails."""
 
     def __init__(self, field: str, value: str, reason: str):
-        message = f"Attendance validation failed for field '{field}' with value '{value}': {reason}"
+        message = f"Attendance validation failed for {field}='{value}': {reason}"
+        super().__init__(message, {"field": field, "value": value, "reason": reason})
+
+
+class TrainingError(KickAIError):
+    """Base exception for training-related errors."""
+
+    pass
+
+
+class TrainingNotFoundError(TrainingError):
+    """Raised when a training session is not found."""
+
+    def __init__(self, training_id: str):
+        message = f"Training session {training_id} not found"
+        super().__init__(message, {"training_id": training_id})
+
+
+class TrainingValidationError(TrainingError):
+    """Raised when training data validation fails."""
+
+    def __init__(self, field: str, value: str, reason: str):
+        message = f"Training validation failed for {field}='{value}': {reason}"
         super().__init__(message, {"field": field, "value": value, "reason": reason})
 
 

@@ -25,6 +25,7 @@ class ValidationConstants:
     # Phone Number Validation
     MIN_PHONE_LENGTH: int = 10
     MAX_PHONE_LENGTH: int = 15
+    MIN_PHONE_DIGITS: int = 10  # Added for tool compatibility
     UK_PHONE_REGEX: str = r"^(\+44|0)[0-9]{10}$"
     INTERNATIONAL_PHONE_REGEX: str = r"^\+?[1-9]\d{1,14}$"
     
@@ -52,6 +53,11 @@ class ValidationConstants:
     MIN_TEAM_ID_LENGTH: int = 2
     MAX_TEAM_ID_LENGTH: int = 20
     TEAM_ID_REGEX: str = r"^[a-zA-Z0-9_-]+$"
+    
+    # Query Limits (Added for tool compatibility)
+    DEFAULT_QUERY_LIMIT: int = 100
+    MAX_QUERY_LIMIT: int = 1000
+    FIREBASE_BATCH_SIZE: int = 500
     
     # User ID Validation (Telegram user IDs are numeric)
     USER_ID_REGEX: str = r"^[0-9]+$"
