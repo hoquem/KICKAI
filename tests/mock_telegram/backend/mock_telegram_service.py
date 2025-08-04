@@ -896,6 +896,17 @@ async def switch_team(request: dict):
         }
 
 
+@app.get("/test")
+async def test_endpoint():
+    """Simple test endpoint to verify server is working"""
+    return {
+        "status": "success",
+        "message": "Mock Telegram Service is running",
+        "current_team_id": CURRENT_TEAM_ID,
+        "timestamp": datetime.now().isoformat()
+    }
+
+
 @app.get("/team_id")
 async def get_team_id():
     """Get the current team ID being used by the bot integration"""
