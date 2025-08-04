@@ -172,16 +172,39 @@ class MockTelegramIntegration:
         # Extract the response text from the bot response
         response_text = ""
         
-        if hasattr(bot_response, 'text'):
+        if hasattr(bot_response, 'message'):
+            # AgentResponse object has 'message' attribute
+            response_text = bot_response.message
+        elif hasattr(bot_response, 'text'):
             response_text = bot_response.text
         elif isinstance(bot_response, str):
             response_text = bot_response
         elif isinstance(bot_response, dict):
-            response_text = bot_response.get('text', str(bot_response))
+            response_text = bot_response.get('message', bot_response.get('text', str(bot_response)))
         elif bot_response is None:
             response_text = "No response from bot"
         else:
             response_text = str(bot_response)
+        
+        # Clean up the response text - remove HTML entities and encoding issues
+        if response_text:
+            # Remove HTML-like entities
+            import re
+            response_text = re.sub(r'</?span[^>]*>', '', response_text)
+            response_text = re.sub(r'</?[^>]+>', '', response_text)
+            
+            # Clean up encoding issues
+            response_text = response_text.replace('', '')
+            response_text = response_text.replace('\\n', '\n')
+            response_text = response_text.replace('\\"', '"')
+            
+            # Remove any remaining AgentResponse wrapper if present
+            if response_text.startswith('AgentResponse(') and response_text.endswith(')'):
+                # Extract just the message part
+                import re
+                match = re.search(r'message="([^"]*)"', response_text)
+                if match:
+                    response_text = match.group(1)
         
         # Ensure response text is not empty
         if not response_text.strip():
