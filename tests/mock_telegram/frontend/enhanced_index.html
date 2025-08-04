@@ -90,6 +90,35 @@
             margin-top: 4px;
         }
         
+        .team-switcher {
+            margin-top: 12px;
+        }
+        
+        .team-switcher select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .team-switcher select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+        }
+        
+        .team-switcher label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        
         .main-content {
             display: grid;
             grid-template-columns: 350px 1fr;
@@ -552,6 +581,12 @@
                 <div class="team-info">
                     <div class="team-id">Team ID: <span id="currentTeamId">Loading...</span></div>
                     <div class="team-source">Source: <span id="teamSource">Loading...</span></div>
+                    <div class="team-switcher">
+                        <label for="teamSelector">Switch Team:</label>
+                        <select id="teamSelector">
+                            <option value="">Loading teams...</option>
+                        </select>
+                    </div>
                 </div>
             </div>
         
@@ -768,7 +803,7 @@
         // Initialize the application
         async function init() {
             await checkSystemStatus();
-            await loadTeamInfo();  // Load team info first
+            await loadAvailableTeams();  // Load teams and set current team
             await loadFirebaseUsers();
             await loadMockUsers();
             await loadChats();
@@ -810,6 +845,76 @@
                 document.getElementById('botStatus').className = 'status-value offline';
                 document.getElementById('firebaseStatus').textContent = CONFIG.STATUS.ERROR;
                 document.getElementById('firebaseStatus').className = 'status-value offline';
+            }
+        }
+        
+        // Load available teams
+        async function loadAvailableTeams() {
+            try {
+                const response = await fetch(`${API_BASE}/teams`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const teamSelector = document.getElementById('teamSelector');
+                    
+                    // Clear existing options
+                    teamSelector.innerHTML = '';
+                    
+                    // Add teams to selector
+                    data.teams.forEach(team => {
+                        const option = document.createElement('option');
+                        option.value = team.id;
+                        option.textContent = `${team.name} (${team.id})`;
+                        if (team.id === data.current_team_id) {
+                            option.selected = true;
+                        }
+                        teamSelector.appendChild(option);
+                    });
+                    
+                    // Update current team display
+                    document.getElementById('currentTeamId').textContent = data.current_team_id;
+                    document.getElementById('teamSource').textContent = 'team_switcher';
+                    
+                } else {
+                    console.error('Failed to load teams');
+                    document.getElementById('teamSelector').innerHTML = '<option value="">Error loading teams</option>';
+                }
+            } catch (error) {
+                console.error('Error loading teams:', error);
+                document.getElementById('teamSelector').innerHTML = '<option value="">Connection failed</option>';
+            }
+        }
+        
+        // Switch team
+        async function switchTeam(teamId) {
+            try {
+                const response = await fetch(`${API_BASE}/teams/switch`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ team_id: teamId })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log(`Switched to team: ${data.current_team_id}`);
+                    
+                    // Update UI
+                    document.getElementById('currentTeamId').textContent = data.current_team_id;
+                    document.getElementById('teamSource').textContent = 'team_switcher';
+                    
+                    // Reload users to reflect new team
+                    await loadFirebaseUsers();
+                    
+                    // Show success message
+                    showNotification(`Switched to team ${data.current_team_id}`, 'success');
+                } else {
+                    console.error('Failed to switch team');
+                    showNotification('Failed to switch team', 'error');
+                }
+            } catch (error) {
+                console.error('Error switching team:', error);
+                showNotification('Error switching team', 'error');
             }
         }
         
@@ -922,6 +1027,14 @@
             // User search
             document.getElementById('userSearch').addEventListener('input', (e) => {
                 filterUsers(e.target.value);
+            });
+            
+            // Team switching
+            document.getElementById('teamSelector').addEventListener('change', (e) => {
+                const selectedTeamId = e.target.value;
+                if (selectedTeamId) {
+                    switchTeam(selectedTeamId);
+                }
             });
             
             // User selection using event delegation (best practice)
@@ -1375,6 +1488,64 @@
             text = text.replace(/(📞.*?)(?=<br>|$)/g, '<strong style="color: #ea4335;">$1</strong>');
             
             return text;
+        }
+        
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            // Add to page
+            document.body.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+        
+        // Add notification styles if not already present
+        if (!document.querySelector('#notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'notification-styles';
+            style.textContent = `
+                .notification {
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 12px 16px;
+                    border-radius: 6px;
+                    color: white;
+                    font-weight: 500;
+                    z-index: 1000;
+                    animation: slideIn 0.3s ease-out;
+                }
+                
+                .notification.success {
+                    background: var(--primary-green);
+                }
+                
+                .notification.error {
+                    background: var(--primary-red);
+                }
+                
+                .notification.info {
+                    background: var(--primary-blue);
+                }
+                
+                @keyframes slideIn {
+                    from {
+                        transform: translateX(100%);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
         }
         
         // Initialize when page loads
