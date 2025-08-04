@@ -145,9 +145,7 @@ class CrewAIAgentHealthCheck(BaseCheck):
             # List of critical agents that must be creatable
             critical_agents = [
                 "message_processor",
-                "intelligent_system", 
                 "player_coordinator",
-                "team_administrator",
                 "help_assistant"
             ]
             
@@ -214,7 +212,7 @@ class CrewAIAgentHealthCheck(BaseCheck):
             test_agent_configs = [
                 ("help_assistant", ["get_available_commands", "provide_command_help"]),
                 ("player_coordinator", ["add_player", "get_player_status"]),
-                ("team_administrator", ["add_team_member", "update_team_member"])
+                ("team_manager", ["add_team_member", "update_team_member"])
             ]
             
             for agent_name, expected_tools in test_agent_configs:

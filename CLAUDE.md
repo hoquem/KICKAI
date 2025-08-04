@@ -40,13 +40,13 @@ make test-integration   # Integration tests only
 make test-e2e          # E2E tests only
 
 # Run with coverage
-python -m pytest tests/ --cov=src --cov-report=html
+python -m pytest tests/ --cov=kickai --cov-report=html
 
 # Run specific test file
 python -m pytest tests/unit/test_specific.py::test_function -v -s
 
 # Test LLM connectivity
-source venv311/bin/activate && PYTHONPATH=. python test_hf_connectivity.py  # Test Hugging Face connectivity
+source venv311/bin/activate && PYTHONPATH=. python test_hf_connectivity.py
 ```
 
 ### Code Quality
@@ -70,10 +70,6 @@ make deploy-testing
 
 # Deploy to production
 make deploy-production
-
-# Validate deployment
-make validate-testing
-make validate-production
 
 # Health checks
 make health-check
@@ -143,6 +139,7 @@ kickai/
 ├── core/                        # Core utilities and registries
 │   ├── command_registry.py     # Command registration system
 │   ├── dependency_container.py # Dependency injection
+│   ├── service_discovery/      # Dynamic service discovery system
 │   └── startup_validation/     # System validation checks
 ├── database/                    # Data layer with Firebase/Firestore
 │   ├── firebase_client.py      # Firebase client setup
@@ -187,7 +184,7 @@ feature_name/
 - **❌ FORBIDDEN**: Custom tool wrappers or parameter passing mechanisms
 
 ### Absolute Imports with PYTHONPATH
-All code uses absolute imports with `PYTHONPATH=.` or `PYTHONPATH=src`:
+All code uses absolute imports with `PYTHONPATH=.`:
 ```python
 # ✅ Correct
 from kickai.features.player_registration.domain.tools.player_tools import get_player_status
@@ -212,12 +209,6 @@ The system supports multiple LLM providers with agent-specific model optimizatio
 - **OpenAI** (`AIProvider.OPENAI`) - Optional provider
 - **Ollama** (`AIProvider.OLLAMA`) - Local deployment option
 
-#### Agent-Specific Models
-Each agent uses optimized models based on task requirements:
-- **Data-critical agents** (temp 0.1): `Qwen2.5-1.5B-Instruct` for anti-hallucination
-- **Administrative agents** (temp 0.3): `Gemma-2-2B-IT` for balanced performance
-- **Creative agents** (temp 0.7): Larger models for complex reasoning
-
 #### Configuration Files
 - `kickai/config/agent_models.py` - Agent-specific model mappings
 - `kickai/utils/llm_factory.py` - Multi-provider LLM factory
@@ -234,29 +225,82 @@ Each agent uses optimized models based on task requirements:
 - **Bot Configs**: `config/bot_config.json` for different environments
 - **Firebase**: `credentials/firebase_credentials_*.json`
 
+## Service Discovery System
+
+### Dynamic Service Discovery Architecture
+
+KICKAI includes a comprehensive service discovery system that reduces tight coupling and enables runtime service registration with health checking:
+
+```
+kickai/core/service_discovery/
+├── interfaces.py           # Service definitions and protocols
+├── registry.py            # Central service registry with circuit breaker
+├── discovery.py           # Auto-discovery mechanisms
+├── health_checkers.py     # Specialized health checkers by service type
+└── config.py              # Configuration loading and defaults
+```
+
+### Service Discovery Features
+
+- **Dynamic Registration**: Services auto-register at startup via dependency container scanning
+- **Health Monitoring**: Specialized health checkers for different service types (database, external APIs, agents)
+- **Circuit Breaker**: Automatic failure isolation with configurable thresholds
+- **Configuration-Driven**: JSON/YAML configuration for service definitions
+- **Type Classification**: Services organized by type (CORE, FEATURE, EXTERNAL, UTILITY)
+
+### Service Discovery Commands
+
+```bash
+# Test service discovery system
+source venv311/bin/activate && PYTHONPATH=. python -m pytest tests/unit/service_discovery/ -v
+
+# Test specific service discovery components  
+python -m pytest tests/unit/service_discovery/test_registry.py -v
+python -m pytest tests/integration/service_discovery/ -v
+python -m pytest tests/e2e/service_discovery/ -v
+
+# Test service health checking
+python -c "
+from kickai.core.service_discovery import ServiceRegistry
+registry = ServiceRegistry()
+print('Service discovery system functional')
+"
+```
+
 ## Testing Strategy
 
-### Test Pyramid
+### Test Pyramid with Service Discovery
 - **Unit Tests**: Individual components with mocked dependencies
-- **Integration Tests**: Service interactions with mock external services
+- **Integration Tests**: Service interactions with mock external services  
 - **E2E Tests**: Complete user workflows with real APIs
+- **Service Discovery Tests**: Comprehensive service discovery system testing
 
 ### Test Commands by Type
 ```bash
+# All tests with virtual environment
+source venv311/bin/activate && PYTHONPATH=. python -m pytest tests/ -v
+
 # Unit tests (fast, isolated)
-python -m pytest tests/unit/ -v
+source venv311/bin/activate && PYTHONPATH=. python -m pytest tests/unit/ -v
 
 # Integration tests (service interactions)  
-python -m pytest tests/integration/ -v
+source venv311/bin/activate && PYTHONPATH=. python -m pytest tests/integration/ -v
 
 # E2E tests (full workflows)
-python -m pytest tests/e2e/ -v
+source venv311/bin/activate && PYTHONPATH=. python -m pytest tests/e2e/ -v
+
+# Service discovery tests
+source venv311/bin/activate && PYTHONPATH=. python -m pytest tests/unit/service_discovery/ -v
+source venv311/bin/activate && PYTHONPATH=. python -m pytest tests/integration/service_discovery/ -v
 
 # Agent-specific tests
-python -m pytest tests/unit/agents/ -v
+source venv311/bin/activate && PYTHONPATH=. python -m pytest tests/unit/agents/ -v
 
-# Feature-specific tests
-python -m pytest tests/unit/features/player_registration/ -v
+# Feature-specific tests  
+source venv311/bin/activate && PYTHONPATH=. python -m pytest tests/unit/features/player_registration/ -v
+
+# Run specific test with detailed output
+source venv311/bin/activate && PYTHONPATH=. python -m pytest tests/unit/test_specific.py::test_function -v -s
 ```
 
 ## Development Workflow
@@ -286,6 +330,8 @@ python -m pytest tests/unit/features/player_registration/ -v
 - `kickai/agents/agentic_message_router.py` - Central message routing
 - `kickai/core/command_registry.py` - Command registration system
 - `kickai/core/dependency_container.py` - Dependency injection container
+- `kickai/core/service_discovery/registry.py` - Service registry with circuit breaker
+- `kickai/core/service_discovery/interfaces.py` - Service discovery protocols
 
 ### Agent System Files
 - `kickai/agents/crew_agents.py` - 12 specialized agents
@@ -312,6 +358,15 @@ python -m pytest tests/unit/features/player_registration/ -v
 - **Environment setup**: Run `make setup-dev` for complete environment setup
 - **Dependency issues**: Check `requirements.txt` and `requirements-local.txt`
 - **Type checking**: Use `mypy kickai/` to catch type issues early
+- **Python version**: Must use Python 3.11+ - activate virtual environment with `source venv311/bin/activate`
+- **Import errors**: Always use `PYTHONPATH=.` when running tests or scripts
+- **Test failures**: Service discovery tests require virtual environment activation
+
+### Service Discovery Issues
+- **Service registration**: Check service definitions in configuration files
+- **Health check failures**: Verify service instances have required methods (ping, test_connection, health_check)
+- **Circuit breaker**: Monitor circuit breaker states when services fail repeatedly
+- **Configuration errors**: Validate JSON/YAML service configuration files
 
 ## Production Considerations
 

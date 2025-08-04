@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     # AI Configuration - Using Ollama local models (Simplified Configuration)
     ai_provider: AIProvider = Field(default=AIProvider.OLLAMA, description="AI provider to use")
     ollama_base_url: str = Field(description="Ollama base URL (REQUIRED)")
-    ai_model_name: str = Field(default="llama3.2:3b", description="AI model name")
+    ai_model_name: str = Field(default="llama3.2:3b", alias="OLLAMA_MODEL", description="AI model name")
     ai_temperature: float = Field(default=0.3, description="Default AI temperature setting")
     ai_temperature_tools: float = Field(default=0.1, description="AI temperature for tool calling")
     ai_temperature_creative: float = Field(default=0.7, description="AI temperature for creative tasks")

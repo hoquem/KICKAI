@@ -35,11 +35,13 @@ KICKAI is a sophisticated Telegram bot system for football team management, buil
 
 ## 🏗️ **Architecture**
 
-- **8-Agent CrewAI System**: MessageProcessor, TeamManager, PlayerCoordinator, FinanceManager, PerformanceAnalyst, LearningAgent, OnboardingAgent, CommandFallbackAgent
+- **13-Agent CrewAI System**: Organized in logical layers - Primary Interface (MESSAGE_PROCESSOR), Operational (PLAYER_COORDINATOR, TEAM_MANAGER, SQUAD_SELECTOR, AVAILABILITY_MANAGER, TRAINING_COORDINATOR), Specialized (HELP_ASSISTANT, ONBOARDING_AGENT, COMMUNICATION_MANAGER, PERFORMANCE_ANALYST), Infrastructure (FINANCE_MANAGER, LEARNING_AGENT, COMMAND_FALLBACK_AGENT)
+- **Service Discovery System**: Dynamic service registration, health monitoring, and circuit breaker patterns
 - **Intelligent System**: Intent classification, task decomposition, capability-based routing, orchestrated execution
 - **Clean Architecture**: Domain-driven design with clear separation of concerns
 - **Multi-Chat Support**: Main team chat and leadership chat functionality
 - **Feature-Based Modular Design**: Each feature is self-contained with application, domain, and infrastructure layers
+- **Comprehensive Testing**: 3-layer test pyramid with service discovery testing infrastructure
 
 ## 🔧 **Recent Major Fixes**
 

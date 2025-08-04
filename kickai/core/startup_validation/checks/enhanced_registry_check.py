@@ -196,8 +196,7 @@ class EnhancedRegistryCheck(BaseCheck):
             
             # Validate that required agents can be created
             required_agents = [
-                "message_processor", "intelligent_system", "player_coordinator",
-                "team_administrator", "help_assistant"
+                "message_processor", "player_coordinator", "help_assistant"
             ]
             
             creation_failures = []
