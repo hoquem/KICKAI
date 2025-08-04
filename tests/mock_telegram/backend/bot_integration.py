@@ -206,11 +206,24 @@ class MockTelegramIntegration:
     
     async def _get_team_id_from_firestore(self) -> str:
         """
-        Get the first available team_id from Firestore.
-        This ensures we use a real team from the database instead of hardcoded values.
+        Get the current team_id from the mock service or Firestore.
+        This ensures we use the team ID that the user has selected in the UI.
         """
         try:
-            # Import team service
+            # First try to get the current team ID from the mock service
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    response = await client.get(f"{self.mock_service_url}/team_id")
+                    if response.status_code == 200:
+                        data = response.json()
+                        team_id = data.get("team_id", "KTI")
+                        logger.info(f"Using team_id from mock service: {team_id}")
+                        return team_id
+            except Exception as e:
+                logger.warning(f"Could not get team_id from mock service: {e}")
+            
+            # Fallback to Firestore if mock service not available
             from kickai.features.team_administration.domain.services.team_service import TeamService
             from kickai.core.dependency_container import get_service
             
