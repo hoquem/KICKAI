@@ -12,17 +12,17 @@ KICKAI is an AI-powered football team management system built with **12-agent Cr
 ## 🏗️ Core Architecture Principles
 
 ### 1. **12-Agent CrewAI System**
-- **INTELLIGENT_SYSTEM**: Central orchestrator for task decomposition and routing
+- **MESSAGE_PROCESSOR**: Central orchestrator for task decomposition and routing
 - **MESSAGE_PROCESSOR**: Primary interface for user interactions and routing
 - **PLAYER_COORDINATOR**: Player registration, status, and management
-- **TEAM_ADMINISTRATOR**: Team administration and member management
+- **TEAM_MANAGER**: Team administration and member management
 - **SQUAD_SELECTOR**: Match squad selection and availability
 - **AVAILABILITY_MANAGER**: Player availability tracking
 - **HELP_ASSISTANT**: Help system and command guidance
 - **ONBOARDING_AGENT**: New user registration and onboarding
 - **TRAINING_COORDINATOR**: Training session management and coordination
 - **COMMUNICATION_MANAGER**: Team communications and announcements
-- **ANALYTICS_AGENT**: Analytics and reporting
+- **PERFORMANCE_ANALYST**: Analytics and reporting
 - **SYSTEM_INFRASTRUCTURE**: System health and maintenance
 - **COMMAND_FALLBACK_AGENT**: Fallback for unhandled requests
 

@@ -10,7 +10,7 @@ from typing import Optional
 import phonenumbers
 from phonenumbers import PhoneNumberFormat
 
-from kickai.core.exceptions import ValidationError
+from kickai.core.exceptions import PlayerValidationError
 
 
 @dataclass(frozen=True)
@@ -32,10 +32,10 @@ class PhoneNumber:
             Validated PhoneNumber instance
             
         Raises:
-            ValidationError: If phone number is invalid
+            PlayerValidationError: If phone number is invalid
         """
         if not phone_str or not phone_str.strip():
-            raise ValidationError("Phone number cannot be empty")
+            raise PlayerValidationError(["Phone number cannot be empty"])
         
         try:
             # Parse the phone number
@@ -43,7 +43,7 @@ class PhoneNumber:
             
             # Validate the parsed number
             if not phonenumbers.is_valid_number(parsed_number):
-                raise ValidationError(f"Invalid phone number: {phone_str}")
+                raise PlayerValidationError([f"Invalid phone number: {phone_str}"])
             
             # Format to E.164 standard
             e164_format = phonenumbers.format_number(parsed_number, PhoneNumberFormat.E164)
@@ -54,7 +54,7 @@ class PhoneNumber:
             return instance
             
         except phonenumbers.NumberParseException as e:
-            raise ValidationError(f"Cannot parse phone number '{phone_str}': {e}")
+            raise PlayerValidationError([f"Cannot parse phone number '{phone_str}': {e}"])
     
     @classmethod  
     def try_parse(cls, phone_str: str, region: str = "GB") -> Optional[PhoneNumber]:
@@ -70,7 +70,7 @@ class PhoneNumber:
         """
         try:
             return cls.from_string(phone_str, region)
-        except ValidationError:
+        except PlayerValidationError:
             return None
     
     @property
@@ -98,12 +98,12 @@ class PhoneNumber:
     
     @property
     def display_format(self) -> str:
-        """Return user-friendly display format."""
+        """Return formatted phone number for display."""
         return self.formatted
     
     @property
     def region_code(self) -> Optional[str]:
-        """Get the region code for this number."""
+        """Return the region code for this phone number."""
         try:
             parsed = phonenumbers.parse(self.value, None)
             return phonenumbers.region_code_for_number(parsed)
@@ -112,11 +112,30 @@ class PhoneNumber:
     
     @property
     def number_type(self) -> str:
-        """Get the type of this phone number (mobile, fixed_line, etc.)."""
+        """Return the type of phone number (mobile, landline, etc.)."""
         try:
             parsed = phonenumbers.parse(self.value, None)
             number_type = phonenumbers.number_type(parsed)
-            return str(number_type).split('.')[-1].lower()
+            
+            type_map = {
+                phonenumbers.PhoneNumberType.MOBILE: "mobile",
+                phonenumbers.PhoneNumberType.FIXED_LINE: "landline",
+                phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE: "fixed_or_mobile",
+                phonenumbers.PhoneNumberType.TOLL_FREE: "toll_free",
+                phonenumbers.PhoneNumberType.PREMIUM_RATE: "premium_rate",
+                phonenumbers.PhoneNumberType.SHARED_COST: "shared_cost",
+                phonenumbers.PhoneNumberType.VOIP: "voip",
+                phonenumbers.PhoneNumberType.PERSONAL_NUMBER: "personal",
+                phonenumbers.PhoneNumberType.PAGER: "pager",
+                phonenumbers.PhoneNumberType.UAN: "uan",
+                phonenumbers.PhoneNumberType.UNKNOWN: "unknown",
+                phonenumbers.PhoneNumberType.EMERGENCY: "emergency",
+                phonenumbers.PhoneNumberType.VOICEMAIL: "voicemail",
+                phonenumbers.PhoneNumberType.SHORT_CODE: "short_code",
+                phonenumbers.PhoneNumberType.STANDARD_RATE: "standard_rate"
+            }
+            
+            return type_map.get(number_type, "unknown")
         except phonenumbers.NumberParseException:
             return "unknown"
     
@@ -125,13 +144,13 @@ class PhoneNumber:
         return self.number_type == "mobile"
     
     def is_landline(self) -> bool:
-        """Check if this is a fixed line number."""
-        return self.number_type == "fixed_line"
+        """Check if this is a landline number."""
+        return self.number_type == "landline"
     
     def __str__(self) -> str:
-        """String representation."""
-        return self.formatted
+        """Return the E.164 formatted phone number."""
+        return self.value
     
     def __repr__(self) -> str:
-        """Developer representation."""
-        return f"PhoneNumber('{self.value}')"
+        """Return a string representation of the phone number."""
+        return f"PhoneNumber(value='{self.value}')"

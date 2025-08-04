@@ -44,7 +44,7 @@ training_management/
 
 ### Agent Integration
 - **Primary Agent**: `TRAINING_COORDINATOR` - Handles training coordination and session management
-- **Secondary Agents**: `ANALYTICS_AGENT` for development tracking
+- **Secondary Agents**: `PERFORMANCE_ANALYST` for development tracking
 - **Tools**: Training-specific CrewAI tools for session management and development
 
 ## Functional Requirements

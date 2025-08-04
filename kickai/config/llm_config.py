@@ -137,7 +137,6 @@ class LLMConfiguration:
         if agent_role in [
             AgentRole.PERFORMANCE_ANALYST,
             AgentRole.LEARNING_AGENT,
-            AgentRole.ANALYTICS_AGENT,
             AgentRole.SQUAD_SELECTOR,
         ]:
             return self.creative_llm, self.tool_llm

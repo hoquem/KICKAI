@@ -713,9 +713,8 @@ class ToolRegistry:
         # Default access control
         access_control: dict[str, list[str]] = {}
 
-        # Admin tools - accessible by team administrators and managers
+        # Admin tools - accessible by team managers
         if any(keyword in tool_lower for keyword in ["admin", "manage", "control"]):
-            access_control["team_administrator"] = ["both"]
             access_control["team_manager"] = ["both"]
 
         # Player management tools - accessible by team managers and coordinators
@@ -724,16 +723,9 @@ class ToolRegistry:
         ):
             access_control["team_manager"] = ["both"]
             access_control["player_coordinator"] = ["both"]
-            access_control["team_administrator"] = ["both"]
 
-        # Team management tools - accessible by team administrators and managers
+        # Team management tools - accessible by team managers
         elif any(keyword in tool_lower for keyword in ["team", "member", "squad"]):
-            access_control["team_administrator"] = ["both"]
-            access_control["team_manager"] = ["both"]
-
-        # Match management tools - accessible by match coordinators and team managers
-        elif any(keyword in tool_lower for keyword in ["match", "game", "fixture"]):
-            access_control["match_coordinator"] = ["both"]
             access_control["team_manager"] = ["both"]
 
         # Communication tools - accessible by communication managers
@@ -748,9 +740,9 @@ class ToolRegistry:
         elif any(keyword in tool_lower for keyword in ["help", "assist", "guide"]):
             access_control["help_assistant"] = ["both"]
 
-        # System tools - accessible by intelligent system
+        # System tools - accessible by message processor
         elif any(keyword in tool_lower for keyword in ["system", "health", "status"]):
-            access_control["intelligent_system"] = ["both"]
+            access_control["message_processor"] = ["both"]
 
         return access_control
 

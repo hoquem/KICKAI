@@ -48,8 +48,8 @@ payment_management/
 ```
 
 ### Agent Integration
-- **Primary Agent**: `TEAM_ADMINISTRATOR` - Handles payment-related requests
-- **Secondary Agents**: `ANALYTICS_AGENT` for financial reporting
+- **Primary Agent**: `FINANCE_MANAGER` - Handles payment-related requests
+- **Secondary Agents**: `PERFORMANCE_ANALYST` for financial reporting
 - **Tools**: Payment-specific CrewAI tools for transactions and reporting
 
 ## Functional Requirements
@@ -532,13 +532,13 @@ Tournament fee, Mar 10 → P1003-TOU-01
 ### 5. Agent System Integration
 
 #### 5.1 Financial Analysis
-- **ANALYTICS_AGENT**: Analyze payment patterns and trends
+- **PERFORMANCE_ANALYST**: Analyze payment patterns and trends
 - **Revenue Optimization**: Identify opportunities to increase revenue
 - **Cost Analysis**: Analyze cost patterns and optimization opportunities
 - **Financial Reporting**: Generate comprehensive financial reports
 
 #### 5.2 Payment Management
-- **TEAM_ADMINISTRATOR**: Handle payment-related requests and queries
+- **FINANCE_MANAGER**: Handle payment-related requests and queries
 - **Payment Reminders**: Automated payment reminder system
 - **Overdue Payment Handling**: Manage overdue payment collections
 - **Financial Decision Support**: Provide financial insights for decision making
