@@ -687,100 +687,376 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/firebase/users")
 async def get_firebase_users():
-    """Mock Firebase users endpoint - returns mock users in Firebase format"""
+    """Get real Firebase users from Firestore"""
     global CURRENT_TEAM_ID
-    users = mock_service.get_all_users()
     
-    # Convert mock users to Firebase-like format
-    firebase_users = []
-    for user in users:
-        firebase_user = {
-            "id": str(user.id),  # Firebase uses string IDs
-            "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "role": user.role.value,
-            "phone_number": user.phone_number,
-            "is_bot": user.is_bot,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "status": "active",  # Mock status
-            "team_id": CURRENT_TEAM_ID,  # Use current team ID
-            "is_active": True,
-            "is_approved": True if user.role in [UserRole.ADMIN, UserRole.LEADERSHIP] else False
+    try:
+        if BOT_INTEGRATION_AVAILABLE:
+            # Try to get real data from Firestore
+            try:
+                from kickai.features.player_registration.domain.services.player_service import PlayerService
+                from kickai.features.team_administration.domain.services.team_service import TeamService
+                from kickai.core.dependency_container import initialize_container, get_service
+                
+                initialize_container()
+                player_service = get_service(PlayerService)
+                team_service = get_service(TeamService)
+                
+                # Get players and team members for the current team
+                players = await player_service.get_players_by_team_id(CURRENT_TEAM_ID)
+                team_members = await team_service.get_team_members_by_team_id(CURRENT_TEAM_ID)
+                
+                firebase_users = []
+                
+                # Convert players to Firebase format
+                for player in players:
+                    firebase_user = {
+                        "id": str(player.user_id),
+                        "username": player.username or f"player_{player.user_id}",
+                        "first_name": player.first_name or "Player",
+                        "last_name": player.last_name,
+                        "role": "player",
+                        "phone_number": player.phone_number,
+                        "is_bot": False,
+                        "created_at": player.created_at.isoformat() if player.created_at else None,
+                        "status": "active" if player.is_active else "inactive",
+                        "team_id": CURRENT_TEAM_ID,
+                        "is_active": player.is_active,
+                        "is_approved": player.is_approved,
+                        "position": player.position or "Unknown"
+                    }
+                    firebase_users.append(firebase_user)
+                
+                # Convert team members to Firebase format
+                for member in team_members:
+                    firebase_user = {
+                        "id": str(member.user_id),
+                        "username": member.username or f"member_{member.user_id}",
+                        "first_name": member.first_name or "Member",
+                        "last_name": member.last_name,
+                        "role": member.role.value if hasattr(member.role, 'value') else str(member.role),
+                        "phone_number": member.phone_number,
+                        "is_bot": False,
+                        "created_at": member.created_at.isoformat() if member.created_at else None,
+                        "status": "active" if member.is_active else "inactive",
+                        "team_id": CURRENT_TEAM_ID,
+                        "is_active": member.is_active,
+                        "is_approved": True,  # Team members are always approved
+                        "position": "Team Member"
+                    }
+                    firebase_users.append(firebase_user)
+                
+                logger.info(f"✅ Retrieved {len(firebase_users)} real users from Firestore for team {CURRENT_TEAM_ID}")
+                
+                return {
+                    "users": firebase_users,
+                    "total": len(firebase_users),
+                    "status": "success",
+                    "team_id": CURRENT_TEAM_ID,
+                    "source": "firestore"
+                }
+                
+            except Exception as e:
+                logger.warning(f"Failed to get real Firestore data: {e}, falling back to mock data")
+                # Fallback to mock data if Firestore fails
+                users = mock_service.get_all_users()
+                
+                firebase_users = []
+                for user in users:
+                    firebase_user = {
+                        "id": str(user.id),
+                        "username": user.username,
+                        "first_name": user.first_name,
+                        "last_name": user.last_name,
+                        "role": user.role.value,
+                        "phone_number": user.phone_number,
+                        "is_bot": user.is_bot,
+                        "created_at": user.created_at.isoformat() if user.created_at else None,
+                        "status": "active",
+                        "team_id": CURRENT_TEAM_ID,
+                        "is_active": True,
+                        "is_approved": True if user.role in [UserRole.ADMIN, UserRole.LEADERSHIP] else False
+                    }
+                    firebase_users.append(firebase_user)
+                
+                return {
+                    "users": firebase_users,
+                    "total": len(firebase_users),
+                    "status": "success",
+                    "team_id": CURRENT_TEAM_ID,
+                    "source": "mock_fallback"
+                }
+        else:
+            # Bot integration not available, use mock data
+            users = mock_service.get_all_users()
+            
+            firebase_users = []
+            for user in users:
+                firebase_user = {
+                    "id": str(user.id),
+                    "username": user.username,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "role": user.role.value,
+                    "phone_number": user.phone_number,
+                    "is_bot": user.is_bot,
+                    "created_at": user.created_at.isoformat() if user.created_at else None,
+                    "status": "active",
+                    "team_id": CURRENT_TEAM_ID,
+                    "is_active": True,
+                    "is_approved": True if user.role in [UserRole.ADMIN, UserRole.LEADERSHIP] else False
+                }
+                firebase_users.append(firebase_user)
+            
+            return {
+                "users": firebase_users,
+                "total": len(firebase_users),
+                "status": "success",
+                "team_id": CURRENT_TEAM_ID,
+                "source": "mock_only"
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in get_firebase_users: {e}")
+        return {
+            "users": [],
+            "total": 0,
+            "status": "error",
+            "error": str(e),
+            "team_id": CURRENT_TEAM_ID,
+            "source": "error"
         }
-        firebase_users.append(firebase_user)
-    
-    return {
-        "users": firebase_users,
-        "total": len(firebase_users),
-        "status": "success",
-        "team_id": CURRENT_TEAM_ID  # Include team_id in response
-    }
 
 
 @app.get("/firebase/players")
 async def get_firebase_players():
-    """Mock Firebase players endpoint - returns players only"""
+    """Get real Firebase players from Firestore"""
     global CURRENT_TEAM_ID
-    users = mock_service.get_all_users()
-    # Filter for players only
-    players = [user for user in users if user.role == UserRole.PLAYER]
     
-    firebase_players = []
-    for player in players:
-        firebase_player = {
-            "id": str(player.id),
-            "username": player.username,
-            "first_name": player.first_name,
-            "last_name": player.last_name,
-            "phone_number": player.phone_number,
-            "position": "Unknown",  # Mock position
-            "status": "active",
-            "team_id": CURRENT_TEAM_ID,  # Use current team ID
-            "is_active": True,
-            "is_approved": True,
-            "created_at": player.created_at.isoformat() if player.created_at else None
+    try:
+        if BOT_INTEGRATION_AVAILABLE:
+            # Try to get real data from Firestore
+            try:
+                from kickai.features.player_registration.domain.services.player_service import PlayerService
+                from kickai.core.dependency_container import initialize_container, get_service
+                
+                initialize_container()
+                player_service = get_service(PlayerService)
+                
+                # Get players for the current team
+                players = await player_service.get_players_by_team_id(CURRENT_TEAM_ID)
+                
+                firebase_players = []
+                for player in players:
+                    firebase_player = {
+                        "id": str(player.user_id),
+                        "username": player.username or f"player_{player.user_id}",
+                        "first_name": player.first_name or "Player",
+                        "last_name": player.last_name,
+                        "phone_number": player.phone_number,
+                        "position": player.position or "Unknown",
+                        "status": "active" if player.is_active else "inactive",
+                        "team_id": CURRENT_TEAM_ID,
+                        "is_active": player.is_active,
+                        "is_approved": player.is_approved,
+                        "created_at": player.created_at.isoformat() if player.created_at else None
+                    }
+                    firebase_players.append(firebase_player)
+                
+                logger.info(f"✅ Retrieved {len(firebase_players)} real players from Firestore for team {CURRENT_TEAM_ID}")
+                
+                return {
+                    "players": firebase_players,
+                    "total": len(firebase_players),
+                    "status": "success",
+                    "team_id": CURRENT_TEAM_ID,
+                    "source": "firestore"
+                }
+                
+            except Exception as e:
+                logger.warning(f"Failed to get real Firestore players: {e}, falling back to mock data")
+                # Fallback to mock data
+                users = mock_service.get_all_users()
+                players = [user for user in users if user.role == UserRole.PLAYER]
+                
+                firebase_players = []
+                for player in players:
+                    firebase_player = {
+                        "id": str(player.id),
+                        "username": player.username,
+                        "first_name": player.first_name,
+                        "last_name": player.last_name,
+                        "phone_number": player.phone_number,
+                        "position": "Unknown",
+                        "status": "active",
+                        "team_id": CURRENT_TEAM_ID,
+                        "is_active": True,
+                        "is_approved": True,
+                        "created_at": player.created_at.isoformat() if player.created_at else None
+                    }
+                    firebase_players.append(firebase_player)
+                
+                return {
+                    "players": firebase_players,
+                    "total": len(firebase_players),
+                    "status": "success",
+                    "team_id": CURRENT_TEAM_ID,
+                    "source": "mock_fallback"
+                }
+        else:
+            # Bot integration not available, use mock data
+            users = mock_service.get_all_users()
+            players = [user for user in users if user.role == UserRole.PLAYER]
+            
+            firebase_players = []
+            for player in players:
+                firebase_player = {
+                    "id": str(player.id),
+                    "username": player.username,
+                    "first_name": player.first_name,
+                    "last_name": player.last_name,
+                    "phone_number": player.phone_number,
+                    "position": "Unknown",
+                    "status": "active",
+                    "team_id": CURRENT_TEAM_ID,
+                    "is_active": True,
+                    "is_approved": True,
+                    "created_at": player.created_at.isoformat() if player.created_at else None
+                }
+                firebase_players.append(firebase_player)
+            
+            return {
+                "players": firebase_players,
+                "total": len(firebase_players),
+                "status": "success",
+                "team_id": CURRENT_TEAM_ID,
+                "source": "mock_only"
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in get_firebase_players: {e}")
+        return {
+            "players": [],
+            "total": 0,
+            "status": "error",
+            "error": str(e),
+            "team_id": CURRENT_TEAM_ID,
+            "source": "error"
         }
-        firebase_players.append(firebase_player)
-    
-    return {
-        "players": firebase_players,
-        "total": len(firebase_players),
-        "status": "success",
-        "team_id": CURRENT_TEAM_ID  # Include team_id in response
-    }
 
 
 @app.get("/firebase/team_members")
 async def get_firebase_team_members():
-    """Mock Firebase team members endpoint - returns team members only"""
+    """Get real Firebase team members from Firestore"""
     global CURRENT_TEAM_ID
-    users = mock_service.get_all_users()
-    # Filter for team members only
-    team_members = [user for user in users if user.role == UserRole.TEAM_MEMBER]
     
-    firebase_team_members = []
-    for member in team_members:
-        firebase_member = {
-            "id": str(member.id),
-            "username": member.username,
-            "first_name": member.first_name,
-            "last_name": member.last_name,
-            "phone_number": member.phone_number,
-            "role": member.role.value,
-            "status": "active",
-            "team_id": CURRENT_TEAM_ID,  # Use current team ID
-            "is_active": True,
-            "created_at": member.created_at.isoformat() if member.created_at else None
+    try:
+        if BOT_INTEGRATION_AVAILABLE:
+            # Try to get real data from Firestore
+            try:
+                from kickai.features.team_administration.domain.services.team_service import TeamService
+                from kickai.core.dependency_container import initialize_container, get_service
+                
+                initialize_container()
+                team_service = get_service(TeamService)
+                
+                # Get team members for the current team
+                team_members = await team_service.get_team_members_by_team_id(CURRENT_TEAM_ID)
+                
+                firebase_team_members = []
+                for member in team_members:
+                    firebase_member = {
+                        "id": str(member.user_id),
+                        "username": member.username or f"member_{member.user_id}",
+                        "first_name": member.first_name or "Member",
+                        "last_name": member.last_name,
+                        "phone_number": member.phone_number,
+                        "role": member.role.value if hasattr(member.role, 'value') else str(member.role),
+                        "status": "active" if member.is_active else "inactive",
+                        "team_id": CURRENT_TEAM_ID,
+                        "is_active": member.is_active,
+                        "created_at": member.created_at.isoformat() if member.created_at else None
+                    }
+                    firebase_team_members.append(firebase_member)
+                
+                logger.info(f"✅ Retrieved {len(firebase_team_members)} real team members from Firestore for team {CURRENT_TEAM_ID}")
+                
+                return {
+                    "team_members": firebase_team_members,
+                    "total": len(firebase_team_members),
+                    "status": "success",
+                    "team_id": CURRENT_TEAM_ID,
+                    "source": "firestore"
+                }
+                
+            except Exception as e:
+                logger.warning(f"Failed to get real Firestore team members: {e}, falling back to mock data")
+                # Fallback to mock data
+                users = mock_service.get_all_users()
+                team_members = [user for user in users if user.role == UserRole.TEAM_MEMBER]
+                
+                firebase_team_members = []
+                for member in team_members:
+                    firebase_member = {
+                        "id": str(member.id),
+                        "username": member.username,
+                        "first_name": member.first_name,
+                        "last_name": member.last_name,
+                        "phone_number": member.phone_number,
+                        "role": member.role.value,
+                        "status": "active",
+                        "team_id": CURRENT_TEAM_ID,
+                        "is_active": True,
+                        "created_at": member.created_at.isoformat() if member.created_at else None
+                    }
+                    firebase_team_members.append(firebase_member)
+                
+                return {
+                    "team_members": firebase_team_members,
+                    "total": len(firebase_team_members),
+                    "status": "success",
+                    "team_id": CURRENT_TEAM_ID,
+                    "source": "mock_fallback"
+                }
+        else:
+            # Bot integration not available, use mock data
+            users = mock_service.get_all_users()
+            team_members = [user for user in users if user.role == UserRole.TEAM_MEMBER]
+            
+            firebase_team_members = []
+            for member in team_members:
+                firebase_member = {
+                    "id": str(member.id),
+                    "username": member.username,
+                    "first_name": member.first_name,
+                    "last_name": member.last_name,
+                    "phone_number": member.phone_number,
+                    "role": member.role.value,
+                    "status": "active",
+                    "team_id": CURRENT_TEAM_ID,
+                    "is_active": True,
+                    "created_at": member.created_at.isoformat() if member.created_at else None
+                }
+                firebase_team_members.append(firebase_member)
+            
+            return {
+                "team_members": firebase_team_members,
+                "total": len(firebase_team_members),
+                "status": "success",
+                "team_id": CURRENT_TEAM_ID,
+                "source": "mock_only"
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in get_firebase_team_members: {e}")
+        return {
+            "team_members": [],
+            "total": 0,
+            "status": "error",
+            "error": str(e),
+            "team_id": CURRENT_TEAM_ID,
+            "source": "error"
         }
-        firebase_team_members.append(firebase_member)
-    
-    return {
-        "team_members": firebase_team_members,
-        "total": len(firebase_team_members),
-        "status": "success",
-        "team_id": CURRENT_TEAM_ID  # Include team_id in response
-    }
 
 
 @app.get("/firebase/status")

@@ -90,6 +90,32 @@
             margin-top: 4px;
         }
         
+        /* Data source styling */
+        .team-source.firestore {
+            color: #28a745 !important;
+            font-weight: bold;
+        }
+        
+        .team-source.mock-fallback {
+            color: #ffc107 !important;
+            font-weight: bold;
+        }
+        
+        .team-source.mock-only {
+            color: #dc3545 !important;
+            font-weight: bold;
+        }
+        
+        .team-source.error {
+            color: #dc3545 !important;
+            font-weight: bold;
+        }
+        
+        .team-source.unknown {
+            color: #6c757d !important;
+            font-weight: bold;
+        }
+        
         .team-switcher {
             margin-top: 12px;
         }
@@ -957,21 +983,48 @@
                     const data = await response.json();
                     firebaseUsers = data.users || []; // Extract the users array from the response
                     
-                    // Update team ID from response if available
+                    // Update team ID and source from response
                     if (data.team_id) {
                         document.getElementById('currentTeamId').textContent = data.team_id;
-                        document.getElementById('teamSource').textContent = 'Firebase response';
                     }
+                    
+                    // Show data source (real Firestore vs mock data)
+                    const source = data.source || 'unknown';
+                    let sourceText = 'Unknown';
+                    let sourceClass = 'unknown';
+                    
+                    if (source === 'firestore') {
+                        sourceText = 'Real Firestore Data';
+                        sourceClass = 'firestore';
+                    } else if (source === 'mock_fallback') {
+                        sourceText = 'Mock Data (Firestore failed)';
+                        sourceClass = 'mock-fallback';
+                    } else if (source === 'mock_only') {
+                        sourceText = 'Mock Data (No Firestore)';
+                        sourceClass = 'mock-only';
+                    } else if (source === 'error') {
+                        sourceText = 'Error Loading Data';
+                        sourceClass = 'error';
+                    }
+                    
+                    document.getElementById('teamSource').textContent = sourceText;
+                    document.getElementById('teamSource').className = `team-source ${sourceClass}`;
+                    
+                    console.log(`📊 Loaded ${firebaseUsers.length} users from ${sourceText}`);
                     
                     renderUsers();
                 } else {
                     console.error('Failed to load Firebase users');
                     firebaseUsers = [];
+                    document.getElementById('teamSource').textContent = 'Failed to load';
+                    document.getElementById('teamSource').className = 'team-source error';
                     renderUsers(); // Render empty state
                 }
             } catch (error) {
                 console.error('Error loading Firebase users:', error);
                 firebaseUsers = [];
+                document.getElementById('teamSource').textContent = 'Connection error';
+                document.getElementById('teamSource').className = 'team-source error';
                 renderUsers(); // Render empty state
             }
         }
