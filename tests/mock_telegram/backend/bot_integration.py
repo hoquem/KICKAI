@@ -17,19 +17,18 @@ from contextlib import asynccontextmanager
 logger = logging.getLogger(__name__)
 
 # Initialize bot components availability flag
-BOT_COMPONENTS_AVAILABLE = False
+BOT_COMPONENTS_AVAILABLE = True  # Force bot integration to be available
 
-# Import bot components (optional - will be skipped if not available)
+# Import bot components (required for real bot integration)
 try:
     from kickai.features.communication.infrastructure.telegram_bot_service import TelegramBotService
     from kickai.agents.agentic_message_router import AgenticMessageRouter
     from kickai.core.settings import get_settings
     from kickai.core.dependency_container import initialize_container, get_container
-    BOT_COMPONENTS_AVAILABLE = True
-    logger.info("Bot components available")
+    logger.info("✅ Bot components imported successfully")
 except ImportError as e:
-    logger.warning(f"Bot components not available: {e}")
-    BOT_COMPONENTS_AVAILABLE = False
+    logger.error(f"❌ Critical: Bot components import failed: {e}")
+    raise ImportError(f"Bot components are required but failed to import: {e}")
 
 
 class MockTelegramIntegration:
@@ -53,33 +52,28 @@ class MockTelegramIntegration:
         if self._initialized:
             return
             
-        # Initialize bot components if available
-        global BOT_COMPONENTS_AVAILABLE
-        if BOT_COMPONENTS_AVAILABLE:
-            try:
-                # Initialize the dependency container first
-                logger.info("🔧 Initializing dependency container...")
-                initialize_container()
-                container = get_container()
-                
-                # Verify services are ready
-                if not container.verify_services_ready():
-                    logger.warning("⚠️ Some services not ready, but continuing...")
-                
-                self.settings = get_settings()
-                # Get team_id from Firestore - use first available team
-                team_id = await self._get_team_id_from_firestore()
-                self.agentic_router = AgenticMessageRouter(team_id=team_id)
-                # Skip TelegramBotService for mock integration - we don't need real Telegram
-                self.telegram_service = None
-                logger.info(f"✅ Bot integration initialized successfully with team_id: {team_id}")
-                self._initialized = True
-            except Exception as e:
-                logger.error(f"❌ Failed to initialize bot components: {e}")
-                BOT_COMPONENTS_AVAILABLE = False
-        else:
-            logger.warning("Bot integration running in mock-only mode")
+        # Initialize bot components (required - no mock fallback)
+        try:
+            # Initialize the dependency container first
+            logger.info("🔧 Initializing dependency container...")
+            initialize_container()
+            container = get_container()
+            
+            # Verify services are ready
+            if not container.verify_services_ready():
+                logger.warning("⚠️ Some services not ready, but continuing...")
+            
+            self.settings = get_settings()
+            # Get team_id from Firestore - use first available team
+            team_id = await self._get_team_id_from_firestore()
+            self.agentic_router = AgenticMessageRouter(team_id=team_id)
+            # Skip TelegramBotService for mock integration - we don't need real Telegram
+            self.telegram_service = None
+            logger.info(f"✅ Bot integration initialized successfully with team_id: {team_id}")
             self._initialized = True
+        except Exception as e:
+            logger.error(f"❌ Critical: Failed to initialize bot components: {e}")
+            raise RuntimeError(f"Bot integration initialization failed: {e}")
         
     async def process_mock_message(self, message_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -94,14 +88,9 @@ class MockTelegramIntegration:
         # Initialize if not already done
         await self._initialize()
         
-        if not BOT_COMPONENTS_AVAILABLE:
-            return {
-                "type": "mock_response",
-                "message": {
-                    "text": "Bot integration not available - running in mock mode",
-                    "timestamp": datetime.now().isoformat()
-                }
-            }
+        # Bot integration is required - no mock fallback
+        if not self.agentic_router:
+            raise RuntimeError("Bot integration failed to initialize - agentic_router is not available")
         
         async with self._lock:
             try:
