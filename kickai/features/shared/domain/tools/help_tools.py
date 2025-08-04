@@ -280,16 +280,17 @@ def get_command_help(command_name: str, chat_type: str = "main") -> str:
 
 🎯 **Usage:** {command.examples[0] if command.examples else command_name}
 
-📋 **Parameters:**
-"""
-        if command.parameters:
-            for param, desc in command.parameters.items():
-                help_text += f"• **{param}:** {desc}\n"
-        else:
-            help_text += "• No parameters required\n"
+📋 **Permission Level:** {command.permission_level.value}
 
-        if command.help_text:
-            help_text += f"\n📖 **Detailed Help:**\n{command.help_text}"
+📋 **Available In:** {', '.join([ct.value for ct in command.chat_types])}
+
+💡 **Examples:**
+"""
+        if command.examples:
+            for example in command.examples:
+                help_text += f"• {example}\n"
+        else:
+            help_text += "• No specific examples available\n"
 
         return help_text
 
