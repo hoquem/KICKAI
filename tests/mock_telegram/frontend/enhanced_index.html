@@ -805,6 +805,7 @@
             await checkSystemStatus();
             await loadAvailableTeams();  // Load teams and set current team
             await loadFirebaseUsers();
+            await loadTeamMembers();  // Load team members specifically
             await loadMockUsers();
             await loadChats();
             connectWebSocket();
@@ -887,6 +888,9 @@
         // Switch team
         async function switchTeam(teamId) {
             try {
+                console.log('Switching to team:', teamId);
+                console.log('Switch URL:', `${API_BASE}/teams/switch`);
+                
                 const response = await fetch(`${API_BASE}/teams/switch`, {
                     method: 'POST',
                     headers: {
@@ -906,6 +910,9 @@
                     // Reload users to reflect new team
                     await loadFirebaseUsers();
                     
+                    // Also reload team members specifically
+                    await loadTeamMembers();
+                    
                     // Show success message
                     showNotification(`Switched to team ${data.current_team_id}`, 'success');
                 } else {
@@ -921,12 +928,17 @@
         // Load team ID information
         async function loadTeamInfo() {
             try {
+                console.log('Loading team info from:', `${API_BASE}/team_id`);
                 const response = await fetch(`${API_BASE}/team_id`);
+                console.log('Team info response status:', response.status);
+                
                 if (response.ok) {
                     const data = await response.json();
+                    console.log('Team info data:', data);
                     document.getElementById('currentTeamId').textContent = data.team_id;
                     document.getElementById('teamSource').textContent = data.source;
                 } else {
+                    console.error('Team info response not ok:', response.status, response.statusText);
                     document.getElementById('currentTeamId').textContent = 'Error';
                     document.getElementById('teamSource').textContent = 'Failed to load';
                 }
@@ -961,6 +973,27 @@
                 console.error('Error loading Firebase users:', error);
                 firebaseUsers = [];
                 renderUsers(); // Render empty state
+            }
+        }
+        
+        // Load team members specifically
+        async function loadTeamMembers() {
+            try {
+                const response = await fetch(`${API_BASE}/firebase/team_members`);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log(`Loaded ${data.total} team members for team ${data.team_id}`);
+                    
+                    // Update team ID from response if available
+                    if (data.team_id) {
+                        document.getElementById('currentTeamId').textContent = data.team_id;
+                        document.getElementById('teamSource').textContent = 'Team members response';
+                    }
+                } else {
+                    console.error('Failed to load team members');
+                }
+            } catch (error) {
+                console.error('Error loading team members:', error);
             }
         }
         
