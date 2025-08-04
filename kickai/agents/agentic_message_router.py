@@ -168,8 +168,53 @@ class AgenticMessageRouter:
 
         except Exception as e:
             logger.error(f"AgenticMessageRouter failed: {e}")
+            
+            # Provide a more helpful error message based on the error type
+            if "Maximum iterations reached" in str(e) or "max_iter" in str(e).lower():
+                error_message = f"""🤖 I was processing: "{message.text}"
+
+⏱️ **Processing Time Limit Reached**
+
+I've reached the maximum number of processing steps for this request. This usually happens when:
+• The request is very complex
+• Multiple tools need to be called
+• The system needs more time to think
+
+💡 **What you can do:**
+• Try breaking down your request into smaller parts
+• Use specific commands instead of natural language
+• Ask for help with `/help [command]`
+
+🔧 **Quick Commands:**
+• `/help` - Show all available commands
+• `/info` - Show your information
+• `/list` - List team members/players
+
+If you need immediate assistance, please contact your team administrator."""
+            else:
+                error_message = f"""🤖 I was processing: "{message.text}"
+
+❌ **System Error**
+
+I encountered an error while processing your request. This might be due to:
+• A temporary system issue
+• Invalid input format
+• Missing permissions
+
+💡 **What you can do:**
+• Try again in a few moments
+• Use a different command format
+• Check if you have the right permissions
+
+🔧 **Available Commands:**
+• `/help` - Show available commands
+• `/info` - Show your information
+• `/list` - List team members/players
+
+If the problem continues, please contact your team administrator."""
+            
             return AgentResponse(
-                success=False, message="❌ System error. Please try again.", error=str(e)
+                success=False, message=error_message, error=str(e)
             )
 
     async def route_contact_share(self, message: TelegramMessage) -> AgentResponse:
@@ -379,8 +424,53 @@ Use /help to see available commands or ask me questions!"""
 
         except Exception as e:
             logger.error(f"❌ Error routing to specialized agent: {e}")
+            
+            # Provide a more helpful error message based on the error type
+            if "Maximum iterations reached" in str(e) or "max_iter" in str(e).lower():
+                error_message = f"""🤖 I was processing: "{message.text}"
+
+⏱️ **Processing Time Limit Reached**
+
+I've reached the maximum number of processing steps for this request. This usually happens when:
+• The request is very complex
+• Multiple tools need to be called
+• The system needs more time to think
+
+💡 **What you can do:**
+• Try breaking down your request into smaller parts
+• Use specific commands instead of natural language
+• Ask for help with `/help [command]`
+
+🔧 **Quick Commands:**
+• `/help` - Show all available commands
+• `/info` - Show your information
+• `/list` - List team members/players
+
+If you need immediate assistance, please contact your team administrator."""
+            else:
+                error_message = f"""🤖 I was processing: "{message.text}"
+
+❌ **Processing Error**
+
+I encountered an error while processing your request. This might be due to:
+• A temporary system issue
+• Invalid input format
+• Missing permissions
+
+💡 **What you can do:**
+• Try again in a few moments
+• Use a different command format
+• Check if you have the right permissions
+
+🔧 **Available Commands:**
+• `/help` - Show available commands
+• `/info` - Show your information
+• `/list` - List team members/players
+
+If the problem continues, please contact your team administrator."""
+            
             return AgentResponse(
-                message="I encountered an error processing your request. Please try again.",
+                message=error_message,
                 success=False,
                 error=str(e),
             )
