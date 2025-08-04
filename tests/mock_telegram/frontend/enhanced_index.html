@@ -70,6 +70,26 @@
             font-size: 16px;
         }
         
+        .team-info {
+            background: var(--bg-tertiary);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+            border-left: 4px solid var(--primary-blue);
+        }
+        
+        .team-info .team-id {
+            font-weight: 600;
+            color: var(--primary-blue);
+            font-size: 14px;
+        }
+        
+        .team-info .team-source {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
         .main-content {
             display: grid;
             grid-template-columns: 350px 1fr;
@@ -526,10 +546,14 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🤖 Enhanced Mock Telegram Tester</h1>
-            <p>Test your KICKAI bot system with real Firebase user data</p>
-        </div>
+                    <div class="header">
+                <h1>🤖 Enhanced Mock Telegram Tester</h1>
+                <p>Test your KICKAI bot system with real Firebase user data</p>
+                <div class="team-info">
+                    <div class="team-id">Team ID: <span id="currentTeamId">Loading...</span></div>
+                    <div class="team-source">Source: <span id="teamSource">Loading...</span></div>
+                </div>
+            </div>
         
         <div class="main-content">
             <div class="sidebar">
@@ -744,6 +768,7 @@
         // Initialize the application
         async function init() {
             await checkSystemStatus();
+            await loadTeamInfo();  // Load team info first
             await loadFirebaseUsers();
             await loadMockUsers();
             await loadChats();
@@ -788,6 +813,25 @@
             }
         }
         
+        // Load team ID information
+        async function loadTeamInfo() {
+            try {
+                const response = await fetch(`${API_BASE}/team_id`);
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('currentTeamId').textContent = data.team_id;
+                    document.getElementById('teamSource').textContent = data.source;
+                } else {
+                    document.getElementById('currentTeamId').textContent = 'Error';
+                    document.getElementById('teamSource').textContent = 'Failed to load';
+                }
+            } catch (error) {
+                console.error('Error loading team info:', error);
+                document.getElementById('currentTeamId').textContent = 'Error';
+                document.getElementById('teamSource').textContent = 'Connection failed';
+            }
+        }
+        
         // Load Firebase users
         async function loadFirebaseUsers() {
             try {
@@ -795,6 +839,13 @@
                 if (response.ok) {
                     const data = await response.json();
                     firebaseUsers = data.users || []; // Extract the users array from the response
+                    
+                    // Update team ID from response if available
+                    if (data.team_id) {
+                        document.getElementById('currentTeamId').textContent = data.team_id;
+                        document.getElementById('teamSource').textContent = 'Firebase response';
+                    }
+                    
                     renderUsers();
                 } else {
                     console.error('Failed to load Firebase users');

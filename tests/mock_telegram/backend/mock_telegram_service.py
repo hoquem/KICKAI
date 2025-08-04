@@ -689,6 +689,20 @@ async def websocket_endpoint(websocket: WebSocket):
 async def get_firebase_users():
     """Mock Firebase users endpoint - returns mock users in Firebase format"""
     users = mock_service.get_all_users()
+    
+    # Get the actual team ID from bot integration if available
+    team_id = "TEST_TEAM"  # Default fallback
+    try:
+        if BOT_INTEGRATION_AVAILABLE:
+            from .bot_integration import MockTelegramIntegration
+            integration = MockTelegramIntegration()
+            await integration._initialize()
+            if integration.agentic_router:
+                team_id = integration.agentic_router.team_id
+                logger.info(f"Using team_id from bot integration: {team_id}")
+    except Exception as e:
+        logger.warning(f"Could not get team_id from bot integration: {e}")
+    
     # Convert mock users to Firebase-like format
     firebase_users = []
     for user in users:
@@ -702,7 +716,7 @@ async def get_firebase_users():
             "is_bot": user.is_bot,
             "created_at": user.created_at.isoformat() if user.created_at else None,
             "status": "active",  # Mock status
-            "team_id": "TEST_TEAM",  # Mock team ID
+            "team_id": team_id,  # Use actual team ID from bot integration
             "is_active": True,
             "is_approved": True if user.role in [UserRole.ADMIN, UserRole.LEADERSHIP] else False
         }
@@ -711,7 +725,8 @@ async def get_firebase_users():
     return {
         "users": firebase_users,
         "total": len(firebase_users),
-        "status": "success"
+        "status": "success",
+        "team_id": team_id  # Include team_id in response
     }
 
 
@@ -721,6 +736,18 @@ async def get_firebase_players():
     users = mock_service.get_all_users()
     # Filter for players only
     players = [user for user in users if user.role == UserRole.PLAYER]
+    
+    # Get the actual team ID from bot integration if available
+    team_id = "TEST_TEAM"  # Default fallback
+    try:
+        if BOT_INTEGRATION_AVAILABLE:
+            from .bot_integration import MockTelegramIntegration
+            integration = MockTelegramIntegration()
+            await integration._initialize()
+            if integration.agentic_router:
+                team_id = integration.agentic_router.team_id
+    except Exception as e:
+        logger.warning(f"Could not get team_id from bot integration: {e}")
     
     firebase_players = []
     for player in players:
@@ -732,7 +759,7 @@ async def get_firebase_players():
             "phone_number": player.phone_number,
             "position": "Unknown",  # Mock position
             "status": "active",
-            "team_id": "TEST_TEAM",
+            "team_id": team_id,  # Use actual team ID
             "is_active": True,
             "is_approved": True,
             "created_at": player.created_at.isoformat() if player.created_at else None
@@ -742,7 +769,8 @@ async def get_firebase_players():
     return {
         "players": firebase_players,
         "total": len(firebase_players),
-        "status": "success"
+        "status": "success",
+        "team_id": team_id  # Include team_id in response
     }
 
 
@@ -752,6 +780,18 @@ async def get_firebase_team_members():
     users = mock_service.get_all_users()
     # Filter for team members only
     team_members = [user for user in users if user.role == UserRole.TEAM_MEMBER]
+    
+    # Get the actual team ID from bot integration if available
+    team_id = "TEST_TEAM"  # Default fallback
+    try:
+        if BOT_INTEGRATION_AVAILABLE:
+            from .bot_integration import MockTelegramIntegration
+            integration = MockTelegramIntegration()
+            await integration._initialize()
+            if integration.agentic_router:
+                team_id = integration.agentic_router.team_id
+    except Exception as e:
+        logger.warning(f"Could not get team_id from bot integration: {e}")
     
     firebase_team_members = []
     for member in team_members:
@@ -763,7 +803,7 @@ async def get_firebase_team_members():
             "phone_number": member.phone_number,
             "role": member.role.value,
             "status": "active",
-            "team_id": "TEST_TEAM",
+            "team_id": team_id,  # Use actual team ID
             "is_active": True,
             "created_at": member.created_at.isoformat() if member.created_at else None
         }
@@ -772,24 +812,59 @@ async def get_firebase_team_members():
     return {
         "team_members": firebase_team_members,
         "total": len(firebase_team_members),
-        "status": "success"
+        "status": "success",
+        "team_id": team_id  # Include team_id in response
     }
 
 
 @app.get("/firebase/status")
 async def get_firebase_status():
     """Mock Firebase status endpoint"""
+    # Get the actual team ID from bot integration if available
+    team_id = "TEST_TEAM"  # Default fallback
+    try:
+        if BOT_INTEGRATION_AVAILABLE:
+            from .bot_integration import MockTelegramIntegration
+            integration = MockTelegramIntegration()
+            await integration._initialize()
+            if integration.agentic_router:
+                team_id = integration.agentic_router.team_id
+    except Exception as e:
+        logger.warning(f"Could not get team_id from bot integration: {e}")
+    
     return {
         "status": "connected",
         "database": "firestore",
         "project_id": "kickai-testing",
+        "team_id": team_id,  # Include current team ID
         "collections": [
-            "kickai_TEST_TEAM_players",
-            "kickai_TEST_TEAM_team_members",
-            "kickai_TEST_TEAM_matches",
-            "kickai_TEST_TEAM_attendance"
-        ],
-        "last_sync": datetime.now(timezone.utc).isoformat()
+            f"kickai_{team_id}_players",
+            f"kickai_{team_id}_team_members",
+            f"kickai_{team_id}_matches",
+            f"kickai_{team_id}_training",
+            f"kickai_{team_id}_payments"
+        ]
+    }
+
+
+@app.get("/team_id")
+async def get_team_id():
+    """Get the current team ID being used by the bot integration"""
+    team_id = "TEST_TEAM"  # Default fallback
+    try:
+        if BOT_INTEGRATION_AVAILABLE:
+            from .bot_integration import MockTelegramIntegration
+            integration = MockTelegramIntegration()
+            await integration._initialize()
+            if integration.agentic_router:
+                team_id = integration.agentic_router.team_id
+    except Exception as e:
+        logger.warning(f"Could not get team_id from bot integration: {e}")
+    
+    return {
+        "team_id": team_id,
+        "source": "bot_integration" if BOT_INTEGRATION_AVAILABLE else "fallback",
+        "status": "success"
     }
 
 
