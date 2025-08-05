@@ -106,7 +106,15 @@ class SystemReadinessCheck(BaseCheck):
                 
                 # Check if agent configuration manager is available
                 config_manager = get_agent_config_manager()
-                enabled_configs = config_manager.get_enabled_configs()
+                # Use default context for validation
+                context = {
+                    "team_name": "KICKAI", 
+                    "team_id": "KAI", 
+                    "chat_type": "main", 
+                    "user_role": "public", 
+                    "username": "user"
+                }
+                enabled_configs = config_manager.get_enabled_agent_configs(context)
                 
                 if not enabled_configs:
                     readiness_checks.append("❌ No enabled agent configurations found")

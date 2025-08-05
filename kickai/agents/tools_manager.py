@@ -48,7 +48,15 @@ class AgentToolsManager:
     ) -> list[Any]:
         """Get tools for a specific role with entity-specific filtering."""
         try:
-            config = get_agent_config(role)
+            # Use default context for tool configuration
+            context = {
+                "team_name": "KICKAI", 
+                "team_id": "KAI", 
+                "chat_type": "main", 
+                "user_role": "public", 
+                "username": "user"
+            }
+            config = get_agent_config(role, context)
             if not config:
                 logger.warning(f"No configuration found for role {role}")
                 return []
