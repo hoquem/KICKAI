@@ -9,12 +9,102 @@ This is the ONLY place where these enums should be defined to prevent circular i
 from enum import Enum
 
 
-class ChatType(Enum):
-    """Chat types for permission checking and role assignment."""
+class AgentRole(str, Enum):
+    """Agent roles in the CrewAI system."""
+    
+    # Core system agents
+    MESSAGE_PROCESSOR = "message_processor"
+    HELP_ASSISTANT = "help_assistant"
+    CONTEXT_GATHERER = "context_gatherer"
+    INTELLIGENT_SYSTEM = "intelligent_system"
+    
+    # Player management
+    PLAYER_COORDINATOR = "player_coordinator"
+    PLAYER_REGISTRATION = "player_registration"
+    
+    # Team management
+    TEAM_MANAGER = "team_manager"
+    TEAM_ADMINISTRATION = "team_administration"
+    TEAM_ADMINISTRATOR = "team_administrator"  # Alias for backward compatibility
+    
+    # Match and training
+    MATCH_MANAGER = "match_manager"
+    TRAINING_COORDINATOR = "training_coordinator"
+    
+    # Financial and analytics
+    FINANCE_MANAGER = "finance_manager"
+    PERFORMANCE_ANALYST = "performance_analyst"
+    
+    # Communication and support
+    COMMUNICATION_MANAGER = "communication_manager"
+    LEARNING_AGENT = "learning_agent"
+    ONBOARDING_AGENT = "onboarding_agent"
+    
+    # Squad selection and availability
+    SQUAD_SELECTOR = "squad_selector"
+    AVAILABILITY_MANAGER = "availability_manager"
+    COMMAND_FALLBACK_AGENT = "command_fallback_agent"
+    
+    # Health and monitoring
+    HEALTH_MONITOR = "health_monitor"
 
-    MAIN = "main_chat"
-    LEADERSHIP = "leadership_chat"
+
+class UserRole(str, Enum):
+    """User roles in the system."""
+    
+    # Player roles
+    PLAYER = "player"
+    
+    # Team member roles
+    TEAM_MEMBER = "team_member"
+    TEAM_MANAGER = "team_manager"
+    CLUB_ADMINISTRATOR = "club_administrator"
+    COACH = "coach"
+    ASSISTANT_COACH = "assistant_coach"
+    
+    # System roles
+    ADMIN = "admin"
+    LEADERSHIP = "leadership"
+
+
+class UserStatus(str, Enum):
+    """User status values."""
+    
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    SUSPENDED = "suspended"
+    PENDING = "pending"
+
+
+class ChatType(str, Enum):
+    """Chat types for Telegram integration."""
+    
     PRIVATE = "private"
+    GROUP = "group"
+    SUPERGROUP = "supergroup"
+    CHANNEL = "channel"
+    MAIN = "main"
+    LEADERSHIP = "leadership"
+
+
+class EntityType(str, Enum):
+    """Types of entities that tools can operate on."""
+    
+    PLAYER = "player"
+    TEAM_MEMBER = "team_member"
+    TEAM = "team"
+    MATCH = "match"
+    TRAINING = "training"
+    PAYMENT = "payment"
+    BOTH = "both"  # For entities that work with both players and team members
+    NEITHER = "neither"
+
+
+class AIProvider(str, Enum):
+    """AI providers supported by the system."""
+    
+    OLLAMA = "ollama"
+    OPENAI = "openai"
 
 
 class PermissionLevel(Enum):
@@ -38,34 +128,6 @@ class CommandType(Enum):
     TEAM_ADMINISTRATION = "team_administration"
     SYSTEM_OPERATION = "system_operation"
     HELP = "help"
-
-
-class AgentRole(Enum):
-    """CrewAI agent roles."""
-
-    MESSAGE_PROCESSOR = "message_processor"
-    PLAYER_COORDINATOR = "player_coordinator"
-    ONBOARDING_AGENT = "onboarding_agent"
-    AVAILABILITY_MANAGER = "availability_manager"
-    SQUAD_SELECTOR = "squad_selector"
-    TRAINING_COORDINATOR = "training_coordinator"
-    COMMUNICATION_MANAGER = "communication_manager"
-    HELP_ASSISTANT = "help_assistant"
-    TEAM_MANAGER = "team_manager"
-    FINANCE_MANAGER = "finance_manager"
-    PERFORMANCE_ANALYST = "performance_analyst"
-    LEARNING_AGENT = "learning_agent"
-    COMMAND_FALLBACK_AGENT = "command_fallback_agent"
-
-
-class AIProvider(Enum):
-    """AI providers for different environments."""
-
-    OLLAMA = "ollama"
-    GEMINI = "gemini"
-    HUGGINGFACE = "huggingface"
-    OPENAI = "openai"
-    MOCK = "mock"
 
 
 class PlayerPosition(Enum):
