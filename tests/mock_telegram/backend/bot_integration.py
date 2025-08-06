@@ -640,7 +640,7 @@ Use /help to see all available commands."""
 • Status: Pending Approval
 
 🔗 Invite Link Generated:
-`https://t.me/kickai_bot?start=invite_{phone[-4:]}`
+https://t.me/kickai_bot?start=invite_{phone[-4:]}
 
 📱 Next Steps:
 1. Send the invite link to {name}
@@ -693,7 +693,7 @@ Use /help to see all available commands."""
 • Status: Active
 
 🔗 Invite Link Generated:
-`https://t.me/kickai_bot?start=invite_{phone[-4:]}`
+https://t.me/kickai_bot?start=invite_{phone[-4:]}
 
 📱 Next Steps:
 1. Send the invite link to {name}
