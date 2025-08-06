@@ -72,7 +72,7 @@ class HelperAgent(Agent):
         """Get the agent's backstory and personality."""
         return """
         You are the KICKAI Helper, a friendly and knowledgeable assistant dedicated to helping team members master the KICKAI platform.
-        
+
         Your approach:
         - Be encouraging and supportive, never condescending
         - Provide step-by-step guidance with clear examples
@@ -80,7 +80,7 @@ class HelperAgent(Agent):
         - Celebrate user progress and achievements
         - Adapt your teaching style to each user's learning pace
         - Use emojis and clear formatting to make responses engaging
-        
+
         Core capabilities:
         - Command guidance and examples
         - Feature discovery and recommendations
@@ -89,14 +89,14 @@ class HelperAgent(Agent):
         - Contextual help and troubleshooting
         - Achievement celebrations
         - Proactive assistance
-        
+
         Communication style:
         - Friendly and approachable
         - Clear and concise explanations
         - Use emojis for visual appeal
         - Provide actionable next steps
         - Encourage exploration and learning
-        
+
         Remember: Your goal is to make every user feel confident and capable while using KICKAI!
         """
 
@@ -117,18 +117,18 @@ class HelperAgent(Agent):
         """
         task_description = f"""
         Help the user with their request: "{user_query}"
-        
+
         User ID: {user_id}
         Team ID: {team_id}
         Context: {context or "No additional context provided"}
-        
+
         Provide a helpful, encouraging response that:
         1. Addresses their specific question or need
         2. Offers relevant examples and tips
         3. Suggests related features they might find useful
         4. Celebrates their progress if appropriate
         5. Encourages continued learning
-        
+
         Use the available tools to get personalized information and provide the best possible assistance.
         """
 
@@ -152,15 +152,15 @@ class HelperAgent(Agent):
         """
         task_description = f"""
         Send a proactive suggestion to user {user_id} based on their current activity.
-        
+
         Context: {context}
-        
+
         Create a helpful, non-intrusive suggestion that:
         1. Relates to their current activity
         2. Introduces useful features they might not know about
         3. Provides clear next steps
         4. Encourages exploration and learning
-        
+
         Use the available tools to get personalized recommendations and create the best suggestion.
         """
 
@@ -184,16 +184,16 @@ class HelperAgent(Agent):
         """
         task_description = f"""
         Celebrate an achievement for user {user_id}.
-        
+
         Achievement: {achievement}
-        
+
         Create an encouraging celebration message that:
         1. Congratulates them on their achievement
         2. Explains why it's significant
         3. Encourages continued learning
         4. Suggests next steps or goals
         5. Uses positive, motivating language
-        
+
         Make it feel personal and meaningful!
         """
 
@@ -217,14 +217,14 @@ class HelperAgent(Agent):
         """
         task_description = f"""
         Provide learning guidance for user {user_id} with goal: {learning_goal}
-        
+
         Create a personalized learning roadmap that:
         1. Breaks down the goal into manageable steps
         2. Suggests relevant commands and features to learn
         3. Provides practice exercises and examples
         4. Sets realistic milestones and timelines
         5. Encourages consistent practice
-        
+
         Use the available tools to get personalized recommendations and create the best learning plan.
         """
 
@@ -250,14 +250,14 @@ class HelperAgent(Agent):
         """
         task_description = f"""
         Help user {user_id} troubleshoot an issue: {issue_description}
-        
+
         Provide troubleshooting assistance that:
         1. Identifies the root cause of the issue
         2. Provides step-by-step solutions
         3. Suggests alternative approaches if needed
         4. Prevents similar issues in the future
         5. Maintains a supportive, encouraging tone
-        
+
         Use the available tools to get relevant information and provide the best troubleshooting guidance.
         """
 
@@ -281,14 +281,14 @@ class HelperAgent(Agent):
         """
         task_description = f"""
         Provide a comprehensive overview of the {feature_name} feature for user {user_id}.
-        
+
         Create an engaging feature overview that:
         1. Explains what the feature does and why it's useful
         2. Shows practical examples and use cases
         3. Highlights key benefits and advantages
         4. Provides step-by-step usage instructions
         5. Suggests related features and next steps
-        
+
         Use the available tools to get detailed information and create the best feature overview.
         """
 

@@ -365,7 +365,7 @@ You entered: "{position}"
 
 ⚽ **VALID POSITIONS:**
 • **Goalkeeper** - Protect the goal, shot stopping
-• **Defender** - Defensive play, tackling  
+• **Defender** - Defensive play, tackling
 • **Midfielder** - Central play, passing
 • **Forward** - Attacking play, scoring
 • **Utility** - Multiple positions, versatile
@@ -464,7 +464,7 @@ You entered: "{role}"
 • **Manager** - Overall team management
 • **Assistant** - Supporting coaching role
 • **Coordinator** - Events and logistics
-• **Volunteer** - General team support  
+• **Volunteer** - General team support
 • **Admin** - System administration
 
 Please choose one of the above roles.

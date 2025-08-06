@@ -463,17 +463,17 @@ class UserFlowAgent:
                     from kickai.features.player_registration.domain.services.player_linking_service import (
                         PlayerLinkingService,
                     )
-                    
+
                     linking_service = PlayerLinkingService(team_id)
                     pending_players = await linking_service.get_pending_players_without_telegram_id()
-                    
+
                     if pending_players:
                         # Use the specific linking prompt message with contact button
                         message = await linking_service.create_linking_prompt_message("")
                         return AgentResponse(message=message, needs_contact_button=True)
                 except Exception as e:
                     logger.debug(f"🔍 Could not check pending players for linking prompt: {e}")
-                
+
                 # Fallback to generic message if no pending players or error
                 fallback_message = self._format_unregistered_user_message_tool(chat_type.value, team_id, username)
                 return AgentResponse(message=fallback_message)

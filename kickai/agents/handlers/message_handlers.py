@@ -7,7 +7,6 @@ the Single Responsibility Principle and Strategy Pattern.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
 
 from loguru import logger
 
@@ -104,8 +103,8 @@ class UnregisteredUserHandler(MessageHandler):
 
             # Attempt to link the user
             linked_player = await linking_service.link_telegram_user_by_phone(
-                phone=message.text.strip(), 
-                telegram_id=message.user_id, 
+                phone=message.text.strip(),
+                telegram_id=message.user_id,
                 username=message.username
             )
 
@@ -218,8 +217,8 @@ class ContactShareHandler(MessageHandler):
 
             # Attempt to link the user
             linked_player = await linking_service.link_telegram_user_by_phone(
-                phone=message.contact_phone, 
-                telegram_id=message.user_id, 
+                phone=message.contact_phone,
+                telegram_id=message.user_id,
                 username=message.username
             )
 
@@ -268,9 +267,9 @@ class NewMemberWelcomeHandler(MessageHandler):
             try:
                 from kickai.agents.user_flow_agent import UserFlowAgent, UserFlowDecision
                 user_flow_agent = UserFlowAgent(team_id=self.team_id)
-                
+
                 user_flow_result = await user_flow_agent.determine_user_flow(
-                    user_id=message.user_id, 
+                    user_id=message.user_id,
                     chat_type=message.chat_type
                 )
             except Exception as flow_error:
@@ -287,7 +286,7 @@ class NewMemberWelcomeHandler(MessageHandler):
                         username=message.username
                     )
                     return welcome_response
-                
+
                 elif user_flow_result == UserFlowDecision.REGISTERED_USER:
                     logger.info("New registered user - sending welcome back message")
                     welcome_response = await user_flow_agent._format_registered_user_message(
@@ -296,7 +295,7 @@ class NewMemberWelcomeHandler(MessageHandler):
                         username=message.username
                     )
                     return welcome_response
-                
+
                 else:
                     logger.warning(f"Unknown user flow for new member: {user_flow_result}")
                     return self._create_fallback_welcome_message(message.username)
@@ -315,7 +314,7 @@ class NewMemberWelcomeHandler(MessageHandler):
             # Sanitize username for safety
             from kickai.utils.security_utils import sanitize_username
             safe_username = sanitize_username(username)
-            
+
             fallback_message = f"""👋 Welcome to the team, {safe_username}!
 
 🎉 We're excited to have you join our football community!
@@ -326,14 +325,14 @@ class NewMemberWelcomeHandler(MessageHandler):
 • Check pinned messages for important updates
 
 Welcome aboard! ⚽"""
-            
+
             return AgentResponse(success=True, message=fallback_message)
-            
+
         except Exception as e:
             logger.error(f"❌ Error creating fallback welcome message: {e}")
             # Ultimate fallback
             return AgentResponse(
-                success=True, 
+                success=True,
                 message="👋 Welcome to the team! Use /help to see available commands."
             )
 
@@ -360,7 +359,7 @@ class RegisteredUserHandler(MessageHandler):
             # Get detailed registration status
             from kickai.agents.user_flow_agent import UserFlowAgent
             user_flow_agent = UserFlowAgent(team_id=self.team_id)
-            
+
             player_service = await user_flow_agent._get_player_service()
             team_service = await user_flow_agent._get_team_service()
 
@@ -388,9 +387,9 @@ class RegisteredUserHandler(MessageHandler):
             # Use ContextBuilder to determine user status and build execution context
             user_status = self.context_builder.determine_user_status(message, is_player, is_team_member)
             execution_context = await self.context_builder.build_execution_context(
-                message, 
-                user_status["is_registered"], 
-                user_status["is_player"], 
+                message,
+                user_status["is_registered"],
+                user_status["is_player"],
                 user_status["is_team_member"]
             )
 
@@ -408,7 +407,7 @@ class RegisteredUserHandler(MessageHandler):
                 logger.info("🔄 RegisteredUserHandler: Using crew lifecycle manager")
                 from kickai.agents.crew_lifecycle_manager import get_crew_lifecycle_manager
                 crew_lifecycle_manager = get_crew_lifecycle_manager()
-                
+
                 result = await crew_lifecycle_manager.execute_task(
                     team_id=self.team_id,
                     task_description=message.text,
@@ -493,7 +492,7 @@ class CommandHandler(MessageHandler):
             # For commands, we still check user flow first
             from kickai.agents.user_flow_agent import UserFlowAgent, UserFlowDecision
             user_flow_agent = UserFlowAgent(team_id=self.team_id)
-            
+
             user_flow = await user_flow_agent.determine_user_flow(
                 message.user_id, message.chat_type, command_name
             )

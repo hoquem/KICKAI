@@ -11,8 +11,6 @@ from typing import Any
 
 from loguru import logger
 
-from kickai.features.payment_management.domain.services.expense_service import ExpenseService
-
 from ..entities.team import Team, TeamStatus
 from ..entities.team_member import TeamMember
 from ..repositories.team_repository_interface import TeamRepositoryInterface
@@ -35,9 +33,8 @@ class TeamCreateParams:
 class TeamService:
     """Service for managing teams."""
 
-    def __init__(self, team_repository: TeamRepositoryInterface, expense_service: ExpenseService):
+    def __init__(self, team_repository: TeamRepositoryInterface):
         self.team_repository = team_repository
-        self.expense_service = expense_service
         self.logger = logger
 
     async def create_team(self, params: TeamCreateParams) -> Team:
@@ -183,7 +180,7 @@ class TeamService:
         try:
             # Import here to avoid circular imports
             import asyncio
-            
+
             # Check if we're already in an event loop
             try:
                 loop = asyncio.get_running_loop()
@@ -195,7 +192,7 @@ class TeamService:
             except RuntimeError:
                 # No event loop running, we can use asyncio.run
                 return asyncio.run(self.get_team(team_id=team_id))
-                
+
         except Exception as e:
             self.logger.error(f"❌ Failed to get team {team_id}: {e}")
             return None
@@ -205,7 +202,7 @@ class TeamService:
         try:
             # Import here to avoid circular imports
             import asyncio
-            
+
             # Check if we're already in an event loop
             try:
                 loop = asyncio.get_running_loop()
@@ -217,7 +214,7 @@ class TeamService:
             except RuntimeError:
                 # No event loop running, we can use asyncio.run
                 return asyncio.run(self.get_team_members(team_id))
-                
+
         except Exception as e:
             self.logger.error(f"❌ Failed to get team members for team {team_id}: {e}")
             return []

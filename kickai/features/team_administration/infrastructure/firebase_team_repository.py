@@ -207,6 +207,50 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             logger.error(f"❌ [REPO] Error getting team member by telegram_id: {e}")
             return None
 
+    async def get_team_member_by_phone(
+        self, phone: str, team_id: str
+    ) -> TeamMember | None:
+        """Get a team member by phone number."""
+        try:
+            docs = await self.database.query_documents(
+                collection=get_team_members_collection(team_id),
+                filters=[
+                    {"field": "team_id", "operator": "==", "value": team_id},
+                    {"field": "phone_number", "operator": "==", "value": phone},
+                ],
+            )
+
+            if docs:
+                return self._doc_to_team_member(docs[0])
+            return None
+        except Exception as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(f"❌ [REPO] Error getting team member by phone: {e}")
+            return None
+
+    async def get_team_members_by_status(
+        self, team_id: str, status: str
+    ) -> list[TeamMember]:
+        """Get team members by status."""
+        try:
+            docs = await self.database.query_documents(
+                collection=get_team_members_collection(team_id),
+                filters=[
+                    {"field": "team_id", "operator": "==", "value": team_id},
+                    {"field": "status", "operator": "==", "value": status},
+                ],
+            )
+
+            return [self._doc_to_team_member(doc) for doc in docs]
+        except Exception as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(f"❌ [REPO] Error getting team members by status: {e}")
+            return []
+
     async def update_team_member(self, team_member: TeamMember) -> TeamMember:
         """Update a team member."""
         team_member_data = team_member.to_dict()
@@ -285,7 +329,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         # Generate user_id from telegram_id if missing or empty
         user_id = doc.get("user_id", "")
         telegram_id = doc.get("telegram_id")
-        
+
         if not user_id and telegram_id:
             # Generate user_id from telegram_id
             from kickai.utils.user_id_generator import generate_user_id

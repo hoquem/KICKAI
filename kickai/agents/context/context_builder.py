@@ -5,7 +5,7 @@ Context Builder
 Dedicated class for building execution contexts following the Single Responsibility Principle.
 """
 
-from typing import Dict, Any
+from typing import Any
 
 from loguru import logger
 
@@ -20,17 +20,17 @@ class ContextBuilder:
     def __init__(self, team_id: str):
         self.team_id = team_id
 
-    async def build_execution_context(self, message: TelegramMessage, is_registered: bool, 
-                                    is_player: bool, is_team_member: bool) -> Dict[str, Any]:
+    async def build_execution_context(self, message: TelegramMessage, is_registered: bool,
+                                    is_player: bool, is_team_member: bool) -> dict[str, Any]:
         """
         Build execution context for message processing.
-        
+
         Args:
             message: Telegram message
             is_registered: Whether user is registered
             is_player: Whether user is a player
             is_team_member: Whether user is a team member
-            
+
         Returns:
             Execution context dictionary
         """
@@ -81,16 +81,16 @@ class ContextBuilder:
                 "is_main_chat": message.chat_type == ChatType.MAIN,
             }
 
-    def determine_user_status(self, message: TelegramMessage, is_player: bool, 
-                            is_team_member: bool) -> Dict[str, bool]:
+    def determine_user_status(self, message: TelegramMessage, is_player: bool,
+                            is_team_member: bool) -> dict[str, bool]:
         """
         Determine user status based on chat type and registration status.
-        
+
         Args:
             message: Telegram message
             is_player: Whether user is a player
             is_team_member: Whether user is a team member
-            
+
         Returns:
             Dictionary with user status flags
         """

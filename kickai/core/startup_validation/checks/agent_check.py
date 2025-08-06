@@ -25,10 +25,10 @@ class AgentInitializationCheck(BaseCheck):
             # Simulate agent instantiation for all enabled configs
             # Use default context for validation
             context = {
-                "team_name": "KICKAI", 
-                "team_id": "KAI", 
-                "chat_type": "main", 
-                "user_role": "public", 
+                "team_name": "KICKAI",
+                "team_id": "KAI",
+                "chat_type": "main",
+                "user_role": "public",
                 "username": "user"
             }
             configs = get_enabled_agent_configs(context)

@@ -61,7 +61,7 @@ class InviteLinkService:
     def _detect_mock_environment(self) -> bool:
         """
         Detect if running in mock testing environment.
-        
+
         Returns:
             True if in mock environment, False otherwise
         """
@@ -75,20 +75,20 @@ class InviteLinkService:
             if result == 0:
                 logger.info("🧪 Mock environment detected: localhost:8001 is available")
                 return True
-                
+
             # Check for MOCK_TELEGRAM_BASE_URL environment variable
             mock_url = os.getenv("MOCK_TELEGRAM_BASE_URL")
             if mock_url:
                 logger.info(f"🧪 Mock environment detected: MOCK_TELEGRAM_BASE_URL={mock_url}")
                 return True
-                
+
             # Check for test-specific configuration
             if os.getenv("KICKAI_TEST_MODE") == "true":
                 logger.info("🧪 Mock environment detected: KICKAI_TEST_MODE=true")
                 return True
-                
+
             return False
-            
+
         except Exception as e:
             logger.debug(f"Error detecting mock environment: {e}")
             return False
@@ -413,7 +413,7 @@ class InviteLinkService:
         """
         try:
             invite_id = None
-            
+
             # Method 1: If secure_data is provided, validate it directly
             if secure_data:
                 player_data = self._validate_secure_invite_data(secure_data)
@@ -421,21 +421,21 @@ class InviteLinkService:
                     logger.warning("❌ Invalid secure invite data")
                     return None
                 invite_id = player_data["invite_id"]
-                
+
             # Method 2: Try to extract invite_id directly from link (for mock links)
             if not invite_id and invite_link:
                 invite_id = self._extract_invite_id_from_mock_link(invite_link)
-                
+
             # Method 3: Extract invite ID from real Telegram link
             if not invite_id and invite_link:
                 invite_id = self._extract_invite_id_from_link(invite_link)
-                
+
             # Method 4: Check if invite_link is actually an invite_id directly
             if not invite_id and invite_link:
                 # Sometimes invite_link might be passed as invite_id directly
                 if len(invite_link) == 36 and invite_link.count('-') == 4:  # UUID format
                     invite_id = invite_link
-                    
+
             if not invite_id:
                 logger.warning(f"❌ Could not extract invite_id from: {invite_link}")
                 return None
@@ -535,21 +535,21 @@ class InviteLinkService:
     def _create_mock_invite_link(self, invite_id: str, invite_type: str, chat_id: str, team_id: str) -> str:
         """
         Create a mock invite link for testing environment.
-        
+
         Args:
             invite_id: Unique invite ID
             invite_type: Type of invite ("player" or "team_member")
             chat_id: Chat ID for the invite
             team_id: Team ID
-            
+
         Returns:
             Mock invite link URL
         """
         mock_base_url = os.getenv("MOCK_TELEGRAM_BASE_URL", "http://localhost:8001")
-        
+
         # Create mock invite link in the specified format
         mock_link = f"{mock_base_url}/?invite={invite_id}&type={invite_type}&chat={chat_id}&team={team_id}"
-        
+
         # Store in database with mock flag
         return mock_link
 
@@ -590,16 +590,16 @@ class InviteLinkService:
     def _extract_invite_id_from_mock_link(self, invite_link: str) -> str | None:
         """
         Extract invite ID from a mock invite link.
-        
+
         Args:
             invite_link: Mock invite link (e.g., http://localhost:8001/?invite=abc123&type=player&chat=123&team=KTI)
-            
+
         Returns:
             The invite ID if found, None otherwise
         """
         try:
-            from urllib.parse import urlparse, parse_qs
-            
+            from urllib.parse import parse_qs, urlparse
+
             parsed = urlparse(invite_link)
             if parsed.hostname in ['localhost', '127.0.0.1'] and parsed.query:
                 query_params = parse_qs(parsed.query)
@@ -607,9 +607,9 @@ class InviteLinkService:
                 if invite_id:
                     logger.info(f"🔗 Extracted invite_id from mock link: {invite_id}")
                     return invite_id
-                    
+
             return None
-            
+
         except Exception as e:
             logger.error(f"❌ Error extracting invite ID from mock link: {e}")
             return None
@@ -682,7 +682,7 @@ class InviteLinkService:
         try:
             # Import here to avoid circular imports
             import asyncio
-            
+
             # Check if we're already in an event loop
             try:
                 loop = asyncio.get_running_loop()
@@ -698,7 +698,7 @@ class InviteLinkService:
                 return asyncio.run(self.create_player_invite_link(
                     team_id, player_name, player_phone, player_position, main_chat_id, player_id
                 ))
-                
+
         except Exception as e:
             logger.error(f"❌ Failed to create player invite link: {e}")
             return {"error": f"Failed to create invite link: {e!s}"}

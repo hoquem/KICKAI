@@ -5,50 +5,47 @@ Provides dynamic service discovery capabilities to reduce tight coupling
 in system validation and enable runtime service registration and health checking.
 """
 
+from .discovery import (
+    CompositeServiceDiscovery,
+    DependencyContainerServiceDiscovery,
+    ModuleServiceDiscovery,
+    create_service_discovery_from_config,
+    get_service_discovery,
+)
+from .health_checkers import (
+    AgentServiceHealthChecker,
+    DatabaseServiceHealthChecker,
+    ExternalServiceHealthChecker,
+    PlayerServiceHealthChecker,
+    TeamServiceHealthChecker,
+    get_default_health_checkers,
+    register_default_health_checkers,
+)
 from .interfaces import (
-    IServiceRegistry,
+    CircuitBreakerOpenError,
     IServiceDiscovery,
     IServiceHealthChecker,
-    ServiceDefinition,
-    ServiceHealth,
-    ServiceStatus,
-    ServiceType,
+    IServiceRegistry,
     ServiceConfiguration,
+    ServiceDefinition,
     ServiceDiscoveryError,
-    ServiceRegistrationError,
+    ServiceHealth,
     ServiceHealthCheckError,
     ServiceNotFoundError,
-    CircuitBreakerOpenError,
+    ServiceRegistrationError,
+    ServiceStatus,
+    ServiceType,
 )
-
 from .registry import (
     ServiceRegistry,
     get_service_registry,
     reset_service_registry,
 )
 
-from .discovery import (
-    DependencyContainerServiceDiscovery,
-    ModuleServiceDiscovery,
-    CompositeServiceDiscovery,
-    get_service_discovery,
-    create_service_discovery_from_config,
-)
-
-from .health_checkers import (
-    DatabaseServiceHealthChecker,
-    PlayerServiceHealthChecker,
-    TeamServiceHealthChecker,
-    AgentServiceHealthChecker,
-    ExternalServiceHealthChecker,
-    get_default_health_checkers,
-    register_default_health_checkers,
-)
-
 __all__ = [
     # Interfaces
     'IServiceRegistry',
-    'IServiceDiscovery', 
+    'IServiceDiscovery',
     'IServiceHealthChecker',
     'ServiceDefinition',
     'ServiceHealth',
@@ -60,19 +57,19 @@ __all__ = [
     'ServiceHealthCheckError',
     'ServiceNotFoundError',
     'CircuitBreakerOpenError',
-    
+
     # Registry
     'ServiceRegistry',
     'get_service_registry',
     'reset_service_registry',
-    
+
     # Discovery
     'DependencyContainerServiceDiscovery',
     'ModuleServiceDiscovery',
     'CompositeServiceDiscovery',
     'get_service_discovery',
     'create_service_discovery_from_config',
-    
+
     # Health Checkers
     'DatabaseServiceHealthChecker',
     'PlayerServiceHealthChecker',

@@ -73,8 +73,7 @@ class CommandRegistryInitializer:
             "kickai.features.match_management.application.commands.match_commands",
             # Attendance management commands
             "kickai.features.attendance_management.application.commands.attendance_commands",
-            # Payment management commands
-            "kickai.features.payment_management.application.commands.payment_commands",
+
             # Communication commands
             "kickai.features.communication.application.commands.communication_commands",
             # Shared commands

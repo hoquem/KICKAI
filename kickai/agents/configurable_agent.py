@@ -7,22 +7,22 @@ best practices for context passing and tool parameter handling.
 """
 
 import traceback
-from typing import Any, Dict
+from typing import Any
 
 from crewai import Agent, Crew, Process, Task
 from loguru import logger
 
+from kickai.agents.tools_manager import AgentToolsManager
 from kickai.config.agents import get_agent_config
+from kickai.config.llm_config import get_llm_config
 from kickai.core.enums import AgentRole
 from kickai.core.exceptions import AgentInitializationError
-from kickai.agents.tools_manager import AgentToolsManager
-from kickai.config.llm_config import get_llm_config
 
 
 class ConfigurableAgent:
     """
     A clean, simplified configurable agent for the KICKAI system.
-    
+
     Features:
     - CrewAI 2025 best practices
     - Clean initialization and execution
@@ -33,17 +33,17 @@ class ConfigurableAgent:
     def __init__(self, agent_role: AgentRole, team_id: str):
         """
         Initialize agent with role and team ID.
-        
+
         Args:
             agent_role: The role this agent should perform
             team_id: The team this agent belongs to
         """
         self.agent_role = agent_role
         self.team_id = team_id
-        
+
         # Initialize components in clean order
         self._initialize_components()
-        
+
         logger.info(f"✅ ConfigurableAgent created: {agent_role.value} for team {team_id}")
 
     def _initialize_components(self):
@@ -53,25 +53,25 @@ class ConfigurableAgent:
             from kickai.agents.tool_registry import initialize_tool_registry
             self.tool_registry = initialize_tool_registry("kickai")
             self._tools_manager = AgentToolsManager(self.tool_registry)
-            
+
             # 2. LLM configuration
             llm_config = get_llm_config()
             self.llm = llm_config.main_llm
-            
+
             # 3. Agent configuration
             # Use default context for agent initialization
             context = {
-                "team_name": "KICKAI", 
-                "team_id": self.team_id, 
-                "chat_type": "main", 
-                "user_role": "public", 
+                "team_name": "KICKAI",
+                "team_id": self.team_id,
+                "chat_type": "main",
+                "user_role": "public",
                 "username": "user"
             }
             self.config = get_agent_config(self.agent_role, context)
-            
+
             # 4. CrewAI agent
             self.crew_agent = self._create_crew_agent()
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to initialize ConfigurableAgent: {e}")
             raise AgentInitializationError(f"Agent initialization failed: {e}")
@@ -80,7 +80,7 @@ class ConfigurableAgent:
         """Create the underlying CrewAI agent with proper configuration."""
         # Get tools for this agent role
         tools = self._tools_manager.get_tools_for_role(self.agent_role)
-        
+
         # Create agent with optimized configuration
         agent = Agent(
             role=self.config.role,
@@ -91,58 +91,58 @@ class ConfigurableAgent:
             verbose=True,
             max_iter=self.config.max_iterations,
         )
-        
+
         logger.debug(f"🔧 Created CrewAI agent for {self.agent_role.value} with {len(tools)} tools")
         return agent
 
-    async def execute(self, task_description: str, context: Dict[str, Any]) -> str:
+    async def execute(self, task_description: str, context: dict[str, Any]) -> str:
         """
         Execute a task using CrewAI best practices.
-        
+
         Args:
             task_description: Description of the task to execute
             context: Execution context with user information
-            
+
         Returns:
             Result of the task execution
-            
+
         Raises:
             ValueError: If context is missing or invalid
         """
         if not context:
             raise ValueError("Execution context is required and cannot be empty")
-        
+
         logger.info(f"🚀 Executing task for {self.agent_role.value}: {task_description[:50]}...")
-        
+
         try:
             # Validate context to prevent placeholder values
             self._validate_context(context)
-            
+
             # Create enhanced task description with context
             enhanced_description = self._enhance_task_description(task_description, context)
-            
+
             # Create and execute CrewAI task
             result = await self._execute_crewai_task(enhanced_description, context)
-            
+
             logger.info(f"✅ Task completed for {self.agent_role.value}")
             return result
-            
+
         except Exception as e:
             logger.error(f"❌ Task execution failed for {self.agent_role.value}: {e}")
             logger.error(traceback.format_exc())
-            return f"❌ Task execution failed: {str(e)}"
+            return f"❌ Task execution failed: {e!s}"
 
-    def _validate_context(self, context: Dict[str, Any]):
+    def _validate_context(self, context: dict[str, Any]):
         """Validate execution context to ensure it's complete and valid."""
         from kickai.core.crewai_context import validate_context_completeness
-        
+
         validate_context_completeness(context)
         logger.debug(f"🔍 Context validated for {self.agent_role.value}")
 
-    def _enhance_task_description(self, task_description: str, context: Dict[str, Any]) -> str:
+    def _enhance_task_description(self, task_description: str, context: dict[str, Any]) -> str:
         """
         Enhance task description with execution context for better LLM understanding.
-        
+
         This follows CrewAI 2025 best practices by making context visible to the LLM.
         """
         context_info = f"""
@@ -161,13 +161,13 @@ CRITICAL: When calling tools that need context (like get_player_status_by_telegr
 - chat_type="{context['chat_type']}"
 - user_role="{context['user_role']}"
 - is_registered={context['is_registered']}"""
-        
+
         return task_description + context_info
 
-    async def _execute_crewai_task(self, task_description: str, context: Dict[str, Any]) -> str:
+    async def _execute_crewai_task(self, task_description: str, context: dict[str, Any]) -> str:
         """Execute the actual CrewAI task with proper context handling."""
         logger.debug(f"🔧 Creating task with context: {context}")
-        
+
         # Create task with context in config (CrewAI 2025 best practice)
         task = Task(
             description=task_description,
@@ -184,11 +184,11 @@ CRITICAL: When calling tools that need context (like get_player_status_by_telegr
         # Set current task context for tools to access
         from kickai.core.crewai_context import set_current_task_context
         set_current_task_context(task)
-        logger.debug(f"✅ Task context set for tools")
+        logger.debug("✅ Task context set for tools")
 
         # Create and execute crew
         crew = Crew(
-            agents=[self.crew_agent],  
+            agents=[self.crew_agent],
             tasks=[task],
             process=Process.sequential,
             memory=False,  # Disable memory for stateless execution
@@ -196,10 +196,10 @@ CRITICAL: When calling tools that need context (like get_player_status_by_telegr
         )
 
         logger.info(f"🚀 Starting CrewAI execution for {self.agent_role.value}")
-        
+
         # Execute and return result
         result = crew.kickoff()
-        
+
         logger.info(f"✅ CrewAI execution completed for {self.agent_role.value}")
         return result.raw if hasattr(result, 'raw') else str(result)
 
@@ -207,14 +207,14 @@ CRITICAL: When calling tools that need context (like get_player_status_by_telegr
 class AgentFactory:
     """
     A clean factory for creating configurable agents.
-    
+
     Simplifies agent creation and management.
     """
 
     def __init__(self, team_id: str):
         """
         Initialize the factory for a specific team.
-        
+
         Args:
             team_id: The team ID for all agents created by this factory
         """
@@ -224,13 +224,13 @@ class AgentFactory:
     def create_agent(self, role: AgentRole) -> ConfigurableAgent:
         """
         Create a single configurable agent.
-        
+
         Args:
             role: The role for the agent to create
-            
+
         Returns:
             Configured agent ready for execution
-            
+
         Raises:
             AgentInitializationError: If agent creation fails
         """
@@ -239,27 +239,27 @@ class AgentFactory:
         except Exception as e:
             raise AgentInitializationError(f"Failed to create agent for role {role.value}: {e}")
 
-    def create_all_agents(self) -> Dict[AgentRole, ConfigurableAgent]:
+    def create_all_agents(self) -> dict[AgentRole, ConfigurableAgent]:
         """
         Create all enabled agents for the team.
-        
+
         Returns:
             Dictionary mapping agent roles to configured agents
         """
         agents = {}
-        
+
         try:
             from kickai.config.agents import get_enabled_agent_configs
             # Use default context for agent creation
             context = {
-                "team_name": "KICKAI", 
-                "team_id": self.team_id, 
-                "chat_type": "main", 
-                "user_role": "public", 
+                "team_name": "KICKAI",
+                "team_id": self.team_id,
+                "chat_type": "main",
+                "user_role": "public",
                 "username": "user"
             }
             enabled_configs = get_enabled_agent_configs(context)
-            
+
             for role in enabled_configs.keys():
                 try:
                     agents[role] = self.create_agent(role)
@@ -267,10 +267,10 @@ class AgentFactory:
                 except Exception as e:
                     logger.error(f"❌ Failed to create agent {role.value}: {e}")
                     # Continue creating other agents even if one fails
-                    
+
             logger.info(f"🎉 AgentFactory created {len(agents)} agents for team {self.team_id}")
             return agents
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to create agents: {e}")
             return agents  # Return whatever agents were successfully created
@@ -280,11 +280,11 @@ class AgentFactory:
 def create_agent(role: AgentRole, team_id: str) -> ConfigurableAgent:
     """
     Convenience function to create a single agent.
-    
+
     Args:
         role: Agent role to create
         team_id: Team ID for the agent
-        
+
     Returns:
         Configured agent
     """
@@ -292,13 +292,13 @@ def create_agent(role: AgentRole, team_id: str) -> ConfigurableAgent:
     return factory.create_agent(role)
 
 
-def create_all_agents(team_id: str) -> Dict[AgentRole, ConfigurableAgent]:
+def create_all_agents(team_id: str) -> dict[AgentRole, ConfigurableAgent]:
     """
     Convenience function to create all agents for a team.
-    
+
     Args:
         team_id: Team ID for all agents
-        
+
     Returns:
         Dictionary of all created agents
     """

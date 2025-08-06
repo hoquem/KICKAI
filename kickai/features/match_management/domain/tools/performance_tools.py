@@ -9,7 +9,6 @@ from loguru import logger
 from pydantic import BaseModel
 
 from kickai.core.dependency_container import get_container
-from kickai.core.exceptions import ServiceNotAvailableError
 from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
     format_tool_error,
@@ -284,4 +283,4 @@ def analyze_performance_trends(team_id: str, user_id: str, metric: str, period: 
 
     except Exception as e:
         logger.error(f"Failed to analyze performance trends: {e}", exc_info=True)
-        return format_tool_error(f"Failed to analyze performance trends: {e}") 
+        return format_tool_error(f"Failed to analyze performance trends: {e}")

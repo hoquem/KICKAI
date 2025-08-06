@@ -10,9 +10,9 @@ import os
 from typing import Any
 
 from kickai.core.settings import get_settings
+
 # Temporarily disabled due to enum mismatch
 # from kickai.utils.llm_factory import LLMFactory
-
 from ..reporting import CheckCategory, CheckResult, CheckStatus
 from .base_check import BaseCheck
 
@@ -34,11 +34,11 @@ class LLMProviderCheck(BaseCheck):
 
             # Simplified LLM configuration check
             provider_str = os.getenv("AI_PROVIDER", "ollama")
-            
+
             if provider_str == "ollama":
                 model_name = os.getenv("OLLAMA_MODEL", "llama2")
                 base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-                
+
                 return CheckResult(
                     name=self.name,
                     category=self.category,

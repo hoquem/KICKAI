@@ -77,7 +77,7 @@
 - **Test Environment**: Separate test configuration (incomplete)
 
 #### Advanced Features
-- **Training Management**: Domain implemented, integration pending
+- **Training Management**: ❌ Removed (not a priority for Sunday league)
 - **Advanced Analytics**: Basic implementation, needs enhancement
 - **Real-time Notifications**: Planned but not implemented
 
@@ -184,10 +184,10 @@ class FirestorePlayerRepository(PlayerRepository):
 ## Technology Roadmap
 
 ### Short Term (Next 2 Weeks)
-1. **Complete Training Management Integration**
-   - Integrate training commands with main system
-   - Add training tools to agent system
-   - Complete training E2E tests
+1. **Complete Match Management Integration**
+- Integrate match commands with main system
+- Add match tools to agent system
+- Complete match E2E tests
 
 2. **Fix E2E Testing Framework**
    - Install telethon dependency
@@ -235,7 +235,7 @@ class FirestorePlayerRepository(PlayerRepository):
 
 ### Current Limitations
 - **E2E Testing**: Missing telethon dependency
-- **Training Management**: Incomplete integration
+- **Match Management**: Incomplete integration
 - **Advanced Analytics**: Basic implementation only
 - **Real-time Features**: Limited real-time capabilities
 

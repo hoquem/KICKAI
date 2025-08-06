@@ -46,20 +46,20 @@ class StartupValidator:
             # Phase 1: Critical Prerequisites (fail-fast)
             InitializationSequenceCheck(),  # Comprehensive initialization validation
             ConfigurationCheck(),           # Basic configuration validation
-            
-            # Phase 2: Core Infrastructure  
+
+            # Phase 2: Core Infrastructure
             LLMProviderCheck(),             # LLM connectivity and configuration
             StubDetectionCheck(),           # Check for placeholder implementations
-            
+
             # Phase 3: Registry and Discovery
             EnhancedRegistryCheck(),        # Comprehensive registry validation
             ToolRegistrationCheck(),        # Tool discovery and registration
             CommandRegistryCheck(),         # Command registry initialization
-            
+
             # Phase 4: Agent System Health
             CrewAIAgentHealthCheck(),       # CrewAI agent health and performance
             AgentInitializationCheck(),     # Agent creation and configuration
-            
+
             # Phase 5: External Dependencies
             TelegramAdminCheck(),           # Telegram integration validation
         ]

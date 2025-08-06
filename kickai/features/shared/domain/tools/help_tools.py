@@ -5,11 +5,13 @@ Help Tools
 This module provides tools for help and command information.
 """
 
-from loguru import logger
+import os
 
 # Import command-related functions directly from the constants.py file to avoid circular imports
 import sys
-import os
+
+from loguru import logger
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 exec(open('kickai/core/constants.py').read())
 from kickai.core.enums import ChatType as ChatTypeEnum
@@ -301,20 +303,20 @@ def get_command_help(command_name: str, chat_type: str = "main") -> str:
 
 @tool("get_new_member_welcome_message")
 def get_new_member_welcome_message(
-    username: str, 
-    chat_type: str, 
-    team_id: str, 
+    username: str,
+    chat_type: str,
+    team_id: str,
     user_id: str
 ) -> str:
     """
     Generate a welcome message for new members joining the chat.
-    
+
     Args:
         username: New member's username
         chat_type: Chat type (main, leadership, private)
         team_id: Team ID
         user_id: User ID
-        
+
     Returns:
         Welcome message for the new member
     """
@@ -338,7 +340,7 @@ def get_new_member_welcome_message(
 
         # Normalize chat type
         chat_type_enum = normalize_chat_type(chat_type)
-        
+
         # Generate welcome message based on chat type
         if chat_type_enum == ChatTypeEnum.MAIN:
             welcome_message = f"""

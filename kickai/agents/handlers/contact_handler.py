@@ -7,26 +7,26 @@ implementing single responsibility principle.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from loguru import logger
 
-from kickai.core.interfaces import IContactHandler, IAgentResponse, IPlayerService, ITeamService
-from kickai.core.value_objects import EntityContext, PhoneNumber
 from kickai.core.enums import ChatType
+from kickai.core.interfaces import IAgentResponse, IContactHandler, IPlayerService, ITeamService
+from kickai.core.value_objects import EntityContext, PhoneNumber
 
 
 class AgentResponse:
     """Simple agent response implementation."""
-    
+
     def __init__(self, content: str, metadata: dict = None):
         self._content = content
         self._metadata = metadata or {}
-    
+
     @property
     def content(self) -> str:
         return self._content
-    
+
     @property
     def metadata(self) -> dict:
         return self._metadata
@@ -35,14 +35,14 @@ class AgentResponse:
 class ContactHandler(IContactHandler):
     """
     Handles contact sharing operations from Telegram.
-    
+
     This class is responsible for:
     - Processing contact data from Telegram
     - Validating contact information
     - Determining registration type (player vs team member)
     - Delegating to appropriate services
     """
-    
+
     def __init__(
         self,
         player_service: IPlayerService,
@@ -52,45 +52,45 @@ class ContactHandler(IContactHandler):
         self.player_service = player_service
         self.team_service = team_service
         self.team_id = team_id
-    
+
     async def handle_contact_share(
         self,
-        contact_data: Dict[str, Any],
+        contact_data: dict[str, Any],
         context: EntityContext
     ) -> IAgentResponse:
         """
         Handle contact sharing from Telegram.
-        
+
         Args:
             contact_data: Contact information from Telegram
             context: Entity context
-            
+
         Returns:
             Response to contact sharing
         """
         try:
             if not self.validate_contact_data(contact_data):
                 return self._create_invalid_contact_response()
-            
+
             # Extract contact information
             first_name = contact_data.get('first_name', '').strip()
             last_name = contact_data.get('last_name', '').strip()
             phone_number = contact_data.get('phone_number', '').strip()
-            
+
             # Combine name
             full_name = f"{first_name} {last_name}".strip()
             if not full_name:
                 return self._create_missing_name_response()
-            
+
             # Validate and create phone number
             try:
                 phone = PhoneNumber.from_string(phone_number)
             except ValueError as e:
                 return self._create_invalid_phone_response(str(e))
-            
+
             # Determine registration type based on chat context
             registration_type = self._determine_registration_type(context)
-            
+
             # Delegate to appropriate service
             if registration_type == "player":
                 return await self._handle_player_registration(
@@ -104,39 +104,39 @@ class ContactHandler(IContactHandler):
                 return await self._handle_ambiguous_registration(
                     full_name, phone, context
                 )
-                
+
         except Exception as e:
             logger.error(f"Error handling contact share: {e}")
             return AgentResponse(
                 content="❌ Sorry, I encountered an error processing your contact. Please try again.",
                 metadata={"error": str(e), "operation": "contact_share"}
             )
-    
-    def validate_contact_data(self, contact_data: Dict[str, Any]) -> bool:
+
+    def validate_contact_data(self, contact_data: dict[str, Any]) -> bool:
         """
         Validate contact data structure.
-        
+
         Args:
             contact_data: Contact data to validate
-            
+
         Returns:
             True if valid, False otherwise
         """
         if not isinstance(contact_data, dict):
             return False
-        
+
         # Must have phone number
         phone = contact_data.get('phone_number')
         if not phone or not isinstance(phone, str) or not phone.strip():
             return False
-        
+
         # Must have at least first name
         first_name = contact_data.get('first_name')
         if not first_name or not isinstance(first_name, str) or not first_name.strip():
             return False
-        
+
         return True
-    
+
     def _determine_registration_type(self, context: EntityContext) -> str:
         """Determine registration type based on context."""
         if context.chat_type == ChatType.LEADERSHIP:
@@ -148,7 +148,7 @@ class ContactHandler(IContactHandler):
         else:
             # Private chat - need to ask
             return "ambiguous"
-    
+
     async def _handle_player_registration(
         self,
         name: str,
@@ -159,7 +159,7 @@ class ContactHandler(IContactHandler):
         try:
             # Default position - will be asked later if needed
             default_position = "Any"
-            
+
             result = await self.player_service.register_player(
                 name=name,
                 phone=phone,
@@ -167,7 +167,7 @@ class ContactHandler(IContactHandler):
                 team_id=context.team_id,
                 context=context
             )
-            
+
             return AgentResponse(
                 content=f"""✅ **Player Registration Submitted**
 
@@ -189,14 +189,14 @@ Welcome to the team! ⚽""",
                     "status": "pending_approval"
                 }
             )
-            
+
         except Exception as e:
             logger.error(f"Error in player registration: {e}")
             return AgentResponse(
-                content=f"❌ Registration failed: {str(e)}",
+                content=f"❌ Registration failed: {e!s}",
                 metadata={"error": str(e), "operation": "player_registration"}
             )
-    
+
     async def _handle_team_member_registration(
         self,
         name: str,
@@ -207,7 +207,7 @@ Welcome to the team! ⚽""",
         try:
             # Default role - will be specified later if needed
             default_role = "Member"
-            
+
             result = await self.team_service.add_team_member(
                 name=name,
                 phone=phone,
@@ -215,7 +215,7 @@ Welcome to the team! ⚽""",
                 team_id=context.team_id,
                 context=context
             )
-            
+
             return AgentResponse(
                 content=f"""✅ **Team Member Registration Submitted**
 
@@ -237,14 +237,14 @@ Welcome to the team management! 👥""",
                     "status": "active"
                 }
             )
-            
+
         except Exception as e:
             logger.error(f"Error in team member registration: {e}")
             return AgentResponse(
-                content=f"❌ Registration failed: {str(e)}",
+                content=f"❌ Registration failed: {e!s}",
                 metadata={"error": str(e), "operation": "team_member_registration"}
             )
-    
+
     async def _handle_ambiguous_registration(
         self,
         name: str,
@@ -279,7 +279,7 @@ What would you like to register as?""",
                 "next_step": "choose_type"
             }
         )
-    
+
     def _create_invalid_contact_response(self) -> IAgentResponse:
         """Create response for invalid contact data."""
         return AgentResponse(
@@ -295,7 +295,7 @@ The contact information appears to be incomplete or invalid.
 Need help? Type /help for assistance.""",
             metadata={"error": "invalid_contact_data"}
         )
-    
+
     def _create_missing_name_response(self) -> IAgentResponse:
         """Create response for missing name."""
         return AgentResponse(
@@ -311,7 +311,7 @@ Your contact is missing a name. Please:
 **Example:** John Smith""",
             metadata={"error": "missing_name"}
         )
-    
+
     def _create_invalid_phone_response(self, error: str) -> IAgentResponse:
         """Create response for invalid phone number."""
         return AgentResponse(

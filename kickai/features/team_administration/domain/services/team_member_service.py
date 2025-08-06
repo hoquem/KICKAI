@@ -239,7 +239,7 @@ class TeamMemberService:
         try:
             # Import here to avoid circular imports
             import asyncio
-            
+
             # Check if we're already in an event loop
             try:
                 loop = asyncio.get_running_loop()
@@ -251,7 +251,7 @@ class TeamMemberService:
             except RuntimeError:
                 # No event loop running, we can use asyncio.run
                 return asyncio.run(self.get_my_status(user_id, team_id))
-                
+
         except Exception as e:
             self.logger.error(f"❌ Failed to get status for user {user_id}: {e}")
             return f"❌ Error retrieving status: {e!s}"
@@ -261,7 +261,7 @@ class TeamMemberService:
         try:
             # Import here to avoid circular imports
             import asyncio
-            
+
             # Check if we're already in an event loop
             try:
                 loop = asyncio.get_running_loop()
@@ -273,7 +273,7 @@ class TeamMemberService:
             except RuntimeError:
                 # No event loop running, we can use asyncio.run
                 return asyncio.run(self.get_team_members_by_team(team_id))
-                
+
         except Exception as e:
             self.logger.error(f"❌ Failed to get team members for team {team_id}: {e}")
             return []
@@ -283,7 +283,7 @@ class TeamMemberService:
         try:
             # Import here to avoid circular imports
             import asyncio
-            
+
             # Check if we're already in an event loop
             try:
                 loop = asyncio.get_running_loop()
@@ -295,7 +295,7 @@ class TeamMemberService:
             except RuntimeError:
                 # No event loop running, we can use asyncio.run
                 return asyncio.run(self.get_team_members_by_role(team_id, role))
-                
+
         except Exception as e:
             self.logger.error(f"❌ Failed to get team members by role {role}: {e}")
             return []

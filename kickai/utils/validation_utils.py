@@ -6,6 +6,7 @@ This module provides comprehensive input validation for the KICKAI system.
 """
 
 import re
+
 from kickai.core.constants import LimitConstants, ValidationConstants
 
 # Valid football positions

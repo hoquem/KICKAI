@@ -7,493 +7,277 @@ These tools integrate with the existing match management services.
 """
 
 import logging
-from datetime import datetime
-from typing import Any
+from datetime import datetime, time
 
-from kickai.core.dependency_container import get_container
-from kickai.features.match_management.domain.entities.match import MatchStatus
+from crewai import Tool
+
 from kickai.features.match_management.domain.services.match_service import MatchService
-from kickai.features.player_registration.domain.services.player_service import PlayerService
-from kickai.utils.crewai_tool_decorator import tool
-from kickai.utils.tool_helpers import validate_required_input
 
 logger = logging.getLogger(__name__)
 
 
-@tool("create_match")
-def create_match(
-    team_id: str,
-    user_id: str,
-    opponent: str,
-    date: str,
-    time: str,
-    venue: str = "Home",
-    competition: str = "Friendly",
-) -> str:
-    """
-    Create a new match for the team.
+class CreateMatchTool(Tool):
+    """Tool for creating new matches."""
 
-    Args:
-        team_id: Team ID from context
-        user_id: User ID from context
-        opponent: Opponent team name
-        date: Match date (YYYY-MM-DD format)
-        time: Match time (HH:MM format)
-        venue: Match venue (Home/Away)
-        competition: Competition type (Friendly, League, Cup, etc.)
+    name: str = "create_match"
+    description: str = "Create a new match with opponent, date, time, venue, and competition details"
 
-    Returns:
-        Confirmation message with match details
-    """
-    try:
-        logger.info(f"🔧 [TOOL] Creating match for user {user_id} in team {team_id}")
+    def __init__(self, match_service: MatchService):
+        super().__init__()
+        self.match_service = match_service
 
-        # Validate required inputs
-        validation_error = validate_required_input(team_id, "Team ID")
-        if validation_error:
-            return validation_error
-
-        validation_error = validate_required_input(user_id, "User ID")
-        if validation_error:
-            return validation_error
-
-        validation_error = validate_required_input(opponent, "Opponent")
-        if validation_error:
-            return validation_error
-
-        validation_error = validate_required_input(date, "Date")
-        if validation_error:
-            return validation_error
-
-        validation_error = validate_required_input(time, "Time")
-        if validation_error:
-            return validation_error
-
-        container = get_container()
-        match_service = container.get_service(MatchService)
-
-        if not match_service:
-            logger.error("❌ MatchService not available")
-            return "❌ Match service not available. Please try again later."
-
-        # Parse date and time
+    def _run(
+        self,
+        team_id: str,
+        opponent: str,
+        match_date: str,  # YYYY-MM-DD format
+        match_time: str,  # HH:MM format
+        venue: str,
+        competition: str = "League Match",
+        notes: str | None = None,
+        created_by: str = "",
+    ) -> str:
+        """Create a new match."""
         try:
-            date_time_str = f"{date} {time}"
-            match_datetime = datetime.strptime(date_time_str, "%Y-%m-%d %H:%M")
-        except ValueError as e:
-            logger.error(f"❌ Invalid date/time format: {e}")
-            return "❌ Invalid date or time format. Please use YYYY-MM-DD HH:MM format."
+            # Parse date and time
+            date_obj = datetime.strptime(match_date, "%Y-%m-%d")
+            time_obj = time.fromisoformat(match_time)
 
-        # Create match
-        match = match_service.create_match(
-            team_id=team_id,
-            opponent=opponent,
-            date=match_datetime,
-            location=venue,
-            status=MatchStatus.SCHEDULED,
-            home_away=venue.lower(),
-            competition=competition,
-        )
-
-        logger.info(f"✅ Match created: {match.id} - {team_id} vs {opponent}")
-
-        # Initialize attendance tracking for the match
-        attendance_initialized = False
-        try:
-            from kickai.features.attendance_management.domain.services.attendance_service import (
-                AttendanceService,
+            # Create match
+            match = self.match_service.create_match(
+                team_id=team_id,
+                opponent=opponent,
+                match_date=date_obj,
+                match_time=time_obj,
+                venue=venue,
+                competition=competition,
+                notes=notes,
+                created_by=created_by,
             )
 
-            attendance_service = container.get_service(AttendanceService)
-            if attendance_service:
-                attendance_records = attendance_service.initialize_match_attendance(
-                    match.id, team_id
-                )
-                attendance_initialized = len(attendance_records) > 0
-                logger.info(f"✅ Attendance initialized for {len(attendance_records)} players")
+            return f"✅ Match created successfully!\n\n🏆 **Match Details**\n• **Opponent**: {match.opponent}\n• **Date**: {match.formatted_date}\n• **Time**: {match.formatted_time}\n• **Venue**: {match.venue}\n• **Competition**: {match.competition}\n• **Match ID**: {match.match_id}\n\n📋 **Next Steps**\n• Players will be notified automatically\n• Availability requests will be sent 7 days before\n• Squad selection will open 3 days before match"
+
         except Exception as e:
-            logger.warning(f"Failed to initialize attendance: {e}")
-
-        success_msg = f"""
-🎉 **MATCH CREATED!**
-
-⚽ **Match Details:**
-• **Match ID:** {match.id}
-• **Teams:** {team_id} vs {opponent}
-• **Date:** {match_datetime.strftime("%A, %d %B %Y")}
-• **Time:** {match_datetime.strftime("%H:%M")}
-• **Venue:** {venue}
-• **Competition:** {competition}
-
-📋 **Next Steps:**
-• Use `/selectsquad {match.id}` to select the match squad
-• Use `/announce` to notify players about the match
-• Use `/attendance {match.id}` to track attendance
-
-🏆 **Match Status:** Scheduled"""
-
-        if attendance_initialized:
-            success_msg += """
-✅ **Attendance:** Automatically initialized for all active players
-💡 **Tip:** Players can now use `/markattendance` to mark their availability"""
-        else:
-            success_msg += f"""
-⚠️ **Attendance:** Manual initialization may be required
-💡 **Tip:** Use `/initialize_match_attendance {match.id}` if needed"""
-
-        return success_msg.strip()
-
-    except Exception as e:
-        logger.error(f"❌ Failed to create match: {e}")
-        return f"❌ Failed to create match: {e!s}"
-
-
-@tool("get_match")
-def get_match(match_id: str, team_id: str, user_id: str) -> str:
-    """
-    Get detailed information about a specific match.
-
-    Args:
-        match_id: The match ID
-        team_id: Team ID from context
-        user_id: User ID from context
-
-    Returns:
-        Detailed match information
-    """
-    try:
-        logger.info(f"🔧 [TOOL] Getting match {match_id} for user {user_id} in team {team_id}")
-
-        # Validate required inputs
-        validation_error = validate_required_input(match_id, "Match ID")
-        if validation_error:
-            return validation_error
-
-        validation_error = validate_required_input(team_id, "Team ID")
-        if validation_error:
-            return validation_error
-
-        validation_error = validate_required_input(user_id, "User ID")
-        if validation_error:
-            return validation_error
-
-        container = get_container()
-        match_service = container.get_service(MatchService)
-
-        if not match_service:
-            logger.error("❌ MatchService not available")
-            return "❌ Match service not available. Please try again later."
-
-        match = match_service.get_match(match_id)
-
-        if not match:
-            return f"❌ Match not found: {match_id}"
-
-        # Format match details
-        match_date = datetime.fromisoformat(match.date.replace("Z", "+00:00"))
-
-        match_info = f"""
-⚽ **MATCH DETAILS**
-
-📋 **Match ID:** {match.id}
-🏆 **Competition:** {match.competition or "Friendly"}
-🏟️ **Venue:** {match.home_away or "TBD"}
-📅 **Date:** {match_date.strftime("%A, %d %B %Y")}
-🕐 **Time:** {match_date.strftime("%H:%M")}
-📍 **Location:** {match.location or "TBD"}
-📊 **Status:** {match.status}
-"""
-
-        if match.score:
-            match_info += f"🎯 **Score:** {match.score}\n"
-
-        match_info += f"""
-📝 **Created:** {match.created_at or "Unknown"}
-🔄 **Last Updated:** {match.updated_at or "Unknown"}
-        """
-
-        return match_info.strip()
-
-    except Exception as e:
-        logger.error(f"❌ Failed to get match: {e}")
-        return f"❌ Failed to get match details: {e!s}"
-
-
-@tool("list_matches")
-def list_matches(team_id: str, user_id: str, status: str = "all") -> str:
-    """
-    List all matches for the team with optional status filter.
-
-    Args:
-        team_id: The team ID
-        status: Match status filter (all, scheduled, completed, cancelled)
-
-    Returns:
-        List of matches with details
-    """
-    try:
-        container = get_container()
-        match_service = container.get_service(MatchService)
-
-        if not match_service:
-            logger.error("❌ MatchService not available")
-            return "❌ Match service not available. Please try again later."
-
-        # Get matches
-        if status.lower() == "all":
-            matches = match_service.list_matches(team_id)
-        else:
-            try:
-                match_status = MatchStatus(status.lower())
-                matches = match_service.list_matches(team_id, match_status)
-            except ValueError:
-                return f"❌ Invalid status: {status}. Valid options: all, scheduled, completed, cancelled"
-
-        if not matches:
-            return f"📋 No matches found for team {team_id}"
-
-        # Sort matches by date
-        matches.sort(key=lambda m: datetime.fromisoformat(m.date.replace("Z", "+00:00")))
-
-        match_list = f"📋 **MATCHES FOR {team_id.upper()}**\n\n"
-
-        for i, match in enumerate(matches, 1):
-            match_date = datetime.fromisoformat(match.date.replace("Z", "+00:00"))
-
-            match_list += f"""
-**{i}. {match.opponent}** ({match.competition or "Friendly"})
-• **ID:** {match.id}
-• **Date:** {match_date.strftime("%d/%m/%Y")}
-• **Time:** {match_date.strftime("%H:%M")}
-• **Venue:** {match.home_away or "TBD"}
-• **Status:** {match.status}
-"""
-
-            if match.score:
-                match_list += f"• **Score:** {match.score}\n"
-
-        return match_list.strip()
-
-    except Exception as e:
-        logger.error(f"❌ Failed to list matches: {e}")
-        return f"❌ Failed to list matches: {e!s}"
-
-
-@tool("update_match")
-def update_match(match_id: str, team_id: str, updates: dict[str, Any]) -> str:
-    """
-    Update match details.
-
-    Args:
-        match_id: The match ID
-        team_id: The team ID
-        updates: Dictionary of fields to update
-
-    Returns:
-        Confirmation message
-    """
-    try:
-        container = get_container()
-        match_service = container.get_service(MatchService)
-
-        if not match_service:
-            logger.error("❌ MatchService not available")
-            return "❌ Match service not available. Please try again later."
-
-        # Validate updates
-        valid_fields = ["opponent", "date", "location", "status", "score", "competition"]
-        invalid_fields = [field for field in updates.keys() if field not in valid_fields]
-
-        if invalid_fields:
-            return f"❌ Invalid fields: {', '.join(invalid_fields)}. Valid fields: {', '.join(valid_fields)}"
-
-        # Update match
-        updated_match = match_service.update_match(match_id, **updates)
-
-        logger.info(f"✅ Match updated: {match_id}")
-
-        return f"""
-✅ **MATCH UPDATED!**
-
-📋 **Match ID:** {match_id}
-🔄 **Updated Fields:** {", ".join(updates.keys())}
-
-Use `/matchdetails {match_id}` to view updated details.
-        """.strip()
-
-    except Exception as e:
-        logger.error(f"❌ Failed to update match: {e}")
-        return f"❌ Failed to update match: {e!s}"
-
-
-@tool("delete_match")
-def delete_match(match_id: str, team_id: str) -> str:
-    """
-    Delete a match.
-
-    Args:
-        match_id: The match ID
-        team_id: The team ID
-
-    Returns:
-        Confirmation message
-    """
-    try:
-        container = get_container()
-        match_service = container.get_service(MatchService)
-
-        if not match_service:
-            logger.error("❌ MatchService not available")
-            return "❌ Match service not available. Please try again later."
-
-        # Delete match
-        success = match_service.delete_match(match_id)
-
-        if success:
-            logger.info(f"✅ Match deleted: {match_id}")
-            return f"✅ Match {match_id} has been deleted successfully."
-        else:
-            return f"❌ Failed to delete match {match_id}"
-
-    except Exception as e:
-        logger.error(f"❌ Failed to delete match: {e}")
-        return f"❌ Failed to delete match: {e!s}"
-
-
-@tool("get_available_players_for_match")
-def get_available_players_for_match(match_id: str, team_id: str) -> str:
-    """
-    Get list of available players for a specific match.
-
-    Args:
-        match_id: The match ID
-        team_id: The team ID
-
-    Returns:
-        List of available players with their details
-    """
-    try:
-        container = get_container()
-        player_service = container.get_service(PlayerService)
-        match_service = container.get_service(MatchService)
-
-        if not player_service or not match_service:
-            logger.error("❌ Required services not available")
-            return "❌ Player or match service not available. Please try again later."
-
-        # Get match details
-        match = match_service.get_match(match_id)
-        if not match:
-            return f"❌ Match not found: {match_id}"
-
-        # Get all active players
-        players = player_service.get_all_players(team_id)
-        active_players = [p for p in players if p.status == "active"]
-
-        if not active_players:
-            return f"❌ No active players found for team {team_id}"
-
-        # Format player list
-        player_list = f"👥 **AVAILABLE PLAYERS FOR MATCH {match_id}**\n\n"
-        player_list += f"📅 **Match:** {match.opponent} on {match.date}\n"
-        player_list += f"👤 **Total Players:** {len(active_players)}\n\n"
-
-        for i, player in enumerate(active_players, 1):
-            player_list += f"""
-**{i}. {player.full_name}**
-• **ID:** {player.player_id}
-• **Position:** {player.position}
-• **Phone:** {player.phone_number}
-• **Status:** {player.status}
-"""
-
-        player_list += f"""
-📋 **Next Steps:**
-• Use `/selectsquad {match_id}` to select the match squad
-• Use `/attendance {match_id}` to track attendance
-        """
-
-        return player_list.strip()
-
-    except Exception as e:
-        logger.error(f"❌ Failed to get available players: {e}")
-        return f"❌ Failed to get available players: {e!s}"
-
-
-@tool("select_squad")
-def select_squad(match_id: str, team_id: str, player_ids: list[str]) -> str:
-    """
-    Select squad for a match.
-
-    Args:
-        match_id: The match ID
-        team_id: The team ID
-        player_ids: List of player IDs to include in squad
-
-    Returns:
-        Confirmation message with squad details
-    """
-    try:
-        container = get_container()
-        player_service = container.get_service(PlayerService)
-        match_service = container.get_service(MatchService)
-
-        if not player_service or not match_service:
-            logger.error("❌ Required services not available")
-            return "❌ Player or match service not available. Please try again later."
-
-        # Get match details
-        match = match_service.get_match(match_id)
-        if not match:
-            return f"❌ Match not found: {match_id}"
-
-        # Validate players
-        all_players = player_service.get_all_players(team_id)
-        valid_players = []
-        invalid_players = []
-
-        for player_id in player_ids:
-            player = next((p for p in all_players if p.player_id == player_id), None)
-            if player and player.status == "active":
-                valid_players.append(player)
+            logger.error(f"Failed to create match: {e}")
+            return f"❌ **Error creating match**: {e!s}"
+
+
+class ListMatchesTool(Tool):
+    """Tool for listing matches."""
+
+    name: str = "list_matches"
+    description: str = "List matches for a team with optional status filter (upcoming, past, all)"
+
+    def __init__(self, match_service: MatchService):
+        super().__init__()
+        self.match_service = match_service
+
+    def _run(
+        self,
+        team_id: str,
+        status: str = "all",
+        limit: int = 10,
+    ) -> str:
+        """List matches for a team."""
+        try:
+            if status == "upcoming":
+                matches = self.match_service.get_upcoming_matches(team_id, limit)
+                title = f"📅 **Upcoming Matches** (Next {len(matches)})"
+            elif status == "past":
+                matches = self.match_service.get_past_matches(team_id, limit)
+                title = f"📅 **Past Matches** (Last {len(matches)})"
             else:
-                invalid_players.append(player_id)
+                matches = self.match_service.list_matches(team_id, limit=limit)
+                title = f"📅 **All Matches** (Last {len(matches)})"
 
-        if invalid_players:
-            return f"❌ Invalid or inactive players: {', '.join(invalid_players)}"
+            if not matches:
+                return f"{title}\n\nNo matches found."
 
-        if not valid_players:
-            return "❌ No valid players selected for squad"
+            result = [title, ""]
+            for i, match in enumerate(matches, 1):
+                result.append(
+                    f"{i}️⃣ **{match.match_id}** - vs {match.opponent}\n"
+                    f"   📅 {match.formatted_date}\n"
+                    f"   🕐 {match.formatted_time} | 🏟️ {match.venue}\n"
+                    f"   📊 Status: {match.status.value.title()}"
+                )
 
-        # Format squad details
-        squad_info = f"""
-🏆 **SQUAD SELECTED FOR MATCH {match_id}**
+            result.append("\n📋 **Quick Actions**")
+            result.append("• /matchdetails [match_id] - View full details")
+            result.append("• /markattendance [match_id] - Mark availability")
 
-📅 **Match:** {match.opponent} on {match.date}
-👥 **Squad Size:** {len(valid_players)} players
+            return "\n".join(result)
 
-**Selected Players:**
-"""
+        except Exception as e:
+            logger.error(f"Failed to list matches: {e}")
+            return f"❌ **Error listing matches**: {e!s}"
 
-        for i, player in enumerate(valid_players, 1):
-            squad_info += f"""
-**{i}. {player.full_name}**
-• **ID:** {player.player_id}
-• **Position:** {player.position}
-• **Phone:** {player.phone_number}
-"""
 
-        squad_info += f"""
-📋 **Next Steps:**
-• Use `/announce` to notify selected players
-• Use `/attendance {match_id}` to track attendance
-• Use `/remind` to send match reminders
-        """
+class GetMatchDetailsTool(Tool):
+    """Tool for getting detailed match information."""
 
-        logger.info(f"✅ Squad selected for match {match_id}: {len(valid_players)} players")
+    name: str = "get_match_details"
+    description: str = "Get detailed information about a specific match"
 
-        return squad_info.strip()
+    def __init__(self, match_service: MatchService):
+        super().__init__()
+        self.match_service = match_service
 
-    except Exception as e:
-        logger.error(f"❌ Failed to select squad: {e}")
-        return f"❌ Failed to select squad: {e!s}"
+    def _run(self, match_id: str) -> str:
+        """Get detailed match information."""
+        try:
+            match = self.match_service.get_match(match_id)
+            if not match:
+                return f"❌ **Match not found**: {match_id}"
+
+            result = [
+                f"🏆 **Match Details: {match.match_id}**",
+                "",
+                f"**Opponent**: {match.opponent}",
+                f"**Date**: {match.formatted_date}",
+                f"**Time**: {match.formatted_time}",
+                f"**Venue**: {match.venue}",
+                f"**Competition**: {match.competition}",
+                f"**Status**: {match.status.value.title()}",
+            ]
+
+            if match.notes:
+                result.append(f"**Notes**: {match.notes}")
+
+            if match.result:
+                result.append("")
+                result.append("📊 **Match Result**")
+                result.append(f"**Score**: {match.result.home_score} - {match.result.away_score}")
+                if match.result.scorers:
+                    result.append(f"**Scorers**: {', '.join(match.result.scorers)}")
+                if match.result.notes:
+                    result.append(f"**Notes**: {match.result.notes}")
+
+            result.append("")
+            result.append("📋 **Actions**")
+            result.append("• /markattendance [match_id] - Mark availability")
+            result.append("• /selectsquad [match_id] - Select final squad (Leadership only)")
+
+            return "\n".join(result)
+
+        except Exception as e:
+            logger.error(f"Failed to get match details: {e}")
+            return f"❌ **Error getting match details**: {e!s}"
+
+
+class SelectSquadTool(Tool):
+    """Tool for selecting squad for a match."""
+
+    name: str = "select_squad"
+    description: str = "Select squad for a match (Leadership only)"
+
+    def __init__(self, match_service: MatchService):
+        super().__init__()
+        self.match_service = match_service
+
+    def _run(
+        self,
+        match_id: str,
+        player_ids: list[str] | None = None,
+    ) -> str:
+        """Select squad for a match."""
+        try:
+            match = self.match_service.get_match(match_id)
+            if not match:
+                return f"❌ **Match not found**: {match_id}"
+
+            if not match.is_upcoming:
+                return "❌ **Cannot select squad**: Match is not in upcoming status"
+
+            # TODO: Implement squad selection logic
+            # This would integrate with the availability service to get available players
+            # and then create a squad selection record
+
+            result = [
+                f"👥 **Squad Selection: {match.match_id}**",
+                "",
+                f"**Match**: vs {match.opponent}",
+                f"**Date**: {match.formatted_date}",
+                f"**Time**: {match.formatted_time}",
+                "",
+                "📋 **Squad Selection**",
+                "Squad selection functionality will be implemented in the next phase.",
+                "",
+                "**Available Players**: To be determined from availability data",
+                "**Selected Squad**: To be selected",
+                "",
+                "📋 **Actions**",
+                "• /markattendance [match_id] - Mark availability",
+                "• /attendance [match_id] - View current availability",
+            ]
+
+            return "\n".join(result)
+
+        except Exception as e:
+            logger.error(f"Failed to select squad: {e}")
+            return f"❌ **Error selecting squad**: {e!s}"
+
+
+class RecordMatchResultTool(Tool):
+    """Tool for recording match results."""
+
+    name: str = "record_match_result"
+    description: str = "Record the result of a completed match (Leadership only)"
+
+    def __init__(self, match_service: MatchService):
+        super().__init__()
+        self.match_service = match_service
+
+    def _run(
+        self,
+        match_id: str,
+        home_score: int,
+        away_score: int,
+        scorers: list[str] | None = None,
+        assists: list[str] | None = None,
+        notes: str | None = None,
+        recorded_by: str = "",
+    ) -> str:
+        """Record match result."""
+        try:
+            match = self.match_service.get_match(match_id)
+            if not match:
+                return f"❌ **Match not found**: {match_id}"
+
+            if match.is_completed:
+                return "❌ **Match already completed**: Result already recorded"
+
+            # Record the result
+            updated_match = self.match_service.record_match_result(
+                match_id=match_id,
+                home_score=home_score,
+                away_score=away_score,
+                scorers=scorers or [],
+                assists=assists or [],
+                notes=notes,
+                recorded_by=recorded_by,
+            )
+
+            result = [
+                "🏆 **Match Result Recorded**",
+                "",
+                f"**Match**: vs {updated_match.opponent}",
+                f"**Date**: {updated_match.formatted_date}",
+                f"**Score**: {home_score} - {away_score}",
+            ]
+
+            if scorers:
+                result.append(f"**Scorers**: {', '.join(scorers)}")
+            if assists:
+                result.append(f"**Assists**: {', '.join(assists)}")
+            if notes:
+                result.append(f"**Notes**: {notes}")
+
+            result.append("")
+            result.append("✅ Match result has been recorded and match status updated to completed.")
+
+            return "\n".join(result)
+
+        except Exception as e:
+            logger.error(f"Failed to record match result: {e}")
+            return f"❌ **Error recording match result**: {e!s}"

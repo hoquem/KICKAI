@@ -11,57 +11,55 @@ from enum import Enum
 
 class AgentRole(str, Enum):
     """Agent roles in the CrewAI system."""
-    
+
     # Core system agents
     MESSAGE_PROCESSOR = "message_processor"
     HELP_ASSISTANT = "help_assistant"
     CONTEXT_GATHERER = "context_gatherer"
     INTELLIGENT_SYSTEM = "intelligent_system"
-    
+
     # Player management
     PLAYER_COORDINATOR = "player_coordinator"
     PLAYER_REGISTRATION = "player_registration"
-    
+
     # Team management
     TEAM_MANAGER = "team_manager"
     TEAM_ADMINISTRATION = "team_administration"
     TEAM_ADMINISTRATOR = "team_administrator"  # Alias for backward compatibility
-    
-    # Match and training
+
+    # Match management
     MATCH_MANAGER = "match_manager"
-    TRAINING_COORDINATOR = "training_coordinator"
-    
-    # Financial and analytics
-    FINANCE_MANAGER = "finance_manager"
+
+    # Analytics
     PERFORMANCE_ANALYST = "performance_analyst"
-    
+
     # Communication and support
     COMMUNICATION_MANAGER = "communication_manager"
     LEARNING_AGENT = "learning_agent"
     ONBOARDING_AGENT = "onboarding_agent"
-    
+
     # Squad selection and availability
     SQUAD_SELECTOR = "squad_selector"
     AVAILABILITY_MANAGER = "availability_manager"
     COMMAND_FALLBACK_AGENT = "command_fallback_agent"
-    
+
     # Health and monitoring
     HEALTH_MONITOR = "health_monitor"
 
 
 class UserRole(str, Enum):
     """User roles in the system."""
-    
+
     # Player roles
     PLAYER = "player"
-    
+
     # Team member roles
     TEAM_MEMBER = "team_member"
     TEAM_MANAGER = "team_manager"
     CLUB_ADMINISTRATOR = "club_administrator"
     COACH = "coach"
     ASSISTANT_COACH = "assistant_coach"
-    
+
     # System roles
     ADMIN = "admin"
     LEADERSHIP = "leadership"
@@ -69,7 +67,7 @@ class UserRole(str, Enum):
 
 class UserStatus(str, Enum):
     """User status values."""
-    
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
@@ -78,7 +76,7 @@ class UserStatus(str, Enum):
 
 class ChatType(str, Enum):
     """Chat types for Telegram integration."""
-    
+
     PRIVATE = "private"
     GROUP = "group"
     SUPERGROUP = "supergroup"
@@ -89,22 +87,24 @@ class ChatType(str, Enum):
 
 class EntityType(str, Enum):
     """Types of entities that tools can operate on."""
-    
+
     PLAYER = "player"
     TEAM_MEMBER = "team_member"
     TEAM = "team"
     MATCH = "match"
-    TRAINING = "training"
-    PAYMENT = "payment"
     BOTH = "both"  # For entities that work with both players and team members
     NEITHER = "neither"
 
 
 class AIProvider(str, Enum):
     """AI providers supported by the system."""
-    
+
     OLLAMA = "ollama"
     OPENAI = "openai"
+    GEMINI = "gemini"
+    HUGGINGFACE = "huggingface"
+    MOCK = "mock"
+    GROQ = "groq"
 
 
 class PermissionLevel(Enum):
@@ -124,7 +124,7 @@ class CommandType(Enum):
     NATURAL_LANGUAGE = "natural_language"
     PLAYER_MANAGEMENT = "player_management"
     MATCH_MANAGEMENT = "match_management"
-    PAYMENT_MANAGEMENT = "payment_management"
+
     TEAM_ADMINISTRATION = "team_administration"
     SYSTEM_OPERATION = "system_operation"
     HELP = "help"
@@ -151,26 +151,7 @@ class TeamStatus(Enum):
     PENDING = "pending"
 
 
-class PaymentType(Enum):
-    """Payment types."""
 
-    MATCH_FEE = "match_fee"
-    MEMBERSHIP_FEE = "membership_fee"
-    FINE = "fine"
-    REFUND = "refund"
-    MANUAL = "manual"
-    LINK = "link"
-    REQUEST = "request"
-
-
-class PaymentStatus(Enum):
-    """Payment status values."""
-
-    PENDING = "pending"
-    PAID = "paid"
-    OVERDUE = "overdue"
-    CANCELLED = "cancelled"
-    REFUNDED = "refunded"
 
 
 class ExpenseCategory(Enum):
@@ -204,7 +185,7 @@ class ComponentType(Enum):
     DATABASE = "database"
     TELEGRAM = "telegram"
     AI_SERVICE = "ai_service"
-    PAYMENT_GATEWAY = "payment_gateway"
+
     NOTIFICATION_SERVICE = "notification_service"
     AGENT = "agent"
     TOOL = "tool"
@@ -342,7 +323,7 @@ class CacheNamespace(Enum):
     USER_SESSION = "user_session"
     TEAM_DATA = "team_data"
     MATCH_DATA = "match_data"
-    PAYMENT_DATA = "payment_data"
+
     SYSTEM_CONFIG = "system_config"
 
 
@@ -352,8 +333,8 @@ class IDType(Enum):
     PLAYER = "player"
     TEAM = "team"
     MATCH = "match"
-    PAYMENT = "payment"
-    EXPENSE = "expense"
+
+
     MESSAGE = "message"
 
 

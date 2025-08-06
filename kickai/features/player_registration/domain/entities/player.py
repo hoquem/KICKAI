@@ -87,7 +87,7 @@ class Player:
         """Validate player data."""
         if not self.team_id:
             raise ValueError("Team ID cannot be empty")
-        
+
         # Only validate user_id if it's provided (allow empty for database retrieval)
         if self.user_id and not self.user_id.startswith("user_"):
             raise ValueError(f"Invalid user_id format: {self.user_id}. Must start with 'user_'")
@@ -235,7 +235,7 @@ class Player:
         """Create from database dictionary with relaxed validation for retrieval."""
         # Create player without triggering validation
         player = cls.__new__(cls)
-        
+
         # Set attributes directly
         player.user_id = data.get("user_id", "")
         player.team_id = data.get("team_id", "")
@@ -256,7 +256,7 @@ class Player:
         player.status = data.get("status", "pending")
         player.source = data.get("source")
         player.sync_version = data.get("sync_version")
-        
+
         # Parse datetime fields
         if data.get("created_at"):
             try:
@@ -265,7 +265,7 @@ class Player:
                 player.created_at = None
         else:
             player.created_at = None
-            
+
         if data.get("updated_at"):
             try:
                 player.updated_at = datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00"))
@@ -273,7 +273,7 @@ class Player:
                 player.updated_at = None
         else:
             player.updated_at = None
-        
+
         return player
 
     def approve(self):

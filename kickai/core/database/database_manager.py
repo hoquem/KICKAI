@@ -6,7 +6,6 @@ Dedicated class for database initialization and management following the Single 
 """
 
 import os
-from typing import Any, Optional
 
 from loguru import logger
 
@@ -19,7 +18,7 @@ class DatabaseManager(IDatabaseManager):
     """Manages database initialization and configuration."""
 
     def __init__(self):
-        self._database: Optional[DataStoreInterface] = None
+        self._database: DataStoreInterface | None = None
         self._initialized = False
 
     def initialize_database(self) -> None:

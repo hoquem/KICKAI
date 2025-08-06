@@ -48,10 +48,9 @@
 - **Commands**: `/markattendance`, `/attendance`, `/attendancehistory`, `/attendanceexport`
 
 #### Payment Management
-- **Payment Creation**: Complete payment management system
-- **Budget Tracking**: Financial management and reporting
-- **Payment Status**: Payment tracking and status management
-- **Commands**: `/createpayment`, `/payments`, `/budget`, `/markpaid`, `/paymentexport`
+**Status**: ❌ **REMOVED** - Not a priority for Sunday league team management
+
+**Reason**: Sunday league teams typically focus on match management rather than formal payment tracking.
 
 #### Communication
 - **Team Announcements**: Complete messaging system
@@ -62,27 +61,9 @@
 ### 🚧 **Partially Implemented Features**
 
 #### Training Management
-**Status**: Domain entities and tools implemented, commands defined but not integrated
+**Status**: ❌ **REMOVED** - Not a priority for Sunday league team management
 
-**✅ Implemented Components**:
-- **Domain Entities**: `TrainingSession`, `TrainingAttendance`
-- **Tools**: `schedule_training_session`, `list_training_sessions`, `mark_training_attendance`, `get_training_attendance_summary`, `cancel_training_session`
-- **Infrastructure**: `FirestoreTrainingRepository`
-- **Commands**: Defined in `training_commands.py` with full documentation
-
-**🚧 Missing Integration**:
-- Training commands not added to `constants.py` command definitions
-- Training commands not registered in main command registry
-- Training tools not integrated with agent system
-- E2E tests for training functionality
-
-**📋 Planned Training Commands**:
-- `/scheduletraining` - Schedule a training session (LEADERSHIP)
-- `/listtrainings` - List upcoming training sessions (PLAYER)
-- `/marktraining` - Mark attendance for training session (PLAYER)
-- `/canceltraining` - Cancel a training session (LEADERSHIP)
-- `/trainingstats` - Show training statistics (PLAYER)
-- `/mytrainings` - Show personal training schedule (PLAYER)
+**Reason**: Sunday league teams typically focus on match management rather than formal training sessions.
 
 #### E2E Testing
 **Status**: Framework exists but requires telethon dependency
@@ -99,62 +80,11 @@
 
 ## Immediate Next Steps
 
-### 1. **Complete Training Management Integration**
+### 1. **Training Management Integration (Removed)**
 
-#### Step 1: Add Training Commands to Constants
-**File**: `kickai/core/constants.py`
+Training management has been removed from the system as it's not a priority for Sunday league team management.
 
-Add training commands to the constants file:
-
-```python
-# =============================================================================
-# TRAINING MANAGEMENT COMMANDS
-# =============================================================================
-
-TRAINING_COMMANDS = {
-    CommandDefinition(
-        name="/scheduletraining",
-        description="Schedule a training session",
-        permission_level=PermissionLevel.LEADERSHIP,
-        feature="training_management",
-        usage="/scheduletraining [date] [time] [location] [description]",
-        examples=[
-            "/scheduletraining 2024-01-15 19:00 Main Field Passing drills",
-            "/scheduletraining 2024-01-20 18:30 Training Ground Fitness session"
-        ]
-    ),
-    # ... additional training commands
-}
-```
-
-#### Step 2: Register Training Commands
-**File**: `kickai/core/command_registry_initializer.py`
-
-Add training commands to the command registry:
-
-```python
-def _register_training_commands(self):
-    """Register training management commands."""
-    from kickai.features.training_management.application.commands import training_commands
-    
-    for command in training_commands.TRAINING_COMMANDS:
-        self._register_command(command)
-```
-
-#### Step 3: Integrate Training Tools with Agents
-**File**: `kickai/agents/tool_registry.py`
-
-Ensure training tools are discovered and registered:
-
-```python
-# Training tools should be auto-discovered from:
-# kickai/features/training_management/domain/tools/
-```
-
-#### Step 4: Add E2E Tests
-**File**: `tests/e2e/features/training_management/test_training_management.py`
-
-Create comprehensive E2E tests for training functionality.
+**Focus Areas**: Match management, player registration, and attendance tracking are the core priorities.
 
 ### 2. **Complete E2E Testing Setup**
 
@@ -172,8 +102,8 @@ Ensure test environment variables are properly configured.
 - Player registration E2E tests
 - Match management E2E tests
 - Attendance management E2E tests
-- Payment management E2E tests
-- Training management E2E tests
+- Match management E2E tests
+- Match management E2E tests
 
 ## Recent Major Accomplishments
 

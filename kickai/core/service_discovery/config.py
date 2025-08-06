@@ -6,20 +6,21 @@ further reducing tight coupling and enabling environment-specific service defini
 """
 
 import json
-import yaml
-from pathlib import Path
-from typing import Any, Dict, List, Optional
 import logging
+from pathlib import Path
+from typing import Any
 
-from .interfaces import ServiceDefinition, ServiceType, ServiceConfiguration
+import yaml
+
+from .interfaces import ServiceConfiguration, ServiceDefinition, ServiceType
 
 logger = logging.getLogger(__name__)
 
 
 class ServiceConfigurationLoader:
     """Loads service definitions from configuration files."""
-    
-    def __init__(self, config_paths: List[str] = None):
+
+    def __init__(self, config_paths: list[str] = None):
         """Initialize with default or custom config paths."""
         self.config_paths = config_paths or [
             "config/services.json",
@@ -28,11 +29,11 @@ class ServiceConfigurationLoader:
             "kickai/config/services.json",
             "kickai/config/services.yaml",
         ]
-    
-    def load_service_definitions(self) -> List[ServiceDefinition]:
+
+    def load_service_definitions(self) -> list[ServiceDefinition]:
         """Load service definitions from configuration files."""
         all_definitions = []
-        
+
         for config_path in self.config_paths:
             path = Path(config_path)
             if path.exists():
@@ -42,57 +43,57 @@ class ServiceConfigurationLoader:
                     logger.info(f"✅ Loaded {len(definitions)} service definitions from {config_path}")
                 except Exception as e:
                     logger.warning(f"⚠️ Failed to load service definitions from {config_path}: {e}")
-        
+
         if not all_definitions:
             logger.info("📝 No service configuration files found, using default definitions")
             all_definitions = self._get_default_service_definitions()
-        
+
         return all_definitions
-    
-    def _load_from_file(self, path: Path) -> List[ServiceDefinition]:
+
+    def _load_from_file(self, path: Path) -> list[ServiceDefinition]:
         """Load service definitions from a single file."""
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, encoding='utf-8') as f:
             if path.suffix.lower() in ['.yaml', '.yml']:
                 data = yaml.safe_load(f)
             else:
                 data = json.load(f)
-        
+
         return self._parse_service_definitions(data)
-    
-    def _parse_service_definitions(self, data: Dict[str, Any]) -> List[ServiceDefinition]:
+
+    def _parse_service_definitions(self, data: dict[str, Any]) -> list[ServiceDefinition]:
         """Parse service definitions from loaded data."""
         definitions = []
-        
+
         services_config = data.get('services', [])
         if isinstance(services_config, dict):
             # Convert dict format to list format
             services_config = [
-                {'name': name, **config} 
+                {'name': name, **config}
                 for name, config in services_config.items()
             ]
-        
+
         for service_config in services_config:
             try:
                 definition = self._create_service_definition(service_config)
                 definitions.append(definition)
             except Exception as e:
                 logger.error(f"❌ Failed to parse service definition {service_config.get('name', 'unknown')}: {e}")
-        
+
         return definitions
-    
-    def _create_service_definition(self, config: Dict[str, Any]) -> ServiceDefinition:
+
+    def _create_service_definition(self, config: dict[str, Any]) -> ServiceDefinition:
         """Create a ServiceDefinition from configuration data."""
         # Required fields
         name = config['name']
         service_type_str = config.get('type', 'utility')
-        
+
         # Convert string to ServiceType enum
         try:
             service_type = ServiceType(service_type_str.lower())
         except ValueError:
             logger.warning(f"⚠️ Unknown service type '{service_type_str}' for service '{name}', defaulting to UTILITY")
             service_type = ServiceType.UTILITY
-        
+
         # Optional fields
         interface_name = config.get('interface')
         implementation_class = config.get('implementation')
@@ -102,10 +103,10 @@ class ServiceConfigurationLoader:
         timeout = config.get('timeout', 30.0)
         retry_count = config.get('retry_count', 3)
         metadata = config.get('metadata', {})
-        
+
         # Add configuration source to metadata
         metadata['configuration_source'] = 'config_file'
-        
+
         return ServiceDefinition(
             name=name,
             service_type=service_type,
@@ -118,8 +119,8 @@ class ServiceConfigurationLoader:
             retry_count=retry_count,
             metadata=metadata
         )
-    
-    def _get_default_service_definitions(self) -> List[ServiceDefinition]:
+
+    def _get_default_service_definitions(self) -> list[ServiceDefinition]:
         """Get default service definitions when no config files are found."""
         return [
             # Core Services
@@ -132,14 +133,14 @@ class ServiceConfigurationLoader:
                 metadata={"priority": "critical", "startup_required": True}
             ),
             ServiceDefinition(
-                name="DependencyContainer", 
+                name="DependencyContainer",
                 service_type=ServiceType.CORE,
                 implementation_class="kickai.core.dependency_container.DependencyContainer",
                 dependencies=[],
                 timeout=5.0,
                 metadata={"priority": "critical", "startup_required": True}
             ),
-            
+
             # Feature Services
             ServiceDefinition(
                 name="PlayerService",
@@ -168,7 +169,7 @@ class ServiceConfigurationLoader:
                 timeout=20.0,
                 metadata={"feature": "match_management"}
             ),
-            
+
             # External Services
             ServiceDefinition(
                 name="FirebaseClient",
@@ -187,7 +188,7 @@ class ServiceConfigurationLoader:
                 retry_count=3,
                 metadata={"external_provider": "telegram", "connection_required": True}
             ),
-            
+
             # Agent Services
             ServiceDefinition(
                 name="AgentFactory",
@@ -214,29 +215,29 @@ def load_service_configuration() -> ServiceConfiguration:
         "config/service_discovery.yaml",
         "kickai/config/service_discovery.json",
     ]
-    
+
     for config_path in config_paths:
         path = Path(config_path)
         if path.exists():
             try:
-                with open(path, 'r', encoding='utf-8') as f:
+                with open(path, encoding='utf-8') as f:
                     if path.suffix.lower() in ['.yaml', '.yml']:
                         data = yaml.safe_load(f)
                     else:
                         data = json.load(f)
-                
+
                 return _parse_service_configuration(data)
             except Exception as e:
                 logger.warning(f"⚠️ Failed to load service discovery configuration from {config_path}: {e}")
-    
+
     logger.info("📝 No service discovery configuration found, using defaults")
     return ServiceConfiguration()
 
 
-def _parse_service_configuration(data: Dict[str, Any]) -> ServiceConfiguration:
+def _parse_service_configuration(data: dict[str, Any]) -> ServiceConfiguration:
     """Parse service configuration from loaded data."""
     config_data = data.get('service_discovery', {})
-    
+
     return ServiceConfiguration(
         auto_discovery_enabled=config_data.get('auto_discovery_enabled', True),
         health_check_enabled=config_data.get('health_check_enabled', True),
@@ -247,13 +248,13 @@ def _parse_service_configuration(data: Dict[str, Any]) -> ServiceConfiguration:
         circuit_breaker_threshold=config_data.get('circuit_breaker_threshold', 5),
         circuit_breaker_timeout=config_data.get('circuit_breaker_timeout', 60),
         startup_service_types=[
-            ServiceType(t.lower()) for t in config_data.get('startup_service_types', 
+            ServiceType(t.lower()) for t in config_data.get('startup_service_types',
                 ['core', 'feature', 'external', 'utility'])
         ]
     )
 
 
-def create_example_service_config() -> Dict[str, Any]:
+def create_example_service_config() -> dict[str, Any]:
     """Create an example service configuration file."""
     return {
         "service_discovery": {
@@ -281,7 +282,7 @@ def create_example_service_config() -> Dict[str, Any]:
                 }
             },
             {
-                "name": "PlayerService", 
+                "name": "PlayerService",
                 "type": "feature",
                 "interface": "kickai.features.player_registration.domain.interfaces.player_service_interface.IPlayerService",
                 "implementation": "kickai.features.player_registration.domain.services.player_service.PlayerService",
@@ -299,21 +300,21 @@ def create_example_service_config() -> Dict[str, Any]:
 def write_example_config_file(path: str = "config/services.json") -> None:
     """Write an example configuration file."""
     config = create_example_service_config()
-    
+
     config_path = Path(path)
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     with open(config_path, 'w', encoding='utf-8') as f:
         if config_path.suffix.lower() in ['.yaml', '.yml']:
             yaml.dump(config, f, default_flow_style=False, indent=2)
         else:
             json.dump(config, f, indent=2)
-    
+
     logger.info(f"✅ Example service configuration written to {path}")
 
 
 # Convenience functions
-def get_service_definitions() -> List[ServiceDefinition]:
+def get_service_definitions() -> list[ServiceDefinition]:
     """Get all service definitions from configuration."""
     loader = ServiceConfigurationLoader()
     return loader.load_service_definitions()

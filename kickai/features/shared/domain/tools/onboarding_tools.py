@@ -104,14 +104,14 @@ Just say "I want to register as a team member" and I'll guide you through step b
     # ) -> str:
     """
     Validate registration data for players or team members.
-    
+
     Args:
         name: Full name to validate
         phone: Phone number to validate  
         role_or_position: Role (team member) or position (player) to validate
         entity_type: Either "player" or "team_member"
         team_id: Team ID (required)
-        
+
     Returns:
         Validation result message
     """
@@ -168,14 +168,14 @@ Just say "I want to register as a team member" and I'll guide you through step b
     """
     Register a new team member through the onboarding process.
     Optimized for ONBOARDING_AGENT with enhanced feedback.
-    
+
     Args:
         name: Full name of the team member
         phone: Phone number (UK format)
         role: Administrative role
         team_id: Team ID (required)
         user_id: Optional user ID
-        
+
     Returns:
         Registration confirmation with next steps
     """
@@ -216,7 +216,7 @@ Just say "I want to register as a team member" and I'll guide you through step b
 
 🚀 **WHAT'S NEXT:**
 • You now have administrative access
-• Explore team management features  
+• Explore team management features
 • Contact leadership for orientation
 • Access leadership chat for admin functions
 
@@ -244,12 +244,12 @@ Welcome to the team! 🤝
     # ) -> str:
     """
     Detect whether user wants player or team member registration.
-    
+
     Args:
         message: User's message/request
         chat_type: Chat type (main/leadership)
         user_context: Additional user context
-        
+
     Returns:
         Detected registration type and confidence
     """

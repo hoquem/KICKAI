@@ -67,7 +67,7 @@ def link_player_member_profiles(
 
 📊 **LINKING PROCESS:**
 ✅ Player profile found
-✅ Team member profile found  
+✅ Team member profile found
 🔄 Analyzing data consistency
 🔄 Merging profiles using {merge_strategy} strategy
 ✅ Profiles successfully linked
@@ -132,7 +132,7 @@ def detect_data_conflicts(
 
 🔍 **CHECKED FIELDS:**
 • Name: Consistent ✅
-• Phone: Consistent ✅  
+• Phone: Consistent ✅
 • Email: Not provided in both profiles ⚠️
 • Emergency contact: Consistent ✅
 
@@ -259,7 +259,7 @@ def manage_unified_profile(
 
 👥 **TEAM MEMBER PROFILE:**
 • Role: Coordinator
-• Status: Active  
+• Status: Active
 • Access Level: Medium
 • Join Date: 2024-01-10
 
@@ -311,7 +311,7 @@ def manage_unified_profile(
 
 ⚡ **RESULT:**
 • Player profile: Independent
-• Team member profile: Independent  
+• Team member profile: Independent
 • Data integrity: Maintained
 • Role access: Unchanged
 
@@ -389,7 +389,7 @@ def get_cross_entity_insights(user_id: str, team_id: str) -> str:
 • Strong communication and reliability
 
 🎖️ **RECOGNITION:**
-Your dual-role contribution makes you an invaluable team member! 
+Your dual-role contribution makes you an invaluable team member!
 Consider mentoring others interested in multiple roles.
 
 🚀 **RECOMMENDATIONS:**
@@ -458,7 +458,7 @@ def suggest_role_optimization(user_id: str, team_id: str, performance_data: str 
 
 ✅ **NEXT STEPS:**
 1. Set 85% match attendance goal
-2. Explore additional leadership opportunities  
+2. Explore additional leadership opportunities
 3. Enable unified communication preferences
 4. Consider mentoring new dual-role members
 

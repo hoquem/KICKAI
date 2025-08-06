@@ -229,10 +229,10 @@ class PlayerLinkingService:
         if not isinstance(telegram_id, str):
             logger.warning(f"⚠️ Invalid telegram_id type: {type(telegram_id)}, expected str")
             telegram_id = str(telegram_id) if telegram_id else ""
-        
+
         # Sanitize telegram_id
         telegram_id = telegram_id.strip()
-        
+
         pending_count = len(await self.get_pending_players_without_telegram_id())
 
         if pending_count == 0:
@@ -276,7 +276,7 @@ Contact the team admin in the leadership chat."""
             from kickai.features.player_registration.domain.services.player_service import (
                 PlayerService,
             )
-            
+
             try:
                 return self.container.get_service(PlayerService)
             except RuntimeError as e:

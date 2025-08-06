@@ -168,7 +168,7 @@ class AgenticMessageRouter:
 
         except Exception as e:
             logger.error(f"AgenticMessageRouter failed: {e}")
-            
+
             # Provide a more helpful error message based on the error type
             if "Maximum iterations reached" in str(e) or "max_iter" in str(e).lower():
                 error_message = f"""🤖 I was processing: "{message.text}"
@@ -212,7 +212,7 @@ I encountered an error while processing your request. This might be due to:
 • `/list` - List team members/players
 
 If the problem continues, please contact your team administrator."""
-            
+
             return AgentResponse(
                 success=False, message=error_message, error=str(e)
             )
@@ -424,7 +424,7 @@ Use /help to see available commands or ask me questions!"""
 
         except Exception as e:
             logger.error(f"❌ Error routing to specialized agent: {e}")
-            
+
             # Provide a more helpful error message based on the error type
             if "Maximum iterations reached" in str(e) or "max_iter" in str(e).lower():
                 error_message = f"""🤖 I was processing: "{message.text}"
@@ -468,7 +468,7 @@ I encountered an error while processing your request. This might be due to:
 • `/list` - List team members/players
 
 If the problem continues, please contact your team administrator."""
-            
+
             return AgentResponse(
                 message=error_message,
                 success=False,
@@ -766,10 +766,10 @@ If the problem continues, please contact your team administrator."""
     def _is_new_chat_members_event(self, raw_update) -> bool:
         """
         Check if the raw update contains a new_chat_members event.
-        
+
         Args:
             raw_update: Raw update data from Telegram or mock service
-            
+
         Returns:
             True if this is a new_chat_members event, False otherwise
         """
@@ -782,14 +782,14 @@ If the problem continues, please contact your team administrator."""
                 # Check for new_chat_members field in message
                 if "new_chat_members" in raw_update:
                     return True
-                    
+
             # Check for real Telegram format
             if hasattr(raw_update, 'message') and raw_update.message:
                 if hasattr(raw_update.message, 'new_chat_members') and raw_update.message.new_chat_members:
                     return True
-                    
+
             return False
-            
+
         except Exception as e:
             logger.error(f"❌ Error checking for new_chat_members event: {e}")
             return False
@@ -797,16 +797,16 @@ If the problem continues, please contact your team administrator."""
     async def route_new_chat_members(self, message: TelegramMessage) -> AgentResponse:
         """
         Route new chat members events for invite link processing.
-        
+
         Args:
             message: Telegram message containing new_chat_members event
-            
+
         Returns:
             AgentResponse with the processing result
         """
         try:
             logger.info("🔗 Processing new_chat_members event for invite link validation")
-            
+
             # Extract new members from the update
             new_members = self._extract_new_members(message.raw_update)
             if not new_members:
@@ -816,18 +816,18 @@ If the problem continues, please contact your team administrator."""
                     message="No new members found in event",
                     error="No new members"
                 )
-            
+
             # Process each new member (usually just one for invite links)
             for member in new_members:
                 user_id = str(member.get("id", 0))
                 username = member.get("username") or member.get("first_name", "Unknown")
-                
+
                 logger.info(f"🔗 Processing new member: {username} (ID: {user_id})")
-                
+
                 # Extract invite link information
                 invite_link = self._extract_invite_link_from_event(message.raw_update)
                 invite_id = self._extract_invite_id_from_event(message.raw_update)
-                
+
                 if invite_id:
                     logger.info(f"🔗 Found invite_id in event: {invite_id}")
                     # Process invite link validation
@@ -847,14 +847,14 @@ If the problem continues, please contact your team administrator."""
                         username=username,
                         chat_type=message.chat_type
                     )
-            
+
             # Fallback response
             return AgentResponse(
                 success=True,
                 message="👋 Welcome to the team!",
                 error=None
             )
-            
+
         except Exception as e:
             logger.error(f"❌ Error processing new_chat_members event: {e}")
             return AgentResponse(
@@ -870,7 +870,7 @@ If the problem continues, please contact your team administrator."""
             if isinstance(raw_update, dict):
                 if "new_chat_members" in raw_update:
                     return raw_update["new_chat_members"]
-                    
+
             # Real Telegram format
             if hasattr(raw_update, 'message') and raw_update.message:
                 if hasattr(raw_update.message, 'new_chat_members'):
@@ -886,9 +886,9 @@ If the problem continues, please contact your team administrator."""
                             }
                             for member in members
                         ]
-                        
+
             return []
-            
+
         except Exception as e:
             logger.error(f"❌ Error extracting new members: {e}")
             return []
@@ -901,11 +901,11 @@ If the problem continues, please contact your team administrator."""
                 invitation_context = raw_update.get("invitation_context", {})
                 if invitation_context:
                     return invitation_context.get("invite_link")
-                    
+
             # For real Telegram, we'd need to store the invite link differently
             # This is a limitation of the Telegram API - we can't get the specific invite link used
             return None
-            
+
         except Exception as e:
             logger.error(f"❌ Error extracting invite link: {e}")
             return None
@@ -921,7 +921,7 @@ If the problem continues, please contact your team administrator."""
                     if invite_id:
                         logger.info(f"🔗 Found invitation context with invite_id: {invite_id}")
                         return invite_id
-                        
+
                 # Fallback to check _invitation_data (backup field)
                 if hasattr(raw_update, '_invitation_data'):
                     invitation_data = getattr(raw_update, '_invitation_data', {})
@@ -929,10 +929,10 @@ If the problem continues, please contact your team administrator."""
                     if invite_id:
                         logger.info(f"🔗 Found backup invitation data with invite_id: {invite_id}")
                         return invite_id
-                        
+
             logger.warning("⚠️ No invitation context found, using default invite_id")
             return None
-            
+
         except Exception as e:
             logger.error(f"❌ Error extracting invite ID: {e}")
             return None
@@ -949,16 +949,18 @@ If the problem continues, please contact your team administrator."""
         """Process invite link validation and player linking."""
         try:
             logger.info(f"🔗 Processing invitation link - invite_id: {invite_id}, user_id: {user_id}, chat_type: {chat_type.value}")
-            
+
             # Get invite link service
-            from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
             from kickai.core.dependency_container import get_container
-            
+            from kickai.features.communication.domain.services.invite_link_service import (
+                InviteLinkService,
+            )
+
             container = get_container()
             database = container.get_database()
-            
+
             invite_service = InviteLinkService(database=database)
-            
+
             # Validate and use the invite link (pass invite_id as invite_link for direct lookup)
             invite_data = await invite_service.validate_and_use_invite_link(
                 invite_link=invite_id,  # Pass invite_id directly
@@ -966,7 +968,7 @@ If the problem continues, please contact your team administrator."""
                 username=username,
                 secure_data=None
             )
-            
+
             if not invite_data:
                 logger.warning(f"❌ Invalid or expired invite link: {invite_id}")
                 return AgentResponse(
@@ -974,13 +976,13 @@ If the problem continues, please contact your team administrator."""
                     message="❌ Invalid or expired invite link. Please contact team leadership for a new invitation.",
                     error="Invalid invite link"
                 )
-            
+
             # Extract player information from invite
             player_phone = invite_data.get("player_phone")
             player_name = invite_data.get("player_name")
             member_phone = invite_data.get("member_phone")
             member_name = invite_data.get("member_name")
-            
+
             # Determine if this is a player or team member invite
             if player_phone and player_name:
                 return await self._process_player_invite_link(
@@ -1005,7 +1007,7 @@ If the problem continues, please contact your team administrator."""
                     message="❌ Invalid invite data. Please contact team leadership.",
                     error="Missing invite data fields"
                 )
-                
+
         except Exception as e:
             logger.error(f"❌ Error processing invite link validation: {e}")
             return AgentResponse(
@@ -1025,17 +1027,19 @@ If the problem continues, please contact your team administrator."""
         """Process player invite link and link the user."""
         try:
             # Use PlayerLinkingService to link the user
-            from kickai.features.player_registration.domain.services.player_linking_service import PlayerLinkingService
-            
+            from kickai.features.player_registration.domain.services.player_linking_service import (
+                PlayerLinkingService,
+            )
+
             linking_service = PlayerLinkingService(self.team_id)
-            
+
             # Link the user by phone number
             linked_player = await linking_service.link_telegram_user_by_phone(
                 phone=player_phone,
                 telegram_id=user_id,
                 username=username
             )
-            
+
             if linked_player:
                 logger.info(f"✅ Successfully linked player {player_name} to user {user_id}")
                 return AgentResponse(
@@ -1050,7 +1054,7 @@ If the problem continues, please contact your team administrator."""
                     message=f"❌ Unable to link your account to the player record for {player_name}.\n\n📞 Please contact team leadership for assistance.",
                     error="Player linking failed"
                 )
-                
+
         except Exception as e:
             logger.error(f"❌ Error processing player invite: {e}")
             return AgentResponse(
@@ -1072,13 +1076,13 @@ If the problem continues, please contact your team administrator."""
             # TODO: Implement team member linking service
             # For now, provide a basic welcome message
             logger.info(f"🔗 Processing team member invite for {member_name}")
-            
+
             return AgentResponse(
                 success=True,
                 message=f"👋 Welcome to the leadership team, {member_name}!\n\n✅ You have joined the leadership chat.\n\n📋 You can now manage team operations. Try /help to see available commands.",
                 error=None
             )
-            
+
         except Exception as e:
             logger.error(f"❌ Error processing team member invite: {e}")
             return AgentResponse(
@@ -1113,7 +1117,7 @@ If the problem continues, please contact your team administrator."""
                     message=f"👋 Welcome, {username}!",
                     error=None
                 )
-                
+
         except Exception as e:
             logger.error(f"❌ Error handling regular new member: {e}")
             return AgentResponse(

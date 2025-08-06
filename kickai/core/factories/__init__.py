@@ -7,8 +7,8 @@ and Dependency Injection principles.
 """
 
 from .agent_system_factory import AgentSystemFactory
-from .service_factory import ServiceFactory
 from .repository_factory import RepositoryFactory
+from .service_factory import ServiceFactory
 
 __all__ = [
     "AgentSystemFactory",

@@ -41,23 +41,15 @@ class ServiceFactory:
         )
 
         logger.debug("🔍 Imported FirebasePlayerRepository")
-        from kickai.features.payment_management.infrastructure.firebase_expense_repository import (
-            FirebaseExpenseRepository,
-        )
 
-        logger.debug("🔍 Imported FirebaseExpenseRepository")
 
         logger.debug("🔍 Creating team repository...")
         team_repo = FirebaseTeamRepository(self.database)
         logger.debug("🔍 Creating player repository...")
         player_repo = FirebasePlayerRepository(self.database)
-        logger.debug("🔍 Creating expense repository...")
-        expense_repo = FirebaseExpenseRepository(self.database)
+
 
         # Register repositories
-        from kickai.features.payment_management.domain.repositories.expense_repository_interface import (
-            ExpenseRepositoryInterface,
-        )
         from kickai.features.player_registration.domain.repositories.player_repository_interface import (
             PlayerRepositoryInterface,
         )
@@ -67,36 +59,13 @@ class ServiceFactory:
 
         self.container.register_service(TeamRepositoryInterface, team_repo)
         self.container.register_service(PlayerRepositoryInterface, player_repo)
-        self.container.register_service(ExpenseRepositoryInterface, expense_repo)
 
         return {
             "team_repository": team_repo,
             "player_repository": player_repo,
-            "expense_repository": expense_repo,
         }
 
-    def create_payment_services(self):
-        """Create payment services that depend on repositories."""
-        logger.info("🔍 Creating payment services...")
-        from kickai.features.payment_management.domain.services.expense_service import (
-            ExpenseService,
-        )
 
-        logger.debug("🔍 Imported ExpenseService")
-        from kickai.features.payment_management.domain.repositories.expense_repository_interface import (
-            ExpenseRepositoryInterface,
-        )
-
-        logger.debug("🔍 Imported ExpenseRepositoryInterface")
-
-        expense_repo = self.container.get_service(ExpenseRepositoryInterface)
-        logger.debug("🔍 Got expense repository from container")
-        expense_service = ExpenseService(expense_repo)
-        logger.debug("🔍 Created ExpenseService")
-
-        self.container.register_service(ExpenseService, expense_service)
-
-        return {"expense_service": expense_service}
 
     def create_team_services(self):
         """Create team services that depend on repositories and payment services."""
@@ -114,35 +83,29 @@ class ServiceFactory:
         )
 
         logger.debug("🔍 Imported ITeamService")
-        from kickai.features.payment_management.domain.services.expense_service import (
-            ExpenseService,
-        )
 
-        logger.debug("🔍 Imported ExpenseService")
 
         team_repo = self.container.get_service(TeamRepositoryInterface)
         logger.debug("🔍 Got team repository from container")
-        expense_service = self.container.get_service(ExpenseService)
-        logger.debug("🔍 Got expense service from container")
 
-        team_service = TeamService(team_repo, expense_service)
+        team_service = TeamService(team_repo)
         logger.debug("🔍 Created TeamService")
 
         # Register both the concrete class and the interface
         self.container.register_service(TeamService, team_service)
         self.container.register_service(ITeamService, team_service)
-        
+
         # Debug: Verify registration
         logger.debug(f"✅ Registered TeamService: {type(team_service)}")
         logger.debug(f"✅ Registered ITeamService: {type(team_service)}")
-        
+
         # Debug: Check if services are available immediately after registration
         try:
             team_service_check = self.container.get_service(TeamService)
             logger.debug(f"✅ TeamService immediately available: {type(team_service_check)}")
         except Exception as e:
             logger.error(f"❌ TeamService not immediately available: {e}")
-            
+
         try:
             team_service_interface_check = self.container.get_service(ITeamService)
             logger.debug(f"✅ ITeamService immediately available: {type(team_service_interface_check)}")
@@ -179,10 +142,12 @@ class ServiceFactory:
 
         player_repo = self.container.get_service(PlayerRepositoryInterface)
         logger.debug("🔍 Got player repository from container")
-        
+
         # Try to get TeamService by interface first, then by concrete class
         try:
-            from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
+            from kickai.features.team_administration.domain.interfaces.team_service_interface import (
+                ITeamService,
+            )
             team_service = self.container.get_service(ITeamService)
             logger.debug("🔍 Got team service from container by interface")
         except Exception as e:
@@ -238,21 +203,38 @@ class ServiceFactory:
         logger.debug("🔍 Registering TeamMemberService...")
         self.container.register_service(TeamMemberService, team_member_service)
 
+        # Create registration service after team services are available
+        from kickai.features.player_registration.domain.services.registration_service import (
+            RegistrationService,
+        )
+
+        # Create registration service with dependencies
+        registration_service = RegistrationService(
+            player_repository=player_repo,
+            team_repository=team_repo,
+            team_id="KTI"  # Default team ID for testing
+        )
+
+        logger.debug("🔍 Registering RegistrationService...")
+        self.container.register_service(RegistrationService, registration_service)
+
         # Debug: Log what services are now in the container
         logger.debug(
             f"🔍 Container services after player registration: {[cls.__name__ for cls in self.container._services.keys()]}"
         )
         logger.debug(f"🔍 Container service count: {len(self.container._services)}")
-        
+
         # Debug: Check if TeamService is available
         try:
             team_service_check = self.container.get_service(TeamService)
             logger.debug(f"✅ TeamService is available in container: {type(team_service_check)}")
         except Exception as e:
             logger.error(f"❌ TeamService not available in container: {e}")
-            
+
         try:
-            from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
+            from kickai.features.team_administration.domain.interfaces.team_service_interface import (
+                ITeamService,
+            )
             team_service_interface_check = self.container.get_service(ITeamService)
             logger.debug(f"✅ ITeamService is available in container: {type(team_service_interface_check)}")
         except Exception as e:
@@ -307,11 +289,29 @@ class ServiceFactory:
 
     def create_match_management_services(self):
         """Create match management services."""
+        from kickai.features.match_management.domain.repositories.attendance_repository_interface import (
+            AttendanceRepositoryInterface,
+        )
+        from kickai.features.match_management.domain.repositories.availability_repository_interface import (
+            AvailabilityRepositoryInterface,
+        )
         from kickai.features.match_management.domain.repositories.match_repository_interface import (
             MatchRepositoryInterface,
         )
-        from kickai.features.match_management.domain.services.match_management_service import (
-            MatchManagementService,
+        from kickai.features.match_management.domain.services.attendance_service import (
+            AttendanceService,
+        )
+        from kickai.features.match_management.domain.services.availability_service import (
+            AvailabilityService,
+        )
+        from kickai.features.match_management.domain.services.match_service import (
+            MatchService,
+        )
+        from kickai.features.match_management.infrastructure.firebase_attendance_repository import (
+            FirebaseAttendanceRepository,
+        )
+        from kickai.features.match_management.infrastructure.firebase_availability_repository import (
+            FirebaseAvailabilityRepository,
         )
         from kickai.features.match_management.infrastructure.firebase_match_repository import (
             FirebaseMatchRepository,
@@ -319,15 +319,30 @@ class ServiceFactory:
 
         # Create repositories
         match_repo = FirebaseMatchRepository(self.database)
+        availability_repo = FirebaseAvailabilityRepository(self.database)
+        attendance_repo = FirebaseAttendanceRepository(self.database)
 
         # Create services
-        match_service = MatchManagementService(match_repo)
+        match_service = MatchService(match_repo)
+        availability_service = AvailabilityService(availability_repo)
+        attendance_service = AttendanceService(attendance_repo)
 
         # Register with container
         self.container.register_service(MatchRepositoryInterface, match_repo)
-        self.container.register_service(MatchManagementService, match_service)
+        self.container.register_service(AvailabilityRepositoryInterface, availability_repo)
+        self.container.register_service(AttendanceRepositoryInterface, attendance_repo)
+        self.container.register_service(MatchService, match_service)
+        self.container.register_service(AvailabilityService, availability_service)
+        self.container.register_service(AttendanceService, attendance_service)
 
-        return {"match_repository": match_repo, "match_service": match_service}
+        return {
+            "match_repository": match_repo,
+            "availability_repository": availability_repo,
+            "attendance_repository": attendance_repo,
+            "match_service": match_service,
+            "availability_service": availability_service,
+            "attendance_service": attendance_service,
+        }
 
     def create_attendance_management_services(self):
         """Create attendance management services."""
@@ -353,45 +368,7 @@ class ServiceFactory:
 
         return {"attendance_repository": attendance_repo, "attendance_service": attendance_service}
 
-    def create_payment_management_services(self):
-        """Create payment management services."""
-        from kickai.features.payment_management.domain.repositories.budget_repository_interface import (
-            BudgetRepositoryInterface,
-        )
-        from kickai.features.payment_management.domain.repositories.payment_repository_interface import (
-            PaymentRepositoryInterface,
-        )
-        from kickai.features.payment_management.domain.services.budget_service import BudgetService
-        from kickai.features.payment_management.domain.services.payment_service import (
-            PaymentService,
-        )
-        from kickai.features.payment_management.infrastructure.firebase_budget_repository import (
-            FirebaseBudgetRepository,
-        )
-        from kickai.features.payment_management.infrastructure.firebase_payment_repository import (
-            FirebasePaymentRepository,
-        )
 
-        # Create repositories
-        payment_repo = FirebasePaymentRepository(self.database)
-        budget_repo = FirebaseBudgetRepository(self.database)
-
-        # Create services
-        payment_service = PaymentService(payment_repo)
-        budget_service = BudgetService(budget_repo)
-
-        # Register with container
-        self.container.register_service(PaymentRepositoryInterface, payment_repo)
-        self.container.register_service(BudgetRepositoryInterface, budget_repo)
-        self.container.register_service(PaymentService, payment_service)
-        self.container.register_service(BudgetService, budget_service)
-
-        return {
-            "payment_repository": payment_repo,
-            "budget_repository": budget_repo,
-            "payment_service": payment_service,
-            "budget_service": budget_service,
-        }
 
     def create_communication_services(self):
         """Create communication services."""
@@ -585,48 +562,46 @@ class ServiceFactory:
     def create_all_services(self) -> dict[str, Any]:
         """Create all feature services in the correct dependency order."""
         services = {}
-        
+
         logger.info("🚀 Starting service creation in dependency order...")
 
         # Create services in dependency order
         logger.info("📦 Creating base services...")
         services.update(self.create_base_services())
-        
-        logger.info("💰 Creating payment services...")
-        services.update(self.create_payment_services())
-        
+
+
+
         logger.info("🏆 Creating team services...")
         services.update(self.create_team_services())
-        
+
         logger.info("👤 Creating player registration services...")
         services.update(self.create_player_registration_services())
-        
+
         logger.info("⚙️ Creating team administration services...")
         services.update(self.create_team_administration_services())
-        
+
         logger.info("⚽ Creating match management services...")
         services.update(self.create_match_management_services())
-        
+
         logger.info("📊 Creating attendance management services...")
         services.update(self.create_attendance_management_services())
-        
-        logger.info("💳 Creating payment management services...")
-        services.update(self.create_payment_management_services())
-        
+
+
+
         logger.info("💬 Creating communication services...")
         services.update(self.create_communication_services())
-        
+
         logger.info("🏥 Creating health monitoring services...")
         services.update(self.create_health_monitoring_services())
-        
+
         logger.info("🔧 Creating system infrastructure services...")
         services.update(self.create_system_infrastructure_services())
-        
+
         logger.info("🤝 Creating helper system services...")
         services.update(self.create_helper_system_services())
-        
+
         logger.info(f"✅ All services created successfully. Total services: {len(services)}")
-        
+
         # Debug: List all services in container
         logger.debug(f"🔍 Final container services: {[cls.__name__ for cls in self.container._services.keys()]}")
 

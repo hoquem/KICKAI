@@ -7,19 +7,17 @@ with agent-specific optimization and production-ready Ollama client.
 """
 
 import logging
-from typing import Any, List
 
 from crewai import LLM
 
 from kickai.core.enums import AgentRole
 from kickai.core.settings import get_settings
-from kickai.infrastructure.ollama_factory import get_ollama_client
 from kickai.infrastructure.ollama_client import (
-    OllamaConnectionError, 
-    OllamaTimeoutError, 
     OllamaCircuitBreakerError,
-    OllamaClientError
+    OllamaConnectionError,
+    OllamaTimeoutError,
 )
+from kickai.infrastructure.ollama_factory import get_ollama_client
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +25,7 @@ logger = logging.getLogger(__name__)
 class LLMConfiguration:
     """
     Centralized LLM configuration following CrewAI best practices.
-    
+
     This class provides direct LLM instantiation as recommended by CrewAI,
     with agent-specific optimization and function calling LLM support.
     """
@@ -38,9 +36,9 @@ class LLMConfiguration:
         self.base_url = self.settings.ollama_base_url
         self.default_model = self.settings.ai_model_name
         self._ollama_client = None  # Lazy initialization
-        
+
         logger.info(f"🤖 LLM Configuration initialized: model={self.default_model}, base_url={self.base_url}")
-    
+
     @property
     def ollama_client(self):
         """Get or create Ollama client instance (lazy initialization)."""
@@ -52,7 +50,7 @@ class LLMConfiguration:
     def main_llm(self) -> LLM:
         """
         Primary LLM for complex reasoning tasks.
-        
+
         Returns:
             LLM: Configured for balanced reasoning with moderate temperature
         """
@@ -67,9 +65,9 @@ class LLMConfiguration:
     def tool_llm(self) -> LLM:
         """
         Optimized LLM for tool calling and function execution.
-        
+
         Uses lower temperature for precise tool calling as recommended by CrewAI.
-        
+
         Returns:
             LLM: Configured for precise tool calling
         """
@@ -84,7 +82,7 @@ class LLMConfiguration:
     def creative_llm(self) -> LLM:
         """
         Higher temperature LLM for creative and analytical tasks.
-        
+
         Returns:
             LLM: Configured for creative reasoning
         """
@@ -99,9 +97,9 @@ class LLMConfiguration:
     def data_critical_llm(self) -> LLM:
         """
         Ultra-precise LLM for data-critical operations.
-        
+
         Uses very low temperature for anti-hallucination in critical operations.
-        
+
         Returns:
             LLM: Configured for maximum precision
         """
@@ -115,12 +113,12 @@ class LLMConfiguration:
     def get_llm_for_agent(self, agent_role: AgentRole) -> tuple[LLM, LLM]:
         """
         Get optimal LLM configuration for specific agent role.
-        
+
         Returns tuple of (main_llm, function_calling_llm) as recommended by CrewAI.
-        
+
         Args:
             agent_role: The agent role to get LLM configuration for
-            
+
         Returns:
             tuple[LLM, LLM]: (main_llm, function_calling_llm)
         """
@@ -147,7 +145,7 @@ class LLMConfiguration:
     def validate_configuration(self) -> list[str]:
         """
         Validate LLM configuration and return any errors.
-        
+
         Returns:
             list[str]: List of validation error messages (empty if valid)
         """
@@ -173,14 +171,14 @@ class LLMConfiguration:
     def test_connection(self) -> bool:
         """
         Test connection to Ollama server synchronously.
-        
+
         Returns:
             bool: True if connection successful, False otherwise
         """
         try:
             # Use a simple HTTP request instead of the async client for this check
             import httpx
-            
+
             url = f"{self.base_url}/api/tags"
             with httpx.Client(timeout=10.0) as client:
                 response = client.get(url)
@@ -194,7 +192,7 @@ class LLMConfiguration:
     async def test_connection_async(self) -> bool:
         """
         Test connection to Ollama server asynchronously using robust client.
-        
+
         Returns:
             bool: True if connection successful, False otherwise
         """
@@ -215,18 +213,18 @@ class LLMConfiguration:
             logger.error(f"❌ Ollama async connection test failed with unexpected error: {e}")
             return False
 
-    def get_available_models(self) -> List[str]:
+    def get_available_models(self) -> list[str]:
         """
         Get list of available models from Ollama server using robust client.
-        
+
         Returns:
             List[str]: List of available model names
         """
         try:
             # Use a simple HTTP request instead of the async client for this check
+
             import httpx
-            import json
-            
+
             url = f"{self.base_url}/api/tags"
             with httpx.Client(timeout=10.0) as client:
                 response = client.get(url)
@@ -238,8 +236,8 @@ class LLMConfiguration:
         except Exception as e:
             logger.error(f"Failed to get available models: {e}")
             return []
-    
-    async def _get_available_models_async(self) -> List[str]:
+
+    async def _get_available_models_async(self) -> list[str]:
         """Get available models asynchronously."""
         try:
             models = await self.ollama_client.get_models()
@@ -263,7 +261,7 @@ _llm_config: LLMConfiguration | None = None
 def get_llm_config() -> LLMConfiguration:
     """
     Get the global LLM configuration instance.
-    
+
     Returns:
         LLMConfiguration: The singleton LLM configuration instance
     """
@@ -276,22 +274,22 @@ def get_llm_config() -> LLMConfiguration:
 def initialize_llm_config() -> LLMConfiguration:
     """
     Initialize and validate LLM configuration.
-    
+
     Returns:
         LLMConfiguration: Initialized and validated configuration
-        
+
     Raises:
         ValueError: If configuration is invalid
     """
     global _llm_config
     _llm_config = LLMConfiguration()
-    
+
     # Validate configuration
     errors = _llm_config.validate_configuration()
     if errors:
         error_msg = "LLM Configuration validation failed:\n" + "\n".join(f"  - {error}" for error in errors)
         logger.error(error_msg)
         raise ValueError(error_msg)
-    
+
     logger.info("✅ LLM Configuration initialized and validated successfully")
     return _llm_config

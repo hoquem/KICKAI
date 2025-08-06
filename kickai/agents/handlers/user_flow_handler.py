@@ -7,26 +7,24 @@ implementing single responsibility principle.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from loguru import logger
 
-from kickai.core.interfaces import IUserFlowHandler, IAgentResponse, IUserService
-from kickai.core.value_objects import EntityContext, UserId, TeamId
 from kickai.core.enums import ChatType
+from kickai.core.interfaces import IAgentResponse, IUserFlowHandler, IUserService
+from kickai.core.value_objects import EntityContext
 
 
 class AgentResponse:
     """Simple agent response implementation."""
-    
+
     def __init__(self, content: str, metadata: dict = None):
         self._content = content
         self._metadata = metadata or {}
-    
+
     @property
     def content(self) -> str:
         return self._content
-    
+
     @property
     def metadata(self) -> dict:
         return self._metadata
@@ -35,18 +33,18 @@ class AgentResponse:
 class UserFlowHandler(IUserFlowHandler):
     """
     Handles user flow determination and unregistered user processing.
-    
+
     This class is responsible for:
     - Determining if a user is registered
     - Handling unregistered user messages
     - Routing to appropriate registration flows
     """
-    
+
     def __init__(self, user_service: IUserService, team_id: str):
         self.user_service = user_service
         self.team_id = team_id
         self._phone_number_pattern = r"^(\+44|0)[0-9]{10}$"
-    
+
     async def determine_user_flow(
         self,
         message: str,
@@ -54,11 +52,11 @@ class UserFlowHandler(IUserFlowHandler):
     ) -> str:
         """
         Determine the appropriate user flow for a message.
-        
+
         Args:
             message: User message
             context: Entity context
-            
+
         Returns:
             User flow identifier
         """
@@ -68,7 +66,7 @@ class UserFlowHandler(IUserFlowHandler):
                 context.user_id,
                 context.team_id
             )
-            
+
             if not user_registration.is_registered:
                 if self._looks_like_phone_number(message):
                     return "phone_number_registration"
@@ -76,7 +74,7 @@ class UserFlowHandler(IUserFlowHandler):
                     return "private_chat_unregistered"
                 else:
                     return "group_chat_unregistered"
-            
+
             # User is registered
             if user_registration.is_player and user_registration.is_team_member:
                 return "dual_role_user"
@@ -86,11 +84,11 @@ class UserFlowHandler(IUserFlowHandler):
                 return "team_member_user"
             else:
                 return "registered_no_role"
-                
+
         except Exception as e:
             logger.error(f"Error determining user flow: {e}")
             return "error_fallback"
-    
+
     async def handle_unregistered_user(
         self,
         message: str,
@@ -98,36 +96,36 @@ class UserFlowHandler(IUserFlowHandler):
     ) -> IAgentResponse:
         """
         Handle messages from unregistered users.
-        
+
         Args:
             message: User message
             context: Entity context
-            
+
         Returns:
             Response for unregistered user
         """
         try:
             if self._looks_like_phone_number(message):
                 return await self._handle_phone_number_registration(message, context)
-            
+
             if context.chat_type == ChatType.PRIVATE:
                 return self._create_private_chat_welcome_response(context)
             else:
                 return self._create_group_chat_guidance_response(context)
-                
+
         except Exception as e:
             logger.error(f"Error handling unregistered user: {e}")
             return AgentResponse(
                 content="❌ Sorry, I encountered an error. Please try again later.",
                 metadata={"error": str(e), "user_flow": "error"}
             )
-    
+
     def _looks_like_phone_number(self, message: str) -> bool:
         """Check if message looks like a phone number."""
         import re
         # Remove spaces, dashes, and brackets
         cleaned = re.sub(r'[\s\-\(\)]', '', message.strip())
-        
+
         # Check UK phone number patterns
         patterns = [
             r'^\+44[0-9]{10}$',     # +44XXXXXXXXXX
@@ -135,9 +133,9 @@ class UserFlowHandler(IUserFlowHandler):
             r'^44[0-9]{10}$',       # 44XXXXXXXXXX
             r'^07[0-9]{9}$',        # 07XXXXXXXXX
         ]
-        
+
         return any(re.match(pattern, cleaned) for pattern in patterns)
-    
+
     async def _handle_phone_number_registration(
         self,
         phone_message: str,
@@ -146,7 +144,7 @@ class UserFlowHandler(IUserFlowHandler):
         """Handle phone number for registration."""
         # This would typically delegate to registration service
         return AgentResponse(
-            content=f"""📱 **Phone Number Received**
+            content="""📱 **Phone Number Received**
 
 Thank you for sharing your phone number! 
 
@@ -164,14 +162,14 @@ Type /help for more assistance.""",
                 "next_step": "name_required"
             }
         )
-    
+
     def _create_private_chat_welcome_response(
         self,
         context: EntityContext
     ) -> IAgentResponse:
         """Create welcome response for private chat."""
         return AgentResponse(
-            content=f"""👋 **Welcome to KICKAI!**
+            content="""👋 **Welcome to KICKAI!**
 
 I'm the team management assistant. To get started:
 
@@ -191,7 +189,7 @@ Let's get you connected with your team! ⚽""",
                 "registration_required": True
             }
         )
-    
+
     def _create_group_chat_guidance_response(
         self,
         context: EntityContext

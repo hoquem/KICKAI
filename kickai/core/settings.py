@@ -8,7 +8,6 @@ the complex improved_config_system.py and all scattered configuration access.
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Union
 
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -62,7 +61,7 @@ class Settings(BaseSettings):
     ai_max_tokens_creative: int = Field(default=1000, description="AI max tokens for creative tasks")
     ai_timeout: int = Field(default=120, description="AI timeout in seconds")
     ai_max_retries: int = Field(default=5, description="AI max retries")
-    
+
     # Enhanced Ollama Configuration for Production Resilience
     ollama_connection_timeout: float = Field(default=30.0, description="Ollama connection timeout in seconds")
     ollama_request_timeout: float = Field(default=120.0, description="Ollama request timeout in seconds")
@@ -74,7 +73,7 @@ class Settings(BaseSettings):
     ollama_circuit_breaker_half_open_max_calls: int = Field(default=3, description="Max calls in half-open state")
     ollama_health_check_interval: float = Field(default=30.0, description="Health check interval in seconds")
     ollama_metrics_enabled: bool = Field(default=True, description="Enable Prometheus metrics for Ollama client")
-    
+
     # Simplified LLM Configuration (CrewAI Best Practices)
     enable_simplified_llm: bool = Field(default=True, description="Enable simplified LLM configuration system")
     validate_llm_on_startup: bool = Field(default=True, description="Validate LLM configuration on startup")
@@ -133,7 +132,7 @@ class Settings(BaseSettings):
     memory_pattern_learning: bool = Field(default=True, description="Enable pattern learning")
     memory_preference_learning: bool = Field(default=True, description="Enable preference learning")
     memory_cleanup_interval: int = Field(default=24, description="Memory cleanup interval in hours")
-    
+
     # CrewAI Memory Configuration - Disabled for Ollama-only setup
     crewai_memory_enabled: bool = Field(default=False, description="Enable CrewAI memory system (disabled for Ollama compatibility)")
     crewai_memory_provider: str = Field(default="disabled", description="CrewAI memory embedding provider (disabled for Ollama)")
