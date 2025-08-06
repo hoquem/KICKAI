@@ -138,7 +138,7 @@ Use /help to see all available commands."""
 • Status: Pending Approval
 
 🔗 Invite Link Generated:
-`{result['invite_link']}`
+{result['invite_link']}
 
 📱 Next Steps:
 1. Send the invite link to {result['name']}
@@ -220,7 +220,7 @@ Use /help to see all available commands."""
 • Status: Pending Approval
 
 🔗 Invite Link Generated:
-`{result['invite_link']}`
+{result['invite_link']}
 
 📱 Next Steps:
 1. Send the invite link to {result['name']}
