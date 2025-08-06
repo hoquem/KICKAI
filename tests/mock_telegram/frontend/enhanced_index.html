@@ -691,16 +691,13 @@
                     <h4>🚀 Quick Test Scenarios</h4>
                     <div class="template-buttons">
                         <button class="template-btn" data-scenario="player-registration">
-                            🏃 Player Registration
+                            🏃 Add New Player
                         </button>
                         <button class="template-btn" data-scenario="match-creation">
-                            ⚽ Match Creation
+                            ⚽ Create Match
                         </button>
                         <button class="template-btn" data-scenario="attendance-marking">
-                            ✅ Attendance Marking
-                        </button>
-                        <button class="template-btn" data-scenario="payment-processing">
-                            💰 Payment Processing
+                            ✅ Mark Attendance
                         </button>
                     </div>
                 </div>
@@ -1191,7 +1188,7 @@
                 const matchesCategory = currentCategory === 'all' || 
                     (currentCategory === 'players' && user.role === 'player') ||
                     (currentCategory === 'team-members' && isTeamMember(user)) ||
-                    (currentCategory === 'admins' && isTeamMember(user)); // Admins are team members with leadership access
+                    (currentCategory === 'admins' && isAdminUser(user)); // Admins are team members with leadership access
                 
                 const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
                 const matchesSearch = fullName.toLowerCase().includes(searchTerm) ||
@@ -1249,18 +1246,16 @@
                 );
             }
             
-            // Helper function to check if user is a team member (non-player)
-            function isTeamMember(user) {
-                return user.role && user.role !== 'player';
-            }
-            
             const roleColor = user.role === 'player' ? 'var(--role-player)' : 
                             isAdminUser(user) ? 'var(--role-admin)' : 
                             'var(--role-member)';
             
             // Determine chat access based on role
             const hasMainChatAccess = true; // All users have main chat access
-            const hasLeadershipChatAccess = isTeamMember(user); // Team members (non-players) have leadership chat access
+            const hasLeadershipChatAccess = user.role && user.role !== 'player'; // Team members (non-players) have leadership chat access
+            
+            // Debug: Log permission determination
+            console.log(`🔍 User: ${fullName}, Role: ${user.role}, Main: ${hasMainChatAccess}, Leadership: ${hasLeadershipChatAccess}`);
             
             li.innerHTML = `
                 <div class="user-avatar" style="background: ${roleColor}">
@@ -1527,15 +1522,73 @@
                 return;
             }
             
+            // Check if user has appropriate permissions for the scenario
+            const userRole = currentUser.role;
+            const isTeamMember = userRole && userRole !== 'player';
+            
             const scenarios = {
-                'player-registration': '/addplayer Test Player +1234567890 Forward',
-                'match-creation': '/creatematch Test Match 2024-01-15 14:00 Home',
-                'attendance-marking': '/markattendance MATCH001 present',
-                'payment-processing': '/createpayment Test Payment 50.00 match_fee'
+                'player-registration': {
+                    command: '/addplayer New Player +447700900000 Forward',
+                    description: 'Register a new player with name, phone, and position',
+                    requiresLeadership: true,
+                    chatType: 'leadership'
+                },
+                'match-creation': {
+                    command: '/creatematch Weekend Match 2024-12-15 14:00 Home',
+                    description: 'Create a new match with date, time, and venue',
+                    requiresLeadership: true,
+                    chatType: 'leadership'
+                },
+                'attendance-marking': {
+                    command: '/markattendance MATCH001 present',
+                    description: 'Mark attendance for a specific match',
+                    requiresLeadership: false,
+                    chatType: 'main'
+                }
             };
             
+            const scenarioData = scenarios[scenario];
+            if (!scenarioData) {
+                alert('Unknown scenario');
+                return;
+            }
+            
+            // Check permissions
+            if (scenarioData.requiresLeadership && !isTeamMember) {
+                alert(`This scenario requires leadership access. Current user role: ${userRole}`);
+                return;
+            }
+            
+            // Set the message and switch to appropriate chat
             const messageInput = document.getElementById('messageInput');
-            messageInput.value = scenarios[scenario] || '';
+            messageInput.value = scenarioData.command;
+            
+            // Switch to appropriate chat type if needed
+            if (scenarioData.chatType === 'leadership' && currentChat && !currentChat.is_leadership_chat) {
+                // Try to switch to leadership chat
+                const leadershipTab = document.querySelector('.chat-tab[data-chat="leadership"]');
+                if (leadershipTab && !leadershipTab.disabled) {
+                    leadershipTab.click();
+                } else {
+                    alert('Leadership chat access required for this scenario');
+                    return;
+                }
+            } else if (scenarioData.chatType === 'main' && currentChat && !currentChat.is_main_chat) {
+                // Switch to main chat
+                const mainTab = document.querySelector('.chat-tab[data-chat="main"]');
+                if (mainTab) {
+                    mainTab.click();
+                }
+            }
+            
+            // Show scenario info
+            console.log(`🚀 Running scenario: ${scenario}`);
+            console.log(`📝 Command: ${scenarioData.command}`);
+            console.log(`📋 Description: ${scenarioData.description}`);
+            console.log(`👤 User: ${currentUser.first_name} (${currentUser.role})`);
+            console.log(`💬 Chat: ${currentChat ? (currentChat.is_leadership_chat ? 'Leadership' : 'Main') : 'None'}`);
+            
+            // Send the message
             sendMessage();
         }
         
