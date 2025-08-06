@@ -1454,11 +1454,34 @@
             
             if (!text) return;
             
+            // Convert user ID properly - handle both string and integer IDs
+            let userId;
+            if (typeof currentUser.id === 'string') {
+                // Handle Firebase string IDs like "user_1001" -> extract 1001
+                if (currentUser.id.startsWith('user_')) {
+                    userId = parseInt(currentUser.id.replace('user_', ''));
+                } else {
+                    userId = parseInt(currentUser.id);
+                }
+            } else {
+                userId = currentUser.id;
+            }
+            
+            // Validate the converted user ID
+            if (isNaN(userId) || userId <= 0) {
+                alert('Error: Invalid user ID. Please select a valid user.');
+                return;
+            }
+            
+            console.log(`🔍 Debug: Converting user ID from "${currentUser.id}" (${typeof currentUser.id}) to ${userId} (${typeof userId})`);
+            
             const messageData = {
-                user_id: parseInt(currentUser.id),
+                user_id: userId,
                 chat_id: currentChat.id,
                 text: text
             };
+            
+            console.log(`📤 Sending message data:`, messageData);
             
             try {
                 const response = await fetch(`${API_BASE}/send_message`, {
