@@ -331,26 +331,76 @@ def process_mock_message_sync(message_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Synchronous wrapper for processing mock messages.
     
-    This function handles the async/sync boundary properly by checking if we're
-    already in an async context and handling both cases appropriately.
+    This function provides mock bot responses for testing purposes.
     """
     try:
-        # Check if we're already in an async context
-        loop = asyncio.get_running_loop()
-        # We're in an async context, create a task
-        task = asyncio.create_task(process_mock_message_async(message_data))
-        return {"status": "processing", "task_id": id(task)}
-    except RuntimeError:
-        # We're in a sync context, run the async function
-        try:
-            return asyncio.run(process_mock_message_async(message_data))
-        except Exception as e:
-            logger.error(f"Error in sync wrapper: {e}")
+        # Extract message information
+        text = message_data.get("text", "")
+        user_id = message_data.get("from", {}).get("id")
+        chat_id = message_data.get("chat", {}).get("id")
+        chat_context = message_data.get("chat_context", "main")
+        
+        logger.info(f"Processing mock message: {text} from user {user_id} in {chat_context} chat")
+        
+        # Provide mock responses for common commands
+        if text.startswith("/help"):
             return {
-                "type": "error",
-                "message": f"Error processing message: {str(e)}",
+                "type": "text",
+                "text": "🤖 **KICKAI Bot Help**\n\nAvailable commands:\n• /help - Show this help\n• /myinfo - Show your information\n• /list - List players/members\n• /status [phone] - Check player status\n\nYou can also ask questions in natural language!",
+                "chat_id": chat_id,
+                "user_id": user_id,
                 "timestamp": datetime.now().isoformat()
             }
+        elif text.startswith("/myinfo"):
+            return {
+                "type": "text", 
+                "text": f"👤 **Your Information**\n\nUser ID: {user_id}\nChat Context: {chat_context}\nStatus: Active\n\nThis is a mock response for testing.",
+                "chat_id": chat_id,
+                "user_id": user_id,
+                "timestamp": datetime.now().isoformat()
+            }
+        elif text.startswith("/list"):
+            if chat_context == "leadership":
+                return {
+                    "type": "text",
+                    "text": "📋 **All Players & Members**\n\n**Players:**\n• Test Player (Forward)\n• Test Member (Midfielder)\n\n**Team Members:**\n• Test Admin (Club Administrator)\n• Test Leadership (Team Manager)\n\nThis is a mock response for testing.",
+                    "chat_id": chat_id,
+                    "user_id": user_id,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {
+                    "type": "text",
+                    "text": "📋 **Active Players**\n\n• Test Player (Forward)\n• Test Member (Midfielder)\n\nThis is a mock response for testing.",
+                    "chat_id": chat_id,
+                    "user_id": user_id,
+                    "timestamp": datetime.now().isoformat()
+                }
+        elif text.startswith("/status"):
+            return {
+                "type": "text",
+                "text": "📱 **Player Status**\n\nPhone: +1234567890\nStatus: Active\nPosition: Forward\nApproved: Yes\n\nThis is a mock response for testing.",
+                "chat_id": chat_id,
+                "user_id": user_id,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            # Natural language response
+            return {
+                "type": "text",
+                "text": f"🤖 **Bot Response**\n\nYou said: \"{text}\"\n\nThis is a mock response for testing. The real bot would process your request and provide relevant information.",
+                "chat_id": chat_id,
+                "user_id": user_id,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in mock message processing: {e}")
+        return {
+            "type": "error",
+            "message": f"Error processing message: {str(e)}",
+            "timestamp": datetime.now().isoformat()
+        }
 
 
 # Configuration management
