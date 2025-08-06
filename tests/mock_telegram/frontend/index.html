@@ -504,10 +504,24 @@
                 } else {
                     const errorData = await response.json();
                     console.error('Error sending message:', errorData);
-                    alert(`Error: ${errorData.detail || 'Failed to send message'}`);
+                    
+                    // Extract error message properly
+                    let errorMessage = 'Failed to send message';
+                    if (errorData.detail) {
+                        errorMessage = errorData.detail;
+                    } else if (errorData.error) {
+                        errorMessage = errorData.error;
+                    } else if (typeof errorData === 'string') {
+                        errorMessage = errorData;
+                    } else if (errorData.message) {
+                        errorMessage = errorData.message;
+                    }
+                    
+                    alert(`Error: ${errorMessage}`);
                 }
             } catch (error) {
                 console.error('Error sending message:', error);
+                alert('Failed to send message. Please try again.');
             }
         }
         
@@ -555,10 +569,26 @@
                     document.getElementById('newLastName').value = '';
                     document.getElementById('newPhone').value = '';
                 } else {
-                    console.error('Error creating user');
+                    const errorData = await response.json();
+                    console.error('Error creating user:', errorData);
+                    
+                    // Extract error message properly
+                    let errorMessage = 'Failed to create user';
+                    if (errorData.detail) {
+                        errorMessage = errorData.detail;
+                    } else if (errorData.error) {
+                        errorMessage = errorData.error;
+                    } else if (typeof errorData === 'string') {
+                        errorMessage = errorData;
+                    } else if (errorData.message) {
+                        errorMessage = errorData.message;
+                    }
+                    
+                    alert(`Error creating user: ${errorMessage}`);
                 }
             } catch (error) {
                 console.error('Error creating user:', error);
+                alert('Failed to create user. Please try again.');
             }
         }
         
