@@ -276,17 +276,17 @@ def get_command_help(command_name: str, chat_type: str = "main") -> str:
 
         # Format detailed help
         help_text = f"""
-📋 **COMMAND HELP: {command_name.upper()}**
+📋 COMMAND HELP: {command_name.upper()}
 
-📝 **Description:** {command.description}
+📝 Description: {command.description}
 
-🎯 **Usage:** {command.examples[0] if command.examples else command_name}
+🎯 Usage: {command.examples[0] if command.examples else command_name}
 
-📋 **Permission Level:** {command.permission_level.value}
+📋 Permission Level: {command.permission_level.value}
 
-📋 **Available In:** {', '.join([ct.value for ct in command.chat_types])}
+📋 Available In: {', '.join([ct.value for ct in command.chat_types])}
 
-💡 **Examples:**
+💡 Examples:
 """
         if command.examples:
             for example in command.examples:
@@ -344,23 +344,23 @@ def get_new_member_welcome_message(
         # Generate welcome message based on chat type
         if chat_type_enum == ChatTypeEnum.MAIN:
             welcome_message = f"""
-🎉 **WELCOME TO THE TEAM, {username.upper()}!**
+🎉 WELCOME TO THE TEAM, {username.upper()}!
 
-👋 **Welcome to KICKAI!** We're excited to have you join our football community!
+👋 Welcome to KICKAI! We're excited to have you join our football community!
 
-⚽ **WHAT YOU CAN DO HERE:**
-• Register as a player with `/register [player_id]`
-• Check your status with `/myinfo`
-• See available commands with `/help`
-• View active players with `/list`
+⚽ WHAT YOU CAN DO HERE:
+• Register as a player with /register [player_id]
+• Check your status with /myinfo
+• See available commands with /help
+• View active players with /list
 
-🔗 **GETTING STARTED:**
-1. **Register as a player** - Use `/register` followed by your player ID
-2. **Check your status** - Use `/myinfo` to see your current registration
-3. **Explore commands** - Use `/help` to see all available options
+🔗 GETTING STARTED:
+1. Register as a player - Use /register followed by your player ID
+2. Check your status - Use /myinfo to see your current registration
+3. Explore commands - Use /help to see all available options
 
-📱 **NEED HELP?**
-• Type `/help` for command information
+📱 NEED HELP?
+• Type /help for command information
 • Contact team leadership for assistance
 • Check pinned messages for important updates
 
@@ -368,24 +368,24 @@ Welcome aboard! Let's make this team amazing! ⚽🔥
             """
         elif chat_type_enum == ChatTypeEnum.LEADERSHIP:
             welcome_message = f"""
-🎉 **WELCOME TO LEADERSHIP, {username.upper()}!**
+🎉 WELCOME TO LEADERSHIP, {username.upper()}!
 
-👥 **Welcome to the KICKAI Leadership Team!** You're now part of our administrative team.
+👥 Welcome to the KICKAI Leadership Team! You're now part of our administrative team.
 
-🛠️ **ADMINISTRATIVE FEATURES:**
-• Manage players with `/add`, `/approve`, `/listmembers`
-• View pending players with `/pending`
-• Schedule training with `/scheduletraining`
-• Manage matches with `/creatematch`, `/squadselect`
-• Send announcements with `/announce`
+🛠️ ADMINISTRATIVE FEATURES:
+• Manage players with /add, /approve, /listmembers
+• View pending players with /pending
+• Schedule training with /scheduletraining
+• Manage matches with /creatematch, /squadselect
+• Send announcements with /announce
 
-📋 **QUICK START:**
-1. **View pending players** - Use `/pending` to see who needs approval
-2. **Add new players** - Use `/add [name] [phone] [position]`
-3. **Approve players** - Use `/approve [player_id]`
-4. **Explore admin commands** - Use `/help` for full list
+📋 QUICK START:
+1. View pending players - Use /pending to see who needs approval
+2. Add new players - Use /add [name] [phone] [position]
+3. Approve players - Use /approve [player_id]
+4. Explore admin commands - Use /help for full list
 
-🎯 **TEAM MANAGEMENT:**
+🎯 TEAM MANAGEMENT:
 • Player registration and approval
 • Training session management
 • Match scheduling and squad selection
@@ -395,16 +395,16 @@ Welcome to the leadership team! Let's build something great together! 👥🌟
             """
         else:  # PRIVATE
             welcome_message = f"""
-🎉 **WELCOME, {username.upper()}!**
+🎉 WELCOME, {username.upper()}!
 
-👋 **Welcome to KICKAI!** You're now connected to our football management system.
+👋 Welcome to KICKAI! You're now connected to our football management system.
 
-⚽ **AVAILABLE COMMANDS:**
-• Get help with `/help`
-• Check your status with `/myinfo`
-• Register as a player with `/register`
+⚽ AVAILABLE COMMANDS:
+• Get help with /help
+• Check your status with /myinfo
+• Register as a player with /register
 
-🔗 **NEXT STEPS:**
+🔗 NEXT STEPS:
 1. Join the main team chat for full access
 2. Register as a player or team member
 3. Start participating in team activities
