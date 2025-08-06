@@ -282,10 +282,19 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         if isinstance(updated_at, str):
             updated_at = datetime.fromisoformat(updated_at)
 
+        # Generate user_id from telegram_id if missing or empty
+        user_id = doc.get("user_id", "")
+        telegram_id = doc.get("telegram_id")
+        
+        if not user_id and telegram_id:
+            # Generate user_id from telegram_id
+            from kickai.utils.user_id_generator import generate_user_id
+            user_id = generate_user_id(int(telegram_id))
+
         return TeamMember(
-            user_id=doc.get("user_id", ""),
+            user_id=user_id,
             team_id=doc.get("team_id", ""),
-            telegram_id=doc.get("telegram_id"),
+            telegram_id=telegram_id,
             first_name=doc.get("first_name"),
             last_name=doc.get("last_name"),
             full_name=doc.get("full_name"),

@@ -244,3 +244,8 @@ class TeamMember:
         """Suspend the team member."""
         self.status = "suspended"
         self.updated_at = datetime.utcnow()
+
+    @property
+    def is_active(self) -> bool:
+        """Check if the team member is active."""
+        return self.status == "active"
