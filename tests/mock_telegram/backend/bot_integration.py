@@ -626,30 +626,21 @@ Use /help to see all available commands."""
         
     except Exception as e:
         logger.error(f"❌ Error using real registration service: {e}")
-        # Fallback to mock response
-        return f"""✅ Player Added Successfully
+        # Return error message to user instead of fake success
+        return f"""❌ Registration Failed
 
 👋 Hello {username}!
 
-✅ Player Registration Complete
+❌ Error: Failed to register player due to system error.
 
-👤 Player Details:
+📝 Details:
 • Name: {name}
 • Phone: {phone}
 • Position: {position}
-• Status: Pending Approval
-
-🔗 Invite Link Generated:
-https://t.me/kickai_bot?start=invite_{phone[-4:]}
-
-📱 Next Steps:
-1. Send the invite link to {name}
-2. Player clicks the link to join the main chat
-3. Player uses /register {phone} to complete registration
-4. Use /approve PLAYER_ID to approve the player
+• Error: {str(e)}
 
 💬 Need Help?
-Use /help to see all available commands."""
+Contact system administrator or try again later."""
 
 
 def _get_addmember_response(text: str, username: str) -> str:
