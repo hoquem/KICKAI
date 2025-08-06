@@ -96,21 +96,21 @@ class RegistrationAgent(BaseAgent):
             match = re.match(pattern, command)
 
             if not match:
-                return f"""❌ **Invalid Command Format**
+                return f"""❌ Invalid Command Format
 
 👋 Hello {username}!
 
-❌ **Error:** Invalid /addplayer command format.
+❌ Error: Invalid /addplayer command format.
 
-✅ **Correct Format:**
+✅ Correct Format:
 `/addplayer [Full Name] [Phone Number] [Position]`
 
-📝 **Examples:**
+📝 Examples:
 • `/addplayer John Doe +1234567890 Forward`
 • `/addplayer Jane Smith +1234567891 Midfielder`
 • `/addplayer Bob Wilson +1234567892 Defender`
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
             name = match.group(1).strip()
@@ -125,49 +125,49 @@ Use /help to see all available commands."""
                 invited_by=username
             )
 
-            return f"""✅ **Player Added Successfully**
+            return f"""✅ Player Added Successfully
 
 👋 Hello {username}!
 
-✅ **Player Registration Complete**
+✅ Player Registration Complete
 
-👤 **Player Details:**
-• **Name:** {result['name']}
-• **Phone:** {result['phone']}
-• **Position:** {result['position']}
-• **Status:** Pending Approval
+👤 Player Details:
+• Name: {result['name']}
+• Phone: {result['phone']}
+• Position: {result['position']}
+• Status: Pending Approval
 
-🔗 **Invite Link Generated:**
+🔗 Invite Link Generated:
 `{result['invite_link']}`
 
-📱 **Next Steps:**
+📱 Next Steps:
 1. Send the invite link to {result['name']}
 2. Player clicks the link to join the chat
 3. Player uses /register {result['phone']} to complete registration
 4. Use /approve {result['player_id']} to approve the player
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
         except ValueError as e:
-            return f"""❌ **Registration Error**
+            return f"""❌ Registration Error
 
 👋 Hello {username}!
 
-❌ **Error:** {e!s}
+❌ Error: {e!s}
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
         except Exception as e:
             logger.error(f"❌ Error in addplayer command: {e}")
-            return f"""❌ **System Error**
+            return f"""❌ System Error
 
 👋 Hello {username}!
 
-❌ **Error:** Failed to add player. Please try again.
+❌ Error: Failed to add player. Please try again.
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
     async def _handle_addmember_command(self, command: str, username: str) -> str:
@@ -178,21 +178,21 @@ Use /help to see all available commands."""
             match = re.match(pattern, command)
 
             if not match:
-                return f"""❌ **Invalid Command Format**
+                return f"""❌ Invalid Command Format
 
 👋 Hello {username}!
 
-❌ **Error:** Invalid /addmember command format.
+❌ Error: Invalid /addmember command format.
 
-✅ **Correct Format:**
+✅ Correct Format:
 `/addmember [Full Name] [Phone Number] [Role]`
 
-📝 **Examples:**
+📝 Examples:
 • `/addmember Alex Manager +1234567896 team_manager`
 • `/addmember Sarah Coach +1234567897 coach`
 • `/addmember Mike Admin +1234567898 administrator`
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
             name = match.group(1).strip()
@@ -207,48 +207,48 @@ Use /help to see all available commands."""
                 invited_by=username
             )
 
-            return f"""✅ **Team Member Added Successfully**
+            return f"""✅ Team Member Added Successfully
 
 👋 Hello {username}!
 
-✅ **Team Member Registration Complete**
+✅ Team Member Registration Complete
 
-👤 **Member Details:**
-• **Name:** {result['name']}
-• **Phone:** {result['phone']}
-• **Role:** {result['role']}
-• **Status:** Pending Approval
+👤 Member Details:
+• Name: {result['name']}
+• Phone: {result['phone']}
+• Role: {result['role']}
+• Status: Pending Approval
 
-🔗 **Invite Link Generated:**
+🔗 Invite Link Generated:
 `{result['invite_link']}`
 
-📱 **Next Steps:**
+📱 Next Steps:
 1. Send the invite link to {result['name']}
 2. Member clicks the link to join the leadership chat
 3. Member uses /register {result['phone']} to complete registration
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
         except ValueError as e:
-            return f"""❌ **Registration Error**
+            return f"""❌ Registration Error
 
 👋 Hello {username}!
 
-❌ **Error:** {e!s}
+❌ Error: {e!s}
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
         except Exception as e:
             logger.error(f"❌ Error in addmember command: {e}")
-            return f"""❌ **System Error**
+            return f"""❌ System Error
 
 👋 Hello {username}!
 
-❌ **Error:** Failed to add team member. Please try again.
+❌ Error: Failed to add team member. Please try again.
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
     async def _handle_register_command(self, command: str, user_id: int, username: str) -> str:
@@ -259,20 +259,20 @@ Use /help to see all available commands."""
             match = re.match(pattern, command)
 
             if not match:
-                return f"""❌ **Invalid Command Format**
+                return f"""❌ Invalid Command Format
 
 👋 Hello {username}!
 
-❌ **Error:** Invalid /register command format.
+❌ Error: Invalid /register command format.
 
-✅ **Correct Format:**
+✅ Correct Format:
 `/register [Phone Number]`
 
-📝 **Examples:**
+📝 Examples:
 • `/register +1234567890`
 • `/register 1234567890`
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
             phone = match.group(1).strip()
@@ -285,21 +285,21 @@ Use /help to see all available commands."""
                     telegram_username=username
                 )
 
-                return f"""✅ **Registration Complete**
+                return f"""✅ Registration Complete
 
 👋 Hello {username}!
 
-✅ **Player Registration Successful**
+✅ Player Registration Successful
 
-👤 **Your Details:**
-• **Name:** {result['name']}
-• **Phone:** {result['phone']}
-• **Position:** {result['position']}
-• **Status:** Active
+👤 Your Details:
+• Name: {result['name']}
+• Phone: {result['phone']}
+• Position: {result['position']}
+• Status: Active
 
-🎯 **You can now use all available commands!**
+🎯 You can now use all available commands!
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
             except ValueError:
@@ -311,48 +311,48 @@ Use /help to see all available commands."""
                         telegram_username=username
                     )
 
-                    return f"""✅ **Registration Complete**
+                    return f"""✅ Registration Complete
 
 👋 Hello {username}!
 
-✅ **Team Member Registration Successful**
+✅ Team Member Registration Successful
 
-👤 **Your Details:**
-• **Name:** {result['name']}
-• **Phone:** {result['phone']}
-• **Role:** {result['role']}
-• **Status:** Active
+👤 Your Details:
+• Name: {result['name']}
+• Phone: {result['phone']}
+• Role: {result['role']}
+• Status: Active
 
-🎯 **You can now use all available commands!**
+🎯 You can now use all available commands!
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
                 except ValueError:
-                    return f"""❌ **User Not Found**
+                    return f"""❌ User Not Found
 
 👋 Hello {username}!
 
-❌ **Error:** No pending registration found for phone number '{phone}'.
+❌ Error: No pending registration found for phone number '{phone}'.
 
-📞 **To Get Registered:**
+📞 To Get Registered:
 1. Contact team leadership
 2. Ask them to add you using /addplayer or /addmember
 3. They'll send you an invite link
 4. Use the invite link to join the chat
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
         except Exception as e:
             logger.error(f"❌ Error in register command: {e}")
-            return f"""❌ **System Error**
+            return f"""❌ System Error
 
 👋 Hello {username}!
 
-❌ **Error:** Failed to complete registration. Please try again.
+❌ Error: Failed to complete registration. Please try again.
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
     async def _handle_approve_command(self, command: str, username: str) -> str:
@@ -363,20 +363,20 @@ Use /help to see all available commands."""
             match = re.match(pattern, command)
 
             if not match:
-                return f"""❌ **Invalid Command Format**
+                return f"""❌ Invalid Command Format
 
 👋 Hello {username}!
 
-❌ **Error:** Invalid /approve command format.
+❌ Error: Invalid /approve command format.
 
-✅ **Correct Format:**
+✅ Correct Format:
 `/approve [Player ID]`
 
-📝 **Examples:**
+📝 Examples:
 • `/approve PLAYER_001`
 • `/approve JOHN_DOE`
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
             player_id = match.group(1).strip()
@@ -387,46 +387,46 @@ Use /help to see all available commands."""
                 approved_by=username
             )
 
-            return f"""✅ **Player Approved**
+            return f"""✅ Player Approved
 
 👋 Hello {username}!
 
-✅ **Player Approval Successful**
+✅ Player Approval Successful
 
-👤 **Player Details:**
-• **ID:** {result['player_id']}
-• **Name:** {result['name']}
-• **Phone:** {result['phone']}
-• **Position:** {result['position']}
-• **Status:** Approved
+👤 Player Details:
+• ID: {result['player_id']}
+• Name: {result['name']}
+• Phone: {result['phone']}
+• Position: {result['position']}
+• Status: Approved
 
-📱 **Next Steps:**
+📱 Next Steps:
 1. Player will receive notification
 2. Player can now use all player commands
 3. Player appears in active players list
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
         except ValueError as e:
-            return f"""❌ **Approval Error**
+            return f"""❌ Approval Error
 
 👋 Hello {username}!
 
-❌ **Error:** {e!s}
+❌ Error: {e!s}
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
         except Exception as e:
             logger.error(f"❌ Error in approve command: {e}")
-            return f"""❌ **System Error**
+            return f"""❌ System Error
 
 👋 Hello {username}!
 
-❌ **Error:** Failed to approve player. Please try again.
+❌ Error: Failed to approve player. Please try again.
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
     async def _handle_reject_command(self, command: str, username: str) -> str:
@@ -437,20 +437,20 @@ Use /help to see all available commands."""
             match = re.match(pattern, command)
 
             if not match:
-                return f"""❌ **Invalid Command Format**
+                return f"""❌ Invalid Command Format
 
 👋 Hello {username}!
 
-❌ **Error:** Invalid /reject command format.
+❌ Error: Invalid /reject command format.
 
-✅ **Correct Format:**
+✅ Correct Format:
 `/reject [Player ID] [Reason]`
 
-📝 **Examples:**
+📝 Examples:
 • `/reject PLAYER_001`
 • `/reject PLAYER_001 Insufficient experience`
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
             player_id = match.group(1).strip()
@@ -463,49 +463,49 @@ Use /help to see all available commands."""
                 reason=reason
             )
 
-            return f"""❌ **Player Rejected**
+            return f"""❌ Player Rejected
 
 👋 Hello {username}!
 
-❌ **Player Rejection Successful**
+❌ Player Rejection Successful
 
-👤 **Player Details:**
-• **ID:** {result['player_id']}
-• **Name:** {result['name']}
-• **Phone:** {result['phone']}
-• **Position:** {result['position']}
-• **Status:** Rejected
+👤 Player Details:
+• ID: {result['player_id']}
+• Name: {result['name']}
+• Phone: {result['phone']}
+• Position: {result['position']}
+• Status: Rejected
 
-📝 **Rejection Reason:**
+📝 Rejection Reason:
 {reason}
 
-📱 **Next Steps:**
+📱 Next Steps:
 1. Player will receive rejection notification
 2. Player record removed from pending list
 3. Player can reapply if needed
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
         except ValueError as e:
-            return f"""❌ **Rejection Error**
+            return f"""❌ Rejection Error
 
 👋 Hello {username}!
 
-❌ **Error:** {e!s}
+❌ Error: {e!s}
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
         except Exception as e:
             logger.error(f"❌ Error in reject command: {e}")
-            return f"""❌ **System Error**
+            return f"""❌ System Error
 
 👋 Hello {username}!
 
-❌ **Error:** Failed to reject player. Please try again.
+❌ Error: Failed to reject player. Please try again.
 
-💬 **Need Help?**
+💬 Need Help?
 Use /help to see all available commands."""
 
     # CrewAI Tools

@@ -263,17 +263,17 @@ class RefactoredAgenticMessageRouter(IAgentRouter):
         commands_str = "\n".join(f"• {cmd}" for cmd in available_commands[:10])
 
         return AgentResponse(
-            content=f"""🤖 **KICKAI Help**
+            content=f"""🤖 KICKAI Help
 
-**Available Commands:**
+Available Commands:
 {commands_str}
 
-**Chat Types:**
+Chat Types:
 • Main Chat: Player commands
 • Leadership Chat: Admin commands
 • Private Chat: Personal commands
 
-**Getting Started:**
+Getting Started:
 • New users: Share contact or type /register
 • Players: Use /myinfo, /available, /list
 • Leadership: Use /approve, /add, /update
@@ -288,12 +288,12 @@ Need specific help? Ask me anything! ⚽""",
         commands_str = "\n".join(f"• {cmd}" for cmd in available_commands)
 
         return AgentResponse(
-            content=f"""📋 **Available Commands**
+            content=f"""📋 Available Commands
 
 {commands_str}
 
-**Your Role:** {context.user_registration.primary_role()}
-**Chat Type:** {context.chat_type.value}
+Your Role: {context.user_registration.primary_role()}
+Chat Type: {context.chat_type.value}
 
 Type /help for detailed guidance.""",
             metadata={"type": "commands", "role": context.user_registration.primary_role()}
@@ -302,15 +302,15 @@ Type /help for detailed guidance.""",
     def _create_status_response(self, context: EntityContext) -> IAgentResponse:
         """Create status response."""
         return AgentResponse(
-            content=f"""📊 **System Status**
+            content=f"""📊 System Status
 
-**User:** {context.username or 'Unknown'}
-**Role:** {context.user_registration.primary_role()}
-**Team:** {context.team_id}
-**Chat:** {context.chat_type.value}
-**Registered:** {'✅' if context.user_registration.is_registered else '❌'}
+User: {context.username or 'Unknown'}
+Role: {context.user_registration.primary_role()}
+Team: {context.team_id}
+Chat: {context.chat_type.value}
+Registered: {'✅' if context.user_registration.is_registered else '❌'}
 
-**Permissions:**
+Permissions:
 • Player: {'✅' if context.user_registration.is_player else '❌'}
 • Team Member: {'✅' if context.user_registration.is_team_member else '❌'}
 • Leadership: {'✅' if context.user_registration.is_leadership else '❌'}

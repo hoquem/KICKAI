@@ -228,12 +228,12 @@ class CrewLifecycleManager:
 
 I'm having trouble processing this request right now. Here are some things you can try:
 
-💡 **Quick Solutions:**
+💡 Quick Solutions:
 • Try rephrasing your question
 • Use a specific command like `/help` for assistance
 • Check if you're in the right chat (main vs leadership)
 
-🔧 **Available Commands:**
+🔧 Available Commands:
 • `/help` - Show available commands
 • `/info` - Show your information
 • `/list` - List team members/players
@@ -245,19 +245,19 @@ If the problem persists, please contact your team administrator."""
         """Generate a response when max iterations are reached."""
         return f"""🤖 I was processing: "{task_description}"
 
-⏱️ **Processing Time Limit Reached**
+⏱️ Processing Time Limit Reached
 
 I've reached the maximum number of processing steps for this request. This usually happens when:
 • The request is very complex
 • Multiple tools need to be called
 • The system needs more time to think
 
-💡 **What you can do:**
+💡 What you can do:
 • Try breaking down your request into smaller parts
 • Use specific commands instead of natural language
 • Ask for help with `/help [command]`
 
-🔧 **Quick Commands:**
+🔧 Quick Commands:
 • `/help` - Show all available commands
 • `/info` - Show your information
 • `/list` - List team members/players
@@ -268,19 +268,19 @@ If you need immediate assistance, please contact your team administrator."""
         """Generate a response for general errors."""
         return f"""🤖 I was processing: "{task_description}"
 
-❌ **Processing Error**
+❌ Processing Error
 
 I encountered an error while processing your request. This might be due to:
 • A temporary system issue
 • Invalid input format
 • Missing permissions
 
-💡 **What you can do:**
+💡 What you can do:
 • Try again in a few moments
 • Use a different command format
 • Check if you have the right permissions
 
-🔧 **Available Commands:**
+🔧 Available Commands:
 • `/help` - Show available commands
 • `/info` - Show your information
 • `/list` - List team members/players
@@ -291,16 +291,16 @@ If the problem continues, please contact your team administrator."""
         """Generate a response for critical system errors."""
         return f"""🤖 I was processing: "{task_description}"
 
-🚨 **System Error**
+🚨 System Error
 
 I'm experiencing technical difficulties right now. This is a system-level issue that needs attention.
 
-💡 **What you can do:**
+💡 What you can do:
 • Try again in a few minutes
 • Use basic commands like `/help` or `/info`
 • Contact your team administrator if the problem persists
 
-🔧 **Basic Commands (if available):**
+🔧 Basic Commands (if available):
 • `/help` - Show available commands
 • `/info` - Show your information
 
@@ -310,20 +310,20 @@ The system administrator has been notified of this issue."""
         """Generate a response when execution times out."""
         return f"""🤖 I was processing: "{task_description}"
 
-⏰ **Execution Timeout**
+⏰ Execution Timeout
 
 I've been processing your request for {timeout_seconds} seconds and need to stop to prevent system overload. This usually happens when:
 • The request is very complex
 • Multiple tools need to be called
 • The system is under heavy load
 
-💡 **What you can do:**
+💡 What you can do:
 • Try breaking down your request into smaller parts
 • Use specific commands instead of natural language
 • Wait a few minutes and try again
 • Ask for help with `/help [command]`
 
-🔧 **Quick Commands:**
+🔧 Quick Commands:
 • `/help` - Show all available commands
 • `/info` - Show your information
 • `/list` - List team members/players

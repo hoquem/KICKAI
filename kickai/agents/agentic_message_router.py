@@ -173,19 +173,19 @@ class AgenticMessageRouter:
             if "Maximum iterations reached" in str(e) or "max_iter" in str(e).lower():
                 error_message = f"""🤖 I was processing: "{message.text}"
 
-⏱️ **Processing Time Limit Reached**
+⏱️ Processing Time Limit Reached
 
 I've reached the maximum number of processing steps for this request. This usually happens when:
 • The request is very complex
 • Multiple tools need to be called
 • The system needs more time to think
 
-💡 **What you can do:**
+💡 What you can do:
 • Try breaking down your request into smaller parts
 • Use specific commands instead of natural language
 • Ask for help with `/help [command]`
 
-🔧 **Quick Commands:**
+🔧 Quick Commands:
 • `/help` - Show all available commands
 • `/info` - Show your information
 • `/list` - List team members/players
@@ -194,19 +194,19 @@ If you need immediate assistance, please contact your team administrator."""
             else:
                 error_message = f"""🤖 I was processing: "{message.text}"
 
-❌ **System Error**
+❌ System Error
 
 I encountered an error while processing your request. This might be due to:
 • A temporary system issue
 • Invalid input format
 • Missing permissions
 
-💡 **What you can do:**
+💡 What you can do:
 • Try again in a few moments
 • Use a different command format
 • Check if you have the right permissions
 
-🔧 **Available Commands:**
+🔧 Available Commands:
 • `/help` - Show available commands
 • `/info` - Show your information
 • `/list` - List team members/players
@@ -429,19 +429,19 @@ Use /help to see available commands or ask me questions!"""
             if "Maximum iterations reached" in str(e) or "max_iter" in str(e).lower():
                 error_message = f"""🤖 I was processing: "{message.text}"
 
-⏱️ **Processing Time Limit Reached**
+⏱️ Processing Time Limit Reached
 
 I've reached the maximum number of processing steps for this request. This usually happens when:
 • The request is very complex
 • Multiple tools need to be called
 • The system needs more time to think
 
-💡 **What you can do:**
+💡 What you can do:
 • Try breaking down your request into smaller parts
 • Use specific commands instead of natural language
 • Ask for help with `/help [command]`
 
-🔧 **Quick Commands:**
+🔧 Quick Commands:
 • `/help` - Show all available commands
 • `/info` - Show your information
 • `/list` - List team members/players
@@ -450,19 +450,19 @@ If you need immediate assistance, please contact your team administrator."""
             else:
                 error_message = f"""🤖 I was processing: "{message.text}"
 
-❌ **Processing Error**
+❌ Processing Error
 
 I encountered an error while processing your request. This might be due to:
 • A temporary system issue
 • Invalid input format
 • Missing permissions
 
-💡 **What you can do:**
+💡 What you can do:
 • Try again in a few moments
 • Use a different command format
 • Check if you have the right permissions
 
-🔧 **Available Commands:**
+🔧 Available Commands:
 • `/help` - Show available commands
 • `/info` - Show your information
 • `/list` - List team members/players
@@ -603,7 +603,7 @@ If the problem continues, please contact your team administrator."""
             else:
                 return AgentResponse(
                     success=False,
-                    message="❌ No player record found with that phone number.\n\n💡 **What to do:**\n1. Make sure you were added by team leadership using /addplayer\n2. Check that the phone number matches what was used when you were added\n3. Contact team leadership if you need help",
+                    message="❌ No player record found with that phone number.\n\n💡 What to do:\n1. Make sure you were added by team leadership using /addplayer\n2. Check that the phone number matches what was used when you were added\n3. Contact team leadership if you need help",
                     error="No matching player record",
                 )
 
