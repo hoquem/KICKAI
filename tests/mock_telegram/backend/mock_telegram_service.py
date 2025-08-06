@@ -26,13 +26,13 @@ logger = logging.getLogger(__name__)
 
 # Import bot integration (optional - will be skipped if not available)
 try:
-    from .bot_integration import process_mock_message_sync
+    from .bot_integration import process_mock_message
     BOT_INTEGRATION_AVAILABLE = True
     logger.info("Bot integration available")
 except ImportError:
     BOT_INTEGRATION_AVAILABLE = False
     logger.warning("Bot integration not available - running in standalone mode")
-    def process_mock_message_sync(message_data):
+    async def process_mock_message(message_data):
         return {"status": "bot_integration_not_available"}
 
 
@@ -371,7 +371,7 @@ class MockTelegramService:
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=str(e))
     
-    def send_message(self, request: SendMessageRequest) -> MockMessage:
+    async def send_message(self, request: SendMessageRequest) -> MockMessage:
         """Send a message as if from a user"""
         with self._lock:
             if request.user_id not in self.users:
@@ -421,7 +421,7 @@ class MockTelegramService:
                     message_data = message.to_dict()
                     message_data["chat_context"] = chat_context
                     
-                    bot_response = process_mock_message_sync(message_data)
+                    bot_response = await process_mock_message(message_data)
                     logger.info(f"Bot response: {bot_response}")
                     if bot_response and bot_response.get("status") != "processing":
                         # Create bot message and add to chat
@@ -650,7 +650,7 @@ async def get_user_chats(user_id: int):
 @app.post("/send_message")
 async def send_message(request: SendMessageRequest):
     """Send a message as a user"""
-    message = mock_service.send_message(request)
+    message = await mock_service.send_message(request)
     return message.to_dict()
 
 
