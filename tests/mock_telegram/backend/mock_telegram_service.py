@@ -780,7 +780,7 @@ async def get_firebase_players():
         player_service = get_service(PlayerService)
         
         # Get players for the current team
-        players = await player_service.get_players_by_team_id(CURRENT_TEAM_ID)
+        players = await player_service.get_players_by_team(team_id=CURRENT_TEAM_ID)
         
         firebase_players = []
         for player in players:
@@ -835,7 +835,7 @@ async def get_firebase_team_members():
         team_service = get_service(TeamService)
         
         # Get team members for the current team
-        team_members = await team_service.get_team_members_by_team_id(CURRENT_TEAM_ID)
+        team_members = await team_service.get_team_members(CURRENT_TEAM_ID)
         
         firebase_team_members = []
         for member in team_members:
