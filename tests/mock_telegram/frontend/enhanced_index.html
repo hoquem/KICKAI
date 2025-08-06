@@ -981,16 +981,16 @@
                 const response = await fetch(`${API_BASE}/firebase/users`);
                 if (response.ok) {
                     const data = await response.json();
-                    firebaseUsers = data.users || []; // Extract the users array from the response
+                    firebaseUsers = data.users || [];
                     
-                    // Update team ID and source from response
-                    if (data.team_id) {
-                        document.getElementById('currentTeamId').textContent = data.team_id;
-                    }
+                    // Debug: Log user roles to understand what's being returned
+                    console.log('🔍 Debug: User roles from Firebase:');
+                    firebaseUsers.forEach(user => {
+                        console.log(`  - ${user.first_name} ${user.last_name || ''}: role="${user.role}"`);
+                    });
                     
-                    // Show data source (real Firestore vs mock data)
                     const source = data.source || 'unknown';
-                    let sourceText = 'Unknown';
+                    let sourceText = 'Unknown Source';
                     let sourceClass = 'unknown';
                     
                     if (source === 'firestore') {
@@ -1157,20 +1157,45 @@
             const userList = document.getElementById('userList');
             const searchTerm = document.getElementById('userSearch').value.toLowerCase();
             
+            // Helper function to check if user is admin
+            function isAdminUser(user) {
+                const adminRoles = [
+                    'admin', 'leadership', 
+                    'club administrator', 'club_administrator',
+                    'team manager', 'team_manager',
+                    'coach', 'assistant coach', 'assistant_coach'
+                ];
+                return adminRoles.some(role => 
+                    user.role && user.role.toLowerCase().includes(role.toLowerCase())
+                );
+            }
+            
+            // Debug: Log filtering process
+            console.log(`🔍 Filtering users: category="${currentCategory}", search="${searchTerm}"`);
+            console.log(`📊 Total users before filtering: ${firebaseUsers.length}`);
+            
             // Filter users by category and search
             let filteredUsers = firebaseUsers.filter(user => {
                 const matchesCategory = currentCategory === 'all' || 
                     (currentCategory === 'players' && user.role === 'player') ||
-                    (currentCategory === 'team-members' && user.role === 'team_member') ||
-                    (currentCategory === 'admins' && (user.role === 'admin' || user.role === 'leadership'));
+                    (currentCategory === 'team-members' && user.role !== 'player') ||
+                    (currentCategory === 'admins' && isAdminUser(user));
                 
                 const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
                 const matchesSearch = fullName.toLowerCase().includes(searchTerm) ||
                     user.username?.toLowerCase().includes(searchTerm) ||
                     user.role?.toLowerCase().includes(searchTerm);
                 
+                // Debug: Log admin detection
+                if (currentCategory === 'admins') {
+                    const isAdmin = isAdminUser(user);
+                    console.log(`  - ${fullName}: role="${user.role}", isAdmin=${isAdmin}`);
+                }
+                
                 return matchesCategory && matchesSearch;
             });
+            
+            console.log(`✅ Filtered users: ${filteredUsers.length} users match criteria`);
             
             userList.innerHTML = '';
             
@@ -1198,8 +1223,22 @@
             
             const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
             const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+            
+            // Helper function to check if user is admin
+            function isAdminUser(user) {
+                const adminRoles = [
+                    'admin', 'leadership', 
+                    'club administrator', 'club_administrator',
+                    'team manager', 'team_manager',
+                    'coach', 'assistant coach', 'assistant_coach'
+                ];
+                return adminRoles.some(role => 
+                    user.role && user.role.toLowerCase().includes(role.toLowerCase())
+                );
+            }
+            
             const roleColor = user.role === 'player' ? 'var(--role-player)' : 
-                            user.role === 'admin' || user.role === 'leadership' ? 'var(--role-admin)' : 
+                            isAdminUser(user) ? 'var(--role-admin)' : 
                             'var(--role-member)';
             
             li.innerHTML = `
@@ -1217,7 +1256,7 @@
                 </div>
                 <div class="user-permissions">
                     <span class="permission-badge main-chat">Main Chat</span>
-                    ${user.role === 'admin' || user.role === 'leadership' ? 
+                    ${isAdminUser(user) ? 
                         '<span class="permission-badge leadership-chat">Leadership</span>' : ''}
                 </div>
             `;
@@ -1377,7 +1416,20 @@
                 } else {
                     const errorData = await response.json();
                     console.error('Error sending message:', errorData);
-                    alert(`Error: ${errorData.detail || 'Failed to send message'}`);
+                    
+                    // Extract error message properly
+                    let errorMessage = 'Failed to send message';
+                    if (errorData.detail) {
+                        errorMessage = errorData.detail;
+                    } else if (errorData.error) {
+                        errorMessage = errorData.error;
+                    } else if (typeof errorData === 'string') {
+                        errorMessage = errorData;
+                    } else if (errorData.message) {
+                        errorMessage = errorData.message;
+                    }
+                    
+                    alert(`Error: ${errorMessage}`);
                 }
             } catch (error) {
                 console.error('Error sending message:', error);
