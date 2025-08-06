@@ -155,10 +155,18 @@ class TeamMember:
     @classmethod
     def from_dict(cls, data: dict) -> "TeamMember":
         """Create from dictionary."""
+        # Generate user_id from telegram_id if missing or empty
+        user_id = data.get("user_id", "")
+        telegram_id = data.get("telegram_id")
+        
+        if not user_id and telegram_id:
+            # Generate user_id from telegram_id
+            user_id = generate_user_id(int(telegram_id))
+        
         return cls(
-            user_id=data.get("user_id", ""),
+            user_id=user_id,
             team_id=data.get("team_id", ""),
-            telegram_id=data.get("telegram_id"),
+            telegram_id=telegram_id,
             first_name=data.get("first_name"),
             last_name=data.get("last_name"),
             full_name=data.get("full_name"),
