@@ -295,7 +295,7 @@ class PlayerService:
 
 📋 Name: {existing_player.full_name or name}
 📱 Phone: {phone}
-⚽ Position: {existing_player.position or position or DEFAULT_PLAYER_POSITION}  
+⚽ Position: {existing_player.position or position or DEFAULT_PLAYER_POSITION}
 🏷️ Player ID: {player_id}
 🏢 Team: {team_id}
 📊 {status_info}
@@ -380,7 +380,7 @@ class PlayerService:
         try:
             # Import here to avoid circular imports
             import asyncio
-            
+
             # Check if we're already in an event loop
             try:
                 loop = asyncio.get_running_loop()
@@ -392,7 +392,7 @@ class PlayerService:
             except RuntimeError:
                 # No event loop running, we can use asyncio.run
                 return asyncio.run(self.get_player_by_telegram_id(telegram_id, team_id))
-                
+
         except Exception as e:
             logger.error(f"❌ Failed to get player by Telegram ID {telegram_id}: {e}")
             return None
@@ -402,7 +402,7 @@ class PlayerService:
         try:
             # Import here to avoid circular imports
             import asyncio
-            
+
             # Check if we're already in an event loop
             try:
                 loop = asyncio.get_running_loop()
@@ -414,7 +414,7 @@ class PlayerService:
             except RuntimeError:
                 # No event loop running, we can use asyncio.run
                 return asyncio.run(self.get_my_status(user_id, team_id))
-                
+
         except Exception as e:
             logger.error(f"❌ Failed to get status for user {user_id}: {e}")
             return f"❌ Error retrieving status: {e!s}"
@@ -424,7 +424,7 @@ class PlayerService:
         try:
             # Import here to avoid circular imports
             import asyncio
-            
+
             # Check if we're already in an event loop
             try:
                 loop = asyncio.get_running_loop()
@@ -436,7 +436,7 @@ class PlayerService:
             except RuntimeError:
                 # No event loop running, we can use asyncio.run
                 return asyncio.run(self.get_all_players(team_id))
-                
+
         except Exception as e:
             logger.error(f"❌ Failed to get all players for team {team_id}: {e}")
             return []
@@ -446,7 +446,7 @@ class PlayerService:
         try:
             # Import here to avoid circular imports
             import asyncio
-            
+
             # Check if we're already in an event loop
             try:
                 loop = asyncio.get_running_loop()
@@ -458,7 +458,7 @@ class PlayerService:
             except RuntimeError:
                 # No event loop running, we can use asyncio.run
                 return asyncio.run(self.get_active_players(team_id))
-                
+
         except Exception as e:
             logger.error(f"❌ Failed to get active players for team {team_id}: {e}")
             return []
@@ -468,7 +468,7 @@ class PlayerService:
         try:
             # Import here to avoid circular imports
             import asyncio
-            
+
             # Check if we're already in an event loop
             try:
                 loop = asyncio.get_running_loop()
@@ -480,7 +480,7 @@ class PlayerService:
             except RuntimeError:
                 # No event loop running, we can use asyncio.run
                 return asyncio.run(self.add_player(name, phone, position, team_id))
-                
+
         except Exception as e:
             logger.error(f"❌ Failed to add player {name}: {e}")
             return False, f"❌ Failed to add player: {e!s}"
@@ -490,7 +490,7 @@ class PlayerService:
         try:
             # Import here to avoid circular imports
             import asyncio
-            
+
             # Check if we're already in an event loop
             try:
                 loop = asyncio.get_running_loop()
@@ -502,7 +502,7 @@ class PlayerService:
             except RuntimeError:
                 # No event loop running, we can use asyncio.run
                 return asyncio.run(self.approve_player(player_id, team_id))
-                
+
         except Exception as e:
             logger.error(f"❌ Failed to approve player {player_id}: {e}")
             return f"❌ Failed to approve player: {e!s}"
@@ -512,7 +512,7 @@ class PlayerService:
         try:
             # Import here to avoid circular imports
             import asyncio
-            
+
             # Check if we're already in an event loop
             try:
                 loop = asyncio.get_running_loop()
@@ -524,7 +524,7 @@ class PlayerService:
             except RuntimeError:
                 # No event loop running, we can use asyncio.run
                 return asyncio.run(self.get_player_by_phone(phone=phone, team_id=team_id))
-                
+
         except Exception as e:
             logger.error(f"❌ Failed to get player by phone {phone}: {e}")
             return None

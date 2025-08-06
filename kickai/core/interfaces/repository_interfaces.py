@@ -10,71 +10,67 @@ For new code, use the specific split interfaces for better dependency isolation.
 
 from __future__ import annotations
 
-# Base repository interfaces
-from .repository_base import (
-    IRepository,
-    IQueryRepository,
-    IBulkRepository
+# Match repository interfaces (split)
+from .match_repositories import (
+    IMatchAvailabilityRepository,
+    IMatchReadRepository,
+    IMatchRepository,
+    IMatchWriteRepository,
 )
 
 # Player repository interfaces (split)
 from .player_repositories import (
-    IPlayerReadRepository,
-    IPlayerWriteRepository,
     IPlayerApprovalRepository,
-    IPlayerRepository
+    IPlayerReadRepository,
+    IPlayerRepository,
+    IPlayerWriteRepository,
 )
+
+# Base repository interfaces
+from .repository_base import IBulkRepository, IQueryRepository, IRepository
 
 # Team repository interfaces (split)
 from .team_repositories import (
     ITeamConfigRepository,
     ITeamMemberReadRepository,
     ITeamMemberWriteRepository,
-    ITeamRepository
+    ITeamRepository,
 )
 
 # User repository interfaces (split)
 from .user_repositories import (
-    IUserRegistrationRepository,
     IUserPermissionRepository,
-    IUserRepository
-)
-
-# Match repository interfaces (split)
-from .match_repositories import (
-    IMatchReadRepository,
-    IMatchWriteRepository,
-    IMatchAvailabilityRepository,
-    IMatchRepository
+    IUserRegistrationRepository,
+    IUserRepository,
 )
 
 # Export all interfaces for backward compatibility and new focused dependencies
 __all__ = [
     # Base interfaces
     "IRepository",
-    "IQueryRepository", 
+    "IQueryRepository",
     "IBulkRepository",
-    
+
     # Player interfaces
     "IPlayerReadRepository",
-    "IPlayerWriteRepository", 
+    "IPlayerWriteRepository",
     "IPlayerApprovalRepository",
     "IPlayerRepository",
-    
+
     # Team interfaces
     "ITeamConfigRepository",
     "ITeamMemberReadRepository",
-    "ITeamMemberWriteRepository", 
+    "ITeamMemberWriteRepository",
     "ITeamRepository",
-    
+
     # User interfaces
     "IUserRegistrationRepository",
     "IUserPermissionRepository",
     "IUserRepository",
-    
+
     # Match interfaces
     "IMatchReadRepository",
     "IMatchWriteRepository",
-    "IMatchAvailabilityRepository", 
+    "IMatchAvailabilityRepository",
     "IMatchRepository"
 ]

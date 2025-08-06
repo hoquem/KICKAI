@@ -18,14 +18,14 @@ from .tool_registration_check import ToolRegistrationCheck
 
 __all__ = [
     "AgentInitializationCheck",
-    "BaseCheck", 
+    "BaseCheck",
     "CommandRegistryCheck",
     "ConfigurationCheck",
     "CrewAIAgentHealthCheck",
     "EnhancedRegistryCheck",
     "InitializationSequenceCheck",
     "LLMProviderCheck",
-    "StubDetectionCheck", 
+    "StubDetectionCheck",
     "TelegramAdminCheck",
     "ToolRegistrationCheck",
 ]

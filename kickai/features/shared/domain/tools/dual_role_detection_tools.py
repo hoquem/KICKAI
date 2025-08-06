@@ -169,7 +169,7 @@ Your message suggests you might want both player and administrative roles:
 
 💡 **OPTIONS:**
 1. **Register as Player** - Join matches, requires approval
-2. **Register as Team Member** - Administrative role, immediate access  
+2. **Register as Team Member** - Administrative role, immediate access
 3. **Register for Both** - Player registration + administrative role
 
 Which would you prefer? You can have both roles if desired!
@@ -202,7 +202,7 @@ Your message: "{user_input}"
 
 Please clarify what you'd like to do:
 • **Play in matches** → Player registration
-• **Help with administration** → Team member registration  
+• **Help with administration** → Team member registration
 • **Both** → Dual registration available
 
 What would you prefer?
@@ -255,7 +255,7 @@ What are you interested in?
 • Benefits: Play in matches, team participation
 
 👥 **ADMINISTRATIVE ROLE:**
-• Role: {role.title()}  
+• Role: {role.title()}
 • Status: Immediate activation
 • Benefits: Team management access, coordination
 
@@ -357,7 +357,7 @@ def execute_dual_registration(
 • Status: **Active** - Immediate access
 • Access: Administrative features available now
 
-⚽ **PLAYER STATUS:**  
+⚽ **PLAYER STATUS:**
 • Position: {position.title()}
 • Status: **Pending Approval** - Awaiting leadership review
 • Access: Available after approval

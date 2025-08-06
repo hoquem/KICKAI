@@ -90,7 +90,7 @@ def get_smart_position_recommendations(
 
 📊 **Based on your profile:**
 • Experience: {experience.title()}
-• Physical: {physical_attributes.title()}  
+• Physical: {physical_attributes.title()}
 • Style: {playing_style.title()}
 • Availability: {availability.title()}
 
@@ -439,7 +439,7 @@ def analyze_team_needs_for_recommendations(team_id: str) -> str:
 • Goalkeeper (1 needed)
 • Midfielder (2 needed)
 
-🟡 **Medium Priority:**  
+🟡 **Medium Priority:**
 • Defender (1 needed)
 • Forward (backup needed)
 
@@ -535,7 +535,7 @@ You're going to make an amazing addition to our team! 🤝⚽👥
 
 🌟 **WHY THIS POSITION SUITS YOU:**
 • Aligns with your playing style and experience
-• Great learning and development opportunity  
+• Great learning and development opportunity
 • Important role in our team strategy
 • Perfect for your availability level
 

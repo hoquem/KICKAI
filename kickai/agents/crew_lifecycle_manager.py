@@ -158,27 +158,27 @@ class CrewLifecycleManager:
                 # Add timeout to prevent infinite loops
                 from kickai.core.constants.agent_constants import AgentConstants
                 timeout_seconds = AgentConstants.CREW_MAX_EXECUTION_TIME
-                
+
                 result = await asyncio.wait_for(
                     crew.execute_task(task_description, execution_context),
                     timeout=timeout_seconds
                 )
-                
+
                 # Check if result is empty or indicates failure
                 if not result or result.strip() == "":
                     logger.warning(f"⚠️ Empty result from crew for team {team_id}, providing fallback response")
                     result = self._get_fallback_response(task_description, execution_context)
-                
+
                 # Update success metrics
                 metrics.successful_requests += 1
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.error(f"⏰ Timeout after {timeout_seconds}s for team {team_id}")
                 result = self._get_timeout_response(task_description, execution_context, timeout_seconds)
-                
+
             except Exception as crew_error:
                 logger.error(f"❌ Crew execution failed for team {team_id}: {crew_error}")
-                
+
                 # Check if it's a max iterations error
                 if "Maximum iterations reached" in str(crew_error) or "max_iter" in str(crew_error).lower():
                     logger.warning(f"⚠️ Max iterations reached for team {team_id}, providing iteration limit response")
@@ -218,7 +218,7 @@ class CrewLifecycleManager:
                 metrics.last_activity = datetime.now()
 
             logger.error(f"❌ Task execution failed for team {team_id}: {e}")
-            
+
             # Always return a response, even on complete failure
             return self._get_critical_error_response(task_description, execution_context, str(e))
 

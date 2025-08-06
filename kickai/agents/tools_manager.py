@@ -50,10 +50,10 @@ class AgentToolsManager:
         try:
             # Use default context for tool configuration
             context = {
-                "team_name": "KICKAI", 
-                "team_id": "KAI", 
-                "chat_type": "main", 
-                "user_role": "public", 
+                "team_name": "KICKAI",
+                "team_id": "KAI",
+                "chat_type": "main",
+                "user_role": "public",
                 "username": "user"
             }
             config = get_agent_config(role, context)

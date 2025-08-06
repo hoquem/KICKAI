@@ -5,26 +5,24 @@ This module provides a robust, production-ready client for interacting with Olla
 with proper error handling, resource management, and observability.
 """
 
-import asyncio
-import logging
 import time
-from typing import List, Dict, Any, Optional
-from urllib.parse import urljoin
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+from urllib.parse import urljoin
 
 import httpx
 import structlog
 from tenacity import (
-    retry, 
-    stop_after_attempt, 
-    wait_exponential, 
+    RetryError,
+    retry,
     retry_if_exception_type,
-    RetryError
+    stop_after_attempt,
+    wait_exponential,
 )
 
 try:
-    from prometheus_client import Counter, Histogram, Gauge
+    from prometheus_client import Counter, Gauge, Histogram
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
@@ -49,7 +47,7 @@ class OllamaConfig:
     circuit_breaker_failure_threshold: int = 5
     circuit_breaker_recovery_timeout: float = 60.0
     circuit_breaker_half_open_max_calls: int = 3
-    
+
     def __post_init__(self):
         """Validate configuration"""
         if not self.base_url:
@@ -61,38 +59,38 @@ class OllamaConfig:
 
 class CircuitBreaker:
     """Simple circuit breaker implementation for Ollama client"""
-    
+
     def __init__(self, failure_threshold: int, recovery_timeout: float, half_open_max_calls: int = 3):
         self.failure_threshold = failure_threshold
         self.recovery_timeout = recovery_timeout
         self.half_open_max_calls = half_open_max_calls
-        
+
         self.failure_count = 0
         self.last_failure_time = 0
         self.state = ConnectionState.CLOSED
         self.half_open_calls = 0
-        
+
         self.logger = structlog.get_logger(__name__)
-    
+
     def can_execute(self) -> bool:
         """Check if request can be executed based on circuit breaker state"""
         current_time = time.time()
-        
+
         if self.state == ConnectionState.CLOSED:
             return True
         elif self.state == ConnectionState.OPEN:
             if current_time - self.last_failure_time > self.recovery_timeout:
                 self.state = ConnectionState.HALF_OPEN
                 self.half_open_calls = 0
-                self.logger.info("circuit_breaker_half_open", 
+                self.logger.info("circuit_breaker_half_open",
                                failure_count=self.failure_count)
                 return True
             return False
         elif self.state == ConnectionState.HALF_OPEN:
             return self.half_open_calls < self.half_open_max_calls
-        
+
         return False
-    
+
     def record_success(self):
         """Record successful request"""
         if self.state == ConnectionState.HALF_OPEN:
@@ -103,19 +101,19 @@ class CircuitBreaker:
                 self.logger.info("circuit_breaker_closed", message="Recovery successful")
         elif self.state == ConnectionState.CLOSED:
             self.failure_count = max(0, self.failure_count - 1)
-    
+
     def record_failure(self):
         """Record failed request"""
         self.failure_count += 1
         self.last_failure_time = time.time()
-        
+
         if self.state == ConnectionState.HALF_OPEN:
             self.state = ConnectionState.OPEN
-            self.logger.warning("circuit_breaker_open", 
+            self.logger.warning("circuit_breaker_open",
                               message="Half-open test failed")
         elif self.failure_count >= self.failure_threshold:
             self.state = ConnectionState.OPEN
-            self.logger.error("circuit_breaker_open", 
+            self.logger.error("circuit_breaker_open",
                             failure_count=self.failure_count,
                             threshold=self.failure_threshold)
 
@@ -143,7 +141,7 @@ class OllamaCircuitBreakerError(OllamaClientError):
 class OllamaClient:
     """
     Production-ready Ollama API client with circuit breaker, retries, and observability.
-    
+
     Features:
     - Async/await support with proper resource management
     - Circuit breaker pattern for resilience
@@ -152,7 +150,7 @@ class OllamaClient:
     - Comprehensive error handling and sanitization
     - URL validation and security hardening
     """
-    
+
     def __init__(self, config: OllamaConfig):
         self.config = config
         self.circuit_breaker = CircuitBreaker(
@@ -160,18 +158,18 @@ class OllamaClient:
             recovery_timeout=config.circuit_breaker_recovery_timeout,
             half_open_max_calls=config.circuit_breaker_half_open_max_calls
         )
-        
+
         # Structured logging
         self.logger = structlog.get_logger(__name__).bind(
             ollama_base_url=config.base_url
         )
-        
+
         # Optional Prometheus metrics
         if METRICS_AVAILABLE:
             self._init_metrics()
         else:
             self.logger.warning("prometheus_client not available - metrics disabled")
-    
+
     def _init_metrics(self):
         """Initialize Prometheus metrics"""
         try:
@@ -204,7 +202,7 @@ class OllamaClient:
                 self.active_connections = None
             else:
                 raise
-    
+
     def _update_circuit_breaker_metric(self):
         """Update circuit breaker state metric"""
         if METRICS_AVAILABLE:
@@ -214,8 +212,8 @@ class OllamaClient:
                 ConnectionState.OPEN: 2
             }
             self.circuit_breaker_state.set(state_map[self.circuit_breaker.state])
-    
-    def _sanitize_error(self, error: Exception) -> Dict[str, Any]:
+
+    def _sanitize_error(self, error: Exception) -> dict[str, Any]:
         """Sanitize error information for logging"""
         if isinstance(error, httpx.ConnectError):
             return {
@@ -225,7 +223,7 @@ class OllamaClient:
             }
         elif isinstance(error, httpx.TimeoutException):
             return {
-                "error_type": "timeout_error", 
+                "error_type": "timeout_error",
                 "message": "Request to Ollama server timed out",
                 "category": "timeout"
             }
@@ -242,13 +240,13 @@ class OllamaClient:
                 "message": "Unknown error occurred",
                 "category": "unknown"
             }
-    
+
     def _safe_url(self, path: str) -> str:
         """Safely construct URL with validation"""
         if not path.startswith('/'):
             path = '/' + path
         return urljoin(self.config.base_url, path)
-    
+
     async def _execute_with_circuit_breaker(self, operation_name: str, coro):
         """Execute operation with circuit breaker protection"""
         if not self.circuit_breaker.can_execute():
@@ -258,61 +256,61 @@ class OllamaClient:
                     result='circuit_breaker_open',
                     operation=operation_name
                 ).inc()
-            
-            self.logger.warning("circuit_breaker_blocked", 
+
+            self.logger.warning("circuit_breaker_blocked",
                               operation=operation_name,
                               state=self.circuit_breaker.state.value)
             raise OllamaCircuitBreakerError(
                 f"Circuit breaker is {self.circuit_breaker.state.value} for operation: {operation_name}"
             )
-        
+
         start_time = time.time()
         try:
             if METRICS_AVAILABLE:
                 self.active_connections.inc()
-            
+
             result = await coro
-            
+
             # Success
             duration = time.time() - start_time
             self.circuit_breaker.record_success()
             self._update_circuit_breaker_metric()
-            
+
             if METRICS_AVAILABLE:
                 self.connection_attempts.labels(
-                    result='success', 
+                    result='success',
                     operation=operation_name
                 ).inc()
                 self.connection_duration.labels(operation=operation_name).observe(duration)
-            
+
             self.logger.info("ollama_operation_success",
                            operation=operation_name,
                            duration_ms=duration * 1000,
                            circuit_breaker_state=self.circuit_breaker.state.value)
-            
+
             return result
-            
+
         except Exception as e:
             # Failure
             duration = time.time() - start_time
             self.circuit_breaker.record_failure()
             self._update_circuit_breaker_metric()
-            
+
             error_info = self._sanitize_error(e)
-            
+
             if METRICS_AVAILABLE:
                 self.connection_attempts.labels(
                     result='failure',
                     operation=operation_name
                 ).inc()
                 self.connection_duration.labels(operation=operation_name).observe(duration)
-            
+
             self.logger.error("ollama_operation_failed",
                             operation=operation_name,
                             duration_ms=duration * 1000,
                             circuit_breaker_state=self.circuit_breaker.state.value,
                             **error_info)
-            
+
             # Re-raise with proper exception type
             if isinstance(e, httpx.ConnectError):
                 raise OllamaConnectionError(f"Connection failed: {error_info['message']}") from e
@@ -320,11 +318,11 @@ class OllamaClient:
                 raise OllamaTimeoutError(f"Timeout: {error_info['message']}") from e
             else:
                 raise OllamaClientError(f"Operation failed: {error_info['message']}") from e
-        
+
         finally:
             if METRICS_AVAILABLE:
                 self.active_connections.dec()
-    
+
     @retry(
         stop=stop_after_attempt(3),  # Will be overridden by config
         wait=wait_exponential(multiplier=1, min=1, max=10),  # Will be overridden by config
@@ -343,14 +341,14 @@ class OllamaClient:
             response = await client.request(method, url, **kwargs)
             response.raise_for_status()
             return response
-    
+
     async def health_check(self) -> bool:
         """
         Check if Ollama server is healthy and responsive.
-        
+
         Returns:
             bool: True if server is healthy, False otherwise
-            
+
         Raises:
             OllamaCircuitBreakerError: If circuit breaker is open
             OllamaConnectionError: If connection fails
@@ -360,7 +358,7 @@ class OllamaClient:
             url = self._safe_url('/api/tags')
             response = await self._http_request('GET', url)
             return response.status_code == 200
-        
+
         # Configure retry for this specific call
         retry_decorator = retry(
             stop=stop_after_attempt(self.config.retry_attempts),
@@ -371,7 +369,7 @@ class OllamaClient:
             ),
             retry=retry_if_exception_type((httpx.ConnectError, httpx.TimeoutException))
         )
-        
+
         try:
             return await self._execute_with_circuit_breaker(
                 'health_check',
@@ -386,14 +384,14 @@ class OllamaClient:
                 elif isinstance(original_error, httpx.TimeoutException):
                     raise OllamaTimeoutError("Health check timed out after retries") from original_error
             raise OllamaClientError("Health check failed after retries") from e
-    
-    async def get_models(self) -> List[str]:
+
+    async def get_models(self) -> list[str]:
         """
         Get list of available models from Ollama server.
-        
+
         Returns:
             List[str]: List of available model names
-            
+
         Raises:
             OllamaCircuitBreakerError: If circuit breaker is open
             OllamaConnectionError: If connection fails
@@ -404,7 +402,7 @@ class OllamaClient:
             response = await self._http_request('GET', url)
             data = response.json()
             return [model["name"] for model in data.get("models", [])]
-        
+
         retry_decorator = retry(
             stop=stop_after_attempt(self.config.retry_attempts),
             wait=wait_exponential(
@@ -414,7 +412,7 @@ class OllamaClient:
             ),
             retry=retry_if_exception_type((httpx.ConnectError, httpx.TimeoutException))
         )
-        
+
         try:
             return await self._execute_with_circuit_breaker(
                 'get_models',
@@ -428,19 +426,19 @@ class OllamaClient:
                 elif isinstance(original_error, httpx.TimeoutException):
                     raise OllamaTimeoutError("Get models timed out after retries") from original_error
             raise OllamaClientError("Get models failed after retries") from e
-    
-    async def generate(self, model: str, prompt: str, **kwargs) -> Dict[str, Any]:
+
+    async def generate(self, model: str, prompt: str, **kwargs) -> dict[str, Any]:
         """
         Generate response from Ollama model.
-        
+
         Args:
             model: Model name to use
             prompt: Input prompt
             **kwargs: Additional generation parameters
-            
+
         Returns:
             Dict[str, Any]: Generation response
-            
+
         Raises:
             OllamaCircuitBreakerError: If circuit breaker is open
             OllamaConnectionError: If connection fails
@@ -456,7 +454,7 @@ class OllamaClient:
             }
             response = await self._http_request('POST', url, json=payload)
             return response.json()
-        
+
         retry_decorator = retry(
             stop=stop_after_attempt(self.config.retry_attempts),
             wait=wait_exponential(
@@ -466,7 +464,7 @@ class OllamaClient:
             ),
             retry=retry_if_exception_type((httpx.ConnectError, httpx.TimeoutException))
         )
-        
+
         try:
             return await self._execute_with_circuit_breaker(
                 'generate',
@@ -480,20 +478,20 @@ class OllamaClient:
                 elif isinstance(original_error, httpx.TimeoutException):
                     raise OllamaTimeoutError("Generate timed out after retries") from original_error
             raise OllamaClientError("Generate failed after retries") from e
-    
+
     async def close(self):
         """Clean up resources"""
         self.logger.info("ollama_client_closed")
-    
+
     async def __aenter__(self):
         """Async context manager entry"""
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit"""
         await self.close()
-    
-    def get_circuit_breaker_state(self) -> Dict[str, Any]:
+
+    def get_circuit_breaker_state(self) -> dict[str, Any]:
         """Get current circuit breaker state for monitoring"""
         return {
             "state": self.circuit_breaker.state.value,

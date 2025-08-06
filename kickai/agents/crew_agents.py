@@ -22,9 +22,9 @@ from kickai.agents.entity_specific_agents import (
 )
 from kickai.agents.tool_registry import initialize_tool_registry
 from kickai.config.agents import get_agent_config, get_enabled_agent_configs
+from kickai.config.llm_config import get_llm_config
 from kickai.core.enums import AgentRole
 from kickai.core.settings import get_settings
-from kickai.config.llm_config import get_llm_config
 
 
 class ConfigurationError(Exception):
@@ -109,7 +109,7 @@ class TeamManagementSystem:
             from kickai.core.settings import get_settings
             settings = get_settings()
             base_url = settings.ollama_base_url
-            
+
             # Use the new simplified LLM configuration
             llm_config = get_llm_config()
             self.llm = llm_config.main_llm
@@ -197,7 +197,7 @@ class TeamManagementSystem:
             # Memory is disabled for all providers to ensure compatibility with Ollama
             memory_enabled = False
             memory_config = None
-            logger.info(f"🧠 Crew memory disabled for Ollama compatibility")
+            logger.info("🧠 Crew memory disabled for Ollama compatibility")
 
             self.crew = Crew(
                 agents=crew_agents,

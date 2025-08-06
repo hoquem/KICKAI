@@ -269,8 +269,8 @@ class PhoneValidator:
         # Remove common separators but keep + for country code
         cleaned = re.sub(r"[^\d+]", "", phone.strip())
 
-        from kickai.core.constants import ValidationConstants, LimitConstants
-        
+        from kickai.core.constants import LimitConstants, ValidationConstants
+
         # Handle common UK number patterns
         if cleaned.startswith("0") and len(cleaned) >= LimitConstants.MIN_PHONE_DIGITS:
             # Convert UK local format to international
@@ -297,8 +297,8 @@ class PhoneValidator:
                 error_message="Phone number cannot be empty",
             )
 
-        from kickai.core.constants import ValidationConstants, LimitConstants
-        
+        from kickai.core.constants import LimitConstants, ValidationConstants
+
         # Basic validation: must have at least minimum required digits
         digits_only = re.sub(r"[^\d]", "", phone)
 

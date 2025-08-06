@@ -1,1 +1,0 @@
-"""Payment management feature package."""

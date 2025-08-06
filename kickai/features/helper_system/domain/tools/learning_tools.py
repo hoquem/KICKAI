@@ -9,7 +9,6 @@ from loguru import logger
 from pydantic import BaseModel
 
 from kickai.core.dependency_container import get_container
-from kickai.core.exceptions import ServiceNotAvailableError
 from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
     format_tool_error,
@@ -211,4 +210,4 @@ def generate_learning_insights(
 
     except Exception as e:
         logger.error(f"Failed to generate learning insights: {e}", exc_info=True)
-        return format_tool_error(f"Failed to generate learning insights: {e}") 
+        return format_tool_error(f"Failed to generate learning insights: {e}")

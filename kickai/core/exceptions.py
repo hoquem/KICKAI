@@ -228,7 +228,8 @@ class MatchValidationError(MatchError):
 class AttendanceError(KickAIError):
     """Base exception for attendance-related errors."""
 
-    pass
+    def __init__(self, message: str, context: dict[str, Any] | None = None):
+        super().__init__(message, context)
 
 
 class AttendanceNotFoundError(AttendanceError):
@@ -236,14 +237,37 @@ class AttendanceNotFoundError(AttendanceError):
 
     def __init__(self, attendance_id: str, context: dict[str, Any] | None = None):
         message = f"Attendance record {attendance_id} not found"
-        super().__init__(message, {"attendance_id": attendance_id, **(context or {})})
+        super().__init__(message, context)
 
 
 class AttendanceValidationError(AttendanceError):
     """Raised when attendance data validation fails."""
 
     def __init__(self, field: str, value: str, reason: str):
-        message = f"Attendance validation failed for {field}='{value}': {reason}"
+        message = f"Attendance validation failed for {field}={value}: {reason}"
+        super().__init__(message, {"field": field, "value": value, "reason": reason})
+
+
+class AvailabilityError(KickAIError):
+    """Base exception for availability-related errors."""
+
+    def __init__(self, message: str, context: dict[str, Any] | None = None):
+        super().__init__(message, context)
+
+
+class AvailabilityNotFoundError(AvailabilityError):
+    """Raised when an availability record is not found."""
+
+    def __init__(self, availability_id: str, context: dict[str, Any] | None = None):
+        message = f"Availability record {availability_id} not found"
+        super().__init__(message, context)
+
+
+class AvailabilityValidationError(AvailabilityError):
+    """Raised when availability data validation fails."""
+
+    def __init__(self, field: str, value: str, reason: str):
+        message = f"Availability validation failed for {field}={value}: {reason}"
         super().__init__(message, {"field": field, "value": value, "reason": reason})
 
 

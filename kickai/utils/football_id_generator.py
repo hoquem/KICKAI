@@ -595,13 +595,13 @@ def generate_football_match_id(
 def generate_football_training_id(team_id: str, session_type: str, date: str, time: str) -> str:
     """
     Generate a football-friendly training session ID.
-    
+
     Args:
         team_id: Team identifier
         session_type: Training session type (e.g., "technical_skills", "fitness_conditioning")
         date: Training date in YYYY-MM-DD format
         time: Training time in HH:MM format
-        
+
     Returns:
         Training session ID in format: TRAIN{DD}{MM}{TEAM}{TYPE}{TIME}
         Example: TRAIN1501KAI-TECH-1800
@@ -611,26 +611,26 @@ def generate_football_training_id(team_id: str, session_type: str, date: str, ti
         parsed_date = datetime.strptime(date, "%Y-%m-%d")
         day = parsed_date.day
         month = parsed_date.month
-        
+
         # Parse time to get hour
         parsed_time = datetime.strptime(time, "%H:%M")
         hour = parsed_time.hour
-        
+
         # Get session type abbreviation
         type_abbrev = {
             "technical_skills": "TECH",
-            "tactical_awareness": "TACT", 
+            "tactical_awareness": "TACT",
             "fitness_conditioning": "FIT",
             "match_practice": "MATCH",
             "recovery_session": "REC"
         }.get(session_type.lower(), "TRAIN")
-        
+
         # Create training ID: TRAIN{DD}{MM}{TEAM}-{TYPE}-{HH}00
         training_id = f"TRAIN{day:02d}{month:02d}{team_id}-{type_abbrev}-{hour:02d}00"
-        
+
         logger.info(f"Generated training ID '{training_id}' for {team_id} on {date} at {time}")
         return training_id
-        
+
     except ValueError as e:
         logger.error(f"Error generating training ID: {e}")
         # Fallback to simple format

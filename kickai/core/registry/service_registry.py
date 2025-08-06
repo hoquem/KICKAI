@@ -5,7 +5,7 @@ Service Registry
 Dedicated class for service registration and retrieval following the Single Responsibility Principle.
 """
 
-from typing import Any, Dict, Union
+from typing import Any
 
 from loguru import logger
 
@@ -16,8 +16,8 @@ class ServiceRegistry(IServiceRegistry, IStringServiceLookup):
     """Manages service registration and retrieval."""
 
     def __init__(self):
-        self._services: Dict[type, Any] = {}
-        self._service_names: Dict[str, type] = {}  # name -> type mapping
+        self._services: dict[type, Any] = {}
+        self._service_names: dict[str, type] = {}  # name -> type mapping
 
     def register_service(self, interface: type, implementation: Any) -> None:
         """Register a service implementation with its interface."""
@@ -29,7 +29,7 @@ class ServiceRegistry(IServiceRegistry, IStringServiceLookup):
             logger.error(f"❌ ServiceRegistry: Failed to register service {interface.__name__}: {e}")
             raise
 
-    def get_service(self, interface: Union[type, str]) -> Any:
+    def get_service(self, interface: type | str) -> Any:
         """Get a service by its interface or name."""
         try:
             # Handle string-based service lookup
@@ -39,7 +39,7 @@ class ServiceRegistry(IServiceRegistry, IStringServiceLookup):
             # Handle type-based service lookup
             if interface not in self._services:
                 raise RuntimeError(f"Service for interface {interface} not registered.")
-            
+
             return self._services[interface]
 
         except Exception as e:
@@ -57,7 +57,7 @@ class ServiceRegistry(IServiceRegistry, IStringServiceLookup):
             for service_type, service in self._services.items():
                 if service_type.__name__ == service_name:
                     return service
-            
+
             # If not found, raise error
             raise RuntimeError(f"Service '{service_name}' not registered.")
 
@@ -95,7 +95,7 @@ class ServiceRegistry(IServiceRegistry, IStringServiceLookup):
                 logger.info(f"🔄 ServiceRegistry: Updating existing service {interface.__name__}")
             else:
                 logger.info(f"✅ ServiceRegistry: Adding new service {interface.__name__}")
-            
+
             self._services[interface] = implementation
             self._service_names[interface.__name__] = interface
 
@@ -103,7 +103,7 @@ class ServiceRegistry(IServiceRegistry, IStringServiceLookup):
             logger.error(f"❌ ServiceRegistry: Failed to update service {interface.__name__}: {e}")
             raise
 
-    def get_all_services(self) -> Dict[type, Any]:
+    def get_all_services(self) -> dict[type, Any]:
         """Get all registered services."""
         return self._services.copy()
 

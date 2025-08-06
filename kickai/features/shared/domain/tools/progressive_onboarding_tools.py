@@ -278,7 +278,7 @@ What position do you prefer to play?
 • **Goalkeeper** - Between the posts
 • **Defender** - Defensive play
 • **Midfielder** - Central play
-• **Forward** - Attacking play  
+• **Forward** - Attacking play
 • **Utility** - Can play multiple positions
 
 Please type your preferred position.
@@ -370,7 +370,7 @@ Please choose one of the above roles.
 
 🎉 **INFORMATION COMPLETE!**
 
-📋 **SUMMARY:**  
+📋 **SUMMARY:**
 • **Type:** Team Member
 • **Role:** {input_clean.title()}
 • **Status:** Ready for activation

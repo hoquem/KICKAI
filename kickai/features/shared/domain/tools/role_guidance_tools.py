@@ -327,7 +327,7 @@ def compare_positions(position1: str, position2: str) -> str:
 
 **{position2.upper()}:**
 • {guide2["description"]}
-• Skills: {guide2["skills"]}  
+• Skills: {guide2["skills"]}
 • Commitment: {guide2["commitment"]}
 
 🤔 **DECISION HELP:**

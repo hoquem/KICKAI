@@ -7,7 +7,6 @@ Each feature maintains its own command definitions for clean separation.
 """
 
 from kickai.core.command_registry import CommandType, PermissionLevel, command
-from kickai.core.enums import ChatType
 
 # Note: /broadcast command has been removed as it's not needed for now
 # Team announcements can be made using /announce command instead

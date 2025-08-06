@@ -22,14 +22,14 @@ KICKAI is a sophisticated Telegram bot system for football team management, buil
 - **Player Management**: ✅ Complete player registration and management
 - **Match Management**: ✅ Match creation, scheduling, and attendance tracking
 - **Attendance Management**: ✅ Match attendance tracking and reporting
-- **Payment Management**: ✅ Payment creation and tracking
+- **Payment Management**: ❌ Removed (not a priority for Sunday league)
 - **Communication**: ✅ Team announcements and messaging
 - **Tool Classes**: ✅ Fixed all class-level attribute issues
 - **Agent Routing**: ✅ Resolved routing and execution issues
 
 ## 🚧 **Features in Development**
 
-- **Training Management**: 🚧 Partially implemented (tools and entities exist, commands defined but not integrated)
+- **Training Management**: ❌ Removed (not a priority for Sunday league)
 - **E2E Testing**: 🚧 Framework exists but requires telethon dependency
 - **Advanced Analytics**: 🚧 Basic implementation, needs enhancement
 
@@ -84,39 +84,21 @@ KICKAI is a sophisticated Telegram bot system for football team management, buil
 - `/attendancehistory` - View attendance history
 - `/attendanceexport` - Export attendance data
 
-### Payment Management (Fully Functional)
-- `/createpayment` - Create a new payment
-- `/payments` - View payment history
-- `/budget` - View budget information
-- `/markpaid` - Mark payment as paid
-- `/paymentexport` - Export payment data
+### Payment Management (Removed)
+**Status**: ❌ **REMOVED** - Not a priority for Sunday league team management
+
+**Reason**: Sunday league teams typically focus on match management rather than formal payment tracking.
 
 ### Communication (Fully Functional)
 - `/announce` - Send announcement to team
 - `/remind` - Send reminder to players
 - `/broadcast` - Broadcast message to all chats
 
-## 🚧 **Training Management (Partially Implemented)**
+## ❌ **Training Management (Removed)**
 
-The training management feature has been designed and partially implemented:
+The training management feature has been removed as it's not a priority for Sunday league team management.
 
-### ✅ **Implemented Components**
-- **Domain Entities**: TrainingSession, TrainingAttendance
-- **Tools**: schedule_training_session, list_training_sessions, mark_training_attendance, etc.
-- **Infrastructure**: Firestore repository
-- **Commands**: Defined in training_commands.py but not integrated into main command system
-
-### 🚧 **Missing Integration**
-- Training commands not added to constants.py command definitions
-- Training commands not registered in main command registry
-- Training tools not integrated with agent system
-- E2E tests for training functionality
-
-### 📋 **Planned Training Commands**
-- `/scheduletraining` - Schedule a training session (Leadership)
-- `/listtrainings` - List upcoming training sessions
-- `/marktraining` - Mark attendance for training session
-- `/canceltraining` - Cancel a training session (Leadership)
+**Reason**: Sunday league teams typically focus on match management rather than formal training sessions.
 - `/trainingstats` - Show training statistics
 - `/mytrainings` - Show personal training schedule
 
