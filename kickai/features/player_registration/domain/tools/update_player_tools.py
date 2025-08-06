@@ -345,23 +345,23 @@ def get_player_updatable_fields(user_id: str, team_id: str) -> str:
 
 👤 {player_name} - Available Fields to Update:
 
-📱 **phone** - Your contact phone number
+📱 phone - Your contact phone number
    Example: /update phone 07123456789
    Format: UK numbers (+44 or 07xxx format)
 
-⚽ **position** - Your football position
+⚽ position - Your football position
    Example: /update position midfielder
    Valid: {positions}
 
-📧 **email** - Your email address
+📧 email - Your email address
    Example: /update email john@example.com
    Format: Valid email address
 
-🚨 **emergency_contact** - Emergency contact info
+🚨 emergency_contact - Emergency contact info
    Example: /update emergency_contact +44787654321
    Format: Phone number or contact details
 
-🏥 **medical_notes** - Medical information
+🏥 medical_notes - Medical information
    Example: /update medical_notes Allergic to peanuts
    Format: Text up to 500 characters
 

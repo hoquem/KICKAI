@@ -553,7 +553,7 @@ def get_all_players(team_id: str, user_id: str) -> str:
 
         for player in players:
             status_emoji = "✅" if player.status.lower() == "active" else "⏳"
-            result += f"{status_emoji} **{player.full_name}**\n"
+            result += f"{status_emoji} {player.full_name}\n"
             result += f"   • Position: {player.position}\n"
             result += f"   • Status: {player.status.title()}\n"
             result += f"   • Player ID: {player.player_id or 'Not assigned'}\n"

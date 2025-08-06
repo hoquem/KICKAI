@@ -34,7 +34,7 @@ class RecordAttendanceTool(Tool):
             try:
                 attendance_status = AttendanceStatus(status.lower())
             except ValueError:
-                return f"❌ **Invalid status**: {status}. Valid options: attended, absent, late"
+                return f"❌ Invalid status: {status}. Valid options: attended, absent, late"
 
             # Parse arrival time if provided
             arrival_time_obj = None
@@ -42,7 +42,7 @@ class RecordAttendanceTool(Tool):
                 try:
                     arrival_time_obj = time.fromisoformat(arrival_time)
                 except ValueError:
-                    return f"❌ **Invalid arrival time format**: {arrival_time}. Use HH:MM format"
+                    return f"❌ Invalid arrival time format: {arrival_time}. Use HH:MM format"
 
             # Record attendance
             attendance = self.attendance_service.record_attendance(
@@ -58,24 +58,24 @@ class RecordAttendanceTool(Tool):
             summary = self.attendance_service.get_attendance_summary(match_id)
 
             result = [
-                "✅ **Match Attendance Recorded**",
+                "✅ Match Attendance Recorded",
                 "",
-                f"**Match**: {match_id}",
-                f"**Player**: {player_id}",
-                f"**Status**: {attendance.status_emoji} {attendance_status.value.title()}",
+                f"Match: {match_id}",
+                f"Player: {player_id}",
+                f"Status: {attendance.status_emoji} {attendance_status.value.title()}",
             ]
 
             if reason:
-                result.append(f"**Reason**: {reason}")
+                result.append(f"Reason: {reason}")
 
             if arrival_time_obj:
-                result.append(f"**Arrival Time**: {attendance.formatted_arrival_time}")
+                result.append(f"Arrival Time: {attendance.formatted_arrival_time}")
 
             result.extend([
-                f"**Recorded by**: {recorded_by or 'System'}",
-                f"**Time**: {attendance.recorded_at.strftime('%H:%M')}",
+                f"Recorded by: {recorded_by or 'System'}",
+                f"Time: {attendance.recorded_at.strftime('%H:%M')}",
                 "",
-                "📊 **Match Summary**",
+                "📊 Match Summary",
                 f"• Attended: {summary['attended']} players",
                 f"• Absent: {summary['absent']} players",
                 f"• Late: {summary['late']} players",
@@ -86,7 +86,7 @@ class RecordAttendanceTool(Tool):
 
         except Exception as e:
             logger.error(f"Failed to record attendance: {e}")
-            return f"❌ **Error recording attendance**: {e!s}"
+            return f"❌ Error recording attendance: {e!s}"
 
 
 class GetMatchAttendanceTool(Tool):
@@ -111,15 +111,15 @@ class GetMatchAttendanceTool(Tool):
             late_players = self.attendance_service.get_late_players(match_id)
 
             result = [
-                f"📊 **Match Attendance: {match_id}**",
+                f"📊 Match Attendance: {match_id}",
                 "",
-                f"**Total Players**: {summary['total_players']}",
+                f"Total Players: {summary['total_players']}",
                 "",
             ]
 
             # Attended players
             if attended_players:
-                result.append(f"✅ **Attended** ({len(attended_players)}):")
+                result.append(f"✅ Attended ({len(attended_players)}):")
                 for attendance in attended_players:
                     result.append(f"• {attendance.player_id}")
                     if attendance.arrival_time:
@@ -128,7 +128,7 @@ class GetMatchAttendanceTool(Tool):
 
             # Absent players
             if absent_players:
-                result.append(f"❌ **Absent** ({len(absent_players)}):")
+                result.append(f"❌ Absent ({len(absent_players)}):")
                 for attendance in absent_players:
                     result.append(f"• {attendance.player_id}")
                     if attendance.reason:
@@ -137,7 +137,7 @@ class GetMatchAttendanceTool(Tool):
 
             # Late players
             if late_players:
-                result.append(f"⏰ **Late** ({len(late_players)}):")
+                result.append(f"⏰ Late ({len(late_players)}):")
                 for attendance in late_players:
                     result.append(f"• {attendance.player_id}")
                     if attendance.arrival_time:
@@ -146,14 +146,14 @@ class GetMatchAttendanceTool(Tool):
                         result.append(f"  - Reason: {attendance.reason}")
                 result.append("")
 
-            result.append("📋 **Actions**")
+            result.append("📋 Actions")
             result.append("• /markmatchattendance [match_id] [player_id] [status] - Record attendance")
 
             return "\n".join(result)
 
         except Exception as e:
             logger.error(f"Failed to get match attendance: {e}")
-            return f"❌ **Error getting match attendance**: {e!s}"
+            return f"❌ Error getting match attendance: {e!s}"
 
 
 class GetPlayerAttendanceHistoryTool(Tool):
@@ -176,12 +176,12 @@ class GetPlayerAttendanceHistoryTool(Tool):
             history = self.attendance_service.get_player_attendance_history(player_id, limit)
 
             if not history:
-                return f"📈 **Attendance History**\n\nNo attendance records found for player {player_id}."
+                return f"📈 Attendance History\n\nNo attendance records found for player {player_id}."
 
             result = [
-                f"📈 **Attendance History for {player_id}**",
+                f"📈 Attendance History for {player_id}",
                 "",
-                f"**Last {len(history)} matches**:",
+                f"Last {len(history)} matches:",
                 "",
             ]
 
@@ -199,19 +199,19 @@ class GetPlayerAttendanceHistoryTool(Tool):
 
             result.extend([
                 "",
-                "📊 **Statistics**",
-                f"• **Attendance Rate**: {stats['attendance_rate']}% ({stats['attended']}/{stats['total_matches']} matches)",
-                f"• **Attended**: {stats['attended']} matches",
-                f"• **Absent**: {stats['absent']} matches",
-                f"• **Late**: {stats['late']} matches",
-                f"• **Reliability Rating**: {stats['reliability_rating']}",
+                "📊 Statistics",
+                f"• Attendance Rate: {stats['attendance_rate']}% ({stats['attended']}/{stats['total_matches']} matches)",
+                f"• Attended: {stats['attended']} matches",
+                f"• Absent: {stats['absent']} matches",
+                f"• Late: {stats['late']} matches",
+                f"• Reliability Rating: {stats['reliability_rating']}",
             ])
 
             return "\n".join(result)
 
         except Exception as e:
             logger.error(f"Failed to get player attendance history: {e}")
-            return f"❌ **Error getting attendance history**: {e!s}"
+            return f"❌ Error getting attendance history: {e!s}"
 
 
 class BulkRecordAttendanceTool(Tool):
@@ -237,7 +237,7 @@ class BulkRecordAttendanceTool(Tool):
                 required_fields = ["player_id", "status"]
                 missing_fields = [field for field in required_fields if field not in record]
                 if missing_fields:
-                    return f"❌ **Invalid record format**: Missing fields {missing_fields}"
+                    return f"❌ Invalid record format: Missing fields {missing_fields}"
 
             # Record attendance for all players
             recorded_attendances = self.attendance_service.bulk_record_attendance(
@@ -250,13 +250,13 @@ class BulkRecordAttendanceTool(Tool):
             summary = self.attendance_service.get_attendance_summary(match_id)
 
             result = [
-                "✅ **Bulk Attendance Recorded**",
+                "✅ Bulk Attendance Recorded",
                 "",
-                f"**Match**: {match_id}",
-                f"**Players Recorded**: {len(recorded_attendances)}",
-                f"**Recorded by**: {recorded_by or 'System'}",
+                f"Match: {match_id}",
+                f"Players Recorded: {len(recorded_attendances)}",
+                f"Recorded by: {recorded_by or 'System'}",
                 "",
-                "📊 **Match Summary**",
+                "📊 Match Summary",
                 f"• Attended: {summary['attended']} players",
                 f"• Absent: {summary['absent']} players",
                 f"• Late: {summary['late']} players",
@@ -267,4 +267,4 @@ class BulkRecordAttendanceTool(Tool):
 
         except Exception as e:
             logger.error(f"Failed to bulk record attendance: {e}")
-            return f"❌ **Error bulk recording attendance**: {e!s}"
+            return f"❌ Error bulk recording attendance: {e!s}"

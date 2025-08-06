@@ -43,9 +43,9 @@ async def handle_addplayer_command(update, context, **kwargs) -> CommandResult:
         if len(parts) < 3:
             return CommandResult(
                 success=False,
-                message="❌ **Usage**: `/addplayer [name] [phone]`\n\n"
-                "**Example**: `/addplayer John Smith +447123456789`\n\n"
-                "💡 **Note**: Position can be set later by team members.",
+                message="❌ Usage: `/addplayer [name] [phone]`\n\n"
+                "Example: `/addplayer John Smith +447123456789`\n\n"
+                "💡 Note: Position can be set later by team members.",
                 requires_agent=True
             )
 
@@ -61,7 +61,7 @@ async def handle_addplayer_command(update, context, **kwargs) -> CommandResult:
         if not team_id:
             return CommandResult(
                 success=False,
-                message="❌ **Error**: Team ID not found in context. Please try again.",
+                message="❌ Error: Team ID not found in context. Please try again.",
                 requires_agent=True
             )
 
@@ -108,9 +108,9 @@ async def handle_approve_command(update, context, **kwargs) -> CommandResult:
         if len(parts) < 2:
             return CommandResult(
                 success=False,
-                message="❌ **Usage**: `/approve [player_id]`\n\n"
-                "**Example**: `/approve MH123`\n\n"
-                "💡 **Note**: This command is only available in the leadership chat.",
+                message="❌ Usage: `/approve [player_id]`\n\n"
+                "Example: `/approve MH123`\n\n"
+                "💡 Note: This command is only available in the leadership chat.",
                 requires_agent=True
             )
 
@@ -125,7 +125,7 @@ async def handle_approve_command(update, context, **kwargs) -> CommandResult:
         if not team_id:
             return CommandResult(
                 success=False,
-                message="❌ **Error**: Team ID not found in context. Please try again.",
+                message="❌ Error: Team ID not found in context. Please try again.",
                 requires_agent=True
             )
 
@@ -171,9 +171,9 @@ async def handle_reject_command(update, context, **kwargs) -> CommandResult:
         if len(parts) < 2:
             return CommandResult(
                 success=False,
-                message="❌ **Usage**: `/reject [player_id] [reason]`\n\n"
-                "**Example**: `/reject MH123 Insufficient experience`\n\n"
-                "💡 **Note**: This command is only available in the leadership chat.",
+                message="❌ Usage: `/reject [player_id] [reason]`\n\n"
+                "Example: `/reject MH123 Insufficient experience`\n\n"
+                "💡 Note: This command is only available in the leadership chat.",
                 requires_agent=True
             )
 
@@ -189,7 +189,7 @@ async def handle_reject_command(update, context, **kwargs) -> CommandResult:
         if not team_id:
             return CommandResult(
                 success=False,
-                message="❌ **Error**: Team ID not found in context. Please try again.",
+                message="❌ Error: Team ID not found in context. Please try again.",
                 requires_agent=True
             )
 
@@ -230,7 +230,7 @@ async def handle_pending_command(update, context, **kwargs) -> CommandResult:
         if not team_id:
             return CommandResult(
                 success=False,
-                message="❌ **Error**: Team ID not found in context. Please try again.",
+                message="❌ Error: Team ID not found in context. Please try again.",
                 requires_agent=True
             )
 
@@ -277,7 +277,7 @@ async def handle_myinfo_command(update, context, **kwargs) -> CommandResult:
         if not team_id:
             return CommandResult(
                 success=False,
-                message="❌ **Error**: Team ID not found in context. Please try again.",
+                message="❌ Error: Team ID not found in context. Please try again.",
                 requires_agent=True
             )
 
@@ -325,7 +325,7 @@ async def handle_list_command(update, context, **kwargs) -> CommandResult:
         if not team_id:
             return CommandResult(
                 success=False,
-                message="❌ **Error**: Team ID not found in context. Please try again.",
+                message="❌ Error: Team ID not found in context. Please try again.",
                 requires_agent=True
             )
 
@@ -377,9 +377,9 @@ async def handle_status_command(update, context, **kwargs) -> CommandResult:
         if len(parts) < 2:
             return CommandResult(
                 success=False,
-                message="❌ **Usage**: `/status [phone]`\n\n"
-                "**Example**: `/status +447123456789`\n\n"
-                "💡 **Note**: Check the status of a player by phone number.",
+                message="❌ Usage: `/status [phone]`\n\n"
+                "Example: `/status +447123456789`\n\n"
+                "💡 Note: Check the status of a player by phone number.",
                 requires_agent=True
             )
 
@@ -394,7 +394,7 @@ async def handle_status_command(update, context, **kwargs) -> CommandResult:
         if not team_id:
             return CommandResult(
                 success=False,
-                message="❌ **Error**: Team ID not found in context. Please try again.",
+                message="❌ Error: Team ID not found in context. Please try again.",
                 requires_agent=True
             )
 

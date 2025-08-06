@@ -41,11 +41,11 @@ async def get_personalized_feature_recommendations(user_id: str, team_id: str) -
 
         # Fallback to basic recommendations
         return (
-            "🎯 **Welcome to KICKAI!** Here are some great features to start with:\n\n"
-            + "• **Player Management**: Use /addplayer to add new team members\n"
-            + "• **Team Overview**: Use /list to see all team members\n"
-            + "• **Help System**: The system will proactively provide assistance when needed\n"
-            + "• **Status Check**: Use /status to check player availability"
+            "🎯 Welcome to KICKAI! Here are some great features to start with:\n\n"
+            + "• Player Management: Use /addplayer to add new team members\n"
+            + "• Team Overview: Use /list to see all team members\n"
+            + "• Help System: The system will proactively provide assistance when needed\n"
+            + "• Status Check: Use /status to check player availability"
         )
 
     except Exception as e:
@@ -130,7 +130,7 @@ async def get_contextual_suggestions(user_id: str, team_id: str, context: str) -
         # Get contextual suggestions
         suggestions = await feature_service.get_contextual_suggestions(user_id, team_id, context)
         if suggestions:
-            return "💡 **Contextual Tips**:\n" + "\n".join([f"• {tip}" for tip in suggestions])
+            return "💡 Contextual Tips:\n" + "\n".join([f"• {tip}" for tip in suggestions])
 
         return "💡 Continue exploring KICKAI features! The system will proactively provide assistance when needed."
 
@@ -251,15 +251,15 @@ async def celebrate_progress(user_id: str, team_id: str, achievement: str) -> st
         if profile:
             level = profile.experience_level
             if level == "beginner":
-                return f"🎉 **Congratulations {user_id}!** {achievement}\n\nKeep up the great work! You're making excellent progress as a beginner."
+                return f"🎉 Congratulations {user_id}! {achievement}\n\nKeep up the great work! You're making excellent progress as a beginner."
             elif level == "intermediate":
-                return f"🚀 **Amazing work {user_id}!** {achievement}\n\nYou're becoming a KICKAI pro! Ready for advanced features?"
+                return f"🚀 Amazing work {user_id}! {achievement}\n\nYou're becoming a KICKAI pro! Ready for advanced features?"
             elif level == "advanced":
-                return f"🏆 **Outstanding {user_id}!** {achievement}\n\nYou're a KICKAI expert! Consider helping others learn."
+                return f"🏆 Outstanding {user_id}! {achievement}\n\nYou're a KICKAI expert! Consider helping others learn."
             else:
-                return f"👑 **Legendary {user_id}!** {achievement}\n\nYou're a KICKAI master! Thank you for being an inspiration."
+                return f"👑 Legendary {user_id}! {achievement}\n\nYou're a KICKAI master! Thank you for being an inspiration."
 
-        return f"🎉 **Congratulations {user_id}!** {achievement}\n\nKeep up the great work!"
+        return f"🎉 Congratulations {user_id}! {achievement}\n\nKeep up the great work!"
 
     except Exception as e:
         logger.error(f"Error celebrating progress for user {user_id}: {e}")
@@ -269,16 +269,16 @@ async def celebrate_progress(user_id: str, team_id: str, achievement: str) -> st
 def _format_user_analytics(analytics: dict[str, Any]) -> str:
     """Format user analytics for display."""
     try:
-        return f"""📊 **User Analytics**
+        return f"""📊 User Analytics
 
-**Experience Level**: {analytics.get("experience_level", "Unknown")}
-**Total Commands Used**: {analytics.get("total_commands", 0)}
-**Unique Commands**: {analytics.get("unique_commands", 0)}
-**Learning Velocity**: {analytics.get("learning_velocity", 0):.2f}
-**Feature Adoption Rate**: {analytics.get("feature_adoption_rate", 0):.1%}
-**Days Since Registration**: {analytics.get("days_since_registration", 0)}
+Experience Level: {analytics.get("experience_level", "Unknown")}
+Total Commands Used: {analytics.get("total_commands", 0)}
+Unique Commands: {analytics.get("unique_commands", 0)}
+Learning Velocity: {analytics.get("learning_velocity", 0):.2f}
+Feature Adoption Rate: {analytics.get("feature_adoption_rate", 0):.1%}
+Days Since Registration: {analytics.get("days_since_registration", 0)}
 
-**Most Used Commands**:
+Most Used Commands:
 {chr(10).join([f"• {cmd}" for cmd in analytics.get("most_used_commands", [])])}"""
     except Exception as e:
         logger.error(f"Error formatting user analytics: {e}")
@@ -293,17 +293,17 @@ def _format_team_analytics(analytics: dict[str, Any]) -> str:
             [f"• {level.title()}: {count}" for level, count in level_distribution.items()]
         )
 
-        return f"""📊 **Team Analytics**
+        return f"""📊 Team Analytics
 
-**Total Users**: {analytics.get("total_users", 0)}
-**Active Users**: {analytics.get("active_users", 0)}
-**Average Commands Used**: {analytics.get("avg_commands_used", 0):.1f}
-**Average Feature Adoption**: {analytics.get("avg_feature_adoption", 0):.1%}
+Total Users: {analytics.get("total_users", 0)}
+Active Users: {analytics.get("active_users", 0)}
+Average Commands Used: {analytics.get("avg_commands_used", 0):.1f}
+Average Feature Adoption: {analytics.get("avg_feature_adoption", 0):.1%}
 
-**Experience Level Distribution**:
+Experience Level Distribution:
 {level_text}
 
-**Popular Commands**:
+Popular Commands:
 {chr(10).join([f"• {cmd}" for cmd in analytics.get("popular_commands", [])])}"""
     except Exception as e:
         logger.error(f"Error formatting team analytics: {e}")

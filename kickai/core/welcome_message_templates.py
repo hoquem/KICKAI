@@ -52,20 +52,20 @@ Welcome aboard! ⚽"""
 # Default welcome message templates
 DEFAULT_WELCOME_TEMPLATES = {
     ChatType.MAIN: WelcomeMessageTemplate(
-        title="🎉 **WELCOME TO THE TEAM, {username}!**",
-        body="👋 **Welcome to KICKAI!** We're excited to have you join our football community!",
-        features="""⚽ **WHAT YOU CAN DO HERE:**
+        title="🎉 WELCOME TO THE TEAM, {username}!",
+        body="👋 Welcome to KICKAI! We're excited to have you join our football community!",
+        features="""⚽ WHAT YOU CAN DO HERE:
 • Link your phone number to connect your account
 • Check your status with `/myinfo`
 • See available commands with `/help`
 • View active players with `/list`
 • Update your details with `/update`""",
-        getting_started="""🔗 **GETTING STARTED:**
-1. **Link your account** - Share your phone number to connect to your player record
-2. **Check your status** - Use `/myinfo` to see your current registration
-3. **Update details** - Use `/update` to modify your position and contact info
-4. **Explore commands** - Use `/help` to see all available options""",
-        help_section="""📱 **NEED HELP?**
+        getting_started="""🔗 GETTING STARTED:
+1. Link your account - Share your phone number to connect to your player record
+2. Check your status - Use `/myinfo` to see your current registration
+3. Update details - Use `/update` to modify your position and contact info
+4. Explore commands - Use `/help` to see all available options""",
+        help_section="""📱 NEED HELP?
 • Type `/help` for command information
 • Contact team leadership for assistance
 • Check pinned messages for important updates""",
@@ -73,20 +73,20 @@ DEFAULT_WELCOME_TEMPLATES = {
     ),
 
     ChatType.LEADERSHIP: WelcomeMessageTemplate(
-        title="🎉 **WELCOME TO LEADERSHIP, {username}!**",
-        body="👥 **Welcome to the KICKAI Leadership Team!** You're now part of our administrative team.",
-        features="""🛠️ **ADMINISTRATIVE FEATURES:**
+        title="🎉 WELCOME TO LEADERSHIP, {username}!",
+        body="👥 Welcome to the KICKAI Leadership Team! You're now part of our administrative team.",
+        features="""🛠️ ADMINISTRATIVE FEATURES:
 • Manage players with `/add`, `/approve`, `/listmembers`
 • View pending players with `/pending`
 • Schedule training with `/scheduletraining`
 • Manage matches with `/creatematch`, `/squadselect`
 • Send announcements with `/announce`""",
-        getting_started="""📋 **QUICK START:**
-1. **View pending players** - Use `/pending` to see who needs approval
-2. **Add new players** - Use `/add [name] [phone] [position]`
-3. **Approve players** - Use `/approve [player_id]`
-4. **Explore admin commands** - Use `/help` for full list""",
-        help_section="""🎯 **TEAM MANAGEMENT:**
+        getting_started="""📋 QUICK START:
+1. View pending players - Use `/pending` to see who needs approval
+2. Add new players - Use `/add [name] [phone] [position]`
+3. Approve players - Use `/approve [player_id]`
+4. Explore admin commands - Use `/help` for full list""",
+        help_section="""🎯 TEAM MANAGEMENT:
 • Player registration and approval
 • Training session management
 • Match scheduling and squad selection
@@ -95,17 +95,17 @@ DEFAULT_WELCOME_TEMPLATES = {
     ),
 
     ChatType.PRIVATE: WelcomeMessageTemplate(
-        title="🎉 **WELCOME, {username}!**",
-        body="👋 **Welcome to KICKAI!** You're now connected to our football management system.",
-        features="""⚽ **AVAILABLE COMMANDS:**
+        title="🎉 WELCOME, {username}!",
+        body="👋 Welcome to KICKAI! You're now connected to our football management system.",
+        features="""⚽ AVAILABLE COMMANDS:
 • Get help with `/help`
 • Check your status with `/myinfo`
 • Register as a player with `/register`""",
-        getting_started="""🔗 **NEXT STEPS:**
+        getting_started="""🔗 NEXT STEPS:
 1. Join the main team chat for full access
 2. Register as a player or team member
 3. Start participating in team activities""",
-        help_section="""📱 **NEED HELP?**
+        help_section="""📱 NEED HELP?
 • Use `/help` for command information
 • Contact team leadership for assistance""",
         footer="Welcome! We're glad to have you on board! ⚽"
