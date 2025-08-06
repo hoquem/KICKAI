@@ -38,12 +38,12 @@ class WelcomeMessageTemplate:
 {self.footer}"""
         except Exception:
             # Fallback to safe formatting
-            return f"""🎉 **WELCOME TO THE TEAM, {username.upper()}!**
+            return f"""🎉 WELCOME TO THE TEAM, {username.upper()}!
 
-👋 **Welcome to KICKAI!** We're excited to have you join our football community!
+👋 Welcome to KICKAI! We're excited to have you join our football community!
 
-📋 **Getting Started:**
-• Use `/help` to see available commands
+📋 Getting Started:
+• Use /help to see available commands
 • Contact team leadership for assistance
 
 Welcome aboard! ⚽"""

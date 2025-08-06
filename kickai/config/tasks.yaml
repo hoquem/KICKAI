@@ -8,25 +8,25 @@ tasks:
       Process incoming user messages, classify intent, and route to appropriate
       specialized agents or provide immediate responses for simple queries.
       
-      **PROCESS OR RULES OF ENGAGEMENT:**
+      PROCESS OR RULES OF ENGAGEMENT:
       Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
+      1. Acknowledge the user's request and identify the core intent.
+      2. Based on the user's context (ID, chat type), determine their permission level using the appropriate tools.
+      3. If the intent maps to a command they have permission for, proceed. Otherwise, respond with the standardized 'Access Denied' message.
+      4. Select the best tool(s) to fulfill the request.
+      5. Execute the tools and synthesize the results.
+      6. Format the final response according to the Message Formatting Framework.
       
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      OUTPUT FORMAT REQUIREMENTS:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 👤 User, 🤖 Bot)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Appropriately formatted response or routing decision based on message content and user context,
-      following the Message Formatting Framework standards with proper emojis and Markdown structure.
+      following the Message Formatting Framework standards with proper emojis and plain text structure.
     agent: message_processor
 
   - name: orchestrate_request
@@ -44,11 +44,11 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 👤 User, 🤖 Bot)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Coordinated response from multiple agents or clear task delegation,
@@ -71,15 +71,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 👤 User, 📋 Lists)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Comprehensive player status report with all relevant information,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: player_coordinator
 
   - name: approve_player
@@ -97,15 +97,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 👤 User)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Approval decision with reasoning and next steps for the player,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: player_coordinator
 
   - name: get_all_players
@@ -123,15 +123,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📋 Lists, 👥 Members)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Complete list of players with status, registration date, and key details,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: player_coordinator
 
   # Team Management Tasks
@@ -150,15 +150,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 👔 Leadership)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       New team created with proper configuration and initial setup,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: team_administrator
 
   - name: manage_team_members
@@ -176,15 +176,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 👔 Leadership, 👥 Members)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Updated team member list with current roles and permissions,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: team_administrator
 
   # Match Management Tasks
@@ -203,15 +203,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📋 Lists)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Availability report for requested players and time periods,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: availability_manager
 
   - name: create_match
@@ -229,15 +229,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 🎉 Welcome, 👤 User)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Complete match creation with all required information and confirmation,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: team_manager
 
   - name: select_squad
@@ -255,15 +255,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 🎉 Welcome, 👤 User)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Complete squad selection with tactical reasoning and player details,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: squad_selector
 
   - name: manage_availability
@@ -281,15 +281,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 🎉 Welcome, 👤 User)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Complete availability management with tracking and coordination details,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: availability_manager
 
   # Communication Tasks
@@ -307,15 +307,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📞 Contact)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Announcement sent successfully with confirmation of delivery,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: communication_manager
 
   - name: send_reminder
@@ -333,15 +333,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📞 Contact)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Reminders sent successfully with delivery confirmation,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: communication_manager
 
   - name: broadcast_message
@@ -359,15 +359,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📞 Contact)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Message broadcasted successfully with delivery statistics,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: communication_manager
 
   # Help and Support Tasks
@@ -386,15 +386,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 🤖 Bot, 👔 Leadership, 👤 User)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Clear, helpful response that addresses user's question or concern,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: help_assistant
 
   - name: get_available_commands
@@ -412,15 +412,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 🤖 Bot, 👔 Leadership, 👤 User)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Complete list of available commands with descriptions and usage examples,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: help_assistant
 
   # Analytics and Reporting Tasks
@@ -439,15 +439,15 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📊 Analytics)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Detailed report with relevant metrics, insights, and recommendations,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: analytics_agent
 
   - name: analyze_performance
@@ -465,13 +465,13 @@ tasks:
       6. **Format the final response** according to the Message Formatting Framework.
       
       **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in Markdown and strictly follow the Message Formatting Framework:
+      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
       - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📊 Analytics)
-      - Use bold headers with `**Header**`
-      - Format commands as `` `/command` ``
-      - Structure lists with `• Item`
+      - Use clear headers without special formatting
+      - Format commands as /command
+      - Structure lists with • Item
       - Organize content in clear sections
     expected_output: >
       Performance analysis with actionable insights and recommendations,
-      formatted with proper emojis and Markdown structure following the Message Formatting Framework.
+      formatted with proper emojis and plain text structure following the Message Formatting Framework.
     agent: analytics_agent 

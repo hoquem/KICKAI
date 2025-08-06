@@ -1744,20 +1744,23 @@
         function formatMessageText(text) {
             if (!text) return '';
             
+            // Escape HTML entities to prevent injection and display issues
+            text = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+            
             // Convert line breaks to HTML
             text = text.replace(/\n/g, '<br>');
             
-            // Highlight emojis and make them larger (simplified regex to avoid issues)
+            // Highlight emojis and make them larger
             text = text.replace(/([👤👥📋🔑🎭🏢📱📧📅🔄✅⏳🔴❌❓💡📞🤖⚽🏷️])/g, 
                 '<span style="font-size: 1.2em; margin: 0 2px;">$1</span>');
             
             // Highlight command-like text
             text = text.replace(/(\/[a-zA-Z]+)/g, '<code style="background: #f0f0f0; padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>');
-            
-            // Highlight important sections
-            text = text.replace(/(❓.*?)(?=<br>|$)/g, '<strong style="color: #1a73e8;">$1</strong>');
-            text = text.replace(/(💡.*?)(?=<br>|$)/g, '<strong style="color: #34a853;">$1</strong>');
-            text = text.replace(/(📞.*?)(?=<br>|$)/g, '<strong style="color: #ea4335;">$1</strong>');
             
             return text;
         }
