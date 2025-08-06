@@ -701,8 +701,8 @@ async def get_firebase_users():
         team_service = get_service(TeamService)
         
         # Get players and team members for the current team
-        players = await player_service.get_players_by_team_id(CURRENT_TEAM_ID)
-        team_members = await team_service.get_team_members_by_team_id(CURRENT_TEAM_ID)
+        players = await player_service.get_players_by_team(team_id=CURRENT_TEAM_ID)
+        team_members = await team_service.get_team_members(CURRENT_TEAM_ID)
         
         firebase_users = []
         
