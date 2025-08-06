@@ -413,14 +413,33 @@ class MockTelegramService:
             }))
             
             # Process message through bot system with chat context
+            logger.info(f"Bot integration available: {BOT_INTEGRATION_AVAILABLE}")
             if BOT_INTEGRATION_AVAILABLE:
                 try:
+                    logger.info(f"Processing message through bot: {request.text}")
                     # Add chat context to message data for bot routing
                     message_data = message.to_dict()
                     message_data["chat_context"] = chat_context
                     
                     bot_response = process_mock_message_sync(message_data)
+                    logger.info(f"Bot response: {bot_response}")
                     if bot_response and bot_response.get("status") != "processing":
+                        # Create bot message and add to chat
+                        bot_message = MockMessage(
+                            message_id=self.message_counter,
+                            from_user=MockUser(
+                                id=9999,  # Bot ID (positive number)
+                                username="kickai_bot",
+                                first_name="KICKAI Bot",
+                                is_bot=True
+                            ),
+                            chat=chat,
+                            date=datetime.now(timezone.utc),
+                            text=bot_response.get("text", "Bot response")
+                        )
+                        self.messages.append(bot_message)
+                        self.message_counter += 1
+                        
                         # Broadcast bot response
                         asyncio.create_task(self.broadcast_message({
                             "type": "bot_response",
