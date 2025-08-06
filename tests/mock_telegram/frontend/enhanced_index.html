@@ -466,6 +466,13 @@
             border-color: var(--primary-blue);
         }
         
+        .chat-tab.disabled {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
         .chat-context {
             padding: 12px;
             background: var(--bg-secondary);
@@ -1170,6 +1177,11 @@
                 );
             }
             
+            // Helper function to check if user is a team member (non-player)
+            function isTeamMember(user) {
+                return user.role && user.role !== 'player';
+            }
+            
             // Debug: Log filtering process
             console.log(`🔍 Filtering users: category="${currentCategory}", search="${searchTerm}"`);
             console.log(`📊 Total users before filtering: ${firebaseUsers.length}`);
@@ -1178,8 +1190,8 @@
             let filteredUsers = firebaseUsers.filter(user => {
                 const matchesCategory = currentCategory === 'all' || 
                     (currentCategory === 'players' && user.role === 'player') ||
-                    (currentCategory === 'team-members' && user.role !== 'player') ||
-                    (currentCategory === 'admins' && isAdminUser(user));
+                    (currentCategory === 'team-members' && isTeamMember(user)) ||
+                    (currentCategory === 'admins' && isTeamMember(user)); // Admins are team members with leadership access
                 
                 const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
                 const matchesSearch = fullName.toLowerCase().includes(searchTerm) ||
@@ -1188,8 +1200,8 @@
                 
                 // Debug: Log admin detection
                 if (currentCategory === 'admins') {
-                    const isAdmin = isAdminUser(user);
-                    console.log(`  - ${fullName}: role="${user.role}", isAdmin=${isAdmin}`);
+                    const isTeamMemberUser = isTeamMember(user);
+                    console.log(`  - ${fullName}: role="${user.role}", isTeamMember=${isTeamMemberUser}`);
                 }
                 
                 return matchesCategory && matchesSearch;
@@ -1237,9 +1249,18 @@
                 );
             }
             
+            // Helper function to check if user is a team member (non-player)
+            function isTeamMember(user) {
+                return user.role && user.role !== 'player';
+            }
+            
             const roleColor = user.role === 'player' ? 'var(--role-player)' : 
                             isAdminUser(user) ? 'var(--role-admin)' : 
                             'var(--role-member)';
+            
+            // Determine chat access based on role
+            const hasMainChatAccess = true; // All users have main chat access
+            const hasLeadershipChatAccess = isTeamMember(user); // Team members (non-players) have leadership chat access
             
             li.innerHTML = `
                 <div class="user-avatar" style="background: ${roleColor}">
@@ -1255,9 +1276,8 @@
                     <div class="user-phone">${user.phone_number || 'No phone'}</div>
                 </div>
                 <div class="user-permissions">
-                    <span class="permission-badge main-chat">Main Chat</span>
-                    ${isAdminUser(user) ? 
-                        '<span class="permission-badge leadership-chat">Leadership</span>' : ''}
+                    ${hasMainChatAccess ? '<span class="permission-badge main-chat">Main Chat</span>' : ''}
+                    ${hasLeadershipChatAccess ? '<span class="permission-badge leadership-chat">Leadership</span>' : ''}
                 </div>
             `;
             
@@ -1295,9 +1315,38 @@
             // Update chat title to show selected user
             updateChatTitle();
             
+            // Update chat tab availability based on user role
+            updateChatTabAvailability(user);
+            
             // If no chat is selected, select main chat
             if (!currentChat) {
                 selectChat('main');
+            }
+        }
+        
+        // Update chat tab availability based on user role
+        function updateChatTabAvailability(user) {
+            const leadershipTab = document.querySelector('.chat-tab[data-chat="leadership"]');
+            const mainTab = document.querySelector('.chat-tab[data-chat="main"]');
+            
+            // All users can access main chat
+            if (mainTab) {
+                mainTab.disabled = false;
+                mainTab.classList.remove('disabled');
+            }
+            
+            // Only team members (non-players) can access leadership chat
+            const hasLeadershipAccess = user.role && user.role !== 'player';
+            if (leadershipTab) {
+                if (hasLeadershipAccess) {
+                    leadershipTab.disabled = false;
+                    leadershipTab.classList.remove('disabled');
+                    leadershipTab.title = 'Leadership chat for team members and admins';
+                } else {
+                    leadershipTab.disabled = true;
+                    leadershipTab.classList.add('disabled');
+                    leadershipTab.title = 'Access denied: Only team members can access leadership chat';
+                }
             }
         }
         
@@ -1349,8 +1398,8 @@
                 chatDescription = 'Main team chat for all players';
                 chatPermissions = 'All users can send messages';
             } else if (chat.is_leadership_chat) {
-                chatDescription = 'Leadership chat for admins and managers';
-                chatPermissions = 'Admin users only';
+                chatDescription = 'Leadership chat for team members and admins';
+                chatPermissions = 'Team members and admins only';
             }
             
             const descriptionElement = document.querySelector('.chat-description');
@@ -1388,6 +1437,15 @@
         async function sendMessage() {
             if (!currentUser || !currentChat) {
                 alert('Please select a user and chat first');
+                return;
+            }
+            
+            // Check if user has access to the selected chat
+            const hasMainChatAccess = true; // All users have main chat access
+            const hasLeadershipChatAccess = currentUser.role && currentUser.role !== 'player'; // Team members have leadership chat access
+            
+            if (currentChat.is_leadership_chat && !hasLeadershipChatAccess) {
+                alert('Access Denied: This user does not have access to the leadership chat. Only team members can access the leadership chat.');
                 return;
             }
             
