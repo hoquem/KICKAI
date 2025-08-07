@@ -27,7 +27,7 @@ class UserFlowDecision(Enum):
 class TelegramMessage:
     """Domain message representation."""
 
-    user_id: str
+    telegram_id: str  # Changed from user_id to telegram_id
     chat_id: str
     chat_type: ChatType
     username: str
@@ -112,7 +112,7 @@ class UserFlowAgent:
         """Handle registered user flow."""
         try:
             formatted_message = await self._format_registered_user_message(
-                message.user_id, message.team_id, message.username
+                message.telegram_id, message.team_id, message.username
             )
             return formatted_message
         except Exception as e:

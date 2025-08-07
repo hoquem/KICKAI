@@ -135,7 +135,7 @@ class AgenticMessageRouter:
 
             # Determine user flow
             user_flow_result = await self.user_flow_agent.determine_user_flow(
-                user_id=message.user_id, chat_type=message.chat_type, command=command
+                user_id=message.telegram_id, chat_type=message.chat_type, command=command
             )
 
             # Handle unregistered users
@@ -249,7 +249,7 @@ If the problem continues, please contact your team administrator."""
 
             # Attempt to link the user
             linked_player = await linking_service.link_telegram_user_by_phone(
-                phone=message.contact_phone, telegram_id=message.user_id, username=message.username
+                phone=message.contact_phone, telegram_id=message.telegram_id, username=message.username
             )
 
             if linked_player:
@@ -340,7 +340,7 @@ Use /help to see available commands or ask me questions!"""
             if player_service:
                 try:
                     player = await player_service.get_player_by_telegram_id(
-                        message.user_id, message.team_id
+                        message.telegram_id, message.team_id
                     )
                     is_player = player is not None
                 except Exception:
@@ -349,7 +349,7 @@ Use /help to see available commands or ask me questions!"""
             if team_service:
                 try:
                     team_member = await team_service.get_team_member_by_telegram_id(
-                        message.team_id, message.user_id
+                        message.team_id, message.telegram_id
                     )
                     is_team_member = team_member is not None
                 except Exception:
@@ -381,7 +381,7 @@ Use /help to see available commands or ask me questions!"""
 
             # Create standardized context for CrewAI system
             standardized_context = create_context_from_telegram_message(
-                user_id=message.user_id,
+                user_id=message.telegram_id,
                 team_id=message.team_id,
                 chat_id=message.chat_id,
                 chat_type=message.chat_type,
@@ -519,7 +519,7 @@ If the problem continues, please contact your team administrator."""
                 )
 
             return TelegramMessage(
-                user_id=user_id,
+                telegram_id=user_id,  # Changed from user_id to telegram_id
                 chat_id=chat_id,
                 chat_type=chat_type,
                 username=username,
@@ -591,7 +591,7 @@ If the problem continues, please contact your team administrator."""
 
             # Attempt to link the user
             linked_player = await linking_service.link_telegram_user_by_phone(
-                phone=message.text.strip(), telegram_id=message.user_id, username=message.username
+                phone=message.text.strip(), telegram_id=message.telegram_id, username=message.username
             )
 
             if linked_player:
@@ -662,7 +662,7 @@ If the problem continues, please contact your team administrator."""
 
             # Create context for the helper agent
             context = {
-                "user_id": message.user_id,
+                "user_id": message.telegram_id,
                 "team_id": self.team_id,
                 "chat_type": message.chat_type.value,
                 "username": message.username,
@@ -671,7 +671,7 @@ If the problem continues, please contact your team administrator."""
 
             # Execute help task using the task manager
             response = await self.helper_agent.execute_help_task(
-                user_query=query, user_id=message.user_id, team_id=self.team_id, context=context
+                user_query=query, user_id=message.telegram_id, team_id=self.team_id, context=context
             )
 
             return AgentResponse(success=True, message=response, error=None)
