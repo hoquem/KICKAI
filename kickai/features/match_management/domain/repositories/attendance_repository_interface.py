@@ -1,3 +1,4 @@
+from typing import Optional
 from abc import ABC, abstractmethod
 
 from kickai.features.match_management.domain.entities.attendance import (
@@ -15,12 +16,12 @@ class AttendanceRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, attendance_id: str) -> MatchAttendance | None:
+    async def get_by_id(self, attendance_id: str) -> Optional[MatchAttendance]:
         """Get attendance by ID."""
         pass
 
     @abstractmethod
-    async def get_by_match_and_player(self, match_id: str, player_id: str) -> MatchAttendance | None:
+    async def get_by_match_and_player(self, match_id: str, player_id: str) -> Optional[MatchAttendance]:
         """Get attendance for a specific match and player."""
         pass
 

@@ -53,6 +53,11 @@
    - `AvailabilityService` for availability management
    - `AttendanceService` for attendance tracking
 
+5. **Cross-Cutting Concern: CrewAI Idiomatic Usage**
+   - For all new features, prioritize using native CrewAI features (e.g., `Task.config` for context, CrewAI's memory, delegation).
+   - Avoid custom workarounds for functionalities already supported by CrewAI.
+   - Refer to `docs/ARCHITECTURE.md` for detailed CrewAI best practices.
+
 ### **Week 3-4: Command Integration**
 1. **Core Commands Implementation**
    - `/creatematch` - Match creation with validation
@@ -64,6 +69,7 @@
    - `MatchManagementAgent` for match operations
    - `AvailabilityManagementAgent` for attendance tracking
    - Specialized tools for each operation
+   - Ensure all agent and tool implementations strictly adhere to CrewAI's native features and context passing via `Task.config`.
 
 3. **Command Registry Updates**
    - Add match commands to command registry

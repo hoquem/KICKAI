@@ -1,3 +1,4 @@
+from typing import Optional
 #!/usr/bin/env python3
 """
 Environment Variable Validation Check
@@ -114,7 +115,7 @@ class EnvironmentValidator:
                 invalid_vars=[]
             )
 
-    def _validate_variable(self, var_name: str, value: str) -> str | None:
+    def _validate_variable(self, var_name: str, value: str) -> Optional[str]:
         """Validate a specific environment variable."""
         if var_name not in self.validation_rules:
             return None
@@ -148,7 +149,7 @@ class EnvironmentValidator:
 
         # Check for default/development values in production
         ai_provider = os.getenv("AI_PROVIDER")
-        if ai_provider == "mock" and os.getenv("NODE_ENV") == "production":
+        if ai_provider == "mock" and os.getenv("ENVIRONMENT") == "production": # Use ENVIRONMENT as defined in Settings
             issues.append("Mock AI provider should not be used in production")
 
         # Check for exposed credentials

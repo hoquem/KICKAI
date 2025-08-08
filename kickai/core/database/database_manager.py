@@ -1,3 +1,4 @@
+from typing import Optional
 #!/usr/bin/env python3
 """
 Database Manager
@@ -18,7 +19,7 @@ class DatabaseManager(IDatabaseManager):
     """Manages database initialization and configuration."""
 
     def __init__(self):
-        self._database: DataStoreInterface | None = None
+        self._database: Optional[DataStoreInterface] = None
         self._initialized = False
 
     def initialize_database(self) -> None:

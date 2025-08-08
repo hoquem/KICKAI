@@ -10,6 +10,7 @@ import asyncio
 import logging
 import os
 import sys
+from typing import Set
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))

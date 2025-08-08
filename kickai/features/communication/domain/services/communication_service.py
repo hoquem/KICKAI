@@ -1,3 +1,4 @@
+from typing import Optional, Set
 """
 Communication Service for handling Telegram communication operations.
 """
@@ -10,7 +11,7 @@ from kickai.features.communication.infrastructure.telegram_bot_service import Te
 class CommunicationService:
     """Service for handling communication operations including Telegram messaging."""
 
-    def __init__(self, telegram_bot_service: TelegramBotService | None = None):
+    def __init__(self, telegram_bot_service: Optional[TelegramBotService] = None):
         self.telegram_bot_service = telegram_bot_service
 
     def set_telegram_bot_service(self, telegram_bot_service: TelegramBotService):
@@ -48,9 +49,9 @@ class CommunicationService:
                 logger.error(f"No chat_id configured for chat_type: {chat_type}")
                 return False
 
-            # Send the message using TelegramBotService
+            # Send the message using TelegramBotService (plain text only)
             await self.telegram_bot_service.send_message(chat_id, message)
-            logger.info(f"✅ Message sent to {chat_type} (team_id: {team_id})")
+            logger.info(f"✅ Plain text message sent to {chat_type} (team_id: {team_id})")
             return True
 
         except Exception as e:
@@ -100,8 +101,8 @@ class CommunicationService:
                 logger.error("❌ TelegramBotService not available in CommunicationService")
                 return False
 
-            # Format the poll message
-            poll_message = f"📊 **Poll**: {question}\n\n"
+            # Format the poll message (plain text)
+            poll_message = f"📊 Poll: {question}\n\n"
             option_list = [opt.strip() for opt in options.split(",")]
 
             for i, option in enumerate(option_list, 1):

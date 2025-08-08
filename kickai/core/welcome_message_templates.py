@@ -9,6 +9,7 @@ joining different chat types. Templates can be customized per team or context.
 from dataclasses import dataclass
 
 from kickai.core.enums import ChatType
+from typing import Set
 
 
 @dataclass

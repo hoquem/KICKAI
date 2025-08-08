@@ -6,6 +6,7 @@ This module registers help-related commands with the command registry.
 """
 
 from kickai.core.command_registry import CommandType, PermissionLevel, command
+from typing import List, Optional
 
 
 @command(

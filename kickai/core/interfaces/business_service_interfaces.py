@@ -8,7 +8,7 @@ clean separation between application and domain layers.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from kickai.core.value_objects import (
     EntityContext,
@@ -31,7 +31,7 @@ class IPlayerService(ABC):
         position: str,
         team_id: TeamId,
         context: EntityContext
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Register a new player.
 
@@ -53,7 +53,7 @@ class IPlayerService(ABC):
         player_id: PlayerId,
         team_id: TeamId,
         requester_context: EntityContext
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Get player status information.
 
@@ -72,7 +72,7 @@ class IPlayerService(ABC):
         self,
         team_id: TeamId,
         requester_context: EntityContext
-    ) -> list[dict[str, Any]]:
+    ) -> List[Dict[str, Any]]:
         """
         Get list of active players.
 
@@ -110,9 +110,9 @@ class IPlayerService(ABC):
         self,
         player_id: PlayerId,
         team_id: TeamId,
-        updates: dict[str, Any],
+        updates: Dict[str, Any],
         updater_context: EntityContext
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Update player information.
 
@@ -139,7 +139,7 @@ class ITeamService(ABC):
         role: str,
         team_id: TeamId,
         context: EntityContext
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Add new team member.
 
@@ -160,7 +160,7 @@ class ITeamService(ABC):
         self,
         team_id: TeamId,
         requester_context: EntityContext
-    ) -> list[dict[str, Any]]:
+    ) -> List[Dict[str, Any]]:
         """
         Get list of team members.
 
@@ -178,9 +178,9 @@ class ITeamService(ABC):
         self,
         user_id: UserId,
         team_id: TeamId,
-        updates: dict[str, Any],
+        updates: Dict[str, Any],
         updater_context: EntityContext
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Update team member information.
 
@@ -200,7 +200,7 @@ class ITeamService(ABC):
         self,
         team_id: TeamId,
         requester_context: EntityContext
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Get team configuration.
 
@@ -242,7 +242,7 @@ class IUserService(ABC):
         team_id: str,
         chat_id: str,
         chat_type: str,
-        username: str | None = None
+        username: Optional[str] = None
     ) -> EntityContext:
         """
         Create entity context for a user.
@@ -264,7 +264,7 @@ class IUserService(ABC):
         self,
         user_id: UserId,
         team_id: TeamId,
-        permissions: list[str],
+        permissions: List[str],
         updater_context: EntityContext
     ) -> bool:
         """
@@ -328,7 +328,7 @@ class IValidationService(ABC):
     def validate_user_permissions(
         self,
         user_context: EntityContext,
-        required_permissions: list[str]
+        required_permissions: List[str]
     ) -> bool:
         """
         Validate user has required permissions.
@@ -345,9 +345,9 @@ class IValidationService(ABC):
     @abstractmethod
     def get_validation_errors(
         self,
-        data: dict[str, Any],
-        validation_rules: dict[str, Any]
-    ) -> list[str]:
+        data: Dict[str, Any],
+        validation_rules: Dict[str, Any]
+    ) -> List[str]:
         """
         Get validation errors for data.
 
@@ -454,7 +454,7 @@ class IAnalyticsService(ABC):
         user_id: UserId,
         action: str,
         context: EntityContext,
-        metadata: dict[str, Any] | None = None
+        metadata: Optional[Dict[str, Any]] = None
     ) -> None:
         """
         Track user action for analytics.
@@ -471,8 +471,8 @@ class IAnalyticsService(ABC):
     async def get_team_analytics(
         self,
         team_id: TeamId,
-        date_range: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+        date_range: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         Get team analytics data.
 
@@ -490,7 +490,7 @@ class IAnalyticsService(ABC):
         self,
         team_id: TeamId,
         period: str = "week"
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Get user engagement metrics.
 

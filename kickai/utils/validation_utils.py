@@ -8,6 +8,7 @@ This module provides comprehensive input validation for the KICKAI system.
 import re
 
 from kickai.core.constants import LimitConstants, ValidationConstants
+from typing import List, Tuple
 
 # Valid football positions
 VALID_POSITIONS = {
@@ -48,7 +49,7 @@ VALID_POSITIONS = {
 import phonenumbers
 
 
-def validate_player_input(name: str, phone: str, position: str, team_id: str) -> list[str]:
+def validate_player_input(name: str, phone: str, position: str, team_id: str) -> List[str]:
     """
     Validate player input parameters.
 
@@ -152,7 +153,7 @@ def normalize_phone(phone: str) -> str:
         return phone  # Return original if any other error
 
 
-def validate_team_member_input(name: str, phone: str, role: str, team_id: str) -> list[str]:
+def validate_team_member_input(name: str, phone: str, role: str, team_id: str) -> List[str]:
     """
     Validate team member input parameters.
 
@@ -222,7 +223,7 @@ def sanitize_input(text: str, max_length: int = 100) -> str:
     return sanitized
 
 
-def validate_invite_link(invite_link: str) -> tuple[bool, str]:
+def validate_invite_link(invite_link: str) -> Tuple[bool, str]:
     """
     Validate invite link format.
 
@@ -250,7 +251,7 @@ def validate_invite_link(invite_link: str) -> tuple[bool, str]:
     return True, ""
 
 
-def validate_team_id(team_id: str) -> tuple[bool, str]:
+def validate_team_id(team_id: str) -> Tuple[bool, str]:
     """
     Validate team ID format.
 

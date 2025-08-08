@@ -1,0 +1,81 @@
+{
+  "folders": [
+    {
+      "name": "KICKAI",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "python.pythonPath": "./venv311/bin/python",
+    "python.defaultInterpreterPath": "./venv311/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "python.analysis.extraPaths": ["./kickai"],
+    "python.envFile": "${workspaceFolder}/.env",
+    "terminal.integrated.env.osx": {
+      "PYTHONPATH": "${workspaceFolder}",
+      "VIRTUAL_ENV": "${workspaceFolder}/venv311"
+    },
+    "terminal.integrated.env.linux": {
+      "PYTHONPATH": "${workspaceFolder}",
+      "VIRTUAL_ENV": "${workspaceFolder}/venv311"
+    },
+    "terminal.integrated.profiles.osx": {
+      "KICKAI Python 3.11": {
+        "path": "/bin/bash",
+        "args": ["-c", "source ${workspaceFolder}/venv311/bin/activate && export PYTHONPATH=${workspaceFolder} && exec bash"]
+      }
+    },
+    "terminal.integrated.defaultProfile.osx": "KICKAI Python 3.11",
+    "claude.python.interpreter": "./venv311/bin/python",
+    "claude.python.environment": "./venv311",
+    "claude.python.version": "3.11",
+    "claude.project.type": "python",
+    "claude.project.framework": "CrewAI",
+    "[python]": {
+      "editor.defaultFormatter": "charliermarsh.ruff",
+      "editor.formatOnSave": true,
+      "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit"
+      }
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-python.python",
+      "ms-python.vscode-pylance", 
+      "charliermarsh.ruff",
+      "ms-python.mypy-type-checker"
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "KICKAI Bot",
+        "type": "python",
+        "request": "launch",
+        "program": "run_bot_local.py",
+        "python": "./venv311/bin/python",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}"
+        },
+        "console": "integratedTerminal",
+        "cwd": "${workspaceFolder}"
+      },
+      {
+        "name": "KICKAI Tests",
+        "type": "python", 
+        "request": "launch",
+        "module": "pytest",
+        "python": "./venv311/bin/python",
+        "args": ["tests/", "-v"],
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}"
+        },
+        "console": "integratedTerminal",
+        "cwd": "${workspaceFolder}"
+      }
+    ]
+  }
+}

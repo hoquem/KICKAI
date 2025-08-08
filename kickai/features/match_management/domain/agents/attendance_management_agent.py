@@ -4,10 +4,10 @@ from crewai import Agent
 
 from kickai.features.match_management.domain.services.attendance_service import AttendanceService
 from kickai.features.match_management.domain.tools.attendance_tools import (
-    BulkRecordAttendanceTool,
-    GetMatchAttendanceTool,
-    GetPlayerAttendanceHistoryTool,
-    RecordAttendanceTool,
+    bulk_record_attendance,
+    get_match_attendance,
+    get_player_attendance_history,
+    record_attendance,
 )
 
 logger = logging.getLogger(__name__)
@@ -16,17 +16,23 @@ logger = logging.getLogger(__name__)
 class AttendanceManagementAgent:
     """CrewAI agent for attendance management operations."""
 
-    def __init__(self, attendance_service: AttendanceService):
-        self.attendance_service = attendance_service
+    def __init__(self):
+        from kickai.core.dependency_container import get_container
+        container = get_container()
+        self.attendance_service = container.get_service(AttendanceService)
+        if not self.attendance_service:
+            raise ValueError("AttendanceService not found in container")
         self.agent = self._create_agent()
 
     def _create_agent(self) -> Agent:
         """Create the attendance management agent."""
+        # The tools are now function-based and don't need service injection
+        # They handle service access internally via dependency container
         tools = [
-            RecordAttendanceTool(self.attendance_service),
-            GetMatchAttendanceTool(self.attendance_service),
-            GetPlayerAttendanceHistoryTool(self.attendance_service),
-            BulkRecordAttendanceTool(self.attendance_service),
+            record_attendance,
+            get_match_attendance,
+            get_player_attendance_history,
+            bulk_record_attendance,
         ]
 
         return Agent(

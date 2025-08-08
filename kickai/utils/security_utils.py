@@ -1,3 +1,4 @@
+from typing import Optional, Tuple
 #!/usr/bin/env python3
 """
 Security Utilities for KICKAI System
@@ -61,7 +62,7 @@ def sanitize_username(username: str) -> str:
         return "Unknown User"
 
 
-def validate_telegram_update(update) -> tuple[bool, str | None]:
+def validate_telegram_update(update) -> Tuple[bool, Optional[str]]:
     """
     Validate Telegram update structure and content.
 
@@ -106,7 +107,7 @@ def validate_telegram_update(update) -> tuple[bool, str | None]:
         return False, f"Validation error: {e!s}"
 
 
-def validate_new_chat_members_update(update) -> tuple[bool, str | None]:
+def validate_new_chat_members_update(update) -> Tuple[bool, Optional[str]]:
     """
     Validate new chat members update specifically.
 
@@ -206,7 +207,7 @@ def sanitize_message_text(text: str) -> str:
         return ""
 
 
-def validate_chat_id(chat_id: str) -> tuple[bool, str | None]:
+def validate_chat_id(chat_id: str) -> Tuple[bool, Optional[str]]:
     """
     Validate chat ID format and content.
 

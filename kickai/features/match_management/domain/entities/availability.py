@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from typing import Optional
 
 
 class AvailabilityStatus(Enum):
@@ -20,7 +21,7 @@ class Availability:
     match_id: str
     player_id: str
     status: AvailabilityStatus
-    reason: str | None = None
+    reason: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
     updated_by: str = ""  # Player ID
@@ -31,7 +32,7 @@ class Availability:
         match_id: str,
         player_id: str,
         status: AvailabilityStatus,
-        reason: str | None = None,
+        reason: Optional[str] = None,
         availability_id: str = "",
     ) -> "Availability":
         """Create a new availability instance."""
@@ -48,7 +49,7 @@ class Availability:
             updated_by=player_id,
         )
 
-    def update(self, status: AvailabilityStatus, reason: str | None = None, updated_by: str = ""):
+    def update(self, status: AvailabilityStatus, reason: Optional[str] = None, updated_by: str = ""):
         """Update availability status."""
         self.status = status
         if reason is not None:

@@ -7,6 +7,7 @@ This module provides tools for squad selection and management.
 
 from loguru import logger
 from pydantic import BaseModel
+from typing import List, Optional
 
 from kickai.core.dependency_container import get_container
 from kickai.utils.crewai_tool_decorator import tool
@@ -31,7 +32,7 @@ class SelectSquadInput(BaseModel):
     team_id: str
     user_id: str
     match_id: str
-    squad_size: int | None = None
+    squad_size: Optional[int] = None
 
 
 class GetMatchInput(BaseModel):
@@ -102,7 +103,7 @@ def get_available_players_for_match(team_id: str, user_id: str, match_id: str) -
 
 @tool("select_squad")
 def select_squad(
-    team_id: str, user_id: str, match_id: str, squad_size: int | None = None
+    team_id: str, user_id: str, match_id: str, squad_size: Optional[int] = None
 ) -> str:
     """
     Select optimal squad for a match based on availability and tactical requirements.

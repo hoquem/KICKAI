@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, List, Optional, Set
 
 from loguru import logger
 
@@ -57,7 +57,7 @@ class CrewLifecycleManager:
         self._crew_status: dict[str, CrewStatus] = {}
         self._crew_metrics: dict[str, CrewMetrics] = {}
         self._crew_locks: dict[str, asyncio.Lock] = {}
-        self._monitoring_task: asyncio.Task | None = None
+        self._monitoring_task: asyncio.Optional[Task] = None
         self._shutdown_event = asyncio.Event()
 
         logger.info("🚀 CrewLifecycleManager initialized")
@@ -350,11 +350,11 @@ If you need immediate assistance, please contact your team administrator."""
         except Exception as e:
             logger.error(f"❌ Error shutting down crew for team {team_id}: {e}")
 
-    async def get_crew_status(self, team_id: str) -> CrewStatus | None:
+    async def get_crew_status(self, team_id: str) -> Optional[CrewStatus]:
         """Get the status of a crew for the specified team."""
         return self._crew_status.get(team_id)
 
-    async def get_crew_metrics(self, team_id: str) -> CrewMetrics | None:
+    async def get_crew_metrics(self, team_id: str) -> Optional[CrewMetrics]:
         """Get metrics for a crew for the specified team."""
         return self._crew_metrics.get(team_id)
 
@@ -481,7 +481,7 @@ If you need immediate assistance, please contact your team administrator."""
 
 
 # Global instance for easy access
-_crew_lifecycle_manager: CrewLifecycleManager | None = None
+_crew_lifecycle_manager: Optional[CrewLifecycleManager] = None
 
 
 def get_crew_lifecycle_manager() -> CrewLifecycleManager:

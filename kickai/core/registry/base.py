@@ -8,7 +8,7 @@ with common functionality and patterns.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 
 from loguru import logger
 
@@ -58,7 +58,7 @@ class BaseRegistry(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    def get(self, name: str) -> T | None:
+    def get(self, name: str) -> Optional[T]:
         """Get an item by name."""
         pass
 

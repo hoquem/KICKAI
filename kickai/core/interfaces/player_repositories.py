@@ -7,7 +7,7 @@ These interfaces are split into focused, cohesive contracts for player operation
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Dict, List, Optional, Set
 
 from kickai.core.value_objects import PhoneNumber, PlayerId, TeamId, UserId
 
@@ -22,7 +22,7 @@ class IPlayerReadRepository(ABC):
         self,
         phone: PhoneNumber,
         team_id: TeamId
-    ) -> dict[str, Any] | None:
+    ) -> Optional[Dict[str, Any]]:
         """Get player by phone number and team."""
         pass
 
@@ -31,7 +31,7 @@ class IPlayerReadRepository(ABC):
         self,
         user_id: UserId,
         team_id: TeamId
-    ) -> dict[str, Any] | None:
+    ) -> Optional[Dict[str, Any]]:
         """Get player by user ID and team."""
         pass
 
@@ -39,7 +39,7 @@ class IPlayerReadRepository(ABC):
     async def get_active_players(
         self,
         team_id: TeamId
-    ) -> list[dict[str, Any]]:
+    ) -> List[Dict[str, Any]]:
         """Get all active players for a team."""
         pass
 
@@ -50,9 +50,9 @@ class IPlayerWriteRepository(ABC):
     @abstractmethod
     async def create_player(
         self,
-        player_data: dict[str, Any],
+        player_data: Dict[str, Any],
         team_id: TeamId
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """Create new player."""
         pass
 
@@ -61,8 +61,8 @@ class IPlayerWriteRepository(ABC):
         self,
         player_id: PlayerId,
         team_id: TeamId,
-        updates: dict[str, Any]
-    ) -> dict[str, Any] | None:
+        updates: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         """Update player information."""
         pass
 
@@ -84,7 +84,7 @@ class IPlayerApprovalRepository(ABC):
     async def get_pending_approvals(
         self,
         team_id: TeamId
-    ) -> list[dict[str, Any]]:
+    ) -> List[Dict[str, Any]]:
         """Get players pending approval."""
         pass
 

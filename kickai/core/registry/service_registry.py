@@ -5,7 +5,7 @@ Service Registry
 Dedicated class for service registration and retrieval following the Single Responsibility Principle.
 """
 
-from typing import Any
+from typing import Any, Dict, Union
 
 from loguru import logger
 
@@ -16,8 +16,8 @@ class ServiceRegistry(IServiceRegistry, IStringServiceLookup):
     """Manages service registration and retrieval."""
 
     def __init__(self):
-        self._services: dict[type, Any] = {}
-        self._service_names: dict[str, type] = {}  # name -> type mapping
+        self._services: Dict[type, Any] = {}
+        self._service_names: Dict[str, type] = {}  # name -> type mapping
 
     def register_service(self, interface: type, implementation: Any) -> None:
         """Register a service implementation with its interface."""
@@ -29,7 +29,7 @@ class ServiceRegistry(IServiceRegistry, IStringServiceLookup):
             logger.error(f"❌ ServiceRegistry: Failed to register service {interface.__name__}: {e}")
             raise
 
-    def get_service(self, interface: type | str) -> Any:
+    def get_service(self, interface: Union[type, str]) -> Any:
         """Get a service by its interface or name."""
         try:
             # Handle string-based service lookup

@@ -8,7 +8,7 @@ template processing and context variable substitution with performance optimizat
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 from loguru import logger
@@ -29,6 +29,8 @@ class AgentConfig:
     verbose: bool = True
     temperature: float = 0.3
     max_tokens: int = 300
+    primary_entity_type: Optional[str] = None
+    entity_types: list[str] = field(default_factory=list)
 
 
 class YAMLAgentConfigurationManager:
@@ -156,10 +158,15 @@ class YAMLAgentConfigurationManager:
         if not self._config_data or "agents" not in self._config_data:
             raise ValueError("No agents configuration found in YAML file")
 
-        if agent_name not in self._config_data["agents"]:
+        # Find agent data in the list
+        agent_data = None
+        for agent in self._config_data["agents"]:
+            if agent.get("name") == agent_name:
+                agent_data = agent
+                break
+                
+        if agent_data is None:
             raise ValueError(f"Agent '{agent_name}' not found in configuration")
-
-        agent_data = self._config_data["agents"][agent_name]
 
         # Process templates with context
         processed_role = self._process_templates(agent_data["role"], context)
@@ -185,7 +192,9 @@ class YAMLAgentConfigurationManager:
             allow_delegation=agent_data.get("allow_delegation", True),
             verbose=agent_data.get("verbose", True),
             temperature=temperature,
-            max_tokens=max_tokens
+            max_tokens=max_tokens,
+            primary_entity_type=agent_data.get("primary_entity_type"),
+            entity_types=agent_data.get("entity_types", [])
         )
 
         # Cache the processed config
@@ -197,15 +206,20 @@ class YAMLAgentConfigurationManager:
     def get_all_agent_configs(self, context: dict[str, Any]) -> dict[AgentRole, AgentConfig]:
         """Get all agent configurations with processed templates and performance optimizations."""
         configs = {}
-        agents_data = self._config_data.get("agents", {})
+        agents_data = self._config_data.get("agents", [])
 
-        for agent_name in agents_data:
+        for agent_data in agents_data:
             try:
+                agent_name = agent_data.get("name")
+                if not agent_name:
+                    logger.warning(f"⚠️ Agent data missing name: {agent_data}")
+                    continue
+                    
                 role = AgentRole(agent_name)
                 configs[role] = self.get_agent_config(role, context)
             except ValueError:
                 # Skip unknown agent roles
-                logger.warning(f"⚠️ Unknown agent role: {agent_name}")
+                logger.warning(f"⚠️ Unknown agent role: {agent_data}")
                 continue
 
         logger.info(f"✅ Loaded {len(configs)} agent configurations with performance optimizations")
@@ -224,8 +238,11 @@ class YAMLAgentConfigurationManager:
     def get_agent_tools(self, role: AgentRole) -> list[str]:
         """Get tools for a specific agent."""
         agent_name = role.value
-        if agent_name in self._config_data.get("agents", {}):
-            return self._config_data["agents"][agent_name].get("tools", [])
+        agents_data = self._config_data.get("agents", [])
+        
+        for agent in agents_data:
+            if agent.get("name") == agent_name:
+                return agent.get("tools", [])
         return []
 
     def get_agent_goal(self, role: AgentRole, context: dict[str, Any]) -> str:
@@ -342,7 +359,7 @@ def get_agent_config_manager_legacy():
     logger.warning("⚠️ Using legacy get_agent_config_manager_legacy() - use get_agent_config_manager() instead")
     return get_agent_config_manager()
 
-def get_agent_config_legacy(role: AgentRole) -> AgentConfig | None:
+def get_agent_config_legacy(role: AgentRole) -> Optional[AgentConfig]:
     """Legacy function for backward compatibility."""
     logger.warning("⚠️ Using legacy get_agent_config_legacy() - use get_agent_config(role, context) instead")
     # Return a basic config without context for backward compatibility

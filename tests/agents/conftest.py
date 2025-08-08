@@ -13,8 +13,8 @@ from typing import Dict, Any, List
 from kickai.agents.agent_types import AgentRole, AgentContext
 from kickai.agents.configurable_agent import ConfigurableAgent
 from kickai.agents.crew_agents import TeamManagementSystem, create_team_management_system
-from kickai.agents.entity_specific_agents import create_entity_specific_agent
-from kickai.infrastructure.ollama_client import OllamaClient, OllamaConfig
+# Removed entity_specific_agents import - using simplified 5-agent architecture
+# Removed old Ollama imports - using new SimpleLLMFactory instead
 
 
 # Test configuration from specification
@@ -57,22 +57,24 @@ def test_data():
 
 
 @pytest.fixture(scope="function")
-def mock_ollama_client():
-    """Create mock Ollama client for testing."""
-    client = Mock(spec=OllamaClient)
-    client.health_check = AsyncMock(return_value=True)
-    client.generate = AsyncMock(return_value="Mock response")
-    return client
+def mock_llm():
+    """Create mock LLM for testing using new SimpleLLMFactory pattern."""
+    mock_llm = Mock()
+    mock_llm.invoke = Mock(return_value="Mock response")
+    mock_llm.ainvoke = AsyncMock(return_value="Mock response")
+    mock_llm.__call__ = Mock(return_value="Mock response")
+    return mock_llm
 
 
 @pytest.fixture(scope="function")
-def ollama_config():
-    """Create Ollama configuration for testing."""
-    return OllamaConfig(
-        base_url=TEST_CONFIG["ollama_base_url"],
-        connection_timeout=5.0,
-        request_timeout=10.0
-    )
+def mock_llm_config():
+    """Create mock LLM configuration for testing."""
+    return {
+        "base_url": TEST_CONFIG["ollama_base_url"],
+        "model": TEST_CONFIG["ollama_model"],
+        "temperature": 0.7,
+        "max_tokens": 800
+    }
 
 
 @pytest.fixture(scope="function")
@@ -91,24 +93,20 @@ def test_agent_context():
 @pytest.fixture(scope="function")
 def coordinator_agent(test_agent_context):
     """Create player coordinator agent for testing."""
-    # Use the actual agent creation function
-    return create_entity_specific_agent(
+    # Use the new ConfigurableAgent approach
+    return ConfigurableAgent(
         role=AgentRole.PLAYER_COORDINATOR,
-        team_id=TEST_CONFIG["test_team_id"],
-        llm=Mock(),
-        tool_registry=Mock()
+        team_id=TEST_CONFIG["test_team_id"]
     )
 
 
 @pytest.fixture(scope="function")
 def manager_agent(test_agent_context):
     """Create team manager agent for testing."""
-    # Use the actual agent creation function
-    return create_entity_specific_agent(
+    # Use the new ConfigurableAgent approach
+    return ConfigurableAgent(
         role=AgentRole.TEAM_MANAGER,
-        team_id=TEST_CONFIG["test_team_id"],
-        llm=Mock(),
-        tool_registry=Mock()
+        team_id=TEST_CONFIG["test_team_id"]
     )
 
 

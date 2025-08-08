@@ -1,3 +1,4 @@
+from typing import Optional, List, Dict
 #!/usr/bin/env python3
 """
 Comprehensive Startup Validation System
@@ -34,16 +35,16 @@ class ComprehensiveValidationResult:
     total_checks: int
     passed_checks: int
     failed_checks: int
-    warnings: list[str]
+    warnings: List[str]
 
     # Individual check results
-    environment_result: EnvironmentValidationResult | None = None
-    database_result: DatabaseValidationResult | None = None
-    registry_result: RegistryValidationResult | None = None
+    environment_result: Optional[EnvironmentValidationResult] = None
+    database_result: Optional[DatabaseValidationResult] = None
+    registry_result: Optional[RegistryValidationResult] = None
 
     # Performance metrics
     total_duration: float = 0.0
-    check_durations: dict[str, float] = None
+    check_durations: Dict[str, float] = None
 
     def __post_init__(self):
         if self.check_durations is None:
@@ -266,7 +267,7 @@ class ComprehensiveStartupValidator:
             check_durations=check_durations
         )
 
-    def get_validation_report(self, result: ComprehensiveValidationResult | None = None) -> str:
+    def get_validation_report(self, result: Optional[ComprehensiveValidationResult] = None) -> str:
         """Generate a comprehensive validation report."""
         if result is None:
             result = self.validate_system_startup()

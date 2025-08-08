@@ -9,12 +9,13 @@ It simulates all Telegram bot functionality without requiring actual Telegram AP
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List, Optional, Set, Union
 from unittest.mock import Mock
 
 from loguru import logger
 
-from kickai.agents.user_flow_agent import AgentResponse, TelegramMessage
+# Import centralized types
+from kickai.core.types import AgentResponse, TelegramMessage
 from kickai.core.enums import ChatType
 from kickai.features.communication.domain.interfaces.telegram_bot_service_interface import (
     TelegramBotServiceInterface,
@@ -44,7 +45,7 @@ class MockMessage:
     text: str
     chat_id: str
     user_id: str
-    username: str | None
+    username: Optional[str]
     date: datetime = field(default_factory=datetime.now)
 
     async def reply_text(self, text: str, **kwargs):
@@ -67,7 +68,7 @@ class MockUser:
     """Mock Telegram User object for testing."""
 
     id: str
-    username: str | None
+    username: Optional[str]
     first_name: str = "Mock"
     last_name: str = "User"
 
@@ -95,119 +96,13 @@ class MockBot:
         """Mock get_me method."""
         return self
 
-    async def send_message(self, chat_id: int | str, text: str, **kwargs):
+    async def send_message(self, chat_id: Union[int, str], text: str, **kwargs):
         """Mock send_message method."""
         logger.info(f"📤 Mock bot send_message: {text}")
         return MockMessage(text, str(chat_id), "bot", "mock_bot")
 
 
-class MockAgenticMessageRouter:
-    """Mock implementation of AgenticMessageRouter for testing."""
-
-    def __init__(self, team_id: str, crewai_system=None):
-        self.team_id = team_id
-        self.crewai_system = crewai_system
-        self.routed_messages: list[TelegramMessage] = []
-        self.responses: list[AgentResponse] = []
-
-        # Pre-configured responses for common scenarios
-        self._setup_mock_responses()
-
-    def _setup_mock_responses(self):
-        """Set up mock responses for common scenarios."""
-        self.mock_responses = {
-            "/start": AgentResponse(
-                message="🎉 Welcome to KickAI! I'm here to help you manage your football team.",
-                success=True
-            ),
-            "/help": AgentResponse(
-                message="📋 Available commands:\n• /start - Get started\n• /myinfo - View your info\n• /list - List players\n• /status [phone] - Check status",
-                success=True
-            ),
-            "/myinfo": AgentResponse(
-                message="👤 Your Information:\n• Name: Test User\n• Phone: +1234567890\n• Position: Forward\n• Team: Test Team",
-                success=True
-            ),
-            "/list": AgentResponse(
-                message="📋 Active Players:\n1. John Doe - Forward\n2. Jane Smith - Midfielder\n3. Bob Wilson - Defender",
-                success=True
-            ),
-            "hello": AgentResponse(
-                message="👋 Hello! How can I help you today?",
-                success=True
-            ),
-            "what's my phone number": AgentResponse(
-                message="📱 Your phone number is +1234567890",
-                success=True
-            )
-        }
-
-    async def route_message(self, message: TelegramMessage) -> AgentResponse:
-        """Mock message routing with predefined responses."""
-        self.routed_messages.append(message)
-
-        # Log the routing
-        logger.info(f"🔄 MockAgenticMessageRouter: Routing message '{message.text}' from {message.username}")
-
-        # Check for exact command matches first
-        if message.text in self.mock_responses:
-            response = self.mock_responses[message.text]
-            self.responses.append(response)
-            return response
-
-        # Check for natural language patterns
-        text_lower = message.text.lower()
-        for pattern, response in self.mock_responses.items():
-            if pattern.lower() in text_lower and not pattern.startswith("/"):
-                self.responses.append(response)
-                return response
-
-        # Default response for unrecognized messages
-        default_response = AgentResponse(
-            message="🤔 I'm not sure how to help with that. Try /help for available commands.",
-            success=False
-        )
-        self.responses.append(default_response)
-        return default_response
-
-    async def route_contact_share(self, message: TelegramMessage) -> AgentResponse:
-        """Mock contact share routing."""
-        logger.info(f"📱 MockAgenticMessageRouter: Processing contact share from {message.username}")
-
-        response = AgentResponse(
-            message="✅ Thank you for sharing your contact information! I've registered your phone number.",
-            success=True
-        )
-        self.responses.append(response)
-        return response
-
-    def convert_telegram_update_to_message(self, update: MockUpdate, command_name: str = None) -> TelegramMessage:
-        """Convert mock update to TelegramMessage."""
-        return TelegramMessage(
-            text=update.message.text,
-            user_id=update.effective_user.id,
-            username=update.effective_user.username or "unknown",
-            chat_id=update.effective_chat.id,
-            chat_type=self._determine_chat_type(update.effective_chat.id),
-            team_id=self.team_id,
-            raw_update=update
-        )
-
-    def _determine_chat_type(self, chat_id: str) -> ChatType:
-        """Determine chat type based on chat ID."""
-        # Mock logic - in real implementation this would check against configured chat IDs
-        if chat_id.endswith("000"):  # Mock main chat pattern
-            return ChatType.MAIN
-        elif chat_id.endswith("111"):  # Mock leadership chat pattern
-            return ChatType.LEADERSHIP
-        else:
-            return ChatType.MAIN  # Default to main chat
-
-    def set_chat_ids(self, main_chat_id: str, leadership_chat_id: str):
-        """Set chat IDs for routing."""
-        self.main_chat_id = main_chat_id
-        self.leadership_chat_id = leadership_chat_id
-        logger.info(f"🔧 MockAgenticMessageRouter: Set chat IDs - Main: {main_chat_id}, Leadership: {leadership_chat_id}")
+# MockAgenticMessageRouter removed - use real AgenticMessageRouter instead
 
 
 class MockTelegramBotService(TelegramBotServiceInterface):
@@ -241,14 +136,15 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         self._polling_task = None
 
         # Message tracking for testing
-        self.sent_messages: list[dict[str, Any]] = []
-        self.received_messages: list[dict[str, Any]] = []
-        self.command_handlers: list[str] = []
+        self.sent_messages: List[Dict[str, Any]] = []
+        self.received_messages: List[Dict[str, Any]] = []
+        self.command_handlers: List[str] = []
         self.error_count = 0
 
-        # Initialize mock agentic router
-        self.agentic_router = MockAgenticMessageRouter(team_id=team_id, crewai_system=crewai_system)
-        if main_chat_id and leadership_chat_id:
+        # Initialize real agentic router
+        from kickai.agents.agentic_message_router import AgenticMessageRouter
+        self.agentic_router = AgenticMessageRouter(team_id=team_id, crewai_system=crewai_system)
+        if hasattr(self.agentic_router, 'set_chat_ids') and main_chat_id and leadership_chat_id:
             self.agentic_router.set_chat_ids(main_chat_id, leadership_chat_id)
 
         # Mock application
@@ -289,7 +185,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
             logger.error(f"❌ Error stopping mock bot: {e}")
             raise
 
-    async def send_message(self, chat_id: int | str, text: str, **kwargs) -> Any:
+    async def send_message(self, chat_id: Union[int, str], text: str, **kwargs) -> Any:
         """Mock message sending."""
         try:
             logger.info(f"📤 Mock send_message to {chat_id}: {text}")
@@ -298,6 +194,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
             self.sent_messages.append({
                 'chat_id': str(chat_id),
                 'text': text,
+                'type': None,  # Regular message
                 'kwargs': kwargs,
                 'timestamp': datetime.now()
             })
@@ -312,7 +209,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
             self.error_count += 1
             raise
 
-    async def send_contact_share_button(self, chat_id: int | str, text: str):
+    async def send_contact_share_button(self, chat_id: Union[int, str], text: str):
         """Mock contact share button sending."""
         try:
             logger.info(f"📱 Mock send_contact_share_button to {chat_id}: {text}")
@@ -350,7 +247,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
             })
 
             # Convert to TelegramMessage and route through agentic system
-            message = self.agentic_router.convert_telegram_update_to_message(update)
+            message = self._convert_telegram_update_to_message(update)
             response = await self.agentic_router.route_message(message)
 
             # Send response
@@ -376,7 +273,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
             })
 
             # Convert to TelegramMessage and route through agentic system
-            message = self.agentic_router.convert_telegram_update_to_message(update, command_name)
+            message = self._convert_telegram_update_to_message(update, command_name)
             response = await self.agentic_router.route_message(message)
 
             # Send response
@@ -409,6 +306,18 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         except Exception as e:
             logger.error(f"❌ Error sending mock error response: {e}")
 
+    def _convert_telegram_update_to_message(self, update: MockUpdate, command_name: str = None) -> TelegramMessage:
+        """Convert mock update to TelegramMessage."""
+        return TelegramMessage(
+            text=update.message.text,
+            telegram_id=update.effective_user.id,
+            username=update.effective_user.username or "unknown",
+            chat_id=update.effective_chat.id,
+            chat_type=self._determine_chat_type(update.effective_chat.id),
+            team_id=self.team_id,
+            raw_update=update
+        )
+
     def _determine_chat_type(self, chat_id: str) -> ChatType:
         """Mock chat type determination."""
         if chat_id == self.main_chat_id:
@@ -423,24 +332,24 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         return True  # In mock, all messages are considered properly formatted
 
     # Testing utility methods
-    def get_sent_messages(self) -> list[dict[str, Any]]:
+    def get_sent_messages(self) -> List[Dict[str, Any]]:
         """Get all sent messages for testing."""
         return self.sent_messages.copy()
 
-    def get_received_messages(self) -> list[dict[str, Any]]:
+    def get_received_messages(self) -> List[Dict[str, Any]]:
         """Get all received messages for testing."""
         return self.received_messages.copy()
 
-    def get_agentic_responses(self) -> list[AgentResponse]:
+    def get_agentic_responses(self) -> List[AgentResponse]:
         """Get all agentic router responses for testing."""
-        return self.agentic_router.responses.copy()
+        # Real AgenticMessageRouter doesn't store responses, so return empty list
+        return []
 
     def clear_message_history(self):
         """Clear message history for testing."""
         self.sent_messages.clear()
         self.received_messages.clear()
-        self.agentic_router.responses.clear()
-        self.agentic_router.routed_messages.clear()
+        # Real AgenticMessageRouter doesn't store responses/routed_messages
         self.error_count = 0
 
     def is_running(self) -> bool:
@@ -465,7 +374,9 @@ class MockTelegramBotService(TelegramBotServiceInterface):
     async def simulate_contact_share(self, phone: str, chat_id: str, user_id: str, username: str = None):
         """Simulate contact sharing for testing."""
         update = MockUpdate(f"Contact shared: {phone}", chat_id, user_id, username)
-        message = self.agentic_router.convert_telegram_update_to_message(update)
+        message = self._convert_telegram_update_to_message(update)
+        # Add contact phone to message for routing
+        message.contact_phone = phone
         response = await self.agentic_router.route_contact_share(message)
 
         # Send response

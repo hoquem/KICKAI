@@ -49,6 +49,15 @@
 
 ## Testing Strategy
 
+### Error Handling in Testing
+- **Test Error Propagation**: Ensure errors bubble up correctly through the system
+- **Validate Error Context**: Test that errors include proper context and debugging information
+- **No Silent Failures**: Tests should fail loudly when system components fail
+- **Error Recovery Testing**: Test retry mechanisms and circuit breakers
+- **Graceful Degradation Testing**: Verify system degrades functionality rather than masking errors
+
+See [Error Handling and System Robustness](17_error_handling_and_robustness.md) for detailed error handling guidelines.
+
 ### Test Pyramid Implementation
 
 #### 1. **Unit Tests** (Foundation)
@@ -58,9 +67,8 @@ tests/unit/
 │   ├── player_registration/
 │   ├── match_management/
 │   ├── attendance_management/
-│   ├── payment_management/
 │   ├── communication/
-│   └── training_management/
+│   └── helper_system/
 ├── service_discovery/         # NEW - Service discovery unit tests
 │   ├── test_config.py        # Configuration loading tests
 │   ├── test_registry.py      # Service registry tests
@@ -83,9 +91,8 @@ tests/integration/
 │   ├── player_registration/
 │   ├── match_management/
 │   ├── attendance_management/
-│   ├── payment_management/
 │   ├── communication/
-│   └── training_management/
+│   └── helper_system/
 ├── service_discovery/         # NEW - Service discovery integration tests
 │   ├── test_registry_discovery_integration.py
 │   └── test_config_integration.py
@@ -106,9 +113,8 @@ tests/e2e/
 │   ├── player_registration/
 │   ├── match_management/
 │   ├── attendance_management/
-│   ├── payment_management/
 │   ├── communication/
-│   └── training_management/
+│   └── helper_system/
 ├── service_discovery/         # NEW - Service discovery E2E tests
 │   └── test_complete_workflow.py
 ├── frameworks/

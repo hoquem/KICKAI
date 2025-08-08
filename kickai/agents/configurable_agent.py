@@ -7,7 +7,7 @@ best practices for context passing and tool parameter handling.
 """
 
 import traceback
-from typing import Any
+from typing import Any, Dict, Set
 
 from crewai import Agent, Crew, Process, Task
 from loguru import logger
@@ -74,7 +74,7 @@ class ConfigurableAgent:
 
         except Exception as e:
             logger.error(f"❌ Failed to initialize ConfigurableAgent: {e}")
-            raise AgentInitializationError(f"Agent initialization failed: {e}")
+            raise AgentInitializationError("ConfigurableAgent", f"Agent initialization failed: {e}")
 
     def _create_crew_agent(self) -> Agent:
         """Create the underlying CrewAI agent with proper configuration."""
@@ -95,7 +95,19 @@ class ConfigurableAgent:
         logger.debug(f"🔧 Created CrewAI agent for {self.agent_role.value} with {len(tools)} tools")
         return agent
 
-    async def execute(self, task_description: str, context: dict[str, Any]) -> str:
+    def get_tools(self) -> list:
+        """Get the tools available for this agent."""
+        if hasattr(self.crew_agent, 'tools'):
+            return self.crew_agent.tools
+        else:
+            # Fallback: get tools from tools manager
+            return self._tools_manager.get_tools_for_role(self.agent_role)
+
+    def is_enabled(self) -> bool:
+        """Check if this agent is enabled."""
+        return self.config.enabled if hasattr(self, 'config') else True
+
+    async def execute(self, task_description: str, context: Dict[str, Any]) -> str:
         """
         Execute a task using CrewAI best practices.
 
@@ -132,14 +144,19 @@ class ConfigurableAgent:
             logger.error(traceback.format_exc())
             return f"❌ Task execution failed: {e!s}"
 
-    def _validate_context(self, context: dict[str, Any]):
+    def _validate_context(self, context: Dict[str, Any]):
         """Validate execution context to ensure it's complete and valid."""
-        from kickai.core.crewai_context import validate_context_completeness
-
-        validate_context_completeness(context)
+        # CrewAI 2025 native validation - check required keys
+        required_keys = ['team_id', 'telegram_id', 'username', 'chat_type', 'user_role', 'is_registered']
+        for key in required_keys:
+            if key not in context:
+                raise ValueError(f"Missing required context key: {key}")
+            if context[key] is None:
+                raise ValueError(f"Context key '{key}' cannot be None")
+        
         logger.debug(f"🔍 Context validated for {self.agent_role.value}")
 
-    def _enhance_task_description(self, task_description: str, context: dict[str, Any]) -> str:
+    def _enhance_task_description(self, task_description: str, context: Dict[str, Any]) -> str:
         """
         Enhance task description with execution context for better LLM understanding.
 
@@ -164,7 +181,7 @@ CRITICAL: When calling tools that need context (like get_player_status_by_telegr
 
         return task_description + context_info
 
-    async def _execute_crewai_task(self, task_description: str, context: dict[str, Any]) -> str:
+    async def _execute_crewai_task(self, task_description: str, context: Dict[str, Any]) -> str:
         """Execute the actual CrewAI task with proper context handling."""
         logger.debug(f"🔧 Creating task with context: {context}")
 
@@ -181,10 +198,8 @@ CRITICAL: When calling tools that need context (like get_player_status_by_telegr
         if hasattr(task, 'config') and task.config:
             logger.debug(f"🔍 Task config keys: {list(task.config.keys())}")
 
-        # Set current task context for tools to access
-        from kickai.core.crewai_context import set_current_task_context
-        set_current_task_context(task)
-        logger.debug("✅ Task context set for tools")
+        # CrewAI 2025 native execution - context is passed via task.config
+        logger.debug("✅ Context embedded in task for CrewAI native parameter passing")
 
         # Create and execute crew
         crew = Crew(
@@ -237,9 +252,9 @@ class AgentFactory:
         try:
             return ConfigurableAgent(role, self.team_id)
         except Exception as e:
-            raise AgentInitializationError(f"Failed to create agent for role {role.value}: {e}")
+            raise AgentInitializationError(role.value, f"Failed to create agent for role {role.value}: {e}")
 
-    def create_all_agents(self) -> dict[AgentRole, ConfigurableAgent]:
+    def create_all_agents(self) -> Dict[AgentRole, ConfigurableAgent]:
         """
         Create all enabled agents for the team.
 
@@ -292,7 +307,7 @@ def create_agent(role: AgentRole, team_id: str) -> ConfigurableAgent:
     return factory.create_agent(role)
 
 
-def create_all_agents(team_id: str) -> dict[AgentRole, ConfigurableAgent]:
+def create_all_agents(team_id: str) -> Dict[AgentRole, ConfigurableAgent]:
     """
     Convenience function to create all agents for a team.
 

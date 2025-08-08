@@ -8,6 +8,7 @@ encapsulated methods as the single source of truth for all routing decisions.
 import logging
 
 from kickai.features.player_registration.domain.entities.player import OnboardingStatus, Player
+from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class MessageRoutingService:
     """
 
     @staticmethod
-    def should_route_to_onboarding(player: Optional[Player], message: str) -> tuple[bool, str]:
+    def should_route_to_onboarding(player: Optional[Player], message: str) -> Tuple[bool, str]:
         """
         Determine if a message should be routed to onboarding handler.
 
@@ -54,7 +55,7 @@ class MessageRoutingService:
         return False, f"Player {player.full_name} is not in onboarding"
 
     @staticmethod
-    def should_route_to_player_update(player: Optional[Player], message: str) -> tuple[bool, str]:
+    def should_route_to_player_update(player: Optional[Player], message: str) -> Tuple[bool, str]:
         """
         Determine if a message should be routed to player update handler.
 
@@ -95,7 +96,7 @@ class MessageRoutingService:
         return False, "Not a player update request"
 
     @staticmethod
-    def should_route_to_general_handler(player: Optional[Player], message: str) -> tuple[bool, str]:
+    def should_route_to_general_handler(player: Optional[Player], message: str) -> Tuple[bool, str]:
         """
         Determine if a message should be routed to general handler.
 

@@ -34,7 +34,7 @@ Right now, managing a football team involves:
 
 ## 🏗️ **System Architecture Overview**
 
-KICKAI is built using **cutting-edge AI agent architecture** with CrewAI - think of it as having 8 specialized AI assistants working together seamlessly.
+KICKAI is built using **cutting-edge AI agent architecture** with CrewAI - think of it as having 5 specialized AI assistants working together seamlessly.
 
 ### **High-Level System Architecture**
 
@@ -42,19 +42,16 @@ KICKAI is built using **cutting-edge AI agent architecture** with CrewAI - think
 🤖 TELEGRAM BOT INTERFACE
          │
          ▼
-🧠 8-AGENT AI SYSTEM (CrewAI)
+🧠 5-AGENT AI SYSTEM (CrewAI)
 ┌─────────────────────────────────────┐
-│  MESSAGE_PROCESSOR     │  TEAM_MANAGER        │
-│  (Routes requests)     │  (Manages team ops)   │                   
+│  MESSAGE_PROCESSOR     │  HELP_ASSISTANT      │
+│  (Routes requests)     │  (Help & guidance)   │                   
 ├────────────────────────┼──────────────────────┤
-│  PLAYER_COORDINATOR    │  SQUAD_SELECTOR      │
-│  (Player management)   │  (Match operations)   │
+│  PLAYER_COORDINATOR    │  TEAM_ADMINISTRATOR  │
+│  (Player management)   │  (Team administration)│
 ├────────────────────────┼──────────────────────┤
-│  AVAILABILITY_MANAGER  │  HELP_ASSISTANT      │
-│  (Tracks availability) │  (User support)      │
-├────────────────────────┼──────────────────────┤
-│  ONBOARDING_AGENT     │  SYSTEM_INFRASTRUCTURE│
-│  (New user setup)     │  (Health & monitoring)│
+│  SQUAD_SELECTOR        │                      │
+│  (Squad selection)     │                      │
 └─────────────────────────────────────────────┘
          │
          ▼
@@ -68,15 +65,12 @@ KICKAI is built using **cutting-edge AI agent architecture** with CrewAI - think
 
 ### **Key Components Breakdown**
 
-#### 🤖 **The 8 AI Agents (Your Digital Team)**
+#### 🤖 **The 5 AI Agents (Your Digital Team)**
 1. **MESSAGE_PROCESSOR**: The "receptionist" - understands what users want and routes requests
-2. **PLAYER_COORDINATOR**: The "player manager" - handles all player operations and registration
-3. **TEAM_MANAGER**: The "team administrator" - manages team operations and member administration
-4. **SQUAD_SELECTOR**: The "tactical genius" - picks optimal squads for matches
-5. **AVAILABILITY_MANAGER**: The "scheduler" - tracks who's available when
-6. **HELP_ASSISTANT**: The "support expert" - helps users navigate the system
-7. **ONBOARDING_AGENT**: The "welcoming committee" - gets new users started with dual-entity onboarding
-8. **SYSTEM_INFRASTRUCTURE**: The "tech ops" - keeps everything running and monitors health
+2. **HELP_ASSISTANT**: The "support expert" - helps users navigate the system and provides guidance
+3. **PLAYER_COORDINATOR**: The "player manager" - handles all player operations and registration
+4. **TEAM_ADMINISTRATOR**: The "team administrator" - manages team operations and member administration
+5. **SQUAD_SELECTOR**: The "tactical genius" - picks optimal squads for matches and manages availability
 
 #### 💾 **Database Architecture**
 ```
@@ -101,7 +95,7 @@ User: "Hi, I want to join the team as a midfielder"
          ↓
 MESSAGE_PROCESSOR: "This is a registration request"
          ↓
-ONBOARDING_AGENT: "Let me help you register!"
+PLAYER_COORDINATOR: "Let me help you register!"
          ↓
 Progressive Collection: Name, Phone, Position, Experience
          ↓
@@ -118,9 +112,7 @@ Coach: "Pick the squad for Saturday's match"
          ↓
 MESSAGE_PROCESSOR: "This is a squad selection request"
          ↓
-SQUAD_SELECTOR: Analyzes available players
-         ↓
-AVAILABILITY_MANAGER: Checks who's available
+SQUAD_SELECTOR: Analyzes available players and checks availability
          ↓
 AI Algorithm: Considers form, position, fitness
          ↓
@@ -165,7 +157,7 @@ kickai/
 │   ├── team_administration/     # Team operations
 │   ├── match_management/        # Match operations
 │   ├── attendance_management/   # Attendance tracking
-│   ├── payment_management/      # Payment processing with Collectiv
+│   ├── attendance_management/   # Attendance tracking and management
 │   ├── communication/           # Messaging system
 │   ├── health_monitoring/       # System health and monitoring
 │   └── shared/                  # Shared components across features
@@ -377,11 +369,11 @@ make dev                 # Start local bot with Python 3.11
   - Add squad selection with AI optimization
 
 #### **Tazim: Payment & Communication Systems**
-- **Focus**: `kickai/features/payment_management/` & communication
+- **Focus**: `kickai/features/attendance_management/` & communication
 - **Current Status**: Framework exists, needs Collectiv integration
 - **Tasks**:
-  - Complete Collectiv payment processing integration
-  - Build automated payment reminders
+  - Complete attendance tracking integration
+- Build automated attendance reminders
   - Create comprehensive notification system
   - Implement fee tracking and reporting
 
@@ -510,30 +502,30 @@ Based on the latest codebase analysis, here's the detailed status of each featur
 
 ---
 
-## 💳 **5. Payment Management System**
-**Location**: `kickai/features/payment_management/`  
+## 📊 **5. Attendance Management System**
+**Location**: `kickai/features/attendance_management/`  
 **Priority**: 🟡 **MEDIUM - WEEK 3**  
 **Assigned**: Tazim
 
 ### **✅ What's Complete (Est. 35%)**
-- **Payment Entities**: Payment data structures
-- **Database Schema**: Payment storage framework
-- **Collectiv Framework**: Basic integration structure
+- **Attendance Entities**: Attendance data structures
+- **Database Schema**: Attendance storage framework
+- **Attendance Framework**: Basic integration structure
 
 ### **⚠️ What Needs Work**
-- **Collectiv Integration**: Complete API integration
-- **Payment Workflow**: Request and track payments
+- **Attendance Integration**: Complete API integration
+- **Attendance Workflow**: Track and manage attendance
 - **Fee Management**: Different fee types and amounts
-- **Payment History**: View and manage payment records
+- **Attendance History**: View and manage attendance records
 
 ### **🎯 Week 3 Tasks**
 ```bash
 # Priority tasks for Tazim
-1. Complete Collectiv API integration (sandbox)
-2. Build payment request workflow
-3. Add payment tracking and status
-4. Create payment reminder system
-5. Test end-to-end payment flows
+1. Complete attendance API integration (sandbox)
+2. Build attendance tracking workflow
+3. Add attendance tracking and status
+4. Create attendance reminder system
+5. Test end-to-end attendance flows
 ```
 
 ---
@@ -599,7 +591,7 @@ Player Registration:     ████████████████░░�
 Team Administration:     ██████████████░░░░░░  70% ✅ GOOD
 Match Management:        ████████░░░░░░░░░░░░  40% 🔥 NEEDS WORK
 Attendance Management:   ███████████░░░░░░░░░  55% ⚠️  NEEDS WORK
-Payment Management:      ███████░░░░░░░░░░░░░  35% 🔥 MAJOR WORK
+Attendance Management:    ███████░░░░░░░░░░░░░  35% 🔥 MAJOR WORK
 Communication:           █████████░░░░░░░░░░░  45% 🟡 MEDIUM
 Health Monitoring:       ████████████████░░░░  80% ✅ GOOD
 System Infrastructure:   ██████████████████░░  90% ✅ EXCELLENT
@@ -619,7 +611,7 @@ OVERALL SYSTEM:          ███████████████░░░�
 3. **Test Team Administration** (All) - Get from 70% → 85%
 
 **Week 3 Priorities:**
-1. **Payment System MVP** (Tazim) - Get from 35% → 75%
+1. **Attendance System MVP** (Tazim) - Get from 35% → 75%
 2. **Integration Testing** (All) - Ensure all systems work together
 3. **Performance Optimization** (All) - Make system fast and reliable
 
@@ -673,9 +665,9 @@ OVERALL SYSTEM:          ███████████████░░░�
 - [ ] **Availability Integration**: Test availability affects squad selection
 - [ ] **Match Management**: Edit, cancel, reschedule matches
 
-**Tazim (Payments & Communication) - Additional Tests:**
-- [ ] **Payment Integration**: Test Collectiv API (sandbox mode)
-- [ ] **Payment Tracking**: Track payment status and history
+**Tazim (Attendance & Communication) - Additional Tests:**
+- [ ] **Attendance Integration**: Test attendance API (sandbox mode)
+- [ ] **Attendance Tracking**: Track attendance status and history
 - [ ] **Notifications**: Test automated reminders
 - [ ] **Communication**: Test bulk messaging and templates
 
@@ -831,22 +823,22 @@ Week 2:
 □ Create September fixture list for BP Hatters FC
 ```
 
-### **Tazim (Payment & Communication Specialist)**
+### **Tazim (Attendance & Communication Specialist)**
 ```
 Week 1:
-□ Understand current payment system
-□ Research Collectiv API integration
-□ Plan payment workflow
+□ Understand current attendance system
+□ Research attendance API integration
+□ Plan attendance workflow
 
 Week 2:
 □ Support integration testing
-□ Begin payment system development
+□ Begin attendance system development
 
 Week 3:
-□ Complete Collectiv integration
-□ Build payment tracking system
-□ Add payment reminders
-□ Test payment flows thoroughly
+□ Complete attendance integration
+□ Build attendance tracking system
+□ Add attendance reminders
+□ Test attendance flows thoroughly
 ```
 
 ---
@@ -866,7 +858,7 @@ Week 3:
 - [ ] **Attendance tracking** operational
 
 ### **Week 3 Must-Haves:**
-- [ ] **Payment system MVP** integrated
+- [ ] **Attendance system MVP** integrated
 - [ ] **All features integrated** and stable
 - [ ] **Performance optimized** for real usage
 - [ ] **Error handling** robust
@@ -883,7 +875,7 @@ Week 3:
 
 ### **If We Fall Behind:**
 1. **Drop non-essential features** (advanced analytics, complex workflows)
-2. **Focus on core functionality** only (registration, matches, availability, basic payments)
+2. **Focus on core functionality** only (registration, matches, availability, basic attendance)
 3. **Manual workarounds** for complex features initially
 4. **Parallel development** - work on different features simultaneously
 
@@ -1060,13 +1052,13 @@ python scripts/run_health_checks.py
 ✅ **Enhanced player registration with dual-role onboarding**
 ✅ **Match creation and scheduling**  
 ✅ **Availability tracking and squad selection**
-✅ **Basic payment tracking with Collectiv**
+✅ **Basic attendance tracking with comprehensive management**
 ✅ **Communication and notification system**
 ✅ **Help and support system**
 
 ### **Features We're Postponing (After Season Start):**
 ❌ Advanced analytics and reporting
-❌ Complex payment automation features
+❌ Complex attendance automation features
 ❌ Advanced AI learning capabilities
 ❌ Mobile app integration
 ❌ Third-party integrations beyond Collectiv
@@ -1115,7 +1107,7 @@ Every line of code matters. Every test counts. Every bug fix gets us closer to s
 ### **🎯 Your Mission:**
 - **Yamin**: Make player registration the smoothest experience ever
 - **Ehsaan**: Build match management that coaches will love
-- **Tazim**: Create payment systems that eliminate all chasing
+- **Tazim**: Create attendance systems that eliminate all chasing
 
 ### **🔥 Our Collective Goal:**
 Transform BP Hatters FC from a team struggling with admin chaos into a professionally managed, AI-powered football club that other teams will envy.

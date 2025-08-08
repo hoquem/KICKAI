@@ -1,3 +1,4 @@
+from typing import Optional
 #!/usr/bin/env python3
 """
 Command Registry Initializer
@@ -20,7 +21,7 @@ class CommandRegistryInitializer:
     """
 
     def __init__(self):
-        self.registry: CommandRegistry | None = None
+        self.registry: Optional[CommandRegistry] = None
         self._initialized = False
 
     def initialize(self) -> CommandRegistry:
@@ -79,8 +80,6 @@ class CommandRegistryInitializer:
             # Shared commands
             "kickai.features.shared.application.commands.shared_commands",
             "kickai.features.shared.application.commands.help_commands",
-            # Helper system commands
-            "kickai.features.helper_system.application.commands.helper_commands",
         ]
 
         for module_name in command_modules:
@@ -131,7 +130,7 @@ class CommandRegistryInitializer:
         except Exception as e:
             logger.error(f"❌ Error copying commands from global registry: {e}")
 
-    def get_registry(self) -> CommandRegistry | None:
+    def get_registry(self) -> Optional[CommandRegistry]:
         """Get the initialized registry instance."""
         if not self._initialized:
             raise RuntimeError("Command registry not initialized. Call initialize() first.")
@@ -159,13 +158,18 @@ def get_initialized_command_registry() -> CommandRegistry:
     """
     Get the initialized command registry.
 
-    This function should be used instead of the old get_command_registry()
-    to ensure the registry is properly initialized.
+    This function ensures the registry is initialized on its first call (lazy initialization)
+    and returns the singleton instance.
 
     Returns:
         CommandRegistry: Fully initialized command registry
-
-    Raises:
-        RuntimeError: If the registry hasn't been initialized
     """
-    return _command_registry_initializer.get_registry()
+    # This is the key change: if not initialized, initialize it.
+    if not _command_registry_initializer._initialized:
+        initialize_command_registry()
+    
+    registry = _command_registry_initializer.get_registry()
+    if not registry:
+        # This should theoretically never be reached if initialization is successful
+        raise RuntimeError("CRITICAL: Command registry is None after initialization.")
+    return registry

@@ -93,17 +93,12 @@ agents/
 ├── agent_types.py                # Agent type definitions
 ├── configurable_agent.py         # Base configurable agent
 ├── agentic_message_router.py     # Main agentic message router
-├── crew_agents.py                # CrewAI agent implementations
+├── crew_agents.py                # 5-agent CrewAI system
 ├── entity_specific_agents.py     # Entity-specific agent manager
-├── user_flow_agent.py            # User flow management
-├── helper_agent.py               # Helper agent implementation
-├── helper_task_manager.py        # Task management
 ├── tool_registry.py              # Tool registry and management
 ├── team_memory.py                # Team memory system
 ├── crew_lifecycle_manager.py     # Crew lifecycle management
 ├── tools_manager.py              # Tools management
-├── simplified_orchestration.py   # Simplified orchestration
-├── refactored_agentic_message_router.py # Refactored router
 ├── context/                      # Agent context management
 └── handlers/                     # Agent handlers
 ```
@@ -127,8 +122,8 @@ features/
 ├── player_registration/          # Player registration feature
 ├── team_administration/          # Team administration
 ├── match_management/             # Match management
-├── training_management/          # Training management
-├── payment_management/           # Payment management
+├── attendance_management/        # Attendance tracking
+├── communication/               # Team communications
 ├── attendance_management/        # Attendance tracking
 ├── communication/                # Communication system
 ├── health_monitoring/            # Health monitoring
@@ -320,9 +315,7 @@ docs/
 ├── DEVELOPER_QUICK_REFERENCE.md  # Developer reference (197 lines)
 ├── RUNTIME_VALIDATION_GUIDE.md   # Runtime validation (278 lines)
 ├── TYPING_IMPORT_STANDARDS.md    # Typing standards (270 lines)
-├── training_management_specification.md # Training management (552 lines)
 ├── match_management_specification.md # Match management (561 lines)
-├── payment_management_specification.md # Payment management (670 lines)
 └── player_management_specification.md # Player management (332 lines)
 ```
 
@@ -379,7 +372,7 @@ docs/
 - **Test Coverage**: Comprehensive unit, integration, and E2E tests
 - **Documentation**: 50+ documentation files
 - **Features**: 9 feature modules with Clean Architecture
-- **Agents**: 13 implemented CrewAI agents (clean enum)
+- **Agents**: 5 implemented CrewAI agents (simplified system)
 - **Tools**: 50+ tools across all features
 
 ### Architecture Highlights
@@ -396,7 +389,7 @@ docs/
 ## 🎯 Key Features
 
 ### Core Functionality
-- ✅ **13-Agent CrewAI System** for intelligent task processing
+- ✅ **5-Agent CrewAI System** for intelligent task processing
 - ✅ **Agentic-First Architecture** with no dedicated command handlers
 - ✅ **Feature-First Clean Architecture** with clean separation of concerns
 - ✅ **Dynamic Command Discovery** from centralized registry
@@ -404,7 +397,7 @@ docs/
 - ✅ **Comprehensive Security** with permission checking
 - ✅ **Advanced Player Onboarding** with multi-step registration
 - ✅ **Multi-team Management** with isolated environments
-- ✅ **Payment System Integration** with Collectiv
+- ✅ **Attendance Tracking System** with comprehensive management
 - ✅ **Role-Based Access Control** for leadership and members
 - ✅ **Unified Message Formatting** with centralized service
 - ✅ **Intelligent Routing System** with LLM-powered agent selection

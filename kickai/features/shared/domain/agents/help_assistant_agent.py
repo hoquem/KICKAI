@@ -122,7 +122,7 @@ The context contains: chat_type, user_id, team_id, and username. Use these exact
             memory_config = None
             if memory_enabled:
                 # Configure memory to use Google Gemini embeddings
-                from kickai.core.settings import get_settings
+                from kickai.core.config import get_settings
 
                 settings = get_settings()
                 memory_config = {

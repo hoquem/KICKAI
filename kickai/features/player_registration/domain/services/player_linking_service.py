@@ -1,3 +1,4 @@
+from typing import Optional
 #!/usr/bin/env python3
 """
 Player Linking Service
@@ -27,7 +28,7 @@ class PlayerLinkingService:
 
     async def link_telegram_user_by_phone(
         self, phone: str, telegram_id: str, username: str = None
-    ) -> Player | None:
+    ) -> Optional[Player]:
         """
         Link a Telegram user to an existing player record using phone number.
 
@@ -101,7 +102,7 @@ class PlayerLinkingService:
 
     async def _update_player_telegram_info(
         self, player_id: str, telegram_id: str, username: str = None
-    ) -> Player | None:
+    ) -> Optional[Player]:
         """Update player record with Telegram information."""
         try:
             # Get database client

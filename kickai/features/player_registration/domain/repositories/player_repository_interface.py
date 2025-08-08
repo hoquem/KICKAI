@@ -1,3 +1,4 @@
+from typing import Optional
 #!/usr/bin/env python3
 """
 Player Repository Interface
@@ -19,12 +20,12 @@ class PlayerRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_player_by_id(self, player_id: str, team_id: str) -> Player | None:
+    async def get_player_by_id(self, player_id: str, team_id: str) -> Optional[Player]:
         """Get a player by ID."""
         pass
 
     @abstractmethod
-    async def get_player_by_phone(self, phone: str, team_id: str) -> Player | None:
+    async def get_player_by_phone(self, phone: str, team_id: str) -> Optional[Player]:
         """Get a player by phone number."""
         pass
 

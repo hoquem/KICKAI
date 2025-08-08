@@ -1,3 +1,4 @@
+from typing import List, Optional
 import logging
 from datetime import datetime, time
 
@@ -27,7 +28,7 @@ class MatchService(IMatchService):
         match_time: time,
         venue: str,
         competition: str = "League Match",
-        notes: str | None = None,
+        notes: Optional[str] = None,
         created_by: str = "",
         squad_size: int = 11,
     ) -> Match:
@@ -71,7 +72,7 @@ class MatchService(IMatchService):
             logger.error(f"Failed to create match: {e}")
             raise MatchError(f"Failed to create match: {e!s}", create_error_context("create_match"))
 
-    async def get_match(self, match_id: str) -> Match | None:
+    async def get_match(self, match_id: str) -> Optional[Match]:
         """Retrieves a match by its ID."""
         try:
             match = await self.match_repository.get_by_id(match_id)
@@ -83,7 +84,7 @@ class MatchService(IMatchService):
     async def list_matches(
         self,
         team_id: str,
-        status: MatchStatus | None = None,
+        status: Optional[MatchStatus] = None,
         limit: int = 10
     ) -> list[Match]:
         """List matches for a team with optional status filter."""
@@ -151,9 +152,9 @@ class MatchService(IMatchService):
         match_id: str,
         home_score: int,
         away_score: int,
-        scorers: list[str] | None = None,
-        assists: list[str] | None = None,
-        notes: str | None = None,
+        scorers: Optional[List[str]] = None,
+        assists: Optional[List[str]] = None,
+        notes: Optional[str] = None,
         recorded_by: str = ""
     ) -> Match:
         """Record the result of a match."""

@@ -1,3 +1,4 @@
+from typing import Dict, Optional, Tuple
 #!/usr/bin/env python3
 """
 Simplified Team Member Service
@@ -35,7 +36,7 @@ class SimplifiedTeamMemberService:
 
     async def add_team_member(
         self, name: str, phone: str, role: str = None, team_id: str = None
-    ) -> tuple[bool, str]:
+    ) -> Tuple[bool, str]:
         """
         Add a new team member with simplified ID generation.
 
@@ -81,7 +82,7 @@ class SimplifiedTeamMemberService:
             logger.error(f"Error adding team member {name}: {e}")
             return False, f"❌ Failed to add team member: {e!s}"
 
-    async def get_team_member_by_phone(self, phone: str, team_id: str) -> TeamMember | None:
+    async def get_team_member_by_phone(self, phone: str, team_id: str) -> Optional[TeamMember]:
         """Get team member by phone number using phonenumbers library for flexible matching."""
         try:
             # Use phonenumbers library for proper phone matching

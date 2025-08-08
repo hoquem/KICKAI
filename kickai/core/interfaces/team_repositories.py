@@ -7,7 +7,7 @@ These interfaces are split into focused, cohesive contracts for team operations.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Dict, Optional
 
 from kickai.core.value_objects import TeamId, UserId
 
@@ -18,7 +18,7 @@ class ITeamConfigRepository(ABC):
     """Team configuration operations."""
 
     @abstractmethod
-    async def get_team_config(self, team_id: TeamId) -> dict[str, Any] | None:
+    async def get_team_config(self, team_id: TeamId) -> Optional[Dict[str, Any]]:
         """Get team configuration."""
         pass
 
@@ -27,7 +27,7 @@ class ITeamConfigRepository(ABC):
         self,
         team_id: TeamId,
         config_updates: dict[str, Any]
-    ) -> dict[str, Any] | None:
+    ) -> Optional[Dict[str, Any]]:
         """Update team configuration."""
         pass
 
@@ -45,7 +45,7 @@ class ITeamMemberReadRepository(ABC):
         self,
         user_id: UserId,
         team_id: TeamId
-    ) -> dict[str, Any] | None:
+    ) -> Optional[Dict[str, Any]]:
         """Get team member by user ID."""
         pass
 
@@ -68,7 +68,7 @@ class ITeamMemberWriteRepository(ABC):
         user_id: UserId,
         team_id: TeamId,
         updates: dict[str, Any]
-    ) -> dict[str, Any] | None:
+    ) -> Optional[Dict[str, Any]]:
         """Update team member information."""
         pass
 

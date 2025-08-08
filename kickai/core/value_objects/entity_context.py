@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from kickai.core.enums import ChatType
 
 from .identifiers import ChatId, TeamId, UserId
+from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -109,7 +110,7 @@ class EntityContext:
     chat_id: ChatId
     chat_type: ChatType
     user_registration: UserRegistration
-    username: str | None = None
+    username: Optional[str] = None
 
     def __post_init__(self) -> None:
         # Validation rules
@@ -131,7 +132,7 @@ class EntityContext:
         is_team_member: bool = False,
         is_admin: bool = False,
         is_leadership: bool = False,
-        username: str | None = None,
+        username: Optional[str] = None,
     ) -> EntityContext:
         """
         Convenience factory method for creating EntityContext.

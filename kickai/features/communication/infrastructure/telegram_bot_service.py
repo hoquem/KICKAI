@@ -1,3 +1,4 @@
+from typing import Set, Union
 from loguru import logger
 from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
@@ -51,30 +52,20 @@ class TelegramBotService(TelegramBotServiceInterface):
                 logger.info(f"✅ Command registry initialized with {len(all_commands)} commands")
             except RuntimeError as e:
                 if "Command registry not initialized" in str(e):
-                    # Fallback: try to initialize the registry in this context
-                    logger.warning(
-                        "⚠️ Command registry not accessible in current context, attempting to initialize..."
+                    logger.critical(
+                        "💥 CRITICAL SYSTEM ERROR: Command registry not accessible in TelegramBotService - this is a major system failure"
                     )
-                    try:
-                        from kickai.core.command_registry_initializer import (
-                            initialize_command_registry,
-                        )
-
-                        registry = initialize_command_registry()
-                        all_commands = registry.list_all_commands()
-                        logger.info(
-                            f"✅ Successfully initialized command registry in current context with {len(all_commands)} commands"
-                        )
-                    except Exception as init_error:
-                        logger.error(
-                            f"❌ Failed to initialize command registry in current context: {init_error}"
-                        )
-                        # Last resort: use fallback handlers
-                        logger.warning(
-                            "⚠️ Using fallback handlers due to registry initialization failure"
-                        )
-                        self._setup_fallback_handlers()
-                        return
+                    logger.critical(
+                        "🚨 The system cannot function without the command registry. This indicates a serious initialization failure."
+                    )
+                    logger.critical(
+                        "🛑 Failing fast to prevent unsafe bot operation without command validation"
+                    )
+                    raise RuntimeError(
+                        f"CRITICAL SYSTEM ERROR: Command registry not accessible in TelegramBotService. "
+                        f"This is a major system failure that prevents safe bot operation. "
+                        f"Original error: {e}"
+                    )
                 else:
                     raise
 
@@ -115,9 +106,14 @@ class TelegramBotService(TelegramBotServiceInterface):
             )
 
         except Exception as e:
-            logger.error(f"❌ Error setting up handlers: {e}")
-            # Fallback to basic handlers
-            self._setup_fallback_handlers()
+            logger.critical(f"💥 CRITICAL SYSTEM ERROR: Failed to set up handlers: {e}")
+            logger.critical("🚨 The bot cannot function without proper handler setup")
+            logger.critical("🛑 Failing fast to prevent unsafe bot operation")
+            raise RuntimeError(
+                f"CRITICAL SYSTEM ERROR: Failed to set up bot handlers. "
+                f"This is a major system failure that prevents safe bot operation. "
+                f"Original error: {e}"
+            )
 
     def _setup_fallback_handlers(self):
         """Set up fallback handlers when command registry fails."""
@@ -317,16 +313,47 @@ class TelegramBotService(TelegramBotServiceInterface):
         except Exception as e:
             logger.error(f"❌ Error in debug handler: {e}")
 
-    async def send_message(self, chat_id: int | str, text: str, **kwargs):
-        """Send a message to a specific chat."""
+    async def send_message(self, chat_id: Union[int, str], text: str, **kwargs):
+        """Send a message to a specific chat in plain text."""
         try:
-            logger.info(f"Sending message to chat_id={chat_id}: {text}")
-            await self.app.bot.send_message(chat_id=chat_id, text=text, **kwargs)
+            # Sanitize text to ensure plain text output
+            sanitized_text = self._sanitize_for_plain_text(text)
+            logger.info(f"Sending plain text message to chat_id={chat_id}: {sanitized_text}")
+            
+            # Explicitly send as plain text (no parse_mode)
+            await self.app.bot.send_message(
+                chat_id=chat_id, 
+                text=sanitized_text, 
+                parse_mode=None,  # Explicitly set to None for plain text
+                **kwargs
+            )
         except Exception as e:
             logger.error(f"❌ Error sending message: {e}")
             raise
 
-    async def send_contact_share_button(self, chat_id: int | str, text: str):
+    def _sanitize_for_plain_text(self, text: str) -> str:
+        """Remove any formatting characters to ensure plain text output."""
+        if not text:
+            return text
+            
+        # Remove common markdown characters that might cause issues
+        text = text.replace('*', '').replace('_', '').replace('`', '')
+        text = text.replace('**', '').replace('__', '').replace('~~', '')
+        text = text.replace('#', '').replace('##', '').replace('###', '')
+        
+        # Remove HTML-like tags
+        import re
+        text = re.sub(r'<[^>]+>', '', text)
+        
+        # Remove HTML entities
+        text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+        
+        # Clean up extra whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        return text
+
+    async def send_contact_share_button(self, chat_id: Union[int, str], text: str):
         """Send a message with a contact sharing button."""
         try:
             keyboard = [[KeyboardButton(text="📱 Share My Phone Number", request_contact=True)]]

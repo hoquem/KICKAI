@@ -1,3 +1,4 @@
+from typing import Optional
 from abc import ABC, abstractmethod
 
 from kickai.features.match_management.domain.entities.match import Match, MatchStatus
@@ -12,7 +13,7 @@ class MatchRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, match_id: str) -> Match | None:
+    async def get_by_id(self, match_id: str) -> Optional[Match]:
         """Get match by ID."""
         pass
 

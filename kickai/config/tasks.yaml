@@ -1,477 +1,220 @@
-# KICKAI Tasks Configuration
-# This file defines all tasks that can be performed by agents in the KICKAI system
+# KICKAI Tasks Configuration - Updated for 5-Agent CrewAI Native Implementation
+# This file defines task templates aligned with the current 5-agent system
 
+# NOTE: With CrewAI native implementation, tasks are now created dynamically 
+# with structured descriptions. These templates serve as reference patterns.
+
+task_templates:
+  # Core principles for all tasks (following CrewAI native approach)
+  shared_instructions: |
+    CRITICAL: Use CrewAI native parameter passing - pass context parameters directly to tools.
+    
+    Context parameters available:
+    - team_id: Team identifier
+    - telegram_id: User's Telegram ID  
+    - username: User's username
+    - chat_type: Chat context (main/leadership/private)
+    
+    WORKFLOW:
+    1. Analyze user request and extract intent
+    2. Validate user permissions and context
+    3. Select appropriate tool(s) with direct parameters
+    4. Execute tools using provided context parameters
+    5. Format response using complete tool outputs
+    
+    OUTPUT REQUIREMENTS:
+    - Use complete tool outputs without modification
+    - Format with proper emojis: ✅ Success, ❌ Error, ℹ️ Info
+    - Structure with clear headers and bullet points
+    - Include next steps when relevant
+
+# Task categories aligned with 5-agent system
 tasks:
-  # Core System Tasks
-  - name: process_message
+
+  # MESSAGE PROCESSOR AGENT TASKS
+  - name: process_general_message
     description: >
-      Process incoming user messages, classify intent, and route to appropriate
-      specialized agents or provide immediate responses for simple queries.
+      Process incoming user messages, handle basic queries, manage communications,
+      and route complex requests to specialized agents when needed.
       
-      PROCESS OR RULES OF ENGAGEMENT:
-      Follow these steps for every request:
-      1. Acknowledge the user's request and identify the core intent.
-      2. Based on the user's context (ID, chat type), determine their permission level using the appropriate tools.
-      3. If the intent maps to a command they have permission for, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. Select the best tool(s) to fulfill the request.
-      5. Execute the tools and synthesize the results.
-      6. Format the final response according to the Message Formatting Framework.
-      
-      OUTPUT FORMAT REQUIREMENTS:
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 👤 User, 🤖 Bot)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
+      Use structured description with embedded context for CrewAI native approach:
+      - Extract user intent from message
+      - Pass team_id, telegram_id, username, chat_type to tools
+      - Select appropriate tools: get_user_status, get_available_commands, 
+        send_message, send_announcement, send_poll
+      - Use get_active_players (MAIN chat) or get_all_players (LEADERSHIP chat) for lists
     expected_output: >
-      Appropriately formatted response or routing decision based on message content and user context,
-      following the Message Formatting Framework standards with proper emojis and plain text structure.
+      Immediate response for basic queries or successful routing to specialized agents,
+      formatted with complete tool outputs and proper status indicators.
     agent: message_processor
 
-  - name: orchestrate_request
+  - name: manage_communications
     description: >
-      Decompose complex user requests into subtasks, coordinate agent interactions,
-      and aggregate results into coherent responses.
+      Handle team communications including messages, announcements, and polls.
       
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 👤 User, 🤖 Bot)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
+      Use structured description with embedded context:
+      - Validate user permissions for communication type
+      - Pass team_id, telegram_id, username, chat_type to communication tools
+      - Select appropriate tools: send_message, send_announcement, send_poll
+      - Provide delivery confirmation and status
     expected_output: >
-      Coordinated response from multiple agents or clear task delegation,
-      formatted according to the Message Formatting Framework with proper emojis and structure.
-    agent: intelligent_system
+      Communication sent successfully with delivery confirmation,
+      formatted with complete tool outputs.
+    agent: message_processor
 
-  # Player Management Tasks
-  - name: check_player_status
+  # HELP ASSISTANT AGENT TASKS
+  - name: provide_comprehensive_help
     description: >
-      Retrieve and display current player status, registration details, and
-      any pending actions or approvals.
+      Provide comprehensive help using FINAL_HELP_RESPONSE tool.
       
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 👤 User, 📋 Lists)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
+      Use structured description with embedded context:
+      - For /help requests, ALWAYS use FINAL_HELP_RESPONSE tool first
+      - Pass chat_type, telegram_id, team_id, username directly to tools
+      - Use get_available_commands for context-specific command lists
+      - Use get_command_help for detailed command explanations
+      - Use get_welcome_message ONLY for new user onboarding (not help requests)
     expected_output: >
-      Comprehensive player status report with all relevant information,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
+      Complete help information using full tool output without modification,
+      tailored to user's chat context and permissions.
+    agent: help_assistant
+
+  - name: command_guidance
+    description: >
+      Provide specific command help and system guidance.
+      
+      Use structured description with embedded context:
+      - Pass chat_type parameter to get_available_commands and get_command_help
+      - Provide context-appropriate command information
+      - Include usage examples and next steps
+    expected_output: >
+      Detailed command information and guidance using complete tool outputs.
+    agent: help_assistant
+
+  # PLAYER COORDINATOR AGENT TASKS  
+  - name: manage_player_operations
+    description: >
+      Handle complete player lifecycle from registration through active participation.
+      
+      Use structured description with embedded context:
+      - Pass team_id, telegram_id parameters directly to player tools
+      - Use get_my_status for current user, get_player_status for specific players
+      - Use get_all_players (all) or get_active_players (active only) for lists
+      - Use register_player for new registrations, approve_player for approvals
+      - Use list_team_members_and_players for combined views
+    expected_output: >
+      Accurate player information and successful registration/approval processes,
+      formatted with complete tool outputs.
     agent: player_coordinator
 
-  - name: approve_player
+  - name: player_registration_onboarding
     description: >
-      Review player registration requests and approve or reject based on
-      system criteria and team requirements.
+      Guide new players through registration and onboarding process.
       
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 👤 User)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
+      Use structured description with embedded context:
+      - Use register_player tool with full player information
+      - Provide clear guidance on registration requirements
+      - Handle validation and error cases gracefully
     expected_output: >
-      Approval decision with reasoning and next steps for the player,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
+      Successful player registration with next steps and guidance.
     agent: player_coordinator
 
-  - name: get_all_players
+  # TEAM ADMINISTRATOR AGENT TASKS
+  - name: manage_team_administration
     description: >
-      Retrieve and display list of all registered players with their current
-      status and relevant information.
+      Handle team member management, roles, permissions, and governance.
       
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📋 Lists, 👥 Members)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
+      Use structured description with embedded context:
+      - Pass team_id, telegram_id parameters to team administration tools
+      - Use team_member_registration for new team members
+      - Use get_team_members for member information
+      - Use get_my_team_member_status for current user team member info
+      - Use role management tools: add_team_member_role, remove_team_member_role
+      - Use promote_team_member_to_admin for admin promotions
+      - Use create_team for new team creation
     expected_output: >
-      Complete list of players with status, registration date, and key details,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
-    agent: player_coordinator
-
-  # Team Management Tasks
-  - name: create_team
-    description: >
-      Assist in team creation process, set up team structure, and configure
-      team settings and permissions.
-      
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 👔 Leadership)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
-    expected_output: >
-      New team created with proper configuration and initial setup,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
+      Successful team administration operations with clear status updates,
+      formatted with complete tool outputs.
     agent: team_administrator
 
-  - name: manage_team_members
+  - name: team_member_lifecycle
     description: >
-      Add or remove team members, update member roles and permissions,
-      and manage team composition.
+      Manage complete team member lifecycle and role management.
       
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 👔 Leadership, 👥 Members)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
+      Use structured description with embedded context:
+      - Handle team member registration, role changes, and promotions
+      - Validate permissions for administrative operations
+      - Provide clear confirmation of role changes
     expected_output: >
-      Updated team member list with current roles and permissions,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
+      Updated team member information with role changes confirmed.
     agent: team_administrator
 
-  # Match Management Tasks
-  - name: check_availability
+  # SQUAD SELECTOR AGENT TASKS
+  - name: manage_matches_and_squads
     description: >
-      Check player availability for upcoming matches and provide availability
-      status for team planning.
+      Handle complete match lifecycle, availability tracking, and squad selection.
       
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📋 Lists)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
+      Use structured description with embedded context:
+      - Pass team_id, match_id, player_id parameters to match/squad tools
+      - Use list_matches, create_match, get_match_details for match operations
+      - Use mark_availability, get_availability for availability management
+      - Use select_squad, get_available_players_for_match for squad building
+      - Use record_attendance, get_match_attendance for attendance tracking
+      - Use history tools: get_player_availability_history, get_player_attendance_history
+      - Use record_match_result for post-match data
     expected_output: >
-      Availability report for requested players and time periods,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
-    agent: availability_manager
-
-  - name: create_match
-    description: >
-      Create a new match for the team with all necessary details including opponent,
-      date, time, venue, and competition type.
-      
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 🎉 Welcome, 👤 User)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
-    expected_output: >
-      Complete match creation with all required information and confirmation,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
-    agent: team_manager
-
-  - name: select_squad
-    description: >
-      Select the optimal squad for a specific match based on player availability,
-      form, tactical requirements, and team balance.
-      
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 🎉 Welcome, 👤 User)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
-    expected_output: >
-      Complete squad selection with tactical reasoning and player details,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
+      Complete match management with optimal squad selection and tracking,
+      formatted with complete tool outputs.
     agent: squad_selector
 
-  - name: manage_availability
+  - name: availability_and_attendance
     description: >
-      Manage player availability for matches, track responses, and coordinate
-      with squad selection to ensure optimal team preparation.
+      Track player availability and manage match attendance.
       
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 🎉 Welcome, 👤 User)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
+      Use structured description with embedded context:
+      - Handle availability updates and attendance recording
+      - Provide availability summaries for match planning
+      - Track historical availability and attendance patterns
     expected_output: >
-      Complete availability management with tracking and coordination details,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
-    agent: availability_manager
+      Accurate availability and attendance tracking with historical data.
+    agent: squad_selector
 
-  # Communication Tasks
-  - name: send_announcement
-    description: >
-      Create and send system-wide announcements to relevant users and teams.
-      
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📞 Contact)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
-    expected_output: >
-      Announcement sent successfully with confirmation of delivery,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
-    agent: communication_manager
+# Legacy task mapping for backwards compatibility
+# Maps old agent names to new 5-agent system
+legacy_agent_mapping:
+  intelligent_system: message_processor
+  availability_manager: squad_selector
+  team_manager: squad_selector
+  communication_manager: message_processor
+  analytics_agent: message_processor  # Analytics handled by message processor for now
 
-  - name: send_reminder
-    description: >
-      Send targeted reminders to specific users or teams about upcoming
-      events, deadlines, or required actions.
-      
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📞 Contact)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
-    expected_output: >
-      Reminders sent successfully with delivery confirmation,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
-    agent: communication_manager
-
-  - name: broadcast_message
-    description: >
-      Send messages to multiple users or teams simultaneously with
-      appropriate targeting and delivery tracking.
-      
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📞 Contact)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
-    expected_output: >
-      Message broadcasted successfully with delivery statistics,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
-    agent: communication_manager
-
-  # Help and Support Tasks
-  - name: provide_help
-    description: >
-      Provide comprehensive help and support to users, explain system
-      features, and guide users through processes.
-      
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 🤖 Bot, 👔 Leadership, 👤 User)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
-    expected_output: >
-      Clear, helpful response that addresses user's question or concern,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
-    agent: help_assistant
-
-  - name: get_available_commands
-    description: >
-      Retrieve and display all available commands and their descriptions
-      based on user context and permissions.
-      
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 🤖 Bot, 👔 Leadership, 👤 User)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
-    expected_output: >
-      Complete list of available commands with descriptions and usage examples,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
-    agent: help_assistant
-
-  # Analytics and Reporting Tasks
-  - name: generate_report
-    description: >
-      Generate comprehensive reports on system usage, team performance,
-      or other relevant metrics.
-      
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📊 Analytics)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
-    expected_output: >
-      Detailed report with relevant metrics, insights, and recommendations,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
-    agent: analytics_agent
-
-  - name: analyze_performance
-    description: >
-      Analyze team and individual performance data to provide insights
-      and recommendations for improvement.
-      
-      **PROCESS OR RULES OF ENGAGEMENT:**
-      Follow these steps for every request:
-      1. **Acknowledge the user's request** and identify the core intent.
-      2. **Based on the user's context** (ID, chat type), determine their permission level using the appropriate tools.
-      3. **If the intent maps to a command they have permission for**, proceed. Otherwise, respond with the standardized 'Access Denied' message.
-      4. **Select the best tool(s)** to fulfill the request.
-      5. **Execute the tools** and synthesize the results.
-      6. **Format the final response** according to the Message Formatting Framework.
-      
-      **OUTPUT FORMAT REQUIREMENTS:**
-      Your final response MUST be formatted in plain text and strictly follow the Message Formatting Framework:
-      - Use specified emojis (✅ Success, ❌ Error, ℹ️ Info, 📊 Analytics)
-      - Use clear headers without special formatting
-      - Format commands as /command
-      - Structure lists with • Item
-      - Organize content in clear sections
-    expected_output: >
-      Performance analysis with actionable insights and recommendations,
-      formatted with proper emojis and plain text structure following the Message Formatting Framework.
-    agent: analytics_agent 
+# Task execution guidelines for CrewAI native implementation
+execution_guidelines:
+  task_creation: |
+    Tasks are now created dynamically using structured descriptions with embedded context.
+    
+    Example structured description format:
+    ```
+    User Request: {task_description}
+    
+    Context Information:
+    - Team ID: {team_id}
+    - User Telegram ID: {telegram_id} 
+    - Username: {username}
+    - Chat Type: {chat_type}
+    
+    Instructions: Use the provided context information to call tools with the appropriate parameters.
+    Pass team_id, telegram_id, username, and chat_type as direct parameters to tools that require them.
+    ```
+  
+  parameter_passing: |
+    CRITICAL: Always pass context parameters directly to tools:
+    - team_id: Required by most tools
+    - telegram_id: User identification
+    - username: Display name
+    - chat_type: Permission context (main/leadership/private)
+  
+  response_handling: |
+    - Use complete tool outputs without modification
+    - Format responses with proper emojis and structure
+    - Include error handling and validation feedback
+    - Provide next steps when appropriate

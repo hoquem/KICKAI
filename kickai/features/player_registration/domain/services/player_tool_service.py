@@ -7,7 +7,7 @@ extracting complex business logic from tools and providing clean, testable opera
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 from loguru import logger
 
@@ -49,7 +49,7 @@ class AddPlayerRequest:
     """Request object for adding a player."""
     name: str
     phone: str
-    position: str | None = None
+    position: Optional[str] = None
 
     def __post_init__(self):
         """Validate and sanitize the request after initialization."""
@@ -74,8 +74,8 @@ class PlayerStatusResponse:
     full_name: str
     position: str
     status: str
-    player_id: str | None
-    phone_number: str | None
+    player_id: Optional[str]
+    phone_number: Optional[str]
     is_active: bool
 
     def format_display(self) -> str:
@@ -144,7 +144,7 @@ class PlayerToolService:
             raise ServiceNotAvailableError("TeamService")
         return team_service
 
-    def _get_invite_service(self) -> InviteLinkService | None:
+    def _get_invite_service(self) -> Optional[InviteLinkService]:
         """Get the invite link service (optional)."""
         return self.container.get_service(InviteLinkService)
 
@@ -226,7 +226,7 @@ class PlayerToolService:
         team_id: str,
         request: AddPlayerRequest,
         player_id: str
-    ) -> str | None:
+    ) -> Optional[str]:
         """Generate invite link for the player."""
         invite_service = self._get_invite_service()
         if not invite_service:
@@ -262,7 +262,7 @@ class PlayerToolService:
         request: AddPlayerRequest,
         player_id: str,
         is_existing_player: bool,
-        invite_link: str | None,
+        invite_link: Optional[str],
         original_message: str
     ) -> str:
         """Format the add player response message."""

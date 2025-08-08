@@ -137,7 +137,7 @@ kickai/features/{feature_name}/infrastructure/
     └── firestore_attendance_repository.py
 ```
 
-**Payment Management** (`kickai/features/payment_management/`)
+**Attendance Management** (`kickai/features/attendance_management/`)
 ```
 ├── application/commands/
 │   └── payment_commands.py      # /createpayment, /payments, etc.
@@ -163,7 +163,7 @@ kickai/features/{feature_name}/infrastructure/
 
 #### 🚧 **Partially Implemented Features**
 
-**Training Management** (`kickai/features/training_management/`)
+**Communication Management** (`kickai/features/communication/`)
 ```
 ├── application/commands/
 │   └── training_commands.py     # Commands defined but not integrated
@@ -401,3 +401,14 @@ Training Session
 - **Dependency Inversion**: Depend on abstractions, not concretions
 - **Interface Segregation**: Small, focused interfaces
 - **Liskov Substitution**: Subtypes are substitutable for base types
+- **Clean Error Propagation**: Allow errors to propagate cleanly rather than masking issues with fallback systems
+
+### Error Handling Strategy
+- **Fail Fast**: Detect and report issues immediately
+- **Fail Loud**: Provide clear, actionable error messages
+- **No Silent Failures**: Always log and report errors
+- **Structured Errors**: Use proper error hierarchies and context
+- **Observability**: Ensure errors are visible and monitorable
+- **Graceful Degradation**: When possible, degrade functionality rather than masking errors
+
+See [Error Handling and System Robustness](17_error_handling_and_robustness.md) for detailed guidelines.

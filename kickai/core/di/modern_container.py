@@ -8,7 +8,7 @@ lifecycle management, and auto-wiring capabilities.
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, TypeVar
+from typing import Any, Optional, TypeVar
 
 from loguru import logger
 
@@ -28,9 +28,9 @@ class ServiceRegistration:
     """Service registration metadata."""
 
     interface: type
-    implementation: type | None = None
+    implementation: Optional[type] = None
     scope: ServiceScope = ServiceScope.SINGLETON
-    factory: Callable | None = None
+    factory: Optional[Callable] = None
     dependencies: list[type] | None = None
 
 

@@ -1,3 +1,4 @@
+from typing import List, Optional
 """
 Simplified LLM Configuration for KICKAI following CrewAI Best Practices
 
@@ -9,15 +10,10 @@ with agent-specific optimization and production-ready Ollama client.
 import logging
 
 from crewai import LLM
+from litellm import completion
 
-from kickai.core.enums import AgentRole
-from kickai.core.settings import get_settings
-from kickai.infrastructure.ollama_client import (
-    OllamaCircuitBreakerError,
-    OllamaConnectionError,
-    OllamaTimeoutError,
-)
-from kickai.infrastructure.ollama_factory import get_ollama_client
+from kickai.core.enums import AgentRole, AIProvider
+from kickai.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -28,23 +24,48 @@ class LLMConfiguration:
 
     This class provides direct LLM instantiation as recommended by CrewAI,
     with agent-specific optimization and function calling LLM support.
+    It dynamically selects the LLM provider based on settings.
     """
 
     def __init__(self):
         """Initialize LLM configuration from settings."""
         self.settings = get_settings()
-        self.base_url = self.settings.ollama_base_url
+        self.ai_provider = self.settings.ai_provider
         self.default_model = self.settings.ai_model_name
-        self._ollama_client = None  # Lazy initialization
+        self.groq_api_key = self.settings.groq_api_key
+        self.ollama_base_url = self.settings.ollama_base_url
 
-        logger.info(f"🤖 LLM Configuration initialized: model={self.default_model}, base_url={self.base_url}")
+        logger.info(
+            f"🤖 LLM Configuration initialized: provider={self.ai_provider.value}, model={self.default_model}"
+        )
 
-    @property
-    def ollama_client(self):
-        """Get or create Ollama client instance (lazy initialization)."""
-        if self._ollama_client is None:
-            self._ollama_client = get_ollama_client(self.settings)
-        return self._ollama_client
+    def _create_llm(self, temperature: float, max_tokens: int) -> LLM:
+        """
+        Helper to create an LLM instance based on the configured AI provider.
+        """
+        if self.ai_provider == AIProvider.GROQ:
+            return LLM(
+                model=f"groq/{self.default_model}",
+                temperature=temperature,
+                max_tokens=max_tokens,
+                api_key=self.groq_api_key,
+            )
+        elif self.ai_provider == AIProvider.OLLAMA:
+            return LLM(
+                model=f"ollama/{self.default_model}",
+                base_url=self.ollama_base_url,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+        elif self.ai_provider == AIProvider.GOOGLE_GEMINI:
+            return LLM(
+                model=f"gemini/{self.default_model}",
+                temperature=temperature,
+                max_tokens=max_tokens,
+                api_key=self.settings.google_gemini_api_key, # Assuming you have this in settings
+            )
+        else:
+            raise ValueError(f"Unsupported AI provider: {self.ai_provider}")
 
     @property
     def main_llm(self) -> LLM:
@@ -54,12 +75,7 @@ class LLMConfiguration:
         Returns:
             LLM: Configured for balanced reasoning with moderate temperature
         """
-        return LLM(
-            model=f"ollama/{self.default_model}",
-            base_url=self.base_url,
-            temperature=0.3,
-            max_tokens=800
-        )
+        return self._create_llm(temperature=0.3, max_tokens=800)
 
     @property
     def tool_llm(self) -> LLM:
@@ -71,12 +87,7 @@ class LLMConfiguration:
         Returns:
             LLM: Configured for precise tool calling
         """
-        return LLM(
-            model=f"ollama/{self.default_model}",
-            base_url=self.base_url,
-            temperature=0.1,  # Lower temp for tool precision
-            max_tokens=500
-        )
+        return self._create_llm(temperature=0.1, max_tokens=500)
 
     @property
     def creative_llm(self) -> LLM:
@@ -86,12 +97,7 @@ class LLMConfiguration:
         Returns:
             LLM: Configured for creative reasoning
         """
-        return LLM(
-            model=f"ollama/{self.default_model}",
-            base_url=self.base_url,
-            temperature=0.7,  # Higher temp for creativity
-            max_tokens=1000
-        )
+        return self._create_llm(temperature=0.7, max_tokens=1000)
 
     @property
     def data_critical_llm(self) -> LLM:
@@ -103,12 +109,7 @@ class LLMConfiguration:
         Returns:
             LLM: Configured for maximum precision
         """
-        return LLM(
-            model=f"ollama/{self.default_model}",
-            base_url=self.base_url,
-            temperature=0.1,  # Very low for data accuracy
-            max_tokens=600
-        )
+        return self._create_llm(temperature=0.1, max_tokens=600)
 
     def get_llm_for_agent(self, agent_role: AgentRole) -> tuple[LLM, LLM]:
         """
@@ -122,24 +123,27 @@ class LLMConfiguration:
         Returns:
             tuple[LLM, LLM]: (main_llm, function_calling_llm)
         """
-        # Data-critical agents use precise models
+        # Data-critical agents use precise models (high accuracy priority)
         if agent_role in [
-            AgentRole.PLAYER_COORDINATOR,
-            AgentRole.MESSAGE_PROCESSOR,
-            AgentRole.FINANCE_MANAGER,
-            AgentRole.COMMUNICATION_MANAGER,
+            AgentRole.PLAYER_COORDINATOR,      # Player data management
+            AgentRole.MESSAGE_PROCESSOR,       # Primary interface
+            AgentRole.HELP_ASSISTANT,          # User guidance
         ]:
             return self.data_critical_llm, self.tool_llm
 
+        # Administrative agents use balanced models 
+        if agent_role in [
+            AgentRole.TEAM_ADMINISTRATOR,      # Team management
+        ]:
+            return self.main_llm, self.tool_llm
+
         # Creative/analytical agents use higher temperature models
         if agent_role in [
-            AgentRole.PERFORMANCE_ANALYST,
-            AgentRole.LEARNING_AGENT,
-            AgentRole.SQUAD_SELECTOR,
+            AgentRole.SQUAD_SELECTOR,          # Squad selection and tactics
         ]:
             return self.creative_llm, self.tool_llm
 
-        # Default: balanced configuration for other agents
+        # Default: balanced configuration for any other agents
         return self.main_llm, self.tool_llm
 
     def validate_configuration(self) -> list[str]:
@@ -170,92 +174,64 @@ class LLMConfiguration:
 
     def test_connection(self) -> bool:
         """
-        Test connection to Ollama server synchronously.
+        Test connection to the configured LLM provider synchronously.
 
         Returns:
             bool: True if connection successful, False otherwise
         """
         try:
-            # Use a simple HTTP request instead of the async client for this check
-            import httpx
-
-            url = f"{self.base_url}/api/tags"
-            with httpx.Client(timeout=10.0) as client:
-                response = client.get(url)
-                response.raise_for_status()
-                logger.info("✅ Ollama sync connection test successful")
+            messages = [{
+                "role": "user",
+                "content": "Hello, world!"
+            }]
+            # Use litellm.completion for a universal connection test
+            response = completion(
+                model=f"{self.ai_provider.value}/{self.default_model}",
+                messages=messages,
+                api_key=self.groq_api_key if self.ai_provider == AIProvider.GROQ else \
+                        self.settings.google_gemini_api_key if self.ai_provider == AIProvider.GOOGLE_GEMINI else None,
+                base_url=self.ollama_base_url if self.ai_provider == AIProvider.OLLAMA else None,
+                temperature=0.1,
+                max_tokens=10,
+                timeout=10, # 10 second timeout for connection test
+            )
+            if response.choices and response.choices[0].message.content:
+                logger.info(f"✅ {self.ai_provider.value} connection test successful")
                 return True
+            else:
+                logger.error(f"❌ {self.ai_provider.value} connection test failed: No content in response")
+                return False
         except Exception as e:
-            logger.error(f"❌ Ollama sync connection test failed: {e}")
+            logger.error(f"❌ {self.ai_provider.value} connection test failed: {e}")
             return False
 
     async def test_connection_async(self) -> bool:
         """
-        Test connection to Ollama server asynchronously using robust client.
+        Test connection to the configured LLM provider asynchronously.
 
         Returns:
             bool: True if connection successful, False otherwise
         """
-        try:
-            result = await self.ollama_client.health_check()
-            if result:
-                logger.info("✅ Ollama async connection test successful")
-            else:
-                logger.error("❌ Ollama async connection test failed")
-            return result
-        except OllamaCircuitBreakerError:
-            logger.error("❌ Ollama connection test blocked by circuit breaker")
-            return False
-        except (OllamaConnectionError, OllamaTimeoutError) as e:
-            logger.error(f"❌ Ollama async connection test failed: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"❌ Ollama async connection test failed with unexpected error: {e}")
-            return False
+        # For simplicity, async test can call sync test or use an async litellm call
+        # For now, we'll just call the sync version for immediate fix
+        return self.test_connection()
 
     def get_available_models(self) -> list[str]:
         """
-        Get list of available models from Ollama server using robust client.
+        Get list of available models from the configured LLM provider.
+
+        Note: This is a placeholder. LiteLLM does not have a direct API to list models.
+        You would typically query the provider's API directly or maintain a local list.
 
         Returns:
-            List[str]: List of available model names
+            List[str]: List of available model names (placeholder)
         """
-        try:
-            # Use a simple HTTP request instead of the async client for this check
-
-            import httpx
-
-            url = f"{self.base_url}/api/tags"
-            with httpx.Client(timeout=10.0) as client:
-                response = client.get(url)
-                response.raise_for_status()
-                data = response.json()
-                models = [model["name"] for model in data.get("models", [])]
-                logger.info(f"📋 Available models: {models}")
-                return models
-        except Exception as e:
-            logger.error(f"Failed to get available models: {e}")
-            return []
-
-    async def _get_available_models_async(self) -> list[str]:
-        """Get available models asynchronously."""
-        try:
-            models = await self.ollama_client.get_models()
-            logger.info(f"📋 Available models: {models}")
-            return models
-        except OllamaCircuitBreakerError:
-            logger.error("❌ Get models blocked by circuit breaker")
-            return []
-        except (OllamaConnectionError, OllamaTimeoutError) as e:
-            logger.error(f"❌ Failed to get available models: {e}")
-            return []
-        except Exception as e:
-            logger.error(f"❌ Failed to get available models with unexpected error: {e}")
-            return []
+        logger.warning("Listing available models is not directly supported via LiteLLM for all providers.")
+        return [self.default_model] # Return configured model as a placeholder
 
 
 # Global instance - single source of truth
-_llm_config: LLMConfiguration | None = None
+_llm_config: Optional[LLMConfiguration] = None
 
 
 def get_llm_config() -> LLMConfiguration:

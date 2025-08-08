@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kickai.core.enums import AgentRole, AIProvider
+from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -20,7 +21,7 @@ class LLMConfiguration:
     temperature: float
     timeout_seconds: int
     max_retries: int
-    max_tokens: int | None = None
+    max_tokens: Optional[int] = None
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.temperature <= 2.0:
@@ -121,23 +122,17 @@ class AgentConfiguration:
             AgentRole.PLAYER_COORDINATOR,
             AgentRole.HELP_ASSISTANT,
             AgentRole.MESSAGE_PROCESSOR,
-            AgentRole.FINANCE_MANAGER,
         }
 
         # Administrative agents (need balanced reasoning)
         administrative_roles = {
-            AgentRole.TEAM_MANAGER,
-            AgentRole.AVAILABILITY_MANAGER,
+            AgentRole.TEAM_ADMINISTRATOR,
             AgentRole.SQUAD_SELECTOR,
-            AgentRole.TRAINING_COORDINATOR,
         }
 
         # Creative agents (benefit from higher creativity)
         creative_roles = {
-            AgentRole.PERFORMANCE_ANALYST,
-            AgentRole.LEARNING_AGENT,
-            AgentRole.COMMUNICATION_MANAGER,
-            AgentRole.COMMAND_FALLBACK_AGENT,
+            AgentRole.SQUAD_SELECTOR,
         }
 
         if role in data_critical_roles:

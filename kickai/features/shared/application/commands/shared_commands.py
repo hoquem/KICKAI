@@ -10,6 +10,7 @@ from loguru import logger
 from kickai.core.command_registry import CommandType, PermissionLevel, command
 from kickai.core.context_types import create_context_from_telegram_message
 from kickai.core.enums import ChatType
+from typing import List, Optional
 
 # ============================================================================
 # SHARED COMMANDS

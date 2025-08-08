@@ -4,11 +4,11 @@ from crewai import Agent
 
 from kickai.features.match_management.domain.services.match_service import MatchService
 from kickai.features.match_management.domain.tools.match_tools import (
-    CreateMatchTool,
-    GetMatchDetailsTool,
-    ListMatchesTool,
-    RecordMatchResultTool,
-    SelectSquadTool,
+    create_match,
+    get_match_details,
+    list_matches_sync,
+    record_match_result,
+    select_squad_tool,
 )
 
 logger = logging.getLogger(__name__)
@@ -17,18 +17,24 @@ logger = logging.getLogger(__name__)
 class MatchManagementAgent:
     """CrewAI agent for match management operations."""
 
-    def __init__(self, match_service: MatchService):
-        self.match_service = match_service
+    def __init__(self):
+        from kickai.core.dependency_container import get_container
+        container = get_container()
+        self.match_service = container.get_service(MatchService)
+        if not self.match_service:
+            raise ValueError("MatchService not found in container")
         self.agent = self._create_agent()
 
     def _create_agent(self) -> Agent:
         """Create the match management agent."""
+        # The tools are now function-based and don't need service injection
+        # They handle service access internally via dependency container
         tools = [
-            CreateMatchTool(self.match_service),
-            ListMatchesTool(self.match_service),
-            GetMatchDetailsTool(self.match_service),
-            SelectSquadTool(self.match_service),
-            RecordMatchResultTool(self.match_service),
+            create_match,
+            list_matches_sync,
+            get_match_details,
+            select_squad_tool,
+            record_match_result,
         ]
 
         return Agent(

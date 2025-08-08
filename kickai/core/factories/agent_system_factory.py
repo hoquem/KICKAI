@@ -83,18 +83,11 @@ class AgentSystemFactory:
             lifecycle_manager = self._create_lifecycle_manager(team_id)
 
             # Create the main router with all dependencies
-            from kickai.agents.refactored_agentic_message_router import (
-                RefactoredAgenticMessageRouter
-            )
+            from kickai.agents.agentic_message_router import AgenticMessageRouter
 
-            router = RefactoredAgenticMessageRouter(
+            router = AgenticMessageRouter(
                 team_id=team_id,
-                agent_orchestrator=agent_orchestrator,
-                lifecycle_manager=lifecycle_manager,
-                user_flow_handler=user_flow_handler,
-                contact_handler=contact_handler,
-                command_validator=command_validator,
-                user_service=user_service,
+                crewai_system=None  # Will be set up separately
             )
 
             self._system_cache[cache_key] = router
@@ -166,8 +159,8 @@ class AgentSystemFactory:
         """Create agent orchestrator."""
         # This would create the main CrewAI system or agent orchestrator
         # For now, we'll create a simple implementation
-        from kickai.agents.simple_agent_orchestrator import SimpleAgentOrchestrator
-        return SimpleAgentOrchestrator(team_id)
+        # SimpleAgentOrchestrator removed - use crew_agents.py instead
+        return None
     
     def _create_lifecycle_manager(self, team_id: str) -> ILifecycleManager:
         """Create lifecycle manager."""

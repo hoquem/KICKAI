@@ -13,7 +13,7 @@ References:
 
 import os
 from dataclasses import dataclass, field
-from typing import Final
+from typing import Final, List, Tuple, Union
 
 from kickai.core.enums import ChatType, PermissionLevel
 
@@ -275,7 +275,7 @@ class CommandDefinition:
     description: str
     permission_level: PermissionLevel
     chat_types: frozenset[ChatType]
-    examples: tuple[str, ...] = field(default_factory=tuple)
+    examples: Tuple[str, ...] = field(default_factory=tuple)
     feature: str = "shared"
 
     def __post_init__(self):
@@ -563,13 +563,8 @@ TEAM_ADMIN_COMMANDS = set()
 # =============================================================================
 
 ALL_COMMANDS = (
-    PLAYER_COMMANDS
-    | LEADERSHIP_COMMANDS
-    | SYSTEM_COMMANDS
-    | MATCH_COMMANDS
-    | ATTENDANCE_COMMANDS
-    | COMMUNICATION_COMMANDS
-    | TEAM_ADMIN_COMMANDS
+    PLAYER_COMMANDS | LEADERSHIP_COMMANDS | SYSTEM_COMMANDS | MATCH_COMMANDS
+| ATTENDANCE_COMMANDS | COMMUNICATION_COMMANDS | TEAM_ADMIN_COMMANDS
 )
 
 # =============================================================================
@@ -620,17 +615,17 @@ CHAT_TYPE_DESCRIPTIONS = {
 # =============================================================================
 
 
-def get_commands_for_chat_type(chat_type: ChatType) -> list[CommandDefinition]:
+def get_commands_for_chat_type(chat_type: ChatType) -> List[CommandDefinition]:
     """Get all commands available for a specific chat type."""
     return sorted(COMMANDS_BY_CHAT_TYPE.get(chat_type, []), key=lambda x: x.name)
 
 
-def get_commands_for_permission_level(permission_level: PermissionLevel) -> list[CommandDefinition]:
+def get_commands_for_permission_level(permission_level: PermissionLevel) -> List[CommandDefinition]:
     """Get all commands available for a specific permission level."""
     return sorted(COMMANDS_BY_PERMISSION.get(permission_level, []), key=lambda x: x.name)
 
 
-def get_commands_for_feature(feature: str) -> list[CommandDefinition]:
+def get_commands_for_feature(feature: str) -> List[CommandDefinition]:
     """Get all commands for a specific feature."""
     return sorted(COMMANDS_BY_FEATURE.get(feature, []), key=lambda x: x.name)
 

@@ -8,7 +8,7 @@ and testability across the agent system.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional
 
 from kickai.core.enums import AgentRole
 from kickai.core.value_objects import EntityContext
@@ -88,7 +88,7 @@ class IAgentRouter(ABC):
         self,
         message: str,
         context: EntityContext
-    ) -> AgentRole | None:
+    ) -> Optional[AgentRole]:
         """
         Select the most appropriate agent for a message.
 
@@ -170,7 +170,7 @@ class ICrewSystem(ABC):
         pass
 
     @abstractmethod
-    def get_agent_by_role(self, role: AgentRole) -> IAgentSystem | None:
+    def get_agent_by_role(self, role: AgentRole) -> Optional[IAgentSystem]:
         """Get agent instance by role."""
         pass
 
@@ -199,7 +199,7 @@ class ILifecycleManager(ABC):
         pass
 
     @abstractmethod
-    def get_agent_system(self, team_id: str) -> ICrewSystem | None:
+    def get_agent_system(self, team_id: str) -> Optional[ICrewSystem]:
         """
         Get the agent system for a team.
 

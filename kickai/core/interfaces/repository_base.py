@@ -8,7 +8,7 @@ the Interface Segregation Principle.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 
 T = TypeVar('T')
 
@@ -17,7 +17,7 @@ class IRepository(ABC, Generic[T]):
     """Base repository interface for common CRUD operations."""
 
     @abstractmethod
-    async def get_by_id(self, entity_id: str) -> T | None:
+    async def get_by_id(self, entity_id: str) -> Optional[T]:
         """Get entity by ID."""
         pass
 

@@ -7,13 +7,14 @@ and the real KICKAI CrewAI system using Groq LLM.
 
 import logging
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
 # Import real bot integration components
 try:
-    from kickai.agents.user_flow_agent import TelegramMessage, AgentResponse
+    # Import centralized types
+    from kickai.core.types import AgentResponse, TelegramMessage
     from kickai.agents.agentic_message_router import AgenticMessageRouter
     from kickai.core.enums import ChatType
     BOT_INTEGRATION_AVAILABLE = True
@@ -21,6 +22,38 @@ try:
 except ImportError as e:
     BOT_INTEGRATION_AVAILABLE = False
     logger.warning(f"❌ Real bot integration not available: {e}")
+    
+    # Create fallback types for when real bot is not available
+    from dataclasses import dataclass
+    
+    @dataclass
+    class AgentResponse:
+        success: bool
+        message: str
+        error: Optional[str] = None
+        agent_type: Optional[str] = None
+        confidence: float = 1.0
+        metadata: Optional[Dict[str, Any]] = None
+        needs_contact_button: bool = False
+    
+    @dataclass
+    class TelegramMessage:
+        telegram_id: int
+        text: str
+        chat_id: str
+        chat_type: str
+        team_id: Optional[str] = None
+        username: Optional[str] = None
+        first_name: Optional[str] = None
+        last_name: Optional[str] = None
+        raw_update: Optional[Any] = None
+        contact_phone: Optional[str] = None
+        contact_user_id: Optional[int] = None
+    
+    class ChatType:
+        MAIN = "main"
+        LEADERSHIP = "leadership"
+        PRIVATE = "private"
 
 
 async def process_mock_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -40,7 +73,34 @@ async def process_mock_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
         Bot response data from real CrewAI agents
     """
     if not BOT_INTEGRATION_AVAILABLE:
-        return _get_fallback_response(message_data, "Real bot integration not available")
+        # Provide fallback response when bot integration is not available
+        text = message_data.get("text", "")
+        user_id = message_data.get("from", {}).get("id", "unknown")
+        
+        logger.warning(f"🤖 Bot integration not available - providing fallback response for: {text}")
+        
+        # Simple fallback responses
+        if text.lower().startswith("/help"):
+            return {
+                "success": True,
+                "message": "🤖 **KICKAI Bot Help**\n\nAvailable commands:\n• /help - Show this help message\n• /myinfo - Show your information\n• /list - List players/members\n• /status [phone] - Check status\n\nBot integration is currently in development mode.",
+                "agent_type": "help_assistant",
+                "confidence": 1.0
+            }
+        elif text.lower().startswith("/myinfo"):
+            return {
+                "success": True,
+                "message": f"🤖 **Your Information**\n\nUser ID: {user_id}\nStatus: Active\nRole: Test User\n\nBot integration is currently in development mode.",
+                "agent_type": "message_processor",
+                "confidence": 1.0
+            }
+        else:
+            return {
+                "success": True,
+                "message": f"🤖 **Bot Response**\n\nYou said: {text}\n\nBot integration is currently in development mode. This is a fallback response.",
+                "agent_type": "message_processor",
+                "confidence": 1.0
+            }
     
     try:
         # Ensure dependency container is initialized first
@@ -66,13 +126,24 @@ async def process_mock_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"🤖 Groq LLM processing: {text} from user {user_id} ({username}) in {chat_context} chat")
         
         # Convert to TelegramMessage format for real agent processing
-        telegram_message = _create_telegram_message(message_data)
+        telegram_message = await _create_telegram_message(message_data)
         
-        # Get team ID (use default for testing)
-        team_id = "KTI"
+        # Get team ID dynamically from available teams in Firestore
+        team_id = await _get_available_team_id()
         
         # Create real AgenticMessageRouter with Groq LLM
-        router = AgenticMessageRouter(team_id=team_id)
+        logger.info(f"🔧 Creating AgenticMessageRouter with team_id={team_id}")
+        logger.info(f"🔧 AgenticMessageRouter class: {AgenticMessageRouter}")
+        logger.info(f"🔧 AgenticMessageRouter __init__: {AgenticMessageRouter.__init__}")
+        
+        try:
+            router = AgenticMessageRouter(team_id)
+            # Set chat IDs for proper chat type determination
+            router.set_chat_ids(main_chat_id="2001", leadership_chat_id="2002")
+            logger.info("✅ AgenticMessageRouter created successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to create AgenticMessageRouter: {e}")
+            raise
         
         logger.info(f"🔧 Agent selected: AgenticMessageRouter for team {team_id}")
         
@@ -90,23 +161,53 @@ async def process_mock_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
         else:
             response_text = str(response)
         
-        logger.info(f"✅ Real CrewAI response created for {username}: {response_text[:100]}...")
-        
         return {
-            "type": "text",
-            "text": response_text,
-            "chat_id": chat_id,
-            "user_id": user_id,
-            "timestamp": datetime.now().isoformat(),
-            "source": "real_crewai_groq"
+            "success": True,
+            "message": response_text,
+            "agent_type": getattr(response, 'agent_type', 'unknown'),
+            "confidence": getattr(response, 'confidence', 1.0),
+            "tools_used": getattr(response, 'tools_used', []),
+            "token_count": getattr(response, 'token_count', 0)
         }
         
     except Exception as e:
-        logger.error(f"❌ Error in real CrewAI processing: {e}")
-        return _get_fallback_response(message_data, f"Real CrewAI processing failed: {str(e)}")
+        logger.error(f"❌ Error processing message: {e}")
+        return {
+            "success": False,
+            "message": f"❌ Error processing message: {str(e)}",
+            "error": str(e),
+            "agent_type": "error_handler",
+            "confidence": 0.0
+        }
 
 
-def _create_telegram_message(message_data: Dict[str, Any]) -> TelegramMessage:
+async def _get_available_team_id() -> str:
+    """Get the first available team ID from Firestore for testing."""
+    try:
+        from kickai.database.firebase_client import get_firebase_client
+        
+        client = get_firebase_client()
+        db = client.client
+        
+        # Get the first available team from kickai_teams collection
+        teams_ref = db.collection('kickai_teams')
+        teams = teams_ref.limit(1).stream()
+        
+        for team in teams:
+            team_id = team.id
+            logger.info(f"🎯 Using dynamic team_id: {team_id}")
+            return team_id
+        
+        # Fallback to KTI if no teams found
+        logger.warning("⚠️ No teams found in Firestore, using fallback team_id: KTI")
+        return "KTI"
+        
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to get team_id from Firestore: {e}, using fallback: KTI")
+        return "KTI"
+
+
+async def _create_telegram_message(message_data: Dict[str, Any]) -> TelegramMessage:
     """Convert mock message data to TelegramMessage format for real agent processing."""
     
     # Extract message components
@@ -124,28 +225,22 @@ def _create_telegram_message(message_data: Dict[str, Any]) -> TelegramMessage:
     else:
         chat_type = ChatType.PRIVATE
     
+    # Get dynamic team ID
+    team_id = await _get_available_team_id()
+    
     # Create TelegramMessage for real agent processing
     return TelegramMessage(
-        telegram_id=str(user_id),  # Use telegram_id as requested
+        telegram_id=user_id,  # Keep as integer - Telegram's native type
         chat_id=str(chat_id),
         chat_type=chat_type,
         username=username,
-        team_id="KTI",  # Default team for testing
+        team_id=team_id,  # Dynamic team ID
         text=text,
         raw_update=message_data  # Pass raw data for context
     )
 
 
-def _get_fallback_response(message_data: Dict[str, Any], error_msg: str) -> Dict[str, Any]:
-    """Get fallback response when real agent processing fails."""
-    return {
-        "type": "text",
-        "text": f"🤖 Bot Response\n\nYou said: \"{message_data.get('text', '')}\"\n\n{error_msg}\n\nThis is a fallback response due to system issues.",
-        "chat_id": message_data.get("chat", {}).get("id"),
-        "user_id": message_data.get("from", {}).get("id"),
-        "timestamp": datetime.now().isoformat(),
-        "source": "fallback"
-    }
+# Fallback response removed - all errors should propagate properly
 
 
 def process_mock_message_sync(message_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -164,7 +259,7 @@ def process_mock_message_sync(message_data: Dict[str, Any]) -> Dict[str, Any]:
             return asyncio.run(process_mock_message(message_data))
     except Exception as e:
         logger.error(f"❌ Error in sync message processing: {e}")
-        return _get_fallback_response(message_data, f"Sync processing failed: {str(e)}")
+        raise
 
 
 async def check_bot_integration_health() -> Dict[str, Any]:
@@ -178,13 +273,14 @@ async def check_bot_integration_health() -> Dict[str, Any]:
         container = get_container()
         container_status = "healthy" if container._initialized else "not_initialized"
         
-        # Test router creation
-        router = AgenticMessageRouter(team_id="KTI")
+        # Test router creation with dynamic team_id
+        team_id = await _get_available_team_id()
+        router = AgenticMessageRouter(team_id)
         router_status = "healthy"
         
         # Test LLM configuration
-        from kickai.core.config import get_config
-        config = get_config()
+        from kickai.core.config import get_settings
+        config = get_settings()
         llm_provider = config.ai_provider
         llm_model = config.ai_model_name
         

@@ -1,3 +1,4 @@
+from typing import Optional, Set
 #!/usr/bin/env python3
 """
 Player Entity
@@ -46,37 +47,37 @@ class Player:
     # Core identification fields
     user_id: str = ""  # Generated from telegram_id using generate_user_id()
     team_id: str = ""
-    telegram_id: str | None = None
-    player_id: str | None = None  # Team-specific player identifier (e.g., "team_id_MH_001")
+    telegram_id: Optional[int] = None  # Native Telegram integer user ID
+    player_id: Optional[str] = None  # Team-specific player identifier (e.g., "team_id_MH_001")
 
     # Personal information
-    first_name: str | None = None
-    last_name: str | None = None
-    full_name: str | None = None
-    username: str | None = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    full_name: Optional[str] = None
+    username: Optional[str] = None
 
     # Football-specific information
-    position: str | None = None  # e.g., "Midfielder", "Forward"
-    preferred_foot: str | None = None  # "left", "right", "both"
-    jersey_number: str | None = None
+    position: Optional[str] = None  # e.g., "Midfielder", "Forward"
+    preferred_foot: Optional[str] = None  # "left", "right", "both"
+    jersey_number: Optional[str] = None
 
     # Contact and personal information
-    phone_number: str | None = None
-    email: str | None = None
-    date_of_birth: str | None = None
-    emergency_contact: str | None = None
-    medical_notes: str | None = None
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    medical_notes: Optional[str] = None
 
     # Status and approval
     status: str = "pending"  # pending, approved, rejected, active, inactive
 
     # Timestamps
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     # Metadata
-    source: str | None = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
-    sync_version: str | None = None
+    source: Optional[str] = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
+    sync_version: Optional[str] = None
 
     def __post_init__(self):
         """Validate and set defaults after initialization."""
@@ -164,7 +165,7 @@ class Player:
         return cls(
             user_id=user_id,
             team_id=team_id,
-            telegram_id=str(telegram_id),
+            telegram_id=telegram_id,  # Keep as integer
             first_name=first_name,
             last_name=last_name,
             full_name=full_name,
@@ -202,10 +203,15 @@ class Player:
     @classmethod
     def from_dict(cls, data: dict) -> "Player":
         """Create from dictionary."""
+        # Ensure telegram_id is integer if provided
+        telegram_id = data.get("telegram_id")
+        if telegram_id is not None:
+            telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
+
         return cls(
             user_id=data.get("user_id", ""),
             team_id=data.get("team_id", ""),
-            telegram_id=data.get("telegram_id"),
+            telegram_id=telegram_id,
             player_id=data.get("player_id"),
             first_name=data.get("first_name"),
             last_name=data.get("last_name"),
@@ -220,12 +226,8 @@ class Player:
             emergency_contact=data.get("emergency_contact"),
             medical_notes=data.get("medical_notes"),
             status=data.get("status", "pending"),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if data.get("created_at")
-            else None,
-            updated_at=datetime.fromisoformat(data["updated_at"])
-            if data.get("updated_at")
-            else None,
+            created_at=cls._parse_datetime(data.get("created_at")),
+            updated_at=cls._parse_datetime(data.get("updated_at")),
             source=data.get("source"),
             sync_version=data.get("sync_version"),
         )
@@ -239,7 +241,11 @@ class Player:
         # Set attributes directly
         player.user_id = data.get("user_id", "")
         player.team_id = data.get("team_id", "")
-        player.telegram_id = data.get("telegram_id")
+        # Ensure telegram_id is integer if provided
+        telegram_id = data.get("telegram_id")
+        if telegram_id is not None:
+            telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
+        player.telegram_id = telegram_id
         player.player_id = data.get("player_id")
         player.first_name = data.get("first_name")
         player.last_name = data.get("last_name")
@@ -275,6 +281,25 @@ class Player:
             player.updated_at = None
 
         return player
+
+    @staticmethod
+    def _parse_datetime(dt_value) -> Optional[datetime]:
+        """Parse datetime value handling both string and datetime objects."""
+        if not dt_value:
+            return None
+        
+        # If it's already a datetime object (from Firestore), return it
+        if isinstance(dt_value, datetime):
+            return dt_value
+        
+        # If it's a string, parse it
+        if isinstance(dt_value, str):
+            try:
+                return datetime.fromisoformat(dt_value.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+        
+        return None
 
     def approve(self):
         """Approve the player."""

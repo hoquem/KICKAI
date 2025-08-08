@@ -16,7 +16,12 @@ from kickai.agents.handlers.message_handlers import (
     RegisteredUserHandler,
     UnregisteredUserHandler,
 )
-from kickai.agents.user_flow_agent import TelegramMessage
+# Define the data class that was imported from user_flow_agent
+from dataclasses import dataclass
+from typing import Any
+
+# Import centralized types
+from kickai.core.types import TelegramMessage
 
 
 class MessageRouterFactory:

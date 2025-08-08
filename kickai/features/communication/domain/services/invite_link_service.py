@@ -12,7 +12,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Dict, List, Optional, Set
 
 from loguru import logger
 from telegram.error import TelegramError
@@ -143,7 +143,7 @@ class InviteLinkService:
         # Base64 encode for URL safety
         return base64.urlsafe_b64encode(combined_data.encode("utf-8")).decode("utf-8")
 
-    def _validate_secure_invite_data(self, invite_data: str) -> dict | None:
+    def _validate_secure_invite_data(self, invite_data: str) -> Optional[dict]:
         """
         Validate and decode secure invite data.
 
@@ -198,7 +198,7 @@ class InviteLinkService:
         player_position: str,
         main_chat_id: str,
         player_id: str = None,
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Create a secure invite link for a player to join the main chat.
 
@@ -307,7 +307,7 @@ class InviteLinkService:
         member_phone: str,
         member_role: str,
         leadership_chat_id: str,
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Create a secure invite link for a team member to join the leadership chat.
 
@@ -398,7 +398,7 @@ class InviteLinkService:
 
     async def validate_and_use_invite_link(
         self, invite_link: str, user_id: str, username: str = None, secure_data: str = None
-    ) -> dict[str, Any] | None:
+    ) -> Optional[Dict[str, Any]]:
         """
         Validate an invite link and mark it as used.
 
@@ -587,7 +587,7 @@ class InviteLinkService:
             logger.error(f"❌ Error creating Telegram invite link: {e}")
             raise
 
-    def _extract_invite_id_from_mock_link(self, invite_link: str) -> str | None:
+    def _extract_invite_id_from_mock_link(self, invite_link: str) -> Optional[str]:
         """
         Extract invite ID from a mock invite link.
 
@@ -614,7 +614,7 @@ class InviteLinkService:
             logger.error(f"❌ Error extracting invite ID from mock link: {e}")
             return None
 
-    def _extract_invite_id_from_link(self, invite_link: str) -> str | None:
+    def _extract_invite_id_from_link(self, invite_link: str) -> Optional[str]:
         """
         Extract invite ID from a Telegram invite link.
 
@@ -677,7 +677,7 @@ class InviteLinkService:
         player_position: str,
         main_chat_id: str,
         player_id: str = None,
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """Synchronous version of create_player_invite_link for CrewAI tools."""
         try:
             # Import here to avoid circular imports

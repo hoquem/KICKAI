@@ -10,7 +10,8 @@ from abc import ABC, abstractmethod
 
 from loguru import logger
 
-from kickai.agents.user_flow_agent import AgentResponse, TelegramMessage
+# Import centralized types
+from kickai.core.types import AgentResponse, TelegramMessage, UserFlowType
 from kickai.core.enums import ChatType
 
 
@@ -263,39 +264,30 @@ class NewMemberWelcomeHandler(MessageHandler):
                 logger.error("❌ Invalid message structure: missing user_id or username")
                 return self._create_fallback_welcome_message(message.username)
 
-            # Determine user flow for the new member
+            # Simplified user flow determination
             try:
-                from kickai.agents.user_flow_agent import UserFlowAgent, UserFlowDecision
-                user_flow_agent = UserFlowAgent(team_id=self.team_id)
-
-                user_flow_result = await user_flow_agent.determine_user_flow(
-                    user_id=message.user_id,
-                    chat_type=message.chat_type
-                )
+                # Default to registered user for new members
+                user_flow_result = UserFlowType.REGISTERED_USER
+                logger.info("New member - defaulting to registered user flow")
             except Exception as flow_error:
                 logger.error(f"❌ Error determining user flow: {flow_error}")
                 return self._create_fallback_welcome_message(message.username)
 
             # Generate appropriate welcome message based on user flow
             try:
-                if user_flow_result == UserFlowDecision.UNREGISTERED_USER:
-                    logger.info("New unregistered user - sending welcome message")
-                    welcome_response = await user_flow_agent._format_unregistered_user_message(
-                        chat_type=message.chat_type,
-                        team_id=self.team_id,
-                        username=message.username
-                    )
-                    return welcome_response
-
-                elif user_flow_result == UserFlowDecision.REGISTERED_USER:
+                if user_flow_result == UserFlowType.REGISTERED_USER:
                     logger.info("New registered user - sending welcome back message")
-                    welcome_response = await user_flow_agent._format_registered_user_message(
-                        user_id=message.user_id,
-                        team_id=self.team_id,
-                        username=message.username
-                    )
-                    return welcome_response
+                    welcome_message = f"""👋 Welcome back, {message.username}!
 
+🎉 Great to see you in the team chat!
+
+📋 **Quick Start:**
+• Use `/help` to see available commands
+• Use `/myinfo` to check your information
+• Contact team leadership if you need assistance
+
+Welcome aboard! ⚽"""
+                    return AgentResponse(success=True, message=welcome_message)
                 else:
                     logger.warning(f"Unknown user flow for new member: {user_flow_result}")
                     return self._create_fallback_welcome_message(message.username)
@@ -356,12 +348,10 @@ class RegisteredUserHandler(MessageHandler):
         try:
             logger.info(f"🔄 RegisteredUserHandler: Processing message from {message.username}")
 
-            # Get detailed registration status
-            from kickai.agents.user_flow_agent import UserFlowAgent
-            user_flow_agent = UserFlowAgent(team_id=self.team_id)
-
-            player_service = await user_flow_agent._get_player_service()
-            team_service = await user_flow_agent._get_team_service()
+            # Get detailed registration status - simplified approach
+            # In production, you'd want to get these services from the dependency container
+            player_service = None
+            team_service = None
 
             is_player = False
             is_team_member = False
@@ -452,55 +442,41 @@ class CommandHandler(MessageHandler):
                 available_command = registry.get_command_for_chat(command_name, chat_type_str)
             except RuntimeError as e:
                 if "Command registry not initialized" in str(e):
-                    # Fallback: try to initialize the registry in this context
-                    logger.warning(
-                        "⚠️ Command registry not accessible in current context, attempting to initialize..."
+                    logger.critical(
+                        "💥 CRITICAL SYSTEM ERROR: Command registry not accessible in CommandHandler - this is a major system failure"
                     )
-                    try:
-                        from kickai.core.command_registry_initializer import (
-                            initialize_command_registry,
-                        )
-
-                        registry = initialize_command_registry()
-                        chat_type_str = message.chat_type.value
-                        available_command = registry.get_command_for_chat(
-                            command_name, chat_type_str
-                        )
-                        logger.info(
-                            "✅ Successfully initialized command registry in current context"
-                        )
-                    except Exception as init_error:
-                        logger.error(
-                            f"❌ Failed to initialize command registry in current context: {init_error}"
-                        )
-                        # Last resort: allow command to proceed without validation
-                        available_command = True
-                        logger.warning(
-                            f"⚠️ Allowing command {command_name} to proceed without registry validation"
-                        )
+                    logger.critical(
+                        "🚨 The system cannot function without the command registry. This indicates a serious initialization failure."
+                    )
+                    logger.critical(
+                        "🛑 Failing fast to prevent unsafe command execution without validation"
+                    )
+                    raise RuntimeError(
+                        f"CRITICAL SYSTEM ERROR: Command registry not accessible in CommandHandler. "
+                        f"This is a major system failure that prevents safe command execution. "
+                        f"Original error: {e}"
+                    )
                 else:
                     raise
 
             if not available_command:
-                logger.warning(f"⚠️ Command {command_name} not available in {chat_type_str} chat")
-                return AgentResponse(
-                    message=f"❌ Command {command_name} is not available in this chat type.",
-                    success=False,
-                    error="Command not available in chat type",
-                )
+                # Command not found - this is NOT a critical error, just an unrecognized command
+                logger.info(f"ℹ️ Command {command_name} not found in registry - treating as unrecognized command")
+                return await self._handle_unrecognized_command(command_name, message.chat_type, message.username)
 
-            # For commands, we still check user flow first
-            from kickai.agents.user_flow_agent import UserFlowAgent, UserFlowDecision
-            user_flow_agent = UserFlowAgent(team_id=self.team_id)
-
-            user_flow = await user_flow_agent.determine_user_flow(
-                message.user_id, message.chat_type, command_name
-            )
+            # For commands, use simplified user flow determination
+            # Default to registered user for commands
+            user_flow = UserFlowType.REGISTERED_USER
 
             # Handle unregistered user flows
-            if user_flow == UserFlowDecision.UNREGISTERED_USER:
+            if user_flow == UserFlowType.UNREGISTERED_USER:
                 logger.info("🔄 CommandHandler: Unregistered user command flow")
-                return await user_flow_agent.handle_unregistered_user_flow(message)
+                # Simplified unregistered user handling
+                return AgentResponse(
+                    message="Please register first before using commands. Contact team leadership for assistance.",
+                    success=False,
+                    error="User not registered"
+                )
 
             else:  # REGISTERED_USER
                 # For registered users, route commands to CrewAI system
@@ -514,4 +490,80 @@ class CommandHandler(MessageHandler):
                 message="I encountered an error processing your command. Please try again.",
                 success=False,
                 error=str(e),
+            )
+
+    async def _handle_unrecognized_command(self, command_name: str, chat_type: ChatType, username: str) -> AgentResponse:
+        """Handle unrecognized commands with helpful information."""
+        try:
+            logger.info(f"ℹ️ Handling unrecognized command: {command_name} in {chat_type.value} chat")
+            
+            # Get available commands for this chat type
+            try:
+                from kickai.core.command_registry_initializer import get_initialized_command_registry
+                registry = get_initialized_command_registry()
+                available_commands = registry.get_commands_for_chat_type(chat_type.value)
+                
+                # Format the response
+                message_parts = [
+                    f"❓ **Unrecognized Command: {command_name}**",
+                    "",
+                    f"🤖 I don't recognize the command `{command_name}`.",
+                    "",
+                    "📋 **Available Commands in this chat:**"
+                ]
+                
+                # Group commands by feature
+                commands_by_feature = {}
+                for cmd in available_commands:
+                    feature = cmd.feature.replace('_', ' ').title()
+                    if feature not in commands_by_feature:
+                        commands_by_feature[feature] = []
+                    commands_by_feature[feature].append(cmd)
+                
+                # Add commands by feature
+                for feature, commands in commands_by_feature.items():
+                    message_parts.append(f"\n**{feature}:**")
+                    for cmd in commands:
+                        message_parts.append(f"• `{cmd.name}` - {cmd.description}")
+                
+                message_parts.extend([
+                    "",
+                    "💡 **Need Help?**",
+                    f"• Use `/help` to see all available commands",
+                    f"• Use `/help {command_name}` for detailed help on a specific command",
+                    "• Contact team leadership for assistance",
+                    "",
+                    "🔍 **Did you mean?**",
+                    "• Check for typos in the command name",
+                    "• Some commands are only available in specific chat types",
+                    "• Leadership commands are only available in leadership chat"
+                ])
+                
+                return AgentResponse(
+                    message="\n".join(message_parts),
+                    success=False,
+                    error="Unrecognized command"
+                )
+                
+            except Exception as e:
+                logger.error(f"❌ Error getting available commands for unrecognized command handling: {e}")
+                # Fallback response
+                return AgentResponse(
+                    message=f"❓ **Unrecognized Command: {command_name}**\n\n"
+                           f"🤖 I don't recognize the command `{command_name}`.\n\n"
+                           f"💡 **Try these:**\n"
+                           f"• Use `/help` to see all available commands\n"
+                           f"• Check for typos in the command name\n"
+                           f"• Contact team leadership for assistance",
+                    success=False,
+                    error="Unrecognized command"
+                )
+                
+        except Exception as e:
+            logger.error(f"❌ Error in unrecognized command handler: {e}")
+            return AgentResponse(
+                message=f"❓ **Unrecognized Command: {command_name}**\n\n"
+                       f"🤖 I don't recognize this command. Use `/help` to see available commands.",
+                success=False,
+                error="Unrecognized command"
             )

@@ -9,7 +9,12 @@ from typing import Any
 
 from loguru import logger
 
-from kickai.agents.user_flow_agent import TelegramMessage
+# Define the data class that was imported from user_flow_agent
+from dataclasses import dataclass
+from typing import Any
+
+# Import centralized types
+from kickai.core.types import TelegramMessage
 from kickai.core.context_types import create_context_from_telegram_message
 from kickai.core.enums import ChatType
 

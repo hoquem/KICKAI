@@ -8,7 +8,7 @@ dependency injection and configuration.
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, Dict, Optional
 
 from loguru import logger
 
@@ -36,7 +36,7 @@ class RepositoryFactory:
 
     def __init__(
         self,
-        config: dict[str, Any] | None = None,
+        config: Optional[Dict[str, Any]] = None,
         max_cache_size: int = MAX_CACHE_SIZE,
         cache_ttl: int = CACHE_TTL_SECONDS
     ):
@@ -56,7 +56,7 @@ class RepositoryFactory:
         self._repository_cache: dict[str, tuple[Any, float]] = {}
         self._database_client = None
 
-    def _get_from_cache(self, cache_key: str) -> Any | None:
+    def _get_from_cache(self, cache_key: str) -> Optional[Any]:
         """Get repository from cache if valid, otherwise return None."""
         if cache_key not in self._repository_cache:
             return None

@@ -6,10 +6,9 @@ This module provides LLM provider validation health checks.
 
 import asyncio
 import logging
-import os
 from typing import Any
 
-from kickai.core.settings import get_settings
+from kickai.core.config import get_settings
 
 # Temporarily disabled due to enum mismatch
 # from kickai.utils.llm_factory import LLMFactory
@@ -32,38 +31,66 @@ class LLMProviderCheck(BaseCheck):
         try:
             config = get_settings()
 
-            # Simplified LLM configuration check
-            provider_str = os.getenv("AI_PROVIDER", "ollama")
-
-            if provider_str == "ollama":
-                model_name = os.getenv("OLLAMA_MODEL", "llama2")
-                base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-
+            # Validate Groq configuration and connectivity
+            provider_str = os.getenv("AI_PROVIDER", "groq")
+            
+            if provider_str != "groq":
                 return CheckResult(
                     name=self.name,
                     category=self.category,
-                    status=CheckStatus.PASSED,
-                    message=f"LLM configuration valid for {provider_str}",
+                    status=CheckStatus.FAILED,
+                    message=f"AI_PROVIDER must be 'groq', got '{provider_str}'",
                     details={
                         "provider": provider_str,
-                        "model": model_name,
-                        "base_url": base_url,
-                        "note": "Configuration check passed - actual connectivity not tested",
+                        "required": "groq",
+                        "error": "System configured for Groq only"
                     },
                     duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                 )
-            else:
+
+            # Check Groq API key
+            groq_api_key = os.getenv("GROQ_API_KEY", "")
+            if not groq_api_key:
                 return CheckResult(
                     name=self.name,
                     category=self.category,
-                    status=CheckStatus.PASSED,
-                    message=f"LLM configuration valid for {provider_str}",
+                    status=CheckStatus.FAILED,
+                    message="GROQ_API_KEY not configured",
                     details={
                         "provider": provider_str,
-                        "note": "Configuration check passed - actual connectivity not tested",
+                        "error": "GROQ_API_KEY environment variable is required"
                     },
                     duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                 )
+
+            # Test actual Groq connectivity
+            connectivity_ok = await self._test_groq_connectivity()
+            if not connectivity_ok:
+                return CheckResult(
+                    name=self.name,
+                    category=self.category,
+                    status=CheckStatus.FAILED,
+                    message="Groq API connectivity test failed",
+                    details={
+                        "provider": provider_str,
+                        "api_key_present": bool(groq_api_key),
+                        "error": "Failed to connect to Groq API"
+                    },
+                    duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
+                )
+
+            return CheckResult(
+                name=self.name,
+                category=self.category,
+                status=CheckStatus.PASSED,
+                message="Groq LLM configuration and connectivity validated",
+                details={
+                    "provider": provider_str,
+                    "api_key_present": bool(groq_api_key),
+                    "connectivity": "OK"
+                },
+                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
+            )
 
         except Exception as e:
             logger.error(f"LLM CHECK FAILURE: {e}")
@@ -76,3 +103,26 @@ class LLMProviderCheck(BaseCheck):
                 details={"error_type": type(e).__name__},
                 duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
             )
+
+    async def _test_groq_connectivity(self) -> bool:
+        """Test actual Groq API connectivity."""
+        try:
+            from kickai.utils.llm_factory import LLMFactory, LLMConfig
+            from kickai.core.enums import AIProvider
+            
+            config = LLMConfig(
+                provider=AIProvider.GROQ,
+                model_name="llama3-8b-instruct",
+                api_key=os.getenv("GROQ_API_KEY", ""),
+                temperature=0.1,
+                timeout_seconds=10,
+                max_retries=1
+            )
+            
+            llm = LLMFactory.create_llm(config)
+            # Test with simple message
+            response = llm.invoke([{"role": "user", "content": "test"}])
+            return bool(response)
+        except Exception as e:
+            logger.error(f"Groq connectivity test failed: {e}")
+            return False

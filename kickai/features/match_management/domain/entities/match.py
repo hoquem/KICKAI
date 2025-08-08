@@ -1,3 +1,4 @@
+from typing import Optional
 from dataclasses import dataclass, field
 from datetime import datetime, time
 from enum import Enum
@@ -23,7 +24,7 @@ class MatchResult:
     away_score: int
     scorers: list[str] = field(default_factory=list)  # Player IDs
     assists: list[str] = field(default_factory=list)  # Player IDs
-    notes: str | None = None
+    notes: Optional[str] = None
     recorded_by: str = ""  # Team member ID
     recorded_at: datetime = field(default_factory=datetime.utcnow)
 
@@ -60,12 +61,12 @@ class Match:
     venue: str
     competition: str
     status: MatchStatus = MatchStatus.SCHEDULED
-    notes: str | None = None
+    notes: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
     created_by: str = ""  # Team member ID
     squad_size: int = 11
-    result: MatchResult | None = None
+    result: Optional[MatchResult] = None
 
     @classmethod
     def create(
@@ -76,7 +77,7 @@ class Match:
         match_time: time,
         venue: str,
         competition: str = "League Match",
-        notes: str | None = None,
+        notes: Optional[str] = None,
         created_by: str = "",
         squad_size: int = 11,
     ) -> "Match":

@@ -10,41 +10,14 @@ from enum import Enum
 
 
 class AgentRole(str, Enum):
-    """Agent roles in the CrewAI system."""
+    """Agent roles in the 5-Agent CrewAI system."""
 
-    # Core system agents
-    MESSAGE_PROCESSOR = "message_processor"
-    HELP_ASSISTANT = "help_assistant"
-    CONTEXT_GATHERER = "context_gatherer"
-    INTELLIGENT_SYSTEM = "intelligent_system"
-
-    # Player management
-    PLAYER_COORDINATOR = "player_coordinator"
-    PLAYER_REGISTRATION = "player_registration"
-
-    # Team management
-    TEAM_MANAGER = "team_manager"
-    TEAM_ADMINISTRATION = "team_administration"
-    TEAM_ADMINISTRATOR = "team_administrator"  # Alias for backward compatibility
-
-    # Match management
-    MATCH_MANAGER = "match_manager"
-
-    # Analytics
-    PERFORMANCE_ANALYST = "performance_analyst"
-
-    # Communication and support
-    COMMUNICATION_MANAGER = "communication_manager"
-    LEARNING_AGENT = "learning_agent"
-    ONBOARDING_AGENT = "onboarding_agent"
-
-    # Squad selection and availability
-    SQUAD_SELECTOR = "squad_selector"
-    AVAILABILITY_MANAGER = "availability_manager"
-    COMMAND_FALLBACK_AGENT = "command_fallback_agent"
-
-    # Health and monitoring
-    HEALTH_MONITOR = "health_monitor"
+    # Essential 5-Agent System
+    MESSAGE_PROCESSOR = "message_processor"        # Primary interface and routing
+    HELP_ASSISTANT = "help_assistant"              # Help system and guidance
+    PLAYER_COORDINATOR = "player_coordinator"      # Player management and onboarding
+    TEAM_ADMINISTRATOR = "team_administrator"      # Team member management
+    SQUAD_SELECTOR = "squad_selector"              # Squad selection and match management
 
 
 class UserRole(str, Enum):
@@ -101,7 +74,7 @@ class AIProvider(str, Enum):
 
     OLLAMA = "ollama"
     OPENAI = "openai"
-    GEMINI = "gemini"
+    GOOGLE_GEMINI = "google_gemini"
     HUGGINGFACE = "huggingface"
     MOCK = "mock"
     GROQ = "groq"

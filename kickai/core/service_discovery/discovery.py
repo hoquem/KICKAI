@@ -9,7 +9,7 @@ import importlib
 import inspect
 import logging
 import pkgutil
-from typing import Any
+from typing import Any, Optional
 
 from kickai.core.dependency_container import DependencyContainer, get_container
 
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class DependencyContainerServiceDiscovery(IServiceDiscovery):
     """Service discovery using the existing dependency container."""
 
-    def __init__(self, container: DependencyContainer | None = None):
+    def __init__(self, container: Optional[DependencyContainer] = None):
         self.container = container or get_container()
 
     def discover_services(self) -> list[ServiceDefinition]:
@@ -322,7 +322,7 @@ class CompositeServiceDiscovery(IServiceDiscovery):
 
 
 # Global discovery instance
-_global_discovery: CompositeServiceDiscovery | None = None
+_global_discovery: Optional[CompositeServiceDiscovery] = None
 
 
 def get_service_discovery() -> CompositeServiceDiscovery:

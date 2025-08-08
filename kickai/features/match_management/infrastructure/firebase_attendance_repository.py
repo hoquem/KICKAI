@@ -1,3 +1,4 @@
+from typing import Optional
 import logging
 
 from kickai.features.match_management.domain.entities.attendance import (
@@ -38,7 +39,7 @@ class FirebaseAttendanceRepository(AttendanceRepositoryInterface):
             logger.error(f"Failed to create attendance {attendance.attendance_id}: {e}")
             raise
 
-    async def get_by_id(self, attendance_id: str) -> MatchAttendance | None:
+    async def get_by_id(self, attendance_id: str) -> Optional[MatchAttendance]:
         """Get attendance by ID."""
         try:
             # Search across all team collections
@@ -59,7 +60,7 @@ class FirebaseAttendanceRepository(AttendanceRepositoryInterface):
             logger.error(f"Failed to get attendance {attendance_id}: {e}")
             return None
 
-    async def get_by_match_and_player(self, match_id: str, player_id: str) -> MatchAttendance | None:
+    async def get_by_match_and_player(self, match_id: str, player_id: str) -> Optional[MatchAttendance]:
         """Get attendance for a specific match and player."""
         try:
             # Search across all team collections

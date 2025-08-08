@@ -11,6 +11,7 @@ from collections.abc import Callable
 from datetime import datetime
 
 from kickai.utils.llm_factory import LLMFactory
+from typing import Optional, Set
 
 logger = logging.getLogger(__name__)
 

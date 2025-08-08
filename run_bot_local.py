@@ -22,7 +22,7 @@ from kickai.core.dependency_container import (
     get_service,
 )
 from kickai.core.logging_config import logger
-from kickai.core.settings import get_settings, initialize_settings
+from kickai.core.config import get_settings
 from kickai.database.firebase_client import initialize_firebase_client
 from kickai.features.team_administration.domain.services.multi_bot_manager import MultiBotManager
 from kickai.features.team_administration.domain.services.team_service import TeamService
@@ -248,6 +248,18 @@ async def main():
 
         # Set up environment
         config = setup_environment()
+        
+        # Initialize command registry early to ensure it's available
+        logger.info("🔧 Initializing command registry...")
+        try:
+            from kickai.core.command_registry_initializer import initialize_command_registry
+            command_registry = initialize_command_registry()
+            commands = command_registry.list_all_commands()
+            logger.info(f"✅ Command registry initialized with {len(commands)} commands")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize command registry: {e}")
+            logger.error("🚫 Cannot start bot without command registry")
+            return 1
 
         # Run system validation
         validation_success = await run_system_validation()

@@ -7,7 +7,7 @@ These interfaces are split into focused, cohesive contracts for user operations.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Dict, List, Optional, Set
 
 from kickai.core.value_objects import TeamId, UserId
 
@@ -22,7 +22,7 @@ class IUserRegistrationRepository(ABC):
         self,
         user_id: UserId,
         team_id: TeamId
-    ) -> dict[str, Any] | None:
+    ) -> Optional[Dict[str, Any]]:
         """Get user registration information."""
         pass
 
@@ -31,8 +31,8 @@ class IUserRegistrationRepository(ABC):
         self,
         user_id: UserId,
         team_id: TeamId,
-        registration_data: dict[str, Any]
-    ) -> dict[str, Any]:
+        registration_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Create user registration."""
         pass
 
@@ -41,8 +41,8 @@ class IUserRegistrationRepository(ABC):
         self,
         user_id: UserId,
         team_id: TeamId,
-        updates: dict[str, Any]
-    ) -> dict[str, Any] | None:
+        updates: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         """Update user registration."""
         pass
 
@@ -55,7 +55,7 @@ class IUserPermissionRepository(ABC):
         self,
         user_id: UserId,
         team_id: TeamId
-    ) -> list[str]:
+    ) -> List[str]:
         """Get user permissions for a team."""
         pass
 
@@ -64,7 +64,7 @@ class IUserPermissionRepository(ABC):
         self,
         user_id: UserId,
         team_id: TeamId,
-        permissions: list[str]
+        permissions: List[str]
     ) -> bool:
         """Set user permissions for a team."""
         pass

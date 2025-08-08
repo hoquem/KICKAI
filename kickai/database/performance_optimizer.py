@@ -7,7 +7,7 @@ including indexing recommendations and query optimization strategies.
 """
 
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Dict, List
 
 from loguru import logger
 
@@ -21,7 +21,7 @@ class DatabasePerformanceOptimizer:
         self.database = database
         self.collection_name = "kickai_invite_links"
 
-    async def get_indexing_recommendations(self) -> dict[str, Any]:
+    async def get_indexing_recommendations(self) -> Dict[str, Any]:
         """
         Get database indexing recommendations for optimal performance.
 
@@ -67,7 +67,7 @@ class DatabasePerformanceOptimizer:
 
         return recommendations
 
-    async def _get_performance_metrics(self) -> dict[str, Any]:
+    async def _get_performance_metrics(self) -> Dict[str, Any]:
         """Get current database performance metrics."""
         try:
             # Get invite link statistics
@@ -90,7 +90,7 @@ class DatabasePerformanceOptimizer:
             logger.error(f"❌ Error getting performance metrics: {e}")
             return {"error": str(e)}
 
-    async def _get_optimization_suggestions(self) -> list[str]:
+    async def _get_optimization_suggestions(self) -> List[str]:
         """Get database optimization suggestions."""
         suggestions = []
 
@@ -129,7 +129,7 @@ class DatabasePerformanceOptimizer:
 
         return suggestions
 
-    async def cleanup_expired_links(self, batch_size: int = 100) -> dict[str, Any]:
+    async def cleanup_expired_links(self, batch_size: int = 100) -> Dict[str, Any]:
         """
         Clean up expired invite links in batches.
 
@@ -187,7 +187,7 @@ class DatabasePerformanceOptimizer:
             logger.error(f"❌ Error counting documents in {collection}: {e}")
             return 0
 
-    async def _count_documents_with_filter(self, collection: str, filters: dict[str, Any]) -> int:
+    async def _count_documents_with_filter(self, collection: str, filters: Dict[str, Any]) -> int:
         """Count documents matching specific filters."""
         try:
             # This is a simplified implementation - actual implementation would depend on the database interface
@@ -196,7 +196,7 @@ class DatabasePerformanceOptimizer:
             logger.error(f"❌ Error counting documents with filter in {collection}: {e}")
             return 0
 
-    async def _get_expired_links(self, limit: int) -> list[dict[str, Any]]:
+    async def _get_expired_links(self, limit: int) -> List[Dict[str, Any]]:
         """Get expired invite links."""
         try:
             # This is a simplified implementation - actual implementation would depend on the database interface
@@ -205,7 +205,7 @@ class DatabasePerformanceOptimizer:
             logger.error(f"❌ Error getting expired links: {e}")
             return []
 
-    async def optimize_queries(self) -> dict[str, Any]:
+    async def optimize_queries(self) -> Dict[str, Any]:
         """
         Provide query optimization recommendations.
 
@@ -273,7 +273,7 @@ async def get_database_optimizer(database: DataStoreInterface) -> DatabasePerfor
     return DatabasePerformanceOptimizer(database)
 
 
-async def run_performance_audit(database: DataStoreInterface) -> dict[str, Any]:
+async def run_performance_audit(database: DataStoreInterface) -> Dict[str, Any]:
     """
     Run a comprehensive database performance audit.
 

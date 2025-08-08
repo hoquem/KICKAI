@@ -8,7 +8,7 @@ This module provides player management functionality.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional, Union
 
 from kickai.features.team_administration.domain.services.team_service import TeamService
 from kickai.utils.constants import (
@@ -113,15 +113,15 @@ class PlayerService:
         if len(team_id.strip()) < 2:
             raise ValueError("Team ID must be at least 2 characters long")
 
-    async def get_player_by_id(self, player_id: str, team_id: str) -> Player | None:
+    async def get_player_by_id(self, player_id: str, team_id: str) -> Optional[Player]:
         """Get a player by ID."""
         return await self.player_repository.get_player_by_id(player_id, team_id)
 
-    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Player | None:
+    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Optional[Player]:
         """Get a player by phone number."""
         return await self.player_repository.get_player_by_phone(phone, team_id)
 
-    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Player | None:
+    async def get_player_by_telegram_id(self, telegram_id: Union[str, int], team_id: str) -> Optional[Player]:
         """Get a player by Telegram ID."""
         try:
             # Use the database client directly since repository might not have this method
@@ -150,19 +150,33 @@ class PlayerService:
                     position=player_data.get("position"),
                     phone_number=player_data.get("phone_number"),
                     status=player_data.get("status", "pending"),
-                    created_at=datetime.fromisoformat(player_data["created_at"])
-                    if player_data.get("created_at")
-                    else None,
-                    updated_at=datetime.fromisoformat(player_data["updated_at"])
-                    if player_data.get("updated_at")
-                    else None,
+                    created_at=self._parse_datetime(player_data.get("created_at")),
+                    updated_at=self._parse_datetime(player_data.get("updated_at")),
                 )
             return None
         except Exception as e:
             logger.error(f"Error getting player by telegram_id {telegram_id}: {e}")
             return None
 
-    async def get_players_by_team(self, *, team_id: str, status: str | None = None) -> list[Player]:
+    def _parse_datetime(self, dt_value) -> Optional[datetime]:
+        """Parse datetime value handling both string and datetime objects."""
+        if not dt_value:
+            return None
+        
+        # If it's already a datetime object (from Firestore), return it
+        if isinstance(dt_value, datetime):
+            return dt_value
+        
+        # If it's a string, parse it
+        if isinstance(dt_value, str):
+            try:
+                return datetime.fromisoformat(dt_value.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+        
+        return None
+
+    async def get_players_by_team(self, *, team_id: str, status: Optional[str] = None) -> list[Player]:
         """Get players for a team, optionally filtered by status."""
         players = await self.player_repository.get_all_players(team_id)
 
@@ -276,7 +290,7 @@ class PlayerService:
         return await self.player_repository.update_player(player)
 
     async def add_player(
-        self, name: str, phone: str, position: str | None = None, team_id: str | None = None
+        self, name: str, phone: str, position: Optional[str] = None, team_id: Optional[str] = None
     ) -> tuple[bool, str]:
         """Add a new player to the team with simplified ID generation."""
         try:
@@ -375,7 +389,7 @@ class PlayerService:
             return f"❌ Error retrieving player status: {e!s}"
 
     # Synchronous methods for CrewAI tools
-    def get_player_by_telegram_id_sync(self, telegram_id: str, team_id: str) -> Player | None:
+    def get_player_by_telegram_id_sync(self, telegram_id: Union[str, int], team_id: str) -> Optional[Player]:
         """Synchronous version of get_player_by_telegram_id for CrewAI tools."""
         try:
             # Import here to avoid circular imports
@@ -463,7 +477,7 @@ class PlayerService:
             logger.error(f"❌ Failed to get active players for team {team_id}: {e}")
             return []
 
-    def add_player_sync(self, name: str, phone: str, position: str | None = None, team_id: str | None = None) -> tuple[bool, str]:
+    def add_player_sync(self, name: str, phone: str, position: Optional[str] = None, team_id: Optional[str] = None) -> tuple[bool, str]:
         """Synchronous version of add_player for CrewAI tools."""
         try:
             # Import here to avoid circular imports
@@ -507,7 +521,7 @@ class PlayerService:
             logger.error(f"❌ Failed to approve player {player_id}: {e}")
             return f"❌ Failed to approve player: {e!s}"
 
-    def get_player_by_phone_sync(self, phone: str, team_id: str) -> Player | None:
+    def get_player_by_phone_sync(self, phone: str, team_id: str) -> Optional[Player]:
         """Synchronous version of get_player_by_phone for CrewAI tools."""
         try:
             # Import here to avoid circular imports

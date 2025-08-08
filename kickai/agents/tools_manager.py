@@ -7,14 +7,12 @@ for agents with entity-specific validation.
 """
 
 from functools import wraps
-from typing import Any
+from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from kickai.agents.entity_specific_agents import (
-    EntitySpecificAgentManager,
-    EntityType,
-)
+# Removed entity_specific_agents dependency for simplified 5-agent architecture
+from typing import Optional
 from kickai.config.agents import get_agent_config
 from kickai.core.enums import AgentRole
 
@@ -38,13 +36,12 @@ class AgentToolsManager:
 
     def __init__(self, tool_registry):
         self._tool_registry = tool_registry
-        self._entity_manager = EntitySpecificAgentManager(tool_registry)
-
-        logger.info("🔧 AgentToolsManager initialized with entity-specific validation")
+        # Simplified initialization without entity-specific validation
+        logger.info("🔧 AgentToolsManager initialized for 5-agent architecture")
 
     @log_errors
     def get_tools_for_role(
-        self, role: AgentRole, entity_type: EntityType | None = None
+        self, role: AgentRole, entity_type: Optional[str] = None
     ) -> list[Any]:
         """Get tools for a specific role with entity-specific filtering."""
         try:
@@ -64,15 +61,7 @@ class AgentToolsManager:
             # Get tools based on agent-specific configuration
             tools = []
             for tool_name in config.tools:
-                # Validate tool access for this agent and entity type
-                if entity_type and not self._entity_manager.validate_agent_tool_combination(
-                    role, tool_name, {}
-                ):
-                    logger.warning(
-                        f"⚠️ Tool '{tool_name}' not accessible for {role.value} with entity type {entity_type.value}"
-                    )
-                    continue
-
+                # Simplified tool loading without entity validation
                 tool_func = self._tool_registry.get_tool_function(tool_name)
                 if tool_func:
                     tools.append(tool_func)
@@ -93,16 +82,15 @@ class AgentToolsManager:
         """Get list of available tool names."""
         return self._tool_registry.get_tool_names()
 
-    def get_tool_info(self, tool_name: str) -> dict[str, Any] | None:
+    def get_tool_info(self, tool_name: str) -> Optional[Dict[str, Any]]:
         """Get information about a specific tool."""
         tool = self._tool_registry.get_tool(tool_name)
         if tool:
             return {
                 "name": tool.name,
                 "description": tool.description,
-                "type": tool.tool_type.value,
-                "category": tool.category.value,
-                "feature": tool.feature_module,
-                "entity_types": [et.value for et in tool.entity_types],
+                "type": tool.tool_type.value if hasattr(tool, 'tool_type') else "unknown",
+                "category": tool.category.value if hasattr(tool, 'category') else "unknown",
+                "feature": tool.feature_module if hasattr(tool, 'feature_module') else "unknown",
             }
         return None

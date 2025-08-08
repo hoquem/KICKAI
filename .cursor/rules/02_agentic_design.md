@@ -24,6 +24,8 @@ This section defines the core design patterns for the CrewAI-based agentic syste
     - **Specialized Layer** (`AVAILABILITY_MANAGER`, `HELP_ASSISTANT`, `ONBOARDING_AGENT`): Provides domain-specific functionality.
     - **Infrastructure Layer** (`SYSTEM_INFRASTRUCTURE`): Handles system health and maintenance.
 
+- **CrewAI Idiomatic Usage**: All implementations must strictly adhere to CrewAI's native features and design patterns. Avoid custom workarounds for functionalities already supported by the framework (e.g., context passing, memory management, delegation).
+
 - **Context-Aware Routing & Agent Selection**:
     - The **AgenticMessageRouter** serves as the entry point for all user requests.
     - Agent selection is based on chat type (main chat vs leadership chat) and command intent.
@@ -121,19 +123,22 @@ The system implements intelligent routing based on chat context:
 
 ### Tool Independence
 
-**CRITICAL**: Tools must be completely independent functions:
+**CRITICAL**: Tools must be completely independent functions and receive all necessary context via `Task.config`:
 
-- **❌ NEVER**: Tools calling other tools or services
-- **✅ ALWAYS**: Tools are simple, independent functions
-- **✅ ALWAYS**: Parameters passed directly via Task.config
-- **✅ ALWAYS**: Tools return simple string responses
+- **❌ NEVER**: Tools calling other tools or services directly (delegate via CrewAI tasks instead).
+- **✅ ALWAYS**: Tools are simple, independent functions.
+- **✅ ALWAYS**: Parameters passed directly via `Task.config`.
+- **✅ ALWAYS**: Tools return simple string responses.
 
 ### Native CrewAI Features
 
-**MANDATORY**: Use only CrewAI's native features:
+**MANDATORY**: Use only CrewAI's native features and avoid re-implementing core functionalities:
 
-- **✅ REQUIRED**: `@tool` decorator from `crewai.tools`
-- **✅ REQUIRED**: `Agent` class from `crewai`
-- **✅ REQUIRED**: `Task` class with `config` parameter
-- **✅ REQUIRED**: `Crew` orchestration
-- **❌ FORBIDDEN**: Custom tool wrappers or parameter passing mechanisms
+- **✅ REQUIRED**: `@tool` decorator from `crewai.tools`.
+- **✅ REQUIRED**: `Agent` class from `crewai`.
+- **✅ REQUIRED**: `Task` class with `config` parameter for context.
+- **✅ REQUIRED**: `Crew` orchestration (`process=Process.sequential` or `Process.hierarchical`).
+- **✅ REQUIRED**: CrewAI's built-in memory management (if memory is enabled).
+- **❌ FORBIDDEN**: Custom tool wrappers or parameter passing mechanisms that bypass `Task.config`.
+- **❌ FORBIDDEN**: Custom agent orchestration logic outside of CrewAI's `Crew` class.
+- **❌ FORBIDDEN**: Re-implementing memory management if CrewAI's native features suffice.

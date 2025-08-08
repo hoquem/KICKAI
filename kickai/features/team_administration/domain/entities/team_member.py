@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional, Set
 
 from kickai.utils.user_id_generator import generate_user_id
 
@@ -17,13 +18,13 @@ class TeamMember:
     # Core identification fields
     user_id: str = ""  # Generated from telegram_id using generate_user_id()
     team_id: str = ""
-    telegram_id: str | None = None
+    telegram_id: Optional[int] = None  # Native Telegram integer user ID
 
     # Personal information
-    first_name: str | None = None
-    last_name: str | None = None
-    full_name: str | None = None
-    username: str | None = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    full_name: Optional[str] = None
+    username: Optional[str] = None
 
     # Administrative role information
     role: str = "Team Member"  # e.g., "Club Administrator", "Team Manager", "Coach"
@@ -31,17 +32,17 @@ class TeamMember:
     status: str = "active"  # active, inactive, suspended
 
     # Contact information
-    phone_number: str | None = None
-    email: str | None = None
-    emergency_contact: str | None = None
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
+    emergency_contact: Optional[str] = None
 
     # Timestamps
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     # Metadata
-    source: str | None = None  # e.g., "telegram_sync", "manual_entry"
-    sync_version: str | None = None
+    source: Optional[str] = None  # e.g., "telegram_sync", "manual_entry"
+    sync_version: Optional[str] = None
 
     def __post_init__(self):
         """Validate and set defaults after initialization."""
@@ -120,7 +121,7 @@ class TeamMember:
         return cls(
             user_id=user_id,
             team_id=team_id,
-            telegram_id=str(telegram_id),
+            telegram_id=telegram_id,  # Keep as integer
             first_name=first_name,
             last_name=last_name,
             full_name=full_name,
@@ -161,7 +162,13 @@ class TeamMember:
 
         if not user_id and telegram_id:
             # Generate user_id from telegram_id
-            user_id = generate_user_id(int(telegram_id))
+            # Handle both string and integer telegram_id from database
+            telegram_id_int = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
+            user_id = generate_user_id(telegram_id_int)
+
+        # Ensure telegram_id is integer if provided
+        if telegram_id is not None:
+            telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
 
         return cls(
             user_id=user_id,
@@ -177,15 +184,30 @@ class TeamMember:
             phone_number=data.get("phone_number"),
             email=data.get("email"),
             emergency_contact=data.get("emergency_contact"),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if data.get("created_at")
-            else None,
-            updated_at=datetime.fromisoformat(data["updated_at"])
-            if data.get("updated_at")
-            else None,
+            created_at=cls._parse_datetime(data.get("created_at")),
+            updated_at=cls._parse_datetime(data.get("updated_at")),
             source=data.get("source"),
             sync_version=data.get("sync_version"),
         )
+
+    @staticmethod
+    def _parse_datetime(dt_value) -> Optional[datetime]:
+        """Parse datetime value handling both string and datetime objects."""
+        if not dt_value:
+            return None
+        
+        # If it's already a datetime object (from Firestore), return it
+        if isinstance(dt_value, datetime):
+            return dt_value
+        
+        # If it's a string, parse it
+        if isinstance(dt_value, str):
+            try:
+                return datetime.fromisoformat(dt_value.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+        
+        return None
 
     def is_administrative_role(self) -> bool:
         """Check if this is an administrative role."""

@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Any
 
-from kickai.core.settings import get_settings
+from kickai.core.config import get_settings
 
 from ..reporting import CheckCategory, CheckResult, CheckStatus
 from .base_check import BaseCheck

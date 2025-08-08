@@ -1,3 +1,4 @@
+from typing import Optional
 import logging
 
 from kickai.core.exceptions import AvailabilityError, create_error_context
@@ -25,7 +26,7 @@ class AvailabilityService:
         match_id: str,
         player_id: str,
         status: AvailabilityStatus,
-        reason: str | None = None,
+        reason: Optional[str] = None,
     ) -> Availability:
         """Mark player availability for a match."""
         try:
@@ -62,7 +63,7 @@ class AvailabilityService:
                 create_error_context("mark_availability")
             )
 
-    async def get_availability(self, match_id: str, player_id: str) -> Availability | None:
+    async def get_availability(self, match_id: str, player_id: str) -> Optional[Availability]:
         """Get availability for a specific match and player."""
         try:
             availability = await self.availability_repository.get_by_match_and_player(match_id, player_id)

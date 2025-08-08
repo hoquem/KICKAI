@@ -1,3 +1,4 @@
+from typing import Dict, List, Optional, Union
 #!/usr/bin/env python3
 """
 Agent Registry for KICKAI System
@@ -17,17 +18,13 @@ from loguru import logger
 
 
 class AgentType(Enum):
-    """Types of agents supported by the system."""
+    """Types of agents supported by the 5-agent system."""
 
     HELP_ASSISTANT = "help_assistant"
     MESSAGE_PROCESSOR = "message_processor"
     PLAYER_COORDINATOR = "player_coordinator"
-    TEAM_MANAGER = "team_manager"
-    FINANCE_MANAGER = "finance_manager"
-    PERFORMANCE_ANALYST = "performance_analyst"
-    LEARNING_AGENT = "learning_agent"
-    ONBOARDING_AGENT = "onboarding_agent"
-    COMMAND_FALLBACK = "command_fallback"
+    TEAM_ADMINISTRATOR = "team_administrator"
+    SQUAD_SELECTOR = "squad_selector"
     CUSTOM = "custom"
 
 
@@ -53,8 +50,8 @@ class AgentMetadata:
     enabled: bool = True
     dependencies: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
-    config_schema: dict[str, Any] | None = None
-    factory_function: Callable | None = None
+    config_schema: Optional[Dict[str, Any]] = None
+    factory_function: Optional[Callable] = None
     feature_module: str = "unknown"
     tags: list[str] = field(default_factory=list)
 
@@ -103,13 +100,13 @@ class AgentRegistry:
         description: str,
         version: str = "1.0.0",
         enabled: bool = True,
-        dependencies: list[str] | None = None,
-        tools: list[str] | None = None,
-        config_schema: dict[str, Any] | None = None,
-        factory_function: Callable | None = None,
+        dependencies: Optional[List[str]] = None,
+        tools: Optional[List[str]] = None,
+        config_schema: Optional[Dict[str, Any]] = None,
+        factory_function: Optional[Callable] = None,
         feature_module: str = "unknown",
-        tags: list[str] | None = None,
-        aliases: list[str] | None = None,
+        tags: Optional[List[str]] = None,
+        aliases: Optional[List[str]] = None,
     ) -> None:
         """
         Register an agent with the registry.
@@ -172,7 +169,7 @@ class AgentRegistry:
         self._factories[agent_id] = factory
         logger.info(f"🏭 Registered factory for agent: {agent_id}")
 
-    def get_agent(self, agent_id: str) -> AgentMetadata | None:
+    def get_agent(self, agent_id: str) -> Optional[AgentMetadata]:
         """Get agent metadata by ID or alias."""
         # Check direct ID
         if agent_id in self._agents:
@@ -185,7 +182,7 @@ class AgentRegistry:
 
         return None
 
-    def get_factory(self, agent_id: str) -> AgentFactory | None:
+    def get_factory(self, agent_id: str) -> Optional[AgentFactory]:
         """Get agent factory by ID."""
         return self._factories.get(agent_id)
 
@@ -322,7 +319,7 @@ class AgentRegistry:
         )
 
     def _determine_agent_type(self, class_name: str) -> AgentType:
-        """Determine agent type based on class name."""
+        """Determine agent type based on class name for 5-agent system."""
         class_lower = class_name.lower()
 
         if "help" in class_lower:
@@ -331,18 +328,10 @@ class AgentRegistry:
             return AgentType.MESSAGE_PROCESSOR
         elif "player" in class_lower:
             return AgentType.PLAYER_COORDINATOR
-        elif "team" in class_lower:
-            return AgentType.TEAM_MANAGER
-        elif "finance" in class_lower:
-            return AgentType.FINANCE_MANAGER
-        elif "performance" in class_lower:
-            return AgentType.PERFORMANCE_ANALYST
-        elif "learning" in class_lower:
-            return AgentType.LEARNING_AGENT
-        elif "onboarding" in class_lower:
-            return AgentType.ONBOARDING_AGENT
-        elif "fallback" in class_lower:
-            return AgentType.COMMAND_FALLBACK
+        elif "team" in class_lower or "admin" in class_lower:
+            return AgentType.TEAM_ADMINISTRATOR
+        elif "squad" in class_lower or "selector" in class_lower:
+            return AgentType.SQUAD_SELECTOR
         else:
             return AgentType.CUSTOM
 
@@ -403,7 +392,7 @@ class AgentRegistry:
 
 
 # Global agent registry instance
-_agent_registry: AgentRegistry | None = None
+_agent_registry: Optional[AgentRegistry] = None
 
 
 def get_agent_registry() -> AgentRegistry:
@@ -418,16 +407,16 @@ def register_agent_decorator(
     agent_id: str,
     agent_type: AgentType,
     category: AgentCategory = AgentCategory.FEATURE,
-    name: str | None = None,
-    description: str | None = None,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
     version: str = "1.0.0",
     enabled: bool = True,
-    dependencies: list[str] | None = None,
-    tools: list[str] | None = None,
-    config_schema: dict[str, Any] | None = None,
+    dependencies: Optional[List[str]] = None,
+    tools: Optional[List[str]] = None,
+    config_schema: Optional[Dict[str, Any]] = None,
     feature_module: str = "unknown",
-    tags: list[str] | None = None,
-    aliases: list[str] | None = None,
+    tags: Optional[List[str]] = None,
+    aliases: Optional[List[str]] = None,
 ):
     """
     Decorator to register an agent class with the registry.

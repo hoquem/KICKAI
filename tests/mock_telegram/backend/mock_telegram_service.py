@@ -1,10 +1,11 @@
 """
-Mock Telegram Bot Service
+Mock Telegram Service for KICKAI Testing
 
-This service mimics the Telegram Bot API to enable cost-effective end-to-end testing
-without requiring real phone numbers or Telegram accounts.
+This service provides a mock Telegram API for testing the KICKAI bot
+without requiring a real Telegram bot token or webhook setup.
 """
 
+import os
 import asyncio
 import json
 import logging
@@ -20,20 +21,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
 import uvicorn
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Set required environment variable for bot integration
+os.environ.setdefault("KICKAI_INVITE_SECRET_KEY", "test_secret_key_for_debugging_only_32_chars_long")
 
-# Import bot integration (optional - will be skipped if not available)
+# Import bot integration
 try:
     from .bot_integration import process_mock_message
     BOT_INTEGRATION_AVAILABLE = True
+    logger = logging.getLogger(__name__)
     logger.info("Bot integration available")
-except ImportError:
+except ImportError as e:
     BOT_INTEGRATION_AVAILABLE = False
-    logger.warning("Bot integration not available - running in standalone mode")
-    async def process_mock_message(message_data):
-        return {"status": "bot_integration_not_available"}
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Bot integration not available - running in standalone mode: {e}")
 
 
 class MessageType(str, Enum):
@@ -198,35 +198,180 @@ class MockTelegramService:
         logger.info(f"MockTelegramService initialized with {len(self.users)} default users and group chats")
     
     def _initialize_default_users(self):
-        """Initialize with default test users"""
-        default_users = [
-            MockUser(1001, "test_player", "Test Player", role=UserRole.PLAYER, phone_number="+1234567890"),
-            MockUser(1002, "test_member", "Test Member", role=UserRole.TEAM_MEMBER, phone_number="+1234567891"),
-            MockUser(1003, "test_admin", "Test Admin", role=UserRole.ADMIN, phone_number="+1234567892"),
-            MockUser(1004, "test_leadership", "Test Leadership", role=UserRole.LEADERSHIP, phone_number="+1234567893"),
+        """Initialize users from Firestore data or create default test users"""
+        users_loaded = self._load_users_from_firestore()
+        
+        if not users_loaded:
+            logger.warning("⚠️ No users loaded from Firestore - creating default test users")
+            self._create_default_test_users()
+    
+    def _create_default_test_users(self):
+        """Create default test users for development/testing"""
+        logger.info("🔧 Creating default test users for development")
+        
+        # Create test users
+        test_users = [
+            MockUser(
+                id=1001,
+                username="coach_wilson",
+                first_name="Coach",
+                last_name="Wilson",
+                role=UserRole.LEADERSHIP,
+                phone_number="+1234567890"
+            ),
+            MockUser(
+                id=1002,
+                username="player_john",
+                first_name="John",
+                last_name="Doe",
+                role=UserRole.PLAYER,
+                phone_number="+1234567891"
+            ),
+            MockUser(
+                id=1003,
+                username="admin_sarah",
+                first_name="Sarah",
+                last_name="Admin",
+                role=UserRole.ADMIN,
+                phone_number="+1234567892"
+            ),
+            MockUser(
+                id=1004,
+                username="member_mike",
+                first_name="Mike",
+                last_name="Member",
+                role=UserRole.TEAM_MEMBER,
+                phone_number="+1234567893"
+            )
         ]
         
-        with self._lock:
-            for user in default_users:
-                self.users[user.id] = user
+        # Add users to the service
+        for user in test_users:
+            self.users[user.id] = user
+            
+            # Create private chat for each user
+            chat = MockChat(
+                id=user.id,
+                type=ChatType.PRIVATE,
+                first_name=user.first_name
+            )
+            self.chats[chat.id] = chat
+            
+            logger.info(f"✅ Created test user: {user.first_name} (ID: {user.id}, Role: {user.role.value})")
+        
+        logger.info(f"✅ Created {len(test_users)} default test users")
+    
+    def _load_users_from_firestore(self) -> bool:
+        """Load users from Firestore collections (both players and team members)"""
+        try:
+            from kickai.database.firebase_client import get_firebase_client
+            
+            client = get_firebase_client()
+            db = client.client
+            
+            users_loaded = 0
+            
+            with self._lock:
+                # Load players from kickai_KTI_players collection
+                try:
+                    players_ref = db.collection('kickai_KTI_players').limit(20)  # Limit to prevent overwhelming
+                    for player_doc in players_ref.stream():
+                        player_data = player_doc.to_dict()
+                        telegram_id = player_data.get('telegram_id')
+                        
+                        if telegram_id:
+                            try:
+                                telegram_id = int(telegram_id)
+                                user = MockUser(
+                                    id=telegram_id,
+                                    username=player_data.get('username', f"player_{telegram_id}"),
+                                    first_name=player_data.get('name', 'Unknown Player'),
+                                    role=UserRole.PLAYER,
+                                    phone_number=player_data.get('phone')  # Fixed: use 'phone' instead of 'phone_number'
+                                )
+                                self.users[user.id] = user
+                                
+                                # Create private chat
+                                chat = MockChat(
+                                    id=user.id,
+                                    type=ChatType.PRIVATE,
+                                    first_name=user.first_name
+                                )
+                                self.chats[chat.id] = chat
+                                users_loaded += 1
+                                logger.info(f"✅ Loaded player: {user.first_name} (ID: {telegram_id})")
+                                
+                            except (ValueError, TypeError) as e:
+                                logger.warning(f"⚠️ Invalid telegram_id for player {player_doc.id}: {telegram_id} - {e}")
+                                
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to load players: {e}")
                 
-                # Create private chat for each user
-                chat = MockChat(
-                    id=user.id,
-                    type=ChatType.PRIVATE,
-                    first_name=user.first_name,
-                    last_name=user.last_name
-                )
-                self.chats[chat.id] = chat
+                # Load team members from kickai_KTI_team_members collection
+                try:
+                    members_ref = db.collection('kickai_KTI_team_members').limit(20)  # Limit to prevent overwhelming
+                    for member_doc in members_ref.stream():
+                        member_data = member_doc.to_dict()
+                        telegram_id = member_data.get('telegram_id')
+                        
+                        if telegram_id:
+                            try:
+                                telegram_id = int(telegram_id)
+                                
+                                # Don't overwrite if already exists (player takes precedence)
+                                if telegram_id not in self.users:
+                                    # Map member role to mock role
+                                    member_role = member_data.get('role', 'team_member').lower()
+                                    if member_role in ['manager', 'coach', 'captain']:
+                                        role = UserRole.LEADERSHIP
+                                    elif member_role == 'admin':
+                                        role = UserRole.ADMIN
+                                    else:
+                                        role = UserRole.TEAM_MEMBER
+                                    
+                                    user = MockUser(
+                                        id=telegram_id,
+                                        username=member_data.get('username', f"member_{telegram_id}"),
+                                        first_name=member_data.get('name', 'Unknown Member'),
+                                        role=role,
+                                        phone_number=member_data.get('phone')  # Fixed: use 'phone' instead of 'phone_number'
+                                    )
+                                    self.users[user.id] = user
+                                    
+                                    # Create private chat
+                                    chat = MockChat(
+                                        id=user.id,
+                                        type=ChatType.PRIVATE,
+                                        first_name=user.first_name
+                                    )
+                                    self.chats[chat.id] = chat
+                                    users_loaded += 1
+                                    logger.info(f"✅ Loaded team member: {user.first_name} (ID: {telegram_id}, Role: {role.value})")
+                                
+                            except (ValueError, TypeError) as e:
+                                logger.warning(f"⚠️ Invalid telegram_id for team member {member_doc.id}: {telegram_id} - {e}")
+                                
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to load team members: {e}")
+            
+            logger.info(f"🎯 Loaded {users_loaded} users from Firestore")
+            return users_loaded > 0
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load users from Firestore: {e}")
+            return False
     
     def _initialize_group_chats(self):
         """Initialize group chats for the team"""
+        # Get dynamic team name from Firestore
+        team_name = self._get_team_name_from_firestore()
+        
         with self._lock:
             # Main chat (all users can access)
             main_chat = MockChat(
                 id=2001,  # Group chat IDs start from 2000
                 type=ChatType.GROUP,
-                title=self.team_name,
+                title=team_name,
                 is_main_chat=True
             )
             self.chats[main_chat.id] = main_chat
@@ -235,12 +380,38 @@ class MockTelegramService:
             leadership_chat = MockChat(
                 id=2002,
                 type=ChatType.GROUP,
-                title=f"{self.team_name} - Leadership",
+                title=f"{team_name} - Leadership",
                 is_leadership_chat=True
             )
             self.chats[leadership_chat.id] = leadership_chat
             
-            logger.info(f"Created group chats: Main ({main_chat.id}), Leadership ({leadership_chat.id})")
+            logger.info(f"Created group chats: Main ({main_chat.id}), Leadership ({leadership_chat.id}) for team: {team_name}")
+    
+    def _get_team_name_from_firestore(self) -> str:
+        """Get the team name from Firestore or use fallback"""
+        try:
+            from kickai.database.firebase_client import get_firebase_client
+            
+            client = get_firebase_client()
+            db = client.client
+            
+            # Get the first available team from kickai_teams collection
+            teams_ref = db.collection('kickai_teams')
+            teams = teams_ref.limit(1).stream()
+            
+            for team in teams:
+                team_data = team.to_dict()
+                team_name = team_data.get('name', team.id)
+                logger.info(f"🎯 Using dynamic team name: {team_name}")
+                return team_name
+            
+            # Fallback if no teams found
+            logger.warning("⚠️ No teams found in Firestore, using fallback team name")
+            return self.team_name
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to get team name from Firestore: {e}, using fallback")
+            return self.team_name
     
     def get_accessible_chats_for_user(self, user_id: int) -> List[MockChat]:
         """Get all chats accessible to a specific user"""
@@ -435,15 +606,15 @@ class MockTelegramService:
                             ),
                             chat=chat,
                             date=datetime.now(timezone.utc),
-                            text=bot_response.get("text", "Bot response")
+                            text=bot_response.get("message", bot_response.get("text", "Bot response"))
                         )
                         self.messages.append(bot_message)
                         self.message_counter += 1
                         
-                        # Broadcast bot response
+                        # Broadcast bot response using the properly formatted message
                         asyncio.create_task(self.broadcast_message({
                             "type": "bot_response",
-                            "message": bot_response,
+                            "message": bot_message.to_dict(),
                             "chat_context": chat_context
                         }))
                 except Exception as e:
@@ -657,9 +828,35 @@ async def send_message(request: SendMessageRequest):
 @app.post("/bot_response")
 async def bot_response(response_data: dict):
     """Receive bot response and broadcast to WebSocket clients"""
+    from datetime import datetime, timezone
+    
+    # Transform bot response to match frontend expectations
+    bot_message = {
+        "message_id": len(mock_service.messages) + 1,
+        "from": {
+            "id": 0,  # Bot ID
+            "username": "kickai_bot",
+            "first_name": "KickAI Bot",
+            "last_name": None,
+            "is_bot": True
+        },
+        "chat": {
+            "id": 2002,  # Default chat ID
+            "type": "group",
+            "title": "KickAI Testing",
+            "username": None,
+            "first_name": None,
+            "last_name": None,
+            "is_main_chat": True,
+            "is_leadership_chat": False
+        },
+        "date": int(datetime.now(timezone.utc).timestamp()),
+        "text": response_data.get("message", response_data.get("text", "No response message"))
+    }
+    
     await mock_service.broadcast_message({
         "type": "bot_response",
-        "message": response_data
+        "message": bot_message
     })
     return {"status": "broadcasted"}
 

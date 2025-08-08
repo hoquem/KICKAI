@@ -1,3 +1,4 @@
+from typing import Optional
 #!/usr/bin/env python3
 """
 Firebase Player Repository Implementation
@@ -84,7 +85,7 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
         else:
             raise ValueError("Player must have either player_id, user_id, or phone_number")
 
-    async def get_player_by_id(self, player_id: str, team_id: str) -> Player | None:
+    async def get_player_by_id(self, player_id: str, team_id: str) -> Optional[Player]:
         """Get a player by ID."""
         try:
             # Use team-specific collection naming
@@ -103,7 +104,7 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             logger.error(f"Failed to get player by ID {player_id} for team {team_id}: {e}")
             return None
 
-    async def get_player_by_phone(self, phone: str, team_id: str) -> Player | None:
+    async def get_player_by_phone(self, phone: str, team_id: str) -> Optional[Player]:
         """Get a player by phone number."""
         try:
             # Use team-specific collection naming
@@ -236,7 +237,7 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
         """Convert a Firestore document to a Player entity."""
         return Player.from_database_dict(doc)
 
-    def _parse_datetime(self, dt_str: str | None) -> datetime | None:
+    def _parse_datetime(self, dt_str: Optional[str]) -> Optional[datetime]:
         """Parse datetime string to datetime object."""
         if not dt_str:
             return None

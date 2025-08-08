@@ -173,7 +173,7 @@ class SystemReadinessCheck(BaseCheck):
 
             # Check 7: Settings configuration
             try:
-                from kickai.core.settings import get_settings
+                from kickai.core.config import get_settings
                 settings = get_settings()
                 if settings is None:
                     readiness_checks.append("❌ Settings not loaded")

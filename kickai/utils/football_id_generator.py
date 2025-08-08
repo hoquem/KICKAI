@@ -22,6 +22,7 @@ from datetime import datetime
 from enum import Enum
 
 from loguru import logger
+from typing import Union, Set, Dict
 
 
 def get_position_code(position: str) -> str:
@@ -63,11 +64,11 @@ class FootballIDGenerator:
     """Football-friendly ID generator with football conventions."""
 
     def __post_init__(self):
-        self.used_team_ids: set[str] = set()
-        self.used_player_ids: set[str] = set()
-        self.used_match_ids: set[str] = set()
-        self.team_mappings: dict[str, str] = {}
-        self.player_mappings: dict[str, str] = {}
+        self.used_team_ids: Set[str] = set()
+        self.used_player_ids: Set[str] = set()
+        self.used_match_ids: Set[str] = set()
+        self.team_mappings: Dict[str, str] = {}
+        self.player_mappings: Dict[str, str] = {}
 
     def _normalize_name(self, name: str) -> str:
         """Normalize a name for consistent processing."""
@@ -179,7 +180,7 @@ class FootballIDGenerator:
         """Get position code from position string."""
         return get_position_code(position)
 
-    def _get_jersey_number(self, position: str, existing_numbers: set[int]) -> int:
+    def _get_jersey_number(self, position: str, existing_numbers: Set[int]) -> int:
         """Get appropriate jersey number based on position and availability."""
         position_code = self._get_position_code(position)
 
@@ -348,7 +349,7 @@ class FootballIDGenerator:
         last_name: str,
         position: str,
         team_id: str,
-        existing_ids: set[str] | None = None,
+        existing_ids: Union[Set[str], None] = None,
     ) -> str:
         """Generate a football-contextual player ID with jersey number and position."""
         if not first_name or not last_name or not position:
@@ -463,7 +464,7 @@ class FootballIDGenerator:
         try:
             # Clean the date string
             cleaned_date = re.sub(
-                r"\b(Union[Union[against, vs], Union[v, on]]|Union[Union[at, home], away])\b",
+                r"\b(against|vs|v|on|at|home|away)\b",
                 "",
                 date_str,
                 flags=re.IGNORECASE,
@@ -492,7 +493,7 @@ class FootballIDGenerator:
             # If no format works, try to extract from text
             year_match = re.search(r"\b(20\d{2})\b", cleaned_date)
             month_match = re.search(
-                r"\b(Union[Union[jan, feb], Union[mar, apr]]|Union[Union[may, jun], Union[jul, aug]]|Union[Union[sep, oct], Union[nov, dec]])\b",
+                r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b",
                 cleaned_date,
                 re.IGNORECASE,
             )
@@ -524,7 +525,7 @@ class FootballIDGenerator:
             logger.error(f"Date parsing error: {e}")
             return datetime.now().strftime("%Y-%m-%d")  # Default to today
 
-    def _resolve_collision(self, base_id: str, existing_ids: set[str]) -> str:
+    def _resolve_collision(self, base_id: str, existing_ids: Set[str]) -> str:
         """Resolve ID collision by adding a number suffix."""
         if base_id not in existing_ids:
             return base_id
@@ -539,11 +540,11 @@ class FootballIDGenerator:
         hash_suffix = hashlib.md5(base_id.encode()).hexdigest()[:2].upper()
         return f"{base_id}{hash_suffix}"
 
-    def get_team_mappings(self) -> dict[str, str]:
+    def get_team_mappings(self) -> Dict[str, str]:
         """Get all team name to ID mappings."""
         return self.team_mappings.copy()
 
-    def get_player_mappings(self) -> dict[str, str]:
+    def get_player_mappings(self) -> Dict[str, str]:
         """Get all player name to ID mappings."""
         return self.player_mappings.copy()
 
@@ -572,7 +573,7 @@ def generate_football_player_id(
     last_name: str,
     position: str,
     team_id: str,
-    existing_ids: set[str] | None = None,
+    existing_ids: Union[Set[str], None] = None,
 ) -> str:
     """Generate a football-contextual player ID."""
     return football_id_generator.generate_player_id(

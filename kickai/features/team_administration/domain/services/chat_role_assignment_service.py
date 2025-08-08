@@ -12,7 +12,7 @@ This service handles automatic role assignment based on chat membership:
 
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 # TeamMemberService removed - using mock service instead
 # Import TeamMember dynamically to avoid circular imports
@@ -66,7 +66,7 @@ class ChatRoleAssignmentService:
             async def get_team_members_by_team(self, team_id: str):
                 return []
 
-            async def get_team_member_by_telegram_id(self, user_id: str, team_id: str):
+            async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str):
                 return None
 
             async def create_team_member(self, team_member):
@@ -78,8 +78,8 @@ class ChatRoleAssignmentService:
         return MockTeamMemberService()
 
     async def add_user_to_chat(
-        self, team_id: str, user_id: str, chat_type: str, username: str | None = None
-    ) -> dict[str, Any]:
+        self, team_id: str, user_id: str, chat_type: str, username: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Add user to a chat and assign appropriate role.
 
@@ -155,7 +155,7 @@ class ChatRoleAssignmentService:
 
     async def remove_user_from_chat(
         self, team_id: str, user_id: str, chat_type: str
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Remove user from a chat and update roles accordingly.
 
@@ -243,7 +243,7 @@ class ChatRoleAssignmentService:
             logger.error(f"Failed to promote user {user_id} to admin: {e}")
             return False
 
-    def _determine_initial_roles(self, chat_type: str, is_first_user: bool) -> list[str]:
+    def _determine_initial_roles(self, chat_type: str, is_first_user: bool) -> List[str]:
         """Determine initial roles based on chat type and first user status."""
         roles = []
 
@@ -267,7 +267,7 @@ class ChatRoleAssignmentService:
             team_member.roles.append("team_member")
 
     async def _ensure_player_role(
-        self, team_id: str, user_id: str, username: str | None = None
+        self, team_id: str, user_id: str, username: Optional[str] = None
     ) -> None:
         """Ensure user has a player record if they're in the main chat."""
         try:
@@ -330,7 +330,7 @@ class ChatRoleAssignmentService:
         except Exception as e:
             logger.error(f"Failed to handle admin leaving leadership: {e}")
 
-    async def _promote_longest_tenured_to_admin(self, team_id: str) -> str | None:
+    async def _promote_longest_tenured_to_admin(self, team_id: str) -> Optional[str]:
         """
         Promote the longest-tenured leadership member to admin.
 
@@ -369,7 +369,7 @@ class ChatRoleAssignmentService:
             logger.error(f"Failed to promote longest-tenured member to admin: {e}")
             return None
 
-    async def get_user_roles(self, team_id: str, user_id: str) -> dict[str, Any]:
+    async def get_user_roles(self, team_id: str, user_id: str) -> Dict[str, Any]:
         """Get comprehensive role information for a user."""
         try:
             team_member = await self.team_member_service.get_team_member_by_telegram_id(

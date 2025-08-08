@@ -174,7 +174,7 @@ class InitializationSequenceCheck(BaseCheck):
 
             # 1. Settings Configuration
             try:
-                from kickai.core.settings import get_settings
+                from kickai.core.config import get_settings
                 settings = get_settings()
 
                 if settings:

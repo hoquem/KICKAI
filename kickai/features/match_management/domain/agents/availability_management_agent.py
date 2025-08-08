@@ -6,10 +6,10 @@ from kickai.features.match_management.domain.services.availability_service impor
     AvailabilityService,
 )
 from kickai.features.match_management.domain.tools.availability_tools import (
-    GetAvailabilityTool,
-    GetPlayerAvailabilityHistoryTool,
-    MarkAvailabilityTool,
-    SendRemindersTool,
+    get_availability,
+    get_player_availability_history,
+    mark_availability,
+    send_availability_reminders,
 )
 
 logger = logging.getLogger(__name__)
@@ -18,17 +18,23 @@ logger = logging.getLogger(__name__)
 class AvailabilityManagementAgent:
     """CrewAI agent for availability management operations."""
 
-    def __init__(self, availability_service: AvailabilityService):
-        self.availability_service = availability_service
+    def __init__(self):
+        from kickai.core.dependency_container import get_container
+        container = get_container()
+        self.availability_service = container.get_service(AvailabilityService)
+        if not self.availability_service:
+            raise ValueError("AvailabilityService not found in container")
         self.agent = self._create_agent()
 
     def _create_agent(self) -> Agent:
         """Create the availability management agent."""
+        # The tools are now function-based and don't need service injection
+        # They handle service access internally via dependency container
         tools = [
-            MarkAvailabilityTool(self.availability_service),
-            GetAvailabilityTool(self.availability_service),
-            GetPlayerAvailabilityHistoryTool(self.availability_service),
-            SendRemindersTool(self.availability_service),
+            mark_availability,
+            get_availability,
+            get_player_availability_history,
+            send_availability_reminders,
         ]
 
         return Agent(

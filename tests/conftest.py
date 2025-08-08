@@ -91,7 +91,7 @@ def mock_telegram_config():
     return {
         "bot_token": "test-bot-token",
         "webhook_url": None,
-        "parse_mode": "MarkdownV2",
+        "parse_mode": "",  # Plain text only
         "message_timeout": 30
     }
 

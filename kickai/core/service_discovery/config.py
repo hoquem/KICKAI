@@ -8,7 +8,7 @@ further reducing tight coupling and enabling environment-specific service defini
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class ServiceConfigurationLoader:
     """Loads service definitions from configuration files."""
 
-    def __init__(self, config_paths: list[str] = None):
+    def __init__(self, config_paths: List[str] = None):
         """Initialize with default or custom config paths."""
         self.config_paths = config_paths or [
             "config/services.json",
@@ -30,7 +30,7 @@ class ServiceConfigurationLoader:
             "kickai/config/services.yaml",
         ]
 
-    def load_service_definitions(self) -> list[ServiceDefinition]:
+    def load_service_definitions(self) -> List[ServiceDefinition]:
         """Load service definitions from configuration files."""
         all_definitions = []
 
@@ -50,7 +50,7 @@ class ServiceConfigurationLoader:
 
         return all_definitions
 
-    def _load_from_file(self, path: Path) -> list[ServiceDefinition]:
+    def _load_from_file(self, path: Path) -> List[ServiceDefinition]:
         """Load service definitions from a single file."""
         with open(path, encoding='utf-8') as f:
             if path.suffix.lower() in ['.yaml', '.yml']:
@@ -60,7 +60,7 @@ class ServiceConfigurationLoader:
 
         return self._parse_service_definitions(data)
 
-    def _parse_service_definitions(self, data: dict[str, Any]) -> list[ServiceDefinition]:
+    def _parse_service_definitions(self, data: Dict[str, Any]) -> List[ServiceDefinition]:
         """Parse service definitions from loaded data."""
         definitions = []
 
@@ -81,7 +81,7 @@ class ServiceConfigurationLoader:
 
         return definitions
 
-    def _create_service_definition(self, config: dict[str, Any]) -> ServiceDefinition:
+    def _create_service_definition(self, config: Dict[str, Any]) -> ServiceDefinition:
         """Create a ServiceDefinition from configuration data."""
         # Required fields
         name = config['name']
@@ -120,7 +120,7 @@ class ServiceConfigurationLoader:
             metadata=metadata
         )
 
-    def _get_default_service_definitions(self) -> list[ServiceDefinition]:
+    def _get_default_service_definitions(self) -> List[ServiceDefinition]:
         """Get default service definitions when no config files are found."""
         return [
             # Core Services
@@ -234,7 +234,7 @@ def load_service_configuration() -> ServiceConfiguration:
     return ServiceConfiguration()
 
 
-def _parse_service_configuration(data: dict[str, Any]) -> ServiceConfiguration:
+def _parse_service_configuration(data: Dict[str, Any]) -> ServiceConfiguration:
     """Parse service configuration from loaded data."""
     config_data = data.get('service_discovery', {})
 
@@ -254,7 +254,7 @@ def _parse_service_configuration(data: dict[str, Any]) -> ServiceConfiguration:
     )
 
 
-def create_example_service_config() -> dict[str, Any]:
+def create_example_service_config() -> Dict[str, Any]:
     """Create an example service configuration file."""
     return {
         "service_discovery": {
@@ -314,7 +314,7 @@ def write_example_config_file(path: str = "config/services.json") -> None:
 
 
 # Convenience functions
-def get_service_definitions() -> list[ServiceDefinition]:
+def get_service_definitions() -> List[ServiceDefinition]:
     """Get all service definitions from configuration."""
     loader = ServiceConfigurationLoader()
     return loader.load_service_definitions()

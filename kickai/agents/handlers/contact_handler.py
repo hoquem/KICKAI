@@ -16,20 +16,8 @@ from kickai.core.interfaces import IAgentResponse, IContactHandler, IPlayerServi
 from kickai.core.value_objects import EntityContext, PhoneNumber
 
 
-class AgentResponse:
-    """Simple agent response implementation."""
-
-    def __init__(self, content: str, metadata: dict = None):
-        self._content = content
-        self._metadata = metadata or {}
-
-    @property
-    def content(self) -> str:
-        return self._content
-
-    @property
-    def metadata(self) -> dict:
-        return self._metadata
+# Import centralized types
+from kickai.core.types import AgentResponse
 
 
 class ContactHandler(IContactHandler):

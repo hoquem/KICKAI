@@ -6,7 +6,7 @@ This module provides the registration service for handling player and team membe
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, List, Dict
 
 from loguru import logger
 
@@ -41,7 +41,7 @@ class RegistrationService:
         phone: str,
         position: str,
         invited_by: str
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Create a pending player registration.
 
@@ -109,7 +109,7 @@ class RegistrationService:
         phone: str,
         role: str,
         invited_by: str
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Create a pending team member registration.
 
@@ -176,7 +176,7 @@ class RegistrationService:
         phone: str,
         telegram_id: int,
         telegram_username: str
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Complete player registration by linking Telegram account.
 
@@ -227,7 +227,7 @@ class RegistrationService:
         phone: str,
         telegram_id: int,
         telegram_username: str
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Complete team member registration by linking Telegram account.
 
@@ -273,7 +273,7 @@ class RegistrationService:
             logger.error(f"❌ Failed to complete team member registration: {e}")
             raise
 
-    async def approve_player(self, player_id: str, approved_by: str) -> dict[str, Any]:
+    async def approve_player(self, player_id: str, approved_by: str) -> Dict[str, Any]:
         """
         Approve a pending player.
 
@@ -323,7 +323,7 @@ class RegistrationService:
         player_id: str,
         rejected_by: str,
         reason: str
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Reject a pending player.
 
@@ -371,7 +371,7 @@ class RegistrationService:
             logger.error(f"❌ Failed to reject player: {e}")
             raise
 
-    async def get_pending_players(self) -> list[dict[str, Any]]:
+    async def get_pending_players(self) -> List[Dict[str, Any]]:
         """
         Get all pending players.
 
@@ -398,7 +398,7 @@ class RegistrationService:
             logger.error(f"❌ Failed to get pending players: {e}")
             return []
 
-    async def get_pending_team_members(self) -> list[dict[str, Any]]:
+    async def get_pending_team_members(self) -> List[Dict[str, Any]]:
         """
         Get all pending team members.
 

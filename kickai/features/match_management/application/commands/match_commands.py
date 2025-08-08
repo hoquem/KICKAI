@@ -15,6 +15,7 @@ from kickai.core.enums import ChatType
 from kickai.features.match_management.domain.entities.attendance import AttendanceStatus
 from kickai.features.match_management.domain.entities.availability import AvailabilityStatus
 from kickai.features.match_management.domain.services.attendance_service import AttendanceService
+from typing import List, Optional
 from kickai.features.match_management.domain.services.availability_service import (
     AvailabilityService,
 )

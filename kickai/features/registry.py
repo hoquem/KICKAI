@@ -5,7 +5,7 @@ This module provides factories for creating all feature services, ensuring
 proper dependency management and avoiding circular imports.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import Any, List, Dict, TYPE_CHECKING
 
 from loguru import logger
 
@@ -21,7 +21,7 @@ class ServiceFactory:
     def __init__(self, container, database):
         self.container = container
         self.database = database
-        self._cache: dict[str, Any] = {}
+        self._cache: Dict[str, Any] = {}
 
     def get_database(self) -> DataStoreInterface:
         """Get the database interface."""
@@ -416,29 +416,6 @@ class ServiceFactory:
             "communication_service": communication_service,
         }
 
-    def create_health_monitoring_services(self):
-        """Create health monitoring services."""
-        from kickai.features.health_monitoring.domain.repositories.health_check_repository_interface import (
-            HealthCheckRepositoryInterface,
-        )
-        from kickai.features.health_monitoring.domain.services.health_monitoring_service import (
-            HealthMonitoringService,
-        )
-        from kickai.features.health_monitoring.infrastructure.firebase_health_check_repository import (
-            FirebaseHealthCheckRepository,
-        )
-
-        # Create repositories
-        health_repo = FirebaseHealthCheckRepository(self.database)
-
-        # Create services
-        health_service = HealthMonitoringService(health_repo)
-
-        # Register with container
-        self.container.register_service(HealthCheckRepositoryInterface, health_repo)
-        self.container.register_service(HealthMonitoringService, health_service)
-
-        return {"health_repository": health_repo, "health_service": health_service}
 
     def create_system_infrastructure_services(self):
         """Create system infrastructure services."""
@@ -462,104 +439,8 @@ class ServiceFactory:
             "permission_service": permission_service,
         }
 
-    def create_helper_system_services(self):
-        """Create helper system services."""
-        from kickai.features.helper_system.domain.interfaces.command_help_service_interface import (
-            ICommandHelpService,
-        )
-        from kickai.features.helper_system.domain.interfaces.event_bus_interface import (
-            IEventBus,
-        )
-        from kickai.features.helper_system.domain.interfaces.feature_suggestion_service_interface import (
-            IFeatureSuggestionService,
-        )
-        from kickai.features.helper_system.domain.interfaces.guidance_service_interface import (
-            IGuidanceService,
-        )
-        from kickai.features.helper_system.domain.interfaces.learning_analytics_service_interface import (
-            ILearningAnalyticsService,
-        )
-        from kickai.features.helper_system.domain.interfaces.reminder_service_interface import (
-            IReminderService,
-        )
-        from kickai.features.helper_system.domain.interfaces.user_analytics_service_interface import (
-            IUserAnalyticsService,
-        )
-        from kickai.features.helper_system.domain.repositories.help_request_repository_interface import (
-            HelpRequestRepositoryInterface,
-        )
-        from kickai.features.helper_system.domain.repositories.learning_profile_repository_interface import (
-            LearningProfileRepositoryInterface,
-        )
-        from kickai.features.helper_system.domain.services.command_help_service import (
-            CommandHelpService,
-        )
-        from kickai.features.helper_system.domain.services.feature_suggestion_service import (
-            FeatureSuggestionService,
-        )
-        from kickai.features.helper_system.domain.services.guidance_service import (
-            GuidanceService,
-        )
-        from kickai.features.helper_system.domain.services.learning_analytics_service import (
-            LearningAnalyticsService,
-        )
-        from kickai.features.helper_system.domain.services.reminder_service import (
-            ReminderService,
-        )
-        from kickai.features.helper_system.domain.services.user_analytics_service import (
-            UserAnalyticsService,
-        )
-        from kickai.features.helper_system.infrastructure.event_bus import (
-            EventBus,
-        )
-        from kickai.features.helper_system.infrastructure.firebase_help_request_repository import (
-            FirebaseHelpRequestRepository,
-        )
-        from kickai.features.helper_system.infrastructure.firebase_learning_profile_repository import (
-            FirebaseLearningProfileRepository,
-        )
 
-        # Create repositories
-        learning_profile_repo = FirebaseLearningProfileRepository(self.database)
-        help_request_repo = FirebaseHelpRequestRepository(self.database)
-
-        # Create event bus
-        event_bus = EventBus()
-
-        # Create services
-        guidance_service = GuidanceService(learning_profile_repo, help_request_repo)
-        learning_analytics_service = LearningAnalyticsService(learning_profile_repo)
-        reminder_service = ReminderService(learning_profile_repo)
-
-        # Create split services
-        command_help_service = CommandHelpService()
-        feature_suggestion_service = FeatureSuggestionService(learning_profile_repo)
-        user_analytics_service = UserAnalyticsService(learning_profile_repo)
-
-        # Register with container using interfaces
-        self.container.register_service(LearningProfileRepositoryInterface, learning_profile_repo)
-        self.container.register_service(HelpRequestRepositoryInterface, help_request_repo)
-        self.container.register_service(IEventBus, event_bus)
-        self.container.register_service(ILearningAnalyticsService, learning_analytics_service)
-        self.container.register_service(IGuidanceService, guidance_service)
-        self.container.register_service(IReminderService, reminder_service)
-        self.container.register_service(ICommandHelpService, command_help_service)
-        self.container.register_service(IFeatureSuggestionService, feature_suggestion_service)
-        self.container.register_service(IUserAnalyticsService, user_analytics_service)
-
-        return {
-            "learning_profile_repository": learning_profile_repo,
-            "help_request_repository": help_request_repo,
-            "event_bus": event_bus,
-            "learning_analytics_service": learning_analytics_service,
-            "guidance_service": guidance_service,
-            "reminder_service": reminder_service,
-            "command_help_service": command_help_service,
-            "feature_suggestion_service": feature_suggestion_service,
-            "user_analytics_service": user_analytics_service,
-        }
-
-    def create_all_services(self) -> dict[str, Any]:
+    def create_all_services(self) -> Dict[str, Any]:
         """Create all feature services in the correct dependency order."""
         services = {}
 
@@ -591,14 +472,8 @@ class ServiceFactory:
         logger.info("💬 Creating communication services...")
         services.update(self.create_communication_services())
 
-        logger.info("🏥 Creating health monitoring services...")
-        services.update(self.create_health_monitoring_services())
-
         logger.info("🔧 Creating system infrastructure services...")
         services.update(self.create_system_infrastructure_services())
-
-        logger.info("🤝 Creating helper system services...")
-        services.update(self.create_helper_system_services())
 
         logger.info(f"✅ All services created successfully. Total services: {len(services)}")
 

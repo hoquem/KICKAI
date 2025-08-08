@@ -8,7 +8,7 @@ dependency injection and repository wiring.
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, Dict, Optional
 
 from loguru import logger
 
@@ -40,7 +40,7 @@ class ServiceFactory:
     def __init__(
         self,
         repository_factory: RepositoryFactory,
-        config: dict[str, Any] | None = None,
+        config: Optional[Dict[str, Any]] = None,
         max_cache_size: int = MAX_CACHE_SIZE,
         cache_ttl: int = CACHE_TTL_SECONDS
     ):
@@ -61,7 +61,7 @@ class ServiceFactory:
         # Cache: key -> (service_instance, creation_timestamp)
         self._service_cache: dict[str, tuple[Any, float]] = {}
 
-    def _get_from_cache(self, cache_key: str) -> Any | None:
+    def _get_from_cache(self, cache_key: str) -> Optional[Any]:
         """Get service from cache if valid, otherwise return None."""
         if cache_key not in self._service_cache:
             return None

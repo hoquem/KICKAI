@@ -1,3 +1,4 @@
+from typing import Optional
 from dataclasses import dataclass, field
 from datetime import datetime, time
 from enum import Enum
@@ -20,10 +21,10 @@ class MatchAttendance:
     match_id: str
     player_id: str
     status: AttendanceStatus
-    reason: str | None = None
+    reason: Optional[str] = None
     recorded_at: datetime = field(default_factory=datetime.utcnow)
     recorded_by: str = ""  # Team member ID
-    arrival_time: time | None = None
+    arrival_time: Optional[time] = None
 
     @classmethod
     def create(
@@ -31,9 +32,9 @@ class MatchAttendance:
         match_id: str,
         player_id: str,
         status: AttendanceStatus,
-        reason: str | None = None,
+        reason: Optional[str] = None,
         recorded_by: str = "",
-        arrival_time: time | None = None,
+        arrival_time: Optional[time] = None,
         attendance_id: str = "",
     ) -> "MatchAttendance":
         """Create a new match attendance instance."""
@@ -50,7 +51,7 @@ class MatchAttendance:
             recorded_at=now,
         )
 
-    def update(self, status: AttendanceStatus, reason: str | None = None, arrival_time: time | None = None):
+    def update(self, status: AttendanceStatus, reason: Optional[str] = None, arrival_time: Optional[time] = None):
         """Update attendance status."""
         self.status = status
         if reason is not None:

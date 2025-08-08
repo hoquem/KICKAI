@@ -1,3 +1,4 @@
+from typing import Optional
 import logging
 
 from kickai.core.dependency_container import get_container
@@ -32,7 +33,7 @@ class AttendanceService:
         team_id: str,
         status: AttendanceStatus,
         response_method: AttendanceResponseMethod = AttendanceResponseMethod.COMMAND,
-        notes: str | None = None,
+        notes: Optional[str] = None,
     ) -> Attendance:
         """
         Mark player attendance for a match.
@@ -103,7 +104,7 @@ class AttendanceService:
             logger.error(f"Failed to mark attendance: {e}")
             raise
 
-    async def get_attendance_by_id(self, attendance_id: str) -> Attendance | None:
+    async def get_attendance_by_id(self, attendance_id: str) -> Optional[Attendance]:
         """Get attendance record by ID."""
         return await self.attendance_repository.get_by_id(attendance_id)
 
@@ -121,7 +122,7 @@ class AttendanceService:
 
     async def get_player_attendance_for_match(
         self, player_id: str, match_id: str, team_id: str
-    ) -> Attendance | None:
+    ) -> Optional[Attendance]:
         """Get attendance record for a specific player and match."""
         return await self.attendance_repository.get_by_player_and_match(
             player_id, match_id, team_id
@@ -132,7 +133,7 @@ class AttendanceService:
         return await self.attendance_repository.get_match_summary(match_id, team_id)
 
     async def get_player_attendance_stats(
-        self, player_id: str, team_id: str, year: int | None = None
+        self, player_id: str, team_id: str, year: Optional[int] = None
     ) -> dict:
         """Get attendance statistics for a player."""
         return await self.attendance_repository.get_player_stats(player_id, team_id, year)

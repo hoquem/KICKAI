@@ -10,7 +10,7 @@ import logging
 import threading
 import time
 from collections import defaultdict
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from .interfaces import (
     CircuitBreakerOpenError,
@@ -139,13 +139,13 @@ class ServiceRegistry(IServiceRegistry):
 
     def __init__(self, config: ServiceConfiguration = None):
         self.config = config or ServiceConfiguration()
-        self._services: dict[str, Any] = {}
-        self._definitions: dict[str, ServiceDefinition] = {}
-        self._health_status: dict[str, ServiceHealth] = {}
-        self._circuit_breakers: dict[str, CircuitBreaker] = {}
-        self._health_checkers: list[IServiceHealthChecker] = []
+        self._services: Dict[str, Any] = {}
+        self._definitions: Dict[str, ServiceDefinition] = {}
+        self._health_status: Dict[str, ServiceHealth] = {}
+        self._circuit_breakers: Dict[str, CircuitBreaker] = {}
+        self._health_checkers: List[IServiceHealthChecker] = []
         self._lock = threading.RLock()
-        self._health_check_tasks: dict[str, asyncio.Task] = {}
+        self._health_check_tasks: Dict[str, asyncio.Task] = {}
         self._running = False
 
         # Add default health checker
@@ -200,17 +200,17 @@ class ServiceRegistry(IServiceRegistry):
 
             logger.info(f"🗑️ Service {service_name} unregistered")
 
-    def get_service(self, service_name: str) -> Any | None:
+    def get_service(self, service_name: str) -> Optional[Any]:
         """Get a service instance by name."""
         with self._lock:
             return self._services.get(service_name)
 
-    def get_service_definition(self, service_name: str) -> ServiceDefinition | None:
+    def get_service_definition(self, service_name: str) -> Optional[ServiceDefinition]:
         """Get service definition by name."""
         with self._lock:
             return self._definitions.get(service_name)
 
-    def list_services(self, service_type: ServiceType | None = None) -> list[str]:
+    def list_services(self, service_type: Optional[ServiceType] = None) -> List[str]:
         """List all registered services, optionally filtered by type."""
         with self._lock:
             if service_type is None:
@@ -221,7 +221,7 @@ class ServiceRegistry(IServiceRegistry):
                 if definition.service_type == service_type
             ]
 
-    def get_services_by_type(self, service_type: ServiceType) -> dict[str, Any]:
+    def get_services_by_type(self, service_type: ServiceType) -> Dict[str, Any]:
         """Get all services of a specific type."""
         with self._lock:
             result = {}
@@ -321,7 +321,7 @@ class ServiceRegistry(IServiceRegistry):
 
             return health
 
-    async def check_all_services_health(self) -> dict[str, ServiceHealth]:
+    async def check_all_services_health(self) -> Dict[str, ServiceHealth]:
         """Check health of all registered services."""
         service_names = self.list_services()
 
@@ -365,7 +365,7 @@ class ServiceRegistry(IServiceRegistry):
         self._health_checkers.insert(0, health_checker)  # Custom checkers have priority
         logger.info("✅ Added custom health checker")
 
-    def get_service_statistics(self) -> dict[str, Any]:
+    def get_service_statistics(self) -> Dict[str, Any]:
         """Get service registry statistics."""
         with self._lock:
             stats = {
@@ -388,7 +388,7 @@ class ServiceRegistry(IServiceRegistry):
 
 
 # Global registry instance
-_global_registry: ServiceRegistry | None = None
+_global_registry: Optional[ServiceRegistry] = None
 _registry_lock = threading.Lock()
 
 

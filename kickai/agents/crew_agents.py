@@ -1,30 +1,39 @@
 #!/usr/bin/env python3
 """
-Simplified CrewAI Football Team Management System - 8-Agent Architecture
+Simplified CrewAI Football Team Management System - 5-Agent Architecture
 
 This module provides a simplified, production-ready implementation of the
-CrewAI-based football team management system with 8 specialized agents.
+CrewAI-based football team management system with 5 essential agents.
+
+ESSENTIAL 5-AGENT SYSTEM:
+1. MESSAGE_PROCESSOR - Primary interface and routing
+2. HELP_ASSISTANT - Help system and guidance  
+3. PLAYER_COORDINATOR - Player management and onboarding
+4. TEAM_ADMINISTRATOR - Team member management
+5. SQUAD_SELECTOR - Squad selection and match management
 """
 
 import asyncio
 import logging
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any
+from typing import Any, Optional, Dict
 
 from crewai import Crew
 from loguru import logger
 
 from kickai.agents.configurable_agent import ConfigurableAgent
-from kickai.agents.entity_specific_agents import (
-    EntitySpecificAgentManager,
-    create_entity_specific_agent,
-)
+# Removed entity_specific_agents for simplified 5-agent architecture
 from kickai.agents.tool_registry import initialize_tool_registry
 from kickai.config.agents import get_agent_config, get_enabled_agent_configs
 from kickai.config.llm_config import get_llm_config
 from kickai.core.enums import AgentRole
-from kickai.core.settings import get_settings
+from kickai.core.config import get_settings, AIProvider
+from kickai.core.exceptions import AgentInitializationError
+from kickai.utils.llm_factory_simple import SimpleLLMFactory
+from kickai.agents.tool_registry import ToolRegistry
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigurationError(Exception):
@@ -33,10 +42,7 @@ class ConfigurationError(Exception):
     pass
 
 
-class AgentInitializationError(Exception):
-    """Raised when agent initialization fails."""
 
-    pass
 
 
 def log_errors(func):
@@ -64,7 +70,7 @@ class TeamManagementSystem:
     def __init__(self, team_id: str):
         self.team_id = team_id
         self.agents: dict[AgentRole, ConfigurableAgent] = {}
-        self.crew: Crew | None = None
+        self.crew: Optional[Crew] = None
 
         # Initialize team memory for conversation context
         from kickai.agents.team_memory import TeamMemory
@@ -106,7 +112,6 @@ class TeamManagementSystem:
         """Initialize the LLM using the factory pattern with robust error handling."""
         try:
             # Get base URL from settings to ensure we use the correct Ollama URL
-            from kickai.core.settings import get_settings
             settings = get_settings()
             base_url = settings.ollama_base_url
 
@@ -131,88 +136,73 @@ class TeamManagementSystem:
             self.tool_registry = initialize_tool_registry("kickai")
             logger.info("✅ Tool registry initialized and ready")
 
-            self.entity_manager = EntitySpecificAgentManager(self.tool_registry)
-            logger.info("✅ Tool registry and entity manager initialized")
+            # Simplified initialization without entity manager
+            logger.info("✅ Tool registry initialized for 5-agent architecture")
         except Exception as e:
             logger.error(f"❌ Failed to initialize tool registry: {e}")
             raise ConfigurationError(f"Failed to initialize tool registry: {e!s}")
 
     def _initialize_agents(self):
-        """Initialize all agents with entity-specific validation."""
+        """Initialize agents with clean configuration."""
         try:
-            # Get enabled agent configurations
-            enabled_configs = get_enabled_agent_configs()
-
-            for role, config in enabled_configs.items():
+            # Create agents for each role using the new clean system
+            agent_roles = [
+                AgentRole.MESSAGE_PROCESSOR,
+                AgentRole.HELP_ASSISTANT,
+                AgentRole.PLAYER_COORDINATOR,
+                AgentRole.TEAM_ADMINISTRATOR,
+                AgentRole.SQUAD_SELECTOR
+            ]
+            
+            for role in agent_roles:
                 try:
-                    # Create entity-specific agent
-                    agent = create_entity_specific_agent(
-                        team_id=self.team_id,
-                        role=role,
-                        llm=self.llm,
-                        tool_registry=self.tool_registry,
-                        team_memory=self.team_memory,
-                        config=config,
-                        entity_type=config.primary_entity_type,
-                    )
-
+                    logger.info(f"[TEAM INIT] Creating agent for role: {role}")
+                    
+                    # Create agent using ConfigurableAgent directly
+                    agent = ConfigurableAgent(role, self.team_id)
+                    
                     self.agents[role] = agent
-                    logger.info(
-                        f"✅ Created entity-specific agent for role: {role.value} (entity_type: {config.primary_entity_type.value if config.primary_entity_type else 'None'})"
-                    )
+                    logger.info(f"[TEAM INIT] ✅ Created agent for role: {role}")
 
                 except Exception as e:
-                    logger.error(f"❌ Failed to create agent for role {role.value}: {e}")
-                    # Continue with other agents instead of failing completely
-                    continue
+                    logger.error(f"[TEAM INIT] ❌ Failed to create agent for role {role}: {e}")
+                    raise AgentInitializationError(role.value, f"Failed to create agent for role {role}: {e}")
 
-            logger.info(f"✅ Initialized {len(self.agents)} agents with entity-specific validation")
+            logger.info(f"[TEAM INIT] ✅ Created {len(self.agents)} agents")
 
         except Exception as e:
-            logger.error(f"❌ Failed to initialize agents: {e}")
-            raise AgentInitializationError(f"Failed to initialize agents: {e!s}")
+            logger.error(f"[TEAM INIT] ❌ Failed to initialize agents: {e}")
+            raise AgentInitializationError("TeamManagementSystem", f"Failed to initialize agents: {e}")
 
     def _create_crew(self):
-        """Create the CrewAI crew with entity-aware agents."""
+        """Create the CrewAI crew with clean configuration."""
         try:
-            # Create crew with all available agents
-            crew_agents = [agent.crew_agent for agent in self.agents.values()]
+            # Create crew with all available agents - extract the crew_agent from each ConfigurableAgent
+            crew_agents = [agent.crew_agent for agent in self.agents.values() if hasattr(agent, 'crew_agent')]
 
             if not crew_agents:
-                raise AgentInitializationError("No agents available for crew creation")
+                raise AgentInitializationError("TeamManagementSystem", "No agents available for crew creation")
 
             # Get verbose setting from environment
-            from kickai.core.settings import get_settings
-
             settings = get_settings()
-            verbose_mode = settings.verbose_logging or settings.is_development
+            verbose_mode = settings.verbose_logging or settings.debug
 
             # Import Process enum for CrewAI
             from crewai import Process
 
-            # Memory configuration for CrewAI - compatibility resolved
-            # CrewAI v0.150.0+ has improved memory support with multiple providers
-            memory_enabled = settings.crewai_memory_enabled  # Use setting-based memory enablement
-
-            # Memory is disabled for all providers to ensure compatibility with Ollama
-            memory_enabled = False
-            memory_config = None
-            logger.info("🧠 Crew memory disabled for Ollama compatibility")
-
             self.crew = Crew(
                 agents=crew_agents,
                 tasks=[],
-                process=Process.sequential,  # Required: must be sequential or hierarchical
-                verbose=verbose_mode,  # Use environment-based verbose setting
-                memory=memory_enabled,  # Memory enabled - CrewAI compatibility resolved
-                memory_config=memory_config,  # Use Google Gemini for embeddings
+                process=Process.sequential,
+                verbose=verbose_mode,
+                memory=False,  # Simplified - no memory for now
             )
 
-            logger.info(f"✅ Created crew with {len(crew_agents)} entity-aware agents")
+            logger.info(f"✅ Created crew with {len(crew_agents)} agents")
 
         except Exception as e:
             logger.error(f"❌ Failed to create crew: {e}")
-            raise AgentInitializationError(f"Failed to create crew: {e!s}")
+            raise AgentInitializationError("TeamManagementSystem", f"Failed to create crew: {e}")
 
     def _wrap_llm_with_error_handling(self, llm):
         """Wrap LLM with robust error handling for CrewAI."""
@@ -223,15 +213,16 @@ class TeamManagementSystem:
         """Get a summary of all agents with their entity types."""
         summary = {}
         for role, agent in self.agents.items():
-            config = get_agent_config(role)
+            context = {"team_id": self.team_id}
+            config = get_agent_config(role, context)
             summary[role.value] = {
                 "role": role.value,
                 "goal": config.goal if config else "Unknown",
-                "entity_types": [et.value for et in config.entity_types] if config else [],
-                "primary_entity_type": config.primary_entity_type.value
+                "entity_types": config.entity_types if config else [],
+                "primary_entity_type": config.primary_entity_type
                 if config and config.primary_entity_type
                 else None,
-                "tools_count": len(agent.tools),
+                "tools_count": len(agent.crew_agent.tools) if hasattr(agent.crew_agent, 'tools') else 0,
                 "enabled": config.enabled if config else False,
             }
         return summary
@@ -253,7 +244,7 @@ class TeamManagementSystem:
             },
         }
 
-    def get_agent(self, role: AgentRole) -> ConfigurableAgent | None:
+    def get_agent(self, role: AgentRole) -> Optional[ConfigurableAgent]:
         """Get a specific agent by role."""
         return self.agents.get(role)
 
@@ -304,47 +295,9 @@ class TeamManagementSystem:
                 execution_context["memory_context"] = memory_context
                 logger.info(f"🤖 TEAM MANAGEMENT: Added memory context for user {user_id}")
 
-            # Initialize orchestration pipeline if not already done
-            if not hasattr(self, "_orchestration_pipeline"):
-                logger.info("🤖 TEAM MANAGEMENT: Creating orchestration pipeline")
-                try:
-                    from kickai.agents.simplified_orchestration import (
-                        SimplifiedOrchestrationPipeline,
-                    )
-
-                    self._orchestration_pipeline = SimplifiedOrchestrationPipeline(llm=self.llm)
-                    logger.info("🤖 ORCHESTRATION: Initialized orchestration pipeline")
-                except Exception as e:
-                    logger.error(
-                        f"🤖 TEAM MANAGEMENT: Failed to create orchestration pipeline: {e}",
-                        exc_info=True,
-                    )
-                    # Fallback to basic crew
-                    logger.info("🤖 TEAM MANAGEMENT: Falling back to basic crew execution")
-                    return await self._execute_with_basic_crew(task_description, execution_context)
-            else:
-                logger.info("🤖 TEAM MANAGEMENT: Using existing orchestration pipeline")
-
-            # Enhanced logging for debugging
-            is_help_command = task_description.lower().strip() == "/help"
-            is_myinfo_command = task_description.lower().strip() == "/myinfo"
-
-            if is_myinfo_command:
-                logger.info("🔍 MYINFO FLOW STEP 7: About to call orchestration pipeline")
-                logger.info(f"🔍 MYINFO FLOW STEP 7a: task_description='{task_description}'")
-                logger.info(f"🔍 MYINFO FLOW STEP 7b: execution_context={execution_context}")
-
-            # Execute task through orchestration pipeline
-            logger.info("🤖 TEAM MANAGEMENT: Calling orchestration pipeline.execute_task")
-            result = await self._orchestration_pipeline.execute_task(
-                task_description=task_description,
-                execution_context=execution_context,
-                available_agents=self.agents,
-            )
-
-            if is_myinfo_command:
-                logger.info("🔍 MYINFO FLOW STEP 8: Orchestration pipeline completed")
-                logger.info(f"🔍 MYINFO FLOW STEP 8a: result={result}")
+            # Use basic crew execution directly
+            logger.info("🤖 TEAM MANAGEMENT: Using basic crew execution")
+            return await self._execute_with_basic_crew(task_description, execution_context)
 
             # Store conversation in memory for context persistence
             if user_id and hasattr(self, "team_memory"):
@@ -386,24 +339,51 @@ class TeamManagementSystem:
                 # Extract command name from task description for proper routing
                 command_name = task_description.split()[0] if task_description else ""
 
-                # Get the appropriate agent for this task using command name
-                selected_agent_role = self.entity_manager.route_operation_to_agent(
-                    command_name, execution_context.get("parameters", {}), self.agents
-                )
+                # Simple routing logic for /help command
+                selected_agent_role = None
+                if command_name.lower() in ['/help', 'help']:
+                    selected_agent_role = AgentRole.HELP_ASSISTANT
+                else:
+                    # Default to message processor for other commands
+                    selected_agent_role = AgentRole.MESSAGE_PROCESSOR
 
                 if selected_agent_role and selected_agent_role in self.agents:
                     agent = self.agents[selected_agent_role]
 
-                    # Create a task for the selected agent
+                    # Create task description with embedded context (CrewAI native approach)
+                    team_id = execution_context.get('team_id', 'unknown')
+                    telegram_id = execution_context.get('telegram_id', 'unknown')
+                    username = execution_context.get('username', 'unknown')
+                    chat_type = execution_context.get('chat_type', 'unknown')
+                    
+                    # Format task description with context parameters for tool calling
+                    structured_description = f"""
+                    User Request: {task_description}
+                    
+                    Context Information:
+                    - Team ID: {team_id}
+                    - User Telegram ID: {telegram_id} 
+                    - Username: {username}
+                    - Chat Type: {chat_type}
+                    
+                    Instructions: Use the provided context information to call tools with the appropriate parameters.
+                    Pass team_id, telegram_id, username, and chat_type as direct parameters to tools that require them.
+                    """
+                    
+                    # Create a task using CrewAI native approach
                     task = Task(
-                        description=task_description,
+                        description=structured_description,
                         agent=agent.crew_agent,
                         expected_output="A clear and helpful response to the user's request",
                     )
+                    
+                    logger.debug(f"✅ Task created with structured description including context")
+                    logger.debug(f"🚀 About to kickoff crew")
 
-                    # Add task to crew and execute
+                    # Add task to crew and execute (no context manager needed)
                     self.crew.tasks = [task]
                     crew_result = self.crew.kickoff()
+                    logger.debug(f"✅ Crew kickoff completed")
 
                     # Convert CrewOutput to string properly
                     if hasattr(crew_result, "raw") and hasattr(crew_result.raw, "output"):
@@ -471,7 +451,7 @@ def create_team_management_system(team_id: str) -> TeamManagementSystem:
     return TeamManagementSystem(team_id)
 
 
-def get_agent(team_id: str, role: AgentRole) -> ConfigurableAgent | None:
+def get_agent(team_id: str, role: AgentRole) -> Optional[ConfigurableAgent]:
     """Get a specific agent for a team."""
     system = TeamManagementSystem(team_id)
     return system.get_agent(role)
@@ -481,3 +461,119 @@ def execute_task(team_id: str, task_description: str, execution_context: dict[st
     """Execute a task for a team."""
     system = TeamManagementSystem(team_id)
     return asyncio.run(system.execute_task(task_description, execution_context))
+
+
+"""
+CrewAI agents for KICKAI system.
+
+This module provides agent creation and management using the clean configuration system.
+"""
+
+import logging
+from typing import Any, Dict, Optional
+
+from kickai.core.config import get_settings, AIProvider
+from kickai.core.enums import AgentRole
+from kickai.utils.llm_factory_simple import SimpleLLMFactory
+from kickai.agents.tool_registry import ToolRegistry
+
+logger = logging.getLogger(__name__)
+
+
+class CrewAgentManager:
+    """Manager for CrewAI agents using clean configuration."""
+
+    def __init__(self, tool_registry: ToolRegistry):
+        self.tool_registry = tool_registry
+        self.settings = get_settings()
+        self.agents: Dict[AgentRole, Any] = {}
+
+    def create_agent(self, role: AgentRole) -> Any:
+        """
+        Create a CrewAI agent for a specific role.
+        
+        Args:
+            role: The agent role
+            
+        Returns:
+            CrewAI agent instance
+        """
+        try:
+            # Get temperature based on agent role
+            temperature = self._get_temperature_for_role(role)
+            
+            # Create LLM using the simple factory
+            llm = SimpleLLMFactory.create_llm(
+                model_name=self.settings.ai_model_name,
+                temperature=temperature
+            )
+            
+            # Create CrewAI agent
+            from crewai import Agent
+            
+            agent = Agent(
+                role=role.value,
+                goal=self._get_goal_for_role(role),
+                backstory=self._get_backstory_for_role(role),
+                llm=llm,
+                verbose=True,
+                allow_delegation=False
+            )
+            
+            logger.info(f"🤖 Created {role.value} agent with {self.settings.ai_provider.value}:{self.settings.ai_model_name} (temp={temperature})")
+            
+            self.agents[role] = agent
+            return agent
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to create agent for {role.value}: {e}")
+            raise RuntimeError(
+                f"Failed to create agent for {role.value}. "
+                f"Error: {e}. "
+                f"Please ensure {self.settings.ai_provider.value} LLM is properly configured."
+            )
+
+    def _get_temperature_for_role(self, role: AgentRole) -> float:
+        """Get the appropriate temperature for an agent role."""
+        # Data-critical agents (anti-hallucination priority)
+        if role in [AgentRole.PLAYER_COORDINATOR, AgentRole.MESSAGE_PROCESSOR, AgentRole.HELP_ASSISTANT]:
+            return self.settings.ai_temperature_tools
+        
+        # Administrative agents
+        elif role == AgentRole.TEAM_ADMINISTRATOR:
+            return self.settings.ai_temperature
+        
+        # Creative/analytical agents
+        elif role == AgentRole.SQUAD_SELECTOR:
+            return self.settings.ai_temperature_creative
+        
+        # Default
+        else:
+            return self.settings.ai_temperature
+
+    def _get_goal_for_role(self, role: AgentRole) -> str:
+        """Get the goal for an agent role."""
+        goals = {
+            AgentRole.MESSAGE_PROCESSOR: "Process and route user messages to appropriate agents",
+            AgentRole.HELP_ASSISTANT: "Provide helpful guidance and answer user questions",
+            AgentRole.PLAYER_COORDINATOR: "Manage player registration, information, and coordination",
+            AgentRole.TEAM_ADMINISTRATOR: "Handle team member management and administrative tasks",
+            AgentRole.SQUAD_SELECTOR: "Manage squad selection and match-related activities"
+        }
+        return goals.get(role, "Assist users with their requests")
+
+    def _get_backstory_for_role(self, role: AgentRole) -> str:
+        """Get the backstory for an agent role."""
+        backstories = {
+            AgentRole.MESSAGE_PROCESSOR: "You are the primary interface for the KICKAI system, responsible for understanding user intent and routing requests appropriately.",
+            AgentRole.HELP_ASSISTANT: "You are a helpful assistant that provides guidance and answers questions about the KICKAI system and its features.",
+            AgentRole.PLAYER_COORDINATOR: "You specialize in player management, registration, and coordination. You ensure accurate player data and smooth onboarding processes.",
+            AgentRole.TEAM_ADMINISTRATOR: "You handle team member management and administrative tasks. You ensure proper team structure and member coordination.",
+            AgentRole.SQUAD_SELECTOR: "You manage squad selection and match-related activities. You help with availability tracking and team formation."
+        }
+        return backstories.get(role, "You are a helpful AI assistant for the KICKAI system.")
+
+
+def get_crew_agent_manager(tool_registry: ToolRegistry) -> CrewAgentManager:
+    """Get a CrewAI agent manager instance."""
+    return CrewAgentManager(tool_registry)
