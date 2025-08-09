@@ -6,69 +6,70 @@ the entire application.
 """
 
 from dataclasses import dataclass
+
 from kickai.core.enums import ChatType
 
 
 @dataclass(frozen=True)
 class SystemConstants:
     """System-wide configuration constants."""
-    
+
     # Application Information
     APP_NAME: str = "KICKAI"
     APP_VERSION: str = "3.1"
     BOT_VERSION: str = "2.0.0"
     APP_DESCRIPTION: str = "AI-Powered Football Team Management System"
-    
+
     # System Limits
     MAX_TEAMS_PER_INSTANCE: int = 100
     MAX_PLAYERS_PER_TEAM: int = 50
     MAX_TEAM_MEMBERS_PER_TEAM: int = 20
     MAX_MESSAGE_LENGTH: int = 4096
     MAX_COMMAND_ARGUMENTS: int = 10
-    
+
     # Cache Settings
     DEFAULT_CACHE_TTL_SECONDS: int = 300  # 5 minutes
     LONG_CACHE_TTL_SECONDS: int = 3600    # 1 hour
     SHORT_CACHE_TTL_SECONDS: int = 60     # 1 minute
-    
+
     # Pagination
     DEFAULT_PAGE_SIZE: int = 10
     MAX_PAGE_SIZE: int = 100
     MIN_PAGE_SIZE: int = 1
-    
+
     # File Size Limits
     MAX_FILE_SIZE_MB: int = 10
     MAX_IMAGE_SIZE_MB: int = 5
     MAX_DOCUMENT_SIZE_MB: int = 20
-    
+
     # Rate Limiting
     DEFAULT_RATE_LIMIT_PER_MINUTE: int = 60
     ADMIN_RATE_LIMIT_PER_MINUTE: int = 120
     PUBLIC_RATE_LIMIT_PER_MINUTE: int = 30
-    
+
     # Session Management
     SESSION_TIMEOUT_MINUTES: int = 60
     MAX_CONCURRENT_SESSIONS: int = 5
     SESSION_CLEANUP_INTERVAL_MINUTES: int = 15
-    
+
     # Security
     MIN_PASSWORD_LENGTH: int = 8
     MAX_PASSWORD_LENGTH: int = 128
     PASSWORD_HASH_ROUNDS: int = 12
     MAX_LOGIN_ATTEMPTS: int = 5
     LOCKOUT_DURATION_MINUTES: int = 15
-    
+
     # Monitoring
     HEALTH_CHECK_INTERVAL_SECONDS: int = 30
     METRICS_COLLECTION_INTERVAL_SECONDS: int = 60
     LOG_RETENTION_DAYS: int = 30
-    
+
     # Feature Flags
     ENABLE_ANALYTICS: bool = True
     ENABLE_CACHING: bool = True
     ENABLE_RATE_LIMITING: bool = True
     ENABLE_AUDIT_LOGGING: bool = True
-    
+
     @classmethod
     def get_max_retries_for_operation(cls, operation_type: str) -> int:
         """Get max retries for specific operation types."""
@@ -80,7 +81,7 @@ class SystemConstants:
             "analytics": 1,
         }
         return retry_map.get(operation_type, 1)
-    
+
     @classmethod
     def get_timeout_for_operation(cls, operation_type: str) -> int:
         """Get timeout in seconds for specific operation types."""

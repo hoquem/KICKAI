@@ -1,3 +1,4 @@
+from typing import List, Optional
 #!/usr/bin/env python3
 """
 Phone Number Utilities
@@ -10,7 +11,7 @@ import phonenumbers
 from loguru import logger
 
 
-def normalize_phone(phone: str, region: str = "GB") -> str | None:
+def normalize_phone(phone: str, region: str = "GB") -> Optional[str]:
     """
     Normalize a phone number to E.164 format.
 
@@ -47,7 +48,7 @@ def normalize_phone(phone: str, region: str = "GB") -> str | None:
         return None
 
 
-def get_phone_variants(phone: str, region: str = "GB") -> list[str]:
+def get_phone_variants(phone: str, region: str = "GB") -> List[str]:
     """
     Get all possible variants of a phone number for matching.
 
@@ -96,7 +97,7 @@ def is_valid_phone(phone: str, region: str = "GB") -> bool:
     return normalize_phone(phone, region) is not None
 
 
-def format_phone_display(phone: str, region: str = "GB") -> str | None:
+def format_phone_display(phone: str, region: str = "GB") -> Optional[str]:
     """
     Format a phone number for display (national format).
 
@@ -126,7 +127,7 @@ def format_phone_display(phone: str, region: str = "GB") -> str | None:
         return None
 
 
-def get_phone_info(phone: str, region: str = "GB") -> dict | None:
+def get_phone_info(phone: str, region: str = "GB") -> Optional[dict]:
     """
     Get detailed information about a phone number.
 

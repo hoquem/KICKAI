@@ -66,7 +66,7 @@ class TestUser:
     last_name: str
     role: str
     phone_number: str
-    telegram_id: str
+    telegram_id: int
 
 
 class TestDataFactory:
@@ -86,7 +86,7 @@ class TestDataFactory:
             last_name=f"{self.user_counter}",
             role=role,
             phone_number=f"+1555{self.user_counter:07d}",
-            telegram_id=str(self.user_counter)
+            telegram_id=self.user_counter
         )
     
     def create_test_users(self, count: int, roles: List[str] = None) -> List[TestUser]:

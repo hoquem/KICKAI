@@ -10,6 +10,7 @@ from loguru import logger
 from kickai.core.command_registry import CommandType, PermissionLevel, command
 from kickai.core.context_types import create_context_from_telegram_message
 from kickai.core.enums import ChatType
+from typing import List, Optional
 
 # ============================================================================
 # SHARED COMMANDS
@@ -262,7 +263,7 @@ async def handle_update_command_wrapper(update, context, **kwargs):
 
         # Create user context
         user_context = create_context_from_telegram_message(
-            user_id=str(update.effective_user.id),
+            telegram_id=str(update.effective_user.id),
             team_id=kwargs.get("team_id", "UNKNOWN"),
             chat_id=str(update.effective_chat.id),
             chat_type=kwargs.get("chat_type", ChatType.MAIN),

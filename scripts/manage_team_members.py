@@ -400,7 +400,7 @@ class TeamMemberManager:
             await self.current_bot.send_message(
                 chat_id=self.current_team.leadership_chat_id,
                 text=message,
-                parse_mode='Markdown'
+                parse_mode=None  # Plain text only
             )
             
             print("✅ Team members list sent to leadership chat.")

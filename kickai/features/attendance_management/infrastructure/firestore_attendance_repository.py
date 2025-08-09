@@ -1,3 +1,4 @@
+from typing import Optional
 import logging
 from datetime import datetime
 
@@ -38,7 +39,7 @@ class FirestoreAttendanceRepository(AttendanceRepositoryInterface):
             logger.error(f"Failed to create attendance record: {e}")
             raise
 
-    async def get_by_id(self, attendance_id: str) -> Attendance | None:
+    async def get_by_id(self, attendance_id: str) -> Optional[Attendance]:
         """Get attendance record by ID."""
         try:
             # Extract team_id from attendance_id format: {team_id}_{match_id}_{player_id}
@@ -101,7 +102,7 @@ class FirestoreAttendanceRepository(AttendanceRepositoryInterface):
 
     async def get_by_player_and_match(
         self, player_id: str, match_id: str, team_id: str
-    ) -> Attendance | None:
+    ) -> Optional[Attendance]:
         """Get attendance record for a specific player and match."""
         try:
             attendance_id = f"{team_id}_{match_id}_{player_id}"
@@ -162,7 +163,7 @@ class FirestoreAttendanceRepository(AttendanceRepositoryInterface):
                 last_updated=datetime.utcnow().isoformat(),
             )
 
-    async def get_player_stats(self, player_id: str, team_id: str, year: int | None = None) -> dict:
+    async def get_player_stats(self, player_id: str, team_id: str, year: Optional[int] = None) -> dict:
         """Get attendance statistics for a player."""
         try:
             attendance_list = await self.get_by_player(player_id, team_id)

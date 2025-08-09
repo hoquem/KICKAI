@@ -18,7 +18,7 @@ from typing import Optional
 import nest_asyncio
 nest_asyncio.apply()
 
-from kickai.core.settings import initialize_settings, get_settings
+from kickai.core.config import get_settings
 from kickai.database.firebase_client import initialize_firebase_client
 from kickai.features.team_administration.domain.services.multi_bot_manager import MultiBotManager
 from kickai.core.dependency_container import get_service, get_singleton, ensure_container_initialized
@@ -98,6 +98,18 @@ def setup_environment():
         
         # Initialize Firebase
         initialize_firebase_client(config)
+        
+        # Initialize command registry early to ensure it's available
+        logger.info("🔧 Initializing command registry...")
+        try:
+            from kickai.core.command_registry_initializer import initialize_command_registry
+            command_registry = initialize_command_registry()
+            commands = command_registry.list_all_commands()
+            logger.info(f"✅ Command registry initialized with {len(commands)} commands")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize command registry: {e}")
+            logger.error("🚫 Cannot start bot without command registry")
+            raise RuntimeError(f"Command registry initialization failed: {e}")
         logger.info("✅ Firebase client initialized")
         
         # Ensure dependency container is initialized with Firebase client

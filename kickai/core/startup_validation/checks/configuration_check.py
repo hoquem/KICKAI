@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Any
 
-from kickai.core.settings import get_settings
+from kickai.core.config import get_settings
 
 from ..reporting import CheckCategory, CheckResult, CheckStatus
 from .base_check import BaseCheck
@@ -30,11 +30,17 @@ class ConfigurationCheck(BaseCheck):
             config = get_settings()
 
             # Validate essential configuration
-            required_fields = ["ai_provider", "google_api_key", "ai_model_name", "ai_max_retries"]
+            required_fields = ["ai_provider", "ai_max_retries"]
             missing_fields = []
             for field in required_fields:
                 if not hasattr(config, field) or getattr(config, field) is None:
                     missing_fields.append(field)
+
+            # Model requirement: either legacy name or simple/advanced pair
+            has_legacy = bool(getattr(config, "ai_model_name", None))
+            has_pair = bool(getattr(config, "ai_model_simple", None)) and bool(getattr(config, "ai_model_advanced", None))
+            if not (has_legacy or has_pair):
+                missing_fields.append("AI model configuration (AI_MODEL_SIMPLE & AI_MODEL_ADVANCED or legacy AI_MODEL_NAME)")
 
             # REMOVED: default_team_id validation - team context should come from execution context
 
@@ -51,7 +57,7 @@ class ConfigurationCheck(BaseCheck):
             # Get actual provider from environment
             import os
 
-            provider_str = os.getenv("AI_PROVIDER", "gemini")
+            provider_str = os.getenv("AI_PROVIDER", "groq")
 
             return CheckResult(
                 name=self.name,

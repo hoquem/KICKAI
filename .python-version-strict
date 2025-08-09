@@ -1,0 +1,4 @@
+3.11.13
+# This file enforces Python 3.11.13 usage for KICKAI project
+# Claude Code and other tools should respect this version requirement
+# DO NOT USE Python 3.9 - it will cause compatibility issues

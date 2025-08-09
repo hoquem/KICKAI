@@ -22,7 +22,7 @@ from kickai.core.dependency_container import (
     get_service,
 )
 from kickai.core.logging_config import logger
-from kickai.core.settings import get_settings, initialize_settings
+from kickai.core.config import get_settings
 from kickai.database.firebase_client import initialize_firebase_client
 from kickai.features.team_administration.domain.services.multi_bot_manager import MultiBotManager
 from kickai.features.team_administration.domain.services.team_service import TeamService
@@ -152,39 +152,51 @@ def setup_environment():
 async def run_system_validation():
     """Run comprehensive system validation before starting bots."""
     try:
-        logger.info("🔍 Running full system validation...")
+        logger.info("🔍 Running comprehensive system validation...")
 
-        # Get team_id from Firestore
-        team_id = await get_team_id_from_firestore()
+        # Use our new synchronous comprehensive validation system
+        from kickai.core.startup_validation.comprehensive_validator import (
+            ComprehensiveStartupValidator,
+            validate_system_startup
+        )
+
+        # Run the comprehensive validation
+        result = validate_system_startup()
         
-        # Use the centralized startup validation function
-        from kickai.core.startup_validation import run_startup_validation
-
-        report = await run_startup_validation(team_id=team_id)
-
         # Check if system is healthy
-        if not report.is_healthy():
+        if not result.success:
             logger.error("❌ System validation failed! Critical issues found:")
-            for failure in report.critical_failures:
-                logger.error(f"   • {failure}")
+            logger.error(f"   • Overall status: FAILED")
+            logger.error(f"   • Total checks: {result.total_checks}")
+            logger.error(f"   • Passed: {result.passed_checks}")
+            logger.error(f"   • Failed: {result.failed_checks}")
+            
+            if result.critical_failures:
+                for failure in result.critical_failures:
+                    logger.error(f"   • Critical: {failure}")
+            
+            if result.warnings:
+                for warning in result.warnings:
+                    logger.error(f"   • Warning: {warning}")
 
             logger.error("🚫 Cannot start bots due to critical validation failures")
-            logger.error("🔧 Please run 'python scripts/run_full_system_validation.py' for detailed diagnostics")
+            logger.error("🔧 Please run 'python run_comprehensive_validation.py' for detailed diagnostics")
             return False
 
-        if report.warnings:
+        if result.warnings:
             logger.warning("⚠️ System validation completed with warnings:")
-            for warning in report.warnings:
+            for warning in result.warnings:
                 logger.warning(f"   • {warning}")
             logger.info("💡 Consider addressing warnings for optimal performance")
 
         logger.info("✅ System validation passed! All critical components are healthy")
+        logger.info(f"📊 Validation Summary: {result.passed_checks}/{result.total_checks} checks passed")
         logger.info("🎉 No stub classes detected - all real implementations are working")
         return True
 
     except Exception as e:
         logger.error(f"❌ System validation failed with error: {e}")
-        logger.error("🔧 Please run 'python scripts/run_full_system_validation.py' for detailed diagnostics")
+        logger.error("🔧 Please run 'python run_comprehensive_validation.py' for detailed diagnostics")
         return False
 
 
@@ -236,6 +248,18 @@ async def main():
 
         # Set up environment
         config = setup_environment()
+        
+        # Initialize command registry early to ensure it's available
+        logger.info("🔧 Initializing command registry...")
+        try:
+            from kickai.core.command_registry_initializer import initialize_command_registry
+            command_registry = initialize_command_registry()
+            commands = command_registry.list_all_commands()
+            logger.info(f"✅ Command registry initialized with {len(commands)} commands")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize command registry: {e}")
+            logger.error("🚫 Cannot start bot without command registry")
+            return 1
 
         # Run system validation
         validation_success = await run_system_validation()

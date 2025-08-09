@@ -1,3 +1,4 @@
+from typing import Optional, Union
 #!/usr/bin/env python3
 """
 Player Linking Service
@@ -26,8 +27,8 @@ class PlayerLinkingService:
         self.container = get_container()
 
     async def link_telegram_user_by_phone(
-        self, phone: str, telegram_id: str, username: str = None
-    ) -> Player | None:
+        self, phone: str, telegram_id: Union[str, int], username: str = None
+    ) -> Optional[Player]:
         """
         Link a Telegram user to an existing player record using phone number.
 
@@ -70,7 +71,11 @@ class PlayerLinkingService:
 
             # Check if player already has telegram_id
             if existing_player.telegram_id:
-                if existing_player.telegram_id == str(telegram_id):
+                # Compare using normalized integer values
+                existing_telegram_id_int = int(existing_player.telegram_id) if existing_player.telegram_id else None
+                input_telegram_id_int = int(telegram_id) if telegram_id else None
+                
+                if existing_telegram_id_int == input_telegram_id_int:
                     logger.info(f"✅ Player already linked to telegram_id={telegram_id}")
                     return existing_player
                 else:
@@ -101,7 +106,7 @@ class PlayerLinkingService:
 
     async def _update_player_telegram_info(
         self, player_id: str, telegram_id: str, username: str = None
-    ) -> Player | None:
+    ) -> Optional[Player]:
         """Update player record with Telegram information."""
         try:
             # Get database client
@@ -229,10 +234,10 @@ class PlayerLinkingService:
         if not isinstance(telegram_id, str):
             logger.warning(f"⚠️ Invalid telegram_id type: {type(telegram_id)}, expected str")
             telegram_id = str(telegram_id) if telegram_id else ""
-        
+
         # Sanitize telegram_id
         telegram_id = telegram_id.strip()
-        
+
         pending_count = len(await self.get_pending_players_without_telegram_id())
 
         if pending_count == 0:
@@ -276,7 +281,7 @@ Contact the team admin in the leadership chat."""
             from kickai.features.player_registration.domain.services.player_service import (
                 PlayerService,
             )
-            
+
             try:
                 return self.container.get_service(PlayerService)
             except RuntimeError as e:

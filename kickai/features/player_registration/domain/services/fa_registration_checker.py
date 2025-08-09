@@ -7,7 +7,7 @@ This module provides functionality to check FA registration status.
 
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, Optional
 
 from ..repositories.player_repository_interface import PlayerRepositoryInterface
 

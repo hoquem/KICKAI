@@ -26,7 +26,6 @@ def test_feature_initialization():
         'team_administration',
         'match_management',
         'attendance_management',
-        'payment_management',
         'health_monitoring',
         'communication',
         'system_infrastructure'
@@ -55,7 +54,6 @@ def test_feature_shutdown():
         'team_administration',
         'match_management',
         'attendance_management',
-        'payment_management',
         'health_monitoring',
         'communication',
         'system_infrastructure'
@@ -83,7 +81,7 @@ def test_service_interfaces():
         ('features.player_registration.domain.services.player_service', 'PlayerService'),
         ('features.team_administration.domain.services.team_service', 'TeamService'),
         ('features.match_management.domain.services.match_service', 'MatchService'),
-        ('features.payment_management.domain.services.payment_service', 'PaymentService'),
+        ('features.attendance_management.domain.services.attendance_service', 'AttendanceService'),
     ]
     
     for module_path, class_name in services_to_test:
@@ -104,7 +102,7 @@ def test_repository_interfaces():
         ('features.player_registration.domain.repositories.player_repository_interface', 'PlayerRepositoryInterface'),
         ('features.team_administration.domain.repositories.team_repository_interface', 'TeamRepositoryInterface'),
         ('features.match_management.domain.repositories.match_repository_interface', 'MatchRepositoryInterface'),
-        ('features.payment_management.domain.repositories.payment_repository_interface', 'PaymentRepositoryInterface'),
+        ('features.attendance_management.domain.repositories.attendance_repository_interface', 'AttendanceRepositoryInterface'),
     ]
     
     for module_path, interface_name in repositories_to_test:
@@ -197,7 +195,7 @@ def generate_feature_report():
         'team_administration',
         'match_management',
         'attendance_management',
-        'payment_management',
+        'attendance_management',
         'health_monitoring',
         'communication',
         'system_infrastructure'

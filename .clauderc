@@ -1,0 +1,23 @@
+# Claude Code Configuration for KICKAI Project
+# This file tells Claude Code to always use Python 3.11 for this project
+
+[python]
+version = "3.11"
+interpreter = "./venv311/bin/python"
+virtualenv = "./venv311"
+
+[environment]
+PYTHONPATH = "."
+VIRTUAL_ENV = "./venv311"
+
+[commands]
+setup = "make setup-dev"
+dev = "make dev" 
+test = "make test"
+lint = "make lint"
+activate = "source venv311/bin/activate"
+
+[requirements]
+system_python = "python3.11"
+virtual_env = "venv311"
+strict_version = true

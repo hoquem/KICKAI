@@ -7,7 +7,7 @@ It follows the single source of truth principle and ensures clean, loosely coupl
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 from loguru import logger
 
@@ -101,7 +101,7 @@ class RegistryManager:
         """Get the tool registry."""
         return self.get_registry(RegistryType.TOOL)
 
-    def get_registry_info(self, registry_type: RegistryType) -> RegistryInfo | None:
+    def get_registry_info(self, registry_type: RegistryType) -> Optional[RegistryInfo]:
         """Get information about a specific registry."""
         registry = self.get_registry(registry_type)
         if not registry:
@@ -345,7 +345,7 @@ class RegistryManager:
 
         return health_results
 
-    def export_registry_data(self, registry_type: RegistryType | None = None) -> dict[str, Any]:
+    def export_registry_data(self, registry_type: Optional[RegistryType] = None) -> dict[str, Any]:
         """
         Export registry data for backup or analysis.
 
@@ -401,7 +401,7 @@ class RegistryManager:
 
 
 # Global registry manager instance
-_registry_manager: RegistryManager | None = None
+_registry_manager: Optional[RegistryManager] = None
 
 
 def get_registry_manager() -> RegistryManager:

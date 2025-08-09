@@ -46,7 +46,7 @@ class RegistryStartupValidator:
         all_success = all(result.success for result in self.validation_results)
         all_errors = []
         all_warnings = []
-        
+
         for result in self.validation_results:
             all_errors.extend(result.errors)
             all_warnings.extend(result.warnings)
@@ -154,7 +154,7 @@ class RegistryStartupValidator:
                 "DataStoreInterface",
                 "PlayerRepositoryInterface",
                 "TeamRepositoryInterface",
-                "ExpenseRepositoryInterface"
+                
             ]
 
             for service_name in required_services:

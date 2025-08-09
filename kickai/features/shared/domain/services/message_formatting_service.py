@@ -8,7 +8,7 @@ the same design patterns and are properly formatted for Telegram.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 

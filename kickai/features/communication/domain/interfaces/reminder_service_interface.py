@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 from kickai.features.player_registration.domain.entities.player import Player
+from typing import List, Tuple
 
 
 class IReminderService(ABC):
@@ -17,7 +18,7 @@ class IReminderService(ABC):
         pass
 
     @abstractmethod
-    async def send_manual_reminder(self, player_id: str, admin_id: str) -> tuple[bool, str]:
+    async def send_manual_reminder(self, player_id: str, admin_id: str) -> Tuple[bool, str]:
         """Send a manual reminder to a player (admin triggered)."""
         pass
 

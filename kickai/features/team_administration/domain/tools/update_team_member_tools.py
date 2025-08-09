@@ -15,6 +15,7 @@ from kickai.core.constants import get_team_members_collection
 from kickai.core.dependency_container import get_container
 from kickai.database.firebase_client import FirebaseClient
 from kickai.utils.crewai_tool_decorator import tool
+from typing import List, Optional
 
 
 class TeamMemberUpdateValidationError(Exception):
@@ -168,7 +169,7 @@ class TeamMemberUpdateValidator:
             raise TeamMemberUpdateValidationError(f"Unknown field type: {field}")
 
 
-@tool
+@tool("update_team_member_information")
 def update_team_member_information(
     user_id: str, team_id: str, field: str, value: str, username: str = "Unknown"
 ) -> str:
@@ -344,7 +345,7 @@ def update_team_member_information(
         )
 
 
-@tool
+@tool("get_team_member_updatable_fields")
 def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
     """
     Get list of fields that a team member can update with examples and validation rules.
@@ -422,7 +423,7 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
         return "❌ Error retrieving updatable fields. Please try again."
 
 
-@tool
+@tool("validate_team_member_update_request")
 def validate_team_member_update_request(user_id: str, team_id: str, field: str, value: str) -> str:
     """
     Validate a team member update request without actually performing the update.
@@ -485,7 +486,7 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
         return "❌ Validation Error: Please check your input and try again"
 
 
-@tool
+@tool("get_pending_team_member_approval_requests")
 def get_pending_team_member_approval_requests(team_id: str, user_id: str = None) -> str:
     """
     Get pending approval requests for team member updates.

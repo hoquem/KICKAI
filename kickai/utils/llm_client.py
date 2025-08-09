@@ -6,7 +6,7 @@ in the KICKAI system.
 """
 
 import asyncio
-from typing import Any
+from typing import Any, Dict, Optional
 
 from loguru import logger
 
@@ -39,7 +39,7 @@ async def extract_intent(message: str, context: str = "") -> dict[str, Any]:
 class LLMClient:
     """LLM client for natural language processing."""
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         self.config = config or {}
         self._llm_instance = None
         self._initialize_llm()
@@ -48,17 +48,13 @@ class LLMClient:
         """Initialize the LLM instance using the factory pattern."""
         try:
             # Use the new factory method that reads from environment
-            self._llm_instance = LLMFactory.create_from_environment()
+            self._llm_instance = LLMFactory.create_from_settings()
             logger.info(f"✅ LLM initialized successfully: {type(self._llm_instance).__name__}")
 
         except Exception as e:
             logger.warning(f"Failed to initialize LLM: {e}. Using fallback client.")
 
-    def _get_api_key_from_env(self) -> str | None:
-        """Get API key from environment variables."""
-        import os
-
-        return os.getenv("GOOGLE_API_KEY")  # Use GOOGLE_API_KEY consistently
+    
 
     async def extract_intent(self, message: str, context: str = "") -> dict[str, Any]:
         """

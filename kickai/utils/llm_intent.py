@@ -6,12 +6,12 @@ in the KICKAI system.
 """
 
 import re
-from typing import Any
+from typing import Any, Dict, Union
 
 from loguru import logger
 
 
-def extract_intent(message: str, context: str = "") -> dict[str, Any]:
+def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
     """
     Extract intent and entities from a natural language message.
 
@@ -30,20 +30,20 @@ def extract_intent(message: str, context: str = "") -> dict[str, Any]:
         intent_patterns = {
             "get_player_info": [
                 # Pattern for "What's my registration status?" and similar queries
-                r"\b(Union[Union[what, show], Union[tell, get]]|Union[my, me])\b.*\b(Union[Union[phone, number], Union[position, role]]|Union[Union[id, player], Union[info, information]]|Union[Union[status, fa], registration])\b",
-                r"\b(Union[Union[phone, number], Union[position, role]]|Union[Union[id, player], Union[info, information]]|Union[Union[status, fa], registration])\b.*\b(Union[Union[what, is], Union[my, me]])\b",
-                r"\b(am Union[i, are] Union[you, is] my)\b.*\b(Union[Union[fa, registered], Union[eligible, active]]|pending)\b",
-                r"\b(Union[my, me])\b.*\b(Union[Union[phone, number], Union[position, role]]|Union[Union[id, info], information])\b",
+                r"\b(what|show|tell|get|my|me)\b.*\b(phone|number|position|role|id|player|info|information|status|fa|registration)\b",
+                r"\b(phone|number|position|role|id|player|info|information|status|fa|registration)\b.*\b(what|is|my|me)\b",
+                r"\b(am|i|are|you|is|my)\b.*\b(fa|registered|eligible|active|pending)\b",
+                r"\b(my|me)\b.*\b(phone|number|position|role|id|info|information)\b",
                 # Additional patterns for registration status queries
-                r"\b(Union[what, how])\b.*\b(Union[registration, status])\b",
-                r"\b(Union[registration, status])\b.*\b(Union[what, how])\b",
-                r"\b(Union[my, me])\b.*\b(Union[registration, status])\b",
-                r"\b(Union[registration, status])\b.*\b(Union[my, me])\b",
+                r"\b(what|how)\b.*\b(registration|status)\b",
+                r"\b(registration|status)\b.*\b(what|how)\b",
+                r"\b(my|me)\b.*\b(registration|status)\b",
+                r"\b(registration|status)\b.*\b(my|me)\b",
             ],
             "get_help": [
-                r"\b(Union[Union[help, how], what] can Union[Union[you, commands], available])\b",
-                r"\b(how Union[do, what] Union[should, what] does)\b",
-                r"\b(help Union[Union[me, assist], support])\b",
+                r"\b(help|how|what)\b.*\b(you|commands|available)\b",
+                r"\b(how|do|what|should|does)\b",
+                r"\b(help|me|assist|support)\b",
             ],
             "update_profile": [
                 r"\b(update|change|modify|edit)\b.*\b(phone|number|position|role|info|information|profile)\b",
@@ -52,7 +52,7 @@ def extract_intent(message: str, context: str = "") -> dict[str, Any]:
             ],
             "get_team_info": [
                 r"\b(team|players|members|list|show)\b.*\b(all|everyone|everybody)\b",
-                r"\b(how many|how count|total)\b.*\b(players|members|team)\b",
+                r"\b(how|many|count|total)\b.*\b(players|members|team)\b",
                 r"\b(show|list|get)\b.*\b(team|players|members)\b",
             ],
             "filter_players": [
@@ -62,7 +62,7 @@ def extract_intent(message: str, context: str = "") -> dict[str, Any]:
             ],
             "get_team_stats": [
                 r"\b(stats|statistics|numbers|count|total)\b",
-                r"\b(how many|how much)\b.*\b(players|members|active|pending|registered)\b",
+                r"\b(how|many|much)\b.*\b(players|members|active|pending|registered)\b",
                 r"\b(team|overall|summary)\b.*\b(stats|statistics|info|information)\b",
             ],
         }
@@ -83,7 +83,7 @@ def extract_intent(message: str, context: str = "") -> dict[str, Any]:
         return {"intent": "unknown", "entities": {}, "confidence": 0.0}
 
 
-def extract_entities(message: str, intent: str) -> dict[str, Any]:
+def extract_entities(message: str, intent: str) -> Dict[str, Any]:
     """
     Extract entities from the message based on the detected intent.
 
@@ -134,7 +134,7 @@ def extract_entities(message: str, intent: str) -> dict[str, Any]:
                     break
 
             # Extract status filter
-            if re.search(r"\b(fa|registered)\b", message):
+            if re.search(r"\b(Union[fa, registered])\b", message):
                 entities["fa_status"] = "registered"
             elif re.search(r"\b(eligible)\b", message):
                 entities["fa_status"] = "eligible"
@@ -149,7 +149,7 @@ def extract_entities(message: str, intent: str) -> dict[str, Any]:
     return entities
 
 
-def extract_intent_sync(message: str, context: str = "") -> dict[str, Any]:
+def extract_intent_sync(message: str, context: str = "") -> Dict[str, Any]:
     """
     Synchronous version of extract_intent for backward compatibility.
 
@@ -170,7 +170,7 @@ class LLMIntent:
         self.team_id = team_id
         logger.info(f"🤖 LLMIntent initialized for team: {team_id}")
 
-    async def extract_intent(self, message: str, context: str = "") -> dict[str, Any]:
+    async def extract_intent(self, message: str, context: str = "") -> Dict[str, Any]:
         """
         Extract intent using LLM-based approach.
 
