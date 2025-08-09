@@ -6,12 +6,12 @@ This module provides LLM provider validation health checks.
 
 import asyncio
 import logging
-import os
 from typing import Any
 
-from kickai.core.settings import get_settings
-from kickai.utils.llm_factory import LLMFactory
+from kickai.core.config import get_settings
 
+# Temporarily disabled due to enum mismatch
+# from kickai.utils.llm_factory import LLMFactory
 from ..reporting import CheckCategory, CheckResult, CheckStatus
 from .base_check import BaseCheck
 
@@ -31,159 +31,98 @@ class LLMProviderCheck(BaseCheck):
         try:
             config = get_settings()
 
-            # Test LLM connectivity using LLMFactory
-            try:
-                # Get provider and model from environment
-                provider_str = os.getenv("AI_PROVIDER", "gemini")
-                if provider_str == "ollama":
-                    model_name = os.getenv("OLLAMA_MODEL", "llama2")
-                else:
-                    model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-
-                # Create LLM using the factory
-                llm = LLMFactory.create_from_environment()
-
-                # CRITICAL: Test actual authentication with a real API call
-                if isinstance(llm, str):
-                    # For LiteLLM string-based LLMs, we need to test actual connectivity
-                    try:
-                        import litellm
-
-                        # Test with a simple prompt to verify API key and connectivity
-                        test_prompt = "Hello, this is a connectivity test. Please respond with 'OK' if you can see this message."
-
-                        # Use litellm directly to test the model string
-                        response = await litellm.acompletion(
-                            model=llm,
-                            messages=[{"role": "user", "content": test_prompt}],
-                            max_tokens=10,
-                            temperature=0,
-                        )
-
-                        if response and response.choices and len(response.choices) > 0:
-                            return CheckResult(
-                                name=self.name,
-                                category=self.category,
-                                status=CheckStatus.PASSED,
-                                message=f"LLM authentication successful with {provider_str}",
-                                details={
-                                    "provider": provider_str,
-                                    "model": llm,
-                                    "response_length": len(
-                                        str(response.choices[0].message.content)
-                                    ),
-                                    "note": "Real API authentication test passed",
-                                },
-                                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
-                            )
-                        else:
-                            return CheckResult(
-                                name=self.name,
-                                category=self.category,
-                                status=CheckStatus.FAILED,
-                                message="LLM returned empty response - authentication may have failed",
-                                details={"provider": provider_str, "model": llm},
-                                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
-                            )
-
-                    except Exception as auth_error:
-                        # This is a CRITICAL failure - API key is invalid or service is down
-                        logger.error(f"CRITICAL LLM AUTHENTICATION FAILURE: {auth_error}")
-                        return CheckResult(
-                            name=self.name,
-                            category=self.category,
-                            status=CheckStatus.FAILED,
-                            message=f"CRITICAL: LLM authentication failed - API key invalid or service unavailable: {auth_error!s}",
-                            error=auth_error,
-                            details={
-                                "provider": provider_str,
-                                "model": llm,
-                                "error_type": type(auth_error).__name__,
-                                "critical": True,
-                            },
-                            duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
-                        )
-
-                # For other LLM types, try to validate
-                if hasattr(llm, "invoke"):
-                    # Test with a simple prompt
-                    test_prompt = "Hello, this is a connectivity test. Please respond with 'OK' if you can see this message."
-                    try:
-                        response = await llm.ainvoke(test_prompt)
-                        if response and len(str(response)) > 0:
-                            return CheckResult(
-                                name=self.name,
-                                category=self.category,
-                                status=CheckStatus.PASSED,
-                                message=f"LLM connectivity successful with {provider_str}",
-                                details={
-                                    "provider": provider_str,
-                                    "model": model_name,
-                                    "response_length": len(str(response)),
-                                },
-                                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
-                            )
-                        else:
-                            return CheckResult(
-                                name=self.name,
-                                category=self.category,
-                                status=CheckStatus.FAILED,
-                                message="LLM returned empty response - authentication may have failed",
-                                details={"provider": provider_str, "model": model_name},
-                                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
-                            )
-                    except Exception as e:
-                        # This is a CRITICAL failure
-                        logger.error(f"CRITICAL LLM AUTHENTICATION FAILURE: {e}")
-                        return CheckResult(
-                            name=self.name,
-                            category=self.category,
-                            status=CheckStatus.FAILED,
-                            message=f"CRITICAL: LLM authentication failed: {e!s}",
-                            error=e,
-                            details={
-                                "provider": provider_str,
-                                "model": model_name,
-                                "error_type": type(e).__name__,
-                                "critical": True,
-                            },
-                            duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
-                        )
-
-                # If we get here, we couldn't test the LLM properly
+            # Validate Groq configuration and connectivity
+            provider_str = os.getenv("AI_PROVIDER", "groq")
+            
+            if provider_str != "groq":
                 return CheckResult(
                     name=self.name,
                     category=self.category,
                     status=CheckStatus.FAILED,
-                    message="Could not perform LLM authentication test - unknown LLM type",
+                    message=f"AI_PROVIDER must be 'groq', got '{provider_str}'",
                     details={
                         "provider": provider_str,
-                        "model": model_name,
-                        "llm_type": type(llm).__name__,
+                        "required": "groq",
+                        "error": "System configured for Groq only"
                     },
                     duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                 )
 
-            except Exception as e:
-                logger.error(f"CRITICAL LLM INITIALIZATION FAILURE: {e}")
+            # Check Groq API key
+            groq_api_key = os.getenv("GROQ_API_KEY", "")
+            if not groq_api_key:
                 return CheckResult(
                     name=self.name,
                     category=self.category,
                     status=CheckStatus.FAILED,
-                    message=f"CRITICAL: LLM initialization failed: {e!s}",
-                    error=e,
-                    details={"error_type": type(e).__name__, "critical": True},
+                    message="GROQ_API_KEY not configured",
+                    details={
+                        "provider": provider_str,
+                        "error": "GROQ_API_KEY environment variable is required"
+                    },
                     duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
                 )
 
+            # Test actual Groq connectivity
+            connectivity_ok = await self._test_groq_connectivity()
+            if not connectivity_ok:
+                return CheckResult(
+                    name=self.name,
+                    category=self.category,
+                    status=CheckStatus.FAILED,
+                    message="Groq API connectivity test failed",
+                    details={
+                        "provider": provider_str,
+                        "api_key_present": bool(groq_api_key),
+                        "error": "Failed to connect to Groq API"
+                    },
+                    duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
+                )
+
+            return CheckResult(
+                name=self.name,
+                category=self.category,
+                status=CheckStatus.PASSED,
+                message="Groq LLM configuration and connectivity validated",
+                details={
+                    "provider": provider_str,
+                    "api_key_present": bool(groq_api_key),
+                    "connectivity": "OK"
+                },
+                duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
+            )
+
         except Exception as e:
-            logger.error(f"CRITICAL LLM CHECK FAILURE: {e}")
+            logger.error(f"LLM CHECK FAILURE: {e}")
             return CheckResult(
                 name=self.name,
                 category=self.category,
                 status=CheckStatus.FAILED,
-                message=f"CRITICAL: Exception during LLM check: {e}",
+                message=f"Exception during LLM check: {e}",
                 error=e,
-                details={"error_type": type(e).__name__, "critical": True},
+                details={"error_type": type(e).__name__},
                 duration_ms=(asyncio.get_event_loop().time() - start_time) * 1000,
             )
+
+    async def _test_groq_connectivity(self) -> bool:
+        """Test actual Groq API connectivity."""
+        try:
+            from kickai.utils.llm_factory import LLMFactory, LLMConfig
+            from kickai.core.enums import AIProvider
+            
+            config = LLMConfig(
+                provider=AIProvider.GROQ,
+                model_name="llama3-8b-instruct",
+                api_key=os.getenv("GROQ_API_KEY", ""),
+                temperature=0.1,
+                timeout_seconds=10,
+                max_retries=1
+            )
+            
+            llm = LLMFactory.create_llm(config)
+            # Test with simple message
+            response = llm.invoke([{"role": "user", "content": "test"}])
+            return bool(response)
+        except Exception as e:
+            logger.error(f"Groq connectivity test failed: {e}")
+            return False

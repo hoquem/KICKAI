@@ -7,7 +7,7 @@ values out of the code to make the system more maintainable and configurable.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Dict, List, Tuple
 
 
 @dataclass
@@ -194,7 +194,7 @@ class ComplexityConfig:
         else:
             return self.factors.circular_dependencies
 
-    def calculate_overall_complexity(self, factors: Dict[str, float]) -> tuple[float, str]:
+    def calculate_overall_complexity(self, factors: Dict[str, float]) -> Tuple[float, str]:
         """Calculate overall complexity score and level."""
         overall_score = 0.0
         for factor, weight in self.weights.__dict__.items():

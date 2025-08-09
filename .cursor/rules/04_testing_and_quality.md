@@ -6,21 +6,33 @@
 
 #### Unit Testing
 - **Framework**: pytest with comprehensive test structure
-- **Coverage**: Unit tests for core business logic
-- **Structure**: Feature-based test organization
+- **Coverage**: Unit tests for core business logic and service discovery
+- **Structure**: Feature-based test organization with service discovery module
 - **Quality**: Type-safe testing with proper mocking
+- **Service Discovery**: Unit tests for configuration, registry, health checkers
 
 #### Integration Testing
 - **Framework**: pytest with integration test suites
-- **Coverage**: Service integration and repository testing
+- **Coverage**: Service integration, repository testing, and service discovery workflows
 - **Database**: Real Firestore integration for integration tests
-- **Structure**: Organized by feature modules
+- **Structure**: Organized by feature modules with service discovery integration
+- **Service Discovery**: Registry-discovery integration, circuit breaker testing
 
 #### E2E Testing Framework
 - **Framework**: Custom E2E framework with Telegram integration
 - **Structure**: Feature-based E2E test organization
 - **Test Runner**: Automated test execution scripts
 - **Data Management**: Test data setup and cleanup
+- **Service Discovery**: Complete workflow testing with service topology simulation
+
+### ✅ **Service Discovery Testing (NEW - COMPLETED)**
+
+#### Comprehensive Test Suite
+- **Unit Tests**: ServiceConfigurationLoader, health checkers, registry components
+- **Integration Tests**: Registry-discovery workflows, circuit breaker patterns
+- **E2E Tests**: Complete service discovery system with realistic topology
+- **Test Utilities**: ServiceTestBuilder pattern, mock service factories
+- **Performance Testing**: Service discovery performance and scalability
 
 ### 🚧 **Issues and Missing Components**
 
@@ -28,7 +40,7 @@
 - **Missing Dependency**: Telethon library not installed
 - **Test Runner Path**: Incorrect script path in test runner
 - **Test Environment**: Incomplete test environment setup
-- **Test Coverage**: Limited E2E test coverage
+- **Test Coverage**: Limited E2E test coverage for Telegram functionality
 
 #### Training Management Testing
 - **Missing Tests**: No E2E tests for training functionality
@@ -36,6 +48,15 @@
 - **Unit Tests**: Basic unit test coverage
 
 ## Testing Strategy
+
+### Error Handling in Testing
+- **Test Error Propagation**: Ensure errors bubble up correctly through the system
+- **Validate Error Context**: Test that errors include proper context and debugging information
+- **No Silent Failures**: Tests should fail loudly when system components fail
+- **Error Recovery Testing**: Test retry mechanisms and circuit breakers
+- **Graceful Degradation Testing**: Verify system degrades functionality rather than masking errors
+
+See [Error Handling and System Robustness](17_error_handling_and_robustness.md) for detailed error handling guidelines.
 
 ### Test Pyramid Implementation
 
@@ -46,9 +67,12 @@ tests/unit/
 │   ├── player_registration/
 │   ├── match_management/
 │   ├── attendance_management/
-│   ├── payment_management/
 │   ├── communication/
-│   └── training_management/
+│   └── helper_system/
+├── service_discovery/         # NEW - Service discovery unit tests
+│   ├── test_config.py        # Configuration loading tests
+│   ├── test_registry.py      # Service registry tests
+│   └── test_health_checkers.py # Health checker tests
 ├── core/
 ├── agents/
 └── utils/
@@ -67,9 +91,11 @@ tests/integration/
 │   ├── player_registration/
 │   ├── match_management/
 │   ├── attendance_management/
-│   ├── payment_management/
 │   ├── communication/
-│   └── training_management/
+│   └── helper_system/
+├── service_discovery/         # NEW - Service discovery integration tests
+│   ├── test_registry_discovery_integration.py
+│   └── test_config_integration.py
 ├── agents/
 └── services/
 ```
@@ -87,9 +113,10 @@ tests/e2e/
 │   ├── player_registration/
 │   ├── match_management/
 │   ├── attendance_management/
-│   ├── payment_management/
 │   ├── communication/
-│   └── training_management/
+│   └── helper_system/
+├── service_discovery/         # NEW - Service discovery E2E tests
+│   └── test_complete_workflow.py
 ├── frameworks/
 └── run_e2e_tests.py
 ```
@@ -349,6 +376,8 @@ jobs:
         run: |
           pytest tests/unit/ --cov=kickai --cov-report=xml
           pytest tests/integration/ --cov=kickai --cov-report=xml
+          pytest tests/unit/service_discovery/ -v
+          pytest tests/integration/service_discovery/ -v
 ```
 
 ## Current Issues and Solutions
@@ -410,6 +439,50 @@ async def test_scheduletraining_command():
     assert "Training session scheduled" in response
 ```
 
+### Service Discovery Testing Guidelines
+
+#### Service Registry Testing
+```python
+@pytest.mark.asyncio
+async def test_service_registry_workflow():
+    """Test complete service registry workflow."""
+    registry = ServiceRegistry()
+    
+    # Test service registration
+    service_id = await registry.register_service("test-service", {
+        "name": "Test Service",
+        "url": "http://localhost:8080",
+        "health_check_url": "/health"
+    })
+    
+    # Test service discovery
+    services = await registry.discover_services("test-service")
+    assert len(services) == 1
+    assert services[0].name == "Test Service"
+    
+    # Test health checking
+    health_status = await registry.check_service_health(service_id)
+    assert health_status.is_healthy
+```
+
+#### ServiceTestBuilder Usage
+```python
+def test_service_topology():
+    """Test complex service topology with ServiceTestBuilder."""
+    builder = ServiceTestBuilder()
+    registry = (builder
+        .add_service("api-gateway", "http://localhost:8000")
+        .add_service("user-service", "http://localhost:8001")
+        .add_service("notification-service", "http://localhost:8002")
+        .with_health_checks()
+        .with_circuit_breaker()
+        .build_registry())
+    
+    services = registry.get_all_services()
+    assert len(services) == 3
+    assert all(service.has_health_check for service in services)
+```
+
 ## Success Metrics
 
 ### Test Coverage Targets
@@ -447,6 +520,11 @@ async def test_scheduletraining_command():
    - Add missing unit tests
    - Improve integration test coverage
    - Add performance tests
+
+4. **Service Discovery Test Maintenance**
+   - Monitor service discovery test performance
+   - Update test utilities as system evolves
+   - Add stress testing for service registry
 
 ### Long-term Improvements
 1. **Test Automation**

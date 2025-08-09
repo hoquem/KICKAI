@@ -1,3 +1,4 @@
+from typing import List, Optional
 #!/usr/bin/env python3
 """
 Team Repository Interface
@@ -15,9 +16,9 @@ class Team:
 
     id: str
     name: str
-    description: str | None = None
-    created_at: str | None = None
-    updated_at: str | None = None
+    description: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 
 class TeamRepositoryInterface(ABC):
@@ -28,19 +29,42 @@ class TeamRepositoryInterface(ABC):
         """Create a new team."""
         pass
 
+    # Alias used in some tests/mocks
     @abstractmethod
-    async def get_team_by_id(self, team_id: str) -> Team | None:
-        """Get a team by ID."""
+    async def create(self, team: Team) -> Team:
+        """Create a new team (alias for create_team)."""
         pass
 
     @abstractmethod
-    async def get_all_teams(self) -> list[Team]:
+    async def get_team_by_id(self, team_id: str) -> Optional[Team]:
+        """Get a team by ID."""
+        pass
+
+    # Alias used in some tests/mocks
+    @abstractmethod
+    async def get_by_id(self, team_id: str) -> Optional[Team]:
+        """Get a team by ID (alias)."""
+        pass
+
+    @abstractmethod
+    async def get_all_teams(self) -> List[Team]:
         """Get all teams."""
+        pass
+
+    @abstractmethod
+    async def get_by_status(self, status: str) -> List[Team]:
+        """Get teams by status (alias used in tests)."""
         pass
 
     @abstractmethod
     async def update_team(self, team: Team) -> Team:
         """Update a team."""
+        pass
+
+    # Alias used in some tests/mocks
+    @abstractmethod
+    async def update(self, team: Team) -> Team:
+        """Update a team (alias)."""
         pass
 
     @abstractmethod
@@ -49,6 +73,6 @@ class TeamRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def list_all(self, limit: int = 100) -> list[Team]:
+    async def list_all(self, limit: int = 100) -> List[Team]:
         """List all teams with optional limit."""
         pass

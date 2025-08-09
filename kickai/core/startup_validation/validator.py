@@ -6,7 +6,7 @@ This module provides the main startup validator that orchestrates all health che
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from .checks import (
     AgentInitializationCheck,
@@ -34,9 +34,9 @@ class StartupValidator:
     comprehensive validation reports.
     """
 
-    def __init__(self, config_path: str | None = None):
+    def __init__(self, config_path: Optional[str] = None):
         self.config_path = config_path
-        self.checks: list[Any] = []
+        self.checks: List[Any] = []
         self._load_default_checks()
         logger.info(f"StartupValidator initialized with {len(self.checks)} checks")
 
@@ -46,20 +46,20 @@ class StartupValidator:
             # Phase 1: Critical Prerequisites (fail-fast)
             InitializationSequenceCheck(),  # Comprehensive initialization validation
             ConfigurationCheck(),           # Basic configuration validation
-            
-            # Phase 2: Core Infrastructure  
+
+            # Phase 2: Core Infrastructure
             LLMProviderCheck(),             # LLM connectivity and configuration
             StubDetectionCheck(),           # Check for placeholder implementations
-            
+
             # Phase 3: Registry and Discovery
             EnhancedRegistryCheck(),        # Comprehensive registry validation
             ToolRegistrationCheck(),        # Tool discovery and registration
             CommandRegistryCheck(),         # Command registry initialization
-            
+
             # Phase 4: Agent System Health
             CrewAIAgentHealthCheck(),       # CrewAI agent health and performance
             AgentInitializationCheck(),     # Agent creation and configuration
-            
+
             # Phase 5: External Dependencies
             TelegramAdminCheck(),           # Telegram integration validation
         ]
@@ -75,7 +75,7 @@ class StartupValidator:
         """Remove a health check by name."""
         self.checks = [check for check in self.checks if check.name != check_name]
 
-    async def validate(self, context: dict[str, Any] | None = None) -> ValidationReport:
+    async def validate(self, context: Optional[Dict[str, Any]] = None) -> ValidationReport:
         """
         Execute all health checks and generate a validation report.
 
@@ -133,7 +133,7 @@ class StartupValidator:
 
         return report
 
-    async def _execute_check(self, check: Any, context: dict[str, Any]) -> CheckResult:
+    async def _execute_check(self, check: Any, context: Dict[str, Any]) -> CheckResult:
         """Execute a single health check."""
         try:
             logger.info(f"🔧 Executing check: {check.name}")
@@ -267,7 +267,7 @@ class StartupValidator:
         logger.info("=" * 80)
 
 
-async def run_startup_validation(team_id: str | None = None) -> ValidationReport:
+async def run_startup_validation(team_id: Optional[str] = None) -> ValidationReport:
     """
     Run startup validation for the system.
 

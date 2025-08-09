@@ -1,3 +1,4 @@
+from typing import Optional
 #!/usr/bin/env python3
 """
 Database Manager
@@ -6,7 +7,6 @@ Dedicated class for database initialization and management following the Single 
 """
 
 import os
-from typing import Any, Optional
 
 from loguru import logger
 

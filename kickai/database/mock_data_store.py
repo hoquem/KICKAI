@@ -7,7 +7,7 @@ a real database connection.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List, Optional, Union
 from unittest.mock import Mock
 
 from loguru import logger
@@ -22,17 +22,17 @@ class MockDataStore:
     """Comprehensive mock data store for testing."""
 
     def __init__(self):
-        self.players: dict[str, Player] = {}
-        self.teams: dict[str, Team] = {}
-        self.matches: dict[str, Match] = {}
-        self.team_members: dict[str, TeamMember] = {}
-        self.fixtures: dict[str, dict[str, Any]] = {}
-        self.command_logs: dict[str, dict[str, Any]] = {}
-        self.team_bots: dict[str, dict[str, Any]] = {}
+        self.players: Dict[str, Player] = {}
+        self.teams: Dict[str, Team] = {}
+        self.matches: Dict[str, Match] = {}
+        self.team_members: Dict[str, TeamMember] = {}
+        self.fixtures: Dict[str, Dict[str, Any]] = {}
+        self.command_logs: Dict[str, Dict[str, Any]] = {}
+        self.team_bots: Dict[str, Dict[str, Any]] = {}
         self.mock = Mock()
 
     # Collection listing
-    async def list_collections(self) -> list[str]:
+    async def list_collections(self) -> List[str]:
         """List all available collections."""
         return [
             "players",
@@ -52,11 +52,11 @@ class MockDataStore:
         self.players[player.id] = player
         return player.id
 
-    async def get_player(self, player_id: str) -> Player | None:
+    async def get_player(self, player_id: str) -> Optional[Player]:
         """Get a player by ID."""
         return self.players.get(player_id)
 
-    async def update_player(self, player_id: str, updates: dict[str, Any]) -> Player | None:
+    async def update_player(self, player_id: str, updates: Dict[str, Any]) -> Optional[Player]:
         """Update a player by ID with updates dictionary."""
         if player_id in self.players:
             player = self.players[player_id]
@@ -75,14 +75,28 @@ class MockDataStore:
             return True
         return False
 
-    async def get_players_by_team(self, team_id: str) -> list[Player]:
+    async def get_players_by_team(self, team_id: str) -> List[Player]:
         """Get players by team ID."""
         return [p for p in self.players.values() if p.team_id == team_id]
 
-    async def get_player_by_phone(self, phone: str, team_id: str) -> Player | None:
+    async def get_player_by_phone(self, phone: str, team_id: str) -> Optional[Player]:
         """Get player by phone number and team."""
         for player in self.players.values():
             if player.phone_number == phone and player.team_id == team_id:
+                return player
+        return None
+
+    async def get_player_by_telegram_id(self, telegram_id: Union[str, int], team_id: str) -> Optional[Player]:
+        """Get player by Telegram ID and team."""
+        # Normalize telegram_id to int for consistent comparison
+        normalized_telegram_id = int(telegram_id) if telegram_id else None
+        if normalized_telegram_id is None:
+            return None
+            
+        for player in self.players.values():
+            # Compare using normalized integer values
+            player_telegram_id = int(player.telegram_id) if player.telegram_id else None
+            if player_telegram_id == normalized_telegram_id and player.team_id == team_id:
                 return player
         return None
 
@@ -94,7 +108,7 @@ class MockDataStore:
         self.teams[team.id] = team
         return team.id
 
-    async def get_team(self, team_id: str) -> Team | None:
+    async def get_team(self, team_id: str) -> Optional[Team]:
         """Get a team by ID."""
         return self.teams.get(team_id)
 
@@ -112,7 +126,7 @@ class MockDataStore:
             return True
         return False
 
-    async def get_team_by_name(self, name: str) -> Team | None:
+    async def get_team_by_name(self, name: str) -> Optional[Team]:
         """Get team by name."""
         for team in self.teams.values():
             if team.name == name:
@@ -127,7 +141,7 @@ class MockDataStore:
         self.team_members[member.id] = member
         return member.id
 
-    async def get_team_member(self, member_id: str) -> TeamMember | None:
+    async def get_team_member(self, member_id: str) -> Optional[TeamMember]:
         """Get a team member by ID."""
         return self.team_members.get(member_id)
 
@@ -145,24 +159,31 @@ class MockDataStore:
             return True
         return False
 
-    async def get_team_members_by_team(self, team_id: str) -> list[TeamMember]:
+    async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]:
         """Get team members by team ID."""
         return [m for m in self.team_members.values() if m.team_id == team_id]
 
     async def get_team_member_by_telegram_id(
-        self, telegram_id: str, team_id: str
-    ) -> TeamMember | None:
+        self, telegram_id: Union[str, int], team_id: str
+    ) -> Optional[TeamMember]:
         """Get team member by Telegram ID and team."""
+        # Normalize telegram_id to int for consistent comparison
+        normalized_telegram_id = int(telegram_id) if telegram_id else None
+        if normalized_telegram_id is None:
+            return None
+            
         for member in self.team_members.values():
-            if member.telegram_id == telegram_id and member.team_id == team_id:
+            # Compare using normalized integer values
+            member_telegram_id = int(member.telegram_id) if member.telegram_id else None
+            if member_telegram_id == normalized_telegram_id and member.team_id == team_id:
                 return member
         return None
 
-    async def get_team_members_by_role(self, team_id: str, role: str) -> list[TeamMember]:
+    async def get_team_members_by_role(self, team_id: str, role: str) -> List[TeamMember]:
         """Get team members by role."""
         return [m for m in self.team_members.values() if m.team_id == team_id and role in m.roles]
 
-    async def get_leadership_members(self, team_id: str) -> list[TeamMember]:
+    async def get_leadership_members(self, team_id: str) -> List[TeamMember]:
         """Get leadership team members."""
         return [
             m
@@ -178,7 +199,7 @@ class MockDataStore:
         self.matches[match.id] = match
         return match.id
 
-    async def get_match(self, match_id: str) -> Match | None:
+    async def get_match(self, match_id: str) -> Optional[Match]:
         """Get a match by ID."""
         return self.matches.get(match_id)
 
@@ -196,25 +217,25 @@ class MockDataStore:
             return True
         return False
 
-    async def get_matches_by_team(self, team_id: str) -> list[Match]:
+    async def get_matches_by_team(self, team_id: str) -> List[Match]:
         """Get matches by team ID."""
         return [m for m in self.matches.values() if m.team_id == team_id]
 
     # Additional collection operations
-    async def create_fixture(self, fixture_data: dict[str, Any]) -> str:
+    async def create_fixture(self, fixture_data: Dict[str, Any]) -> str:
         """Create a fixture."""
         fixture_id = f"fixture_{len(self.fixtures) + 1}"
         self.fixtures[fixture_id] = fixture_data
         logger.info(f"✅ Created fixture with ID: {fixture_id}")
         return fixture_id
 
-    async def get_fixture(self, fixture_id: str) -> dict[str, Any] | None:
+    async def get_fixture(self, fixture_id: str) -> Optional[Dict[str, Any]]:
         """Get a fixture by ID."""
         return self.fixtures.get(fixture_id)
 
     # Generic document operations
     async def create_document(
-        self, collection: str, data: dict[str, Any], doc_id: str | None = None
+        self, collection: str, data: Dict[str, Any], doc_id: Optional[str] = None
     ) -> str:
         """Create a generic document."""
         if doc_id is None:
@@ -223,11 +244,11 @@ class MockDataStore:
         logger.info(f"✅ Created document with ID: {doc_id}")
         return doc_id
 
-    async def get_document(self, collection: str, doc_id: str) -> dict[str, Any] | None:
+    async def get_document(self, collection: str, doc_id: str) -> Optional[Dict[str, Any]]:
         """Get a generic document."""
         return self._get_collection(collection).get(doc_id)
 
-    async def update_document(self, collection: str, doc_id: str, data: dict[str, Any]) -> bool:
+    async def update_document(self, collection: str, doc_id: str, data: Dict[str, Any]) -> bool:
         """Update a generic document."""
         if doc_id in self._get_collection(collection):
             self._get_collection(collection)[doc_id] = data
@@ -242,8 +263,8 @@ class MockDataStore:
         return False
 
     async def query_documents(
-        self, collection: str, filters: list[dict[str, Any]] | None = None, limit: int | None = None
-    ) -> list[dict[str, Any]]:
+        self, collection: str, filters: Optional[List[Dict[str, Any]]] = None, limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """Query documents with filters."""
         collection_data = self._get_collection(collection)
         logger.info(
@@ -339,7 +360,7 @@ class MockDataStore:
         return results
 
     # Health check and utility methods
-    async def health_check(self) -> dict[str, Any]:
+    async def health_check(self) -> Dict[str, Any]:
         """Perform health check."""
         return {
             "status": "healthy",
@@ -351,7 +372,7 @@ class MockDataStore:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def get_collection_stats(self) -> dict[str, int]:
+    def get_collection_stats(self) -> Dict[str, int]:
         """Get statistics for all collections."""
         return {
             "players": len(self.players),
@@ -378,7 +399,7 @@ class MockDataStore:
         """Reset the mock data store."""
         self.clear_all_data()
 
-    def _get_collection(self, collection: str) -> dict[str, Any]:
+    def _get_collection(self, collection: str) -> Dict[str, Any]:
         """Get the appropriate collection dictionary."""
         collections = {
             "players": self.players,

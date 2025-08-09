@@ -7,11 +7,11 @@
 
 ## 🎯 Overview
 
-KICKAI is an AI-powered football team management system that combines advanced AI capabilities with practical team management tools. The system uses a sophisticated 12-agent CrewAI architecture to provide intelligent, context-aware responses to team management needs through an agentic-first approach.
+KICKAI is an AI-powered football team management system that combines advanced AI capabilities with practical team management tools. The system uses a sophisticated 5-agent CrewAI architecture to provide intelligent, context-aware responses to team management needs through an agentic-first approach.
 
 ### 🚀 Key Features
 
-- ✅ **12-Agent CrewAI System** for intelligent task processing
+- ✅ **5-Agent CrewAI System** for intelligent task processing
 - ✅ **Agentic-First Architecture** with no dedicated command handlers
 - ✅ **Feature-First Clean Architecture** with clean separation of concerns
 - ✅ **Dynamic Command Discovery** from centralized registry
@@ -83,13 +83,10 @@ graph TB
     
     subgraph "Agent System"
         MP[Message Processor Agent]
-        TM[Team Manager Agent]
+        HA[Help Assistant Agent]
         PC[Player Coordinator Agent]
-        PA[Performance Analyst Agent]
-        FM[Finance Manager Agent]
-        LA[Learning Agent]
-        OA[Onboarding Agent]
-        IS[Intelligent System]
+        TA[Team Administrator Agent]
+        SS[Squad Selector Agent]
     end
     
     subgraph "Application Layer"
@@ -146,6 +143,25 @@ graph TB
     UMS --> TG_API
     IS --> LLM
 ```
+
+### Architectural Principles: Embracing CrewAI Native Features
+
+KICKAI is built with a strong commitment to leveraging the native capabilities and design patterns of the CrewAI framework. This approach ensures:
+
+*   **Maintainability:** By adhering to CrewAI's conventions, the codebase remains consistent and easier to understand for anyone familiar with the framework.
+*   **Scalability:** Native features are often optimized for performance and scalability, allowing the system to grow efficiently.
+*   **Robustness:** Relying on well-tested CrewAI functionalities reduces the risk of introducing bugs or unexpected behavior.
+*   **Future-Proofing:** Staying aligned with the framework's evolution makes upgrades and new feature integration smoother.
+
+**Key Principles for CrewAI Usage:**
+
+*   **Task Context (`Task.config`):** All context and parameters required by tools should be passed via the `Task.config` dictionary. Tools should retrieve their necessary inputs from this context.
+*   **Native Memory:** Utilize CrewAI's built-in memory management features for persistent context across tasks and agents, rather than implementing custom memory solutions.
+*   **Delegation and Orchestration:** Employ CrewAI's inherent delegation mechanisms for agents to collaborate and for complex tasks to be broken down and orchestrated.
+*   **Agent and Task Design:** Adhere to CrewAI's recommended patterns for defining agent roles, goals, backstories, and structuring tasks.
+*   **Avoid Reinvention:** Do not re-implement functionalities (e.g., task execution, agent communication, tool invocation) that are already provided and optimized by the CrewAI framework.
+
+For detailed guidelines and examples, refer to the [CrewAI Best Practices Implementation Guide](CREWAI_BEST_PRACTICES_IMPLEMENTATION.md) and the [Architecture Documentation](docs/ARCHITECTURE.md).
 
 ### Agent Responsibilities
 
@@ -299,7 +315,7 @@ KICKAI/
 │   │   ├── team_administration/  # Team management
 │   │   ├── match_management/     # Match operations
 │   │   ├── attendance_management/ # Attendance tracking
-│   │   ├── payment_management/   # Payment processing
+│   │   ├── attendance_management/   # Attendance tracking
 │   │   ├── communication/        # Messaging
 │   │   ├── health_monitoring/    # System health
 │   │   └── system_infrastructure/ # Core services

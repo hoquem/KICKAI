@@ -5,7 +5,7 @@ This module provides utilities for validating and handling context data
 throughout the system with proper error handling and logging.
 """
 
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 from pydantic import ValidationError
@@ -16,7 +16,7 @@ from kickai.core.models.context_models import BaseContext, validate_context_data
 class ContextError(Exception):
     """Raised when context validation fails."""
 
-    def __init__(self, message: str, context_data: dict[str, Any] | None = None):
+    def __init__(self, message: str, context_data: Optional[Dict[str, Any]] = None):
         self.message = message
         self.context_data = context_data
         super().__init__(self.message)
@@ -25,7 +25,7 @@ class ContextError(Exception):
 class ToolExecutionError(Exception):
     """Raised when tool execution fails."""
 
-    def __init__(self, message: str, tool_name: str, context: dict[str, Any] | None = None):
+    def __init__(self, message: str, tool_name: str, context: Optional[Dict[str, Any]] = None):
         self.message = message
         self.tool_name = tool_name
         self.context = context
@@ -52,7 +52,7 @@ def handle_context_error(error: ValidationError) -> str:
     return f"Context validation failed: {'; '.join(error_messages)}"
 
 
-def handle_tool_error(error: Exception, context: dict[str, Any]) -> str:
+def handle_tool_error(error: Exception, context: Dict[str, Any]) -> str:
     """
     Handle tool execution errors with context.
 
@@ -74,7 +74,7 @@ def handle_tool_error(error: Exception, context: dict[str, Any]) -> str:
 
 
 def validate_context_for_tool(
-    context_data: dict[str, Any], context_model: type[BaseContext], tool_name: str
+    context_data: Dict[str, Any], context_model: type[BaseContext], tool_name: str
 ) -> BaseContext:
     """
     Validate context data for a specific tool.
@@ -98,7 +98,7 @@ def validate_context_for_tool(
         raise ContextError(error_message, context_data)
 
 
-def extract_context_from_crewai_input(input_data: Any) -> dict[str, Any]:
+def extract_context_from_crewai_input(input_data: Any) -> Dict[str, Any]:
     """
     Extract context from CrewAI's complex input format.
 
@@ -129,7 +129,7 @@ def extract_context_from_crewai_input(input_data: Any) -> dict[str, Any]:
 
 
 def ensure_context_has_required_fields(
-    context_data: dict[str, Any], required_fields: list[str]
+    context_data: Dict[str, Any], required_fields: List[str]
 ) -> bool:
     """
     Ensure context has all required fields.
@@ -178,7 +178,7 @@ def log_context_validation_failure(tool_name: str, error: Exception) -> None:
     logger.error(f"❌ Context validation failed for {tool_name}: {error}")
 
 
-def create_safe_context_fallback(context_data: dict[str, Any]) -> dict[str, Any]:
+def create_safe_context_fallback(context_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Create a safe context fallback when validation fails.
 
@@ -197,8 +197,8 @@ def create_safe_context_fallback(context_data: dict[str, Any]) -> dict[str, Any]
 
 
 def validate_context_data_with_fallback(
-    context_data: dict[str, Any], context_type: str = "base"
-) -> dict[str, Any]:
+    context_data: Dict[str, Any], context_type: str = "base"
+) -> Dict[str, Any]:
     """
     Validate context data with fallback to safe context.
 

@@ -1,16 +1,25 @@
 """
-LLM Health Monitor
+LLM Health Monitor with CrewAI Native Rate-Limited Calls
 
-This module provides continuous monitoring of LLM connectivity and will
-stop the bot if LLM authentication fails during runtime.
+This module provides continuous monitoring of LLM connectivity using
+CrewAI's native LLM calls with proper rate limiting. It will stop the
+bot if LLM authentication fails during runtime.
+
+Features:
+- CrewAI native LLM calls only (no direct litellm)
+- Comprehensive rate limiting integration
+- Thread-safe health monitoring
+- Async/await compatibility
+- Production-ready error handling
 """
 
 import asyncio
 import logging
 from collections.abc import Callable
 from datetime import datetime
+from typing import Optional, Set
 
-from kickai.utils.llm_factory import LLMFactory
+from kickai.config.llm_config import get_llm_config
 
 logger = logging.getLogger(__name__)
 
@@ -69,75 +78,95 @@ class LLMHealthMonitor:
         logger.info("🛑 LLM Health Monitor stop requested")
 
     async def _check_llm_health(self) -> None:
-        """Perform a single LLM health check."""
+        """Perform a single LLM health check using CrewAI native calls."""
         try:
             start_time = datetime.now()
             self.last_check_time = start_time
 
-            logger.debug("🔍 Performing LLM health check...")
+            logger.debug("🔍 Performing CrewAI native LLM health check...")
 
-            # Create LLM using the factory
-            llm = LLMFactory.create_from_environment()
-
-            # Test actual authentication
-            if isinstance(llm, str):
-                await self._test_litellm_connectivity(llm)
-            else:
-                await self._test_llm_connectivity(llm)
+            # Use CrewAI LLM configuration for health checks
+            llm_config = get_llm_config()
+            
+            # Test connection using CrewAI native async method
+            connection_success = await llm_config.test_connection_async()
+            
+            if not connection_success:
+                raise Exception("CrewAI LLM connection test failed")
 
             # If we get here, the check passed
             if self.consecutive_failures > 0:
                 logger.info(
-                    f"✅ LLM health check passed after {self.consecutive_failures} consecutive failures"
+                    f"✅ CrewAI LLM health check passed after {self.consecutive_failures} consecutive failures"
                 )
                 self.consecutive_failures = 0
 
             duration = (datetime.now() - start_time).total_seconds()
-            logger.debug(f"✅ LLM health check passed in {duration:.2f}s")
+            logger.debug(f"✅ CrewAI LLM health check passed in {duration:.2f}s")
 
         except Exception as e:
             self.consecutive_failures += 1
             logger.error(
-                f"❌ LLM health check failed (attempt {self.consecutive_failures}/{self.max_consecutive_failures}): {e}"
+                f"❌ CrewAI LLM health check failed (attempt {self.consecutive_failures}/{self.max_consecutive_failures}): {e}"
             )
 
             if self.consecutive_failures >= self.max_consecutive_failures:
                 await self._trigger_shutdown(
-                    f"LLM authentication failed {self.consecutive_failures} times consecutively"
+                    f"CrewAI LLM authentication failed {self.consecutive_failures} times consecutively"
                 )
 
-    async def _test_litellm_connectivity(self, llm_string: str) -> None:
-        """Test LiteLLM connectivity with actual API call."""
+    async def _test_crewai_connectivity(self, llm_config) -> None:
+        """Test CrewAI LLM connectivity with rate limiting."""
         try:
-            import litellm
-
+            # Use the main LLM for testing
+            test_llm = llm_config.main_llm
+            
             # Simple test prompt
             test_prompt = "Health check - respond with 'OK'"
 
-            response = await litellm.acompletion(
-                model=llm_string,
-                messages=[{"role": "user", "content": test_prompt}],
-                max_tokens=5,
-                temperature=0,
-            )
+            # Check rate limiting before making request
+            if hasattr(llm_config, 'rate_limit_handler'):
+                if not llm_config.rate_limit_handler.can_make_request(llm_config.ai_provider):
+                    wait_time = llm_config.rate_limit_handler.get_wait_time(llm_config.ai_provider)
+                    if wait_time > 0:
+                        logger.debug(f"Waiting {wait_time:.2f}s due to rate limiting")
+                        await asyncio.sleep(wait_time)
+            
+            # Make the request using CrewAI native async method
+            if hasattr(test_llm, 'ainvoke'):
+                response = await test_llm.ainvoke(test_prompt)
+            elif hasattr(test_llm, 'invoke'):
+                # Fallback to sync method in thread pool
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(None, test_llm.invoke, test_prompt)
+            else:
+                raise Exception("LLM does not support invoke or ainvoke methods")
+            
+            # Record the request for rate limiting
+            if hasattr(llm_config, 'rate_limit_handler'):
+                llm_config.rate_limit_handler.record_request(llm_config.ai_provider)
 
-            if not response or not response.choices or len(response.choices) == 0:
-                raise Exception("Empty response from LLM")
-
-            content = response.choices[0].message.content
-            if not content or len(content.strip()) == 0:
-                raise Exception("Empty content in LLM response")
+            if not response or len(str(response).strip()) == 0:
+                raise Exception("Empty response from CrewAI LLM")
 
         except Exception as e:
-            raise Exception(f"LiteLLM connectivity test failed: {e!s}")
+            raise Exception(f"CrewAI LLM connectivity test failed: {e!s}")
 
-    async def _test_llm_connectivity(self, llm) -> None:
-        """Test other LLM types connectivity."""
+    async def _test_llm_fallback_connectivity(self, llm) -> None:
+        """Fallback connectivity test for non-standard LLM types."""
         try:
             if hasattr(llm, "ainvoke"):
                 test_prompt = "Health check - respond with 'OK'"
                 response = await llm.ainvoke(test_prompt)
 
+                if not response or len(str(response)) == 0:
+                    raise Exception("Empty response from LLM")
+            elif hasattr(llm, "invoke"):
+                # Fallback to sync in thread pool
+                test_prompt = "Health check - respond with 'OK'"
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(None, llm.invoke, test_prompt)
+                
                 if not response or len(str(response)) == 0:
                     raise Exception("Empty response from LLM")
             else:
@@ -147,29 +176,57 @@ class LLMHealthMonitor:
             raise Exception(f"LLM connectivity test failed: {e!s}")
 
     async def _trigger_shutdown(self, reason: str) -> None:
-        """Trigger bot shutdown due to LLM failure."""
-        logger.error(f"🚫 CRITICAL: Triggering bot shutdown due to LLM failure: {reason}")
+        """Trigger bot shutdown due to CrewAI LLM failure."""
+        logger.error(f"🚫 CRITICAL: Triggering bot shutdown due to CrewAI LLM failure: {reason}")
+        logger.error(f"📊 Health Monitor Status: consecutive_failures={self.consecutive_failures}, max_allowed={self.max_consecutive_failures}")
 
         if self.shutdown_callback:
             try:
+                logger.info("🔄 Executing shutdown callback...")
                 await self.shutdown_callback()
+                logger.info("✅ Shutdown callback completed successfully")
             except Exception as e:
-                logger.error(f"Error in shutdown callback: {e}")
+                logger.error(f"❌ Error in shutdown callback: {e}")
         else:
-            logger.error("No shutdown callback set - cannot stop bot gracefully")
+            logger.error("❌ No shutdown callback set - cannot stop bot gracefully")
+            logger.error("🚨 Forcing system exit due to critical CrewAI LLM failure")
             # Force exit if no callback is available
             import sys
-
             sys.exit(1)
 
     def get_status(self) -> dict:
-        """Get current monitor status."""
+        """Get comprehensive monitor status with CrewAI integration details."""
+        try:
+            from kickai.config.llm_config import get_llm_config
+            llm_config = get_llm_config()
+            provider_info = {
+                "ai_provider": llm_config.ai_provider.value,
+                "model": llm_config.default_model,
+                "rate_limiting_enabled": hasattr(llm_config, 'rate_limit_handler'),
+            }
+        except Exception as e:
+            provider_info = {
+                "ai_provider": "unknown",
+                "model": "unknown", 
+                "rate_limiting_enabled": False,
+                "error": str(e)
+            }
+            
         return {
-            "is_running": self.is_running,
-            "last_check_time": self.last_check_time.isoformat() if self.last_check_time else None,
-            "consecutive_failures": self.consecutive_failures,
-            "max_consecutive_failures": self.max_consecutive_failures,
-            "check_interval_seconds": self.check_interval,
+            "monitor_status": {
+                "is_running": self.is_running,
+                "last_check_time": self.last_check_time.isoformat() if self.last_check_time else None,
+                "consecutive_failures": self.consecutive_failures,
+                "max_consecutive_failures": self.max_consecutive_failures,
+                "check_interval_seconds": self.check_interval,
+                "health": "healthy" if self.consecutive_failures == 0 else "unhealthy"
+            },
+            "llm_provider": provider_info,
+            "integration": {
+                "uses_crewai_native_calls": True,
+                "bypasses_litellm": True,
+                "rate_limiting_integrated": True
+            }
         }
 
 

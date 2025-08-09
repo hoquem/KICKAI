@@ -1,3 +1,4 @@
+from typing import List, Optional, Union
 #!/usr/bin/env python3
 """
 Firebase Team Repository Implementation
@@ -58,7 +59,11 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
         return team
 
-    async def get_team_by_id(self, team_id: str) -> Team | None:
+    # Alias methods required by tests/interfaces
+    async def create(self, team: Team) -> Team:
+        return await self.create_team(team)
+
+    async def get_team_by_id(self, team_id: str) -> Optional[Team]:
         """Get a team by ID."""
         try:
             doc = await self.database.get_document(
@@ -71,11 +76,24 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         except Exception:
             return None
 
-    async def get_all_teams(self) -> list[Team]:
+    async def get_by_id(self, team_id: str) -> Optional[Team]:
+        return await self.get_team_by_id(team_id)
+
+    async def get_all_teams(self) -> List[Team]:
         """Get all teams."""
         try:
             docs = await self.database.query_documents(collection=self.collection_name)
 
+            return [self._doc_to_team(doc) for doc in docs]
+        except Exception:
+            return []
+
+    async def get_by_status(self, status: str) -> List[Team]:
+        try:
+            docs = await self.database.query_documents(
+                collection=self.collection_name,
+                filters=[{"field": "status", "operator": "==", "value": status}],
+            )
             return [self._doc_to_team(doc) for doc in docs]
         except Exception:
             return []
@@ -105,6 +123,9 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
         return team
 
+    async def update(self, team: Team) -> Team:
+        return await self.update_team(team)
+
     async def delete_team(self, team_id: str) -> bool:
         """Delete a team."""
         try:
@@ -116,7 +137,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         except Exception:
             return False
 
-    async def list_all(self, limit: int = 100) -> list[Team]:
+    async def list_all(self, limit: int = 100) -> List[Team]:
         """List all teams with optional limit."""
         try:
             import logging
@@ -164,7 +185,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         # The user_id remains unchanged, doc_id should match user_id
         return team_member
 
-    async def get_team_members(self, team_id: str) -> list[TeamMember]:
+    async def get_team_members(self, team_id: str) -> List[TeamMember]:
         """Get all members of a team."""
         try:
             docs = await self.database.query_documents(
@@ -180,20 +201,28 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             logger.error(f"❌ [REPO] Error getting team members: {e}")
             return []
 
-    async def get_team_members_by_team(self, team_id: str) -> list[TeamMember]:
+    async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]:
         """Get all members of a team (alias for get_team_members for compatibility)."""
         return await self.get_team_members(team_id)
 
     async def get_team_member_by_telegram_id(
-        self, team_id: str, telegram_id: str
-    ) -> TeamMember | None:
+        self, team_id: str, telegram_id: Union[str, int]
+    ) -> Optional[TeamMember]:
         """Get a team member by Telegram ID."""
         try:
+            # Normalize telegram_id to handle both string and integer inputs
+            from kickai.utils.telegram_id_converter import normalize_telegram_id_for_query
+            normalized_telegram_id = normalize_telegram_id_for_query(telegram_id)
+            
+            if normalized_telegram_id is None:
+                logger.warning(f"❌ Invalid telegram_id format: {telegram_id}")
+                return None
+            
             docs = await self.database.query_documents(
                 collection=get_team_members_collection(team_id),
                 filters=[
                     {"field": "team_id", "operator": "==", "value": team_id},
-                    {"field": "telegram_id", "operator": "==", "value": telegram_id},
+                    {"field": "telegram_id", "operator": "==", "value": normalized_telegram_id},
                 ],
             )
 
@@ -206,6 +235,50 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error getting team member by telegram_id: {e}")
             return None
+
+    async def get_team_member_by_phone(
+        self, phone: str, team_id: str
+    ) -> Optional[TeamMember]:
+        """Get a team member by phone number."""
+        try:
+            docs = await self.database.query_documents(
+                collection=get_team_members_collection(team_id),
+                filters=[
+                    {"field": "team_id", "operator": "==", "value": team_id},
+                    {"field": "phone_number", "operator": "==", "value": phone},
+                ],
+            )
+
+            if docs:
+                return self._doc_to_team_member(docs[0])
+            return None
+        except Exception as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(f"❌ [REPO] Error getting team member by phone: {e}")
+            return None
+
+    async def get_team_members_by_status(
+        self, team_id: str, status: str
+    ) -> List[TeamMember]:
+        """Get team members by status."""
+        try:
+            docs = await self.database.query_documents(
+                collection=get_team_members_collection(team_id),
+                filters=[
+                    {"field": "team_id", "operator": "==", "value": team_id},
+                    {"field": "status", "operator": "==", "value": status},
+                ],
+            )
+
+            return [self._doc_to_team_member(doc) for doc in docs]
+        except Exception as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(f"❌ [REPO] Error getting team members by status: {e}")
+            return []
 
     async def update_team_member(self, team_member: TeamMember) -> TeamMember:
         """Update a team member."""
@@ -282,13 +355,25 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         if isinstance(updated_at, str):
             updated_at = datetime.fromisoformat(updated_at)
 
+        # Generate user_id from telegram_id if missing or empty
+        user_id = doc.get("user_id", "")
+        telegram_id = doc.get("telegram_id")
+
+        if not user_id and telegram_id:
+            # Generate user_id from telegram_id with safe conversion
+            from kickai.utils.user_id_generator import generate_user_id
+            try:
+                from kickai.utils.telegram_id_converter import safe_telegram_id_to_int
+                user_id = generate_user_id(safe_telegram_id_to_int(telegram_id))
+            except ValueError as e:
+                logger.warning(f"❌ Cannot generate user_id from telegram_id {telegram_id}: {e}")
+                user_id = f"user_temp_{telegram_id}"  # Fallback user_id
+
         return TeamMember(
-            user_id=doc.get("user_id", ""),
+            user_id=user_id,
             team_id=doc.get("team_id", ""),
-            telegram_id=doc.get("telegram_id"),
-            first_name=doc.get("first_name"),
-            last_name=doc.get("last_name"),
-            full_name=doc.get("full_name"),
+            telegram_id=telegram_id,
+            name=doc.get("name"),
             username=doc.get("username"),
             role=doc.get("role", "Team Member"),
             is_admin=doc.get("is_admin", False),

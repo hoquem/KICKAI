@@ -3,7 +3,7 @@
 Enhanced Onboarding Tools for KICKAI system.
 
 This module provides comprehensive onboarding tools for both players and team members,
-supporting the dual-entity ONBOARDING_AGENT functionality.
+supporting the dual-entity PLAYER_COORDINATOR functionality.
 """
 
 from loguru import logger
@@ -13,6 +13,7 @@ from kickai.core.dependency_container import get_container
 from kickai.features.player_registration.domain.services.player_registration_service import (
     PlayerRegistrationService,
 )
+from typing import Optional, Union
 from kickai.features.team_administration.domain.services.simplified_team_member_service import (
     SimplifiedTeamMemberService,
 )
@@ -29,7 +30,7 @@ class TeamMemberGuidanceInput(BaseModel):
 
     user_id: str
     team_id: str
-    chat_type: str | None = None
+    chat_type: Optional[str] = None
 
 
 class ValidationInput(BaseModel):
@@ -104,14 +105,14 @@ Just say "I want to register as a team member" and I'll guide you through step b
     # ) -> str:
     """
     Validate registration data for players or team members.
-    
+
     Args:
         name: Full name to validate
         phone: Phone number to validate  
         role_or_position: Role (team member) or position (player) to validate
         entity_type: Either "player" or "team_member"
         team_id: Team ID (required)
-        
+
     Returns:
         Validation result message
     """
@@ -167,15 +168,15 @@ Just say "I want to register as a team member" and I'll guide you through step b
     # ) -> str:
     """
     Register a new team member through the onboarding process.
-    Optimized for ONBOARDING_AGENT with enhanced feedback.
-    
+    Optimized for PLAYER_COORDINATOR with enhanced feedback.
+
     Args:
         name: Full name of the team member
         phone: Phone number (UK format)
         role: Administrative role
         team_id: Team ID (required)
         user_id: Optional user ID
-        
+
     Returns:
         Registration confirmation with next steps
     """
@@ -216,7 +217,7 @@ Just say "I want to register as a team member" and I'll guide you through step b
 
 🚀 **WHAT'S NEXT:**
 • You now have administrative access
-• Explore team management features  
+• Explore team management features
 • Contact leadership for orientation
 • Access leadership chat for admin functions
 
@@ -244,12 +245,12 @@ Welcome to the team! 🤝
     # ) -> str:
     """
     Detect whether user wants player or team member registration.
-    
+
     Args:
         message: User's message/request
         chat_type: Chat type (main/leadership)
         user_context: Additional user context
-        
+
     Returns:
         Detected registration type and confidence
     """
@@ -298,8 +299,8 @@ Welcome to the team! 🤝
             confidence = "high" if player_score >= 2 else "medium"
             return f"player|{confidence}|Player registration detected"
         else:
-            return "Union[ambiguous, low]|Cannot determine registration type - clarification needed"
+            return "ambiguous|low|Cannot determine registration type - clarification needed"
 
     except Exception as e:
         logger.error(f"❌ Context detection error: {e}")
-        return "Union[error, low]|Context detection failed"
+        return "error|low|Context detection failed"

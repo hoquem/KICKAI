@@ -5,78 +5,231 @@ Availability Management Tools
 This module provides tools for managing player availability for matches.
 """
 
-from loguru import logger
-from pydantic import BaseModel
+import logging
+from typing import Optional
+import asyncio
 
-from kickai.core.dependency_container import get_container
-from kickai.core.exceptions import ServiceNotAvailableError
 from kickai.utils.crewai_tool_decorator import tool
-from kickai.utils.tool_helpers import (
-    format_tool_error,
-    sanitize_input,
-    validate_required_input,
+from kickai.core.dependency_container import get_container
+
+from kickai.features.match_management.domain.entities.availability import AvailabilityStatus
+from kickai.features.match_management.domain.services.availability_service import (
+    AvailabilityService,
 )
 
-
-class ListMatchesInput(BaseModel):
-    """Input model for list_matches tool."""
-
-    team_id: str
-    user_id: str
-    period: str | None = None
+logger = logging.getLogger(__name__)
 
 
-@tool("list_matches")
-def list_matches(team_id: str, user_id: str, period: str | None = None) -> str:
-    """
-    List matches for availability management.
-
-    Args:
-        team_id: Team ID (required) - available from context
-        user_id: User ID (required) - available from context
-        period: Time period (optional) - "upcoming", "past", "all", or None for upcoming
-
-    Returns:
-        List of matches or error
-    """
+@tool("mark_availability")
+def mark_availability(
+    match_id: str,
+    player_id: str,
+    status: str,  # available, unavailable, maybe
+    reason: Optional[str] = None,
+) -> str:
+    """Mark player availability for a match."""
     try:
-        # Validate inputs
-        validation_error = validate_required_input(team_id, "Team ID")
-        if validation_error:
-            return validation_error
-
-        validation_error = validate_required_input(user_id, "User ID")
-        if validation_error:
-            return validation_error
-
-        # Sanitize inputs
-        team_id = sanitize_input(team_id, max_length=50)
-        user_id = sanitize_input(user_id, max_length=50)
-        if period:
-            period = sanitize_input(period, max_length=20)
-
-        # Get match service
         container = get_container()
-        match_service = container.get_service("MatchService")
+        availability_service: AvailabilityService = container.get_service(AvailabilityService)
 
-        if not match_service:
-            return format_tool_error("Match service not available")
+        # Convert status string to enum
+        try:
+            availability_status = AvailabilityStatus(status.lower())
+        except ValueError:
+            return f"❌ **Invalid status**: {status}. Valid options: available, unavailable, maybe"
 
-        # List matches
-        success, message = match_service.list_matches_sync(
-            team_id=team_id, period=period
+        # Mark availability
+        availability = asyncio.run(
+            availability_service.mark_availability(
+                match_id=match_id,
+                player_id=player_id,
+                status=availability_status,
+                reason=reason,
+            )
         )
 
-        if success:
-            period_text = f" ({period})" if period else " (upcoming)"
-            return f"""📅 Matches{period_text}
+        # Get availability summary for the match
+        summary = asyncio.run(availability_service.get_availability_summary(match_id))
 
-{message}
+        result = [
+            "✅ **Availability Updated**",
+            "",
+            f"**Match**: {match_id}",
+            f"**Your Status**: {availability.status_emoji} {availability_status.value.title()}",
+        ]
 
-💡 Use /matches [period] to view matches for specific periods"""
-        else:
-            return format_tool_error(f"Failed to list matches: {message}")
+        if reason:
+            result.append(f"**Reason**: {reason}")
+
+        result.extend([
+            "",
+            "📊 **Team Availability**",
+            f"• Available: {summary['available']} players",
+            f"• Unavailable: {summary['unavailable']} players",
+            f"• Maybe: {summary['maybe']} players",
+            f"• Pending: {summary['pending']} players",
+            "",
+            "💡 **Tip**: You can update your availability anytime before squad selection",
+        ])
+
+        return "\n".join(result)
 
     except Exception as e:
-        logger.error(f"Failed to list matches: {e}", exc_info=True)
-        return format_tool_error(f"Failed to list matches: {e}") 
+        logger.error(f"Failed to mark availability: {e}")
+        return f"❌ **Error marking availability**: {e!s}"
+
+
+@tool("get_availability")
+def get_availability(match_id: str) -> str:
+    """Get availability information for a match."""
+    try:
+        container = get_container()
+        availability_service: AvailabilityService = container.get_service(AvailabilityService)
+
+        # Get availability summary
+        summary = asyncio.run(availability_service.get_availability_summary(match_id))
+
+        # Get availability records by status
+        available_players = asyncio.run(availability_service.get_available_players(match_id))
+        unavailable_players = asyncio.run(availability_service.get_unavailable_players(match_id))
+        maybe_players = asyncio.run(availability_service.get_maybe_players(match_id))
+        pending_players = asyncio.run(availability_service.get_pending_players(match_id))
+
+        result = [
+            f"📊 **Match Availability: {match_id}**",
+            "",
+            f"**Total Players**: {summary['total_players']}",
+            "",
+        ]
+
+        # Available players
+        if available_players:
+            result.append(f"✅ **Available** ({len(available_players)}):")
+            for availability in available_players:
+                result.append(f"• {availability.player_id}")
+            result.append("")
+
+        # Unavailable players
+        if unavailable_players:
+            result.append(f"❌ **Unavailable** ({len(unavailable_players)}):")
+            for availability in unavailable_players:
+                result.append(f"• {availability.player_id}")
+                if availability.reason:
+                    result.append(f"  - Reason: {availability.reason}")
+            result.append("")
+
+        # Maybe players
+        if maybe_players:
+            result.append(f"❓ **Maybe** ({len(maybe_players)}):")
+            for availability in maybe_players:
+                result.append(f"• {availability.player_id}")
+                if availability.reason:
+                    result.append(f"  - Reason: {availability.reason}")
+            result.append("")
+
+        # Pending players
+        if pending_players:
+            result.append(f"⏳ **Pending** ({len(pending_players)}):")
+            for availability in pending_players:
+                result.append(f"• {availability.player_id}")
+            result.append("")
+
+        result.append("📋 **Actions**")
+        result.append("• /markattendance [match_id] [status] - Mark your availability")
+
+        return "\n".join(result)
+
+    except Exception as e:
+        logger.error(f"Failed to get availability: {e}")
+        return f"❌ **Error getting availability**: {e!s}"
+
+
+@tool("get_player_availability_history")
+def get_player_availability_history(
+    player_id: str,
+    limit: int = 10,
+) -> str:
+    """Get availability history for a player."""
+    try:
+        container = get_container()
+        availability_service: AvailabilityService = container.get_service(AvailabilityService)
+        history = asyncio.run(availability_service.get_player_history(player_id, limit))
+
+        if not history:
+            return f"📈 **Availability History**\n\nNo availability records found for player {player_id}."
+
+        result = [
+            f"📈 **Availability History for {player_id}**",
+            "",
+            f"**Last {len(history)} matches**:",
+            "",
+        ]
+
+        for availability in history:
+            result.append(
+                f"{availability.status_emoji} Match {availability.match_id} - {availability.status.value.title()}"
+            )
+            if availability.reason:
+                result.append(f"  - Reason: {availability.reason}")
+
+        # Calculate statistics
+        total_matches = len(history)
+        available_count = len([a for a in history if a.is_available])
+        unavailable_count = len([a for a in history if a.is_unavailable])
+        maybe_count = len([a for a in history if a.is_maybe])
+
+        availability_rate = (available_count / total_matches) * 100 if total_matches > 0 else 0
+
+        result.extend([
+            "",
+            "📊 **Statistics**",
+            f"• **Availability Rate**: {availability_rate:.1f}% ({available_count}/{total_matches} matches)",
+            f"• **Available**: {available_count} matches",
+            f"• **Unavailable**: {unavailable_count} matches",
+            f"• **Maybe**: {maybe_count} matches",
+        ])
+
+        # Reliability rating
+        if availability_rate >= 90:
+            reliability = "⭐⭐⭐⭐⭐ (Excellent)"
+        elif availability_rate >= 80:
+            reliability = "⭐⭐⭐⭐ (Good)"
+        elif availability_rate >= 70:
+            reliability = "⭐⭐⭐ (Fair)"
+        elif availability_rate >= 60:
+            reliability = "⭐⭐ (Poor)"
+        else:
+            reliability = "⭐ (Very Poor)"
+
+        result.append(f"• **Reliability Rating**: {reliability}")
+
+        return "\n".join(result)
+
+    except Exception as e:
+        logger.error(f"Failed to get player availability history: {e}")
+        return f"❌ **Error getting availability history**: {e!s}"
+
+
+@tool("send_availability_reminders")
+def send_availability_reminders(match_id: str) -> str:
+    """Send availability reminders for a match."""
+    try:
+        container = get_container()
+        availability_service: AvailabilityService = container.get_service(AvailabilityService)
+        success = asyncio.run(availability_service.send_availability_reminders(match_id))
+
+        if success:
+            pending_players = asyncio.run(availability_service.get_pending_players(match_id))
+            return (
+                "✅ **Reminders Sent**\n\n"
+                f"Reminders sent to {len(pending_players)} players who haven't responded to availability requests for match {match_id}."
+            )
+        else:
+            return (
+                "❌ **Failed to send reminders**\n\n"
+                f"Unable to send availability reminders for match {match_id}."
+            )
+
+    except Exception as e:
+        logger.error(f"Failed to send reminders: {e}")
+        return f"❌ **Error sending reminders**: {e!s}"

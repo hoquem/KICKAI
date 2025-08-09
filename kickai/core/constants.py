@@ -13,7 +13,7 @@ References:
 
 import os
 from dataclasses import dataclass, field
-from typing import Final
+from typing import Final, List, Tuple, Union
 
 from kickai.core.enums import ChatType, PermissionLevel
 
@@ -29,36 +29,36 @@ BOT_VERSION: Final[str] = "2.0.0"
 
 class NetworkConstants:
     """Network-related constants."""
-    
+
     # Default ports for services
     DEFAULT_MOCK_TELEGRAM_PORT: Final[int] = 8001
     DEFAULT_FIREBASE_PORT: Final[int] = 9099
     DEFAULT_OLLAMA_PORT: Final[int] = 11434
     DEFAULT_HTTP_PORT: Final[int] = 8000
     DEFAULT_WEBSOCKET_PORT: Final[int] = 8001
-    
+
     # Default hosts
     DEFAULT_HOST: Final[str] = "localhost"
     DEFAULT_OLLAMA_HOST: Final[str] = "macmini1.local"
-    
+
     # URL Templates (use .format() for substitution)
     MOCK_TELEGRAM_URL_TEMPLATE: Final[str] = "http://{host}:{port}"
     OLLAMA_URL_TEMPLATE: Final[str] = "http://{host}:{port}"
     WEBSOCKET_URL_TEMPLATE: Final[str] = "ws://{host}:{port}/ws"
-    
+
     @classmethod
     def get_default_mock_telegram_url(cls) -> str:
         """Get default mock telegram URL."""
         return cls.MOCK_TELEGRAM_URL_TEMPLATE.format(
-            host=cls.DEFAULT_HOST, 
+            host=cls.DEFAULT_HOST,
             port=cls.DEFAULT_MOCK_TELEGRAM_PORT
         )
-    
+
     @classmethod
     def get_default_ollama_url(cls) -> str:
         """Get default Ollama URL."""
         return cls.OLLAMA_URL_TEMPLATE.format(
-            host=cls.DEFAULT_OLLAMA_HOST, 
+            host=cls.DEFAULT_OLLAMA_HOST,
             port=cls.DEFAULT_OLLAMA_PORT
         )
 
@@ -69,26 +69,26 @@ class NetworkConstants:
 
 class TimeoutConstants:
     """Timeout-related constants in seconds."""
-    
+
     # HTTP timeouts
     HTTP_CONNECTION_TIMEOUT: Final[float] = 30.0
     HTTP_REQUEST_TIMEOUT: Final[float] = 120.0
     HTTP_SHORT_TIMEOUT: Final[float] = 5.0
     HTTP_LONG_TIMEOUT: Final[float] = 600.0  # 10 minutes
-    
+
     # Database timeouts
     FIREBASE_TIMEOUT: Final[int] = 30
     DATABASE_QUERY_TIMEOUT: Final[float] = 60.0
-    
+
     # AI/LLM timeouts
     OLLAMA_CONNECTION_TIMEOUT: Final[float] = 30.0
     OLLAMA_REQUEST_TIMEOUT: Final[float] = 120.0
     AI_GENERATION_TIMEOUT: Final[int] = 120
-    
+
     # WebSocket timeouts
     WEBSOCKET_CONNECT_TIMEOUT: Final[float] = 10.0
     WEBSOCKET_MESSAGE_TIMEOUT: Final[float] = 5.0
-    
+
     # Process timeouts
     PROCESS_SHUTDOWN_TIMEOUT: Final[float] = 10.0
     SYSTEM_STARTUP_TIMEOUT: Final[float] = 60.0
@@ -100,19 +100,19 @@ class TimeoutConstants:
 
 class RetryConstants:
     """Retry and circuit breaker constants."""
-    
+
     # Retry attempts
     DEFAULT_MAX_RETRIES: Final[int] = 3
     DATABASE_MAX_RETRIES: Final[int] = 5
     NETWORK_MAX_RETRIES: Final[int] = 3
     AI_MAX_RETRIES: Final[int] = 5
-    
+
     # Retry delays (seconds)
     DEFAULT_RETRY_DELAY: Final[float] = 1.0
     MIN_RETRY_WAIT: Final[float] = 1.0
     MAX_RETRY_WAIT: Final[float] = 10.0
     EXPONENTIAL_BACKOFF_MULTIPLIER: Final[float] = 2.0
-    
+
     # Circuit breaker settings
     CIRCUIT_BREAKER_FAILURE_THRESHOLD: Final[int] = 5
     CIRCUIT_BREAKER_RECOVERY_TIMEOUT: Final[float] = 60.0
@@ -125,24 +125,24 @@ class RetryConstants:
 
 class LimitConstants:
     """Limit and size constants."""
-    
+
     # Data limits
     DEFAULT_QUERY_LIMIT: Final[int] = 100
     MAX_QUERY_LIMIT: Final[int] = 1000
     FIREBASE_BATCH_SIZE: Final[int] = 500
-    
+
     # String length limits
     MIN_NAME_LENGTH: Final[int] = 2
     MAX_NAME_LENGTH: Final[int] = 100
     MIN_TEAM_ID_LENGTH: Final[int] = 2
     MAX_TEAM_ID_LENGTH: Final[int] = 20
     MIN_PHONE_DIGITS: Final[int] = 10
-    
+
     # AI token limits
     DEFAULT_AI_MAX_TOKENS: Final[int] = 800
     AI_MAX_TOKENS_TOOLS: Final[int] = 500
     AI_MAX_TOKENS_CREATIVE: Final[int] = 1000
-    
+
     # Pool limits
     HTTP_CONNECTION_POOL_SIZE: Final[int] = 1000
 
@@ -153,15 +153,15 @@ class LimitConstants:
 
 class ValidationConstants:
     """Validation patterns and constants."""
-    
+
     # Regular expressions
     TEAM_ID_PATTERN: Final[str] = r"^[A-Z0-9]+$"
     PHONE_CLEANUP_PATTERN: Final[str] = r'[\x00-\x1f\x7f-\x9f]'
-    
+
     # UK phone number constants
     UK_COUNTRY_CODE: Final[str] = "+44"
     UK_MOBILE_PREFIX: Final[str] = "44"
-    
+
     # Validation messages
     TEAM_ID_TOO_SHORT_MSG: Final[str] = "Team ID must be at least {min} characters"
     TEAM_ID_TOO_LONG_MSG: Final[str] = "Team ID must be less than {max} characters"
@@ -176,19 +176,19 @@ class ValidationConstants:
 
 class AIConstants:
     """AI and LLM constants."""
-    
+
     # Temperature settings
     AI_TEMPERATURE_DEFAULT: Final[float] = 0.3
     AI_TEMPERATURE_TOOLS: Final[float] = 0.1
     AI_TEMPERATURE_CREATIVE: Final[float] = 0.7
     AI_TEMPERATURE_MIN: Final[float] = 0.0
     AI_TEMPERATURE_MAX: Final[float] = 1.0
-    
+
     # Default models
     DEFAULT_OLLAMA_MODEL: Final[str] = "llama3.2:3b"
     DEFAULT_GOOGLE_MODEL: Final[str] = "gemini-1.5-flash"
     DEFAULT_HUGGINGFACE_MODEL: Final[str] = "Qwen/Qwen2.5-1.5B-Instruct"
-    
+
     # Model configurations
     TOOL_CALLING_MODEL: Final[str] = "llama3.2:1b"  # For precision
     CREATIVE_MODEL: Final[str] = "llama3.2:3b"      # For reasoning
@@ -201,21 +201,21 @@ class AIConstants:
 
 class EnvironmentConstants:
     """Environment variable names and defaults."""
-    
+
     # Firebase environment variables
     FIREBASE_PROJECT_ID: Final[str] = "FIREBASE_PROJECT_ID"
     FIREBASE_CREDENTIALS_FILE: Final[str] = "FIREBASE_CREDENTIALS_FILE"
     FIREBASE_CREDENTIALS_JSON: Final[str] = "FIREBASE_CREDENTIALS_JSON"
-    
+
     # AI environment variables
     OLLAMA_BASE_URL: Final[str] = "OLLAMA_BASE_URL"
     OLLAMA_MODEL: Final[str] = "OLLAMA_MODEL"
     AI_PROVIDER: Final[str] = "AI_PROVIDER"
-    
+
     # Mock environment variables
     MOCK_TELEGRAM_BASE_URL: Final[str] = "MOCK_TELEGRAM_BASE_URL"
     MOCK_TELEGRAM_PORT: Final[str] = "MOCK_TELEGRAM_PORT"
-    
+
     # Security environment variables
     KICKAI_INVITE_SECRET_KEY: Final[str] = "KICKAI_INVITE_SECRET_KEY"
 
@@ -226,7 +226,7 @@ class EnvironmentConstants:
 
 class StatusConstants:
     """Status codes and messages."""
-    
+
     # HTTP status codes that we handle specially
     HTTP_OK: Final[int] = 200
     HTTP_CREATED: Final[int] = 201
@@ -236,7 +236,7 @@ class StatusConstants:
     HTTP_NOT_FOUND: Final[int] = 404
     HTTP_INTERNAL_SERVER_ERROR: Final[int] = 500
     HTTP_SERVICE_UNAVAILABLE: Final[int] = 503
-    
+
     # System status messages
     STATUS_ONLINE: Final[str] = "Online"
     STATUS_OFFLINE: Final[str] = "Offline"
@@ -275,7 +275,7 @@ class CommandDefinition:
     description: str
     permission_level: PermissionLevel
     chat_types: frozenset[ChatType]
-    examples: tuple[str, ...] = field(default_factory=tuple)
+    examples: Tuple[str, ...] = field(default_factory=tuple)
     feature: str = "shared"
 
     def __post_init__(self):
@@ -517,50 +517,7 @@ ATTENDANCE_COMMANDS = {
 
 # =============================================================================
 # PAYMENT COMMANDS
-# =============================================================================
 
-PAYMENT_COMMANDS = {
-    CommandDefinition(
-        name="/createpayment",
-        description="Create a new payment",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/createpayment", "/createpayment Match Fee 25.00"),
-        feature="payment_management",
-    ),
-    CommandDefinition(
-        name="/payments",
-        description="View payment history",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/payments", "/payments pending", "/payments completed"),
-        feature="payment_management",
-    ),
-    CommandDefinition(
-        name="/budget",
-        description="View budget information",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/budget", "/budget 2024"),
-        feature="payment_management",
-    ),
-    CommandDefinition(
-        name="/markpaid",
-        description="Mark payment as paid",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/markpaid", "/markpaid PAYMENT123"),
-        feature="payment_management",
-    ),
-    CommandDefinition(
-        name="/paymentexport",
-        description="Export payment data",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/paymentexport", "/paymentexport 2024"),
-        feature="payment_management",
-    ),
-}
 
 # =============================================================================
 # COMMUNICATION COMMANDS
@@ -606,14 +563,8 @@ TEAM_ADMIN_COMMANDS = set()
 # =============================================================================
 
 ALL_COMMANDS = (
-    PLAYER_COMMANDS
-    | LEADERSHIP_COMMANDS
-    | SYSTEM_COMMANDS
-    | MATCH_COMMANDS
-    | ATTENDANCE_COMMANDS
-    | PAYMENT_COMMANDS
-    | COMMUNICATION_COMMANDS
-    | TEAM_ADMIN_COMMANDS
+    PLAYER_COMMANDS | LEADERSHIP_COMMANDS | SYSTEM_COMMANDS | MATCH_COMMANDS
+| ATTENDANCE_COMMANDS | COMMUNICATION_COMMANDS | TEAM_ADMIN_COMMANDS
 )
 
 # =============================================================================
@@ -664,17 +615,17 @@ CHAT_TYPE_DESCRIPTIONS = {
 # =============================================================================
 
 
-def get_commands_for_chat_type(chat_type: ChatType) -> list[CommandDefinition]:
+def get_commands_for_chat_type(chat_type: ChatType) -> List[CommandDefinition]:
     """Get all commands available for a specific chat type."""
     return sorted(COMMANDS_BY_CHAT_TYPE.get(chat_type, []), key=lambda x: x.name)
 
 
-def get_commands_for_permission_level(permission_level: PermissionLevel) -> list[CommandDefinition]:
+def get_commands_for_permission_level(permission_level: PermissionLevel) -> List[CommandDefinition]:
     """Get all commands available for a specific permission level."""
     return sorted(COMMANDS_BY_PERMISSION.get(permission_level, []), key=lambda x: x.name)
 
 
-def get_commands_for_feature(feature: str) -> list[CommandDefinition]:
+def get_commands_for_feature(feature: str) -> List[CommandDefinition]:
     """Get all commands for a specific feature."""
     return sorted(COMMANDS_BY_FEATURE.get(feature, []), key=lambda x: x.name)
 
@@ -727,23 +678,23 @@ def normalize_chat_type(chat_type: str) -> ChatType:
 def get_environment_with_default(env_var: str, default: str, required: bool = False) -> str:
     """
     Get environment variable with default value (fail-fast approach).
-    
+
     Args:
         env_var: Environment variable name
         default: Default value to use
         required: Whether the environment variable is required
-        
+
     Returns:
         Environment variable value or default
-        
+
     Raises:
         ValueError: If required environment variable is missing
     """
     value = os.getenv(env_var, default)
-    
+
     if required and not value:
         raise ValueError(f"Required environment variable {env_var} is not set")
-    
+
     return value
 
 
@@ -769,7 +720,7 @@ def get_mock_telegram_port() -> int:
         EnvironmentConstants.MOCK_TELEGRAM_PORT,
         str(NetworkConstants.DEFAULT_MOCK_TELEGRAM_PORT)
     )
-    
+
     try:
         port = int(port_str)
         if not (1 <= port <= 65535):
@@ -803,37 +754,37 @@ def validate_temperature(temperature: float) -> None:
 def validate_constants() -> None:
     """
     Validate all constants at module import time (fail-fast principle).
-    
+
     Raises:
         ValueError: If any constant has invalid values.
     """
     # Validate timeout constants
     validate_timeout(TimeoutConstants.HTTP_CONNECTION_TIMEOUT, "HTTP_CONNECTION_TIMEOUT")
     validate_timeout(TimeoutConstants.HTTP_REQUEST_TIMEOUT, "HTTP_REQUEST_TIMEOUT")
-    
+
     if TimeoutConstants.HTTP_REQUEST_TIMEOUT <= TimeoutConstants.HTTP_CONNECTION_TIMEOUT:
         raise ValueError("HTTP_REQUEST_TIMEOUT must be greater than HTTP_CONNECTION_TIMEOUT")
-    
+
     # Validate retry constants
     validate_retry_count(RetryConstants.DEFAULT_MAX_RETRIES, "DEFAULT_MAX_RETRIES")
     validate_timeout(RetryConstants.MIN_RETRY_WAIT, "MIN_RETRY_WAIT")
     validate_timeout(RetryConstants.MAX_RETRY_WAIT, "MAX_RETRY_WAIT")
-    
+
     if RetryConstants.MAX_RETRY_WAIT <= RetryConstants.MIN_RETRY_WAIT:
         raise ValueError("MAX_RETRY_WAIT must be greater than MIN_RETRY_WAIT")
-    
+
     # Validate AI constants
     validate_temperature(AIConstants.AI_TEMPERATURE_DEFAULT)
     validate_temperature(AIConstants.AI_TEMPERATURE_TOOLS)
     validate_temperature(AIConstants.AI_TEMPERATURE_CREATIVE)
-    
+
     # Validate limit constants
     if LimitConstants.MAX_QUERY_LIMIT <= LimitConstants.DEFAULT_QUERY_LIMIT:
         raise ValueError("MAX_QUERY_LIMIT must be greater than DEFAULT_QUERY_LIMIT")
-    
+
     if LimitConstants.MIN_NAME_LENGTH <= 0:
         raise ValueError("MIN_NAME_LENGTH must be positive")
-    
+
     if LimitConstants.MAX_NAME_LENGTH <= LimitConstants.MIN_NAME_LENGTH:
         raise ValueError("MAX_NAME_LENGTH must be greater than MIN_NAME_LENGTH")
 

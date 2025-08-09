@@ -5,8 +5,10 @@ This module provides utilities for generating consistent user_id values
 that link Team Members and Players when a user has both roles in the system.
 """
 
+from typing import Union
 
-def generate_user_id(telegram_id: int | str) -> str:
+
+def generate_user_id(telegram_id: Union[int, str]) -> str:
     """
     Generate a consistent user_id from a Telegram ID.
 

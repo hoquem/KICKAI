@@ -4,8 +4,10 @@ Simplified Team Member Tools
 
 This module provides tools for simplified team member management
 for the new /addmember command that only requires name and phone number.
+Converted to sync functions for CrewAI compatibility.
 """
 
+import asyncio
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
@@ -37,7 +39,7 @@ from kickai.utils.validation_utils import (
 
 
 @tool("add_team_member_simplified")
-async def add_team_member_simplified(
+def add_team_member_simplified(
     team_id: str, user_id: str, name: str, phone: str, role: str = None
 ) -> str:
     """
@@ -92,8 +94,8 @@ async def add_team_member_simplified(
         # Create simplified team member service
         team_member_service = SimplifiedTeamMemberService(team_repository)
 
-        # Add team member with simplified ID generation
-        success, message = await team_member_service.add_team_member(name, phone, role, team_id)
+        # Add team member with simplified ID generation (sync call via asyncio.run)
+        success, message = asyncio.run(team_member_service.add_team_member(name, phone, role, team_id))
 
         if success:
             # Extract member ID from message
@@ -102,10 +104,10 @@ async def add_team_member_simplified(
             member_id_match = re.search(r"ID: (\w+)", message)
             member_id = member_id_match.group(1) if member_id_match else "Unknown"
 
-            # Create invite link
-            invite_result = await team_member_service.create_team_member_invite_link(
+            # Create invite link (sync call via asyncio.run)
+            invite_result = asyncio.run(team_member_service.create_team_member_invite_link(
                 name, phone, role, team_id
-            )
+            ))
 
             if invite_result.get("success"):
                 return f"""✅ Team Member Added Successfully!

@@ -22,6 +22,7 @@ from datetime import datetime
 from enum import Enum
 
 from loguru import logger
+from typing import Union, Set, Dict
 
 
 def get_position_code(position: str) -> str:
@@ -63,11 +64,11 @@ class FootballIDGenerator:
     """Football-friendly ID generator with football conventions."""
 
     def __post_init__(self):
-        self.used_team_ids: set[str] = set()
-        self.used_player_ids: set[str] = set()
-        self.used_match_ids: set[str] = set()
-        self.team_mappings: dict[str, str] = {}
-        self.player_mappings: dict[str, str] = {}
+        self.used_team_ids: Set[str] = set()
+        self.used_player_ids: Set[str] = set()
+        self.used_match_ids: Set[str] = set()
+        self.team_mappings: Dict[str, str] = {}
+        self.player_mappings: Dict[str, str] = {}
 
     def _normalize_name(self, name: str) -> str:
         """Normalize a name for consistent processing."""
@@ -179,7 +180,7 @@ class FootballIDGenerator:
         """Get position code from position string."""
         return get_position_code(position)
 
-    def _get_jersey_number(self, position: str, existing_numbers: set[int]) -> int:
+    def _get_jersey_number(self, position: str, existing_numbers: Set[int]) -> int:
         """Get appropriate jersey number based on position and availability."""
         position_code = self._get_position_code(position)
 
@@ -344,19 +345,24 @@ class FootballIDGenerator:
 
     def generate_player_id(
         self,
-        first_name: str,
-        last_name: str,
+        name: str,
         position: str,
         team_id: str,
-        existing_ids: set[str] | None = None,
+        existing_ids: Union[Set[str], None] = None,
     ) -> str:
         """Generate a football-contextual player ID with jersey number and position."""
-        if not first_name or not last_name or not position:
+        if not name or not position:
             return "99UNK1"
 
-        # Normalize names
-        first_norm = first_name.strip()
-        last_norm = last_name.strip()
+        # Parse name into first and last components
+        name_parts = name.strip().split()
+        if len(name_parts) >= 2:
+            first_norm = name_parts[0]
+            last_norm = name_parts[-1]  # Use last word as surname
+        else:
+            # Single name - use it for both initials
+            first_norm = name_parts[0] if name_parts else "U"
+            last_norm = first_norm
 
         # Get existing jersey numbers for this team
         existing_numbers = set()
@@ -385,7 +391,7 @@ class FootballIDGenerator:
         final_id = self._resolve_collision(base_id, id_set)
 
         # Store mapping
-        player_key = f"{first_norm.lower()} {last_norm.lower()}"
+        player_key = name.lower().strip()
         self.player_mappings[player_key] = final_id
         if existing_ids is not None:
             existing_ids.add(final_id)
@@ -393,7 +399,7 @@ class FootballIDGenerator:
             self.used_player_ids.add(final_id)
 
         logger.info(
-            f"Generated football player ID '{final_id}' for {first_name} {last_name} ({position})"
+            f"Generated football player ID '{final_id}' for {name} ({position})"
         )
         return final_id
 
@@ -463,7 +469,7 @@ class FootballIDGenerator:
         try:
             # Clean the date string
             cleaned_date = re.sub(
-                r"\b(Union[Union[against, vs], Union[v, on]]|Union[Union[at, home], away])\b",
+                r"\b(against|vs|v|on|at|home|away)\b",
                 "",
                 date_str,
                 flags=re.IGNORECASE,
@@ -492,7 +498,7 @@ class FootballIDGenerator:
             # If no format works, try to extract from text
             year_match = re.search(r"\b(20\d{2})\b", cleaned_date)
             month_match = re.search(
-                r"\b(Union[Union[jan, feb], Union[mar, apr]]|Union[Union[may, jun], Union[jul, aug]]|Union[Union[sep, oct], Union[nov, dec]])\b",
+                r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b",
                 cleaned_date,
                 re.IGNORECASE,
             )
@@ -524,7 +530,7 @@ class FootballIDGenerator:
             logger.error(f"Date parsing error: {e}")
             return datetime.now().strftime("%Y-%m-%d")  # Default to today
 
-    def _resolve_collision(self, base_id: str, existing_ids: set[str]) -> str:
+    def _resolve_collision(self, base_id: str, existing_ids: Set[str]) -> str:
         """Resolve ID collision by adding a number suffix."""
         if base_id not in existing_ids:
             return base_id
@@ -539,11 +545,11 @@ class FootballIDGenerator:
         hash_suffix = hashlib.md5(base_id.encode()).hexdigest()[:2].upper()
         return f"{base_id}{hash_suffix}"
 
-    def get_team_mappings(self) -> dict[str, str]:
+    def get_team_mappings(self) -> Dict[str, str]:
         """Get all team name to ID mappings."""
         return self.team_mappings.copy()
 
-    def get_player_mappings(self) -> dict[str, str]:
+    def get_player_mappings(self) -> Dict[str, str]:
         """Get all player name to ID mappings."""
         return self.player_mappings.copy()
 
@@ -568,15 +574,14 @@ def generate_football_team_id(team_name: str, league_info: str = "") -> str:
 
 
 def generate_football_player_id(
-    first_name: str,
-    last_name: str,
+    name: str,
     position: str,
     team_id: str,
-    existing_ids: set[str] | None = None,
+    existing_ids: Union[Set[str], None] = None,
 ) -> str:
     """Generate a football-contextual player ID."""
     return football_id_generator.generate_player_id(
-        first_name, last_name, position, team_id, existing_ids
+        name, position, team_id, existing_ids
     )
 
 
@@ -595,13 +600,13 @@ def generate_football_match_id(
 def generate_football_training_id(team_id: str, session_type: str, date: str, time: str) -> str:
     """
     Generate a football-friendly training session ID.
-    
+
     Args:
         team_id: Team identifier
         session_type: Training session type (e.g., "technical_skills", "fitness_conditioning")
         date: Training date in YYYY-MM-DD format
         time: Training time in HH:MM format
-        
+
     Returns:
         Training session ID in format: TRAIN{DD}{MM}{TEAM}{TYPE}{TIME}
         Example: TRAIN1501KAI-TECH-1800
@@ -611,26 +616,26 @@ def generate_football_training_id(team_id: str, session_type: str, date: str, ti
         parsed_date = datetime.strptime(date, "%Y-%m-%d")
         day = parsed_date.day
         month = parsed_date.month
-        
+
         # Parse time to get hour
         parsed_time = datetime.strptime(time, "%H:%M")
         hour = parsed_time.hour
-        
+
         # Get session type abbreviation
         type_abbrev = {
             "technical_skills": "TECH",
-            "tactical_awareness": "TACT", 
+            "tactical_awareness": "TACT",
             "fitness_conditioning": "FIT",
             "match_practice": "MATCH",
             "recovery_session": "REC"
         }.get(session_type.lower(), "TRAIN")
-        
+
         # Create training ID: TRAIN{DD}{MM}{TEAM}-{TYPE}-{HH}00
         training_id = f"TRAIN{day:02d}{month:02d}{team_id}-{type_abbrev}-{hour:02d}00"
-        
+
         logger.info(f"Generated training ID '{training_id}' for {team_id} on {date} at {time}")
         return training_id
-        
+
     except ValueError as e:
         logger.error(f"Error generating training ID: {e}")
         # Fallback to simple format

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from kickai.core.command_registry_initializer import get_initialized_command_registry
 from kickai.core.enums import ChatType, PermissionLevel
+from typing import Optional
 from kickai.features.system_infrastructure.domain.services.bot_status_service import (
     BotStatusService,
 )
@@ -28,19 +29,19 @@ class GetAvailableCommandsInput(BaseModel):
     """Input model for get_available_commands tool."""
 
     chat_type: str
-    user_id: str | None = None
-    team_id: str | None = None
+    user_id: Optional[str] = None
+    team_id: Optional[str] = None
 
 
 class GetVersionInfoInput(BaseModel):
     """Input model for get_version_info tool."""
 
-    user_id: str | None = None
-    team_id: str | None = None
+    user_id: Optional[str] = None
+    team_id: Optional[str] = None
 
 
 @tool("get_version_info")
-def get_version_info(user_id: str | None = None, team_id: str | None = None) -> str:
+def get_version_info(user_id: Optional[str] = None, team_id: Optional[str] = None) -> str:
     """
     Get bot version and system information.
 
@@ -131,8 +132,8 @@ def get_version_info(user_id: str | None = None, team_id: str | None = None) -> 
 @tool("get_system_available_commands")
 def get_system_available_commands(
     chat_type: str,
-    user_id: str | None = None,
-    team_id: str | None = None,
+    user_id: Optional[str] = None,
+    team_id: Optional[str] = None,
     is_registered: bool = None,
     is_player: bool = None,
     is_team_member: bool = None,

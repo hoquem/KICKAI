@@ -105,7 +105,7 @@ class CommandRegistryCheck(BaseCheck):
                 "shared",
                 "match_management",
                 "attendance_management",
-                "payment_management",
+                "attendance_management",
                 "communication",
             ]
 

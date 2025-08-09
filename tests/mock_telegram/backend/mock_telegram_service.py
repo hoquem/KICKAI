@@ -1,10 +1,11 @@
 """
-Mock Telegram Bot Service
+Mock Telegram Service for KICKAI Testing
 
-This service mimics the Telegram Bot API to enable cost-effective end-to-end testing
-without requiring real phone numbers or Telegram accounts.
+This service provides a mock Telegram API for testing the KICKAI bot
+without requiring a real Telegram bot token or webhook setup.
 """
 
+import os
 import asyncio
 import json
 import logging
@@ -20,20 +21,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
 import uvicorn
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Set required environment variable for bot integration
+os.environ.setdefault("KICKAI_INVITE_SECRET_KEY", "test_secret_key_for_debugging_only_32_chars_long")
 
-# Import bot integration (optional - will be skipped if not available)
+# Import bot integration
 try:
-    from .bot_integration import process_mock_message_sync
+    from .bot_integration import process_mock_message
     BOT_INTEGRATION_AVAILABLE = True
+    logger = logging.getLogger(__name__)
     logger.info("Bot integration available")
-except ImportError:
+except ImportError as e:
     BOT_INTEGRATION_AVAILABLE = False
-    logger.warning("Bot integration not available - running in standalone mode")
-    def process_mock_message_sync(message_data):
-        return {"status": "bot_integration_not_available"}
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Bot integration not available - running in standalone mode: {e}")
 
 
 class MessageType(str, Enum):
@@ -198,35 +198,180 @@ class MockTelegramService:
         logger.info(f"MockTelegramService initialized with {len(self.users)} default users and group chats")
     
     def _initialize_default_users(self):
-        """Initialize with default test users"""
-        default_users = [
-            MockUser(1001, "test_player", "Test Player", role=UserRole.PLAYER, phone_number="+1234567890"),
-            MockUser(1002, "test_member", "Test Member", role=UserRole.TEAM_MEMBER, phone_number="+1234567891"),
-            MockUser(1003, "test_admin", "Test Admin", role=UserRole.ADMIN, phone_number="+1234567892"),
-            MockUser(1004, "test_leadership", "Test Leadership", role=UserRole.LEADERSHIP, phone_number="+1234567893"),
+        """Initialize users from Firestore data or create default test users"""
+        users_loaded = self._load_users_from_firestore()
+        
+        if not users_loaded:
+            logger.warning("⚠️ No users loaded from Firestore - creating default test users")
+            self._create_default_test_users()
+    
+    def _create_default_test_users(self):
+        """Create default test users for development/testing"""
+        logger.info("🔧 Creating default test users for development")
+        
+        # Create test users
+        test_users = [
+            MockUser(
+                id=1001,
+                username="coach_wilson",
+                first_name="Coach",
+                last_name="Wilson",
+                role=UserRole.LEADERSHIP,
+                phone_number="+1234567890"
+            ),
+            MockUser(
+                id=1002,
+                username="player_john",
+                first_name="John",
+                last_name="Doe",
+                role=UserRole.PLAYER,
+                phone_number="+1234567891"
+            ),
+            MockUser(
+                id=1003,
+                username="admin_sarah",
+                first_name="Sarah",
+                last_name="Admin",
+                role=UserRole.ADMIN,
+                phone_number="+1234567892"
+            ),
+            MockUser(
+                id=1004,
+                username="member_mike",
+                first_name="Mike",
+                last_name="Member",
+                role=UserRole.TEAM_MEMBER,
+                phone_number="+1234567893"
+            )
         ]
         
-        with self._lock:
-            for user in default_users:
-                self.users[user.id] = user
+        # Add users to the service
+        for user in test_users:
+            self.users[user.id] = user
+            
+            # Create private chat for each user
+            chat = MockChat(
+                id=user.id,
+                type=ChatType.PRIVATE,
+                first_name=user.first_name
+            )
+            self.chats[chat.id] = chat
+            
+            logger.info(f"✅ Created test user: {user.first_name} (ID: {user.id}, Role: {user.role.value})")
+        
+        logger.info(f"✅ Created {len(test_users)} default test users")
+    
+    def _load_users_from_firestore(self) -> bool:
+        """Load users from Firestore collections (both players and team members)"""
+        try:
+            from kickai.database.firebase_client import get_firebase_client
+            
+            client = get_firebase_client()
+            db = client.client
+            
+            users_loaded = 0
+            
+            with self._lock:
+                # Load players from kickai_KTI_players collection
+                try:
+                    players_ref = db.collection('kickai_KTI_players').limit(20)  # Limit to prevent overwhelming
+                    for player_doc in players_ref.stream():
+                        player_data = player_doc.to_dict()
+                        telegram_id = player_data.get('telegram_id')
+                        
+                        if telegram_id:
+                            try:
+                                telegram_id = int(telegram_id)
+                                user = MockUser(
+                                    id=telegram_id,
+                                    username=player_data.get('username', f"player_{telegram_id}"),
+                                    first_name=player_data.get('name', 'Unknown Player'),
+                                    role=UserRole.PLAYER,
+                                    phone_number=player_data.get('phone')  # Fixed: use 'phone' instead of 'phone_number'
+                                )
+                                self.users[user.id] = user
+                                
+                                # Create private chat
+                                chat = MockChat(
+                                    id=user.id,
+                                    type=ChatType.PRIVATE,
+                                    first_name=user.first_name
+                                )
+                                self.chats[chat.id] = chat
+                                users_loaded += 1
+                                logger.info(f"✅ Loaded player: {user.first_name} (ID: {telegram_id})")
+                                
+                            except (ValueError, TypeError) as e:
+                                logger.warning(f"⚠️ Invalid telegram_id for player {player_doc.id}: {telegram_id} - {e}")
+                                
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to load players: {e}")
                 
-                # Create private chat for each user
-                chat = MockChat(
-                    id=user.id,
-                    type=ChatType.PRIVATE,
-                    first_name=user.first_name,
-                    last_name=user.last_name
-                )
-                self.chats[chat.id] = chat
+                # Load team members from kickai_KTI_team_members collection
+                try:
+                    members_ref = db.collection('kickai_KTI_team_members').limit(20)  # Limit to prevent overwhelming
+                    for member_doc in members_ref.stream():
+                        member_data = member_doc.to_dict()
+                        telegram_id = member_data.get('telegram_id')
+                        
+                        if telegram_id:
+                            try:
+                                telegram_id = int(telegram_id)
+                                
+                                # Don't overwrite if already exists (player takes precedence)
+                                if telegram_id not in self.users:
+                                    # Map member role to mock role
+                                    member_role = member_data.get('role', 'team_member').lower()
+                                    if member_role in ['manager', 'coach', 'captain']:
+                                        role = UserRole.LEADERSHIP
+                                    elif member_role == 'admin':
+                                        role = UserRole.ADMIN
+                                    else:
+                                        role = UserRole.TEAM_MEMBER
+                                    
+                                    user = MockUser(
+                                        id=telegram_id,
+                                        username=member_data.get('username', f"member_{telegram_id}"),
+                                        first_name=member_data.get('name', 'Unknown Member'),
+                                        role=role,
+                                        phone_number=member_data.get('phone')  # Fixed: use 'phone' instead of 'phone_number'
+                                    )
+                                    self.users[user.id] = user
+                                    
+                                    # Create private chat
+                                    chat = MockChat(
+                                        id=user.id,
+                                        type=ChatType.PRIVATE,
+                                        first_name=user.first_name
+                                    )
+                                    self.chats[chat.id] = chat
+                                    users_loaded += 1
+                                    logger.info(f"✅ Loaded team member: {user.first_name} (ID: {telegram_id}, Role: {role.value})")
+                                
+                            except (ValueError, TypeError) as e:
+                                logger.warning(f"⚠️ Invalid telegram_id for team member {member_doc.id}: {telegram_id} - {e}")
+                                
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to load team members: {e}")
+            
+            logger.info(f"🎯 Loaded {users_loaded} users from Firestore")
+            return users_loaded > 0
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load users from Firestore: {e}")
+            return False
     
     def _initialize_group_chats(self):
         """Initialize group chats for the team"""
+        # Get dynamic team name from Firestore
+        team_name = self._get_team_name_from_firestore()
+        
         with self._lock:
             # Main chat (all users can access)
             main_chat = MockChat(
                 id=2001,  # Group chat IDs start from 2000
                 type=ChatType.GROUP,
-                title=self.team_name,
+                title=team_name,
                 is_main_chat=True
             )
             self.chats[main_chat.id] = main_chat
@@ -235,12 +380,38 @@ class MockTelegramService:
             leadership_chat = MockChat(
                 id=2002,
                 type=ChatType.GROUP,
-                title=f"{self.team_name} - Leadership",
+                title=f"{team_name} - Leadership",
                 is_leadership_chat=True
             )
             self.chats[leadership_chat.id] = leadership_chat
             
-            logger.info(f"Created group chats: Main ({main_chat.id}), Leadership ({leadership_chat.id})")
+            logger.info(f"Created group chats: Main ({main_chat.id}), Leadership ({leadership_chat.id}) for team: {team_name}")
+    
+    def _get_team_name_from_firestore(self) -> str:
+        """Get the team name from Firestore or use fallback"""
+        try:
+            from kickai.database.firebase_client import get_firebase_client
+            
+            client = get_firebase_client()
+            db = client.client
+            
+            # Get the first available team from kickai_teams collection
+            teams_ref = db.collection('kickai_teams')
+            teams = teams_ref.limit(1).stream()
+            
+            for team in teams:
+                team_data = team.to_dict()
+                team_name = team_data.get('name', team.id)
+                logger.info(f"🎯 Using dynamic team name: {team_name}")
+                return team_name
+            
+            # Fallback if no teams found
+            logger.warning("⚠️ No teams found in Firestore, using fallback team name")
+            return self.team_name
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to get team name from Firestore: {e}, using fallback")
+            return self.team_name
     
     def get_accessible_chats_for_user(self, user_id: int) -> List[MockChat]:
         """Get all chats accessible to a specific user"""
@@ -371,7 +542,7 @@ class MockTelegramService:
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=str(e))
     
-    def send_message(self, request: SendMessageRequest) -> MockMessage:
+    async def send_message(self, request: SendMessageRequest) -> MockMessage:
         """Send a message as if from a user"""
         with self._lock:
             if request.user_id not in self.users:
@@ -413,18 +584,37 @@ class MockTelegramService:
             }))
             
             # Process message through bot system with chat context
+            logger.info(f"Bot integration available: {BOT_INTEGRATION_AVAILABLE}")
             if BOT_INTEGRATION_AVAILABLE:
                 try:
+                    logger.info(f"Processing message through bot: {request.text}")
                     # Add chat context to message data for bot routing
                     message_data = message.to_dict()
                     message_data["chat_context"] = chat_context
                     
-                    bot_response = process_mock_message_sync(message_data)
+                    bot_response = await process_mock_message(message_data)
+                    logger.info(f"Bot response: {bot_response}")
                     if bot_response and bot_response.get("status") != "processing":
-                        # Broadcast bot response
+                        # Create bot message and add to chat
+                        bot_message = MockMessage(
+                            message_id=self.message_counter,
+                            from_user=MockUser(
+                                id=9999,  # Bot ID (positive number)
+                                username="kickai_bot",
+                                first_name="KICKAI Bot",
+                                is_bot=True
+                            ),
+                            chat=chat,
+                            date=datetime.now(timezone.utc),
+                            text=bot_response.get("message", bot_response.get("text", "Bot response"))
+                        )
+                        self.messages.append(bot_message)
+                        self.message_counter += 1
+                        
+                        # Broadcast bot response using the properly formatted message
                         asyncio.create_task(self.broadcast_message({
                             "type": "bot_response",
-                            "message": bot_response,
+                            "message": bot_message.to_dict(),
                             "chat_context": chat_context
                         }))
                 except Exception as e:
@@ -631,16 +821,42 @@ async def get_user_chats(user_id: int):
 @app.post("/send_message")
 async def send_message(request: SendMessageRequest):
     """Send a message as a user"""
-    message = mock_service.send_message(request)
+    message = await mock_service.send_message(request)
     return message.to_dict()
 
 
 @app.post("/bot_response")
 async def bot_response(response_data: dict):
     """Receive bot response and broadcast to WebSocket clients"""
+    from datetime import datetime, timezone
+    
+    # Transform bot response to match frontend expectations
+    bot_message = {
+        "message_id": len(mock_service.messages) + 1,
+        "from": {
+            "id": 0,  # Bot ID
+            "username": "kickai_bot",
+            "first_name": "KickAI Bot",
+            "last_name": None,
+            "is_bot": True
+        },
+        "chat": {
+            "id": 2002,  # Default chat ID
+            "type": "group",
+            "title": "KickAI Testing",
+            "username": None,
+            "first_name": None,
+            "last_name": None,
+            "is_main_chat": True,
+            "is_leadership_chat": False
+        },
+        "date": int(datetime.now(timezone.utc).timestamp()),
+        "text": response_data.get("message", response_data.get("text", "No response message"))
+    }
+    
     await mock_service.broadcast_message({
         "type": "bot_response",
-        "message": response_data
+        "message": bot_message
     })
     return {"status": "broadcasted"}
 
@@ -687,109 +903,324 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/firebase/users")
 async def get_firebase_users():
-    """Mock Firebase users endpoint - returns mock users in Firebase format"""
-    users = mock_service.get_all_users()
-    # Convert mock users to Firebase-like format
-    firebase_users = []
-    for user in users:
-        firebase_user = {
-            "id": str(user.id),  # Firebase uses string IDs
-            "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "role": user.role.value,
-            "phone_number": user.phone_number,
-            "is_bot": user.is_bot,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "status": "active",  # Mock status
-            "team_id": "TEST_TEAM",  # Mock team ID
-            "is_active": True,
-            "is_approved": True if user.role in [UserRole.ADMIN, UserRole.LEADERSHIP] else False
-        }
-        firebase_users.append(firebase_user)
+    """Get real Firebase users from Firestore - NO MOCK FALLBACK"""
+    global CURRENT_TEAM_ID
     
-    return {
-        "users": firebase_users,
-        "total": len(firebase_users),
-        "status": "success"
-    }
+    try:
+        # Always get real data from Firestore
+        from kickai.features.player_registration.domain.services.player_service import PlayerService
+        from kickai.features.team_administration.domain.services.team_service import TeamService
+        from kickai.core.dependency_container import initialize_container, get_service
+        
+        initialize_container()
+        player_service = get_service(PlayerService)
+        team_service = get_service(TeamService)
+        
+        # Get players and team members for the current team
+        players = await player_service.get_players_by_team(team_id=CURRENT_TEAM_ID)
+        team_members = await team_service.get_team_members(CURRENT_TEAM_ID)
+        
+        firebase_users = []
+        
+        # Convert players to Firebase format
+        for player in players:
+            firebase_user = {
+                "id": str(player.user_id),
+                "username": player.username or f"player_{player.user_id}",
+                "first_name": player.first_name or "Player",
+                "last_name": player.last_name,
+                "role": "player",
+                "phone_number": player.phone_number,
+                "is_bot": False,
+                "created_at": player.created_at.isoformat() if player.created_at else None,
+                "status": "active" if player.is_active else "inactive",
+                "team_id": CURRENT_TEAM_ID,
+                "is_active": player.is_active,
+                "is_approved": player.is_approved,
+                "position": player.position or "Unknown"
+            }
+            firebase_users.append(firebase_user)
+        
+        # Convert team members to Firebase format
+        for member in team_members:
+            firebase_user = {
+                "id": str(member.user_id),
+                "username": member.username or f"member_{member.user_id}",
+                "first_name": member.first_name or "Member",
+                "last_name": member.last_name,
+                "role": member.role.value if hasattr(member.role, 'value') else str(member.role),
+                "phone_number": member.phone_number,
+                "is_bot": False,
+                "created_at": member.created_at.isoformat() if member.created_at else None,
+                "status": "active" if member.is_active else "inactive",
+                "team_id": CURRENT_TEAM_ID,
+                "is_active": member.is_active,
+                "is_approved": True,  # Team members are always approved
+                "position": "Team Member"
+            }
+            firebase_users.append(firebase_user)
+        
+        logger.info(f"✅ Retrieved {len(firebase_users)} real users from Firestore for team {CURRENT_TEAM_ID}")
+        
+        return {
+            "users": firebase_users,
+            "total": len(firebase_users),
+            "status": "success",
+            "team_id": CURRENT_TEAM_ID,
+            "source": "firestore"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting real Firestore users: {e}")
+        return {
+            "users": [],
+            "total": 0,
+            "status": "error",
+            "error": f"Failed to get users from Firestore: {str(e)}",
+            "team_id": CURRENT_TEAM_ID,
+            "source": "error"
+        }
 
 
 @app.get("/firebase/players")
 async def get_firebase_players():
-    """Mock Firebase players endpoint - returns players only"""
-    users = mock_service.get_all_users()
-    # Filter for players only
-    players = [user for user in users if user.role == UserRole.PLAYER]
+    """Get real Firebase players from Firestore - NO MOCK FALLBACK"""
+    global CURRENT_TEAM_ID
     
-    firebase_players = []
-    for player in players:
-        firebase_player = {
-            "id": str(player.id),
-            "username": player.username,
-            "first_name": player.first_name,
-            "last_name": player.last_name,
-            "phone_number": player.phone_number,
-            "position": "Unknown",  # Mock position
-            "status": "active",
-            "team_id": "TEST_TEAM",
-            "is_active": True,
-            "is_approved": True,
-            "created_at": player.created_at.isoformat() if player.created_at else None
+    try:
+        # Always get real data from Firestore
+        from kickai.features.player_registration.domain.services.player_service import PlayerService
+        from kickai.core.dependency_container import initialize_container, get_service
+        
+        initialize_container()
+        player_service = get_service(PlayerService)
+        
+        # Get players for the current team
+        players = await player_service.get_players_by_team(team_id=CURRENT_TEAM_ID)
+        
+        firebase_players = []
+        for player in players:
+            firebase_player = {
+                "id": str(player.user_id),
+                "username": player.username or f"player_{player.user_id}",
+                "first_name": player.first_name or "Player",
+                "last_name": player.last_name,
+                "phone_number": player.phone_number,
+                "position": player.position or "Unknown",
+                "status": "active" if player.is_active else "inactive",
+                "team_id": CURRENT_TEAM_ID,
+                "is_active": player.is_active,
+                "is_approved": player.is_approved,
+                "created_at": player.created_at.isoformat() if player.created_at else None
+            }
+            firebase_players.append(firebase_player)
+        
+        logger.info(f"✅ Retrieved {len(firebase_players)} real players from Firestore for team {CURRENT_TEAM_ID}")
+        
+        return {
+            "players": firebase_players,
+            "total": len(firebase_players),
+            "status": "success",
+            "team_id": CURRENT_TEAM_ID,
+            "source": "firestore"
         }
-        firebase_players.append(firebase_player)
-    
-    return {
-        "players": firebase_players,
-        "total": len(firebase_players),
-        "status": "success"
-    }
+        
+    except Exception as e:
+        logger.error(f"Error getting real Firestore players: {e}")
+        return {
+            "players": [],
+            "total": 0,
+            "status": "error",
+            "error": f"Failed to get players from Firestore: {str(e)}",
+            "team_id": CURRENT_TEAM_ID,
+            "source": "error"
+        }
 
 
 @app.get("/firebase/team_members")
 async def get_firebase_team_members():
-    """Mock Firebase team members endpoint - returns team members only"""
-    users = mock_service.get_all_users()
-    # Filter for team members only
-    team_members = [user for user in users if user.role == UserRole.TEAM_MEMBER]
+    """Get real Firebase team members from Firestore - NO MOCK FALLBACK"""
+    global CURRENT_TEAM_ID
     
-    firebase_team_members = []
-    for member in team_members:
-        firebase_member = {
-            "id": str(member.id),
-            "username": member.username,
-            "first_name": member.first_name,
-            "last_name": member.last_name,
-            "phone_number": member.phone_number,
-            "role": member.role.value,
-            "status": "active",
-            "team_id": "TEST_TEAM",
-            "is_active": True,
-            "created_at": member.created_at.isoformat() if member.created_at else None
+    try:
+        # Always get real data from Firestore
+        from kickai.features.team_administration.domain.services.team_service import TeamService
+        from kickai.core.dependency_container import initialize_container, get_service
+        
+        initialize_container()
+        team_service = get_service(TeamService)
+        
+        # Get team members for the current team
+        team_members = await team_service.get_team_members(CURRENT_TEAM_ID)
+        
+        firebase_team_members = []
+        for member in team_members:
+            firebase_member = {
+                "id": str(member.user_id),
+                "username": member.username or f"member_{member.user_id}",
+                "first_name": member.first_name or "Member",
+                "last_name": member.last_name,
+                "phone_number": member.phone_number,
+                "role": member.role.value if hasattr(member.role, 'value') else str(member.role),
+                "status": "active" if member.is_active else "inactive",
+                "team_id": CURRENT_TEAM_ID,
+                "is_active": member.is_active,
+                "created_at": member.created_at.isoformat() if member.created_at else None
+            }
+            firebase_team_members.append(firebase_member)
+        
+        logger.info(f"✅ Retrieved {len(firebase_team_members)} real team members from Firestore for team {CURRENT_TEAM_ID}")
+        
+        return {
+            "team_members": firebase_team_members,
+            "total": len(firebase_team_members),
+            "status": "success",
+            "team_id": CURRENT_TEAM_ID,
+            "source": "firestore"
         }
-        firebase_team_members.append(firebase_member)
-    
-    return {
-        "team_members": firebase_team_members,
-        "total": len(firebase_team_members),
-        "status": "success"
-    }
+        
+    except Exception as e:
+        logger.error(f"Error getting real Firestore team members: {e}")
+        return {
+            "team_members": [],
+            "total": 0,
+            "status": "error",
+            "error": f"Failed to get team members from Firestore: {str(e)}",
+            "team_id": CURRENT_TEAM_ID,
+            "source": "error"
+        }
 
 
 @app.get("/firebase/status")
 async def get_firebase_status():
     """Mock Firebase status endpoint"""
+    global CURRENT_TEAM_ID
+    
     return {
         "status": "connected",
         "database": "firestore",
         "project_id": "kickai-testing",
+        "team_id": CURRENT_TEAM_ID,  # Include current team ID
         "collections": [
-            "kickai_TEST_TEAM_players",
-            "kickai_TEST_TEAM_team_members",
-            "kickai_TEST_TEAM_matches",
-            "kickai_TEST_TEAM_attendance"
-        ],
-        "last_sync": datetime.now(timezone.utc).isoformat()
+            f"kickai_{CURRENT_TEAM_ID}_players",
+            f"kickai_{CURRENT_TEAM_ID}_team_members",
+            f"kickai_{CURRENT_TEAM_ID}_matches",
+            f"kickai_{CURRENT_TEAM_ID}_training",
+            f"kickai_{CURRENT_TEAM_ID}_payments"
+        ]
+    }
+
+
+# Global variable to store current team ID
+CURRENT_TEAM_ID = "KTI"  # Default team ID
+
+@app.get("/teams")
+async def get_available_teams():
+    """Get all available teams from Firestore - NO MOCK FALLBACK"""
+    try:
+        # Always try to get real teams from Firestore
+        from kickai.features.team_administration.domain.services.team_service import TeamService
+        from kickai.core.dependency_container import initialize_container, get_service
+        
+        initialize_container()
+        team_service = get_service(TeamService)
+        teams = await team_service.get_all_teams()
+        
+        if not teams:
+            logger.warning("No teams found in Firestore")
+            return {
+                "teams": [],
+                "current_team_id": CURRENT_TEAM_ID,
+                "status": "error",
+                "error": "No teams found in Firestore"
+            }
+        
+        team_list = [{"id": team.id, "name": getattr(team, 'name', team.id)} for team in teams]
+        
+        logger.info(f"✅ Retrieved {len(team_list)} real teams from Firestore")
+        
+        return {
+            "teams": team_list,
+            "current_team_id": CURRENT_TEAM_ID,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting teams from Firestore: {e}")
+        return {
+            "teams": [],
+            "current_team_id": CURRENT_TEAM_ID,
+            "status": "error",
+            "error": f"Failed to get teams from Firestore: {str(e)}"
+        }
+
+
+@app.post("/teams/switch")
+async def switch_team(request: dict):
+    """Switch to a different team"""
+    global CURRENT_TEAM_ID
+    
+    try:
+        team_id = request.get("team_id")
+        if not team_id:
+            return {
+                "status": "error",
+                "error": "team_id is required"
+            }
+        
+        # Update current team ID
+        CURRENT_TEAM_ID = team_id
+        logger.info(f"Switched to team: {team_id}")
+        
+        return {
+            "status": "success",
+            "current_team_id": CURRENT_TEAM_ID,
+            "message": f"Switched to team {team_id}"
+        }
+    except Exception as e:
+        logger.error(f"Error switching team: {e}")
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+
+@app.get("/test")
+async def test_endpoint():
+    """Simple test endpoint to verify server is working"""
+    return {
+        "status": "success",
+        "message": "Mock Telegram Service is running",
+        "current_team_id": CURRENT_TEAM_ID,
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+@app.get("/team_id")
+async def get_team_id():
+    """Get the current team ID being used by the bot integration"""
+    global CURRENT_TEAM_ID
+    
+    try:
+        if BOT_INTEGRATION_AVAILABLE:
+            from .bot_integration import MockTelegramIntegration
+            integration = MockTelegramIntegration()
+            await integration._initialize()
+            if integration.agentic_router:
+                # Use the current team ID from global variable
+                team_id = CURRENT_TEAM_ID
+            else:
+                team_id = CURRENT_TEAM_ID
+        else:
+            team_id = CURRENT_TEAM_ID
+    except Exception as e:
+        logger.warning(f"Could not get team_id from bot integration: {e}")
+        team_id = CURRENT_TEAM_ID
+    
+    return {
+        "team_id": team_id,
+        "source": "team_switcher" if CURRENT_TEAM_ID != "KTI" else "bot_integration",
+        "status": "success"
     }
 
 

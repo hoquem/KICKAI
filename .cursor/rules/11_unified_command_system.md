@@ -40,11 +40,9 @@ The KICKAI system implements a clean, maintainable command architecture using pr
 - `/attendanceexport` - Export attendance data (LEADERSHIP)
 
 #### Payment Management Commands
-- `/createpayment` - Create a new payment (LEADERSHIP)
-- `/payments` - View payment history (LEADERSHIP)
-- `/budget` - View budget information (LEADERSHIP)
-- `/markpaid` - Mark payment as paid (LEADERSHIP)
-- `/paymentexport` - Export payment data (LEADERSHIP)
+**Status**: ❌ **REMOVED** - Not a priority for Sunday league team management
+
+**Reason**: Sunday league teams typically focus on match management rather than formal payment tracking.
 
 #### Communication Commands
 - `/announce` - Send announcement to team (LEADERSHIP)
@@ -54,19 +52,9 @@ The KICKAI system implements a clean, maintainable command architecture using pr
 ### 🚧 **Partially Implemented Commands**
 
 #### Training Management Commands
-**Status**: Commands defined in `training_commands.py` but not integrated into main command system
+**Status**: ❌ **REMOVED** - Not a priority for Sunday league team management
 
-- `/scheduletraining` - Schedule a training session (LEADERSHIP)
-- `/listtrainings` - List upcoming training sessions (PLAYER)
-- `/marktraining` - Mark attendance for training session (PLAYER)
-- `/canceltraining` - Cancel a training session (LEADERSHIP)
-- `/trainingstats` - Show training statistics (PLAYER)
-- `/mytrainings` - Show personal training schedule (PLAYER)
-
-**Missing Integration**:
-- Training commands not added to `constants.py` command definitions
-- Training commands not registered in main command registry
-- Training tools not integrated with agent system
+**Reason**: Sunday league teams typically focus on match management rather than formal training sessions.
 
 ## Design Patterns Used
 
@@ -379,44 +367,8 @@ Return Error Result
 4. **Test Integration**: Test with other commands
 5. **Validate Permissions**: Ensure permissions still work correctly
 
-## Next Steps for Training Management Integration
+## ❌ Training Management Integration (Removed)
 
-### 1. Add Training Commands to Constants
-```python
-TRAINING_COMMANDS = {
-    CommandDefinition(
-        name="/scheduletraining",
-        description="Schedule a training session",
-        permission_level=PermissionLevel.LEADERSHIP,
-        chat_types=frozenset([ChatType.LEADERSHIP]),
-        examples=("/scheduletraining", "/scheduletraining Technical 2024-01-15 18:00"),
-        feature="training_management",
-    ),
-    # ... other training commands
-}
-```
+Training management has been removed from the system as it's not a priority for Sunday league team management.
 
-### 2. Update ALL_COMMANDS Collection
-```python
-ALL_COMMANDS = (
-    PLAYER_COMMANDS
-    | LEADERSHIP_COMMANDS
-    | SYSTEM_COMMANDS
-    | MATCH_COMMANDS
-    | ATTENDANCE_COMMANDS
-    | PAYMENT_COMMANDS
-    | COMMUNICATION_COMMANDS
-    | TEAM_ADMIN_COMMANDS
-    | TRAINING_COMMANDS  # Add this line
-)
-```
-
-### 3. Integrate Training Tools with Agents
-- Register training tools with agent system
-- Update agent configurations to include training tools
-- Test training command execution through agents
-
-### 4. Add E2E Tests
-- Create training management E2E test suite
-- Test training session creation and management
-- Test attendance tracking functionality 
+**Focus Areas**: Match management, player registration, and attendance tracking are the core priorities. 

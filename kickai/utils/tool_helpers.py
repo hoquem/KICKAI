@@ -7,10 +7,10 @@ standardizing error messages across all tools.
 """
 
 import json
-from typing import Any
+from typing import Any, Dict, List
 
 
-def parse_crewai_json_input(input_value: str, expected_keys: list[str]) -> dict[str, str]:
+def parse_crewai_json_input(input_value: str, expected_keys: List[str]) -> Dict[str, str]:
     """
     Parse CrewAI JSON input and extract expected keys.
 
@@ -128,7 +128,7 @@ def validate_required_input(value: str, field_name: str) -> str:
     return ""
 
 
-def extract_context_from_task_description(task_description: str) -> dict[str, str]:
+def extract_context_from_task_description(task_description: str) -> Dict[str, str]:
     """
     Extract context information from CrewAI task description.
 

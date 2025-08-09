@@ -6,7 +6,7 @@ proper validation and type safety when passing context to CrewAI tools.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 from loguru import logger
 from pydantic import BaseModel, Field, validator
@@ -45,9 +45,9 @@ class BaseContext(BaseModel):
 class PlayerContext(BaseContext):
     """Context for player-related operations."""
 
-    player_id: str | None = Field(None, description="Player identifier")
-    phone: str | None = Field(None, description="Phone number")
-    position: str | None = Field(None, description="Player position")
+    player_id: Optional[str] = Field(None, description="Player identifier")
+    phone: Optional[str] = Field(None, description="Phone number")
+    position: Optional[str] = Field(None, description="Player position")
 
     @validator("player_id")
     def validate_player_id(cls, v):
@@ -71,9 +71,9 @@ class PlayerContext(BaseContext):
 class MatchContext(BaseContext):
     """Context for match-related operations."""
 
-    match_id: str | None = Field(None, description="Match identifier")
-    match_date: datetime | None = Field(None, description="Match date")
-    venue: str | None = Field(None, description="Match venue")
+    match_id: Optional[str] = Field(None, description="Match identifier")
+    match_date: Optional[datetime] = Field(None, description="Match date")
+    venue: Optional[str] = Field(None, description="Match venue")
 
     @validator("match_id")
     def validate_match_id(cls, v):
@@ -86,9 +86,9 @@ class MatchContext(BaseContext):
 class PaymentContext(BaseContext):
     """Context for payment-related operations."""
 
-    amount: float | None = Field(None, description="Payment amount")
+    amount: Optional[float] = Field(None, description="Payment amount")
     currency: str = Field(default="GBP", description="Currency code")
-    payment_type: str | None = Field(None, description="Type of payment")
+    payment_type: Optional[str] = Field(None, description="Type of payment")
 
     @validator("amount")
     def validate_amount(cls, v):
@@ -108,8 +108,8 @@ class PaymentContext(BaseContext):
 class AttendanceContext(BaseContext):
     """Context for attendance-related operations."""
 
-    match_id: str | None = Field(None, description="Match identifier")
-    attendance_status: str | None = Field(None, description="Attendance status")
+    match_id: Optional[str] = Field(None, description="Match identifier")
+    attendance_status: Optional[str] = Field(None, description="Attendance status")
 
     @validator("attendance_status")
     def validate_attendance_status(cls, v):
@@ -124,8 +124,8 @@ class AttendanceContext(BaseContext):
 class CommunicationContext(BaseContext):
     """Context for communication-related operations."""
 
-    message_type: str | None = Field(None, description="Type of message")
-    recipient_group: str | None = Field(None, description="Recipient group")
+    message_type: Optional[str] = Field(None, description="Type of message")
+    recipient_group: Optional[str] = Field(None, description="Recipient group")
 
     @validator("message_type")
     def validate_message_type(cls, v):

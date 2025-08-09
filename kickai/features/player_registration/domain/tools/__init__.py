@@ -7,36 +7,24 @@ This module provides tools for player registration and management.
 
 # Import the function-based tools
 from .player_tools import (
-    add_player,
     approve_player,
     get_all_players,
+    get_active_players,
     get_my_status,
     get_player_match,
     get_player_status,
+    list_team_members_and_players,
 )
 
-# Registration tools removed - /register command has been removed from the system
-# from .registration_parser import parse_registration_command
-# from .registration_tools import (
-#     register_player,
-#     register_team_member,
-#     registration_guidance,
-#     team_member_registration,
-# )
-
 __all__ = [
-    # Registration tools removed - /register command has been removed from the system
-    # "register_player",
-    # "team_member_registration",
-    # "registration_guidance",
-    # "parse_registration_command",
     # Player management tools (only the ones actually used by agents)
-    "add_player",
     "approve_player",
     "get_my_status",
     "get_player_status",
     "get_all_players",
+    "get_active_players",
     "get_player_match",
+    "list_team_members_and_players",
 ]
 
 # Note: Removed unused tools: remove_player, get_player_info, list_players
