@@ -69,8 +69,9 @@ class MockUser:
 
     id: str
     username: Optional[str]
-    first_name: str = "Mock"
-    last_name: str = "User"
+    name: str = "Mock User"
+    first_name: str = "Mock"  # Keep for Telegram API compatibility
+    last_name: str = "User"   # Keep for Telegram API compatibility
 
 
 @dataclass
@@ -89,8 +90,9 @@ class MockBot:
     def __init__(self):
         self.username = "mock_bot"
         self.id = "123456789"
-        self.first_name = "Mock"
-        self.last_name = "Bot"
+        self.name = "Mock Bot"
+        self.first_name = "Mock"  # Keep for Telegram API compatibility
+        self.last_name = "Bot"    # Keep for Telegram API compatibility
 
     async def get_me(self):
         """Mock get_me method."""

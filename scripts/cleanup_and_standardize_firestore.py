@@ -237,9 +237,7 @@ class FirestoreDataManager:
         test_players = [
             {
                 'player_id': 'KAI_001',
-                'full_name': 'Alex Johnson',
-                'first_name': 'Alex',
-                'last_name': 'Johnson',
+                'name': 'Alex Johnson',
                 'position': 'forward',
                 'phone_number': '+447700900001',
                 'telegram_id': '10001',
@@ -247,9 +245,7 @@ class FirestoreDataManager:
             },
             {
                 'player_id': 'KAI_002',
-                'full_name': 'Ben Smith',
-                'first_name': 'Ben',
-                'last_name': 'Smith',
+                'name': 'Ben Smith',
                 'position': 'midfielder',
                 'phone_number': '+447700900002',
                 'telegram_id': '10002',
@@ -257,9 +253,7 @@ class FirestoreDataManager:
             },
             {
                 'player_id': 'KAI_003',
-                'full_name': 'Carlos Rodriguez',
-                'first_name': 'Carlos',
-                'last_name': 'Rodriguez',
+                'name': 'Carlos Rodriguez',
                 'position': 'defender',
                 'phone_number': '+447700900003',
                 'telegram_id': '10003',
@@ -267,9 +261,7 @@ class FirestoreDataManager:
             },
             {
                 'player_id': 'KAI_004',
-                'full_name': 'David Wilson',
-                'first_name': 'David',
-                'last_name': 'Wilson',
+                'name': 'David Wilson',
                 'position': 'goalkeeper',
                 'phone_number': '+447700900004',
                 'telegram_id': '10004',
@@ -277,9 +269,7 @@ class FirestoreDataManager:
             },
             {
                 'player_id': 'KAI_005',
-                'full_name': 'Emma Davis',
-                'first_name': 'Emma',
-                'last_name': 'Davis',
+                'name': 'Emma Davis',
                 'position': 'midfielder',
                 'phone_number': '+447700900005',
                 'telegram_id': '10005',
@@ -291,9 +281,7 @@ class FirestoreDataManager:
         test_members = [
             {
                 'user_id': 'user_10001',
-                'full_name': 'Coach Mike Thompson',
-                'first_name': 'Mike',
-                'last_name': 'Thompson',
+                'name': 'Coach Mike Thompson',
                 'role': 'coach',
                 'phone_number': '+447700900101',
                 'telegram_id': '20001',
@@ -302,9 +290,7 @@ class FirestoreDataManager:
             },
             {
                 'user_id': 'user_10002',
-                'full_name': 'Assistant Coach Lisa Park',
-                'first_name': 'Lisa',
-                'last_name': 'Park',
+                'name': 'Assistant Coach Lisa Park',
                 'role': 'assistant_coach',
                 'phone_number': '+447700900102',
                 'telegram_id': '20002',
@@ -313,9 +299,7 @@ class FirestoreDataManager:
             },
             {
                 'user_id': 'user_10003',
-                'full_name': 'Team Secretary Tom Brown',
-                'first_name': 'Tom',
-                'last_name': 'Brown',
+                'name': 'Team Secretary Tom Brown',
                 'role': 'team_member',
                 'phone_number': '+447700900103',
                 'telegram_id': '20003',
@@ -340,9 +324,7 @@ class FirestoreDataManager:
         test_players = [
             {
                 'player_id': 'TEST_001',
-                'full_name': 'Frank Miller',
-                'first_name': 'Frank',
-                'last_name': 'Miller',
+                'name': 'Frank Miller',
                 'position': 'forward',
                 'phone_number': '+447700900201',
                 'telegram_id': '30001',
@@ -350,9 +332,7 @@ class FirestoreDataManager:
             },
             {
                 'player_id': 'TEST_002',
-                'full_name': 'Grace Lee',
-                'first_name': 'Grace',
-                'last_name': 'Lee',
+                'name': 'Grace Lee',
                 'position': 'midfielder',
                 'phone_number': '+447700900202',
                 'telegram_id': '30002',
@@ -360,9 +340,7 @@ class FirestoreDataManager:
             },
             {
                 'player_id': 'TEST_003',
-                'full_name': 'Henry Taylor',
-                'first_name': 'Henry',
-                'last_name': 'Taylor',
+                'name': 'Henry Taylor',
                 'position': 'defender',
                 'phone_number': '+447700900203',
                 'telegram_id': '30003',
@@ -374,9 +352,7 @@ class FirestoreDataManager:
         test_members = [
             {
                 'user_id': 'user_20001',
-                'full_name': 'Manager Sarah Williams',
-                'first_name': 'Sarah',
-                'last_name': 'Williams',
+                'name': 'Manager Sarah Williams',
                 'role': 'team_manager',
                 'phone_number': '+447700900301',
                 'telegram_id': '40001',

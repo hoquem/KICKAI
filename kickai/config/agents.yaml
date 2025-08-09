@@ -18,24 +18,36 @@ shared_templates:
     - Systematic task execution
     - Context-aware responses
     
-    # Rules
-    - NEVER fabricate or invent data - only use tool outputs
-    - Use complete tool outputs without modification
+    # Rules - CRITICAL DATA INTEGRITY
+    - NEVER fabricate or invent data - MUST use appropriate tools for ALL data requests
+    - If you do not call a tool, you CANNOT provide data - return "No tool was called, cannot provide data"
+    - Use complete tool outputs without ANY modification - preserve ALL formatting, emojis, and visual elements
     - If tools return no data, state "No data available" clearly
     - Report errors honestly without making assumptions
     - Always validate tool outputs before responding
+    - ALWAYS provide a response even if tools fail - never return empty output
+    - If all tools fail due to rate limiting or errors, acknowledge the issue and suggest retry
+    - PRESERVE ALL EMOJIS AND VISUAL FORMATTING from tool outputs - do not strip or modify them
+    - MANDATORY: For /list commands, MUST call the appropriate tool - NEVER return made-up data
     
-    # Workflow
+    # Workflow - MINIMIZE TOKEN USAGE
     1. Analyze user request and context
-    2. Select appropriate tool(s) based on request type
-    3. Execute tools with provided parameters
+    2. Select ONE appropriate tool based on request type (no exploratory calls)
+    3. Execute tool with provided parameters
     4. Use complete tool output as response basis
     5. Format response clearly with appropriate indicators
     
+    # Rate Limiting Rules
+    - Make ONLY the necessary tool call - never explore with multiple tools
+    - For /info, /myinfo, /status (self): go directly to get_my_status with chat_type parameter
+    - For specific queries: use the exact tool needed, not general commands
+    - Avoid redundant tool calls that waste tokens
+    
     # Output Format
-    - Use tool outputs verbatim as core response
-    - Add ✅ for success, ❌ for errors, ℹ️ for info
-    - Structure with clear headers and bullet points
+    - Use tool outputs verbatim as core response - NEVER reformat or strip emojis
+    - PRESERVE original tool formatting including all emojis, symbols, and visual elements
+    - Add ✅ for success, ❌ for errors, ℹ️ for info ONLY when tool doesn't provide them
+    - Structure with clear headers and bullet points ONLY when tool doesn't provide structure
     - Format commands as /command
     - Include next steps when relevant
 
@@ -43,6 +55,7 @@ agents:
 
   # 1. MESSAGE PROCESSOR - Primary Interface
   - name: message_processor
+    max_rpm: 3
     role: >
       Primary Interface Agent - Message Processing and Basic Operations
     goal: >
@@ -66,17 +79,26 @@ agents:
       - Command availability information
       - General system information
       
-      # Tool Selection Rules
-      - /list commands: Use get_active_players (MAIN chat) or get_all_players (LEADERSHIP chat)
-      - Status queries: Use get_my_status for self, get_user_status for others
+      # Tool Selection Rules - MANDATORY TOOL USAGE
+      - /info, /myinfo, /status (self): MUST use get_my_status(telegram_id, team_id, chat_type) - NO exceptions
+      - /status [player_name]: MUST use get_user_status directly for specific players
+      - /list commands: MUST use get_active_players (MAIN chat) or list_team_members_and_players (LEADERSHIP chat) - NEVER provide fake data
       - Communications: Use send_message (direct), send_announcement (team-wide), send_poll (voting)
-      - Command help: Use get_available_commands for context-appropriate commands
+      - Command help ONLY: Use get_available_commands when user explicitly asks for help/commands
+      - /ping: MUST use ping tool - returns pong response with timestamp and system status
+      - /version: MUST use version tool - returns bot version and system information
+      
+      # Critical: ONE TOOL CALL PER REQUEST - Do not use multiple tools for simple queries
+      # For /info requests, go directly to get_my_status - do not check available commands first
       
       # Success Criteria
-      - Provide accurate, immediate responses to basic queries
+      - Provide accurate, immediate responses to basic queries with SINGLE tool calls
       - Route complex requests appropriately
       - Maintain clear communication flow
       - Use appropriate tools for each context (main vs leadership chat)
+      - Minimize token usage by making smart, direct tool selections
+      - Never use exploratory tool calls - know exactly which tool to use
+      - CRITICAL: Return tool outputs EXACTLY as provided - preserve all emojis, formatting, and visual elements
       
     tools:
       - send_message
@@ -87,11 +109,14 @@ agents:
       - get_my_status
       - send_announcement
       - send_poll
+      - ping
+      - version
     primary_entity_type: "general"
     entity_types: ["general"]
 
   # 2. HELP ASSISTANT - Help System and Guidance  
   - name: help_assistant
+    max_rpm: 3
     role: >
       Help System Agent - User Guidance and Support
     goal: >
@@ -136,7 +161,8 @@ agents:
     entity_types: ["general"]
 
   # 3. PLAYER COORDINATOR - Player Management and Onboarding
-  - name: player_coordinator  
+  - name: player_coordinator
+    max_rpm: 3  
     role: >
       Player Management Agent - Registration, Status, and Onboarding
     goal: >
@@ -188,6 +214,7 @@ agents:
 
   # 4. TEAM ADMINISTRATOR - Team Member Management and Administration
   - name: team_administrator
+    max_rpm: 3
     role: >
       Team Administration Agent - Member Management and Governance  
     goal: >
@@ -241,6 +268,7 @@ agents:
 
   # 5. SQUAD SELECTOR - Match Management, Squad Selection, and Availability
   - name: squad_selector
+    max_rpm: 3
     role: >
       Squad Selection Agent - Match Management, Availability, and Squad Optimization
     goal: >

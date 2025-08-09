@@ -96,7 +96,7 @@ class PermissionService:
         """Create a mock team member service for fallback."""
 
         class MockTeamMemberService:
-            async def get_team_member_by_telegram_id(self, user_id: str, team_id: str):
+            async def get_team_member_by_telegram_id(self, telegram_id: int, team_id: str):
                 return None
 
             async def is_first_user(self, team_id: str):

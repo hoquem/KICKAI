@@ -9,7 +9,7 @@ KICKAI is an AI-powered football team management system built with a **5-agent C
 **Version:** 5.0  
 **Status:** Production Ready with Simplified Agentic Architecture  
 **Python Version:** 3.11+ (MANDATORY - Will NOT work with Python 3.9)  
-**Deployment:** Railway (Production), Local Development with Ollama  
+**Deployment:** Railway (Production), Local Development with Groq  
 **Test UI:** Mock Telegram at http://localhost:8001
 
 ## Critical Requirements
@@ -33,10 +33,16 @@ python --version  # Should show: Python 3.11.x
 PYTHONPATH=. python run_bot_local.py
 
 # Core configuration
-AI_PROVIDER=ollama  # or groq, gemini, openai
+AI_PROVIDER=groq  # primary for local development, groq, gemini, openai, ollama
 KICKAI_INVITE_SECRET_KEY=test-invite-secret-key-for-testing-only
 FIREBASE_PROJECT_ID=kickai-954c2
 FIREBASE_CREDENTIALS_FILE=credentials/firebase_credentials_testing.json
+
+# Groq rate limiting (CRITICAL for local development)
+AI_RATE_LIMIT_TPM=6000                    # Tokens per minute limit
+AI_RATE_LIMIT_RETRY_DELAY=5.0            # Initial retry delay in seconds
+AI_RATE_LIMIT_MAX_RETRIES=3              # Maximum retry attempts
+AI_RATE_LIMIT_BACKOFF_MULTIPLIER=2.0     # Exponential backoff multiplier
 ```
 
 ## Common Development Commands
@@ -94,7 +100,7 @@ The system uses **5 essential agents** (simplified from 11):
 
 ### Unified Processing Pipeline
 ```
-User Input → Message Router → CrewAI System → Agent Selection → Tool Execution → Response
+User Input → AgenticMessageRouter → CrewAI System → Agent Selection → Tool Execution → Response
 ```
 - Both slash commands and natural language use the **same pipeline**
 - Consistent security and permission checking
@@ -110,12 +116,27 @@ kickai/
 │   └── shared/                  
 ├── agents/                      # 5-Agent CrewAI System
 │   ├── crew_agents.py          # Agent definitions
-│   └── agentic_message_router.py # Central routing
+│   └── agentic_message_router.py # Central routing (MODERNIZED)
 ├── core/                        # Core utilities
 │   ├── command_registry.py     # Command discovery
 │   └── dependency_container.py # DI container
 └── database/                    # Firebase/Firestore
 ```
+
+## Critical System Changes (Recent Updates)
+
+### ✅ **Legacy Component Removal (Completed)**
+The following legacy components have been **REMOVED** and functionality consolidated:
+- `kickai/agents/handlers/` - All message handlers removed (functionality moved to router)
+- `kickai/agents/context/` - Context builder removed (logic moved to router)
+- `kickai/core/factories/agent_system_factory.py` - Unused factory removed
+
+### ✅ **AgenticMessageRouter Modernization**
+The `AgenticMessageRouter` is now the **single source of truth** for all message routing:
+- **Consolidated Logic**: All handler functionality moved to router methods
+- **Resource Management**: Built-in rate limiting, circuit breaker patterns
+- **Type Safety**: Consistent `telegram_id` handling as `int` throughout
+- **Memory Management**: Proper cleanup and garbage collection
 
 ## Critical CrewAI Rules (MANDATORY) - UPDATED 2025
 
@@ -135,12 +156,6 @@ def final_help_response(
 ) -> str:
     """Tool receives parameters directly from agent."""
     return f"Help for {username} in {chat_type}"
-
-# ❌ DEPRECATED - Thread-local context access
-@tool("get_status")  
-def get_status() -> str:
-    context = get_context_for_tool("get_status")  # DON'T DO THIS
-    return context.get('username')
 ```
 
 ### Task Creation - Native Structured Description
@@ -164,20 +179,13 @@ task = Task(
     agent=agent.crew_agent,
     expected_output="A clear and helpful response to the user's request",
 )
-
-# ❌ DEPRECATED - Task.config approach
-task = Task(
-    config=execution_context,  # DON'T USE THIS
-)
 ```
 
-### Native CrewAI Features Only
-- ✅ Use `@tool` decorator from `crewai.tools`
-- ✅ Use `Agent` and `Task` classes from `crewai`
-- ✅ Pass parameters directly to tool functions
-- ✅ Use structured task descriptions for context
-- ❌ No custom tool wrappers or parameter injection
-- ❌ No thread-local storage or context managers
+### Tool Independence (CRITICAL)
+- **❌ NEVER**: Tools calling other tools or services
+- **✅ ALWAYS**: Tools are simple, independent functions
+- **✅ ALWAYS**: Parameters passed directly via Task descriptions
+- **✅ ALWAYS**: Tools return simple string responses
 
 ### Absolute Imports
 ```python
@@ -191,7 +199,7 @@ from .domain.tools.player_tools import get_status
 ## Key Files to Understand
 
 ### Core System
-- `kickai/agents/agentic_message_router.py` - Central message routing
+- `kickai/agents/agentic_message_router.py` - **Central message routing (MODERNIZED)**
 - `kickai/agents/crew_agents.py` - 5-agent system definition  
 - `kickai/core/dependency_container.py` - DI and service initialization
 - `kickai/core/command_registry.py` - Command discovery system
@@ -216,10 +224,19 @@ Each feature follows:
 - **Process already running** → Use `./start_bot_safe.sh`
 - **Environment not activated** → Run `source venv311/bin/activate`
 
+### Router Issues (Post-Modernization)
+- **Missing handler methods** → Functionality moved to `AgenticMessageRouter` methods
+- **Import errors from handlers/** → Directory removed, update imports
+- **Context builder issues** → Logic moved directly into router
+
 ### Firebase Issues
 - **Authentication failed** → Check `FIREBASE_CREDENTIALS_FILE` path
 - **Collection not found** → Ensure `kickai_` prefix on collection names
 - **Async errors** → All Firebase operations must use async/await
+
+### Type Consistency
+- **telegram_id type errors** → Must be `int` throughout system (NOT string)
+- **Message validation** → Use `TelegramMessage` type for consistency
 
 ## Testing Strategy
 
@@ -272,6 +289,12 @@ make health-check
 3. Add to agent configuration in `agents.yaml`
 4. Ensure NO service/tool dependencies
 
+### Modifying AgenticMessageRouter
+1. **DO NOT** create new handler classes - extend router methods
+2. **PRESERVE** resource management and rate limiting
+3. **MAINTAIN** telegram_id as int consistency
+4. **TEST** thoroughly - router is critical path
+
 ## Quick Validation Commands
 
 ### System Health
@@ -289,6 +312,17 @@ from kickai.agents.crew_agents import TeamManagementSystem
 system = TeamManagementSystem('KTI')
 print(f'✅ {len(system.agents)} agents loaded')
 "
+
+# Router functionality
+PYTHONPATH=. python -c "
+from kickai.agents.agentic_message_router import AgenticMessageRouter
+from kickai.core.types import TelegramMessage
+from kickai.core.enums import ChatType
+router = AgenticMessageRouter('KTI')
+print('✅ Router initialized')
+msg = TelegramMessage(telegram_id=123, text='test', chat_id='-100123', chat_type=ChatType.MAIN, team_id='KTI', username='test')
+print('✅ Message creation works')
+"
 ```
 
 ### Quick Debug
@@ -299,3 +333,27 @@ PYTHONPATH=. timeout 30s python run_bot_local.py
 # Validation checks
 PYTHONPATH=. python scripts/run_health_checks.py
 ```
+
+## Legacy Migration Notes
+
+### For Developers Working on Old Code
+If you encounter references to deleted components:
+
+1. **Handler Classes** → Methods in `AgenticMessageRouter`
+   - `UnregisteredUserHandler` → `_get_unregistered_user_message()`
+   - `ContactShareHandler` → `route_contact_share()`
+   - `RegisteredUserHandler` → `_process_with_crewai_system()`
+
+2. **Context Classes** → Direct logic in router
+   - `ContextBuilder` → Logic moved to router methods
+   - `AgentContext` → Use `tests/agents/test_context.py` for tests
+
+3. **Factory Classes** → Use dependency container
+   - `AgentSystemFactory` → Removed, use `dependency_container.py`
+
+### System Modernization Benefits
+- **-500+ lines** of duplicate code eliminated
+- **Single source of truth** for message routing
+- **Consistent type handling** (telegram_id as int)
+- **Better error handling** with circuit breakers
+- **Improved testability** with unified routing

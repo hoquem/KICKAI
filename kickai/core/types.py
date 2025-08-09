@@ -45,8 +45,7 @@ class TelegramMessage:
     chat_type: ChatType
     team_id: Optional[str] = None
     username: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    name: Optional[str] = None
     raw_update: Optional[Any] = None
     contact_phone: Optional[str] = None
     contact_user_id: Optional[int] = None  # Also integer for consistency

@@ -128,7 +128,7 @@ def setup_clean_kti_environment():
                 'team_id': 'KTI',
                 'status': 'active',
                 'registration_date': firestore.SERVER_TIMESTAMP,
-                'telegram_id': '1001',  # Mock Telegram user ID (as string)
+                'telegram_id': 1001,  # Mock Telegram user ID (as integer)
                 'username': 'john_smith'
             },
             {
@@ -139,7 +139,7 @@ def setup_clean_kti_environment():
                 'team_id': 'KTI',
                 'status': 'active',
                 'registration_date': firestore.SERVER_TIMESTAMP,
-                'telegram_id': '1002',  # Mock Telegram user ID (as string)
+                'telegram_id': 1002,  # Mock Telegram user ID (as integer)
                 'username': 'jane_doe'
             }
         ]
@@ -157,7 +157,7 @@ def setup_clean_kti_environment():
                 'team_id': 'KTI',
                 'status': 'active',
                 'registration_date': firestore.SERVER_TIMESTAMP,
-                'telegram_id': '1003',  # Mock Telegram user ID (as string)
+                'telegram_id': 1003,  # Mock Telegram user ID (as integer)
                 'username': 'coach_wilson'
             }
         ]

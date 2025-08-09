@@ -29,7 +29,11 @@ def check_env_file() -> Dict[str, Any]:
         "FIREBASE_CREDENTIALS_FILE": "Firebase credentials file path",
         "GROQ_API_KEY": "Groq API key",
         "AI_PROVIDER": "AI provider (groq, gemini, openai, ollama)",
-        "AI_MODEL_NAME": "AI model name"
+        # Either legacy single model or new pair
+        # Keep legacy for backward compatibility in audits
+        # Prefer the pair in new setups
+        # One of AI_MODEL_NAME or both AI_MODEL_SIMPLE & AI_MODEL_ADVANCED must be present
+        
     }
     
     env_vars = {}
@@ -44,6 +48,12 @@ def check_env_file() -> Dict[str, Any]:
             issues["missing_vars"].append(f"{var} ({description})")
         elif not env_vars[var] or env_vars[var] == "":
             issues["empty_vars"].append(f"{var} ({description})")
+
+    # Special logic for model variables
+    has_legacy = "AI_MODEL_NAME" in env_vars and bool(env_vars.get("AI_MODEL_NAME"))
+    has_pair = bool(env_vars.get("AI_MODEL_SIMPLE")) and bool(env_vars.get("AI_MODEL_ADVANCED"))
+    if not has_legacy and not has_pair:
+        issues["missing_vars"].append("AI_MODEL_SIMPLE and AI_MODEL_ADVANCED (or legacy AI_MODEL_NAME)")
     
     return issues
 
@@ -68,7 +78,9 @@ def test_config_loading() -> Dict[str, Any]:
         settings = get_settings()
         print(f"✅ Configuration loaded successfully!")
         print(f"   AI Provider: {settings.ai_provider}")
-        print(f"   Model: {settings.ai_model_name}")
+        print(f"   Model (simple): {settings.ai_model_simple}")
+        print(f"   Model (advanced): {settings.ai_model_advanced}")
+        print(f"   Model (legacy): {settings.ai_model_name}")
         print(f"   Environment: {settings.environment}")
         return issues
     except Exception as e:

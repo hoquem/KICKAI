@@ -52,32 +52,21 @@ class PlayerService:
 
         # Create a user_id from phone number if no telegram_id available
         phone_hash = hashlib.md5(params.phone.encode()).hexdigest()[:8]
-        user_id = f"user_{phone_hash}"
+        user_id = f"{phone_hash}"
 
-        # Generate football-specific player ID
-        from kickai.utils.football_id_generator import generate_football_player_id
-
-        # Parse name into first and last name
-        name_parts = params.name.strip().split()
-        first_name = name_parts[0] if name_parts else "Unknown"
-        last_name = name_parts[-1] if len(name_parts) > 1 else "Player"
+        # Generate simple member ID
+        from kickai.utils.id_generator import generate_member_id
 
         # Get existing player IDs for collision detection
         existing_players = await self.player_repository.get_all_players(params.team_id)
         existing_ids = {player.player_id for player in existing_players if player.player_id}
 
-        player_id = generate_football_player_id(
-            first_name=first_name,
-            last_name=last_name,
-            position=params.position,
-            team_id=params.team_id,
-            existing_ids=existing_ids,
-        )
+        player_id = generate_member_id(params.name, existing_ids)
 
         player = Player(
             user_id=user_id,
             team_id=params.team_id,
-            full_name=params.name,
+            name=params.name,
             phone_number=params.phone,
             position=params.position,
             player_id=player_id,
@@ -143,9 +132,7 @@ class PlayerService:
                     team_id=player_data.get("team_id", ""),
                     telegram_id=player_data.get("telegram_id"),
                     player_id=player_data.get("player_id"),
-                    first_name=player_data.get("first_name"),
-                    last_name=player_data.get("last_name"),
-                    full_name=player_data.get("full_name"),
+                    name=player_data.get("name") or player_data.get("full_name"),
                     username=player_data.get("username"),
                     position=player_data.get("position"),
                     phone_number=player_data.get("phone_number"),
@@ -264,7 +251,7 @@ class PlayerService:
 
         return f"""👤 Player Information
 
-📋 Name: {player.full_name or player.first_name or "Not set"}
+📋 Name: {player.name or "Not set"}
 📱 Phone: {player.phone_number or "Not set"}
 ⚽ Position: {player.position or "Not set"}
 🏷️ Player ID: {player.player_id or "Not assigned"}
@@ -307,7 +294,7 @@ class PlayerService:
 
                 success_message = f"""✅ Player Already Exists!
 
-📋 Name: {existing_player.full_name or name}
+📋 Name: {existing_player.name or name}
 📱 Phone: {phone}
 ⚽ Position: {existing_player.position or position or DEFAULT_PLAYER_POSITION}
 🏷️ Player ID: {player_id}
@@ -322,10 +309,10 @@ class PlayerService:
             existing_players = await self.player_repository.get_all_players(team_id)
             existing_ids = {player.player_id for player in existing_players if player.player_id}
 
-            # Generate simple player ID using new generator
-            from kickai.utils.simple_id_generator import generate_simple_player_id
+            # Generate simple member ID using new generator
+            from kickai.utils.id_generator import generate_member_id
 
-            player_id = generate_simple_player_id(name, team_id, existing_ids)
+            player_id = generate_member_id(name, existing_ids)
 
             # Create player parameters with the generated ID
             params = PlayerCreateParams(
@@ -348,7 +335,7 @@ class PlayerService:
         """Approve a player for team participation and activate them."""
         try:
             player = await self.update_player_status(player_id, "active", team_id)
-            return f"✅ Player {player.full_name} approved and activated successfully"
+            return f"✅ Player {player.name} approved and activated successfully"
         except Exception as e:
             logger.error(f"Error approving player {player_id}: {e}")
             return f"❌ Failed to approve player: {e!s}"
@@ -362,13 +349,13 @@ class PlayerService:
         import hashlib
 
         phone_hash = hashlib.md5(params.phone.encode()).hexdigest()[:8]
-        user_id = f"user_{phone_hash}"
+        user_id = f"{phone_hash}"
 
         # Create player with the provided ID
         player = Player(
             user_id=user_id,
             team_id=params.team_id,
-            full_name=params.name,
+            name=params.name,
             phone_number=params.phone,
             position=params.position,
             player_id=player_id,  # Use the provided ID

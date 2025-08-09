@@ -384,3 +384,5 @@ The ToolRegistry simplification addresses the core issues:
 
 The simplified ToolRegistry is **more robust, easier to debug, and follows CrewAI best practices**! 🎉
 
+
+

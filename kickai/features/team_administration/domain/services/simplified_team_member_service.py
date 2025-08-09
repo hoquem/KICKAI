@@ -111,7 +111,7 @@ class SimplifiedTeamMemberService:
                 # Check for exact match with normalized numbers
                 if normalized_member_phone == normalized_search_phone:
                     logger.info(
-                        f"Found team member by phone: {member.full_name} ({normalized_member_phone})"
+                        f"Found team member by phone: {member.name} ({normalized_member_phone})"
                     )
                     return member
 
@@ -120,7 +120,7 @@ class SimplifiedTeamMemberService:
                 for search_variant in search_variants:
                     if search_variant in member_variants:
                         logger.info(
-                            f"Found team member by phone variant: {member.full_name} ({normalized_member_phone})"
+                            f"Found team member by phone variant: {member.name} ({normalized_member_phone})"
                         )
                         return member
 

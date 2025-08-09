@@ -3,8 +3,10 @@
 User Tools
 
 This module provides tools for user management operations.
+Converted to sync functions for CrewAI compatibility.
 """
 
+import asyncio
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
@@ -19,12 +21,12 @@ from kickai.utils.tool_helpers import (
 
 
 @tool("get_user_status")
-async def get_user_status(user_id: str, team_id: str) -> str:
+def get_user_status(telegram_id: str, team_id: str) -> str:
     """
-    Get user status and information. Requires: user_id, team_id
+    Get user status and information. Requires: telegram_id, team_id
 
     Args:
-        user_id: The user's Telegram ID
+        telegram_id: The user's Telegram ID (integer)
         team_id: Team ID (required)
 
     Returns:
@@ -32,11 +34,11 @@ async def get_user_status(user_id: str, team_id: str) -> str:
     """
     try:
         # Handle JSON string input using utility functions
-        user_id = extract_single_value(user_id, "user_id")
+        telegram_id = extract_single_value(telegram_id, "telegram_id")
         team_id = extract_single_value(team_id, "team_id")
 
         # Validate inputs using utility functions
-        validation_error = validate_required_input(user_id, "User ID")
+        validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
             return validation_error
 
@@ -55,33 +57,39 @@ async def get_user_status(user_id: str, team_id: str) -> str:
         if not team_service:
             raise ServiceNotAvailableError("TeamService")
 
-        # Check if user is a player
-        player = await player_service.get_player_by_telegram_id(user_id, team_id)
+        # Convert telegram_id to integer
+        try:
+            telegram_id_int = int(telegram_id)
+        except ValueError:
+            return format_tool_error(f"Invalid Telegram ID format: {telegram_id}. Must be an integer.")
+
+        # Check if user is a player (sync call via asyncio.run)
+        player = asyncio.run(player_service.get_player_by_telegram_id(telegram_id_int, team_id))
         
-        # Check if user is a team member
-        team_member = await team_service.get_team_member_by_telegram_id(team_id, user_id)
+        # Check if user is a team member (sync call via asyncio.run)
+        team_member = asyncio.run(team_service.get_team_member_by_telegram_id(team_id, telegram_id_int))
 
         if player:
             return format_tool_success(
                 f"👤 **User Status**: Player\n"
-                f"📱 **User ID**: {user_id}\n"
+                f"📱 **Telegram ID**: {telegram_id_int}\n"
                 f"🏆 **Team ID**: {team_id}\n"
-                f"📋 **Player Info**: {player.full_name} ({player.position})\n"
+                f"📋 **Player Info**: {player.name} ({player.position})\n"
                 f"✅ **Status**: {player.status.title()}"
             )
         elif team_member:
             return format_tool_success(
                 f"👤 **User Status**: Team Member\n"
-                f"📱 **User ID**: {user_id}\n"
+                f"📱 **Telegram ID**: {telegram_id_int}\n"
                 f"🏆 **Team ID**: {team_id}\n"
-                f"📋 **Member Info**: {team_member.full_name}\n"
+                f"📋 **Member Info**: {team_member.name}\n"
                 f"👑 **Role**: {team_member.role.title()}\n"
                 f"✅ **Admin**: {'Yes' if team_member.is_admin else 'No'}"
             )
         else:
             return format_tool_success(
                 f"👤 **User Status**: Not Registered\n"
-                f"📱 **User ID**: {user_id}\n"
+                f"📱 **Telegram ID**: {telegram_id_int}\n"
                 f"🏆 **Team ID**: {team_id}\n"
                 f"ℹ️ **Info**: User is not registered as a player or team member"
             )

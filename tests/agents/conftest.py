@@ -279,18 +279,16 @@ def test_scenarios():
 
 @pytest.fixture(autouse=True)
 def setup_test_environment():
-    """Set up test environment before each test."""
-    # Set test environment variables
+    """Set up test environment before each test (Groq-only)."""
     import os
     os.environ.update({
         'ENVIRONMENT': 'testing',
         'TESTING': 'true',
-        'OLLAMA_BASE_URL': TEST_CONFIG["ollama_base_url"],
-        'OLLAMA_MODEL': TEST_CONFIG["ollama_model"]
+        'AI_PROVIDER': 'groq'
     })
-    
+
     yield
-    
+
     # Cleanup after test
     pass
 

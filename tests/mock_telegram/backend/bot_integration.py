@@ -282,7 +282,7 @@ async def check_bot_integration_health() -> Dict[str, Any]:
         from kickai.core.config import get_settings
         config = get_settings()
         llm_provider = config.ai_provider
-        llm_model = config.ai_model_name
+        llm_model = config.ai_model_simple or config.ai_model_advanced or config.ai_model_name
         
         return {
             "status": "healthy",

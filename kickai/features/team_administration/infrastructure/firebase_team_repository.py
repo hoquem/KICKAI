@@ -59,6 +59,10 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
         return team
 
+    # Alias methods required by tests/interfaces
+    async def create(self, team: Team) -> Team:
+        return await self.create_team(team)
+
     async def get_team_by_id(self, team_id: str) -> Optional[Team]:
         """Get a team by ID."""
         try:
@@ -72,11 +76,24 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         except Exception:
             return None
 
+    async def get_by_id(self, team_id: str) -> Optional[Team]:
+        return await self.get_team_by_id(team_id)
+
     async def get_all_teams(self) -> List[Team]:
         """Get all teams."""
         try:
             docs = await self.database.query_documents(collection=self.collection_name)
 
+            return [self._doc_to_team(doc) for doc in docs]
+        except Exception:
+            return []
+
+    async def get_by_status(self, status: str) -> List[Team]:
+        try:
+            docs = await self.database.query_documents(
+                collection=self.collection_name,
+                filters=[{"field": "status", "operator": "==", "value": status}],
+            )
             return [self._doc_to_team(doc) for doc in docs]
         except Exception:
             return []
@@ -105,6 +122,9 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         )
 
         return team
+
+    async def update(self, team: Team) -> Team:
+        return await self.update_team(team)
 
     async def delete_team(self, team_id: str) -> bool:
         """Delete a team."""
@@ -353,9 +373,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             user_id=user_id,
             team_id=doc.get("team_id", ""),
             telegram_id=telegram_id,
-            first_name=doc.get("first_name"),
-            last_name=doc.get("last_name"),
-            full_name=doc.get("full_name"),
+            name=doc.get("name"),
             username=doc.get("username"),
             role=doc.get("role", "Team Member"),
             is_admin=doc.get("is_admin", False),

@@ -30,7 +30,8 @@ from kickai.config.llm_config import get_llm_config
 from kickai.core.enums import AgentRole
 from kickai.core.config import get_settings, AIProvider
 from kickai.core.exceptions import AgentInitializationError
-from kickai.utils.llm_factory_simple import SimpleLLMFactory
+# Remove SimpleLLMFactory import - replaced with CrewAI native config
+# from kickai.utils.llm_factory_simple import SimpleLLMFactory
 from kickai.agents.tool_registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
@@ -111,11 +112,7 @@ class TeamManagementSystem:
     def _initialize_llm(self):
         """Initialize the LLM using the factory pattern with robust error handling."""
         try:
-            # Get base URL from settings to ensure we use the correct Ollama URL
-            settings = get_settings()
-            base_url = settings.ollama_base_url
-
-            # Use the new simplified LLM configuration
+            # Use the new simplified LLM configuration (Groq only; no Ollama fallback)
             llm_config = get_llm_config()
             self.llm = llm_config.main_llm
 
@@ -190,12 +187,18 @@ class TeamManagementSystem:
             # Import Process enum for CrewAI
             from crewai import Process
 
+            # CrewAI native rate limiting: enforce conservative global cap
+            safe_crew_max_rpm = 3
             self.crew = Crew(
                 agents=crew_agents,
                 tasks=[],
                 process=Process.sequential,
                 verbose=verbose_mode,
                 memory=False,  # Simplified - no memory for now
+                # CrewAI native rate limiting to handle Groq TPM limits
+                # Proper RPM calculation: TPM ÷ average_tokens_per_request
+                # Using 100 tokens per request as conservative estimate
+                max_rpm=safe_crew_max_rpm,  # Proper TPM to RPM conversion
             )
 
             logger.info(f"✅ Created crew with {len(crew_agents)} agents")
@@ -368,32 +371,63 @@ class TeamManagementSystem:
                     
                     Instructions: Use the provided context information to call tools with the appropriate parameters.
                     Pass team_id, telegram_id, username, and chat_type as direct parameters to tools that require them.
+                    
+                    IMPORTANT: For get_my_status tool, ALWAYS pass chat_type parameter to determine whether to look up player status (main chat) or team member status (leadership chat).
+                    
+                    CRITICAL OUTPUT RULE: Return tool outputs EXACTLY as they are provided - DO NOT reformat, summarize, or remove any emojis, symbols, or formatting. Tool outputs are already properly formatted for users.
+                    
+                    MANDATORY TOOL USAGE: You MUST call the appropriate tool for data requests:
+                    - /list: MUST call get_all_players(team_id, telegram_id) for leadership chat or get_active_players(team_id, telegram_id) for main chat
+                    - /info: MUST call get_my_status(telegram_id, team_id, chat_type) 
+                    - NEVER provide made-up or fabricated data - if no tool is called, return "Error: No tool was used to retrieve data"
                     """
                     
-                    # Create a task using CrewAI native approach
+                    # Create a task using CrewAI native approach with enhanced output specification
                     task = Task(
                         description=structured_description,
                         agent=agent.crew_agent,
-                        expected_output="A clear and helpful response to the user's request",
+                        expected_output="Return the exact tool output without any modifications, preserving all emojis, formatting, and visual elements. Tool outputs are already properly formatted for users.",
+                        output_format="string",  # Ensure output format is specified
                     )
                     
                     logger.debug(f"✅ Task created with structured description including context")
                     logger.debug(f"🚀 About to kickoff crew")
 
-                    # Add task to crew and execute (no context manager needed)
+                    # Add task to crew and execute with enhanced error handling
                     self.crew.tasks = [task]
-                    crew_result = self.crew.kickoff()
-                    logger.debug(f"✅ Crew kickoff completed")
+                    
+                    try:
+                        crew_result = self.crew.kickoff()
+                        logger.debug(f"✅ Crew kickoff completed")
 
-                    # Convert CrewOutput to string properly
-                    if hasattr(crew_result, "raw") and hasattr(crew_result.raw, "output"):
-                        result = str(crew_result.raw.output)
-                    elif hasattr(crew_result, "output"):
-                        result = str(crew_result.output)
-                    elif hasattr(crew_result, "result"):
-                        result = str(crew_result.result)
-                    else:
-                        result = str(crew_result)
+                        # Convert CrewOutput to string properly
+                        if hasattr(crew_result, "raw") and hasattr(crew_result.raw, "output"):
+                            result = str(crew_result.raw.output)
+                        elif hasattr(crew_result, "output"):
+                            result = str(crew_result.output)
+                        elif hasattr(crew_result, "result"):
+                            result = str(crew_result.result)
+                        else:
+                            result = str(crew_result)
+                            
+                        # Validate we got a meaningful result
+                        if not result or result.strip() == "":
+                            logger.warning("⚠️ Empty result from crew execution")
+                            result = "⚠️ Task completed but produced no output. Please try again."
+                            
+                    except Exception as crew_error:
+                        error_message = str(crew_error)
+                        logger.error(f"❌ Crew execution failed: {error_message}")
+                        
+                        # Handle specific CrewAI errors
+                        if "No valid task outputs" in error_message:
+                            result = "⚠️ System is temporarily overloaded. Please wait a moment and try again."
+                        elif "rate limit" in error_message.lower():
+                            result = "⚠️ Rate limit reached. Please wait 30 seconds and try again."
+                        else:
+                            result = f"⚠️ System error occurred. Please try again or contact support."
+                        
+                        logger.debug(f"Returning error result: {result}")
 
                     logger.info(f"🤖 BASIC CREW: Task completed with result: {result}")
                     return result
@@ -474,7 +508,8 @@ from typing import Any, Dict, Optional
 
 from kickai.core.config import get_settings, AIProvider
 from kickai.core.enums import AgentRole
-from kickai.utils.llm_factory_simple import SimpleLLMFactory
+# Remove SimpleLLMFactory import - replaced with CrewAI native config
+# from kickai.utils.llm_factory_simple import SimpleLLMFactory
 from kickai.agents.tool_registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
@@ -502,14 +537,32 @@ class CrewAgentManager:
             # Get temperature based on agent role
             temperature = self._get_temperature_for_role(role)
             
-            # Create LLM using the simple factory
-            llm = SimpleLLMFactory.create_llm(
-                model_name=self.settings.ai_model_name,
-                temperature=temperature
-            )
+            # Create LLM using CrewAI native configuration
+            from kickai.config.llm_config import get_llm_config
+            llm_config = get_llm_config()
+            
+            # Get appropriate LLM based on role
+            if role in [AgentRole.PLAYER_COORDINATOR, AgentRole.MESSAGE_PROCESSOR, AgentRole.HELP_ASSISTANT]:
+                llm = llm_config.data_critical_llm  # Ultra-precise for data-critical operations
+            elif role == AgentRole.TEAM_ADMINISTRATOR:
+                llm = llm_config.main_llm  # Balanced for administrative tasks
+            elif role == AgentRole.SQUAD_SELECTOR:
+                llm = llm_config.creative_llm  # Creative for squad selection
+            else:
+                llm = llm_config.main_llm  # Default
             
             # Create CrewAI agent
             from crewai import Agent
+            
+            # Get max_rpm from agent config if available (fallback to 20 if not configured)
+            max_rpm = 3
+            try:
+                from kickai.config.agents import get_agent_config
+                context = {"team_id": "default", "chat_type": "main", "user_role": "public", "username": "user"}
+                agent_config = get_agent_config(role, context)
+                max_rpm = agent_config.max_rpm
+            except Exception as e:
+                logger.warning(f"Could not get max_rpm from config for {role.value}, using default: {e}")
             
             agent = Agent(
                 role=role.value,
@@ -517,7 +570,9 @@ class CrewAgentManager:
                 backstory=self._get_backstory_for_role(role),
                 llm=llm,
                 verbose=True,
-                allow_delegation=False
+                allow_delegation=False,
+                max_rpm=max_rpm,
+                max_iterations=3
             )
             
             logger.info(f"🤖 Created {role.value} agent with {self.settings.ai_provider.value}:{self.settings.ai_model_name} (temp={temperature})")

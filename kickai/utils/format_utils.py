@@ -39,22 +39,22 @@ class PlayerFormattingService:
         # Active players
         if active_players:
             output.append("✅ Active Players:")
-            for player in sorted(active_players, key=lambda p: p.full_name):
-                output.append(f"• {player.player_id} - {player.full_name} ({player.position})")
+            for player in sorted(active_players, key=lambda p: p.name):
+                output.append(f"• {player.player_id} - {player.name} ({player.position})")
             output.append("")  # Empty line
 
         # Pending players
         if pending_players:
             output.append("⏳ Pending Approval:")
-            for player in sorted(pending_players, key=lambda p: p.full_name):
-                output.append(f"• {player.player_id} - {player.full_name} ({player.position})")
+            for player in sorted(pending_players, key=lambda p: p.name):
+                output.append(f"• {player.player_id} - {player.name} ({player.position})")
             output.append("")  # Empty line
 
         # Inactive players
         if inactive_players:
             output.append("❌ Inactive Players:")
-            for player in sorted(inactive_players, key=lambda p: p.full_name):
-                output.append(f"• {player.player_id} - {player.full_name} ({player.position})")
+            for player in sorted(inactive_players, key=lambda p: p.name):
+                output.append(f"• {player.player_id} - {player.name} ({player.position})")
             output.append("")  # Empty line
 
         # Add timestamp
@@ -90,27 +90,27 @@ class PlayerFormattingService:
         # Active players
         if active_players:
             output.append("✅ Active Players:")
-            for player in sorted(active_players, key=lambda p: p.full_name):
+            for player in sorted(active_players, key=lambda p: p.name):
                 output.append(
-                    f"• {player.player_id} - {player.full_name} ({player.position}) - {player.phone_number}"
+                    f"• {player.player_id} - {player.name} ({player.position}) - {player.phone_number}"
                 )
             output.append("")  # Empty line
 
         # Pending players
         if pending_players:
             output.append("⏳ Pending Approval:")
-            for player in sorted(pending_players, key=lambda p: p.full_name):
+            for player in sorted(pending_players, key=lambda p: p.name):
                 output.append(
-                    f"• {player.player_id} - {player.full_name} ({player.position}) - {player.phone_number}"
+                    f"• {player.player_id} - {player.name} ({player.position}) - {player.phone_number}"
                 )
             output.append("")  # Empty line
 
         # Inactive players
         if inactive_players:
             output.append("❌ Inactive Players:")
-            for player in sorted(inactive_players, key=lambda p: p.full_name):
+            for player in sorted(inactive_players, key=lambda p: p.name):
                 output.append(
-                    f"• {player.player_id} - {player.full_name} ({player.position}) - {player.phone_number}"
+                    f"• {player.player_id} - {player.name} ({player.position}) - {player.phone_number}"
                 )
             output.append("")  # Empty line
 
@@ -149,7 +149,7 @@ class PlayerFormattingService:
         output = [
             f"👤 Player Status - {team_name}",
             "",
-            f"Name: {player.full_name}",
+            f"Name: {player.name}",
             f"ID: {player.player_id}",
             f"Phone: {player.phone_number}",
             f"Position: {player.position}",

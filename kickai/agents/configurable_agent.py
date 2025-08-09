@@ -15,6 +15,7 @@ from loguru import logger
 from kickai.agents.tools_manager import AgentToolsManager
 from kickai.config.agents import get_agent_config
 from kickai.config.llm_config import get_llm_config
+from kickai.core.config import get_settings
 from kickai.core.enums import AgentRole
 from kickai.core.exceptions import AgentInitializationError
 
@@ -56,7 +57,9 @@ class ConfigurableAgent:
 
             # 2. LLM configuration
             llm_config = get_llm_config()
-            self.llm = llm_config.main_llm
+            # Use per-agent model selection via llm_config
+            main_llm, tool_llm = llm_config.get_llm_for_agent(self.agent_role)
+            self.llm = main_llm
 
             # 3. Agent configuration
             # Use default context for agent initialization
@@ -82,6 +85,9 @@ class ConfigurableAgent:
         tools = self._tools_manager.get_tools_for_role(self.agent_role)
 
         # Create agent with optimized configuration
+        settings = get_settings()
+        # Enforce conservative global cap for safety
+        agent_max_rpm = 5
         agent = Agent(
             role=self.config.role,
             goal=self.config.goal,
@@ -90,9 +96,12 @@ class ConfigurableAgent:
             llm=self.llm,
             verbose=True,
             max_iter=self.config.max_iterations,
+            max_rpm=agent_max_rpm,
         )
 
-        logger.debug(f"🔧 Created CrewAI agent for {self.agent_role.value} with {len(tools)} tools")
+        logger.debug(
+            f"🔧 Created CrewAI agent for {self.agent_role.value} with {len(tools)} tools, max_rpm={agent_max_rpm} (global cap)"
+        )
         return agent
 
     def get_tools(self) -> list:

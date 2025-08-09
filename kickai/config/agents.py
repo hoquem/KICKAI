@@ -27,8 +27,9 @@ class AgentConfig:
     max_iterations: int = 10
     allow_delegation: bool = True
     verbose: bool = True
-    temperature: float = 0.3
-    max_tokens: int = 300
+    temperature: float = 0.3  # Default from settings.ai_temperature
+    max_tokens: int = 800  # Use default from settings.ai_max_tokens
+    max_rpm: int = 20
     primary_entity_type: Optional[str] = None
     entity_types: list[str] = field(default_factory=list)
 
@@ -116,31 +117,37 @@ class YAMLAgentConfigurationManager:
 
     def _get_agent_temperature(self, agent_name: str) -> float:
         """Get agent-specific temperature setting."""
+        from kickai.core.config import get_settings
+        settings = get_settings()
+        
         agent_optimizations = self._config_data.get("agent_optimizations", {})
 
-        # Determine agent type based on name
+        # Determine agent type based on name and use settings values
         if agent_name in ["message_processor", "player_coordinator", "help_assistant"]:
-            return agent_optimizations.get("data_critical_agents", {}).get("temperature", 0.1)
+            return agent_optimizations.get("data_critical_agents", {}).get("temperature", settings.ai_temperature_tools)
         elif agent_name in ["team_administration", "availability_manager", "communication_manager"]:
-            return agent_optimizations.get("administrative_agents", {}).get("temperature", 0.3)
+            return agent_optimizations.get("administrative_agents", {}).get("temperature", settings.ai_temperature)
         elif agent_name in ["squad_selector", "performance_analyst"]:
-            return agent_optimizations.get("creative_agents", {}).get("temperature", 0.7)
+            return agent_optimizations.get("creative_agents", {}).get("temperature", settings.ai_temperature_creative)
         else:
-            return 0.3  # Default temperature
+            return settings.ai_temperature  # Default temperature from settings
 
     def _get_agent_max_tokens(self, agent_name: str) -> int:
         """Get agent-specific max_tokens setting."""
+        from kickai.core.config import get_settings
+        settings = get_settings()
+        
         agent_optimizations = self._config_data.get("agent_optimizations", {})
 
-        # Determine agent type based on name
+        # Determine agent type based on name and use settings values
         if agent_name in ["message_processor", "player_coordinator", "help_assistant"]:
-            return agent_optimizations.get("data_critical_agents", {}).get("max_tokens", 300)
+            return agent_optimizations.get("data_critical_agents", {}).get("max_tokens", settings.ai_max_tokens_tools)
         elif agent_name in ["team_administration", "availability_manager", "communication_manager"]:
-            return agent_optimizations.get("administrative_agents", {}).get("max_tokens", 350)
+            return agent_optimizations.get("administrative_agents", {}).get("max_tokens", settings.ai_max_tokens)
         elif agent_name in ["squad_selector", "performance_analyst"]:
-            return agent_optimizations.get("creative_agents", {}).get("max_tokens", 500)
+            return agent_optimizations.get("creative_agents", {}).get("max_tokens", settings.ai_max_tokens_creative)
         else:
-            return 300  # Default max_tokens
+            return settings.ai_max_tokens  # Default max_tokens from settings
 
     def get_agent_config(self, role: AgentRole, context: dict[str, Any]) -> AgentConfig:
         """Get agent configuration with processed templates and performance optimizations."""
@@ -193,6 +200,7 @@ class YAMLAgentConfigurationManager:
             verbose=agent_data.get("verbose", True),
             temperature=temperature,
             max_tokens=max_tokens,
+            max_rpm=agent_data.get("max_rpm", 20),
             primary_entity_type=agent_data.get("primary_entity_type"),
             entity_types=agent_data.get("entity_types", [])
         )

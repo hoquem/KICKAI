@@ -71,7 +71,7 @@ class TeamMember:
     id: str
     team_id: str
     user_id: str
-    telegram_id: Optional[str]
+    telegram_id: Optional[int]
     username: Optional[str]
     first_name: Optional[str]
     last_name: Optional[str]
@@ -393,7 +393,8 @@ class TeamMemberManager:
             first_name = input("First name: ").strip()
             last_name = input("Last name: ").strip()
             username = input("Username (without @): ").strip()
-            telegram_id = input("Telegram ID: ").strip()
+            telegram_id_str = input("Telegram ID: ").strip()
+            telegram_id = int(telegram_id_str) if telegram_id_str else None
             role = input("Role (Team Member/Team Administrator/Team Owner): ").strip()
             
             if not first_name or not last_name:
@@ -721,7 +722,7 @@ class TeamMemberManager:
                 "team_id": self.current_team.id,
                 
                 # Telegram-specific data
-                "telegram_id": str(telegram_member.telegram_id),
+                "telegram_id": telegram_member.telegram_id,
                 "username": telegram_member.username,
                 "first_name": telegram_member.first_name,
                 "last_name": telegram_member.last_name,

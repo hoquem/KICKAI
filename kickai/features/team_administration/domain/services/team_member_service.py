@@ -35,7 +35,7 @@ class TeamMemberService:
 
             # Save to repository
             member_id = await self.team_repository.create_team_member(team_member)
-            self.logger.info(f"✅ Created team member: {team_member.full_name} ({member_id})")
+            self.logger.info(f"✅ Created team member: {team_member.name} ({member_id})")
             return member_id
 
         except Exception as e:
@@ -83,7 +83,7 @@ class TeamMemberService:
             team_member.updated_at = datetime.utcnow()
             success = await self.team_repository.update_team_member(team_member)
             if success:
-                self.logger.info(f"✅ Updated team member: {team_member.full_name}")
+                self.logger.info(f"✅ Updated team member: {team_member.name}")
             return success
         except Exception as e:
             self.logger.error(f"❌ Failed to update team member: {e}")
@@ -186,7 +186,7 @@ class TeamMemberService:
 
             success = await self.update_team_member(member)
             if success:
-                self.logger.info(f"👑 Promoted {member.full_name} (tg:{telegram_id}) to admin by {promoted_by}")
+                self.logger.info(f"👑 Promoted {member.name} (tg:{telegram_id}) to admin by {promoted_by}")
             return success
 
         except Exception as e:
@@ -255,7 +255,7 @@ class TeamMemberService:
 
         return f"""👥 Team Member Information
 
-📋 Name: {team_member.full_name or team_member.first_name or "Not set"}
+📋 Name: {team_member.name or team_member.first_name or "Not set"}
 🔑 User ID: {team_member.user_id}
 {admin_status}
 🎭 Role: {role_text}

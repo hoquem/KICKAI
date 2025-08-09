@@ -85,7 +85,7 @@ class PlayerStatusResponse:
 
         result = f"""👤 Player Information
 
-Name: {self.full_name}
+Name: {self.name}
 Position: {self.position}
 Status: {status_emoji} {status_text}
 Player ID: {self.player_id or 'Not assigned'}
@@ -111,7 +111,7 @@ class ActivePlayersResponse:
         result = "✅ Active Players in Team\n\n"
 
         for player in self.players:
-            result += f"👤 {player.full_name}\n"
+            result += f"👤 {player.name}\n"
             result += f"   • Position: {player.position}\n"
             result += f"   • Player ID: {player.player_id or 'Not assigned'}\n"
             result += f"   • Phone: {player.phone_number or 'Not provided'}\n\n"
@@ -345,7 +345,7 @@ class PlayerToolService:
                 )
 
             return PlayerStatusResponse(
-                full_name=player.full_name,
+                full_name=player.name,
                 position=player.position,
                 status=player.status,
                 player_id=player.player_id,
@@ -395,7 +395,7 @@ class PlayerToolService:
                 )
 
             return PlayerStatusResponse(
-                full_name=player.full_name,
+                full_name=player.name,
                 position=player.position,
                 status=player.status,
                 player_id=player.player_id,
@@ -433,7 +433,7 @@ class PlayerToolService:
             logger.info(f"🔍 DATABASE QUERY RESULT: Found {len(players) if players else 0} active players in team {context.team_id}")
 
             if players:
-                player_names = [p.full_name for p in players]
+                player_names = [p.name for p in players]
                 logger.info(f"🔍 ACTUAL PLAYER NAMES FROM DB: {player_names}")
             else:
                 logger.info(f"🔍 DATABASE RETURNED: Empty list - no active players in team {context.team_id}")

@@ -3,8 +3,10 @@
 Communication Tools
 
 This module provides tools for communication and messaging operations.
+Converted to sync functions for CrewAI compatibility.
 """
 
+import asyncio
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
@@ -31,26 +33,23 @@ from kickai.utils.tool_validation import (
 
 @tool("send_message")
 @tool_error_handler
-async def send_message(message: str) -> str:
+def send_message(message: str, chat_type: str, team_id: str) -> str:
     """
-    Send a message to a specific chat. The tool automatically accesses context from Task.config.
+    Send a message to a specific chat using CrewAI native parameter passing.
 
     Args:
         message: The message to send
+        chat_type: The chat type (main or leadership)
+        team_id: The team ID
 
     Returns:
         Success or error message
     """
-    # Validate context requirements
-    context = validate_context_requirements("send_message", ['chat_type', 'team_id'])
-    
-    # Extract and validate context values
-    chat_type = validate_chat_type(context['chat_type'])
-    team_id = validate_team_id(context['team_id'])
-    
-    # Handle JSON string input and validate message
+    # Validate inputs
     message = extract_single_value(message, "message")
     message = validate_message_content(message)
+    chat_type = validate_chat_type(chat_type)
+    team_id = validate_team_id(team_id)
     
     # Log tool execution start
     inputs = {'message': message, 'chat_type': chat_type, 'team_id': team_id}
@@ -63,8 +62,22 @@ async def send_message(message: str) -> str:
     if not communication_service:
         raise ToolExecutionError("CommunicationService is not available")
 
-    # Send message
-    success = await communication_service.send_message(message, chat_type, team_id)
+    # Send message using sync wrapper
+    try:
+        # Check if we're already in an event loop
+        try:
+            loop = asyncio.get_running_loop()
+            # We're in an event loop, create a task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, communication_service.send_message(message, chat_type, team_id))
+                success = future.result()
+        except RuntimeError:
+            # No event loop running, we can use asyncio.run
+            success = asyncio.run(communication_service.send_message(message, chat_type, team_id))
+    except Exception as e:
+        logger.error(f"❌ Error sending message: {e}")
+        raise ToolExecutionError(f"Failed to send message: {e}")
 
     if success:
         return create_tool_response(True, "Message sent successfully")
@@ -74,7 +87,7 @@ async def send_message(message: str) -> str:
 
 @tool("send_announcement")
 @tool_error_handler
-async def send_announcement(announcement: str, team_id: str) -> str:
+def send_announcement(announcement: str, team_id: str) -> str:
     """
     Send an announcement to all team members. Requires: announcement, team_id
 
@@ -104,8 +117,22 @@ async def send_announcement(announcement: str, team_id: str) -> str:
     if not communication_service:
         raise ToolExecutionError("CommunicationService is not available")
 
-    # Send announcement
-    success = await communication_service.send_announcement(announcement, team_id)
+    # Send announcement using sync wrapper
+    try:
+        # Check if we're already in an event loop
+        try:
+            loop = asyncio.get_running_loop()
+            # We're in an event loop, create a task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, communication_service.send_announcement(announcement, team_id))
+                success = future.result()
+        except RuntimeError:
+            # No event loop running, we can use asyncio.run
+            success = asyncio.run(communication_service.send_announcement(announcement, team_id))
+    except Exception as e:
+        logger.error(f"❌ Error sending announcement: {e}")
+        raise ToolExecutionError(f"Failed to send announcement: {e}")
 
     if success:
         return create_tool_response(True, "Announcement sent successfully")
@@ -115,7 +142,7 @@ async def send_announcement(announcement: str, team_id: str) -> str:
 
 @tool("send_poll")
 @tool_error_handler
-async def send_poll(question: str, options: str, team_id: str) -> str:
+def send_poll(question: str, options: str, team_id: str) -> str:
     """
     Send a poll to team members. Requires: question, options, team_id
 
@@ -151,8 +178,22 @@ async def send_poll(question: str, options: str, team_id: str) -> str:
     if not communication_service:
         raise ToolExecutionError("CommunicationService is not available")
 
-    # Send poll
-    success = await communication_service.send_poll(question, option_list, team_id)
+    # Send poll using sync wrapper
+    try:
+        # Check if we're already in an event loop
+        try:
+            loop = asyncio.get_running_loop()
+            # We're in an event loop, create a task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, communication_service.send_poll(question, option_list, team_id))
+                success = future.result()
+        except RuntimeError:
+            # No event loop running, we can use asyncio.run
+            success = asyncio.run(communication_service.send_poll(question, option_list, team_id))
+    except Exception as e:
+        logger.error(f"❌ Error sending poll: {e}")
+        raise ToolExecutionError(f"Failed to send poll: {e}")
 
     if success:
         return create_tool_response(True, "Poll sent successfully")

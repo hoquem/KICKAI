@@ -86,6 +86,20 @@ class MockDataStore:
                 return player
         return None
 
+    async def get_player_by_telegram_id(self, telegram_id: Union[str, int], team_id: str) -> Optional[Player]:
+        """Get player by Telegram ID and team."""
+        # Normalize telegram_id to int for consistent comparison
+        normalized_telegram_id = int(telegram_id) if telegram_id else None
+        if normalized_telegram_id is None:
+            return None
+            
+        for player in self.players.values():
+            # Compare using normalized integer values
+            player_telegram_id = int(player.telegram_id) if player.telegram_id else None
+            if player_telegram_id == normalized_telegram_id and player.team_id == team_id:
+                return player
+        return None
+
     # Team operations
     async def create_team(self, team: Team) -> str:
         """Create a team."""
@@ -150,11 +164,18 @@ class MockDataStore:
         return [m for m in self.team_members.values() if m.team_id == team_id]
 
     async def get_team_member_by_telegram_id(
-        self, telegram_id: str, team_id: str
+        self, telegram_id: Union[str, int], team_id: str
     ) -> Optional[TeamMember]:
         """Get team member by Telegram ID and team."""
+        # Normalize telegram_id to int for consistent comparison
+        normalized_telegram_id = int(telegram_id) if telegram_id else None
+        if normalized_telegram_id is None:
+            return None
+            
         for member in self.team_members.values():
-            if member.telegram_id == telegram_id and member.team_id == team_id:
+            # Compare using normalized integer values
+            member_telegram_id = int(member.telegram_id) if member.telegram_id else None
+            if member_telegram_id == normalized_telegram_id and member.team_id == team_id:
                 return member
         return None
 

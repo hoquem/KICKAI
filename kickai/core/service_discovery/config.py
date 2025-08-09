@@ -44,6 +44,7 @@ class ServiceConfigurationLoader:
                 except Exception as e:
                     logger.warning(f"⚠️ Failed to load service definitions from {config_path}: {e}")
 
+        # When no file yielded definitions, fall back to defaults
         if not all_definitions:
             logger.info("📝 No service configuration files found, using default definitions")
             all_definitions = self._get_default_service_definitions()
@@ -53,10 +54,13 @@ class ServiceConfigurationLoader:
     def _load_from_file(self, path: Path) -> List[ServiceDefinition]:
         """Load service definitions from a single file."""
         with open(path, encoding='utf-8') as f:
-            if path.suffix.lower() in ['.yaml', '.yml']:
-                data = yaml.safe_load(f)
-            else:
-                data = json.load(f)
+            content = f.read()
+            # Be robust to incorrect suffix by trying JSON first, then YAML
+            data: Dict[str, Any]
+            try:
+                data = json.loads(content)
+            except Exception:
+                data = yaml.safe_load(content) or {}
 
         return self._parse_service_definitions(data)
 

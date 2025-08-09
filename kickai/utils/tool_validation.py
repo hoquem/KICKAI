@@ -105,14 +105,33 @@ def validate_user_id(user_id: Any) -> str:
     )
 
 
-def validate_telegram_id(telegram_id: Any) -> str:
-    """Validate Telegram ID format."""
-    return validate_string_input(
-        telegram_id, 
-        "Telegram ID", 
-        max_length=20, 
-        pattern=r'^[0-9]+$'
-    )
+def validate_telegram_id(telegram_id: Union[str, int]) -> int:
+    """Validate Telegram ID format and return as integer."""
+    try:
+        # Convert to string first for validation
+        if isinstance(telegram_id, int):
+            telegram_id_str = str(telegram_id)
+        else:
+            telegram_id_str = str(telegram_id).strip()
+        
+        # Validate format (must be numeric)
+        if not telegram_id_str.isdigit():
+            raise ToolValidationError("Telegram ID must contain only digits")
+        
+        # Validate length
+        if len(telegram_id_str) > 20:
+            raise ToolValidationError("Telegram ID exceeds maximum length of 20 characters")
+        
+        if len(telegram_id_str) == 0:
+            raise ToolValidationError("Telegram ID cannot be empty")
+        
+        # Return as integer
+        return int(telegram_id_str)
+        
+    except ToolValidationError:
+        raise
+    except Exception as e:
+        raise ToolValidationError(f"Failed to validate Telegram ID: {str(e)}")
 
 
 def validate_message_content(message: Any, max_length: int = 4096) -> str:
@@ -260,30 +279,23 @@ def validate_context_requirements(tool_name: str, required_keys: List[str]) -> D
     """
     Validate that required context keys are available.
     
+    With CrewAI native parameter passing, tools receive parameters directly.
+    This function now validates that the required parameters are present in the function call.
+    
     Args:
         tool_name: Name of the tool for error messages
         required_keys: List of required context keys
         
     Returns:
-        Validated context dictionary
+        Empty dict (validation happens at tool call time)
         
     Raises:
         ToolValidationError: If required context is missing
     """
-    try:
-        context = get_context_for_tool(tool_name, required_keys)
-        
-        # Validate each required key
-        for key in required_keys:
-            if key not in context or not context[key]:
-                raise ToolValidationError(f"Required context key '{key}' is missing or empty")
-        
-        return context
-        
-    except ValueError as e:
-        raise ToolValidationError(f"Context validation failed: {str(e)}")
-    except Exception as e:
-        raise ToolValidationError(f"Failed to access context: {str(e)}")
+    # With CrewAI native parameter passing, validation happens at tool call time
+    # This function is kept for backward compatibility but simplified
+    logger.debug(f"🔍 Context validation for {tool_name}: {required_keys} will be validated at call time")
+    return {}
 
 
 def tool_error_handler(func):

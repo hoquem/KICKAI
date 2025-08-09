@@ -42,6 +42,9 @@ class LLMConfiguration:
     @classmethod
     def for_data_critical_agent(cls, provider: AIProvider = AIProvider.OLLAMA) -> LLMConfiguration:
         """Create configuration optimized for data-critical agents (anti-hallucination)."""
+        from kickai.core.config import get_settings
+        settings = get_settings()
+        
         model_map = {
             AIProvider.OLLAMA: "llama3.2:1b",
             AIProvider.HUGGINGFACE: "microsoft/DialoGPT-small",
@@ -55,12 +58,15 @@ class LLMConfiguration:
             temperature=0.1,  # Low temperature for consistency
             timeout_seconds=30,
             max_retries=3,
-            max_tokens=800,
+            max_tokens=settings.ai_max_tokens_tools,  # Use settings value
         )
 
     @classmethod
     def for_administrative_agent(cls, provider: AIProvider = AIProvider.OLLAMA) -> LLMConfiguration:
         """Create configuration for administrative agents (balanced reasoning)."""
+        from kickai.core.config import get_settings
+        settings = get_settings()
+        
         model_map = {
             AIProvider.OLLAMA: "llama3.2:3b",
             AIProvider.HUGGINGFACE: "microsoft/DialoGPT-medium",
@@ -74,12 +80,15 @@ class LLMConfiguration:
             temperature=0.3,  # Moderate temperature
             timeout_seconds=45,
             max_retries=2,
-            max_tokens=1200,
+            max_tokens=settings.ai_max_tokens,  # Use settings value
         )
 
     @classmethod
     def for_creative_agent(cls, provider: AIProvider = AIProvider.OLLAMA) -> LLMConfiguration:
         """Create configuration for creative agents (analytical and creative tasks)."""
+        from kickai.core.config import get_settings
+        settings = get_settings()
+        
         model_map = {
             AIProvider.OLLAMA: "llama3.2:3b",
             AIProvider.HUGGINGFACE: "microsoft/DialoGPT-large",
@@ -93,7 +102,7 @@ class LLMConfiguration:
             temperature=0.7,  # Higher temperature for creativity
             timeout_seconds=60,
             max_retries=2,
-            max_tokens=2000,
+            max_tokens=settings.ai_max_tokens_creative,  # Use settings value
         )
 
 

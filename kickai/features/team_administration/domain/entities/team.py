@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any, Optional, Set, Dict
 
 from kickai.core.enums import TeamStatus
+from .team_member import TeamMember  # re-export compatibility for tests
 
 # TeamMember class moved to separate file: team_member.py
 

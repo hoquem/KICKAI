@@ -73,11 +73,11 @@ async def update_player_telegram_ids():
                         telegram_id=telegram_id
                     )
                     
-                    print(f"✅ Updated player {player.full_name} ({phone}) with telegram_id: {telegram_id}")
+                    print(f"✅ Updated player {player.name} ({phone}) with telegram_id: {telegram_id}")
                     updated_count += 1
                     
                 except Exception as e:
-                    print(f"❌ Failed to update player {player.full_name}: {e}")
+                    print(f"❌ Failed to update player {player.name}: {e}")
             else:
                 print(f"⚠️ No telegram_id mapping for phone: {phone}")
         

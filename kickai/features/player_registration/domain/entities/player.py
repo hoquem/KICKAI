@@ -34,6 +34,13 @@ class OnboardingStatus(Enum):
     INACTIVE = "inactive"
 
 
+class PlayerRole(Enum):
+    """Minimal role enum for tests."""
+    PLAYER = "player"
+    CAPTAIN = "captain"
+    GOALKEEPER = "goalkeeper"
+
+
 @dataclass
 class Player:
     """
@@ -41,19 +48,19 @@ class Player:
 
     Players are football-specific entities with position, skills, and match-related data.
     This is separate from Team Members who are administrators/managers.
-    A person can be both a Player and a Team Member, linked by user_id.
+    A person can be both a Player and a Team Member, linked by telegram_id.
     """
 
     # Core identification fields
-    user_id: str = ""  # Generated from telegram_id using generate_user_id()
-    team_id: str = ""
-    telegram_id: Optional[int] = None  # Native Telegram integer user ID
-    player_id: Optional[str] = None  # Team-specific player identifier (e.g., "team_id_MH_001")
+    telegram_id: Optional[int] = None  # Telegram user ID (integer) - for linking to Telegram
+    player_id: Optional[str] = None    # Player identifier (M001MH format) - unique within team
+    team_id: str = ""                  # Team identifier (KA format)
+    
+    # Legacy field - being phased out in favor of explicit IDs above
+    user_id: str = ""  # DEPRECATED: Use telegram_id for linking, player_id for identification
 
     # Personal information
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    full_name: Optional[str] = None
+    name: Optional[str] = None
     username: Optional[str] = None
 
     # Football-specific information
@@ -88,10 +95,18 @@ class Player:
         """Validate player data."""
         if not self.team_id:
             raise ValueError("Team ID cannot be empty")
+        
+        # Require either player_id or telegram_id for identification
+        if not self.player_id and not self.telegram_id:
+            raise ValueError("Either player_id or telegram_id must be provided")
 
-        # Only validate user_id if it's provided (allow empty for database retrieval)
-        if self.user_id and not self.user_id.startswith("user_"):
-            raise ValueError(f"Invalid user_id format: {self.user_id}. Must start with 'user_'")
+        # Validate player_id format if provided
+        if self.player_id and not self.player_id.startswith("M"):
+            raise ValueError(f"Invalid player_id format: {self.player_id}. Must start with 'M'")
+            
+        # Validate telegram_id type if provided
+        if self.telegram_id is not None and not isinstance(self.telegram_id, int):
+            raise ValueError(f"telegram_id must be an integer, got {type(self.telegram_id)}")
 
         # Validate status
         valid_statuses = ["pending", "approved", "rejected", "active", "inactive"]
@@ -130,8 +145,7 @@ class Player:
         cls,
         team_id: str,
         telegram_id: int,
-        first_name: str = None,
-        last_name: str = None,
+        name: str = None,
         username: str = None,
         phone_number: str = None,
     ) -> "Player":
@@ -141,8 +155,7 @@ class Player:
         Args:
             team_id: The team ID
             telegram_id: The Telegram user ID
-            first_name: Telegram first name
-            last_name: Telegram last name
+            name: Player's display name
             username: Telegram username
             phone_number: Phone number if available
 
@@ -151,24 +164,14 @@ class Player:
         """
         user_id = generate_user_id(telegram_id)
 
-        # Build full name
-        full_name = ""
-        if first_name and last_name:
-            full_name = f"{first_name} {last_name}"
-        elif first_name:
-            full_name = first_name
-        elif last_name:
-            full_name = last_name
-        else:
-            full_name = f"User {telegram_id}"
+        # Use provided name or generate default
+        display_name = name if name else f"User {telegram_id}"
 
         return cls(
             user_id=user_id,
             team_id=team_id,
             telegram_id=telegram_id,  # Keep as integer
-            first_name=first_name,
-            last_name=last_name,
-            full_name=full_name,
+            name=display_name,
             username=username,
             phone_number=phone_number,
             source="telegram_sync",
@@ -181,9 +184,7 @@ class Player:
             "team_id": self.team_id,
             "telegram_id": self.telegram_id,
             "player_id": self.player_id,
-            "first_name": self.first_name,
-            "last_name": self.last_name,
-            "full_name": self.full_name,
+            "name": self.name,
             "username": self.username,
             "position": self.position,
             "preferred_foot": self.preferred_foot,
@@ -213,9 +214,7 @@ class Player:
             team_id=data.get("team_id", ""),
             telegram_id=telegram_id,
             player_id=data.get("player_id"),
-            first_name=data.get("first_name"),
-            last_name=data.get("last_name"),
-            full_name=data.get("full_name"),
+            name=data.get("name"),
             username=data.get("username"),
             position=data.get("position"),
             preferred_foot=data.get("preferred_foot"),
@@ -247,9 +246,7 @@ class Player:
             telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
         player.telegram_id = telegram_id
         player.player_id = data.get("player_id")
-        player.first_name = data.get("first_name")
-        player.last_name = data.get("last_name")
-        player.full_name = data.get("full_name")
+        player.name = data.get("name")
         player.username = data.get("username")
         player.position = data.get("position")
         player.preferred_foot = data.get("preferred_foot")
@@ -335,12 +332,8 @@ class Player:
 
     def get_display_name(self) -> str:
         """Get display name for the player."""
-        if self.full_name:
-            return self.full_name
-        elif self.first_name and self.last_name:
-            return f"{self.first_name} {self.last_name}"
-        elif self.first_name:
-            return self.first_name
+        if self.name:
+            return self.name
         elif self.username:
             return f"@{self.username}"
         elif self.telegram_id:

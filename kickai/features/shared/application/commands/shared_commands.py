@@ -263,7 +263,7 @@ async def handle_update_command_wrapper(update, context, **kwargs):
 
         # Create user context
         user_context = create_context_from_telegram_message(
-            user_id=str(update.effective_user.id),
+            telegram_id=str(update.effective_user.id),
             team_id=kwargs.get("team_id", "UNKNOWN"),
             chat_id=str(update.effective_chat.id),
             chat_type=kwargs.get("chat_type", ChatType.MAIN),

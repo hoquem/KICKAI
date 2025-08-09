@@ -227,18 +227,10 @@ class InviteLinkService:
 
             # Generate player ID if not provided
             if not player_id:
-                from kickai.utils.football_id_generator import generate_football_player_id
+                from kickai.utils.id_generator import generate_member_id
 
-                # Split name into first and last name for football ID generation
-                name_parts = player_name.strip().split()
-                if len(name_parts) >= 2:
-                    first_name = name_parts[0]
-                    last_name = name_parts[-1]
-                else:
-                    first_name = name_parts[0] if name_parts else "Unknown"
-                    last_name = first_name
-
-                player_id = generate_football_player_id(first_name, last_name, "Player", team_id)
+                # Generate simple member ID
+                player_id = generate_member_id(player_name)
 
             # Create Telegram invite link (or mock invite link)
             if self._detect_mock_environment():

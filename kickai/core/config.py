@@ -10,7 +10,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -93,9 +93,20 @@ class Settings(BaseSettings):
     )
     
     # Model Configuration
-    ai_model_name: str = Field(
+    ai_model_name: Optional[str] = Field(
+        default=None,
         alias="AI_MODEL_NAME",
-        description="AI model name"
+        description="Legacy: single AI model name (backward compatible)"
+    )
+    ai_model_simple: Optional[str] = Field(
+        default=None,
+        alias="AI_MODEL_SIMPLE",
+        description="Simple/default AI model name for lightweight agents"
+    )
+    ai_model_advanced: Optional[str] = Field(
+        default=None,
+        alias="AI_MODEL_ADVANCED",
+        description="Advanced AI model name for complex agents"
     )
     
     # Temperature Settings
@@ -136,11 +147,8 @@ class Settings(BaseSettings):
     ollama_base_url: str = Field(
         default="http://localhost:11434",
         alias="OLLAMA_BASE_URL",
-        description="Ollama base URL"
+        description="Ollama base URL (only needed if using Ollama provider)"
     )
-    ollama_connection_timeout: float = Field(default=30.0, description="Ollama connection timeout")
-    ollama_request_timeout: float = Field(default=120.0, description="Ollama request timeout")
-    ollama_retry_attempts: int = Field(default=3, description="Ollama retry attempts")
     
     # ============================================================================
     # TELEGRAM CONFIGURATION
@@ -229,6 +237,18 @@ class Settings(BaseSettings):
         if info.data and info.data.get("ai_provider") == AIProvider.GROQ and not v:
             raise ValueError("GROQ_API_KEY is required when using Groq provider")
         return v
+
+    @model_validator(mode="after")
+    def validate_model_specification(self):
+        """Ensure at least one model is configured via AI_MODEL_SIMPLE/ADVANCED or legacy AI_MODEL_NAME."""
+        # Check if any model is configured
+        if self.ai_model_name or self.ai_model_simple or self.ai_model_advanced:
+            return self
+        
+        # No models configured at all - raise error
+        raise ValueError(
+            "Model configuration missing: set AI_MODEL_SIMPLE and AI_MODEL_ADVANCED, or provide legacy AI_MODEL_NAME"
+        )
     
     @field_validator("gemini_api_key")
     @classmethod
@@ -261,16 +281,35 @@ class Settings(BaseSettings):
         else:
             return ""  # Ollama doesn't need an API key
     
-    def get_model_name_for_provider(self) -> str:
-        """Get the model name formatted for the current provider."""
+    def get_model_name_for_provider(self, model_type: str = "default") -> str:
+        """
+        Get the model name formatted for the current provider.
+        
+        NOTE: This method is kept for backward compatibility but may not be actively used.
+        The LLMConfig class handles model selection directly via ai_model_simple/advanced.
+        
+        Args:
+            model_type: "simple", "advanced", or "default" (uses first available)
+            
+        Returns:
+            str: Formatted model name for the provider
+        """
+        # Select the appropriate model based on type
+        if model_type == "simple":
+            model_name = self.ai_model_simple or self.ai_model_advanced or self.ai_model_name
+        elif model_type == "advanced":
+            model_name = self.ai_model_advanced or self.ai_model_simple or self.ai_model_name
+        else:  # default - use first available
+            model_name = self.ai_model_name or self.ai_model_simple or self.ai_model_advanced
+        
+        if not model_name:
+            model_name = ""  # Return empty string if no model configured
+            
+        # Format for provider
         if self.ai_provider == AIProvider.GROQ:
-            return f"groq/{self.ai_model_name}"
-        elif self.ai_provider == AIProvider.GEMINI:
-            return self.ai_model_name
-        elif self.ai_provider == AIProvider.OPENAI:
-            return self.ai_model_name
-        else:  # Ollama
-            return self.ai_model_name
+            return f"groq/{model_name}" if model_name else ""
+        else:  # Gemini, OpenAI, Ollama use model name as-is
+            return model_name
 
 
 # Global settings instance

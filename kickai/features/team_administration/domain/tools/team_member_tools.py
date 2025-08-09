@@ -3,8 +3,10 @@
 Team Member Tools
 
 This module provides tools for team member management operations.
+Converted to sync functions for CrewAI compatibility.
 """
 
+import asyncio
 from loguru import logger
 from typing import Optional
 
@@ -20,8 +22,8 @@ from kickai.utils.tool_helpers import (
 
 
 @tool("team_member_registration")
-async def team_member_registration(
-    full_name: str,
+def team_member_registration(
+    name: str,
     telegram_id: str,
     phone_number: str,
     role: str,
@@ -29,10 +31,10 @@ async def team_member_registration(
     is_admin: bool = False
 ) -> str:
     """
-    Register a new team member. Requires: full_name, telegram_id, phone_number, role, team_id
+    Register a new team member. Requires: name, telegram_id, phone_number, role, team_id
 
     Args:
-        full_name: Full name of the team member
+        name: Name of the team member
         telegram_id: Telegram ID of the team member
         phone_number: Phone number of the team member
         role: Role of the team member (e.g., Coach, Manager, Assistant)
@@ -44,7 +46,7 @@ async def team_member_registration(
     """
     try:
         # Handle JSON string input using utility functions
-        full_name = extract_single_value(full_name, "full_name")
+        name = extract_single_value(name, "name")
         telegram_id = extract_single_value(telegram_id, "telegram_id")
         phone_number = extract_single_value(phone_number, "phone_number")
         role = extract_single_value(role, "role")
@@ -52,7 +54,7 @@ async def team_member_registration(
         is_admin = extract_single_value(is_admin, "is_admin") if isinstance(is_admin, str) else is_admin
 
         # Validate inputs using utility functions
-        validation_error = validate_required_input(full_name, "Full Name")
+        validation_error = validate_required_input(name, "Name")
         if validation_error:
             return validation_error
 
@@ -88,40 +90,33 @@ async def team_member_registration(
         # Import here to avoid circular imports
         from kickai.features.team_administration.domain.entities.team_member import TeamMember
 
-        # Derive first and last names from full name if possible
-        name_parts = full_name.strip().split(" ", 1)
-        first_name = name_parts[0] if name_parts else None
-        last_name = name_parts[1] if len(name_parts) > 1 else None
-
         team_member = TeamMember.create_from_telegram(
             team_id=team_id,
             telegram_id=telegram_id_int,
-            first_name=first_name,
-            last_name=last_name,
+            name=name,
             username=None,
             is_admin=bool(is_admin),
         )
 
         # Apply provided details
-        team_member.full_name = full_name
         team_member.phone_number = phone_number
         team_member.role = role
         team_member.is_admin = bool(is_admin)
 
         # Persist team member
-        created_id = await team_member_service.create_team_member(team_member)
+        created_id = asyncio.run(team_member_service.create_team_member(team_member))
 
         if created_id:
             return format_tool_success(
                 f"✅ **Team Member Registered Successfully!**\n\n"
-                f"👤 **Name**: {team_member.full_name}\n"
+                f"👤 **Name**: {team_member.name}\n"
                 f"📱 **Telegram ID**: {team_member.telegram_id}\n"
                 f"📞 **Phone**: {team_member.phone_number}\n"
                 f"👑 **Role**: {team_member.role.title()}\n"
                 f"🏆 **Team ID**: {team_member.team_id}\n"
                 f"🆔 **Member ID**: {created_id}\n"
                 f"✅ **Admin**: {'Yes' if team_member.is_admin else 'No'}\n\n"
-                f"🎉 Welcome to the team, {team_member.full_name}!"
+                f"🎉 Welcome to the team, {team_member.name}!"
             )
         else:
             return format_tool_error("Failed to register team member")
@@ -205,7 +200,7 @@ def get_team_members(team_id: str, role: Optional[str] = None) -> str:
         for member in members:
             role_text = member.role if member.role else "No role"
             admin_status = "👑 Admin" if member.is_admin else "👤 Member"
-            result += f"• {member.full_name or member.first_name or 'Unknown'} - {admin_status} ({role_text})\n"
+            result += f"• {member.name or 'Unknown'} - {admin_status} ({role_text})\n"
 
         return result
 

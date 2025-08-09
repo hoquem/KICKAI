@@ -13,16 +13,16 @@ __description__ = "AI-powered Telegram bot for Sunday league football team manag
 from .core.dependency_container import get_service, get_singleton
 from .core.config import get_settings
 from .database.firebase_client import get_firebase_client
-from .utils.football_id_generator import (
-    generate_football_match_id,
-    generate_football_player_id,
-    generate_football_team_id,
+from .utils.id_generator import (
+    generate_match_id,
+    generate_member_id,
+    generate_team_id,
 )
 
 __all__ = [
-    "generate_football_match_id",
-    "generate_football_player_id",
-    "generate_football_team_id",
+    "generate_match_id",
+    "generate_member_id",
+    "generate_team_id",
     "get_firebase_client",
     "get_service",
     "get_settings",

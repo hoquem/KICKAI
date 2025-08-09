@@ -12,7 +12,7 @@ from kickai.features.player_registration.domain.entities.player import Player
 from kickai.features.player_registration.domain.repositories.player_repository_interface import (
     PlayerRepositoryInterface,
 )
-from kickai.utils.football_id_generator import generate_football_player_id
+from kickai.utils.id_generator import generate_member_id
 
 
 class PlayerRegistrationService:
@@ -35,23 +35,12 @@ class PlayerRegistrationService:
         existing_players = await self.player_repository.get_all_players(team_id)
         existing_ids = {player.player_id for player in existing_players if player.player_id}
 
-        # Generate football-friendly player ID
-        # Split name into first and last name for football ID generation
-        name_parts = name.strip().split()
-        if len(name_parts) >= 2:
-            first_name = name_parts[0]
-            last_name = name_parts[-1]
-        else:
-            first_name = name_parts[0] if name_parts else "Unknown"
-            last_name = first_name
-
-        player_id = generate_football_player_id(
-            first_name, last_name, position, team_id, existing_ids
-        )
+        # Generate simple member ID
+        player_id = generate_member_id(name, existing_ids)
 
         # Create new player
         player = Player(
-            user_id=f"user_{team_id}_{phone}",
+            user_id=f"{team_id}_{phone}",
             player_id=player_id,
             team_id=team_id,
             full_name=name,

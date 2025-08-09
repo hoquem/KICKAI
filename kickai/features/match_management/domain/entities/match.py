@@ -11,6 +11,7 @@ class MatchStatus(Enum):
     AVAILABILITY_OPEN = "availability_open"
     SQUAD_SELECTION = "squad_selection"
     SQUAD_SELECTED = "squad_selected"
+    IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
@@ -53,13 +54,13 @@ class MatchResult:
 class Match:
     """Match entity representing a football match."""
 
-    match_id: str
     team_id: str
     opponent: str
-    match_date: datetime
-    match_time: time
-    venue: str
-    competition: str
+    date: datetime
+    time: str
+    location: str
+    competition: str = "League Match"
+    match_id: str = ""
     status: MatchStatus = MatchStatus.SCHEDULED
     notes: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
@@ -88,9 +89,9 @@ class Match:
             match_id="",  # Will be set by service layer
             team_id=team_id,
             opponent=opponent,
-            match_date=match_date,
-            match_time=match_time,
-            venue=venue,
+            date=match_date,
+            time=match_time.strftime("%H:%M") if isinstance(match_time, time) else str(match_time),
+            location=venue,
             competition=competition,
             notes=notes,
             created_by=created_by,
@@ -113,9 +114,9 @@ class Match:
             "match_id": self.match_id,
             "team_id": self.team_id,
             "opponent": self.opponent,
-            "match_date": self.match_date.isoformat(),
-            "match_time": self.match_time.isoformat(),
-            "venue": self.venue,
+            "date": self.date.isoformat(),
+            "time": self.time,
+            "location": self.location,
             "competition": self.competition,
             "status": self.status.value,
             "notes": self.notes,
@@ -130,10 +131,8 @@ class Match:
     def from_dict(cls, data: dict) -> "Match":
         """Create match from dictionary."""
         # Convert string dates back to datetime objects
-        if "match_date" in data and isinstance(data["match_date"], str):
-            data["match_date"] = datetime.fromisoformat(data["match_date"])
-        if "match_time" in data and isinstance(data["match_time"], str):
-            data["match_time"] = time.fromisoformat(data["match_time"])
+        if "date" in data and isinstance(data["date"], str):
+            data["date"] = datetime.fromisoformat(data["date"]) 
         if "created_at" in data and isinstance(data["created_at"], str):
             data["created_at"] = datetime.fromisoformat(data["created_at"])
         if "updated_at" in data and isinstance(data["updated_at"], str):

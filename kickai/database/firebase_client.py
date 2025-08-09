@@ -751,14 +751,20 @@ class FirebaseClient:
             return []  # Return empty list on error
 
     async def get_team_member_by_telegram_id(
-        self, telegram_id: str, team_id: str
+        self, telegram_id: Union[str, int], team_id: str
     ) -> Optional[TeamMember]:
         """Get a team member by telegram_id and team_id."""
         try:
+            # Normalize telegram_id to int for consistent querying
+            normalized_telegram_id = int(telegram_id) if telegram_id else None
+            if normalized_telegram_id is None:
+                logger.warning(f"❌ Invalid telegram_id: {telegram_id}")
+                return None
+            
             # Use centralized collection naming
             collection_name = get_team_members_collection(team_id)
             filters = [
-                {"field": "telegram_id", "operator": "==", "value": telegram_id},
+                {"field": "telegram_id", "operator": "==", "value": normalized_telegram_id},
                 {"field": "team_id", "operator": "==", "value": team_id},
             ]
             documents = await self.query_documents(collection_name, filters)
@@ -794,7 +800,7 @@ class FirebaseClient:
             member for member in team_members if member.chat_access.get("leadership_chat", False)
         ]
 
-    async def get_player_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[Any]:
+    async def get_player_by_telegram_id(self, telegram_id: Union[str, int], team_id: str) -> Optional[Any]:
         """Get a player by telegram_id and team_id efficiently."""
         logger.debug(
             f"get_player_by_telegram_id called with telegram_id={telegram_id}, team_id={team_id}"

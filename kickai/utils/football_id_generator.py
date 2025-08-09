@@ -345,19 +345,24 @@ class FootballIDGenerator:
 
     def generate_player_id(
         self,
-        first_name: str,
-        last_name: str,
+        name: str,
         position: str,
         team_id: str,
         existing_ids: Union[Set[str], None] = None,
     ) -> str:
         """Generate a football-contextual player ID with jersey number and position."""
-        if not first_name or not last_name or not position:
+        if not name or not position:
             return "99UNK1"
 
-        # Normalize names
-        first_norm = first_name.strip()
-        last_norm = last_name.strip()
+        # Parse name into first and last components
+        name_parts = name.strip().split()
+        if len(name_parts) >= 2:
+            first_norm = name_parts[0]
+            last_norm = name_parts[-1]  # Use last word as surname
+        else:
+            # Single name - use it for both initials
+            first_norm = name_parts[0] if name_parts else "U"
+            last_norm = first_norm
 
         # Get existing jersey numbers for this team
         existing_numbers = set()
@@ -386,7 +391,7 @@ class FootballIDGenerator:
         final_id = self._resolve_collision(base_id, id_set)
 
         # Store mapping
-        player_key = f"{first_norm.lower()} {last_norm.lower()}"
+        player_key = name.lower().strip()
         self.player_mappings[player_key] = final_id
         if existing_ids is not None:
             existing_ids.add(final_id)
@@ -394,7 +399,7 @@ class FootballIDGenerator:
             self.used_player_ids.add(final_id)
 
         logger.info(
-            f"Generated football player ID '{final_id}' for {first_name} {last_name} ({position})"
+            f"Generated football player ID '{final_id}' for {name} ({position})"
         )
         return final_id
 
@@ -569,15 +574,14 @@ def generate_football_team_id(team_name: str, league_info: str = "") -> str:
 
 
 def generate_football_player_id(
-    first_name: str,
-    last_name: str,
+    name: str,
     position: str,
     team_id: str,
     existing_ids: Union[Set[str], None] = None,
 ) -> str:
     """Generate a football-contextual player ID."""
     return football_id_generator.generate_player_id(
-        first_name, last_name, position, team_id, existing_ids
+        name, position, team_id, existing_ids
     )
 
 

@@ -29,9 +29,21 @@ class TeamRepositoryInterface(ABC):
         """Create a new team."""
         pass
 
+    # Alias used in some tests/mocks
+    @abstractmethod
+    async def create(self, team: Team) -> Team:
+        """Create a new team (alias for create_team)."""
+        pass
+
     @abstractmethod
     async def get_team_by_id(self, team_id: str) -> Optional[Team]:
         """Get a team by ID."""
+        pass
+
+    # Alias used in some tests/mocks
+    @abstractmethod
+    async def get_by_id(self, team_id: str) -> Optional[Team]:
+        """Get a team by ID (alias)."""
         pass
 
     @abstractmethod
@@ -40,8 +52,19 @@ class TeamRepositoryInterface(ABC):
         pass
 
     @abstractmethod
+    async def get_by_status(self, status: str) -> List[Team]:
+        """Get teams by status (alias used in tests)."""
+        pass
+
+    @abstractmethod
     async def update_team(self, team: Team) -> Team:
         """Update a team."""
+        pass
+
+    # Alias used in some tests/mocks
+    @abstractmethod
+    async def update(self, team: Team) -> Team:
+        """Update a team (alias)."""
         pass
 
     @abstractmethod

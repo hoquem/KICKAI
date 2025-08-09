@@ -13,6 +13,10 @@ from kickai.features.shared.domain.tools.onboarding_tools import (
 from kickai.features.shared.domain.tools.user_tools import (
     get_user_status,
 )
+from kickai.features.shared.domain.tools.system_tools import (
+    ping,
+    version,
+)
 
 __all__ = [
     # Help tools (from help_tools.py)
@@ -23,4 +27,7 @@ __all__ = [
     "team_member_guidance",
     # User tools
     "get_user_status",
+    # System tools
+    "ping",
+    "version",
 ]

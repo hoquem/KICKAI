@@ -40,19 +40,19 @@ class MessageRoutingService:
         # Only route PENDING players to onboarding - IN_PROGRESS players can use general commands
         if player.onboarding_status == OnboardingStatus.PENDING:
             logger.info(
-                f"[ROUTING] Player {player.full_name} is pending onboarding, routing to onboarding handler"
+                f"[ROUTING] Player {player.name} is pending onboarding, routing to onboarding handler"
             )
-            return True, f"Player {player.full_name} is pending onboarding"
+            return True, f"Player {player.name} is pending onboarding"
         else:
             logger.info(
-                f"[ROUTING] Player {player.full_name} is in progress but not pending, allowing general commands"
+                f"[ROUTING] Player {player.name} is in progress but not pending, allowing general commands"
             )
-            return False, f"Player {player.full_name} is in progress but can use general commands"
+            return False, f"Player {player.name} is in progress but can use general commands"
 
         logger.info(
-            f"[ROUTING] Player {player.full_name} is not in onboarding, allowing general commands"
+            f"[ROUTING] Player {player.name} is not in onboarding, allowing general commands"
         )
-        return False, f"Player {player.full_name} is not in onboarding"
+        return False, f"Player {player.name} is not in onboarding"
 
     @staticmethod
     def should_route_to_player_update(player: Optional[Player], message: str) -> Tuple[bool, str]:
@@ -89,9 +89,9 @@ class MessageRoutingService:
 
             if any(keyword in message_lower for keyword in update_keywords):
                 logger.info(
-                    f"[ROUTING] Completed player {player.full_name} requesting update, routing to player update handler"
+                    f"[ROUTING] Completed player {player.name} requesting update, routing to player update handler"
                 )
-                return True, f"Player {player.full_name} requesting update"
+                return True, f"Player {player.name} requesting update"
 
         return False, "Not a player update request"
 
@@ -121,8 +121,8 @@ class MessageRoutingService:
         if should_update:
             return False, "Routed to player update"
 
-        logger.info(f"[ROUTING] Player {player.full_name} message routed to general handler")
-        return True, f"Player {player.full_name} message routed to general handler"
+        logger.info(f"[ROUTING] Player {player.name} message routed to general handler")
+        return True, f"Player {player.name} message routed to general handler"
 
     @staticmethod
     def get_routing_decision(
@@ -178,7 +178,7 @@ class MessageRoutingService:
         player_status = player.get_status_category() if player else "unknown"
 
         logger.info(
-            f"[ROUTING DECISION] Player: {player.full_name if player else 'None'}, "
+            f"[ROUTING DECISION] Player: {player.name if player else 'None'}, "
             f"Status: {player_status}, Route: {route_to}, Reason: {reason}"
         )
 

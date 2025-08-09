@@ -210,7 +210,7 @@ class RegistrationService:
 
             return {
                 "player_id": player.player_id,
-                "name": player.full_name,
+                "name": player.name,
                 "phone": player.phone_number,
                 "position": player.position,
                 "status": "active",
@@ -261,7 +261,7 @@ class RegistrationService:
 
             return {
                 "member_id": member.member_id,
-                "name": member.full_name,
+                "name": member.name,
                 "phone": member.phone_number,
                 "role": member.role,
                 "status": "active",
@@ -306,7 +306,7 @@ class RegistrationService:
 
             return {
                 "player_id": player.player_id,
-                "name": player.full_name,
+                "name": player.name,
                 "phone": player.phone_number,
                 "position": player.position,
                 "status": "approved",
@@ -358,7 +358,7 @@ class RegistrationService:
 
             return {
                 "player_id": player.player_id,
-                "name": player.full_name,
+                "name": player.name,
                 "phone": player.phone_number,
                 "position": player.position,
                 "status": "rejected",
@@ -384,7 +384,7 @@ class RegistrationService:
             return [
                 {
                     "player_id": player.player_id,
-                    "name": player.full_name,
+                    "name": player.name,
                     "phone": player.phone_number,
                     "position": player.position,
                     "status": player.status,
@@ -411,7 +411,7 @@ class RegistrationService:
             return [
                 {
                     "member_id": member.member_id,
-                    "name": member.full_name,
+                    "name": member.name,
                     "phone": member.phone_number,
                     "role": member.role,
                     "status": member.status,

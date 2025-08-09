@@ -309,9 +309,12 @@ class LLMProviderFactory:
             api_key = None  # Ollama doesn't need API key
 
         # Create provider configuration
+        # Choose model: prefer simple/advanced pair; fallback to legacy name
+        model_name = settings.ai_model_simple or settings.ai_model_advanced or settings.ai_model_name or ""
+
         config = ProviderConfig(
             provider=selected_provider,
-            model_name=settings.ai_model_name,
+            model_name=model_name,
             api_key=api_key,
             base_url=settings.ollama_base_url if selected_provider == AIProvider.OLLAMA else None,
             temperature=settings.ai_temperature,
@@ -332,9 +335,9 @@ class LLMProviderFactory:
         Returns:
             Configured LLM provider instance
         """
-        # Get provider from environment or use default
+        # Get provider from environment or use default (force Groq as safe default)
         if provider is None:
-            provider_str = os.getenv("AI_PROVIDER", "ollama")
+            provider_str = os.getenv("AI_PROVIDER", "groq")
             try:
                 provider = AIProvider(provider_str)
             except ValueError:

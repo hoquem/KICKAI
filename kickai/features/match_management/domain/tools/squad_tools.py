@@ -7,7 +7,7 @@ This module provides tools for squad selection and management.
 
 from loguru import logger
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from kickai.core.dependency_container import get_container
 from kickai.utils.crewai_tool_decorator import tool
@@ -44,13 +44,13 @@ class GetMatchInput(BaseModel):
 
 
 @tool("get_available_players_for_match")
-def get_available_players_for_match(team_id: str, telegram_id: str, match_id: str) -> str:
+def get_available_players_for_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
     """
     Get list of available players for a specific match.
 
     Args:
         team_id: Team ID (required) - available from context
-        telegram_id: Telegram ID (required) - available from context
+        telegram_id: Telegram ID (required) - available from context (accepts string or int)
         match_id: Match ID to check availability for
 
     Returns:
@@ -72,7 +72,14 @@ def get_available_players_for_match(team_id: str, telegram_id: str, match_id: st
 
         # Sanitize inputs
         team_id = sanitize_input(team_id, max_length=50)
-        telegram_id = sanitize_input(str(telegram_id), max_length=50)
+        # Convert telegram_id to int for consistency
+        if isinstance(telegram_id, str):
+            try:
+                telegram_id_int = int(telegram_id)
+            except ValueError:
+                return format_tool_error(f"Invalid telegram_id format: {telegram_id}")
+        else:
+            telegram_id_int = int(telegram_id)
         match_id = sanitize_input(match_id, max_length=50)
 
         # Get match service
@@ -103,7 +110,7 @@ def get_available_players_for_match(team_id: str, telegram_id: str, match_id: st
 
 @tool("select_squad")
 def select_squad(
-    team_id: str, telegram_id: str, match_id: str, squad_size: Optional[int] = None
+    team_id: str, telegram_id: Union[str, int], match_id: str, squad_size: Optional[int] = None
 ) -> str:
     """
     Select optimal squad for a match based on availability and tactical requirements.
@@ -163,7 +170,7 @@ def select_squad(
 
 
 @tool("get_match")
-def get_match(team_id: str, telegram_id: str, match_id: str) -> str:
+def get_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
     """
     Get match details and information.
 
@@ -221,13 +228,13 @@ def get_match(team_id: str, telegram_id: str, match_id: str) -> str:
 
 
 @tool("get_all_players")
-def get_all_players(team_id: str, telegram_id: str) -> str:
+def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
     """
     Get all players in the team for squad selection reference.
 
     Args:
         team_id: Team ID (required) - available from context
-        telegram_id: Telegram ID (required) - available from context
+        telegram_id: Telegram ID (required) - available from context (accepts string or int)
 
     Returns:
         All players list or error
@@ -244,7 +251,14 @@ def get_all_players(team_id: str, telegram_id: str) -> str:
 
         # Sanitize inputs
         team_id = sanitize_input(team_id, max_length=50)
-        telegram_id = sanitize_input(str(telegram_id), max_length=50)
+        # Convert telegram_id to int for consistency
+        if isinstance(telegram_id, str):
+            try:
+                telegram_id_int = int(telegram_id)
+            except ValueError:
+                return format_tool_error(f"Invalid telegram_id format: {telegram_id}")
+        else:
+            telegram_id_int = int(telegram_id)
 
         # Get player service
         container = get_container()

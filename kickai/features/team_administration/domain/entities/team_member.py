@@ -12,18 +12,19 @@ class TeamMember:
 
     Team Members are administrators, managers, or other non-playing staff.
     This is separate from Players who represent football players.
-    A person can be both a Team Member and a Player, linked by user_id.
+    A person can be both a Team Member and a Player, linked by telegram_id.
     """
 
     # Core identification fields
-    user_id: str = ""  # Generated from telegram_id using generate_user_id()
-    team_id: str = ""
-    telegram_id: Optional[int] = None  # Native Telegram integer user ID
+    telegram_id: Optional[int] = None  # Telegram user ID (integer) - for linking to Telegram
+    member_id: Optional[str] = None    # Member identifier (M001MH format) - unique within team
+    team_id: str = ""                  # Team identifier (KA format)
+    
+    # Legacy field - being phased out in favor of explicit IDs above
+    user_id: str = ""  # DEPRECATED: Use telegram_id for linking, member_id for identification
 
     # Personal information
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    full_name: Optional[str] = None
+    name: Optional[str] = None
     username: Optional[str] = None
 
     # Administrative role information
@@ -53,8 +54,11 @@ class TeamMember:
         """Validate team member data."""
         if not self.team_id:
             raise ValueError("Team ID cannot be empty")
-        if not self.user_id:
-            raise ValueError("User ID cannot be empty")
+        
+        # Require either member_id or telegram_id for identification
+        if not self.member_id and not self.telegram_id:
+            raise ValueError("Either member_id or telegram_id must be provided")
+            
         if not self.role:
             raise ValueError("Role cannot be empty")
 
@@ -63,9 +67,13 @@ class TeamMember:
         if self.status not in valid_statuses:
             raise ValueError(f"Invalid status: {self.status}. Must be one of {valid_statuses}")
 
-        # Validate user_id format
-        if not self.user_id.startswith("user_"):
-            raise ValueError(f"Invalid user_id format: {self.user_id}. Must start with 'user_'")
+        # Validate member_id format if provided
+        if self.member_id and not self.member_id.startswith("M"):
+            raise ValueError(f"Invalid member_id format: {self.member_id}. Must start with 'M'")
+            
+        # Validate telegram_id type if provided
+        if self.telegram_id is not None and not isinstance(self.telegram_id, int):
+            raise ValueError(f"telegram_id must be an integer, got {type(self.telegram_id)}")
 
     def _set_defaults(self):
         """Set default values if not provided."""
@@ -83,8 +91,7 @@ class TeamMember:
         cls,
         team_id: str,
         telegram_id: int,
-        first_name: str = None,
-        last_name: str = None,
+        name: str = None,
         username: str = None,
         is_admin: bool = False,
     ) -> "TeamMember":
@@ -94,8 +101,7 @@ class TeamMember:
         Args:
             team_id: The team ID
             telegram_id: The Telegram user ID
-            first_name: Telegram first name
-            last_name: Telegram last name
+            name: Member's display name
             username: Telegram username
             is_admin: Whether the user is an admin in Telegram
 
@@ -107,24 +113,14 @@ class TeamMember:
         # Determine role based on admin status
         role = "Club Administrator" if is_admin else "Team Member"
 
-        # Build full name
-        full_name = ""
-        if first_name and last_name:
-            full_name = f"{first_name} {last_name}"
-        elif first_name:
-            full_name = first_name
-        elif last_name:
-            full_name = last_name
-        else:
-            full_name = f"User {telegram_id}"
+        # Use provided name or generate default
+        display_name = name if name else f"User {telegram_id}"
 
         return cls(
             user_id=user_id,
             team_id=team_id,
             telegram_id=telegram_id,  # Keep as integer
-            first_name=first_name,
-            last_name=last_name,
-            full_name=full_name,
+            name=display_name,
             username=username,
             role=role,
             is_admin=is_admin,
@@ -137,9 +133,7 @@ class TeamMember:
             "user_id": self.user_id,
             "team_id": self.team_id,
             "telegram_id": self.telegram_id,
-            "first_name": self.first_name,
-            "last_name": self.last_name,
-            "full_name": self.full_name,
+            "name": self.name,
             "username": self.username,
             "role": self.role,
             "is_admin": self.is_admin,
@@ -174,9 +168,7 @@ class TeamMember:
             user_id=user_id,
             team_id=data.get("team_id", ""),
             telegram_id=telegram_id,
-            first_name=data.get("first_name"),
-            last_name=data.get("last_name"),
-            full_name=data.get("full_name"),
+            name=data.get("name"),
             username=data.get("username"),
             role=data.get("role", "Team Member"),
             is_admin=data.get("is_admin", False),
@@ -220,12 +212,8 @@ class TeamMember:
 
     def get_display_name(self) -> str:
         """Get display name for the member."""
-        if self.full_name:
-            return self.full_name
-        elif self.first_name and self.last_name:
-            return f"{self.first_name} {self.last_name}"
-        elif self.first_name:
-            return self.first_name
+        if self.name:
+            return self.name
         elif self.username:
             return f"@{self.username}"
         elif self.telegram_id:

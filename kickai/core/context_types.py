@@ -81,6 +81,7 @@ class StandardizedContext:
         """Convert context to dictionary for serialization."""
         return {
             "user_id": self.user_id,
+            "telegram_id": self.user_id,  # telegram_id is same as user_id in KICKAI system
             "team_id": self.team_id,
             "chat_id": self.chat_id,
             "chat_type": self.chat_type,
@@ -163,7 +164,7 @@ class StandardizedContext:
 
 
 def create_context_from_telegram_message(
-    user_id: str,
+    telegram_id: str,
     team_id: str,
     chat_id: str,
     chat_type: ChatType,
@@ -174,7 +175,7 @@ def create_context_from_telegram_message(
 ) -> StandardizedContext:
     """Create standardized context from Telegram message data."""
     return StandardizedContext(
-        user_id=user_id,
+        user_id=str(telegram_id),
         team_id=team_id,
         chat_id=chat_id,
         chat_type=chat_type.value if isinstance(chat_type, ChatType) else chat_type,
@@ -187,7 +188,7 @@ def create_context_from_telegram_message(
 
 
 def create_context_from_command(
-    user_id: str,
+    telegram_id: str,
     team_id: str,
     chat_id: str,
     chat_type: ChatType,
@@ -198,7 +199,7 @@ def create_context_from_command(
 ) -> StandardizedContext:
     """Create standardized context from command data."""
     return StandardizedContext(
-        user_id=user_id,
+        user_id=str(telegram_id),
         team_id=team_id,
         chat_id=chat_id,
         chat_type=chat_type.value if isinstance(chat_type, ChatType) else chat_type,

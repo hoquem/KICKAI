@@ -31,7 +31,7 @@ from kickai.features.team_administration.domain.interfaces.team_service_interfac
 from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
 from kickai.features.team_administration.domain.entities.team import Team, TeamStatus, TeamMember
 from kickai.features.team_administration.domain.entities.bot_mapping import BotMapping
-from kickai.utils.football_id_generator import generate_football_team_id
+from kickai.utils.id_generator import generate_team_id
 from kickai.core.exceptions import TeamError, PlayerError
 
 logging.basicConfig(level=logging.INFO)
@@ -135,7 +135,7 @@ class TeamBootstrap:
         logger.info(f"📝 Creating team: {team_name}")
         
         # Generate football-friendly team ID with league context
-        team_id = generate_football_team_id(team_name, league_name)
+        team_id = generate_team_id(team_name)
         
         # Create team with league information and bot configuration
         team = await self._get_team_service().create_team(

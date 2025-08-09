@@ -3,6 +3,7 @@
 Match Management Tools
 
 This module provides tools for match management operations.
+Converted to sync functions for CrewAI compatibility.
 """
 
 from typing import List, Optional
@@ -24,7 +25,7 @@ from kickai.features.match_management.domain.services.match_service import Match
 
 
 @tool("list_matches")
-async def list_matches(team_id: str, status: str = "all", limit: int = 10) -> str:
+def list_matches(team_id: str, status: str = "all", limit: int = 10) -> str:
     """
     List matches for a team with optional status filter. Requires: team_id
 
@@ -54,15 +55,15 @@ async def list_matches(team_id: str, status: str = "all", limit: int = 10) -> st
         if not match_service:
             raise ServiceNotAvailableError("MatchService")
 
-        # Get matches based on status
+        # Get matches based on status (sync calls via asyncio.run)
         if status == "upcoming":
-            matches = await match_service.get_upcoming_matches(team_id, limit)
+            matches = asyncio.run(match_service.get_upcoming_matches(team_id, limit))
             title = f"📅 **Upcoming Matches** (Next {len(matches)})"
         elif status == "past":
-            matches = await match_service.get_past_matches(team_id, limit)
+            matches = asyncio.run(match_service.get_past_matches(team_id, limit))
             title = f"📅 **Past Matches** (Last {len(matches)})"
         else:
-            matches = await match_service.list_matches(team_id, limit=limit)
+            matches = asyncio.run(match_service.list_matches(team_id, limit=limit))
             title = f"📅 **All Matches** (Last {len(matches)})"
 
         if not matches:

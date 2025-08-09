@@ -6,9 +6,13 @@ This module provides centralized agentic message routing following CrewAI best p
 ALL messages go through agents - no direct processing bypasses the agentic system.
 """
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, List, Optional, Set, Dict, Union
+from typing import Any, List, Optional, Set, Dict, Union, Protocol
+from weakref import WeakSet
 from loguru import logger
+import asyncio
+import time
 
 # Lazy imports to avoid circular dependencies
 from kickai.core.context_types import create_context_from_telegram_message
@@ -16,6 +20,76 @@ from kickai.core.enums import ChatType
 from kickai.core.types import AgentResponse, TelegramMessage, UserFlowDecision, IntentResult, UserFlowType
 from kickai.utils.error_handling import critical_system_error_handler, user_registration_check_handler, command_registry_error_handler
 from kickai.utils.dependency_utils import get_player_service, get_team_service, validate_required_services
+
+
+class MessageRouterProtocol(Protocol):
+    """Protocol for message routing to enable better testing and extensibility."""
+    
+    async def route_message(self, message: TelegramMessage) -> AgentResponse:
+        """Route a message through the system."""
+        ...
+    
+    async def route_contact_share(self, message: TelegramMessage) -> AgentResponse:
+        """Handle contact sharing messages."""
+        ...
+
+
+class ResourceManager:
+    """Handles resource management and cleanup for the message router."""
+    
+    def __init__(self, max_concurrent: int = 10, max_requests_per_minute: int = 60):
+        self.active_requests: WeakSet = WeakSet()
+        self.request_timestamps: List[float] = []
+        self.max_concurrent_requests = max_concurrent
+        self.max_requests_per_minute = max_requests_per_minute
+        self.cleanup_interval = 300  # 5 minutes
+        self.last_cleanup = time.time()
+        self.request_count = 0
+    
+    def add_request(self) -> object:
+        """Add a new request and return a tracker."""
+        tracker = type('RequestTracker', (), {})()  # Create a proper object that can be weak referenced
+        self.active_requests.add(tracker)
+        self.request_count += 1
+        return tracker
+    
+    def remove_request(self, tracker: object) -> None:
+        """Remove a request tracker."""
+        self.active_requests.discard(tracker)
+    
+    def check_rate_limit(self) -> bool:
+        """Check if within rate limits."""
+        current_time = time.time()
+        
+        # Clean old timestamps
+        self.request_timestamps = [
+            ts for ts in self.request_timestamps 
+            if current_time - ts < 60
+        ]
+        
+        if len(self.request_timestamps) >= self.max_requests_per_minute:
+            return False
+            
+        self.request_timestamps.append(current_time)
+        return True
+    
+    def check_concurrent_limit(self) -> bool:
+        """Check if within concurrent request limits."""
+        return len(self.active_requests) < self.max_concurrent_requests
+    
+    async def cleanup(self, force: bool = False) -> None:
+        """Clean up resources periodically."""
+        current_time = time.time()
+        if not force and current_time - self.last_cleanup < self.cleanup_interval:
+            return
+            
+        # Clean up old timestamps
+        self.request_timestamps = [
+            ts for ts in self.request_timestamps 
+            if current_time - ts < 60
+        ]
+        
+        self.last_cleanup = current_time
 
 
 class AgenticMessageRouter:
@@ -26,12 +100,31 @@ class AgenticMessageRouter:
     No direct processing bypasses agents.
     """
 
-    def __init__(self, team_id: str, crewai_system=None):
-        self.team_id = team_id
+    def __init__(
+        self, 
+        team_id: str, 
+        crewai_system=None,
+        resource_manager: Optional[ResourceManager] = None
+    ):
+        # Input validation
+        if not team_id or not isinstance(team_id, str):
+            raise ValueError(f"team_id must be a non-empty string, got: {type(team_id).__name__}")
+        
+        self.team_id = team_id.strip()
         self.crewai_system = crewai_system
         # Simplified for 5-agent architecture - removed user_flow_agent and helper_agent
         # Lazy initialization to avoid circular dependencies
         self._crew_lifecycle_manager = None
+        
+        # Initialize state tracking for better error handling
+        self._last_telegram_id: Optional[int] = None
+        self._last_username: Optional[str] = None
+        self._main_chat_id: Optional[str] = None
+        self._leadership_chat_id: Optional[str] = None
+        
+        # Resource management (use dependency injection for testability)
+        self._resource_manager = resource_manager or ResourceManager()
+        
         self._setup_router()
 
     @property
@@ -49,6 +142,46 @@ class AgenticMessageRouter:
         """Set up the router configuration."""
         logger.info(f"🤖 AgenticMessageRouter initialized for team {self.team_id}")
 
+    async def _check_rate_limits(self, telegram_id: int) -> bool:
+        """
+        Check if request is within rate limits.
+        
+        Args:
+            telegram_id: User's Telegram ID
+            
+        Returns:
+            True if request is allowed, False if rate limited
+        """
+        if not self._resource_manager.check_rate_limit():
+            logger.warning(f"⚠️ Rate limit exceeded for team {self.team_id}, user {telegram_id}")
+            return False
+        return True
+
+    async def _check_concurrent_requests(self) -> bool:
+        """
+        Check if we're within concurrent request limits.
+        
+        Returns:
+            True if request can be processed, False if limit exceeded
+        """
+        if not self._resource_manager.check_concurrent_limit():
+            logger.warning(f"⚠️ Concurrent request limit exceeded for team {self.team_id}")
+            return False
+        return True
+
+    async def _cleanup_resources(self, force: bool = False):
+        """
+        Clean up resources periodically.
+        
+        Args:
+            force: Force cleanup regardless of time
+        """
+        await self._resource_manager.cleanup(force)
+        if force:
+            logger.debug(f"🧹 Force cleaned up resources for team {self.team_id}")
+        else:
+            logger.debug(f"🧹 Cleaned up resources for team {self.team_id}")
+
     @critical_system_error_handler("AgenticMessageRouter.route_message")
     async def route_message(self, message: TelegramMessage) -> AgentResponse:
         """
@@ -61,61 +194,114 @@ class AgenticMessageRouter:
         Returns:
             AgentResponse with the processed result
         """
+        # Validate input message
+        if not isinstance(message, TelegramMessage):
+            raise TypeError(f"Expected TelegramMessage, got {type(message).__name__}")
+        
+        if not message.text or not isinstance(message.text, str):
+            return AgentResponse(
+                success=False,
+                message="❌ Invalid message: missing or empty text",
+                error="Invalid message format"
+            )
+        
+        # Ensure telegram_id is properly typed
+        if not isinstance(message.telegram_id, int):
+            logger.warning(f"⚠️ telegram_id should be int, got {type(message.telegram_id)}")
+            try:
+                message.telegram_id = int(message.telegram_id)
+            except (ValueError, TypeError):
+                return AgentResponse(
+                    success=False,
+                    message="❌ Invalid user ID format",
+                    error="Invalid telegram_id"
+                )
+        
         logger.info(
             f"🔄 AgenticMessageRouter: Routing message from {message.username} in {message.chat_type.value}"
         )
 
-        # Check for new chat members event (invite link processing)
-        if hasattr(message, 'raw_update') and message.raw_update:
-            if self._is_new_chat_members_event(message.raw_update):
-                logger.info("🔗 AgenticMessageRouter: Detected new_chat_members event")
-                return await self.route_new_chat_members(message)
-
-        # Extract command from message text if it's a slash command
-        command = None
-        if message.text.startswith("/"):
-            command = message.text.split()[0]  # Get the first word (the command)
-            logger.info(f"🔄 AgenticMessageRouter: Detected command: {command}")
-
-        # Check if this is a helper system command
-        if self._is_helper_command(command):
-            logger.info(f"🔄 AgenticMessageRouter: Routing to Helper Agent: {command}")
-            return await self.route_help_request(message)
-
-        # Check if command is available for this chat type (for registered users)
-        if command and not self._is_helper_command(command):
-            await self._check_command_availability(command, message.chat_type, message.username)
-
-        # Determine user flow - check if user is registered
-        user_flow_result = await self._check_user_registration_status(message.telegram_id)
-
-        # Handle unregistered users
-        if user_flow_result == UserFlowType.UNREGISTERED_USER:
-            logger.info("🔄 AgenticMessageRouter: Unregistered user flow detected")
-
-            # Check if the message looks like a phone number
-            if self._looks_like_phone_number(message.text):
-                logger.info(
-                    "📱 AgenticMessageRouter: Detected phone number in message from unregistered user"
-                )
-                return await self._handle_phone_number_from_unregistered_user(message)
-
-            # Show welcome message for unregistered users
-            message_text = self._get_unregistered_user_message(
-                message.chat_type, message.username
-            )
-
+        # Check rate limits
+        if not await self._check_rate_limits(message.telegram_id):
             return AgentResponse(
-                success=True,
-                message=message_text,
-                error=None,
-                # Contact sharing button only works in private chats, not group chats
-                needs_contact_button=False,
+                success=False,
+                message="⏰ Too many requests. Please wait a moment and try again.",
+                error="Rate limit exceeded"
             )
 
-        # Handle registered users - normal agentic processing
-        logger.info("🔄 AgenticMessageRouter: Registered user flow detected")
-        return await self._process_with_crewai_system(message)
+        # Check concurrent request limits
+        if not await self._check_concurrent_requests():
+            return AgentResponse(
+                success=False,
+                message="🚦 System busy. Please try again in a moment.",
+                error="Concurrent limit exceeded"
+            )
+
+        # Track this request
+        request_tracker = self._resource_manager.add_request()
+        
+        try:
+            # Periodic cleanup
+            await self._cleanup_resources()
+
+            # Check for new chat members event (invite link processing)
+            if hasattr(message, 'raw_update') and message.raw_update:
+                if self._is_new_chat_members_event(message.raw_update):
+                    logger.info("🔗 AgenticMessageRouter: Detected new_chat_members event")
+                    return await self.route_new_chat_members(message)
+
+            # Extract command from message text if it's a slash command
+            command = None
+            if message.text.startswith("/"):
+                command = message.text.split()[0]  # Get the first word (the command)
+                logger.info(f"🔄 AgenticMessageRouter: Detected command: {command}")
+
+            # Check if this is a helper system command
+            if self._is_helper_command(command):
+                logger.info(f"🔄 AgenticMessageRouter: Routing to Helper Agent: {command}")
+                return await self.route_help_request(message)
+
+            # Check if command is available for this chat type (for registered users)
+            if command and not self._is_helper_command(command):
+                await self._check_command_availability(command, message.chat_type, message.username)
+
+            # Determine user flow - check if user is registered
+            user_flow_result = await self._check_user_registration_status(message.telegram_id)
+
+            # Handle unregistered users
+            if user_flow_result == UserFlowType.UNREGISTERED_USER:
+                logger.info("🔄 AgenticMessageRouter: Unregistered user flow detected")
+
+                # Check if the message looks like a phone number
+                if self._looks_like_phone_number(message.text):
+                    logger.info(
+                        "📱 AgenticMessageRouter: Detected phone number in message from unregistered user"
+                    )
+                    return await self._handle_phone_number_from_unregistered_user(message)
+
+                # Show welcome message for unregistered users
+                message_text = self._get_unregistered_user_message(
+                    message.chat_type, message.username
+                )
+
+                return AgentResponse(
+                    success=True,
+                    message=message_text,
+                    error=None,
+                    # Contact sharing button only works in private chats, not group chats
+                    needs_contact_button=False,
+                )
+
+            # Handle registered users - normal agentic processing
+            logger.info("🔄 AgenticMessageRouter: Registered user flow detected")
+            return await self._process_with_crewai_system(message)
+            
+        finally:
+            # Always clean up request tracking
+            try:
+                self._resource_manager.remove_request(request_tracker)
+            except Exception as cleanup_error:
+                logger.warning(f"⚠️ Error cleaning up request tracker: {cleanup_error}")
 
     @command_registry_error_handler
     async def _check_command_availability(self, command: str, chat_type: ChatType, username: str) -> None:
@@ -151,21 +337,72 @@ class AgenticMessageRouter:
             
         Returns:
             UserFlowType indicating if user is registered or not
+            
+        Raises:
+            RuntimeError: If critical services are unavailable
+            ConnectionError: If database connection fails
         """
+        # Normalize telegram_id to int
+        if isinstance(telegram_id, str):
+            try:
+                telegram_id = int(telegram_id)
+            except ValueError:
+                logger.error(f"❌ Invalid telegram_id format: {telegram_id}")
+                return UserFlowType.UNREGISTERED_USER
+        
         # Validate that required services are available
-        validate_required_services("PlayerService", "TeamService")
+        try:
+            validate_required_services("PlayerService", "TeamService")
+        except RuntimeError as e:
+            logger.critical(f"💥 Critical service unavailable during user registration check: {e}")
+            raise
         
-        # Get services from dependency container
-        player_service = get_player_service()
-        team_service = get_team_service()
+        # Get services from dependency container with retries
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                player_service = get_player_service()
+                team_service = get_team_service()
+                break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    logger.critical(f"💥 Failed to get services after {max_retries} attempts: {e}")
+                    raise RuntimeError(f"Service initialization failed: {e}")
+                logger.warning(f"⚠️ Service retrieval attempt {attempt + 1} failed: {e}")
+                await asyncio.sleep(0.1 * (2 ** attempt))  # Exponential backoff
         
-        # Check if user exists as player or team member
-        is_player = await player_service.get_player_by_telegram_id(
-            telegram_id, self.team_id
-        )
-        is_team_member = await team_service.get_team_member_by_telegram_id(
-            self.team_id, telegram_id
-        )
+        # Check if user exists as player or team member with timeout
+        try:
+            # Use asyncio.wait_for to add timeout protection
+            player_task = asyncio.create_task(
+                player_service.get_player_by_telegram_id(telegram_id, self.team_id)
+            )
+            team_member_task = asyncio.create_task(
+                team_service.get_team_member_by_telegram_id(self.team_id, telegram_id)
+            )
+            
+            # Wait for both with timeout
+            is_player, is_team_member = await asyncio.wait_for(
+                asyncio.gather(player_task, team_member_task, return_exceptions=True),
+                timeout=10.0  # 10 second timeout
+            )
+            
+            # Handle exceptions in results
+            if isinstance(is_player, Exception):
+                logger.warning(f"⚠️ Player lookup failed: {is_player}")
+                is_player = None
+            if isinstance(is_team_member, Exception):
+                logger.warning(f"⚠️ Team member lookup failed: {is_team_member}")
+                is_team_member = None
+                
+        except asyncio.TimeoutError:
+            logger.error(f"⏰ User registration check timed out for user {telegram_id}")
+            # In case of timeout, assume unregistered to fail safe
+            return UserFlowType.UNREGISTERED_USER
+        except Exception as e:
+            logger.error(f"❌ Error during user registration check: {e}")
+            # In case of error, assume unregistered to fail safe
+            return UserFlowType.UNREGISTERED_USER
         
         return UserFlowType.REGISTERED_USER if (is_player or is_team_member) else UserFlowType.UNREGISTERED_USER
 
@@ -350,21 +587,29 @@ Use /help to see available commands or ask me questions!"""
             AgentResponse with the processed result
         """
         try:
-            # Get detailed registration status - simplified approach
-            # In production, you'd want to get these services from the dependency container
-            player_service = None
-            team_service = None
+            # Get detailed registration status from actual services
+            try:
+                from kickai.utils.dependency_utils import get_player_service, get_team_service
+                player_service = get_player_service()
+                team_service = get_team_service()
+            except Exception as e:
+                logger.warning(f"⚠️ Could not get services for registration check: {e}")
+                player_service = None
+                team_service = None
 
             is_player = False
             is_team_member = False
 
+            # Check actual registration status
             if player_service:
                 try:
                     player = await player_service.get_player_by_telegram_id(
                         message.telegram_id, message.team_id
                     )
                     is_player = player is not None
-                except Exception:
+                    logger.debug(f"🔍 Player check for {message.telegram_id}: {is_player}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Player lookup failed: {e}")
                     pass
 
             if team_service:
@@ -373,32 +618,18 @@ Use /help to see available commands or ask me questions!"""
                         message.team_id, message.telegram_id
                     )
                     is_team_member = team_member is not None
-                except Exception:
+                    logger.debug(f"🔍 Team member check for {message.telegram_id}: {is_team_member}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Team member lookup failed: {e}")
                     pass
 
-            # SIMPLIFIED LOGIC: Chat type determines user type
-            if message.chat_type == ChatType.MAIN:
-                # In main chat, treat as player
-                is_registered = is_player
-                is_team_member = False  # Force team member to False in main chat
-                logger.info(
-                    f"🔄 AgenticMessageRouter: Main chat - treating as player, is_player={is_player}, is_registered={is_registered}"
-                )
-            elif message.chat_type == ChatType.LEADERSHIP:
-                # In leadership chat, treat as team member
-                is_registered = is_team_member
-                is_player = False  # Force player to False in leadership chat
-                logger.info(
-                    f"🔄 AgenticMessageRouter: Leadership chat - treating as team member, is_team_member={is_team_member}, is_registered={is_registered}"
-                )
-            else:
-                # Unknown chat type, assume unregistered
-                is_registered = False
-                is_player = False
-                is_team_member = False
-                logger.warning(
-                    f"⚠️ AgenticMessageRouter: Unknown chat type {message.chat_type}, assuming unregistered"
-                )
+            # Determine registration status based on actual data, not chat type
+            is_registered = is_player or is_team_member
+            
+            # Log the actual registration status
+            logger.info(
+                f"🔄 AgenticMessageRouter: Actual registration status - is_player={is_player}, is_team_member={is_team_member}, is_registered={is_registered}"
+            )
 
             # Create standardized context for CrewAI system
             standardized_context = create_context_from_telegram_message(
@@ -524,24 +755,85 @@ Use /help to see available commands or ask me questions!"""
         self.main_chat_id = main_chat_id
         self.leadership_chat_id = leadership_chat_id
 
+    async def shutdown(self) -> None:
+        """
+        Gracefully shutdown the router and clean up resources.
+        
+        This should be called when the application is shutting down
+        to ensure proper cleanup of resources and connections.
+        """
+        logger.info(f"🔄 Shutting down AgenticMessageRouter for team {self.team_id}")
+        
+        try:
+            # Force cleanup of all resources
+            await self._cleanup_resources(force=True)
+            
+            # Clear state variables
+            self._last_telegram_id = None
+            self._last_username = None
+            
+            # Reset crew lifecycle manager to allow garbage collection
+            self._crew_lifecycle_manager = None
+            
+            logger.info(f"✅ AgenticMessageRouter shutdown complete for team {self.team_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error during AgenticMessageRouter shutdown: {e}")
+            raise
+
+    def get_metrics(self) -> Dict[str, Any]:
+        """
+        Get current metrics for monitoring and debugging.
+        
+        Returns:
+            Dictionary containing current metrics
+        """
+        return {
+            "team_id": self.team_id,
+            "active_requests": len(self._resource_manager.active_requests),
+            "total_requests": self._resource_manager.request_count,
+            "rate_limit_window": len(self._resource_manager.request_timestamps),
+            "max_concurrent": self._resource_manager.max_concurrent_requests,
+            "max_requests_per_minute": self._resource_manager.max_requests_per_minute,
+            "last_cleanup": self._resource_manager.last_cleanup,
+            "last_telegram_id": self._last_telegram_id,
+            "last_username": self._last_username,
+        }
+
     def _looks_like_phone_number(self, text: str) -> bool:
-        """Check if text looks like a phone number."""
-        if not text or len(text.strip()) < 10:
+        """
+        Check if text looks like a phone number with security considerations.
+        
+        Args:
+            text: Input text to check
+            
+        Returns:
+            True if text looks like a valid phone number, False otherwise
+        """
+        if not text or not isinstance(text, str):
+            return False
+            
+        # Security: Limit input length to prevent DoS attacks
+        if len(text.strip()) > 50 or len(text.strip()) < 10:
+            return False
+
+        # Security: Only allow known safe characters
+        allowed_chars = set("0123456789+()-. ")
+        if not all(c in allowed_chars for c in text):
+            logger.warning(f"⚠️ Phone number validation: disallowed characters in input")
             return False
 
         # Remove common separators and check if it's mostly digits
         cleaned = "".join(c for c in text if c.isdigit() or c in "+()-")
 
-        # Must have at least 10 digits
+        # Must have at least 10 digits but not more than 15 (international standard)
         digit_count = sum(1 for c in cleaned if c.isdigit())
-        if digit_count < 10:
+        if digit_count < 10 or digit_count > 15:
             return False
 
-        # Must start with + or be all digits
-        if (
-            cleaned.startswith("+")
-            or cleaned.replace("+", "").replace("-", "").replace("(", "").replace(")", "").isdigit()
-        ):
+        # Must start with + or be all digits (after removing separators)
+        digits_only = "".join(c for c in cleaned if c.isdigit())
+        if cleaned.startswith("+") or digits_only == cleaned.replace("+", "").replace("-", "").replace("(", "").replace(")", ""):
             return True
 
         return False
@@ -654,12 +946,12 @@ Use /help to see available commands or ask me questions!"""
                 error=str(e),
             )
 
-    async def send_proactive_suggestions(self, telegram_id: str, team_id: str) -> None:
+    async def send_proactive_suggestions(self, telegram_id: int, team_id: str) -> None:
         """
         Send proactive suggestions based on user behavior.
 
         Args:
-            telegram_id: The user's Telegram ID
+            telegram_id: The user's Telegram ID (as integer)
             team_id: The team's ID
         """
         try:
@@ -676,12 +968,12 @@ Use /help to see available commands or ask me questions!"""
         except Exception as e:
             logger.error(f"Error sending proactive suggestions to user {telegram_id}: {e}")
 
-    async def check_and_send_reminders(self, telegram_id: str, team_id: str) -> None:
+    async def check_and_send_reminders(self, telegram_id: int, team_id: str) -> None:
         """
         Check and send pending reminders for a user.
 
         Args:
-            telegram_id: The user's Telegram ID
+            telegram_id: The user's Telegram ID (as integer)
             team_id: The team's ID
         """
         try:
@@ -708,9 +1000,11 @@ Use /help to see available commands or ask me questions!"""
         try:
             from kickai.features.shared.domain.tools.help_tools import final_help_response
             # Use dynamic help tailored to chat context; preserve emojis and formatting
+            # Convert telegram_id to string for the help tool (which expects string)
+            telegram_id_str = str(self._last_telegram_id) if hasattr(self, "_last_telegram_id") and self._last_telegram_id else "0"
             return final_help_response(
                 chat_type=chat_type.value,
-                telegram_id=str(self._last_telegram_id) if hasattr(self, "_last_telegram_id") else "unknown",
+                telegram_id=telegram_id_str,
                 team_id=str(self.team_id),
                 username=str(getattr(self, "_last_username", "user")),
             )
@@ -777,7 +1071,7 @@ Use /help to see available commands or ask me questions!"""
 
             # Process each new member (usually just one for invite links)
             for member in new_members:
-                telegram_id = str(member.get("id", 0))
+                telegram_id = member.get("id", 0)  # Keep as int
                 username = member.get("username") or member.get("first_name", "Unknown")
 
                 logger.info(f"🔗 Processing new member: {username} (ID: {telegram_id})")
@@ -899,7 +1193,7 @@ Use /help to see available commands or ask me questions!"""
         self,
         invite_id: str,
         invite_link: Optional[str],
-        telegram_id: str,
+        telegram_id: int,
         username: str,
         chat_id: str,
         chat_type: ChatType
@@ -920,9 +1214,10 @@ Use /help to see available commands or ask me questions!"""
             invite_service = InviteLinkService(database=database)
 
             # Validate and use the invite link (pass invite_id as invite_link for direct lookup)
+            # Convert telegram_id to string as the service expects
             invite_data = await invite_service.validate_and_use_invite_link(
                 invite_link=invite_id,  # Pass invite_id directly
-                user_id=telegram_id,
+                user_id=str(telegram_id),  # Convert to string for the service
                 username=username,
                 secure_data=None
             )
@@ -978,7 +1273,7 @@ Use /help to see available commands or ask me questions!"""
         self,
         player_phone: str,
         player_name: str,
-        telegram_id: str,
+        telegram_id: int,
         username: str,
         invite_data: dict
     ) -> AgentResponse:
@@ -1025,7 +1320,7 @@ Use /help to see available commands or ask me questions!"""
         self,
         member_phone: str,
         member_name: str,
-        telegram_id: str,
+        telegram_id: int,
         username: str,
         invite_data: dict
     ) -> AgentResponse:
@@ -1051,7 +1346,7 @@ Use /help to see available commands or ask me questions!"""
 
     async def _handle_regular_new_member(
         self,
-        telegram_id: str,
+        telegram_id: int,
         username: str,
         chat_type: ChatType
     ) -> AgentResponse:

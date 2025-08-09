@@ -11,7 +11,7 @@ KICKAI is an AI-powered football team management system that combines advanced A
 
 ### Key Technologies
 - **AI Framework:** CrewAI with 13 specialized agents
-- **LLM Provider:** Ollama (local) with llama3.1:8b-instruct-q4_0 model
+- **LLM Provider:** Groq (configured via .env AI_PROVIDER=groq, AI_MODEL_NAME)
 - **Database:** Firebase Firestore
 - **Platform:** Telegram Bot
 - **Architecture:** Feature-First Clean Architecture
@@ -164,9 +164,7 @@ database/
 #### Infrastructure (`kickai/infrastructure/`)
 ```
 infrastructure/
-├── ollama_client.py              # Ollama LLM client (504 lines)
-├── ollama_factory.py             # Ollama factory
-└── __init__.py
+└── llm_providers/                # Provider abstractions (Groq/Gemini/etc.)
 ```
 
 #### Utilities (`kickai/utils/`)
@@ -325,7 +323,7 @@ docs/
 
 ### Environment Configuration
 - **Production**: Railway deployment with environment variables
-- **Development**: Local `.env` file with Ollama LLM
+- **Development**: Local `.env` file with Groq
 - **Testing**: `.env.test` file for test environment
 
 ### Key Configuration Files
@@ -336,9 +334,9 @@ docs/
 - `requirements-local.txt` - Development dependencies
 
 ### LLM Configuration
-- **Primary**: Ollama with llama3.1:8b-instruct-q4_0 model
-- **Base URL**: http://macmini1.local:11434
-- **Fallback**: Gemini and OpenAI support configured
+- **Primary**: Groq (AI_PROVIDER=groq)
+- **Model**: From `.env` `AI_MODEL_NAME` (no hardcoding)
+- **Fallbacks**: Disabled; no automatic fallback to Ollama
 - **Memory**: CrewAI memory system with Hugging Face embeddings
 
 ---
@@ -424,7 +422,7 @@ docs/
 
 ### Key Files for Understanding
 1. **`kickai/__init__.py`** - Main package exports
-2. **`kickai/core/settings.py`** - Centralized configuration
+2. **`kickai/core/config.py`** - Centralized configuration
 3. **`kickai/core/enums.py`** - Shared enums and types
 4. **`kickai/config/agents.py`** - Agent configurations
 5. **`kickai/agents/agentic_message_router.py`** - Main router
