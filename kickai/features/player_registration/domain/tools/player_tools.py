@@ -13,7 +13,7 @@ from kickai.core.exceptions import ServiceNotAvailableError
 from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
 from kickai.features.player_registration.domain.services.player_service import PlayerService
 from kickai.features.team_administration.domain.services.team_service import TeamService
-from typing import List, Optional
+from typing import List, Optional, Union
 from kickai.utils.constants import (
     DEFAULT_PLAYER_POSITION,
     ERROR_MESSAGES,
@@ -36,6 +36,7 @@ from kickai.utils.tool_validation import (
     validate_user_id,
     validate_player_id,
     validate_phone_number,
+    validate_telegram_id,
     validate_context_requirements,
     log_tool_execution,
     create_tool_response,
@@ -67,25 +68,23 @@ class GetMatchInput(BaseModel):
 
 @tool("approve_player")
 @tool_error_handler
-def approve_player(team_id: str, user_id: str, player_id: str) -> str:
+def approve_player(team_id: str, player_id: str) -> str:
     """
     Approve a player for match squad selection.
 
     Args:
         team_id: Team ID (required) - available from context
-        user_id: User ID (required) - available from context
-        player_id: The player ID to approve
+        player_id: The player ID to approve (M001MH format)
 
     Returns:
         Success message or error
     """
     # Validate inputs
     team_id = validate_team_id(team_id)
-    user_id = validate_user_id(user_id)
     player_id = validate_player_id(player_id)
     
     # Log tool execution start
-    inputs = {'team_id': team_id, 'user_id': user_id, 'player_id': player_id}
+    inputs = {'team_id': team_id, 'player_id': player_id}
     log_tool_execution("approve_player", inputs, True)
     
     # Get service
@@ -119,64 +118,91 @@ def approve_player(team_id: str, user_id: str, player_id: str) -> str:
 
 @tool("get_my_status")
 @tool_error_handler
-def get_my_status() -> str:
+def get_my_status(telegram_id: Union[str, int], team_id: str, chat_type: str) -> str:
     """
-    Get the current user's player status. The tool automatically accesses context from Task.config.
+    Get the current user's status (player or team member based on chat type).
+
+    Args:
+        telegram_id: The Telegram ID of the user whose status is to be retrieved (accepts string or int).
+        team_id: The ID of the team the user belongs to.
+        chat_type: The chat type - determines whether to look up player or team member status.
 
     Returns:
-        Player status information or error message
+        User status information (player or team member) or error message
     """
-    # Validate context requirements
-    context = validate_context_requirements("get_my_status", ['team_id', 'telegram_id', 'chat_type'])
+    # Validate inputs - convert telegram_id to int first for consistency
+    team_id = validate_team_id(team_id)
     
-    # Extract and validate context values
-    team_id = validate_team_id(context['team_id'])
-    telegram_id = validate_telegram_id(context['telegram_id'])
-    chat_type = validate_chat_type(context['chat_type'])
+    # Convert telegram_id to int for consistency with database/service layer
+    if isinstance(telegram_id, str):
+        try:
+            telegram_id_int = int(telegram_id)
+        except ValueError:
+            raise ToolValidationError(f"Invalid telegram_id format: {telegram_id}")
+    else:
+        telegram_id_int = int(telegram_id)
     
     # Log tool execution start
-    inputs = {'team_id': team_id, 'telegram_id': telegram_id, 'chat_type': chat_type}
+    inputs = {'team_id': team_id, 'telegram_id': telegram_id_int, 'chat_type': chat_type}
     log_tool_execution("get_my_status", inputs, True)
     
     # Get services from container
     container = get_container()
     player_service = container.get_service(PlayerService)
-    team_service = container.get_service(TeamService)
-
+    
     if not player_service:
         raise ToolExecutionError("PlayerService is not available")
 
-    if not team_service:
-        raise ToolExecutionError("TeamService is not available")
-
-    # Get player status
-    player_status = player_service.get_player_status_by_telegram_id(telegram_id, team_id)
-
-    if player_status:
-        # Format the status response
-        status_data = {
-            'telegram_id': telegram_id,
-            'team_id': team_id,
-            'status': player_status.get('status', 'Unknown'),
-            'name': player_status.get('name'),
-            'phone': player_status.get('phone'),
-            'position': player_status.get('position'),
-            'registration_date': player_status.get('registration_date')
-        }
-        
-        return create_tool_response(True, "Player status retrieved successfully", status_data)
+    # Route based on chat type
+    if chat_type.lower() in ["leadership", "leadership_chat"]:
+        # Get team member information for leadership chat
+        try:
+            team_member_service = container.get_service("TeamMemberService")
+            
+            if not team_member_service:
+                raise ToolExecutionError("TeamMemberService is not available")
+            
+            # Get team member status
+            status = team_member_service.get_my_status_sync(str(telegram_id_int), team_id)
+            return status
+            
+        except Exception as e:
+            logger.error(f"Failed to get team member status: {e}")
+            raise ToolExecutionError(f"Failed to get team member status: {e}")
+    
     else:
-        raise ToolExecutionError("Player not found or not registered")
+        # Get player information for main chat
+        player = player_service.get_player_by_telegram_id_sync(telegram_id_int, team_id)
+
+        if player:
+            # Format the status response
+            status_emoji = "✅" if player.status and player.status.lower() == "active" else "⏳"
+            status_text = player.status.title() if player.status else "Unknown"
+            
+            result = f"""👤 Player Information
+
+Name: {player.name or "Not provided"}
+Position: {player.position or "Not assigned"}
+Status: {status_emoji} {status_text}
+Player ID: {player.player_id or "Not assigned"}
+Phone: {player.phone_number or "Not provided"}"""
+
+            if player.status and player.status.lower() == "pending":
+                result += "\n\n⏳ Note: Your registration is pending approval by team leadership."
+
+            return result
+        else:
+            raise ToolExecutionError(f"Player not found for telegram ID {telegram_id_int} in team {team_id}")
 
 
 @tool("get_player_status")
-def get_player_status(team_id: str, user_id: str, phone: str) -> str:
+def get_player_status(team_id: str, telegram_id: str, phone: str) -> str:
     """
     Get player status by phone number.
 
     Args:
         team_id: Team ID (required) - available from context
-        user_id: User ID (required) - available from context
+        telegram_id: Telegram ID (required) - available from context
         phone: The player's phone number
 
     Returns:
@@ -188,7 +214,7 @@ def get_player_status(team_id: str, user_id: str, phone: str) -> str:
         if validation_error:
             return validation_error
 
-        validation_error = validate_required_input(user_id, "User ID")
+        validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
             return validation_error
 
@@ -199,7 +225,7 @@ def get_player_status(team_id: str, user_id: str, phone: str) -> str:
         # Sanitize inputs
         phone = sanitize_input(phone, max_length=20)
         team_id = sanitize_input(team_id, max_length=20)
-        user_id = sanitize_input(user_id, max_length=20)
+        telegram_id = sanitize_input(str(telegram_id), max_length=20)
 
         container = get_container()
         player_service = container.get_service(PlayerService)
@@ -219,7 +245,7 @@ def get_player_status(team_id: str, user_id: str, phone: str) -> str:
 
         result = f"""👤 Player Status
 
-Name: {player.full_name}
+Name: {player.name}
 Position: {player.position}
 Status: {status_emoji} {status_text}
 Player ID: {player.player_id or "Not assigned"}
@@ -241,13 +267,13 @@ Phone: {player.phone_number or "Not provided"}"""
 
 
 @tool("get_all_players")
-def get_all_players(team_id: str, user_id: str) -> str:
+def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
     """
     Get all players in the team.
 
     Args:
         team_id: Team ID (required) - available from context
-        user_id: User ID (required) - available from context
+        telegram_id: Telegram ID (required) - available from context (accepts string or int)
 
     Returns:
         List of all players or error message
@@ -258,13 +284,20 @@ def get_all_players(team_id: str, user_id: str) -> str:
         if validation_error:
             return validation_error
 
-        validation_error = validate_required_input(user_id, "User ID")
+        validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
             return validation_error
 
         # Sanitize inputs
         team_id = sanitize_input(team_id, max_length=20)
-        user_id = sanitize_input(user_id, max_length=20)
+        # Convert telegram_id to int for consistency
+        if isinstance(telegram_id, str):
+            try:
+                telegram_id_int = int(telegram_id)
+            except ValueError:
+                return format_tool_error(f"Invalid telegram_id format: {telegram_id}")
+        else:
+            telegram_id_int = int(telegram_id)
 
         container = get_container()
         player_service = container.get_service(PlayerService)
@@ -283,7 +316,7 @@ def get_all_players(team_id: str, user_id: str) -> str:
 
         for player in players:
             status_emoji = "✅" if player.status.lower() == "active" else "⏳"
-            result += f"{status_emoji} {player.full_name}\n"
+            result += f"{status_emoji} {player.name}\n"
             result += f"   • Position: {player.position}\n"
             result += f"   • Status: {player.status.title()}\n"
             result += f"   • Player ID: {player.player_id or 'Not assigned'}\n"
@@ -300,7 +333,7 @@ def get_all_players(team_id: str, user_id: str) -> str:
 
 
 @tool("get_active_players")
-def get_active_players(team_id: str, user_id: str) -> str:
+def get_active_players(team_id: str, telegram_id: str) -> str:
     """
     Get all active players in the team.
 
@@ -313,7 +346,7 @@ def get_active_players(team_id: str, user_id: str) -> str:
 
     Args:
         team_id: Team ID (required) - available from context
-        user_id: User ID (required) - available from context
+        telegram_id: Telegram ID (required) - available from context
 
     Returns:
         EXACT database results - List of active players or "No active players found" message
@@ -324,13 +357,13 @@ def get_active_players(team_id: str, user_id: str) -> str:
         if validation_error:
             return validation_error
 
-        validation_error = validate_required_input(user_id, "User ID")
+        validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
             return validation_error
 
         # Sanitize inputs
         team_id = sanitize_input(team_id, max_length=20)
-        user_id = sanitize_input(user_id, max_length=20)
+        telegram_id = sanitize_input(str(telegram_id), max_length=20)
 
         container = get_container()
         player_service = container.get_service(PlayerService)
@@ -346,7 +379,7 @@ def get_active_players(team_id: str, user_id: str) -> str:
             f"🔍 DATABASE QUERY RESULT: Found {len(players) if players else 0} active players in team {team_id}"
         )
         if players:
-            player_names = [p.full_name for p in players]
+            player_names = [p.name for p in players]
             logger.info(f"🔍 ACTUAL PLAYER NAMES FROM DB: {player_names}")
         else:
             logger.info(f"🔍 DATABASE RETURNED: Empty list - no active players in team {team_id}")
@@ -364,8 +397,8 @@ def get_active_players(team_id: str, user_id: str) -> str:
         logger.info(f"🔍 FORMATTING {len(players)} REAL PLAYERS FROM DATABASE")
 
         for player in players:
-            logger.info(f"🔍 PROCESSING REAL PLAYER: {player.full_name} (ID: {player.player_id})")
-            result += f"👤 {player.full_name}\n"
+            logger.info(f"🔍 PROCESSING REAL PLAYER: {player.name} (ID: {player.player_id})")
+            result += f"👤 {player.name}\n"
             result += f"   • Position: {player.position}\n"
             result += f"   • Player ID: {player.player_id or 'Not assigned'}\n"
             result += f"   • Phone: {player.phone_number or 'Not provided'}\n\n"
@@ -533,7 +566,7 @@ def list_team_members_and_players(team_id: str) -> str:
         if team_members:
             result += "👔 Team Members:\n"
             for member in team_members:
-                result += f"• {member.full_name} - {member.role.title()}\n"
+                result += f"• {member.name} - {member.role.title()}\n"
             result += "\n"
         else:
             result += "👔 No team members found\n\n"
@@ -544,7 +577,7 @@ def list_team_members_and_players(team_id: str) -> str:
             for player in players:
                 status_emoji = "✅" if player.status.lower() == "active" else "⏳"
                 player_id_display = f" (ID: {player.player_id})" if player.player_id else ""
-                result += f"• {player.full_name} - {player.position} {status_emoji} {player.status.title()}{player_id_display}\n"
+                result += f"• {player.name} - {player.position} {status_emoji} {player.status.title()}{player_id_display}\n"
         else:
             result += "👥 No players found"
 

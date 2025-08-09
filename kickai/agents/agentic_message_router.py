@@ -7,7 +7,7 @@ ALL messages go through agents - no direct processing bypasses the agentic syste
 """
 
 from dataclasses import dataclass
-from typing import Any, List, Optional, Set, Dict
+from typing import Any, List, Optional, Set, Dict, Union
 from loguru import logger
 
 # Lazy imports to avoid circular dependencies
@@ -142,7 +142,7 @@ class AgenticMessageRouter:
             return await self._handle_unrecognized_command(command, chat_type, username)
 
     @user_registration_check_handler
-    async def _check_user_registration_status(self, telegram_id: str) -> UserFlowType:
+    async def _check_user_registration_status(self, telegram_id: Union[str, int]) -> UserFlowType:
         """
         Check if a user is registered as a player or team member.
         
@@ -283,7 +283,7 @@ class AgenticMessageRouter:
         if linked_player:
             return AgentResponse(
                 success=True,
-                message=f"✅ Successfully linked to your player record: {linked_player.full_name} ({linked_player.player_id})",
+                message=f"✅ Successfully linked to your player record: {linked_player.name} ({linked_player.player_id})",
                 error=None,
             )
         else:
@@ -402,7 +402,7 @@ Use /help to see available commands or ask me questions!"""
 
             # Create standardized context for CrewAI system
             standardized_context = create_context_from_telegram_message(
-                user_id=message.telegram_id,
+                telegram_id=message.telegram_id,
                 team_id=message.team_id,
                 chat_id=message.chat_id,
                 chat_type=message.chat_type,
@@ -423,6 +423,10 @@ Use /help to see available commands or ask me questions!"""
                     "is_main_chat": message.chat_type == ChatType.MAIN,
                 }
             )
+
+            # Store last identifiers for dynamic help fallback
+            self._last_telegram_id = message.telegram_id
+            self._last_username = message.username
 
             logger.info(
                 f"🔄 AgenticMessageRouter: User registration status - is_registered={is_registered}, is_player={is_player}, is_team_member={is_team_member}"
@@ -456,7 +460,7 @@ Use /help to see available commands or ask me questions!"""
             TelegramMessage domain object
         """
         try:
-            user_id = update.effective_user.id  # Keep as integer - Telegram's native type
+            telegram_id = update.effective_user.id  # Keep as integer - Telegram's native type
             chat_id = str(update.effective_chat.id)
             username = update.effective_user.username or update.effective_user.first_name
 
@@ -482,11 +486,11 @@ Use /help to see available commands or ask me questions!"""
                 contact_user_id = (
                     update.message.contact.user_id  # Keep as integer
                     if update.message.contact.user_id
-                    else user_id
+                    else telegram_id
                 )
 
             return TelegramMessage(
-                telegram_id=user_id,  # Changed from user_id to telegram_id
+                telegram_id=telegram_id,
                 chat_id=chat_id,
                 chat_type=chat_type,
                 username=username,
@@ -564,7 +568,7 @@ Use /help to see available commands or ask me questions!"""
             if linked_player:
                 return AgentResponse(
                     success=True,
-                    message=f"✅ Successfully linked to your player record: {linked_player.full_name} ({linked_player.player_id})\n\n🎉 Welcome to the team! You can now use all team features.",
+                    message=f"✅ Successfully linked to your player record: {linked_player.name} ({linked_player.player_id})\n\n🎉 Welcome to the team! You can now use all team features.",
                     error=None,
                 )
             else:
@@ -629,7 +633,7 @@ Use /help to see available commands or ask me questions!"""
 
             # Create context for the helper agent
             context = {
-                "user_id": message.telegram_id,
+                "telegram_id": message.telegram_id,
                 "team_id": self.team_id,
                 "chat_type": message.chat_type.value,
                 "username": message.username,
@@ -650,12 +654,12 @@ Use /help to see available commands or ask me questions!"""
                 error=str(e),
             )
 
-    async def send_proactive_suggestions(self, user_id: str, team_id: str) -> None:
+    async def send_proactive_suggestions(self, telegram_id: str, team_id: str) -> None:
         """
         Send proactive suggestions based on user behavior.
 
         Args:
-            user_id: The user's ID
+            telegram_id: The user's Telegram ID
             team_id: The team's ID
         """
         try:
@@ -667,17 +671,17 @@ Use /help to see available commands or ask me questions!"""
 
             if reminder_service:
                 # Schedule periodic reminders
-                await reminder_service.schedule_periodic_reminders(user_id, team_id)
+                await reminder_service.schedule_periodic_reminders(telegram_id, team_id)
 
         except Exception as e:
-            logger.error(f"Error sending proactive suggestions to user {user_id}: {e}")
+            logger.error(f"Error sending proactive suggestions to user {telegram_id}: {e}")
 
-    async def check_and_send_reminders(self, user_id: str, team_id: str) -> None:
+    async def check_and_send_reminders(self, telegram_id: str, team_id: str) -> None:
         """
         Check and send pending reminders for a user.
 
         Args:
-            user_id: The user's ID
+            telegram_id: The user's Telegram ID
             team_id: The team's ID
         """
         try:
@@ -689,45 +693,33 @@ Use /help to see available commands or ask me questions!"""
 
             if reminder_service:
                 # Get pending reminders
-                reminders = await reminder_service.get_pending_reminders(user_id, team_id)
+                reminders = await reminder_service.get_pending_reminders(telegram_id, team_id)
 
                 # Send reminders (in a full implementation, this would send via Telegram)
                 for reminder in reminders:
-                    logger.info(f"Sending reminder to user {user_id}: {reminder.title}")
+                    logger.info(f"Sending reminder to user {telegram_id}: {reminder.title}")
                     # TODO: Implement actual Telegram message sending
 
         except Exception as e:
-            logger.error(f"Error checking reminders for user {user_id}: {e}")
+            logger.error(f"Error checking reminders for user {telegram_id}: {e}")
 
     def _get_unrecognized_command_message(self, command: str, chat_type: ChatType) -> str:
-        """Get a courteous message for unrecognized commands."""
-        if chat_type == ChatType.LEADERSHIP:
-            return f"""🤔 I don't recognize the command `{command}` in the leadership chat.
-
-📋 Available commands in leadership chat:
-• /help - Show all available commands
-• /addplayer - Add a new player
-• /addmember - Add a team member
-• /approve - Approve a player
-• /reject - Reject a player
-• /pending - List pending approvals
-• /list - List all players and members
-• /update - Update your team member information
-• /myinfo - View your information
-• /status - Check player/team member status
-
-💡 Need help? Try /help to see all available commands."""
-        else:  # Main chat
-            return f"""🤔 I don't recognize the command `{command}` in the main chat.
-
-📋 Available commands in main chat:
-• /help - Show all available commands
-• /myinfo - View your player information
-• /status - Check your status
-• /list - List active players
-• /update - Update your player information
-
-💡 Need help? Try /help to see all available commands."""
+        """Return dynamic help from FINAL_HELP_RESPONSE tool instead of hardcoded lists."""
+        try:
+            from kickai.features.shared.domain.tools.help_tools import final_help_response
+            # Use dynamic help tailored to chat context; preserve emojis and formatting
+            return final_help_response(
+                chat_type=chat_type.value,
+                telegram_id=str(self._last_telegram_id) if hasattr(self, "_last_telegram_id") else "unknown",
+                team_id=str(self.team_id),
+                username=str(getattr(self, "_last_username", "user")),
+            )
+        except Exception as e:
+            # Minimal safe fallback
+            return (
+                f"🤔 I don't recognize the command `{command}`.\n\n"
+                f"💡 Try `/help` to see available commands for this chat."
+            )
 
     def _is_new_chat_members_event(self, raw_update) -> bool:
         """
@@ -785,10 +777,10 @@ Use /help to see available commands or ask me questions!"""
 
             # Process each new member (usually just one for invite links)
             for member in new_members:
-                user_id = str(member.get("id", 0))
+                telegram_id = str(member.get("id", 0))
                 username = member.get("username") or member.get("first_name", "Unknown")
 
-                logger.info(f"🔗 Processing new member: {username} (ID: {user_id})")
+                logger.info(f"🔗 Processing new member: {username} (ID: {telegram_id})")
 
                 # Extract invite link information
                 invite_link = self._extract_invite_link_from_event(message.raw_update)
@@ -800,7 +792,7 @@ Use /help to see available commands or ask me questions!"""
                     return await self._process_invite_link_validation(
                         invite_id=invite_id,
                         invite_link=invite_link,
-                        user_id=user_id,
+                        telegram_id=telegram_id,
                         username=username,
                         chat_id=message.chat_id,
                         chat_type=message.chat_type
@@ -809,7 +801,7 @@ Use /help to see available commands or ask me questions!"""
                     logger.info("🔗 No invite context found, treating as regular new member")
                     # Regular new member welcome (no invite link)
                     return await self._handle_regular_new_member(
-                        user_id=user_id,
+                        telegram_id=telegram_id,
                         username=username,
                         chat_type=message.chat_type
                     )
@@ -907,14 +899,14 @@ Use /help to see available commands or ask me questions!"""
         self,
         invite_id: str,
         invite_link: Optional[str],
-        user_id: str,
+        telegram_id: str,
         username: str,
         chat_id: str,
         chat_type: ChatType
     ) -> AgentResponse:
         """Process invite link validation and player linking."""
         try:
-            logger.info(f"🔗 Processing invitation link - invite_id: {invite_id}, user_id: {user_id}, chat_type: {chat_type.value}")
+            logger.info(f"🔗 Processing invitation link - invite_id: {invite_id}, telegram_id: {telegram_id}, chat_type: {chat_type.value}")
 
             # Get invite link service
             from kickai.core.dependency_container import get_container
@@ -930,7 +922,7 @@ Use /help to see available commands or ask me questions!"""
             # Validate and use the invite link (pass invite_id as invite_link for direct lookup)
             invite_data = await invite_service.validate_and_use_invite_link(
                 invite_link=invite_id,  # Pass invite_id directly
-                user_id=user_id,
+                user_id=telegram_id,
                 username=username,
                 secure_data=None
             )
@@ -954,7 +946,7 @@ Use /help to see available commands or ask me questions!"""
                 return await self._process_player_invite_link(
                     player_phone=player_phone,
                     player_name=player_name,
-                    user_id=user_id,
+                    telegram_id=telegram_id,
                     username=username,
                     invite_data=invite_data
                 )
@@ -962,7 +954,7 @@ Use /help to see available commands or ask me questions!"""
                 return await self._process_team_member_invite_link(
                     member_phone=member_phone,
                     member_name=member_name,
-                    user_id=user_id,
+                    telegram_id=telegram_id,
                     username=username,
                     invite_data=invite_data
                 )
@@ -986,7 +978,7 @@ Use /help to see available commands or ask me questions!"""
         self,
         player_phone: str,
         player_name: str,
-        user_id: str,
+        telegram_id: str,
         username: str,
         invite_data: dict
     ) -> AgentResponse:
@@ -1002,19 +994,19 @@ Use /help to see available commands or ask me questions!"""
             # Link the user by phone number
             linked_player = await linking_service.link_telegram_user_by_phone(
                 phone=player_phone,
-                telegram_id=user_id,
+                telegram_id=telegram_id,
                 username=username
             )
 
             if linked_player:
-                logger.info(f"✅ Successfully linked player {player_name} to user {user_id}")
+                logger.info(f"✅ Successfully linked player {player_name} to user {telegram_id}")
                 return AgentResponse(
                     success=True,
                     message=f"🎉 Welcome to the team, {player_name}!\n\n✅ Your Telegram account has been successfully linked to your player record.\n\n⚽ You can now use all team features. Try /help to see what you can do!",
                     error=None
                 )
             else:
-                logger.warning(f"❌ Failed to link player {player_name} to user {user_id}")
+                logger.warning(f"❌ Failed to link player {player_name} to user {telegram_id}")
                 return AgentResponse(
                     success=False,
                     message=f"❌ Unable to link your account to the player record for {player_name}.\n\n📞 Please contact team leadership for assistance.",
@@ -1033,7 +1025,7 @@ Use /help to see available commands or ask me questions!"""
         self,
         member_phone: str,
         member_name: str,
-        user_id: str,
+        telegram_id: str,
         username: str,
         invite_data: dict
     ) -> AgentResponse:
@@ -1059,7 +1051,7 @@ Use /help to see available commands or ask me questions!"""
 
     async def _handle_regular_new_member(
         self,
-        user_id: str,
+        telegram_id: str,
         username: str,
         chat_type: ChatType
     ) -> AgentResponse:

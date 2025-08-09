@@ -44,13 +44,13 @@ class GetMatchInput(BaseModel):
 
 
 @tool("get_available_players_for_match")
-def get_available_players_for_match(team_id: str, user_id: str, match_id: str) -> str:
+def get_available_players_for_match(team_id: str, telegram_id: str, match_id: str) -> str:
     """
     Get list of available players for a specific match.
 
     Args:
         team_id: Team ID (required) - available from context
-        user_id: User ID (required) - available from context
+        telegram_id: Telegram ID (required) - available from context
         match_id: Match ID to check availability for
 
     Returns:
@@ -62,7 +62,7 @@ def get_available_players_for_match(team_id: str, user_id: str, match_id: str) -
         if validation_error:
             return validation_error
 
-        validation_error = validate_required_input(user_id, "User ID")
+        validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
             return validation_error
 
@@ -72,7 +72,7 @@ def get_available_players_for_match(team_id: str, user_id: str, match_id: str) -
 
         # Sanitize inputs
         team_id = sanitize_input(team_id, max_length=50)
-        user_id = sanitize_input(user_id, max_length=50)
+        telegram_id = sanitize_input(str(telegram_id), max_length=50)
         match_id = sanitize_input(match_id, max_length=50)
 
         # Get match service
@@ -103,14 +103,14 @@ def get_available_players_for_match(team_id: str, user_id: str, match_id: str) -
 
 @tool("select_squad")
 def select_squad(
-    team_id: str, user_id: str, match_id: str, squad_size: Optional[int] = None
+    team_id: str, telegram_id: str, match_id: str, squad_size: Optional[int] = None
 ) -> str:
     """
     Select optimal squad for a match based on availability and tactical requirements.
 
     Args:
         team_id: Team ID (required) - available from context
-        user_id: User ID (required) - available from context
+        telegram_id: Telegram ID (required) - available from context
         match_id: Match ID to select squad for
         squad_size: Squad size (optional) - defaults to optimal size
 
@@ -123,7 +123,7 @@ def select_squad(
         if validation_error:
             return validation_error
 
-        validation_error = validate_required_input(user_id, "User ID")
+        validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
             return validation_error
 
@@ -133,7 +133,7 @@ def select_squad(
 
         # Sanitize inputs
         team_id = sanitize_input(team_id, max_length=50)
-        user_id = sanitize_input(user_id, max_length=50)
+        telegram_id = sanitize_input(str(telegram_id), max_length=50)
         match_id = sanitize_input(match_id, max_length=50)
 
         # Get squad service
@@ -163,13 +163,13 @@ def select_squad(
 
 
 @tool("get_match")
-def get_match(team_id: str, user_id: str, match_id: str) -> str:
+def get_match(team_id: str, telegram_id: str, match_id: str) -> str:
     """
     Get match details and information.
 
     Args:
         team_id: Team ID (required) - available from context
-        user_id: User ID (required) - available from context
+        telegram_id: Telegram ID (required) - available from context
         match_id: Match ID to get details for
 
     Returns:
@@ -181,7 +181,7 @@ def get_match(team_id: str, user_id: str, match_id: str) -> str:
         if validation_error:
             return validation_error
 
-        validation_error = validate_required_input(user_id, "User ID")
+        validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
             return validation_error
 
@@ -191,7 +191,7 @@ def get_match(team_id: str, user_id: str, match_id: str) -> str:
 
         # Sanitize inputs
         team_id = sanitize_input(team_id, max_length=50)
-        user_id = sanitize_input(user_id, max_length=50)
+        telegram_id = sanitize_input(str(telegram_id), max_length=50)
         match_id = sanitize_input(match_id, max_length=50)
 
         # Get match service
@@ -221,13 +221,13 @@ def get_match(team_id: str, user_id: str, match_id: str) -> str:
 
 
 @tool("get_all_players")
-def get_all_players(team_id: str, user_id: str) -> str:
+def get_all_players(team_id: str, telegram_id: str) -> str:
     """
     Get all players in the team for squad selection reference.
 
     Args:
         team_id: Team ID (required) - available from context
-        user_id: User ID (required) - available from context
+        telegram_id: Telegram ID (required) - available from context
 
     Returns:
         All players list or error
@@ -238,13 +238,13 @@ def get_all_players(team_id: str, user_id: str) -> str:
         if validation_error:
             return validation_error
 
-        validation_error = validate_required_input(user_id, "User ID")
+        validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
             return validation_error
 
         # Sanitize inputs
         team_id = sanitize_input(team_id, max_length=50)
-        user_id = sanitize_input(user_id, max_length=50)
+        telegram_id = sanitize_input(str(telegram_id), max_length=50)
 
         # Get player service
         container = get_container()
@@ -254,16 +254,24 @@ def get_all_players(team_id: str, user_id: str) -> str:
             return format_tool_error("Player service not available")
 
         # Get all players
-        success, message = player_service.get_all_players_sync(team_id=team_id)
+        players = player_service.get_all_players_sync(team_id=team_id)
 
-        if success:
-            return f"""👥 All Team Players
+        if not players:
+            return "📋 No players found in the team."
 
-{message}
+        # Format response
+        result = "👥 All Team Players\n\n"
 
-💡 Use /players to view all team players for squad selection"""
-        else:
-            return format_tool_error(f"Failed to get all players: {message}")
+        for player in players:
+            status_emoji = "✅" if player.status and player.status.lower() == "active" else "⏳"
+            result += f"{status_emoji} {player.name}\n"
+            result += f"   • Position: {player.position or 'Not assigned'}\n"
+            result += f"   • Status: {player.status.title() if player.status else 'Unknown'}\n"
+            result += f"   • Player ID: {player.player_id or 'Not assigned'}\n"
+            result += f"   • Phone: {player.phone_number or 'Not provided'}\n\n"
+
+        result += "💡 Use /players to view all team players for squad selection"
+        return result
 
     except Exception as e:
         logger.error(f"Failed to get all players: {e}", exc_info=True)
