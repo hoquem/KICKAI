@@ -14,7 +14,8 @@ KICKAI is an AI-powered football team management system built with a **5-agent C
 
 ## Critical Requirements
 
-### ⚠️ Python 3.11+ MANDATORY
+### ⚠️ Python 3.11+ MANDATORY (NOT 3.9)
+**IMPORTANT**: This project requires Python 3.11+ and will NOT work with Python 3.9. Always verify the Python version before starting work.
 ```bash
 # Always verify Python version first
 python3.11 check_python_version.py
@@ -73,6 +74,10 @@ make test-e2e          # E2E tests
 # Run specific test
 PYTHONPATH=. python -m pytest tests/unit/test_file.py::test_function -v -s
 
+# Run with specific features
+PYTHONPATH=. python -m pytest tests/unit/features/player_registration/ -v
+PYTHONPATH=. python -m pytest tests/integration/features/ -v
+
 # Run with coverage
 PYTHONPATH=. python -m pytest tests/ --cov=kickai --cov-report=html
 ```
@@ -81,10 +86,14 @@ PYTHONPATH=. python -m pytest tests/ --cov=kickai --cov-report=html
 ```bash
 make lint  # Run all linting and formatting
 
-# Individual tools
-ruff check kickai/
-ruff format kickai/
-mypy kickai/
+# Individual tools (must be in venv311)
+source venv311/bin/activate && ruff check kickai/
+source venv311/bin/activate && ruff format kickai/
+source venv311/bin/activate && mypy kickai/
+
+# Pre-commit hooks
+pre-commit install
+pre-commit run --all-files
 ```
 
 ## Architecture Overview
@@ -198,19 +207,25 @@ from .domain.tools.player_tools import get_status
 
 ## Key Files to Understand
 
-### Core System
+### Core System (READ THESE FIRST)
 - `kickai/agents/agentic_message_router.py` - **Central message routing (MODERNIZED)**
 - `kickai/agents/crew_agents.py` - 5-agent system definition  
 - `kickai/core/dependency_container.py` - DI and service initialization
 - `kickai/core/command_registry.py` - Command discovery system
 - `kickai/config/agents.yaml` - Agent configuration
 
-### Feature Pattern
-Each feature follows:
-- `application/commands/` - Command definitions (`@command` decorator)
-- `domain/tools/` - CrewAI tools (`@tool` decorator)
-- `domain/services/` - Business logic (async for I/O)
-- `infrastructure/` - Firebase repositories
+### Feature Pattern (CRITICAL ARCHITECTURE)
+Each feature in `kickai/features/` follows clean architecture:
+```
+feature_name/
+├── application/commands/     # @command decorator, NO business logic
+├── domain/
+│   ├── tools/               # @tool decorator, independent functions
+│   ├── services/            # Business logic (async for I/O)
+│   └── entities/            # Domain models
+└── infrastructure/          # Firebase repositories, external APIs
+```
+**Rule**: Commands delegate to agents, agents use tools, tools are independent
 
 ## Common Issues & Solutions
 
@@ -221,8 +236,10 @@ Each feature follows:
 
 ### Development Issues  
 - **Python version errors** → Must use Python 3.11+ with `venv311`
-- **Process already running** → Use `./start_bot_safe.sh`
+- **Process already running** → Use `./start_bot_safe.sh` or `./stop_bot.sh`
 - **Environment not activated** → Run `source venv311/bin/activate`
+- **Module not found errors** → Ensure `PYTHONPATH=.` is set
+- **Firebase authentication** → Check credentials file path and permissions
 
 ### Router Issues (Post-Modernization)
 - **Missing handler methods** → Functionality moved to `AgenticMessageRouter` methods
@@ -297,6 +314,19 @@ make health-check
 
 ## Quick Validation Commands
 
+### Pre-Development Checklist
+```bash
+# 1. Verify Python version (MANDATORY)
+python3.11 check_python_version.py
+source venv311/bin/activate && python --version  # Should show 3.11.x
+
+# 2. Run quick system validation
+PYTHONPATH=. python scripts/quick_validation.py
+
+# 3. Test basic functionality
+PYTHONPATH=. timeout 30s python run_bot_local.py
+```
+
 ### System Health
 ```bash
 # Container initialization
@@ -334,6 +364,21 @@ PYTHONPATH=. timeout 30s python run_bot_local.py
 PYTHONPATH=. python scripts/run_health_checks.py
 ```
 
+## Mock Telegram Testing
+
+### Interactive Testing UI
+```bash
+# Start Mock Telegram UI (recommended for testing)
+PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py
+# Access at: http://localhost:8001
+```
+
+### Key Benefits
+- **Liverpool FC themed interface** for professional testing
+- **No real Telegram API calls** needed during development
+- **Complete command testing** including slash commands and natural language
+- **Real-time agent responses** and system monitoring
+
 ## Legacy Migration Notes
 
 ### For Developers Working on Old Code
@@ -357,3 +402,24 @@ If you encounter references to deleted components:
 - **Consistent type handling** (telegram_id as int)
 - **Better error handling** with circuit breakers
 - **Improved testability** with unified routing
+
+## Important Development Notes
+
+### Before Making Changes
+1. **Always read existing CLAUDE.md and Cursor rules** in `.cursor/rules/`
+2. **Check recent changes** in project status files and documentation
+3. **Run validation** with `PYTHONPATH=. python scripts/quick_validation.py`
+4. **Use Mock Telegram UI** for testing instead of real bot
+
+### When Adding Features
+1. **Follow clean architecture** - see existing features as examples
+2. **Tools must be independent** - no service calls in @tool functions
+3. **Use absolute imports** - `from kickai.features...`
+4. **Register in feature __init__.py** - export tools and commands
+5. **Update agents.yaml** - assign tools to appropriate agents
+
+### When Debugging
+1. **Check agent logs** for CrewAI execution details
+2. **Use validation scripts** in `scripts/` directory
+3. **Test with Mock UI** before real Telegram testing
+4. **Check dependency container** status with utility functions
