@@ -78,16 +78,12 @@ class LLMConfiguration:
         Raises:
             ValueError: If AI provider is not supported or API key missing
         """
-        # Calculate proper RPM from TPM based on estimated tokens per request
-        estimated_tokens_per_request = max_tokens + 50  # Request + response tokens
-        max_rpm = max(1, self.settings.ai_rate_limit_tpm // estimated_tokens_per_request)
-        
         model_name = override_model or self.default_model
 
         logger.info(
             f"Creating {use_case} LLM: provider={self.ai_provider.value}, "
             f"model={model_name}, temp={temperature}, "
-            f"max_tokens={max_tokens}, max_rpm={max_rpm}"
+            f"max_tokens={max_tokens}"
         )
         
         # Base LLM configuration with CrewAI native parameters only
