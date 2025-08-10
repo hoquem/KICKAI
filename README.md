@@ -165,25 +165,25 @@ For detailed guidelines and examples, refer to the [CrewAI Best Practices Implem
 
 ### Agent Responsibilities
 
-#### 1. **HelpAssistantAgent**
-- **Primary Commands**: `/help`, help-related natural language
-- **Responsibilities**: Context-aware help information, user validation, command discovery
+#### 1. **Message Processor**
+- **Primary Commands**: `/info`, `/myinfo`, `/status`, `/list`, `/ping`, `/version`, general natural language
+- **Responsibilities**: Primary interface for all interactions, message processing, basic queries, communications management, agent routing
 
-#### 2. **MessageProcessorAgent**
-- **Primary Commands**: `/start`, `/version`, general natural language
-- **Responsibilities**: Message parsing, intent classification, agent routing
+#### 2. **Help Assistant**
+- **Primary Commands**: `/help`, help-related natural language, command guidance
+- **Responsibilities**: Comprehensive help system, user guidance, command discovery, fallback handling for unrecognized inputs
 
-#### 3. **PlayerCoordinatorAgent**
-- **Primary Commands**: `/addplayer`, `/addmember`, `/update`, `/myinfo`, `/status`
-- **Responsibilities**: Player registration, individual support, status tracking
+#### 3. **Player Coordinator**
+- **Primary Commands**: `/addplayer`, `/register`, `/myinfo`, `/status`, player-related queries
+- **Responsibilities**: Player registration and onboarding, player status tracking, player approvals, player lifecycle management
 
-#### 4. **TeamManagerAgent**
-- **Primary Commands**: `/list`, `/add`, `/approve`, `/reject`, `/team`, `/invite`, `/announce`
-- **Responsibilities**: Team administration, player management, coordination
+#### 4. **Team Administrator**
+- **Primary Commands**: `/addmember`, `/register`, team member management, role management
+- **Responsibilities**: Team member registration, role and permission management, team governance, team configuration
 
-#### 5. **SystemInfrastructureAgent**
-- **Primary Commands**: `/health`, `/config`
-- **Responsibilities**: System health monitoring, configuration management
+#### 5. **Squad Selector**
+- **Primary Commands**: Match management, availability tracking, squad selection, attendance
+- **Responsibilities**: Match creation and management, player availability tracking, squad selection, attendance recording, match logistics
 
 ### Command Processing Flow
 
@@ -317,7 +317,7 @@ KICKAI/
 │   │   ├── attendance_management/ # Attendance tracking
 │   │   ├── attendance_management/   # Attendance tracking
 │   │   ├── communication/        # Messaging
-│   │   ├── health_monitoring/    # System health
+│   │   ├── payment_management/   # Payment processing
 │   │   └── system_infrastructure/ # Core services
 │   ├── agents/                   # AI Agent System
 │   │   ├── crew_agents.py        # Main agent definitions
