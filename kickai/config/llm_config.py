@@ -17,8 +17,6 @@ Features:
 import asyncio
 import logging
 from functools import lru_cache
-from threading import Lock
-from datetime import datetime, timedelta
 
 from crewai import LLM
 
@@ -28,104 +26,6 @@ from kickai.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 
-class CrewAIRateLimitHandler:
-    """
-    Thread-safe rate limiting handler for CrewAI LLM instances.
-    
-    This class provides comprehensive rate limiting capabilities that work
-    in conjunction with CrewAI's native rate limiting features.
-    """
-    
-    def __init__(self, settings):
-        self.settings = settings
-        self._lock = Lock()
-        self._last_request_time = {}
-        self._request_count = {}
-        self._reset_time = {}
-        
-    def can_make_request(self, provider: AIProvider) -> bool:
-        """
-        Check if a request can be made based on rate limiting rules.
-        
-        Args:
-            provider: The AI provider to check
-            
-        Returns:
-            bool: True if request can be made, False if rate limited
-        """
-        with self._lock:
-            now = datetime.now()
-            provider_key = provider.value
-            
-            # Initialize tracking for new providers
-            if provider_key not in self._request_count:
-                self._request_count[provider_key] = 0
-                self._reset_time[provider_key] = now + timedelta(minutes=1)
-                
-            # Reset counter if minute has passed
-            if now >= self._reset_time[provider_key]:
-                self._request_count[provider_key] = 0
-                self._reset_time[provider_key] = now + timedelta(minutes=1)
-                
-            # Check if we're within rate limits
-            # For Groq, 6000 TPM translates to roughly 120 RPM (assuming 50 tokens per request average)
-            # For other providers, use a more conservative estimate
-            if provider_key == "groq":
-                max_requests = min(120, self.settings.ai_rate_limit_tpm // 50)  # More realistic for Groq
-            else:
-                max_requests = self.settings.ai_rate_limit_tpm // 100  # Conservative estimate for others
-            
-            if self._request_count[provider_key] >= max_requests:
-                logger.warning(f"Rate limit reached for {provider_key}: {self._request_count[provider_key]}/{max_requests}")
-                return False
-                
-            # Check minimum time between requests
-            if provider_key in self._last_request_time:
-                time_since_last = (now - self._last_request_time[provider_key]).total_seconds()
-                min_interval = 60 / max_requests  # Spread requests evenly
-                
-                if time_since_last < min_interval:
-                    logger.debug(f"Request too soon for {provider_key}: {time_since_last:.2f}s < {min_interval:.2f}s")
-                    return False
-                    
-            return True
-            
-    def record_request(self, provider: AIProvider) -> None:
-        """
-        Record that a request was made.
-        
-        Args:
-            provider: The AI provider used
-        """
-        with self._lock:
-            provider_key = provider.value
-            now = datetime.now()
-            
-            self._last_request_time[provider_key] = now
-            self._request_count[provider_key] = self._request_count.get(provider_key, 0) + 1
-            
-    def get_wait_time(self, provider: AIProvider) -> float:
-        """
-        Get the time to wait before next request.
-        
-        Args:
-            provider: The AI provider to check
-            
-        Returns:
-            float: Seconds to wait before next request
-        """
-        with self._lock:
-            provider_key = provider.value
-            now = datetime.now()
-            
-            if provider_key not in self._last_request_time:
-                return 0.0
-                
-            max_requests = self.settings.ai_rate_limit_tpm // 100
-            min_interval = 60 / max_requests
-            time_since_last = (now - self._last_request_time[provider_key]).total_seconds()
-            
-            return max(0.0, min_interval - time_since_last)
 
 
 class LLMConfiguration:
@@ -153,11 +53,8 @@ class LLMConfiguration:
         self.groq_api_key = self.settings.groq_api_key
         self.ollama_base_url = self.settings.ollama_base_url
         
-        # Initialize rate limiting handler
-        self.rate_limit_handler = CrewAIRateLimitHandler(self.settings)
-
         logger.info(
-            f"🤖 LLM Configuration initialized with rate limiting: provider={self.ai_provider.value}, model={self.default_model}"
+            f"🤖 LLM Configuration initialized: provider={self.ai_provider.value}, model={self.default_model}"
         )
 
     def _create_llm(

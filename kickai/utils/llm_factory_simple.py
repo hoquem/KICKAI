@@ -10,6 +10,7 @@ import time
 from typing import Any, Optional
 
 from kickai.core.config import get_settings, AIProvider
+from kickai.utils.simple_rate_limiter import get_rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -63,60 +64,43 @@ class RateLimitedLLMFactory:
         
         logger.info(f"🤖 Creating rate-limited Groq LLM: {formatted_model}")
         
-        def groq_llm_with_retry(messages, **kwargs):
-            max_retries = settings.ai_rate_limit_max_retries
-            base_delay = settings.ai_rate_limit_retry_delay
-            backoff_multiplier = settings.ai_rate_limit_backoff_multiplier
+        def groq_llm_with_rate_limit(messages, **kwargs):
+            # Apply rate limiting before making request
+            rate_limiter = get_rate_limiter()
+            rate_limiter.wait_if_needed("groq", model_name)
             
-            for attempt in range(max_retries + 1):
-                try:
-                    response = completion(
-                        model=formatted_model,
-                        messages=messages,
-                        temperature=temperature,
-                        max_tokens=settings.ai_max_tokens,
-                        timeout=settings.ai_timeout,
-                        api_key=settings.groq_api_key,
-                        **kwargs
-                    )
+            try:
+                response = completion(
+                    model=formatted_model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=settings.ai_max_tokens,
+                    timeout=settings.ai_timeout,
+                    api_key=settings.groq_api_key,
+                    **kwargs
+                )
+                
+                if hasattr(response, "choices") and response.choices:
+                    return response.choices[0].message.content
+                else:
+                    return str(response)
                     
-                    if hasattr(response, "choices") and response.choices:
-                        return response.choices[0].message.content
-                    else:
-                        return str(response)
-                        
-                except Exception as e:
-                    error_str = str(e).lower()
-                    
-                    # Check if it's a rate limit error
-                    if "rate limit" in error_str or "rate_limit" in error_str or "tpm" in error_str:
-                        if attempt < max_retries:
-                            delay = base_delay * (backoff_multiplier ** attempt)
-                            logger.warning(f"⚠️ Groq rate limit hit (attempt {attempt + 1}/{max_retries + 1}). Waiting {delay:.1f}s...")
-                            time.sleep(delay)
-                            continue
-                        else:
-                            logger.error(f"❌ Groq rate limit exceeded after {max_retries + 1} attempts")
-                            raise RuntimeError(f"Groq rate limit exceeded after {max_retries + 1} attempts: {e}")
-                    else:
-                        # Non-rate-limit error, don't retry
-                        logger.error(f"❌ Groq LLM request failed (non-rate-limit): {e}")
-                        raise RuntimeError(f"Groq LLM request failed: {e}")
+            except Exception as e:
+                logger.error(f"❌ Groq LLM request failed: {e}")
+                raise RuntimeError(f"Groq LLM request failed: {e}")
         
         # Create a simple callable object
         class RateLimitedGroqLLM:
             def invoke(self, messages, **kwargs):
-                return groq_llm_with_retry(messages, **kwargs)
+                return groq_llm_with_rate_limit(messages, **kwargs)
             
             def ainvoke(self, messages, **kwargs):
-                return groq_llm_with_retry(messages, **kwargs)
+                return groq_llm_with_rate_limit(messages, **kwargs)
             
             def __call__(self, messages, **kwargs):
-                return groq_llm_with_retry(messages, **kwargs)
+                return groq_llm_with_rate_limit(messages, **kwargs)
         
         return RateLimitedGroqLLM()
-        
-        return llm
     
     @staticmethod
     def _create_gemini_llm(settings, model_name: str, temperature: float) -> Any:
@@ -126,6 +110,10 @@ class RateLimitedLLMFactory:
         logger.info(f"🤖 Creating Gemini LLM: {model_name}")
         
         def gemini_llm(messages, **kwargs):
+            # Apply rate limiting before making request
+            rate_limiter = get_rate_limiter()
+            rate_limiter.wait_if_needed("gemini", model_name)
+            
             try:
                 response = completion(
                     model=model_name,
@@ -163,6 +151,10 @@ class RateLimitedLLMFactory:
         logger.info(f"🤖 Creating OpenAI LLM: {model_name}")
         
         def openai_llm(messages, **kwargs):
+            # Apply rate limiting before making request
+            rate_limiter = get_rate_limiter()
+            rate_limiter.wait_if_needed("openai", model_name)
+            
             try:
                 response = completion(
                     model=model_name,
@@ -200,6 +192,10 @@ class RateLimitedLLMFactory:
         logger.info(f"🤖 Creating Ollama LLM: {model_name}")
         
         def ollama_llm(messages, **kwargs):
+            # Apply rate limiting before making request (minimal delay for local Ollama)
+            rate_limiter = get_rate_limiter()
+            rate_limiter.wait_if_needed("ollama", model_name)
+            
             try:
                 response = completion(
                     model=model_name,
