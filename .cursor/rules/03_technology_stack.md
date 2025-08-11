@@ -109,6 +109,24 @@ AI_TIMEOUT=120                      # Request timeout in seconds
 
 ## 🏗️ **Architecture Components**
 
+=======
+# Groq-only configuration
+config = LLMConfig(
+    provider=AIProvider.GROQ,
+    api_key=os.getenv("GROQ_API_KEY"),
+    model=os.getenv("GROQ_MODEL")
+)
+
+# Factory creates Groq instances
+llm = LLMFactory.create_llm(config)
+```
+
+### **LLM Health Monitoring**
+- **Startup Validation**: Comprehensive LLM connectivity checks
+- **Error Propagation**: Clean error handling without silent failures
+- **Factory Design**: Preserved modularity for future provider switching
+
+
 ### **5-Agent CrewAI System**
 1. **MESSAGE_PROCESSOR** - Primary interface and routing
 2. **HELP_ASSISTANT** - Help system and guidance

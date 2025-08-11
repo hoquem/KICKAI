@@ -17,13 +17,13 @@ import asyncio
 import logging
 from functools import lru_cache
 
+
 from crewai import LLM
 
 from kickai.core.enums import AgentRole, AIProvider
 from kickai.core.config import get_settings
 
 logger = logging.getLogger(__name__)
-
 
 
 
@@ -37,7 +37,7 @@ class LLMConfiguration:
     """
 
     def __init__(self):
-        """Initialize LLM configuration from settings."""
+        """Initialize LLM configuration from settings with rate limiting."""
         self.settings = get_settings()
         self.ai_provider = self.settings.ai_provider
         # Determine default model: prefer simple/advanced pair, fallback to legacy
@@ -51,9 +51,10 @@ class LLMConfiguration:
         self.advanced_model = self.settings.ai_model_advanced or self.default_model
         self.groq_api_key = self.settings.groq_api_key
         self.ollama_base_url = self.settings.ollama_base_url
-        
+
         logger.info(
             f"🤖 LLM Configuration initialized: provider={self.ai_provider.value}, model={self.default_model}"
+
         )
 
     def _create_llm(
@@ -77,6 +78,7 @@ class LLMConfiguration:
         Raises:
             ValueError: If AI provider is not supported or API key missing
         """
+
         model_name = override_model or self.default_model
 
         logger.info(
@@ -98,6 +100,7 @@ class LLMConfiguration:
             if not self.groq_api_key:
                 raise ValueError("GROQ_API_KEY is required for Groq provider")
                 
+
             # Groq-specific configuration with only CrewAI-supported parameters
             groq_config = {
                 "temperature": temperature,
@@ -107,6 +110,7 @@ class LLMConfiguration:
             
             logger.info(f"Creating GROQ LLM with config: {groq_config}")
             
+
             return LLM(
                 model=f"groq/{model_name}",
                 api_key=self.groq_api_key,
@@ -184,6 +188,7 @@ class LLMConfiguration:
     @lru_cache(maxsize=1)
     def tool_llm(self) -> LLM:
         """
+
         Optimized LLM for tool calling and function execution.
 
         Uses lower temperature for precise tool calling as recommended by CrewAI.
@@ -203,6 +208,7 @@ class LLMConfiguration:
         """
         Higher temperature LLM for creative and analytical tasks.
 
+
         Returns:
             LLM: Configured for creative reasoning
         """
@@ -217,6 +223,7 @@ class LLMConfiguration:
     def data_critical_llm(self) -> LLM:
         """
         Ultra-precise LLM for data-critical operations.
+
 
         Uses very low temperature for anti-hallucination in critical operations.
 

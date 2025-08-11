@@ -214,6 +214,7 @@ The system uses 13 specialized agents organized in logical layers for intelligen
 
 **📋 For complete command-to-agent mapping, see [11_unified_command_system.md](11_unified_command_system.md)**
 
+
 ## Core System Components
 
 ### Command Registry System

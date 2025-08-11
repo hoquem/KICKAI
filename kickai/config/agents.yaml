@@ -20,6 +20,7 @@ agents:
 
   # 1. MESSAGE PROCESSOR - Primary Interface
   - name: message_processor
+    max_rpm: 3
     role: >
       Primary Interface Agent - Message Processing and Basic Operations
     goal: >
@@ -168,6 +169,7 @@ agents:
       
       PRIORITY: Optimal squad selection, accurate tracking, efficient workflows
       
+
     tools:
       - list_matches
       - create_match

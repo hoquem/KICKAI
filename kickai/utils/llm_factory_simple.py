@@ -1,10 +1,12 @@
 """
 Simple LLM Factory for KICKAI
 
+
 This module provides a simple, clean LLM factory for creating LangChain-compatible LLM instances.
 """
 
 import logging
+
 from typing import Any, Optional
 
 from kickai.core.config import get_settings, AIProvider
@@ -14,11 +16,13 @@ logger = logging.getLogger(__name__)
 
 class SimpleLLMFactory:
     """Simple LLM factory for creating LangChain-compatible LLM instances."""
+
     
     @staticmethod
     def create_llm(model_name: Optional[str] = None, temperature: Optional[float] = None) -> Any:
         """
         Create an LLM instance using the current configuration.
+
         
         Args:
             model_name: Optional model name override
@@ -26,6 +30,7 @@ class SimpleLLMFactory:
             
         Returns:
             LangChain-compatible LLM instance
+
         """
         settings = get_settings()
         
@@ -44,6 +49,7 @@ class SimpleLLMFactory:
                 return SimpleLLMFactory._create_openai_llm(settings, final_model_name, final_temperature)
             elif settings.ai_provider == AIProvider.OLLAMA:
                 return SimpleLLMFactory._create_ollama_llm(settings, final_model_name, final_temperature)
+
             else:
                 raise ValueError(f"Unsupported AI provider: {settings.ai_provider}")
                 
@@ -114,3 +120,4 @@ class SimpleLLMFactory:
 
 # Backward compatibility
 RateLimitedLLMFactory = SimpleLLMFactory
+

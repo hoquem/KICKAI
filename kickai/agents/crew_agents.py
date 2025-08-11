@@ -194,7 +194,7 @@ class TeamManagementSystem:
                 verbose=verbose_mode,
                 memory=False,  # Simplified - no memory for now
                 # Add robust retry mechanism with exponential backoff
-                max_retries=5,
+                max_retries=2,
                 retry_exponential_backoff_factor=2,
             )
 
@@ -388,7 +388,7 @@ class TeamManagementSystem:
                     
                     # Get the specific tool for the task to avoid overwhelming the LLM
                     list_tool = self.tool_registry.get_tool_function('list_team_members_and_players')
-                    
+           
                     # Create a task using CrewAI native approach with enhanced output specification
                     task = Task(
                         description=structured_description,
@@ -396,6 +396,7 @@ class TeamManagementSystem:
                         expected_output="The final answer MUST be the exact, raw, and unmodified output from the tool. For example, if the tool returns 'HELLO WORLD', your final answer must also be 'HELLO WORLD'.",
                         output_format="string",  # Ensure output format is specified
                         tools=[list_tool],
+
                     )
                     
                     logger.debug(f"✅ Task created with structured description including context")
@@ -461,6 +462,7 @@ class TeamManagementSystem:
                         logger.error(f"❌ Crew execution failed: {error_message}")
                         logger.error(f"❌ Crew error type: {type(crew_error)}")
                         logger.error(f"❌ Crew error details: {crew_error}")
+
                         
                         # Handle specific CrewAI errors
                         if "No valid task outputs" in error_message:
@@ -470,6 +472,7 @@ class TeamManagementSystem:
                         elif "None or empty" in error_message:
                             result = "⚠️ LLM response issue detected. The system is being investigated."
                             logger.error(f"🚨 LLM RESPONSE ISSUE: {error_message}")
+
                         else:
                             result = f"⚠️ System error occurred. Please try again or contact support."
                         
@@ -607,6 +610,7 @@ class CrewAgentManager:
                 llm=llm,
                 verbose=True,
                 allow_delegation=False,
+
                 max_iterations=3
             )
             

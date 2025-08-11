@@ -30,6 +30,8 @@ This section defines the core design patterns for the CrewAI-based agentic syste
   - **Delegation Tools**: Agents can delegate tasks to each other using CrewAI's built-in delegation tools
   - **Context Retention**: Memory is automatically managed and preserved across agent interactions
 
+- **CrewAI Idiomatic Usage**: All implementations must strictly adhere to CrewAI's native features and design patterns. Avoid custom workarounds for functionalities already supported by the framework (e.g., context passing, memory management, delegation).
+
 - **Context-Aware Routing & Agent Selection**:
     - The **AgenticMessageRouter** serves as the entry point for all user requests.
     - Agent selection is based on chat type (main chat vs leadership chat) and command intent.
@@ -134,9 +136,10 @@ The system implements intelligent routing based on chat context and permission l
 - **✅ REQUIRED**: `@tool` decorator from `crewai.tools`.
 - **✅ REQUIRED**: `Agent` class from `crewai`.
 - **✅ REQUIRED**: `Task` class with `config` parameter for context.
-- **✅ REQUIRED**: `Crew` orchestration (`process=Process.sequential` or `Process.hierarchical`).
+
 - **✅ REQUIRED**: CrewAI's built-in memory management (EntityMemory, ShortTermMemory, LongTermMemory).
 - **✅ REQUIRED**: CrewAI's delegation tools for inter-agent communication.
+
 - **❌ FORBIDDEN**: Custom tool wrappers or parameter passing mechanisms that bypass `Task.config`.
 - **❌ FORBIDDEN**: Custom agent orchestration logic outside of CrewAI's `Crew` class.
 - **❌ FORBIDDEN**: Re-implementing memory management if CrewAI's native features suffice.

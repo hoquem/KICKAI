@@ -2,7 +2,9 @@
 
 ## Overview
 
+
 The KICKAI system implements a **unified command system** that serves as the single source of truth for all command definitions, permissions, and usage. This document is the **authoritative reference** for all command-related information.
+
 
 ## Command Architecture
 
@@ -259,6 +261,7 @@ Commands are automatically routed to appropriate agents based on permission leve
 
 ### **Agent Tool Integration**
 Each agent has access to specific tools based on their role:
+
 
 ```python
 # Example: PLAYER_COORDINATOR tools

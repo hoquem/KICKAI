@@ -55,6 +55,7 @@ KICKAI is a sophisticated Telegram bot system for football team management, buil
 
 ## 🔧 **Recent Major Improvements**
 
+
 ### **1. Enhanced Error Handling System**
 - **Centralized Decorators**: `@critical_system_error_handler`, `@user_registration_check_handler`, `@command_registry_error_handler`
 - **Fail-Fast Behavior**: Immediate error detection and propagation
@@ -135,6 +136,7 @@ The system provides a comprehensive set of commands organized by permission leve
 **Reason**: Sunday league teams typically focus on match management rather than formal training sessions.
 
 ## 🚀 **Next Steps**
+
 
 1. **E2E Testing Setup**
    - Install telethon dependency

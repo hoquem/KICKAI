@@ -35,6 +35,7 @@ class TeamMemory:
         logger.info(f"Initialized CrewAI-only team memory for {team_id}")
 
     def get_memory(self, telegram_id: Optional[str] = None) -> Dict[str, Any]:
+
         """
         Get memory for a specific user or team-wide memory.
 
@@ -61,6 +62,7 @@ class TeamMemory:
 
     def add_conversation(
         self, telegram_id: str, input_text: str, output_text: str, context: Optional[Dict[str, Any]] = None
+
     ):
         """
         Add a conversation exchange to memory.
@@ -115,6 +117,7 @@ class TeamMemory:
 
     def get_conversation_history(
         self, telegram_id: Optional[str] = None, limit: Optional[int] = None
+
     ) -> List[Dict[str, Any]]:
         """
         Get conversation history for a user or team.
@@ -137,6 +140,7 @@ class TeamMemory:
         return history
 
     def clear_memory(self, telegram_id: Optional[str] = None):
+
         """
         Clear memory for a specific user or all memory.
 
@@ -172,7 +176,9 @@ class TeamMemory:
             else None,
         }
 
+
     def get_telegram_memory_context(self, telegram_id: str) -> Dict[str, Any]:
+
         """
         Get user-specific memory context for agents.
 

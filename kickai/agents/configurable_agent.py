@@ -100,6 +100,7 @@ class ConfigurableAgent:
         
         # Create agent with optimized configuration and memory
         settings = get_settings()
+
         agent = Agent(
             role=self.config.role,
             goal=self.config.goal,
@@ -246,6 +247,7 @@ Use these parameters when calling tools."""
         )
 
         logger.info(f"🚀 Starting CrewAI execution for {self.agent_role.value}")
+
 
         # Execute and return result
         result = crew.kickoff()

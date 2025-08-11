@@ -234,5 +234,3 @@ def command_registry_error_handler(func: Callable[P, T]) -> Callable[P, T]:
 
 
 
-
-

@@ -566,7 +566,9 @@ def list_team_members_and_players(team_id: str) -> str:
         if team_members:
             result += """👔 Team Members:\n"""
             for member in team_members:
+
                 result += f"""• {member.name} - {member.role.title()}\n"""
+
             result += "\n"
         else:
             result += """👔 No team members found\n\n"""
@@ -578,6 +580,7 @@ def list_team_members_and_players(team_id: str) -> str:
                 status_emoji = """✅""" if player.status.lower() == "active" else """⏰"""
                 player_id_display = f""" (ID: {player.player_id})""" if player.player_id else """
                 result += f"""• {player.name} - {player.position} {status_emoji} {player.status.title()}{player_id_display}\n"""
+
         else:
             result += """👥 No players found"""
 

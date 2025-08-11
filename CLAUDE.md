@@ -16,6 +16,7 @@ KICKAI is an AI-powered football team management system built with a **5-agent C
 
 ### ⚠️ Python 3.11+ MANDATORY (NOT 3.9)
 **IMPORTANT**: This project requires Python 3.11+ and will NOT work with Python 3.9. Always verify the Python version before starting work.
+
 ```bash
 # Always verify Python version first
 python3.11 check_python_version.py
@@ -36,8 +37,8 @@ PYTHONPATH=. python run_bot_local.py
 # Core configuration
 AI_PROVIDER=groq  # primary for local development, groq, gemini, openai, ollama
 KICKAI_INVITE_SECRET_KEY=test-invite-secret-key-for-testing-only
-FIREBASE_PROJECT_ID=kickai-954c2
-FIREBASE_CREDENTIALS_FILE=credentials/firebase_credentials_testing.json
+FIREBASE_PROJECT_ID=<project name>
+FIREBASE_CREDENTIALS_FILE=credentials/<filename>.json
 
 # API configuration
 # The system now relies on CrewAI's native retry and backoff mechanisms
@@ -56,6 +57,7 @@ source venv311/bin/activate && PYTHONPATH=. python run_bot_local.py
 # Mock Telegram UI
 PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py
 # Access at: http://localhost:8001
+
 ```
 
 ### Testing
@@ -107,6 +109,7 @@ The system uses **5 essential agents** (simplified from 11):
 ### Unified Processing Pipeline
 ```
 User Input → AgenticMessageRouter → CrewAI System → Agent Selection → Tool Execution → Response
+
 ```
 - Both slash commands and natural language use the **same pipeline**
 - Consistent security and permission checking
@@ -357,6 +360,7 @@ print('✅ Message creation works')
 # Test with timeout
 PYTHONPATH=. timeout 30s python run_bot_local.py
 
+
 # Validation checks
 PYTHONPATH=. python scripts/run_health_checks.py
 ```
@@ -420,3 +424,4 @@ If you encounter references to deleted components:
 2. **Use validation scripts** in `scripts/` directory
 3. **Test with Mock UI** before real Telegram testing
 4. **Check dependency container** status with utility functions
+
