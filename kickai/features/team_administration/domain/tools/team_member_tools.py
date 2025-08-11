@@ -12,7 +12,9 @@ from typing import Optional
 
 from kickai.core.dependency_container import get_container
 from kickai.core.exceptions import ServiceNotAvailableError
-from kickai.utils.crewai_tool_decorator import tool
+from kickai.utils.crewai_tool_decorator import json_tool
+from kickai.utils.json_response import create_data_response, create_error_response
+from kickai.utils.ui_formatter import UIFormatBuilder
 from kickai.utils.tool_helpers import (
     extract_single_value,
     format_tool_error,
@@ -21,7 +23,7 @@ from kickai.utils.tool_helpers import (
 )
 
 
-@tool("team_member_registration")
+@json_tool("team_member_registration")
 def team_member_registration(
     name: str,
     telegram_id: str,
@@ -29,7 +31,7 @@ def team_member_registration(
     role: str,
     team_id: str,
     is_admin: bool = False
-) -> str:
+) -> dict:
     """
     Register a new team member. Requires: name, telegram_id, phone_number, role, team_id
 
@@ -42,7 +44,7 @@ def team_member_registration(
         is_admin: Whether the member is an admin (default: False)
 
     Returns:
-        Success or error message
+        JSON response with registration status and team member details
     """
     try:
         # Handle JSON string input using utility functions
@@ -56,23 +58,23 @@ def team_member_registration(
         # Validate inputs using utility functions
         validation_error = validate_required_input(name, "Name")
         if validation_error:
-            return validation_error
+            return create_error_response(validation_error, "Validation failed")
 
         validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
-            return validation_error
+            return create_error_response(validation_error, "Validation failed")
 
         validation_error = validate_required_input(phone_number, "Phone Number")
         if validation_error:
-            return validation_error
+            return create_error_response(validation_error, "Validation failed")
 
         validation_error = validate_required_input(role, "Role")
         if validation_error:
-            return validation_error
+            return create_error_response(validation_error, "Validation failed")
 
         validation_error = validate_required_input(team_id, "Team ID")
         if validation_error:
-            return validation_error
+            return create_error_response(validation_error, "Validation failed")
 
         # Get TeamMemberService from container
         container = get_container()
@@ -85,7 +87,7 @@ def team_member_registration(
         try:
             telegram_id_int = int(telegram_id)
         except Exception:
-            return format_tool_error("Invalid Telegram ID: must be a number")
+            return create_error_response("Invalid Telegram ID: must be a number", "Validation failed")
 
         # Import here to avoid circular imports
         from kickai.features.team_administration.domain.entities.team_member import TeamMember
@@ -107,30 +109,45 @@ def team_member_registration(
         created_id = asyncio.run(team_member_service.create_team_member(team_member))
 
         if created_id:
-            return format_tool_success(
-                f"✅ **Team Member Registered Successfully!**\n\n"
-                f"👤 **Name**: {team_member.name}\n"
-                f"📱 **Telegram ID**: {team_member.telegram_id}\n"
-                f"📞 **Phone**: {team_member.phone_number}\n"
-                f"👑 **Role**: {team_member.role.title()}\n"
-                f"🏆 **Team ID**: {team_member.team_id}\n"
-                f"🆔 **Member ID**: {created_id}\n"
-                f"✅ **Admin**: {'Yes' if team_member.is_admin else 'No'}\n\n"
-                f"🎉 Welcome to the team, {team_member.name}!"
-            )
+            ui_format = f"""✅ **Team Member Registered Successfully!**
+
+👤 **Name**: {team_member.name}
+📱 **Telegram ID**: {team_member.telegram_id}
+📞 **Phone**: {team_member.phone_number}
+👑 **Role**: {team_member.role.title()}
+🏆 **Team ID**: {team_member.team_id}
+🆔 **Member ID**: {created_id}
+✅ **Admin**: {'Yes' if team_member.is_admin else 'No'}
+
+🎉 Welcome to the team, {team_member.name}!"""
+
+            data = {
+                'member_id': created_id,
+                'team_member': {
+                    'name': team_member.name,
+                    'telegram_id': team_member.telegram_id,
+                    'phone_number': team_member.phone_number,
+                    'role': team_member.role,
+                    'team_id': team_member.team_id,
+                    'is_admin': team_member.is_admin
+                },
+                'registration_status': 'success'
+            }
+
+            return create_data_response(data, ui_format)
         else:
-            return format_tool_error("Failed to register team member")
+            return create_error_response("Failed to register team member", "Registration failed")
 
     except ServiceNotAvailableError as e:
         logger.error(f"Service not available in team_member_registration: {e}")
-        return format_tool_error(f"Service temporarily unavailable: {e.message}")
+        return create_error_response(f"Service temporarily unavailable: {e.message}", "Service unavailable")
     except Exception as e:
         logger.error(f"Failed to register team member: {e}", exc_info=True)
-        return format_tool_error(f"Failed to register team member: {e}")
+        return create_error_response(f"Failed to register team member: {e}", "Registration failed")
 
 
-@tool("get_my_team_member_status")
-def get_my_team_member_status(team_id: str, telegram_id: str) -> str:
+@json_tool("get_my_team_member_status")
+def get_my_team_member_status(team_id: str, telegram_id: str) -> dict:
     """
     Get current user's team member status and information.
     This tool is for team members in the leadership chat.
@@ -141,7 +158,7 @@ def get_my_team_member_status(team_id: str, telegram_id: str) -> str:
         telegram_id: The user's Telegram ID
 
     Returns:
-        Team member status information or error message
+        JSON response with team member status information
     """
     try:
         # Lazy-load services only when needed
@@ -150,7 +167,7 @@ def get_my_team_member_status(team_id: str, telegram_id: str) -> str:
             team_member_service = container.get_service("TeamMemberService")
         except Exception as e:
             logger.error(f"❌ Failed to get TeamMemberService from container: {e}")
-            return "❌ Service temporarily unavailable. Please try again in a moment."
+            return create_error_response("Service temporarily unavailable. Please try again in a moment.", "Service unavailable")
 
         logger.info(
             f"🔧 get_my_team_member_status called with team_id: {team_id}, telegram_id: {telegram_id}"
@@ -159,11 +176,20 @@ def get_my_team_member_status(team_id: str, telegram_id: str) -> str:
         # Use synchronous service method
         status = team_member_service.get_my_status_sync(telegram_id, team_id)
         logger.info(f"✅ Retrieved team member status for {telegram_id}")
-        return status
+        
+        # Create structured data
+        data = {
+            'team_id': team_id,
+            'telegram_id': telegram_id,
+            'status_text': status,
+            'user_type': 'team_member'
+        }
+        
+        return create_data_response(data, status)
 
     except Exception as e:
         logger.error(f"❌ Failed to get team member status: {e}")
-        return f"❌ Failed to get team member status: {e!s}"
+        return create_error_response(f"Failed to get team member status: {e!s}", "Operation failed")
 
 
 @tool("get_team_members")
