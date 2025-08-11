@@ -153,7 +153,8 @@ class CrewLifecycleManager:
             metrics.total_requests += 1
             metrics.last_activity = datetime.now()
 
-            # Execute task with comprehensive error handling and timeout
+            # Execute task with simple CrewAI native approach
+
             try:
                 # Add timeout to prevent infinite loops
                 from kickai.core.constants.agent_constants import AgentConstants
@@ -200,7 +201,8 @@ class CrewLifecycleManager:
                 metrics.agent_health = health_status.get("agents", {})
                 metrics.memory_usage = {
                     "conversation_count": len(crew.team_memory._conversation_history),
-                    "user_count": len(crew.team_memory._user_memories),
+                    "user_count": len(crew.team_memory._telegram_memories),
+
                 }
             except Exception as health_error:
                 logger.warning(f"⚠️ Health check failed for team {team_id}: {health_error}")

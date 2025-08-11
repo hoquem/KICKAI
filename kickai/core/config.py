@@ -121,28 +121,7 @@ class Settings(BaseSettings):
     ai_timeout: int = Field(default=120, description="AI timeout in seconds")
     ai_max_retries: int = Field(default=5, description="AI max retries")
     
-    # Rate Limiting Configuration
-    ai_rate_limit_tpm: int = Field(
-        default=6000,
-        alias="AI_RATE_LIMIT_TPM",
-        description="Tokens per minute rate limit (Groq free tier: 6000)"
-    )
-    ai_rate_limit_retry_delay: float = Field(
-        default=5.0,
-        alias="AI_RATE_LIMIT_RETRY_DELAY",
-        description="Delay in seconds when rate limit is hit"
-    )
-    ai_rate_limit_max_retries: int = Field(
-        default=3,
-        alias="AI_RATE_LIMIT_MAX_RETRIES",
-        description="Maximum retries for rate limit errors"
-    )
-    ai_rate_limit_backoff_multiplier: float = Field(
-        default=2.0,
-        alias="AI_RATE_LIMIT_BACKOFF_MULTIPLIER",
-        description="Backoff multiplier for rate limit retries"
-    )
-    
+
     # Ollama Configuration (if using Ollama)
     ollama_base_url: str = Field(
         default="http://localhost:11434",

@@ -190,74 +190,30 @@ The system uses 13 specialized agents organized in logical layers for intelligen
 
 **1. MESSAGE_PROCESSOR**
 - **Primary Role**: Primary interface for user interactions and routing
-- **Commands**: `/version`, general natural language processing
 - **Tools**: Intent analysis, context extraction, message parsing
 
-**2. TEAM_MANAGER**
+**2. TEAM_ADMINISTRATOR**
 - **Primary Role**: Team administration and member management
-- **Commands**: `/list`, `/approve`, `/reject`, `/team`, `/invite`
 - **Tools**: Team management, player administration, team coordination
 
 #### Operational Layer
 
 **3. PLAYER_COORDINATOR**
 - **Primary Role**: Player registration, status, and management
-- **Commands**: `/addplayer`, `/addmember`, `/update`, `/myinfo`, `/status`
 - **Tools**: Player management, registration, status tracking
 
-**4. TRAINING_COORDINATOR**
-- **Primary Role**: Training session management and coordination
-- **Commands**: `/scheduletraining`, `/listtrainings`, `/marktraining`, `/canceltraining`
-- **Tools**: Training management, session coordination, attendance tracking
-
-**5. SQUAD_SELECTOR**
+**4. SQUAD_SELECTOR**
 - **Primary Role**: Match squad selection and availability
-- **Commands**: `/selectsquad`, `/availableplayers`, match-related operations
 - **Tools**: Squad selection, availability tracking, match coordination
-
-**6. AVAILABILITY_MANAGER**
-- **Primary Role**: Player availability tracking
-- **Commands**: `/markattendance`, `/attendance`, attendance operations
-- **Tools**: Attendance tracking, availability management, reporting
 
 #### Specialized Layer
 
-**7. HELP_ASSISTANT**
+**5. HELP_ASSISTANT**
 - **Primary Role**: Help system and command guidance
-- **Commands**: `/help`, command assistance
 - **Tools**: Help generation, command documentation, user guidance
 
-**8. ONBOARDING_AGENT**
-- **Primary Role**: New user registration and onboarding
-- **Commands**: `/start`, onboarding flows
-- **Tools**: User onboarding, registration assistance, guidance
+**📋 For complete command-to-agent mapping, see [11_unified_command_system.md](11_unified_command_system.md)**
 
-**9. COMMUNICATION_MANAGER**
-- **Primary Role**: Team communications and announcements
-- **Commands**: `/announce`, `/remind`, `/broadcast`
-- **Tools**: Team messaging, announcements, communication coordination
-
-**10. PERFORMANCE_ANALYST**
-- **Primary Role**: Performance analysis and insights
-- **Commands**: `/stats`, `/analytics`, performance reports
-- **Tools**: Data analysis, performance metrics, reporting
-
-#### Infrastructure Layer
-
-**11. FINANCE_MANAGER**
-- **Primary Role**: Financial tracking and payment management
-- **Commands**: `/createpayment`, `/payments`, `/budget`, `/markpaid`
-- **Tools**: Payment management, financial tracking, budget analysis
-
-**12. LEARNING_AGENT**
-- **Primary Role**: Continuous learning and system improvement
-- **Commands**: System learning and adaptation
-- **Tools**: Learning algorithms, pattern recognition, system optimization
-
-**13. COMMAND_FALLBACK_AGENT**
-- **Primary Role**: Fallback for unhandled requests
-- **Commands**: Fallback for unknown commands and error scenarios
-- **Tools**: Error handling, user guidance, fallback processing
 
 ## Core System Components
 

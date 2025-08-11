@@ -33,19 +33,16 @@
 - **Player Registration**: Complete registration and approval system
 - **Team Member Management**: Full team member administration
 - **Status Tracking**: Player status and information management
-- **Commands**: `/addplayer`, `/addmember`, `/approve`, `/reject`, `/pending`, `/myinfo`, `/status`
 
 #### Match Management
 - **Match Creation**: Complete match scheduling system
 - **Squad Selection**: Team selection for matches
 - **Match Administration**: Full match lifecycle management
-- **Commands**: `/creatematch`, `/listmatches`, `/matchdetails`, `/selectsquad`, `/updatematch`, `/deletematch`, `/availableplayers`
 
 #### Attendance Management
 - **Attendance Tracking**: Complete attendance recording system
 - **Attendance Reporting**: Comprehensive attendance analytics
 - **Export Functionality**: Data export capabilities
-- **Commands**: `/markattendance`, `/attendance`, `/attendancehistory`, `/attendanceexport`
 
 #### Payment Management
 **Status**: ❌ **REMOVED** - Not a priority for Sunday league team management
@@ -56,7 +53,8 @@
 - **Team Announcements**: Complete messaging system
 - **Reminders**: Automated reminder functionality
 - **Broadcasting**: Multi-chat messaging capabilities
-- **Commands**: `/announce`, `/remind`, `/broadcast`
+
+**📋 For complete command reference, see [11_unified_command_system.md](11_unified_command_system.md)**
 
 ### 🚧 **Partially Implemented Features**
 

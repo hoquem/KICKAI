@@ -1,1 +1,0 @@
-"""Payment management domain layer."""

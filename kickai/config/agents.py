@@ -29,7 +29,6 @@ class AgentConfig:
     verbose: bool = True
     temperature: float = 0.3  # Default from settings.ai_temperature
     max_tokens: int = 800  # Use default from settings.ai_max_tokens
-    max_rpm: int = 20
     primary_entity_type: Optional[str] = None
     entity_types: list[str] = field(default_factory=list)
 
@@ -200,7 +199,6 @@ class YAMLAgentConfigurationManager:
             verbose=agent_data.get("verbose", True),
             temperature=temperature,
             max_tokens=max_tokens,
-            max_rpm=agent_data.get("max_rpm", 20),
             primary_entity_type=agent_data.get("primary_entity_type"),
             entity_types=agent_data.get("entity_types", [])
         )

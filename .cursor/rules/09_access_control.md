@@ -1,195 +1,107 @@
-# Access Control & Team Member System
+# Access Control & Permission System
 
 ## Overview
 
-The KICKAI system implements a sophisticated access control system based on team membership, multiple roles per member, and chat-based permissions. This ensures secure and appropriate access to different commands and features based on user roles and chat context.
+The KICKAI system implements a **simplified yet comprehensive access control system** based on permission levels, chat types, and user roles. This ensures secure and appropriate access to different commands and features while maintaining a clean, maintainable architecture.
 
-## Team Member System
+## Core Permission Architecture
 
-### Data Model
-```python
-@dataclass
-class TeamMember:
-    id: str
-    team_id: str
-    user_id: str
-    roles: List[str]  # Multiple roles per member
-    permissions: List[str]
-    chat_access: Dict[str, bool]
-    telegram_id: Optional[str]
-    telegram_username: Optional[str]
-    joined_at: datetime
-    updated_at: datetime
-    additional_info: Dict[str, Any]
-```
+### Permission Levels
+The system uses five distinct permission levels, each with specific access requirements:
 
-### Key Features
-- **Multiple Roles**: Members can have multiple roles (e.g., `['player', 'captain', 'admin']`)
-- **Chat Access Control**: Different access levels for different chat types
-- **Telegram Integration**: Direct mapping to Telegram user IDs
-- **Role Validation**: Enforced role validation and uniqueness constraints
+| Permission Level | Description | Access Requirements |
+|------------------|-------------|-------------------|
+| **PUBLIC** | Available to everyone | No restrictions |
+| **PLAYER** | Available to registered players | Player role + Main chat only |
+| **LEADERSHIP** | Available to team leadership | Team member role + Leadership chat |
+| **ADMIN** | Available to team admins | Admin role + Leadership chat |
+| **SYSTEM** | Available to system only | Internal system operations |
 
-## Access Control Architecture
+### Chat-Based Access Control
+The system implements **context-aware permissions** based on chat type:
 
-### Chat-Based Permissions
-The system uses two distinct chat types with different permission levels:
+#### **Main Chat** (`ChatType.MAIN`)
+- **Purpose**: General team communication and player operations
+- **Access**: Public commands + Player commands only
+- **Restrictions**: Leadership and admin commands blocked
 
-#### Main Chat 
-- **Access Level**: Read-only commands only
-- **Purpose**: General team communication and information access
-- **Commands Available**: List players, show matches, help, status
-
-#### Leadership Chat 
-- **Access Level**: All commands (admin + read-only)
+#### **Leadership Chat** (`ChatType.LEADERSHIP`)
 - **Purpose**: Administrative operations and team management
-- **Commands Available**: All commands including player management, match creation, etc.
+- **Access**: All commands (Public + Player + Leadership + Admin)
+- **Features**: Full administrative capabilities
 
-### Command Classification
+#### **Private Chat** (`ChatType.PRIVATE`)
+- **Purpose**: Individual user interactions
+- **Access**: Public commands + limited player commands
+- **Features**: Personal information and basic operations
 
-#### Admin Commands (Leadership Chat Only)
+## Permission Service Implementation
+
+### Core Permission Checking
 ```python
-admin_commands = {
-    'add player', 'new player', 'create player', 'remove player', 'update player',
-    'new match', 'create match', 'schedule match', 'add fixture', 'update fixture',
-    'send message to team', 'create poll', 'send payment reminder', 'update team',
-    'approve player', 'reject player', 'check fa registration', 'daily status'
-}
+class PermissionService:
+    async def can_execute_command(
+        self, 
+        permission_level: PermissionLevel, 
+        context: PermissionContext
+    ) -> bool:
+        """
+        Main permission checking method used by all commands.
+        """
+        # Get user permissions
+        user_perms = await self.get_user_permissions(context.user_id, context.team_id)
+
+        # Check permission level
+        if permission_level == PermissionLevel.PUBLIC:
+            return True  # Public commands are always allowed
+
+        elif permission_level == PermissionLevel.PLAYER:
+            # Player commands require player role and main chat access only
+            if not user_perms.is_player:
+                return False
+            # Must be in main chat only (not leadership chat)
+            return context.chat_type == ChatType.MAIN
+
+        elif permission_level == PermissionLevel.LEADERSHIP:
+            # Leadership commands require leadership chat access
+            if context.chat_type != ChatType.LEADERSHIP:
+                return False
+            # Must have team member role or be admin
+            return user_perms.is_team_member or user_perms.is_admin
+
+        elif permission_level == PermissionLevel.ADMIN:
+            # Admin commands require leadership chat access and admin role
+            if context.chat_type != ChatType.LEADERSHIP:
+                return False
+            return user_perms.is_admin
+
+        return False
 ```
 
-#### Read-Only Commands (All Chats)
-```python
-read_only_commands = {
-    'list players', 'show players', 'all players', 'get player', 'player info',
-    'list matches', 'show matches', 'fixtures', 'games', 'team info', 'help', 'status',
-    'my info', 'register'
-}
+### Context-Aware Permission Messages
+The system provides **user-friendly access denied messages** based on context:
+
+#### **Player Permission Denied**
+```
+❌ Access Denied
+
+🔒 This command requires player access.
+💡 Contact your team admin for access.
+
+Your Role: {user_role.title()}
 ```
 
-## Role System
-
-### Available Roles
-- **`player`**: Basic team member
-- **`captain`**: Team captain with leadership responsibilities
-- **`vice_captain`**: Assistant captain
-- **`manager`**: Team manager
-- **`coach`**: Team coach
-- **`admin`**: Administrative access
-- **`volunteer`**: Volunteer helper
-- **`secretary`**: Team secretarial tasks
-
-### Role Hierarchy
-```python
-leadership_roles = {'captain', 'vice_captain', 'manager', 'coach', 'admin', 'volunteer', 'secretary'}
-player_role = {'player'}
+#### **Leadership Permission Denied**
 ```
+❌ Access Denied
 
-### Multiple Role Support
-Members can have multiple roles simultaneously:
-```python
-# Example: Member with multiple roles
-member = TeamMember(
-    team_id="team_bp_hatters",
-    user_id="player_ahmed_khan",
-    roles=["player", "captain", "admin"],  # Multiple roles
-    telegram_id="123456789",
-    chat_access={"main_chat": True, "leadership_chat": True}
-)
-```
-
-## Access Control Service
-
-### Core Methods
-```python
-class AccessControlService:
-    def __init__(self, team_member_service: TeamMemberService, config: AccessControlConfig)
-    
-    # Access control
-    async def check_access(self, command: str, chat_id: str, telegram_id: str, team_id: str) -> bool
-    async def get_user_permissions(self, telegram_id: str, team_id: str) -> Dict[str, Any]
-    
-    # Chat detection
-    def is_leadership_chat(self, chat_id: str) -> bool
-    def is_main_chat(self, chat_id: str) -> bool
-    
-    # Command classification
-    def is_admin_command(self, command: str) -> bool
-    def is_read_only_command(self, command: str) -> bool
-```
-
-### Access Control Flow
-```
-User Command
-    ↓
-Check Chat Type
-    ↓
-Leadership Chat? → Yes → Allow All Commands
-    ↓ No
-Main Chat? → Yes → Check Command Type
-    ↓ No
-Deny Access
-    ↓
-Read-Only Command? → Yes → Allow
-    ↓ No
-Deny Access
-```
-
-## Team Member Service
-
-### Core Operations
-```python
-class TeamMemberService:
-    # Core operations
-    async def create_team_member(self, team_member: TeamMember) -> str
-    async def get_team_member(self, member_id: str) -> Optional[TeamMember]
-    async def update_team_member(self, team_member: TeamMember) -> bool
-    async def delete_team_member(self, member_id: str) -> bool
-    
-    # Query operations
-    async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]
-    async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[TeamMember]
-    async def get_leadership_members(self, team_id: str) -> List[TeamMember]
-    async def get_players(self, team_id: str) -> List[TeamMember]
-    
-    # Role management
-    async def add_role_to_member(self, member_id: str, role: str) -> bool
-    async def remove_role_from_member(self, member_id: str, role: str) -> bool
-    async def validate_member_roles(self, member: TeamMember) -> List[str]
-```
-
-## Integration with Command System
-
-### Command Handler Integration
-```python
-class SimpleAgenticHandler:
-    def __init__(self, team_id: str):
-        # Dependency injection
-        self.firebase_client = get_firebase_client()
-        self.team_member_service = TeamMemberService(self.firebase_client)
-        self.access_control_service = AccessControlService(self.team_member_service)
-    
-    async def _route_command(self, message: str, user_id: str, chat_id: str, ...):
-        # Access control check
-        has_access = await self.access_control_service.check_access(
-            message, chat_id, telegram_id, self.team_id
-        )
-        if not has_access:
-            return self.access_control_service.get_access_denied_message(message, chat_id)
-```
-
-### Access Denied Messages
-The system provides context-aware access denied messages:
-
-#### Main Chat Access Denied
-```
-❌ **Access Denied**
-
-🔒 This command requires leadership access.
+🔒 Leadership commands are only available in the leadership chat.
 💡 Please use the leadership chat for this function.
 ```
 
-#### Leadership Chat Access Denied
+#### **Admin Permission Denied**
 ```
-❌ **Access Denied**
+❌ Access Denied
 
 🔒 This command requires admin access.
 💡 Contact your team admin for access.
@@ -197,53 +109,181 @@ The system provides context-aware access denied messages:
 Your Role: {user_role.title()}
 ```
 
-## Validation Rules
+## Command Reference
+
+**📋 For complete command information, see [11_unified_command_system.md](11_unified_command_system.md)**
+
+This file focuses on access control and permissions. The complete command reference with all commands, examples, and usage is maintained in the unified command system documentation.
+
+## User Role System
+
+### Role Hierarchy
+The system supports a **simplified role hierarchy** with clear access patterns:
+
+```python
+# Role definitions
+PLAYER_ROLES = {'player'}
+LEADERSHIP_ROLES = {'captain', 'vice_captain', 'manager', 'coach', 'admin', 'volunteer', 'secretary'}
+
+# Permission mapping
+user_perms = {
+    'is_player': user_has_player_role,
+    'is_team_member': user_has_leadership_role,
+    'is_admin': user_has_admin_role,
+    'roles': user_roles_list
+}
+```
 
 ### Role Validation
-- Members must have at least one role
-- Valid roles: `player`, `captain`, `vice_captain`, `manager`, `coach`, `admin`, `volunteer`
-- Invalid roles are rejected with clear error messages
+- **Player Role**: Basic team member with access to player commands
+- **Team Member Role**: Leadership roles with access to administrative functions
+- **Admin Role**: Highest level with full system access
+- **Multiple Roles**: Users can have multiple roles simultaneously
 
-### Telegram ID Uniqueness
-- Telegram IDs must be unique per team
-- Prevents duplicate member registrations
-- Enforced at database level
+## Integration with Command System
 
-### Chat Access Validation
-- Chat access must be properly configured
-- Default access: main_chat=True, leadership_chat=False
-- Leadership roles get leadership_chat=True
+### Unified Command Processing
+All commands use the **same permission checking pipeline**:
 
-## Testing Requirements
+```
+User Command
+    ↓
+Command Registry Lookup
+    ↓
+Permission Level Check
+    ↓
+Chat Type Validation
+    ↓
+Role Validation
+    ↓
+Command Execution
+    ↓
+Response Generation
+```
 
-### Access Control Testing
-1. **Main Chat**: Only read-only commands allowed
-2. **Leadership Chat**: All commands allowed for leadership members
-3. **Role Validation**: Members must have at least one role
-4. **Telegram ID Uniqueness**: Enforced per team
+### Command Definition Structure
+```python
+@dataclass(frozen=True)
+class CommandDefinition:
+    name: str                           # Command name (e.g., "/help")
+    description: str                    # Human-readable description
+    permission_level: PermissionLevel   # Required permission level
+    chat_types: frozenset[ChatType]     # Allowed chat types
+    examples: Tuple[str, ...]           # Usage examples
+    feature: str                        # Feature module
+```
 
-### Command Testing
-- `/help` - Works in all chats
-- `/list_teams` - Works in all chats (read-only)
-- Admin commands - Blocked in main chat, allowed in leadership chat
-- Access denied messages - Proper user feedback
+### Automatic Permission Detection
+The system **automatically determines permission levels** based on command names:
+
+```python
+def _determine_permission_level(self, function_name: str, feature_name: str) -> PermissionLevel:
+    """Determine permission level based on function name and feature."""
+    function_lower = function_name.lower()
+
+    # Admin commands
+    if any(keyword in function_lower for keyword in ["admin", "approve", "reject", "delete"]):
+        return PermissionLevel.ADMIN
+
+    # Leadership commands
+    if any(keyword in function_lower for keyword in ["leadership", "team", "squad", "announce"]):
+        return PermissionLevel.LEADERSHIP
+
+    # Player commands
+    if any(keyword in function_lower for keyword in ["player", "register", "status", "myinfo"]):
+        return PermissionLevel.PLAYER
+
+    # System commands
+    if any(keyword in function_lower for keyword in ["system", "health", "config"]):
+        return PermissionLevel.SYSTEM
+
+    # Default to public
+    return PermissionLevel.PUBLIC
+```
+
+## Security Features
+
+### **Unified Security Pipeline**
+- **Consistent Permission Checking**: All commands use the same permission service
+- **Context-Aware Validation**: Chat type and user role validation
+- **Audit Logging**: All permission checks and access attempts logged
+- **Fail-Safe Design**: Deny by default, explicit allow patterns
+
+### **Chat-Based Security**
+- **Main Chat Isolation**: Player commands only, no administrative access
+- **Leadership Chat Control**: Full administrative access for authorized users
+- **Private Chat Limitations**: Restricted command set for individual users
+
+### **Role-Based Security**
+- **Hierarchical Permissions**: Clear permission escalation path
+- **Role Validation**: Enforced role checking at runtime
+- **Multi-Role Support**: Users can have multiple roles with appropriate access
 
 ## Implementation Guidelines
 
-### For New Commands
-1. **Classify Command**: Determine if admin or read-only
-2. **Add to Lists**: Add to appropriate command classification lists
-3. **Test Access**: Test in both chat types
-4. **Update Documentation**: Document command access requirements
+### **Adding New Commands**
+1. **Define Command**: Create command definition with appropriate permission level
+2. **Set Chat Types**: Specify which chat types can access the command
+3. **Add Examples**: Provide clear usage examples
+4. **Test Permissions**: Verify access control works correctly
+5. **Update Documentation**: Document command access requirements
 
-### For New Roles
-1. **Define Role**: Add to valid roles list
-2. **Update Hierarchy**: Add to leadership_roles if applicable
-3. **Update Validation**: Update role validation logic
-4. **Add Tests**: Test role assignment and access control
+### **Adding New Permission Levels**
+1. **Define Level**: Add new permission level to enum
+2. **Update Service**: Add permission checking logic
+3. **Add Messages**: Create appropriate access denied messages
+4. **Update Tests**: Add comprehensive permission testing
+5. **Document Changes**: Update this documentation
 
-### For Chat Changes
-1. **Update Chat IDs**: Update hardcoded chat IDs
-2. **Test Access**: Verify access control still works
-3. **Update Documentation**: Update chat-specific documentation
-4. **Notify Users**: Inform users of chat access changes 
+### **Modifying Chat Access**
+1. **Update Chat Types**: Modify command chat type definitions
+2. **Test Access**: Verify access control in all chat types
+3. **Update Messages**: Modify access denied messages if needed
+4. **Notify Users**: Inform users of access changes
+
+## Testing Requirements
+
+### **Permission Testing**
+- **Public Commands**: Available in all chat types
+- **Player Commands**: Available only in main chat for players
+- **Leadership Commands**: Available only in leadership chat for team members
+- **Admin Commands**: Available only in leadership chat for admins
+
+### **Chat Type Testing**
+- **Main Chat**: Player commands work, leadership commands blocked
+- **Leadership Chat**: All commands work for appropriate roles
+- **Private Chat**: Limited command set available
+
+### **Role Testing**
+- **Player Role**: Access to player commands only
+- **Team Member Role**: Access to leadership commands
+- **Admin Role**: Access to all commands
+- **Multiple Roles**: Appropriate access based on highest role
+
+### **Error Handling Testing**
+- **Access Denied Messages**: Proper user feedback
+- **Invalid Commands**: Graceful error handling
+- **Permission Errors**: Clear error messages
+- **System Failures**: Fallback error responses
+
+## Benefits of Simplified Access Control
+
+### **1. Maintainability**
+- **Clear Permission Levels**: Five well-defined permission levels
+- **Consistent Implementation**: Unified permission checking across all commands
+- **Easy to Understand**: Simple role and chat-based access control
+
+### **2. Security**
+- **Defense in Depth**: Multiple layers of permission checking
+- **Context Awareness**: Chat type and role-based validation
+- **Audit Trail**: Comprehensive logging of all access attempts
+
+### **3. User Experience**
+- **Clear Feedback**: User-friendly access denied messages
+- **Contextual Help**: Appropriate commands shown based on user role
+- **Intuitive Access**: Natural permission escalation
+
+### **4. Extensibility**
+- **Easy to Add Commands**: Simple command definition structure
+- **Flexible Permissions**: Easy to modify permission levels
+- **Scalable Architecture**: Supports multiple teams and roles 

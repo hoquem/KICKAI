@@ -2,373 +2,300 @@
 
 ## Overview
 
-The KICKAI system implements a clean, maintainable command architecture using proven design patterns. This replaces multiple overlapping routing systems with a single, clean architecture that provides consistent command processing, permission management, and error handling.
 
-## Current Implementation Status
+The KICKAI system implements a **unified command system** that serves as the single source of truth for all command definitions, permissions, and usage. This document is the **authoritative reference** for all command-related information.
 
-### ✅ **Fully Implemented Commands**
 
-#### Core Commands
-- `/help` - Show available commands (PUBLIC)
-- `/myinfo` - Show personal information (PUBLIC)
-- `/status` - Check player/team member status (PUBLIC)
-- `/list` - List players/team members (context-aware) (PUBLIC)
-- `/update` - Update personal information (PUBLIC)
-- `/ping` - Check bot status (PUBLIC)
-- `/version` - Show bot version (PUBLIC)
+## Command Architecture
 
-#### Leadership Commands
-- `/addplayer` - Add a new player (LEADERSHIP)
-- `/addmember` - Add a team member (LEADERSHIP)
-- `/approve` - Approve a player (LEADERSHIP)
-- `/reject` - Reject a player application (LEADERSHIP)
-- `/pending` - List players awaiting approval (LEADERSHIP)
+### Unified Processing Pipeline
+All commands (both slash commands and natural language) use the same processing pipeline:
 
-#### Match Management Commands
-- `/creatematch` - Create a new match (LEADERSHIP)
-- `/listmatches` - List upcoming matches (PLAYER)
-- `/matchdetails` - Get match details (PLAYER)
-- `/selectsquad` - Select match squad (LEADERSHIP)
-- `/updatematch` - Update match information (LEADERSHIP)
-- `/deletematch` - Delete a match (LEADERSHIP)
-- `/availableplayers` - Get available players for match (LEADERSHIP)
-
-#### Attendance Management Commands
-- `/markattendance` - Mark attendance for a match (PLAYER)
-- `/attendance` - View match attendance (PLAYER)
-- `/attendancehistory` - View attendance history (PLAYER)
-- `/attendanceexport` - Export attendance data (LEADERSHIP)
-
-#### Payment Management Commands
-**Status**: ❌ **REMOVED** - Not a priority for Sunday league team management
-
-**Reason**: Sunday league teams typically focus on match management rather than formal payment tracking.
-
-#### Communication Commands
-- `/announce` - Send announcement to team (LEADERSHIP)
-- `/remind` - Send reminder to players (LEADERSHIP)
-- `/broadcast` - Broadcast message to all chats (LEADERSHIP)
-
-### 🚧 **Partially Implemented Commands**
-
-#### Training Management Commands
-**Status**: ❌ **REMOVED** - Not a priority for Sunday league team management
-
-**Reason**: Sunday league teams typically focus on match management rather than formal training sessions.
-
-## Design Patterns Used
-
-### 1. Command Pattern - Command Objects
-
-**Purpose**: Each command is a separate object that encapsulates the action and its parameters.
-
-**Implementation**: Abstract `Command` base class with concrete command implementations.
-
-**Benefits**:
-- Encapsulation of command logic
-- Easy to add new commands
-- Consistent command structure
-- Testable in isolation
-
-```python
-class Command(ABC):
-    def __init__(self, name: str, description: str, permission_level: PermissionLevel):
-        self.name = name
-        self.description = description
-        self.permission_level = permission_level
-        self._permission_strategy = self._get_permission_strategy()
-    
-    @abstractmethod
-    async def execute(self, context: CommandContext) -> CommandResult:
-        pass
 ```
-
-### 2. Strategy Pattern - Permission Strategies
-
-**Purpose**: Different permission strategies for different access levels.
-
-**Implementation**: `PermissionStrategy` abstract base class with concrete implementations.
-
-**Benefits**:
-- Flexible permission management
-- Easy to add new permission levels
-- Clear separation of permission logic
-- Testable permission strategies
-
-```python
-class PermissionStrategy(ABC):
-    @abstractmethod
-    def can_execute(self, context: CommandContext) -> bool:
-        pass
-    
-    @abstractmethod
-    def get_access_denied_message(self, context: CommandContext) -> str:
-        pass
-
-class LeadershipPermissionStrategy(PermissionStrategy):
-    def can_execute(self, context: CommandContext) -> bool:
-        return context.chat_type == ChatType.LEADERSHIP
-```
-
-### 3. Chain of Responsibility - Command Processing
-
-**Purpose**: Process commands through a chain of handlers.
-
-**Implementation**: Command processing chain with validation, permission checking, and execution.
-
-**Benefits**:
-- Modular command processing
-- Easy to add processing steps
-- Clear processing flow
-- Flexible processing pipeline
-
-```python
-class CommandProcessor:
-    def __init__(self, command_registry: CommandRegistry):
-        self.command_registry = command_registry
-        self._setup_chain()
-    
-    def _setup_chain(self):
-        # Setup processing chain
-        pass
-```
-
-### 4. Factory Pattern - Command Creation
-
-**Purpose**: Centralize command creation logic.
-
-**Implementation**: `CommandRegistry` with factory methods for command creation.
-
-**Benefits**:
-- Centralized command creation
-- Easy to register new commands
-- Consistent command initialization
-- Type-safe command creation
-
-```python
-class CommandRegistry:
-    def __init__(self):
-        self._commands = {}
-        self._register_default_commands()
-```
-
-## Command Registration Pattern
-
-### Current Implementation
-
-Commands are registered using decorators and delegate to CrewAI agents:
-
-```python
-@command(
-    name="/help",
-    description="Show available commands",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PUBLIC,
-    feature="shared",
-    chat_type=ChatType.MAIN,
-)
-async def handle_help_command(update, context, **kwargs):
-    """Handle /help command."""
-    # This will be handled by the agent system
-    return None
-```
-
-### Command Definition Structure
-
-Commands are defined in `kickai/core/constants.py` using `CommandDefinition` dataclass:
-
-```python
-@dataclass(frozen=True)
-class CommandDefinition:
-    name: str
-    description: str
-    permission_level: PermissionLevel
-    chat_types: frozenset[ChatType]
-    examples: tuple[str, ...] = field(default_factory=tuple)
-    feature: str = "shared"
-```
-
-### Example Command Definitions
-
-```python
-SYSTEM_COMMANDS = {
-    CommandDefinition(
-        name="/help",
-        description="Show available commands",
-        permission_level=PermissionLevel.PUBLIC,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP, ChatType.PRIVATE]),
-        examples=("/help", "/help register"),
-        feature="shared",
-    ),
-    CommandDefinition(
-        name="/list",
-        description="List team members or players (context-aware)",
-        permission_level=PermissionLevel.PUBLIC,
-        chat_types=frozenset([ChatType.MAIN, ChatType.LEADERSHIP]),
-        examples=("/list", "/list players", "/list members"),
-        feature="shared",
-    ),
-}
-```
-
-## Permission Strategies
-
-### Public Permission Strategy
-```python
-class PublicPermissionStrategy(PermissionStrategy):
-    def can_execute(self, context: CommandContext) -> bool:
-        return True  # Available to everyone
-    
-    def get_access_denied_message(self, context: CommandContext) -> str:
-        return "❌ This command should be available to everyone. Please contact admin."
-```
-
-### Player Permission Strategy
-```python
-class PlayerPermissionStrategy(PermissionStrategy):
-    def can_execute(self, context: CommandContext) -> bool:
-        return context.user_role in ['player', 'admin', 'captain', 'secretary', 'manager', 'treasurer']
-    
-    def get_access_denied_message(self, context: CommandContext) -> str:
-        return f"""❌ **Access Denied**
-
-🔒 This command requires player access.
-💡 Contact your team admin for access.
-
-Your Role: {context.user_role.title()}"""
-```
-
-### Leadership Permission Strategy
-```python
-class LeadershipPermissionStrategy(PermissionStrategy):
-    def can_execute(self, context: CommandContext) -> bool:
-        return context.chat_type == ChatType.LEADERSHIP
-    
-    def get_access_denied_message(self, context: CommandContext) -> str:
-        return f"""❌ **Access Denied**
-
-🔒 Leadership commands are only available in the leadership chat.
-💡 Please use the leadership chat for this function."""
-```
-
-## Command Processing Flow
-
-### Message Flow
-```
-User Message
+User Input (Slash Command or Natural Language)
     ↓
 Unified Message Handler
     ↓
-Check Message Type
+Command Registry Lookup
     ↓
-Slash Command? → Yes → Unified Command System
-    ↓ No
-Natural Language? → Yes → Intelligent Router
-    ↓ No
-Error: Unrecognized message type
-```
-
-### Command Processing Chain
-```
-Command Registry
+Permission Level Check
     ↓
-Find Command
+Chat Type Validation
     ↓
-Permission Check
+Role Validation
     ↓
 Command Execution
     ↓
-Result Generation
-    ↓
-Response to User
+Response Generation
 ```
 
-### Error Handling
-```
-Command Execution
-    ↓
-Try Execute
-    ↓
-Success? → Yes → Return Success Result
-    ↓ No
-Catch Exception
-    ↓
-Log Error
-    ↓
-Return Error Result
+### Command Definition Structure
+```python
+@dataclass(frozen=True)
+class CommandDefinition:
+    name: str                           # Command name (e.g., "/help")
+    description: str                    # Human-readable description
+    permission_level: PermissionLevel   # Required permission level
+    chat_types: frozenset[ChatType]     # Allowed chat types
+    examples: Tuple[str, ...]           # Usage examples
+    feature: str                        # Feature module
 ```
 
-## Integration with Access Control
+## Complete Command Reference
 
-### Chat-Based Access Control
-- **Main Chat**: Only read-only commands allowed
-- **Leadership Chat**: All commands allowed
-- **Private Messages**: Limited command set
+### **PUBLIC Commands** (Available to Everyone)
+| Command | Description | Chat Types | Examples | Feature |
+|---------|-------------|------------|----------|---------|
+| `/help` | Show available commands | All chats | `/help`, `/help register` | shared |
+| `/list` | List team members/players (context-aware) | Main, Leadership | `/list`, `/list players` | shared |
+| `/update` | Update your information | Main, Leadership | `/update phone 07123456789` | shared |
+| `/info` | Show user information | All chats | `/info`, `/myinfo` | shared |
+| `/ping` | Check bot status | All chats | `/ping` | shared |
+| `/version` | Show bot version | All chats | `/version` | shared |
 
-### Role-Based Access Control
-- **Public**: Available to everyone
-- **Player**: Available to team members
-- **Leadership**: Available to leadership roles
-- **Admin**: Available to admins only
+### **PLAYER Commands** (Main Chat Only)
+| Command | Description | Chat Types | Examples | Feature |
+|---------|-------------|------------|----------|---------|
+| `/myinfo` | View your player information | Main only | `/myinfo` | shared |
+| `/status` | Check your current status | Main only | `/status`, `/status MH123` | shared |
+| `/markattendance` | Mark attendance for a match | Main, Leadership | `/markattendance yes` | attendance_management |
+| `/attendance` | View match attendance | Main, Leadership | `/attendance`, `/attendance MATCH123` | attendance_management |
+| `/attendancehistory` | View attendance history | Main, Leadership | `/attendancehistory 2024` | attendance_management |
 
-## Benefits
+### **LEADERSHIP Commands** (Leadership Chat Only)
+| Command | Description | Chat Types | Examples | Feature |
+|---------|-------------|------------|----------|---------|
+| `/approve` | Approve a player for matches | Leadership only | `/approve`, `/approve MH123` | player_registration |
+| `/reject` | Reject a player application | Leadership only | `/reject MH123 reason` | player_registration |
+| `/pending` | List players awaiting approval | Leadership only | `/pending` | player_registration |
+| `/addplayer` | Add a player directly | Leadership only | `/addplayer John Smith 07123456789` | player_registration |
+| `/addmember` | Add a team member | Leadership only | `/addmember John Smith 07123456789 manager` | team_administration |
+| `/creatematch` | Create a new match | Leadership only | `/creatematch vs Team B 2024-01-15` | match_management |
+| `/selectsquad` | Select match squad | Leadership only | `/selectsquad MATCH123` | match_management |
+| `/updatematch` | Update match information | Leadership only | `/updatematch MATCH123` | match_management |
+| `/deletematch` | Delete a match | Leadership only | `/deletematch MATCH123` | match_management |
+| `/availableplayers` | Get available players for match | Leadership only | `/availableplayers MATCH123` | match_management |
+| `/attendanceexport` | Export attendance data | Leadership only | `/attendanceexport MATCH123` | attendance_management |
+| `/announce` | Send announcement to team | Leadership only | `/announce Important match tomorrow` | communication |
+| `/remind` | Send reminder to players | Leadership only | `/remind Match in 2 hours` | communication |
+| `/broadcast` | Broadcast message to all chats | Leadership only | `/broadcast Emergency message` | communication |
 
-### 1. Clean Architecture
-- Clear separation of concerns
-- Single responsibility principle
-- Easy to understand and maintain
-- Consistent command structure
+## Permission Levels
 
-### 2. Extensibility
-- Easy to add new commands
-- Flexible permission system
-- Modular command processing
-- Pluggable architecture
+### Permission Level Definitions
+| Level | Description | Access Requirements |
+|-------|-------------|-------------------|
+| **PUBLIC** | Available to everyone | No restrictions |
+| **PLAYER** | Available to registered players | Player role + Main chat only |
+| **LEADERSHIP** | Available to team leadership | Team member role + Leadership chat |
+| **ADMIN** | Available to team admins | Admin role + Leadership chat |
+| **SYSTEM** | Available to system only | Internal system operations |
 
-### 3. Testability
-- Each command can be tested in isolation
-- Mock dependencies for testing
-- Clear command contracts
-- Comprehensive test coverage
+### Chat Type Access Control
+| Chat Type | Purpose | Available Commands |
+|-----------|---------|-------------------|
+| **Main Chat** | General team communication | Public + Player commands only |
+| **Leadership Chat** | Administrative operations | All commands (Public + Player + Leadership + Admin) |
+| **Private Chat** | Individual interactions | Public commands + limited player commands |
 
-### 4. Maintainability
-- Consistent error handling
-- Centralized command management
-- Clear command documentation
-- Easy debugging
+## Command Registration System
 
-### 5. User Experience
-- Consistent command responses
-- Clear error messages
-- Helpful feedback
-- Intuitive command structure
+### Automatic Command Discovery
+The system automatically discovers commands from feature modules:
 
-## Implementation Requirements
+```python
+# Command discovery process
+1. Scan feature directories for @command decorators
+2. Extract command metadata (name, description, permission level)
+3. Register commands in centralized registry
+4. Build lookup dictionaries by permission, chat type, and feature
+```
 
-### For New Commands
-1. **Create Command Class**: Extend `Command` base class
-2. **Implement Execute Method**: Add command logic
-3. **Set Permission Level**: Choose appropriate permission level
-4. **Register Command**: Add to command registry
-5. **Add Tests**: Write comprehensive tests
-6. **Update Documentation**: Document command usage
+### Command Registry Structure
+```python
+# Lookup dictionaries
+COMMANDS_BY_NAME = {cmd.name: cmd for cmd in ALL_COMMANDS}
+COMMANDS_BY_PERMISSION = {level: [cmd for cmd in ALL_COMMANDS if cmd.permission_level == level]}
+COMMANDS_BY_CHAT_TYPE = {chat_type: [cmd for cmd in ALL_COMMANDS if chat_type in cmd.chat_types]}
+COMMANDS_BY_FEATURE = {feature: [cmd for cmd in ALL_COMMANDS if cmd.feature == feature]}
+```
 
-### For New Permission Levels
-1. **Create Strategy**: Implement new permission strategy
-2. **Add to Enum**: Add to `PermissionLevel` enum
-3. **Update Factory**: Add strategy to factory method
-4. **Add Tests**: Test permission logic
-5. **Update Documentation**: Document permission requirements
+## Permission Checking
 
-### For Command Modifications
-1. **Update Command**: Modify command implementation
-2. **Update Tests**: Update existing tests
-3. **Update Documentation**: Update command documentation
-4. **Test Integration**: Test with other commands
-5. **Validate Permissions**: Ensure permissions still work correctly
+### Permission Service Implementation
+```python
+class PermissionService:
+    async def can_execute_command(
+        self, 
+        permission_level: PermissionLevel, 
+        context: PermissionContext
+    ) -> bool:
+        """Main permission checking method used by all commands."""
+        user_perms = await self.get_user_permissions(context.user_id, context.team_id)
 
-## ❌ Training Management Integration (Removed)
+        if permission_level == PermissionLevel.PUBLIC:
+            return True
 
-Training management has been removed from the system as it's not a priority for Sunday league team management.
+        elif permission_level == PermissionLevel.PLAYER:
+            if not user_perms.is_player:
+                return False
+            return context.chat_type == ChatType.MAIN
 
-**Focus Areas**: Match management, player registration, and attendance tracking are the core priorities. 
+        elif permission_level == PermissionLevel.LEADERSHIP:
+            if context.chat_type != ChatType.LEADERSHIP:
+                return False
+            return user_perms.is_team_member or user_perms.is_admin
+
+        elif permission_level == PermissionLevel.ADMIN:
+            if context.chat_type != ChatType.LEADERSHIP:
+                return False
+            return user_perms.is_admin
+
+        return False
+```
+
+### Context-Aware Access Denied Messages
+```python
+# Player Permission Denied
+❌ Access Denied
+🔒 This command requires player access.
+💡 Contact your team admin for access.
+Your Role: {user_role.title()}
+
+# Leadership Permission Denied
+❌ Access Denied
+🔒 Leadership commands are only available in the leadership chat.
+💡 Please use the leadership chat for this function.
+
+# Admin Permission Denied
+❌ Access Denied
+🔒 This command requires admin access.
+💡 Contact your team admin for access.
+Your Role: {user_role.title()}
+```
+
+## Command Categories by Feature
+
+### **Shared Commands** (Core system functionality)
+- `/help`, `/list`, `/update`, `/info`, `/ping`, `/version`, `/myinfo`, `/status`
+
+### **Player Registration** (Player management)
+- `/approve`, `/reject`, `/pending`, `/addplayer`
+
+### **Team Administration** (Team member management)
+- `/addmember`
+
+### **Match Management** (Match operations)
+- `/creatematch`, `/selectsquad`, `/updatematch`, `/deletematch`, `/availableplayers`
+
+### **Attendance Management** (Attendance tracking)
+- `/markattendance`, `/attendance`, `/attendancehistory`, `/attendanceexport`
+
+### **Communication** (Team communication)
+- `/announce`, `/remind`, `/broadcast`
+
+## Natural Language Integration
+
+### Intent Mapping
+Natural language requests are automatically mapped to equivalent commands:
+
+```
+"Show me the available players" → /list players
+"Create a new match against Team B" → /creatematch vs Team B
+"Mark my attendance as yes" → /markattendance yes
+"Send an announcement about tomorrow's match" → /announce Important match tomorrow
+```
+
+### Unified Security
+- **Same Permission Checking**: Natural language uses identical permission validation
+- **Context Awareness**: Chat type and role validation applied consistently
+- **Audit Logging**: All access attempts logged regardless of input method
+
+## Command Development Guidelines
+
+### **Adding New Commands**
+1. **Define Command**: Create command definition with appropriate permission level
+2. **Set Chat Types**: Specify which chat types can access the command
+3. **Add Examples**: Provide clear usage examples
+4. **Test Permissions**: Verify access control works correctly
+5. **Update This Document**: Add command to appropriate table above
+
+### **Command Naming Conventions**
+- **Use descriptive names**: `/creatematch` not `/cm`
+- **Use lowercase**: `/addplayer` not `/AddPlayer`
+- **Use action-oriented names**: `/approve`, `/reject`, `/markattendance`
+- **Be consistent**: Similar commands use similar patterns
+
+### **Permission Level Guidelines**
+- **PUBLIC**: Basic system commands, help, version
+- **PLAYER**: Player-specific operations, personal information
+- **LEADERSHIP**: Administrative operations, team management
+- **ADMIN**: System configuration, sensitive operations
+- **SYSTEM**: Internal operations, health checks
+
+## Testing Requirements
+
+### **Command Testing Checklist**
+- [ ] Command works in appropriate chat types
+- [ ] Permission checking works correctly
+- [ ] Access denied messages are user-friendly
+- [ ] Examples work as documented
+- [ ] Natural language mapping works
+- [ ] Error handling is graceful
+
+### **Permission Testing**
+- **Public Commands**: Available in all chat types
+- **Player Commands**: Available only in main chat for players
+- **Leadership Commands**: Available only in leadership chat for team members
+- **Admin Commands**: Available only in leadership chat for admins
+
+## Integration with Agent System
+
+### **Agent Command Routing**
+Commands are automatically routed to appropriate agents based on permission level:
+
+- **PUBLIC/PLAYER Commands**: `HELP_ASSISTANT` or `PLAYER_COORDINATOR`
+- **LEADERSHIP Commands**: `TEAM_ADMINISTRATOR` or `SQUAD_SELECTOR`
+- **ADMIN Commands**: `TEAM_ADMINISTRATOR`
+- **SYSTEM Commands**: `MESSAGE_PROCESSOR`
+
+### **Agent Tool Integration**
+Each agent has access to specific tools based on their role:
+
+
+```python
+# Example: PLAYER_COORDINATOR tools
+- get_my_status
+- get_player_status
+- get_active_players
+- approve_player
+- register_player
+
+# Example: TEAM_ADMINISTRATOR tools
+- get_team_members
+- add_team_member_role
+- promote_team_member_to_admin
+- remove_team_member_role
+```
+
+## Benefits of Unified Command System
+
+### **1. Consistency**
+- **Single Source of Truth**: All command information in one place
+- **Unified Processing**: Same pipeline for all commands
+- **Consistent Permissions**: Identical permission checking across all commands
+
+### **2. Maintainability**
+- **Easy Updates**: Change command information in one location
+- **Clear Documentation**: Comprehensive command reference
+- **Simple Testing**: Standardized testing approach
+
+### **3. User Experience**
+- **Predictable Behavior**: Commands work consistently
+- **Clear Feedback**: User-friendly error messages
+- **Intuitive Access**: Natural permission escalation
+
+### **4. Developer Experience**
+- **Clear Guidelines**: Well-defined development patterns
+- **Easy Extension**: Simple process for adding new commands
+- **Comprehensive Reference**: Complete command documentation 
