@@ -505,9 +505,9 @@ def get_player_match(match_id: str, team_id: str) -> str:
             return format_tool_error(f"Match {match_id} not found in team {team_id}")
 
         # Format match details
-        return f"""📋 Match Details
+        return f"""🌊 Match Details
 
-🏆 Match ID: {match.get("match_id", "N/A")}
+🎉 Match ID: {match.get("match_id", "N/A")}
 📅 Date: {match.get("date", "N/A")}
 ⏰ Time: {match.get("time", "N/A")}
 📍 Location: {match.get("location", "N/A")}
@@ -560,26 +560,26 @@ def list_team_members_and_players(team_id: str) -> str:
         players = player_service.get_all_players_sync(team_id)
         team_members = team_service.get_team_members_sync(team_id)
 
-        result = f"📋 Team Overview for {team_id}\n\n"
+        result = f"""📊 Team Overview for {team_id}\n\n"""
 
         # Add team members section
         if team_members:
-            result += "👔 Team Members:\n"
+            result += """👔 Team Members:\n"""
             for member in team_members:
-                result += f"• {member.name} - {member.role.title()}\n"
+                result += f"""• {member.name} - {member.role.title()}\n"""
             result += "\n"
         else:
-            result += "👔 No team members found\n\n"
+            result += """👔 No team members found\n\n"""
 
         # Add players section
         if players:
-            result += "👥 Players:\n"
+            result += """👥 Players:\n"""
             for player in players:
-                status_emoji = "✅" if player.status.lower() == "active" else "⏳"
-                player_id_display = f" (ID: {player.player_id})" if player.player_id else ""
-                result += f"• {player.name} - {player.position} {status_emoji} {player.status.title()}{player_id_display}\n"
+                status_emoji = """✅""" if player.status.lower() == "active" else """⏰"""
+                player_id_display = f""" (ID: {player.player_id})""" if player.player_id else """
+                result += f"""• {player.name} - {player.position} {status_emoji} {player.status.title()}{player_id_display}\n"""
         else:
-            result += "👥 No players found"
+            result += """👥 No players found"""
 
         return result
 

@@ -103,43 +103,24 @@ KICKAI is a sophisticated Telegram bot system for football team management, buil
 - **Enhanced Features**: Quick actions and system monitoring
 - **User Experience**: Improved testing workflow and visual design
 
-## 📊 **Implemented Commands**
+## 📊 **Command System**
 
-### Core Commands (Fully Functional)
-- `/help` - Show available commands
-- `/myinfo` - Show personal information
-- `/status` - Check player/team member status
-- `/list` - List players/team members (context-aware)
-- `/update` - Update personal information
-- `/ping` - Check bot status
-- `/version` - Show bot version
+**📋 For complete command reference, see [11_unified_command_system.md](11_unified_command_system.md)**
 
-### Leadership Commands (Fully Functional)
-- `/addplayer` - Add a new player
-- `/addmember` - Add a team member
-- `/approve` - Approve a player
-- `/reject` - Reject a player application
-- `/pending` - List players awaiting approval
+The system provides a comprehensive set of commands organized by permission level:
 
-### Match Management (Fully Functional)
-- `/creatematch` - Create a new match
-- `/listmatches` - List upcoming matches
-- `/matchdetails` - Get match details
-- `/selectsquad` - Select match squad
-- `/updatematch` - Update match information
-- `/deletematch` - Delete a match
-- `/availableplayers` - Get available players for match
+### **Public Commands** (Available to Everyone)
+- `/help`, `/list`, `/update`, `/info`, `/ping`, `/version`
 
-### Attendance Management (Fully Functional)
-- `/markattendance` - Mark attendance for a match
-- `/attendance` - View match attendance
-- `/attendancehistory` - View attendance history
-- `/attendanceexport` - Export attendance data
+### **Player Commands** (Main Chat Only)
+- `/myinfo`, `/status`, `/markattendance`, `/attendance`, `/attendancehistory`
 
-### Communication (Fully Functional)
-- `/announce` - Send announcement to team
-- `/remind` - Send reminder to players
-- `/broadcast` - Broadcast message to all chats
+### **Leadership Commands** (Leadership Chat Only)
+- Player Management: `/approve`, `/reject`, `/pending`, `/addplayer`
+- Team Management: `/addmember`
+- Match Management: `/creatematch`, `/selectsquad`, `/updatematch`, `/deletematch`, `/availableplayers`
+- Attendance: `/attendanceexport`
+- Communication: `/announce`, `/remind`, `/broadcast`
 
 ## ❌ **Removed Features**
 

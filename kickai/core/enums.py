@@ -262,6 +262,7 @@ class CheckCategory(Enum):
     FUNCTIONALITY = "functionality"
     PERFORMANCE = "performance"
     SECURITY = "security"
+    SYSTEM = "SYSTEM"
     LLM = "LLM"
     AGENT = "AGENT"
     TOOL = "TOOL"

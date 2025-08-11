@@ -121,13 +121,6 @@ class Settings(BaseSettings):
     ai_timeout: int = Field(default=120, description="AI timeout in seconds")
     ai_max_retries: int = Field(default=5, description="AI max retries")
     
-    # Universal Rate Limiting Configuration
-    enable_rate_limiting: bool = Field(
-        default=True,
-        alias="ENABLE_RATE_LIMITING",
-        description="Enable universal rate limiter for all LLM providers"
-    )
-    
     # Ollama Configuration (if using Ollama)
     ollama_base_url: str = Field(
         default="http://localhost:11434",

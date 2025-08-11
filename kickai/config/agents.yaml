@@ -20,7 +20,6 @@ agents:
 
   # 1. MESSAGE PROCESSOR - Primary Interface
   - name: message_processor
-    max_rpm: 800  # Realistic limit based on Groq's 1000 RPM with safety margin
     role: >
       Primary Interface Agent - Message Processing and Basic Operations
     goal: >
@@ -46,6 +45,7 @@ agents:
       - get_active_players
       - get_all_players
       - get_my_status
+      - list_team_members_and_players
       - send_announcement
       - send_poll
       - ping
@@ -55,7 +55,6 @@ agents:
 
   # 2. HELP ASSISTANT - Help System and Guidance  
   - name: help_assistant
-    max_rpm: 800  # Realistic limit based on Groq's 1000 RPM with safety margin
     role: >
       Help System Agent - User Guidance and Support
     goal: >
@@ -81,8 +80,7 @@ agents:
     entity_types: ["general"]
 
   # 3. PLAYER COORDINATOR - Player Management and Onboarding
-  - name: player_coordinator
-    max_rpm: 800  # Realistic limit based on Groq's 1000 RPM with safety margin  
+  - name: player_coordinator  
     role: >
       Player Management Agent - Registration, Status, and Onboarding
     goal: >
@@ -116,7 +114,6 @@ agents:
 
   # 4. TEAM ADMINISTRATOR - Team Member Management and Administration
   - name: team_administrator
-    max_rpm: 800  # Realistic limit based on Groq's 1000 RPM with safety margin
     role: >
       Team Administration Agent - Member Management and Governance  
     goal: >
@@ -151,7 +148,6 @@ agents:
 
   # 5. SQUAD SELECTOR - Match Management, Squad Selection, and Availability
   - name: squad_selector
-    max_rpm: 800  # Realistic limit based on Groq's 1000 RPM with safety margin
     role: >
       Squad Selection Agent - Match Management, Availability, and Squad Optimization
     goal: >

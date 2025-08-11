@@ -11,7 +11,6 @@ Features:
 - Thread-safe configuration management
 - Production-ready async compatibility
 - Provider-specific parameter optimization
-- Rate limiting handled at application level
 """
 
 import asyncio
@@ -38,7 +37,7 @@ class LLMConfiguration:
     """
 
     def __init__(self):
-        """Initialize LLM configuration from settings with rate limiting."""
+        """Initialize LLM configuration from settings."""
         self.settings = get_settings()
         self.ai_provider = self.settings.ai_provider
         # Determine default model: prefer simple/advanced pair, fallback to legacy
@@ -99,13 +98,15 @@ class LLMConfiguration:
             if not self.groq_api_key:
                 raise ValueError("GROQ_API_KEY is required for Groq provider")
                 
-            # Groq-specific configuration with only supported parameters
+            # Groq-specific configuration with only CrewAI-supported parameters
             groq_config = {
                 "temperature": temperature,
                 "max_tokens": max_tokens,
-                # Groq supports timeout but not max_retries directly
                 "timeout": self.settings.ai_timeout,
             }
+            
+            logger.info(f"Creating GROQ LLM with config: {groq_config}")
+            
             return LLM(
                 model=f"groq/{model_name}",
                 api_key=self.groq_api_key,
@@ -168,7 +169,7 @@ class LLMConfiguration:
     @lru_cache(maxsize=1)
     def main_llm(self) -> LLM:
         """
-        Primary LLM for complex reasoning tasks with rate limiting.
+        Primary LLM for complex reasoning tasks.
 
         Returns:
             LLM: Configured for balanced reasoning with moderate temperature
@@ -183,7 +184,7 @@ class LLMConfiguration:
     @lru_cache(maxsize=1)
     def tool_llm(self) -> LLM:
         """
-        Optimized LLM for tool calling and function execution with rate limiting.
+        Optimized LLM for tool calling and function execution.
 
         Uses lower temperature for precise tool calling as recommended by CrewAI.
 
@@ -200,7 +201,7 @@ class LLMConfiguration:
     @lru_cache(maxsize=1)
     def creative_llm(self) -> LLM:
         """
-        Higher temperature LLM for creative and analytical tasks with rate limiting.
+        Higher temperature LLM for creative and analytical tasks.
 
         Returns:
             LLM: Configured for creative reasoning
@@ -215,7 +216,7 @@ class LLMConfiguration:
     @lru_cache(maxsize=1)
     def data_critical_llm(self) -> LLM:
         """
-        Ultra-precise LLM for data-critical operations with rate limiting.
+        Ultra-precise LLM for data-critical operations.
 
         Uses very low temperature for anti-hallucination in critical operations.
 

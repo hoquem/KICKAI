@@ -187,18 +187,15 @@ class TeamManagementSystem:
             # Import Process enum for CrewAI
             from crewai import Process
 
-            # CrewAI native rate limiting: enforce conservative global cap
-            safe_crew_max_rpm = 3
             self.crew = Crew(
                 agents=crew_agents,
                 tasks=[],
                 process=Process.sequential,
                 verbose=verbose_mode,
                 memory=False,  # Simplified - no memory for now
-                # CrewAI native rate limiting to handle Groq TPM limits
-                # Proper RPM calculation: TPM ÷ average_tokens_per_request
-                # Using 100 tokens per request as conservative estimate
-                max_rpm=safe_crew_max_rpm,  # Proper TPM to RPM conversion
+                # Add robust retry mechanism with exponential backoff
+                max_retries=5,
+                retry_exponential_backoff_factor=2,
             )
 
             logger.info(f"✅ Created crew with {len(crew_agents)} agents")
@@ -374,20 +371,31 @@ class TeamManagementSystem:
                     
                     IMPORTANT: For get_my_status tool, ALWAYS pass chat_type parameter to determine whether to look up player status (main chat) or team member status (leadership chat).
                     
-                    CRITICAL OUTPUT RULE: Return tool outputs EXACTLY as they are provided - DO NOT reformat, summarize, or remove any emojis, symbols, or formatting. Tool outputs are already properly formatted for users.
+                    🚨 CRITICAL ANTI-HALLUCINATION RULE 🚨: 
+                    Return tool outputs EXACTLY as provided - NEVER add, modify, or invent data.
+                    - Tool output is final - DO NOT add extra players, team members, or any data
+                    - DO NOT reformat, summarize, or remove emojis, symbols, or formatting
+                    - If tool returns 2 players, your response must have EXACTLY 2 players
+                    - NEVER add fictional players like "Saim", "Ahmed", etc.
                     
                     MANDATORY TOOL USAGE: You MUST call the appropriate tool for data requests:
-                    - /list: MUST call get_all_players(team_id, telegram_id) for leadership chat or get_active_players(team_id, telegram_id) for main chat
+                    - /list: MUST call list_team_members_and_players(team_id) for leadership chat or get_active_players(team_id, telegram_id) for main chat
                     - /info: MUST call get_my_status(telegram_id, team_id, chat_type) 
                     - NEVER provide made-up or fabricated data - if no tool is called, return "Error: No tool was used to retrieve data"
+
+                    **IMPORTANT: YOUR FINAL ANSWER MUST BE THE EXACT, UNMODIFIED OUTPUT FROM THE TOOL. DO NOT ADD ANY EXTRA TEXT, FORMATTING, OR EXPLANATIONS.**
                     """
+                    
+                    # Get the specific tool for the task to avoid overwhelming the LLM
+                    list_tool = self.tool_registry.get_tool_function('list_team_members_and_players')
                     
                     # Create a task using CrewAI native approach with enhanced output specification
                     task = Task(
                         description=structured_description,
                         agent=agent.crew_agent,
-                        expected_output="Return the exact tool output without any modifications, preserving all emojis, formatting, and visual elements. Tool outputs are already properly formatted for users.",
+                        expected_output="The final answer MUST be the exact, raw, and unmodified output from the tool. For example, if the tool returns 'HELLO WORLD', your final answer must also be 'HELLO WORLD'.",
                         output_format="string",  # Ensure output format is specified
+                        tools=[list_tool],
                     )
                     
                     logger.debug(f"✅ Task created with structured description including context")
@@ -397,33 +405,71 @@ class TeamManagementSystem:
                     self.crew.tasks = [task]
                     
                     try:
+                        logger.debug(f"🚀 CREW KICKOFF: Starting crew execution")
+                        logger.debug(f"🚀 CREW KICKOFF: Task description length: {len(structured_description)} chars")
+                        logger.debug(f"🚀 CREW KICKOFF: Agent: {agent.crew_agent.role if hasattr(agent.crew_agent, 'role') else 'unknown'}")
+                        
+                        # Log the exact prompt being sent to the LLM
+                        logger.debug(f"🔍 LLM INPUT: Structured description:\n{structured_description}")
+                        
                         crew_result = self.crew.kickoff()
-                        logger.debug(f"✅ Crew kickoff completed")
+                        logger.debug(f"✅ Crew kickoff completed, result type: {type(crew_result)}")
+                        
+                        # Comprehensive logging of crew result
+                        logger.debug(f"🔍 RAW CREW RESULT: {crew_result}")
+                        logger.debug(f"🔍 CREW RESULT ATTRIBUTES: {dir(crew_result)}")
+                        
+                        # Try to access different result attributes and log them
+                        if hasattr(crew_result, "raw"):
+                            logger.debug(f"🔍 CREW RESULT.RAW: {crew_result.raw}")
+                            logger.debug(f"🔍 CREW RESULT.RAW TYPE: {type(crew_result.raw)}")
+                            if hasattr(crew_result.raw, "output"):
+                                logger.debug(f"🔍 CREW RESULT.RAW.OUTPUT: {crew_result.raw.output}")
+                        
+                        if hasattr(crew_result, "output"):
+                            logger.debug(f"🔍 CREW RESULT.OUTPUT: {crew_result.output}")
+                        
+                        if hasattr(crew_result, "result"):
+                            logger.debug(f"🔍 CREW RESULT.RESULT: {crew_result.result}")
 
                         # Convert CrewOutput to string properly
+                        result = None
                         if hasattr(crew_result, "raw") and hasattr(crew_result.raw, "output"):
                             result = str(crew_result.raw.output)
+                            logger.debug(f"🔍 EXTRACTED FROM RAW.OUTPUT: '{result}'")
                         elif hasattr(crew_result, "output"):
                             result = str(crew_result.output)
+                            logger.debug(f"🔍 EXTRACTED FROM OUTPUT: '{result}'")
                         elif hasattr(crew_result, "result"):
                             result = str(crew_result.result)
+                            logger.debug(f"🔍 EXTRACTED FROM RESULT: '{result}'")
                         else:
                             result = str(crew_result)
+                            logger.debug(f"🔍 EXTRACTED FROM STR(CREW_RESULT): '{result}'")
+                            
+                        # Log the final extracted result
+                        logger.debug(f"🔍 FINAL EXTRACTED RESULT: '{result}' (length: {len(result) if result else 0})")
                             
                         # Validate we got a meaningful result
                         if not result or result.strip() == "":
-                            logger.warning("⚠️ Empty result from crew execution")
+                            logger.warning("⚠️ Empty result from crew execution - this is the core issue!")
+                            logger.warning(f"⚠️ Original crew_result was: {crew_result}")
                             result = "⚠️ Task completed but produced no output. Please try again."
                             
                     except Exception as crew_error:
                         error_message = str(crew_error)
                         logger.error(f"❌ Crew execution failed: {error_message}")
+                        logger.error(f"❌ Crew error type: {type(crew_error)}")
+                        logger.error(f"❌ Crew error details: {crew_error}")
                         
                         # Handle specific CrewAI errors
                         if "No valid task outputs" in error_message:
                             result = "⚠️ System is temporarily overloaded. Please wait a moment and try again."
                         elif "rate limit" in error_message.lower():
-                            result = "⚠️ Rate limit reached. Please wait 30 seconds and try again."
+                            result = "⚠️ API limit reached. Please wait a moment and try again."
+                        elif "None or empty" in error_message:
+                            result = "⚠️ LLM response issue detected. The system is being investigated."
+                            logger.error(f"🚨 LLM RESPONSE ISSUE: {error_message}")
                         else:
                             result = f"⚠️ System error occurred. Please try again or contact support."
                         
@@ -554,16 +600,6 @@ class CrewAgentManager:
             # Create CrewAI agent
             from crewai import Agent
             
-            # Get max_rpm from agent config if available (fallback to 20 if not configured)
-            max_rpm = 3
-            try:
-                from kickai.config.agents import get_agent_config
-                context = {"team_id": "default", "chat_type": "main", "user_role": "public", "username": "user"}
-                agent_config = get_agent_config(role, context)
-                max_rpm = agent_config.max_rpm
-            except Exception as e:
-                logger.warning(f"Could not get max_rpm from config for {role.value}, using default: {e}")
-            
             agent = Agent(
                 role=role.value,
                 goal=self._get_goal_for_role(role),
@@ -571,7 +607,6 @@ class CrewAgentManager:
                 llm=llm,
                 verbose=True,
                 allow_delegation=False,
-                max_rpm=max_rpm,
                 max_iterations=3
             )
             

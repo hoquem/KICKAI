@@ -39,11 +39,8 @@ KICKAI_INVITE_SECRET_KEY=test-invite-secret-key-for-testing-only
 FIREBASE_PROJECT_ID=kickai-954c2
 FIREBASE_CREDENTIALS_FILE=credentials/firebase_credentials_testing.json
 
-# Groq rate limiting (CRITICAL for local development)
-AI_RATE_LIMIT_TPM=6000                    # Tokens per minute limit
-AI_RATE_LIMIT_RETRY_DELAY=5.0            # Initial retry delay in seconds
-AI_RATE_LIMIT_MAX_RETRIES=3              # Maximum retry attempts
-AI_RATE_LIMIT_BACKOFF_MULTIPLIER=2.0     # Exponential backoff multiplier
+# API configuration
+# The system now relies on CrewAI's native retry and backoff mechanisms
 ```
 
 ## Common Development Commands
@@ -143,7 +140,7 @@ The following legacy components have been **REMOVED** and functionality consolid
 ### ✅ **AgenticMessageRouter Modernization**
 The `AgenticMessageRouter` is now the **single source of truth** for all message routing:
 - **Consolidated Logic**: All handler functionality moved to router methods
-- **Resource Management**: Built-in rate limiting, circuit breaker patterns
+- **Resource Management**: Circuit breaker patterns and memory management
 - **Type Safety**: Consistent `telegram_id` handling as `int` throughout
 - **Memory Management**: Proper cleanup and garbage collection
 
@@ -308,7 +305,7 @@ make health-check
 
 ### Modifying AgenticMessageRouter
 1. **DO NOT** create new handler classes - extend router methods
-2. **PRESERVE** resource management and rate limiting
+2. **PRESERVE** resource management and error handling
 3. **MAINTAIN** telegram_id as int consistency
 4. **TEST** thoroughly - router is critical path
 

@@ -7,7 +7,7 @@ best practices for context passing and tool parameter handling.
 """
 
 import traceback
-from typing import Any, Dict, Set
+from typing import Any, Dict, Set, List
 
 from crewai import Agent, Crew, Process, Task
 from loguru import logger
@@ -29,18 +29,21 @@ class ConfigurableAgent:
     - Clean initialization and execution
     - Proper context handling
     - Error resilience
+    - Inter-agent delegation support
     """
 
-    def __init__(self, agent_role: AgentRole, team_id: str):
+    def __init__(self, agent_role: AgentRole, team_id: str, other_agents: List['ConfigurableAgent'] = None):
         """
         Initialize agent with role and team ID.
 
         Args:
             agent_role: The role this agent should perform
             team_id: The team this agent belongs to
+            other_agents: List of other agents for delegation capabilities
         """
         self.agent_role = agent_role
         self.team_id = team_id
+        self.other_agents = other_agents or []
 
         # Initialize components in clean order
         self._initialize_components()
@@ -80,14 +83,23 @@ class ConfigurableAgent:
             raise AgentInitializationError("ConfigurableAgent", f"Agent initialization failed: {e}")
 
     def _create_crew_agent(self) -> Agent:
-        """Create the underlying CrewAI agent with proper configuration."""
+        """Create the underlying CrewAI agent with proper configuration and delegation tools."""
         # Get tools for this agent role
         tools = self._tools_manager.get_tools_for_role(self.agent_role)
 
-        # Create agent with optimized configuration
+        # Add delegation tools for inter-agent communication
+        delegation_tools = self._get_delegation_tools()
+        if delegation_tools:
+            tools.extend(delegation_tools)
+            logger.info(f"🔗 Added {len(delegation_tools)} delegation tools to {self.agent_role.value}")
+
+        # Get memory system for this agent
+        from kickai.core.memory_manager import get_memory_manager
+        memory_manager = get_memory_manager()
+        agent_memory = memory_manager.get_memory_for_agent(self.agent_role)
+        
+        # Create agent with optimized configuration and memory
         settings = get_settings()
-        # Enforce conservative global cap for safety
-        agent_max_rpm = 5
         agent = Agent(
             role=self.config.role,
             goal=self.config.goal,
@@ -96,13 +108,45 @@ class ConfigurableAgent:
             llm=self.llm,
             verbose=True,
             max_iter=self.config.max_iterations,
-            max_rpm=agent_max_rpm,
+            memory=agent_memory,  # Enable entity-specific memory
         )
 
         logger.debug(
-            f"🔧 Created CrewAI agent for {self.agent_role.value} with {len(tools)} tools, max_rpm={agent_max_rpm} (global cap)"
+            f"🔧 Created CrewAI agent for {self.agent_role.value} with {len(tools)} tools"
         )
         return agent
+
+    def _get_delegation_tools(self) -> List[Any]:
+        """Get delegation tools for inter-agent communication."""
+        if not self.other_agents:
+            return []
+
+        try:
+            # Convert other agents to CrewAI agents for delegation
+            crew_agents = []
+            for other_agent in self.other_agents:
+                if hasattr(other_agent, 'crew_agent') and other_agent.crew_agent:
+                    crew_agents.append(other_agent.crew_agent)
+
+            if crew_agents:
+                # Get delegation tools from CrewAI
+                delegation_tools = self.crew_agent.get_delegation_tools(crew_agents)
+                logger.debug(f"🔗 Created {len(delegation_tools)} delegation tools for {self.agent_role.value}")
+                return delegation_tools
+            else:
+                logger.warning(f"⚠️ No valid CrewAI agents found for delegation in {self.agent_role.value}")
+                return []
+
+        except Exception as e:
+            logger.error(f"❌ Error creating delegation tools for {self.agent_role.value}: {e}")
+            return []
+
+    def set_other_agents(self, other_agents: List['ConfigurableAgent']):
+        """Set other agents for delegation capabilities."""
+        self.other_agents = other_agents
+        # Recreate agent with new delegation tools
+        if hasattr(self, 'crew_agent'):
+            self.crew_agent = self._create_crew_agent()
 
     def get_tools(self) -> list:
         """Get the tools available for this agent."""
@@ -171,22 +215,12 @@ class ConfigurableAgent:
 
         This follows CrewAI 2025 best practices by making context visible to the LLM.
         """
+        # Simplified context info to reduce prompt pollution
         context_info = f"""
 
-EXECUTION CONTEXT FOR TOOL CALLS:
-- team_id: "{context['team_id']}"
-- telegram_id: {context['telegram_id']}
-- username: "{context['username']}"
-- chat_type: "{context['chat_type']}"
-- user_role: "{context['user_role']}"
-- is_registered: {context['is_registered']}
+Context: team_id="{context['team_id']}", telegram_id={context['telegram_id']}, chat_type="{context['chat_type']}"
 
-CRITICAL: When calling tools that need context (like get_player_status_by_telegram_id), use these EXACT values as parameters:
-- team_id="{context['team_id']}"
-- telegram_id={context['telegram_id']}
-- chat_type="{context['chat_type']}"
-- user_role="{context['user_role']}"
-- is_registered={context['is_registered']}"""
+Use these parameters when calling tools."""
 
         return task_description + context_info
 
@@ -194,7 +228,7 @@ CRITICAL: When calling tools that need context (like get_player_status_by_telegr
         """Execute the actual CrewAI task with proper context handling."""
         logger.debug(f"🔧 Creating task with context: {context}")
 
-        # Create task with context in config (CrewAI 2025 best practice)
+        # Create task with simplified description to avoid prompt pollution
         task = Task(
             description=task_description,
             agent=self.crew_agent,
@@ -202,21 +236,13 @@ CRITICAL: When calling tools that need context (like get_player_status_by_telegr
             config=context,  # Tools access this via get_task_config()
         )
 
-        # Verify task was created with config
-        logger.debug(f"🔍 Task created - has config: {hasattr(task, 'config') and task.config is not None}")
-        if hasattr(task, 'config') and task.config:
-            logger.debug(f"🔍 Task config keys: {list(task.config.keys())}")
-
-        # CrewAI 2025 native execution - context is passed via task.config
-        logger.debug("✅ Context embedded in task for CrewAI native parameter passing")
-
-        # Create and execute crew
+        # Create and execute crew with minimal configuration
         crew = Crew(
             agents=[self.crew_agent],
             tasks=[task],
             process=Process.sequential,
             memory=False,  # Disable memory for stateless execution
-            verbose=True,  # Enable verbose logging
+            verbose=False,  # Disable verbose logging to reduce output pollution
         )
 
         logger.info(f"🚀 Starting CrewAI execution for {self.agent_role.value}")
@@ -225,7 +251,31 @@ CRITICAL: When calling tools that need context (like get_player_status_by_telegr
         result = crew.kickoff()
 
         logger.info(f"✅ CrewAI execution completed for {self.agent_role.value}")
-        return result.raw if hasattr(result, 'raw') else str(result)
+        
+        # Clean up the result to remove any prompt pollution
+        result_str = result.raw if hasattr(result, 'raw') else str(result)
+        
+        # Use the sanitizer to clean up any prompt pollution
+        from kickai.utils.tool_output_sanitizer import sanitize_tool_output, validate_tool_output
+        
+        # Validate the output first
+        validation = validate_tool_output(result_str)
+        
+        if validation["is_polluted"]:
+            logger.warning(f"⚠️ Tool output pollution detected for {self.agent_role.value}")
+            logger.debug(f"🔍 Pollution issues: {validation['issues']}")
+            
+            # Use the sanitizer to clean the output
+            clean_result = sanitize_tool_output(result_str)
+            
+            if clean_result and clean_result.strip():
+                logger.info(f"✅ Successfully cleaned polluted output for {self.agent_role.value}")
+                return clean_result
+            else:
+                logger.error(f"❌ Failed to extract clean data from polluted output for {self.agent_role.value}")
+                return f"❌ Error: Tool output was corrupted. Please try again."
+        
+        return result_str
 
 
 class AgentFactory:
@@ -265,7 +315,7 @@ class AgentFactory:
 
     def create_all_agents(self) -> Dict[AgentRole, ConfigurableAgent]:
         """
-        Create all enabled agents for the team.
+        Create all enabled agents for the team with delegation support.
 
         Returns:
             Dictionary mapping agent roles to configured agents
@@ -284,6 +334,7 @@ class AgentFactory:
             }
             enabled_configs = get_enabled_agent_configs(context)
 
+            # First pass: create all agents
             for role in enabled_configs.keys():
                 try:
                     agents[role] = self.create_agent(role)
@@ -292,7 +343,13 @@ class AgentFactory:
                     logger.error(f"❌ Failed to create agent {role.value}: {e}")
                     # Continue creating other agents even if one fails
 
-            logger.info(f"🎉 AgentFactory created {len(agents)} agents for team {self.team_id}")
+            # Second pass: set up delegation between agents
+            for role, agent in agents.items():
+                other_agents = [other_agent for other_role, other_agent in agents.items() if other_role != role]
+                agent.set_other_agents(other_agents)
+                logger.debug(f"🔗 Set up delegation for {role.value} with {len(other_agents)} other agents")
+
+            logger.info(f"🎉 AgentFactory created {len(agents)} agents with delegation support for team {self.team_id}")
             return agents
 
         except Exception as e:

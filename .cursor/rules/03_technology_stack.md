@@ -42,15 +42,62 @@ KICKAI is built to fully leverage CrewAI's native features for agent orchestrati
 # Centralized LLM factory with Groq-only configuration
 from kickai.utils.llm_factory import LLMFactory, LLMConfig
 
-# Groq-only configuration
+# Groq configuration with AI_MODEL_SIMPLE and AI_MODEL_ADVANCED
 config = LLMConfig(
     provider=AIProvider.GROQ,
     api_key=os.getenv("GROQ_API_KEY"),
-    model=os.getenv("GROQ_MODEL")
+    # Model selection based on use case:
+    # - AI_MODEL_SIMPLE: For lightweight agents and tools
+    # - AI_MODEL_ADVANCED: For complex reasoning and creative tasks
+    # - AI_MODEL_NAME: Legacy fallback
 )
 
-# Factory creates Groq instances
+# Factory creates Groq instances with model selection
 llm = LLMFactory.create_llm(config)
+
+### **Model Configuration System**
+The system supports three model configuration approaches:
+
+1. **Dual Model System** (Recommended):
+   - `AI_MODEL_SIMPLE`: For lightweight agents and tool execution
+   - `AI_MODEL_ADVANCED`: For complex reasoning and creative tasks
+
+2. **Legacy Single Model**:
+   - `AI_MODEL_NAME`: Single model for all use cases (backward compatible)
+
+3. **Automatic Model Selection**:
+   - Agents automatically get appropriate models based on their role
+   - Tool LLMs use simple models for efficiency
+   - Creative LLMs use advanced models for better reasoning
+
+### **Environment Variables for AI/LLM Configuration**
+
+#### **Required Variables**
+```bash
+# AI Provider Selection
+AI_PROVIDER=groq                    # Options: groq, gemini, openai, ollama
+
+# API Keys (required based on provider)
+GROQ_API_KEY=your_groq_api_key      # Required for Groq provider
+GOOGLE_API_KEY=your_gemini_key      # Required for Gemini provider  
+OPENAI_API_KEY=your_openai_key      # Required for OpenAI provider
+
+# Model Configuration (at least one required)
+AI_MODEL_SIMPLE=llama3-8b-8192      # For lightweight agents and tools
+AI_MODEL_ADVANCED=llama3-70b-8192   # For complex reasoning tasks
+AI_MODEL_NAME=llama3-8b-8192        # Legacy: single model for all use cases
+```
+
+#### **Optional Variables**
+```bash
+# Ollama Configuration (only if using Ollama provider)
+OLLAMA_BASE_URL=http://localhost:11434
+
+# AI Performance Tuning
+AI_TEMPERATURE=0.3                  # Default temperature (0.0-1.0)
+AI_MAX_TOKENS=800                   # Default max tokens
+AI_TIMEOUT=120                      # Request timeout in seconds
+```
 ```
 
 ### **LLM Health Monitoring**

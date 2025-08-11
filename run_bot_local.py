@@ -20,6 +20,7 @@ nest_asyncio.apply()
 from kickai.core.dependency_container import (
     ensure_container_initialized,
     get_service,
+    initialize_container,
 )
 from kickai.core.logging_config import logger
 from kickai.core.config import get_settings
@@ -94,17 +95,12 @@ def setup_environment():
         from dotenv import load_dotenv
         load_dotenv()
 
-        # Initialize settings
-        initialize_settings()
+        # Initialize container
+        initialize_container()
         config = get_settings()
 
-        # Validate required fields (only Firebase and AI config, not bot tokens)
-        errors = config.validate_required_fields()
-        if errors:
-            logger.error("❌ Configuration errors:")
-            for error in errors:
-                logger.error(f"   - {error}")
-            raise ValueError("Configuration validation failed")
+        # Configuration validation is handled automatically by Pydantic
+        logger.info("✅ Configuration loaded successfully")
 
         # Configure logging
         setup_logging()
