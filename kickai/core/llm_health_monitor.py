@@ -17,7 +17,6 @@ import asyncio
 import logging
 from collections.abc import Callable
 from datetime import datetime
-from typing import Optional, Set
 
 from kickai.config.llm_config import get_llm_config
 
@@ -36,8 +35,8 @@ class LLMHealthMonitor:
     def __init__(self, check_interval_seconds: int = 300):  # Check every 5 minutes
         self.check_interval = check_interval_seconds
         self.is_running = False
-        self.shutdown_callback: Optional[Callable] = None
-        self.last_check_time: Optional[datetime] = None
+        self.shutdown_callback: Callable | None = None
+        self.last_check_time: datetime | None = None
         self.consecutive_failures = 0
         self.max_consecutive_failures = 2  # Allow 2 failures before stopping
 
@@ -87,10 +86,10 @@ class LLMHealthMonitor:
 
             # Use CrewAI LLM configuration for health checks
             llm_config = get_llm_config()
-            
+
             # Test connection using CrewAI native async method
             connection_success = await llm_config.test_connection_async()
-            
+
             if not connection_success:
                 raise Exception("CrewAI LLM connection test failed")
 
@@ -120,7 +119,7 @@ class LLMHealthMonitor:
         try:
             # Use the main LLM for testing
             test_llm = llm_config.main_llm
-            
+
             # Simple test prompt
             test_prompt = "Health check - respond with 'OK'"
 
@@ -131,7 +130,7 @@ class LLMHealthMonitor:
                     if wait_time > 0:
                         logger.debug(f"Waiting {wait_time:.2f}s due to rate limiting")
                         await asyncio.sleep(wait_time)
-            
+
             # Make the request using CrewAI native async method
             if hasattr(test_llm, 'ainvoke'):
                 response = await test_llm.ainvoke(test_prompt)
@@ -141,7 +140,7 @@ class LLMHealthMonitor:
                 response = await loop.run_in_executor(None, test_llm.invoke, test_prompt)
             else:
                 raise Exception("LLM does not support invoke or ainvoke methods")
-            
+
             # Record the request for rate limiting
             if hasattr(llm_config, 'rate_limit_handler'):
                 llm_config.rate_limit_handler.record_request(llm_config.ai_provider)
@@ -166,7 +165,7 @@ class LLMHealthMonitor:
                 test_prompt = "Health check - respond with 'OK'"
                 loop = asyncio.get_event_loop()
                 response = await loop.run_in_executor(None, llm.invoke, test_prompt)
-                
+
                 if not response or len(str(response)) == 0:
                     raise Exception("Empty response from LLM")
             else:
@@ -207,11 +206,11 @@ class LLMHealthMonitor:
         except Exception as e:
             provider_info = {
                 "ai_provider": "unknown",
-                "model": "unknown", 
+                "model": "unknown",
                 "rate_limiting_enabled": False,
                 "error": str(e)
             }
-            
+
         return {
             "monitor_status": {
                 "is_running": self.is_running,
@@ -231,7 +230,7 @@ class LLMHealthMonitor:
 
 
 # Global instance
-_llm_monitor: Optional[LLMHealthMonitor] = None
+_llm_monitor: LLMHealthMonitor | None = None
 
 
 def get_llm_monitor() -> LLMHealthMonitor:

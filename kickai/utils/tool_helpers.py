@@ -7,21 +7,22 @@ standardizing error messages across all tools.
 """
 
 import json
-from typing import Any, Dict, List
+from typing import Any
 
 
-def parse_crewai_json_input(input_value: str, expected_keys: List[str]) -> Dict[str, str]:
+def parse_crewai_json_input(input_value: str, expected_keys: list[str]) -> dict[str, str]:
     """
     Parse CrewAI JSON input and extract expected keys.
 
-    Args:
+
         input_value: The input value (could be JSON string or regular string)
         expected_keys: List of keys to extract from JSON
 
-    Returns:
-        Dictionary with extracted values for each expected key
 
-    Raises:
+    :return: Dictionary with extracted values for each expected key
+    :rtype: str  # TODO: Fix type
+
+
         ValueError: If JSON parsing fails
     """
     if isinstance(input_value, str) and input_value.startswith("{"):
@@ -39,12 +40,13 @@ def extract_single_value(input_value: Any, key: str) -> str:
     """
     Extract a single value from CrewAI input, handling various input formats.
 
-    Args:
+
         input_value: The input value (could be JSON string, dict, or other types)
         key: The key to extract
 
-    Returns:
-        Extracted value or original input_value if not found
+
+    :return: Extracted value or original input_value if not found
+    :rtype: str  # TODO: Fix type
     """
     # If it's already a string, try JSON parsing
     if isinstance(input_value, str):
@@ -73,7 +75,7 @@ def extract_single_value(input_value: Any, key: str) -> str:
                 return str(exec_ctx[key])
 
         # Recursive search in nested dictionaries
-        for k, v in input_value.items():
+        for _k, v in input_value.items():
             if isinstance(v, dict):
                 result = extract_single_value(v, key)
                 # Check if we found a meaningful result (not the original input)
@@ -88,12 +90,13 @@ def format_tool_error(message: str, error_type: str = "Error") -> str:
     """
     Format consistent error messages for tools.
 
-    Args:
+
         message: The error message
         error_type: The type of error (Error, Warning, Info, etc.)
 
-    Returns:
-        Formatted error message
+
+    :return: Formatted error message
+    :rtype: str  # TODO: Fix type
     """
     return f"❌ {error_type}: {message}"
 
@@ -102,12 +105,13 @@ def format_tool_success(message: str, success_type: str = "Success") -> str:
     """
     Format consistent success messages for tools.
 
-    Args:
+
         message: The success message
         success_type: The type of success (Success, Info, etc.)
 
-    Returns:
-        Formatted success message
+
+    :return: Formatted success message
+    :rtype: str  # TODO: Fix type
     """
     return f"✅ {success_type}: {message}"
 
@@ -116,27 +120,29 @@ def validate_required_input(value: str, field_name: str) -> str:
     """
     Validate that a required input field is not empty.
 
-    Args:
+
         value: The input value to validate
         field_name: The name of the field for error messages
 
-    Returns:
-        Error message if validation fails, empty string if valid
+
+    :return: Error message if validation fails, empty string if valid
+    :rtype: str  # TODO: Fix type
     """
     if not value or not value.strip():
         return format_tool_error(f"{field_name} is required")
     return ""
 
 
-def extract_context_from_task_description(task_description: str) -> Dict[str, str]:
+def extract_context_from_task_description(task_description: str) -> dict[str, str]:
     """
     Extract context information from CrewAI task description.
 
-    Args:
+
         task_description: The task description that may contain context information
 
-    Returns:
-        Dictionary of context key-value pairs
+
+    :return: Dictionary of context key-value pairs
+    :rtype: str  # TODO: Fix type
     """
     context = {}
 
@@ -163,12 +169,13 @@ def sanitize_input(value: str, max_length: int = 255) -> str:
     """
     Sanitize input string by removing/escaping dangerous characters and trimming to max length.
 
-    Args:
+
         value: The input string to sanitize
         max_length: Maximum allowed length for the string
 
-    Returns:
-        Sanitized string
+
+    :return: Sanitized string
+    :rtype: str  # TODO: Fix type
     """
     if not value:
         return ""

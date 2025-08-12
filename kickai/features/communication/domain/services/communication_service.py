@@ -1,4 +1,3 @@
-from typing import Optional, Set
 """
 Communication Service for handling Telegram communication operations.
 """
@@ -11,7 +10,7 @@ from kickai.features.communication.infrastructure.telegram_bot_service import Te
 class CommunicationService:
     """Service for handling communication operations including Telegram messaging."""
 
-    def __init__(self, telegram_bot_service: Optional[TelegramBotService] = None):
+    def __init__(self, telegram_bot_service: TelegramBotService | None = None):
         self.telegram_bot_service = telegram_bot_service
 
     def set_telegram_bot_service(self, telegram_bot_service: TelegramBotService):
@@ -23,13 +22,14 @@ class CommunicationService:
         """
         Send a message to a specific chat type.
 
-        Args:
+
             message: The message to send
             chat_type: The chat type ('main_chat' or 'leadership_chat')
             team_id: The team ID
 
-        Returns:
-            bool: True if message sent successfully, False otherwise
+
+    :return: bool: True if message sent successfully, False otherwise
+    :rtype: str  # TODO: Fix type
         """
         try:
             if not self.telegram_bot_service:
@@ -62,12 +62,13 @@ class CommunicationService:
         """
         Send an announcement to the main chat.
 
-        Args:
+
             announcement: The announcement message
             team_id: The team ID
 
-        Returns:
-            bool: True if announcement sent successfully, False otherwise
+
+    :return: bool: True if announcement sent successfully, False otherwise
+    :rtype: str  # TODO: Fix type
         """
         try:
             if not self.telegram_bot_service:
@@ -88,13 +89,14 @@ class CommunicationService:
         """
         Send a poll to the main chat.
 
-        Args:
+
             question: The poll question
             options: Comma-separated poll options
             team_id: The team ID
 
-        Returns:
-            bool: True if poll sent successfully, False otherwise
+
+    :return: bool: True if poll sent successfully, False otherwise
+    :rtype: str  # TODO: Fix type
         """
         try:
             if not self.telegram_bot_service:

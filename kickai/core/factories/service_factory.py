@@ -8,7 +8,7 @@ dependency injection and repository wiring.
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -40,14 +40,14 @@ class ServiceFactory:
     def __init__(
         self,
         repository_factory: RepositoryFactory,
-        config: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
         max_cache_size: int = MAX_CACHE_SIZE,
         cache_ttl: int = CACHE_TTL_SECONDS
     ):
         """
         Initialize service factory.
 
-        Args:
+
             repository_factory: Factory for creating repositories
             config: Optional configuration for services
             max_cache_size: Maximum number of services to cache
@@ -61,7 +61,7 @@ class ServiceFactory:
         # Cache: key -> (service_instance, creation_timestamp)
         self._service_cache: dict[str, tuple[Any, float]] = {}
 
-    def _get_from_cache(self, cache_key: str) -> Optional[Any]:
+    def _get_from_cache(self, cache_key: str) -> Any | None:
         """Get service from cache if valid, otherwise return None."""
         if cache_key not in self._service_cache:
             return None
@@ -124,11 +124,12 @@ class ServiceFactory:
         """
         Create player service instance.
 
-        Args:
+
             team_id: Team identifier for service scope
 
-        Returns:
-            Player service implementation
+
+    :return: Player service implementation
+    :rtype: str  # TODO: Fix type
         """
         cache_key = f"player_service_{team_id}"
 
@@ -169,11 +170,12 @@ class ServiceFactory:
         """
         Create team service instance.
 
-        Args:
+
             team_id: Team identifier for service scope
 
-        Returns:
-            Team service implementation
+
+    :return: Team service implementation
+    :rtype: str  # TODO: Fix type
         """
         cache_key = f"team_service_{team_id}"
 
@@ -214,11 +216,12 @@ class ServiceFactory:
         """
         Create user service instance.
 
-        Args:
+
             team_id: Team identifier for service scope
 
-        Returns:
-            User service implementation
+
+    :return: User service implementation
+    :rtype: str  # TODO: Fix type
         """
         cache_key = f"user_service_{team_id}"
 
@@ -253,8 +256,9 @@ class ServiceFactory:
         """
         Create validation service instance.
 
-        Returns:
-            Validation service implementation
+
+    :return: Validation service implementation
+    :rtype: str  # TODO: Fix type
         """
         cache_key = "validation_service"
 
@@ -278,11 +282,12 @@ class ServiceFactory:
         """
         Create notification service instance.
 
-        Args:
+
             team_id: Team identifier for service scope
 
-        Returns:
-            Notification service implementation
+
+    :return: Notification service implementation
+    :rtype: str  # TODO: Fix type
         """
         cache_key = f"notification_service_{team_id}"
 
@@ -314,11 +319,12 @@ class ServiceFactory:
         """
         Create analytics service instance.
 
-        Args:
+
             team_id: Team identifier for service scope
 
-        Returns:
-            Analytics service implementation
+
+    :return: Analytics service implementation
+    :rtype: str  # TODO: Fix type
         """
         cache_key = f"analytics_service_{team_id}"
 

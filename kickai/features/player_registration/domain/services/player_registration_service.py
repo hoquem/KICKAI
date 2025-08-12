@@ -1,4 +1,4 @@
-from typing import Optional
+
 #!/usr/bin/env python3
 """
 Player Registration Service
@@ -8,17 +8,17 @@ This module provides the business logic for player registration operations.
 
 from datetime import datetime
 
-from kickai.features.player_registration.domain.entities.player import Player
-from kickai.features.player_registration.domain.repositories.player_repository_interface import (
-    PlayerRepositoryInterface,
+from kickai.core.interfaces.player_repositories import (
+    IPlayerRepository,
 )
+from kickai.features.player_registration.domain.entities.player import Player
 from kickai.utils.id_generator import generate_member_id
 
 
 class PlayerRegistrationService:
     """Service for player registration operations."""
 
-    def __init__(self, player_repository: PlayerRepositoryInterface):
+    def __init__(self, player_repository: IPlayerRepository):
         self.player_repository = player_repository
 
     async def register_player(self, name: str, phone: str, position: str, team_id: str) -> Player:
@@ -103,11 +103,11 @@ class PlayerRegistrationService:
         player.reject()
         return await self.player_repository.update_player(player)
 
-    async def get_player(self, *, player_id: str, team_id: str) -> Optional[Player]:
+    async def get_player(self, *, player_id: str, team_id: str) -> Player | None:
         """Get a player by ID."""
         return await self.player_repository.get_player_by_id(player_id, team_id)
 
-    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Optional[Player]:
+    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Player | None:
         """Get a player by phone number."""
         return await self.player_repository.get_player_by_phone(phone, team_id)
 

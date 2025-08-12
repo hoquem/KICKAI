@@ -1,4 +1,3 @@
-from typing import List, Optional, Dict, Any
 """
 CrewAI Native LLM Configuration for KICKAI
 
@@ -17,11 +16,10 @@ import asyncio
 import logging
 from functools import lru_cache
 
-
 from crewai import LLM
 
-from kickai.core.enums import AgentRole, AIProvider
 from kickai.core.config import get_settings
+from kickai.core.enums import AgentRole, AIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -58,24 +56,25 @@ class LLMConfiguration:
         )
 
     def _create_llm(
-        self, 
-        temperature: float, 
+        self,
+        temperature: float,
         max_tokens: int,
         use_case: str = "default",
-        override_model: Optional[str] = None
+        override_model: str | None = None
     ) -> LLM:
         """
         Create an LLM instance using only CrewAI-supported parameters.
-        
-        Args:
+
+
             temperature: Model temperature
             max_tokens: Maximum tokens to generate
             use_case: Use case identifier for logging and monitoring
-            
-        Returns:
-            LLM: CrewAI LLM instance configured with supported parameters only
-            
-        Raises:
+
+
+    :return: LLM: CrewAI LLM instance configured with supported parameters only
+    :rtype: str  # TODO: Fix type
+
+
             ValueError: If AI provider is not supported or API key missing
         """
 
@@ -86,20 +85,13 @@ class LLMConfiguration:
             f"model={model_name}, temp={temperature}, "
             f"max_tokens={max_tokens}"
         )
-        
+
         # Base LLM configuration with CrewAI native parameters only
-        base_config = {
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            # Use only CrewAI-supported parameters
-            "timeout": self.settings.ai_timeout,
-            # Note: max_retries is handled differently per provider
-        }
-        
+
         if self.ai_provider == AIProvider.GROQ:
             if not self.groq_api_key:
                 raise ValueError("GROQ_API_KEY is required for Groq provider")
-                
+
 
             # Groq-specific configuration with only CrewAI-supported parameters
             groq_config = {
@@ -107,16 +99,16 @@ class LLMConfiguration:
                 "max_tokens": max_tokens,
                 "timeout": self.settings.ai_timeout,
             }
-            
+
             logger.info(f"Creating GROQ LLM with config: {groq_config}")
-            
+
 
             return LLM(
                 model=f"groq/{model_name}",
                 api_key=self.groq_api_key,
                 **groq_config
             )
-            
+
         elif self.ai_provider == AIProvider.OLLAMA:
             # Ollama-specific configuration
             ollama_config = {
@@ -124,48 +116,50 @@ class LLMConfiguration:
                 "max_tokens": max_tokens,
                 "timeout": self.settings.ai_timeout,
             }
-            
+
             return LLM(
                 model=f"ollama/{model_name}",
                 base_url=self.ollama_base_url,
                 **ollama_config
             )
-            
+
         elif self.ai_provider == AIProvider.GOOGLE_GEMINI:
             gemini_api_key = getattr(self.settings, 'gemini_api_key', None)
             if not gemini_api_key:
                 raise ValueError("GEMINI_API_KEY is required for Gemini provider")
-                
-            # Gemini-specific configuration
+
+            # Gemini-specific configuration with anti-formatting instructions
             gemini_config = {
                 "temperature": temperature,
                 "max_tokens": max_tokens,
                 "timeout": self.settings.ai_timeout,
+                # Add custom system instruction parameter for Gemini to prevent code formatting
+                "system_instruction": "You are a data retrieval agent, not a code assistant. Never wrap responses in code blocks or backticks. Always return raw text exactly as provided. Tool outputs are user-facing text, not code.",
             }
-                
+
             return LLM(
                 model=f"gemini/{model_name}",
                 api_key=gemini_api_key,
                 **gemini_config
             )
-            
+
         elif self.ai_provider == AIProvider.OPENAI:
             if not getattr(self.settings, 'openai_api_key', None):
                 raise ValueError("OPENAI_API_KEY is required for OpenAI provider")
-                
+
             # OpenAI-specific configuration
             openai_config = {
                 "temperature": temperature,
                 "max_tokens": max_tokens,
                 "timeout": self.settings.ai_timeout,
             }
-                
+
             return LLM(
                 model=f"openai/{model_name}",
                 api_key=self.settings.openai_api_key,
                 **openai_config
             )
-            
+
         else:
             raise ValueError(f"Unsupported AI provider: {self.ai_provider}")
 
@@ -175,8 +169,9 @@ class LLMConfiguration:
         """
         Primary LLM for complex reasoning tasks.
 
-        Returns:
-            LLM: Configured for balanced reasoning with moderate temperature
+
+    :return: LLM: Configured for balanced reasoning with moderate temperature
+    :rtype: str  # TODO: Fix type
         """
         return self._create_llm(
             temperature=self.settings.ai_temperature,
@@ -193,8 +188,9 @@ class LLMConfiguration:
 
         Uses lower temperature for precise tool calling as recommended by CrewAI.
 
-        Returns:
-            LLM: Configured for precise tool calling
+
+    :return: LLM: Configured for precise tool calling
+    :rtype: str  # TODO: Fix type
         """
         return self._create_llm(
             temperature=self.settings.ai_temperature_tools,
@@ -209,8 +205,9 @@ class LLMConfiguration:
         Higher temperature LLM for creative and analytical tasks.
 
 
-        Returns:
-            LLM: Configured for creative reasoning
+
+    :return: LLM: Configured for creative reasoning
+    :rtype: str  # TODO: Fix type
         """
         return self._create_llm(
             temperature=self.settings.ai_temperature_creative,
@@ -227,8 +224,9 @@ class LLMConfiguration:
 
         Uses very low temperature for anti-hallucination in critical operations.
 
-        Returns:
-            LLM: Configured for maximum precision
+
+    :return: LLM: Configured for maximum precision
+    :rtype: str  # TODO: Fix type
         """
         return self._create_llm(
             temperature=self.settings.ai_temperature_tools,  # Ultra-low temperature
@@ -242,11 +240,12 @@ class LLMConfiguration:
 
         Returns tuple of (main_llm, function_calling_llm) as recommended by CrewAI.
 
-        Args:
+
             agent_role: The agent role to get LLM configuration for
 
-        Returns:
-            tuple[LLM, LLM]: (main_llm, function_calling_llm)
+
+    :return: tuple[LLM, LLM]: (main_llm, function_calling_llm)
+    :rtype: str  # TODO: Fix type
         """
         # Map to simple/advanced models via env overrides
         if agent_role in [
@@ -303,8 +302,9 @@ class LLMConfiguration:
         """
         Validate LLM configuration and return any errors.
 
-        Returns:
-            list[str]: List of validation error messages (empty if valid)
+
+    :return: list[str]: List of validation error messages (empty if valid)
+    :rtype: str  # TODO: Fix type
         """
         errors = []
 
@@ -315,7 +315,7 @@ class LLMConfiguration:
 
             if not self.ollama_base_url.startswith(('http://', 'https://')):
                 errors.append(f"OLLAMA_BASE_URL must start with http:// or https://, got: {self.ollama_base_url}")
-        
+
         # Validate API keys for providers that need them
         if self.ai_provider == AIProvider.GROQ and not self.groq_api_key:
             errors.append("GROQ_API_KEY is required for Groq provider")
@@ -334,8 +334,9 @@ class LLMConfiguration:
         """
         Test connection to the configured LLM provider using CrewAI native calls.
 
-        Returns:
-            bool: True if connection successful, False otherwise
+
+    :return: bool: True if connection successful, False otherwise
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Create a test LLM using CrewAI with minimal tokens for testing
@@ -344,24 +345,24 @@ class LLMConfiguration:
                 max_tokens=10,
                 use_case="connection_test"
             )
-            
+
             # Test with a simple prompt
             test_prompt = "Hi"
-            
+
             # Use CrewAI native invocation (synchronous)
             if hasattr(test_llm, 'invoke'):
                 response = test_llm.invoke(test_prompt)
             else:
                 # Fallback for different CrewAI LLM implementations
                 response = str(test_llm)
-                
+
             if response and len(str(response).strip()) > 0:
                 logger.info(f"✅ {self.ai_provider.value} connection test successful")
                 return True
             else:
                 logger.error(f"❌ {self.ai_provider.value} connection test failed: No content in response")
                 return False
-                
+
         except Exception as e:
             logger.error(f"❌ {self.ai_provider.value} connection test failed: {e}")
             return False
@@ -370,8 +371,9 @@ class LLMConfiguration:
         """
         Test connection to the configured LLM provider asynchronously using CrewAI.
 
-        Returns:
-            bool: True if connection successful, False otherwise
+
+    :return: bool: True if connection successful, False otherwise
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Create a test LLM using CrewAI with minimal tokens for testing
@@ -380,10 +382,10 @@ class LLMConfiguration:
                 max_tokens=10,
                 use_case="async_connection_test"
             )
-            
+
             # Test with a simple prompt
             test_prompt = "Hi"
-            
+
             # Use CrewAI native async invocation if available
             if hasattr(test_llm, 'ainvoke'):
                 response = await test_llm.ainvoke(test_prompt)
@@ -392,14 +394,14 @@ class LLMConfiguration:
                 loop = asyncio.get_event_loop()
                 response = await loop.run_in_executor(None, self.test_connection)
                 return response
-                
+
             if response and len(str(response).strip()) > 0:
                 logger.info(f"✅ {self.ai_provider.value} async connection test successful")
                 return True
             else:
                 logger.error(f"❌ {self.ai_provider.value} async connection test failed: No content in response")
                 return False
-                
+
         except Exception as e:
             logger.error(f"❌ {self.ai_provider.value} async connection test failed: {e}")
             return False
@@ -411,23 +413,25 @@ class LLMConfiguration:
         Note: This is a placeholder. LiteLLM does not have a direct API to list models.
         You would typically query the provider's API directly or maintain a local list.
 
-        Returns:
-            List[str]: List of available model names (placeholder)
+
+    :return: List[str]: List of available model names (placeholder)
+    :rtype: str  # TODO: Fix type
         """
         logger.warning("Listing available models is not directly supported via LiteLLM for all providers.")
         return [self.default_model] # Return configured model as a placeholder
 
 
 # Global instance - single source of truth
-_llm_config: Optional[LLMConfiguration] = None
+_llm_config: LLMConfiguration | None = None
 
 
 def get_llm_config() -> LLMConfiguration:
     """
     Get the global LLM configuration instance.
 
-    Returns:
-        LLMConfiguration: The singleton LLM configuration instance
+
+    :return: LLMConfiguration: The singleton LLM configuration instance
+    :rtype: str  # TODO: Fix type
     """
     global _llm_config
     if _llm_config is None:
@@ -439,10 +443,11 @@ def initialize_llm_config() -> LLMConfiguration:
     """
     Initialize and validate LLM configuration.
 
-    Returns:
-        LLMConfiguration: Initialized and validated configuration
 
-    Raises:
+    :return: LLMConfiguration: Initialized and validated configuration
+    :rtype: str  # TODO: Fix type
+
+
         ValueError: If configuration is invalid
     """
     global _llm_config

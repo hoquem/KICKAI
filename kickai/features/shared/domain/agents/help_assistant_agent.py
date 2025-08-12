@@ -35,9 +35,9 @@ class HelpAssistantAgent:
         return Agent(
             role=AgentRole.HELP_ASSISTANT.value,
             goal="Provide comprehensive help and guidance to users by understanding their context and showing relevant commands",
-            backstory="""You are an expert help assistant for the KICKAI football team management system. 
-            You understand the different chat types (main chat vs leadership chat) and can provide 
-            contextually appropriate help and command information. You always use the FINAL_HELP_RESPONSE 
+            backstory="""You are an expert help assistant for the KICKAI football team management system.
+            You understand the different chat types (main chat vs leadership chat) and can provide
+            contextually appropriate help and command information. You always use the FINAL_HELP_RESPONSE
             tool to generate complete, formatted help responses.""",
             verbose=True,  # Enable verbose mode for debugging
             allow_delegation=False,
@@ -50,7 +50,7 @@ class HelpAssistantAgent:
         """
         Process a help request using the help assistant agent.
 
-        Args:
+
             context: Dictionary containing:
                 - chat_type: Chat type (string or enum)
                 - user_id: User ID
@@ -58,8 +58,9 @@ class HelpAssistantAgent:
                 - username: Username (optional)
                 - message_text: Original message (optional)
 
-        Returns:
-            Formatted help response string
+
+    :return: Formatted help response string
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Create the agent

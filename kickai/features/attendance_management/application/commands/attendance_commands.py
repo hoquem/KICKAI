@@ -2,118 +2,84 @@
 """
 Attendance Management Commands
 
-This module registers all attendance management related commands with the command registry.
-Each feature maintains its own command definitions for clean separation.
+This module handles non-match specific attendance tracking like training sessions,
+events, and general RSVP functionality. Match-specific attendance is handled
+by the match_management feature.
 """
+
 
 from kickai.core.command_registry import CommandType, PermissionLevel, command
 from kickai.core.enums import ChatType
-from typing import List, Optional
 
 # ============================================================================
-# ATTENDANCE MANAGEMENT COMMANDS
+# NON-MATCH ATTENDANCE COMMANDS
 # ============================================================================
 
 
 @command(
-    name="/markattendance",
-    description="Mark attendance for a match",
+    name="/rsvp",
+    description="RSVP for team events and training sessions",
     command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.PLAYER,
     chat_type=ChatType.MAIN,
     feature="attendance_management",
-    examples=["/markattendance", "/markattendance yes", "/markattendance no"],
-    parameters={"status": "Attendance status (yes, no, maybe)"},
+    examples=["/rsvp", "/rsvp yes", "/rsvp no"],
+    parameters={"status": "RSVP status (yes, no, maybe)"},
     help_text="""
-✅ Mark Attendance
+✅ RSVP for Events
 
-Mark your attendance for an upcoming match.
+RSVP for team events, training sessions, and social activities.
 
 Usage:
-• /markattendance - Start attendance marking process
-• /markattendance yes - Confirm attendance
-• /markattendance no - Decline attendance
-• /markattendance maybe - Mark as tentative
+• /rsvp - Start RSVP process for upcoming events
+• /rsvp yes - Confirm attendance
+• /rsvp no - Decline attendance
+• /rsvp maybe - Mark as tentative
 
 What happens:
-1. Your attendance is recorded
-2. Team leadership is notified
-3. Squad selection is updated
-4. You receive confirmation
+1. Your RSVP is recorded for the event
+2. Event organizers are notified
+3. You receive confirmation
 
-💡 Tip: Mark attendance early to help with squad planning.
+💡 Note: For match attendance, use /markattendance in match management.
     """,
 )
-async def handle_markattendance_command(update, context, **kwargs):
-    """Handle /markattendance command."""
+async def handle_rsvp_command(update, context, **kwargs):
+    """Handle /rsvp command."""
     # This will be handled by the agent system
     return None
 
 
 @command(
-    name="/attendance",
-    description="View attendance for matches",
+    name="/events",
+    description="View upcoming team events and training",
     command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.PLAYER,
     chat_type=ChatType.MAIN,
     feature="attendance_management",
-    examples=["/attendance", "/attendance MATCH123"],
-    parameters={"match_id": "Optional match ID for specific match"},
+    examples=["/events", "/events training"],
+    parameters={"type": "Optional event type filter (training, social, etc.)"},
     help_text="""
-📊 View Attendance
+📅 View Team Events
 
-View attendance information for matches.
+View upcoming team events, training sessions, and activities.
 
 Usage:
-• /attendance - Show attendance for next match
-• /attendance MATCH123 - Show attendance for specific match
+• /events - Show all upcoming events
+• /events training - Show only training sessions
+• /events social - Show only social events
 
 What you'll see:
-• Match details
-• Number of confirmed attendees
-• Number of declines
-• Number of tentative responses
-• List of players and their status
+• Event details and dates
+• Location information
+• RSVP status and counts
+• Your current RSVP status
 
-💡 Tip: Use this to check team availability for matches.
+💡 Note: For matches, use /listmatches in match management.
     """,
 )
-async def handle_attendance_command(update, context, **kwargs):
-    """Handle /attendance command."""
-    # This will be handled by the agent system
-    return None
-
-
-@command(
-    name="/attendancehistory",
-    description="View your attendance history",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.PLAYER,
-    chat_type=ChatType.MAIN,
-    feature="attendance_management",
-    examples=["/attendancehistory", "/attendancehistory 2024"],
-    parameters={"year": "Optional year to filter (e.g., 2024)"},
-    help_text="""
-📈 Attendance History
-
-View your personal attendance history and statistics.
-
-Usage:
-• /attendancehistory - Show all your attendance history
-• /attendancehistory 2024 - Show history for specific year
-
-What you'll see:
-• List of matches you attended
-• List of matches you missed
-• Attendance percentage
-• Performance trends
-• Season statistics
-
-💡 Tip: Track your attendance to improve team reliability.
-    """,
-)
-async def handle_attendancehistory_command(update, context, **kwargs):
-    """Handle /attendancehistory command."""
+async def handle_events_command(update, context, **kwargs):
+    """Handle /events command."""
     # This will be handled by the agent system
     return None
 

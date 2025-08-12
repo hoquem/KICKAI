@@ -31,11 +31,12 @@ class TelegramAdminCheck(BaseCheck):
         """
         Execute the Telegram admin permission validation.
 
-        Args:
+
             context: Context containing bot configuration and services
 
-        Returns:
-            CheckResult with validation status
+
+    :return: CheckResult with validation status
+    :rtype: str  # TODO: Fix type
         """
         try:
             logger.info("🔍 Validating Telegram bot admin permissions...")
@@ -122,7 +123,7 @@ class TelegramAdminCheck(BaseCheck):
     async def _check_privacy_mode(self, bot: Bot) -> bool:
         """Check if bot privacy mode allows reading all group messages."""
         try:
-            bot_info = await bot.get_me()
+            await bot.get_me()
             # Note: can_read_all_group_messages is not directly accessible via API
             # We'll assume it's properly configured if bot is admin
             logger.info("🔒 Privacy mode check: Assuming properly configured for admin bots")

@@ -10,10 +10,10 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
-from kickai.core.enums import AIProvider
 from kickai.core.config import get_settings
+from kickai.core.enums import AIProvider
 from kickai.utils.llm_factory import LLMConfig, LLMFactory, LLMProviderError
 
 logger = logging.getLogger(__name__)
@@ -25,12 +25,12 @@ class ProviderConfig:
 
     provider: AIProvider
     model_name: str
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
+    api_key: str | None = None
+    base_url: str | None = None
     temperature: float = 0.7
     timeout_seconds: int = 30
     max_retries: int = 3
-    additional_params: Optional[Dict[str, Any]] = None
+    additional_params: dict[str, Any] | None = None
 
     def __post_init__(self):
         """Validate configuration."""
@@ -69,7 +69,7 @@ class BaseLLMProvider(ABC):
         """Check if the provider is available."""
         pass
 
-    def get_health_status(self) -> Dict[str, Any]:
+    def get_health_status(self) -> dict[str, Any]:
         """Get provider health status."""
         return {
             "provider": self.config.provider.value,
@@ -239,7 +239,7 @@ class LLMProviderFactory:
     different LLM providers with proper configuration and error handling.
     """
 
-    _providers: Dict[AIProvider, type[BaseLLMProvider]] = {
+    _providers: dict[AIProvider, type[BaseLLMProvider]] = {
         AIProvider.OLLAMA: OllamaProvider,
         AIProvider.GEMINI: GeminiProvider,
         AIProvider.HUGGINGFACE: HuggingFaceProvider,
@@ -265,13 +265,14 @@ class LLMProviderFactory:
         """
         Create an LLM provider instance.
 
-        Args:
+
             config: Provider configuration
 
-        Returns:
-            Configured LLM provider instance
 
-        Raises:
+    :return: Configured LLM provider instance
+    :rtype: str  # TODO: Fix type
+
+
             LLMProviderError: If provider creation fails
         """
         logger.info(f"Creating LLM provider: {config.provider.value}, model: {config.model_name}")
@@ -280,15 +281,16 @@ class LLMProviderFactory:
         return provider_class(config)
 
     @classmethod
-    def create_from_settings(cls, provider: Optional[AIProvider] = None) -> BaseLLMProvider:
+    def create_from_settings(cls, provider: AIProvider | None = None) -> BaseLLMProvider:
         """
         Create an LLM provider from application settings.
 
-        Args:
+
             provider: Optional provider override
 
-        Returns:
-            Configured LLM provider instance
+
+    :return: Configured LLM provider instance
+    :rtype: str  # TODO: Fix type
         """
         settings = get_settings()
 
@@ -325,15 +327,16 @@ class LLMProviderFactory:
         return cls.create_provider(config)
 
     @classmethod
-    def create_from_environment(cls, provider: Optional[AIProvider] = None) -> BaseLLMProvider:
+    def create_from_environment(cls, provider: AIProvider | None = None) -> BaseLLMProvider:
         """
         Create an LLM provider from environment variables.
 
-        Args:
+
             provider: Optional provider override
 
-        Returns:
-            Configured LLM provider instance
+
+    :return: Configured LLM provider instance
+    :rtype: str  # TODO: Fix type
         """
         # Get provider from environment or use default (force Groq as safe default)
         if provider is None:
@@ -381,12 +384,12 @@ class LLMProviderFactory:
         return cls.create_provider(config)
 
     @classmethod
-    def get_supported_providers(cls) -> List[str]:
+    def get_supported_providers(cls) -> list[str]:
         """Get list of supported AI providers."""
         return [provider.value for provider in cls._providers.keys()]
 
     @classmethod
-    def get_provider_health_status(cls) -> Dict[str, Dict[str, Any]]:
+    def get_provider_health_status(cls) -> dict[str, dict[str, Any]]:
         """Get health status for all providers."""
         health_status = {}
 
@@ -418,7 +421,7 @@ def create_llm_provider(config: ProviderConfig) -> BaseLLMProvider:
     return LLMProviderFactory.create_provider(config)
 
 
-def create_llm_provider_from_settings(provider: Optional[AIProvider] = None) -> BaseLLMProvider:
+def create_llm_provider_from_settings(provider: AIProvider | None = None) -> BaseLLMProvider:
     """Create an LLM provider from application settings."""
     return LLMProviderFactory.create_from_settings(provider)
 
@@ -426,6 +429,6 @@ def create_llm_provider_from_settings(provider: Optional[AIProvider] = None) -> 
 
 
 
-def get_provider_health_status() -> Dict[str, Dict[str, Any]]:
+def get_provider_health_status() -> dict[str, dict[str, Any]]:
     """Get health status for all available providers."""
     return LLMProviderFactory.get_provider_health_status()

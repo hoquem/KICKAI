@@ -1,4 +1,3 @@
-from typing import Optional
 import logging
 from datetime import time
 
@@ -27,9 +26,9 @@ class AttendanceService:
         match_id: str,
         player_id: str,
         status: AttendanceStatus,
-        reason: Optional[str] = None,
+        reason: str | None = None,
         recorded_by: str = "",
-        arrival_time: Optional[time] = None,
+        arrival_time: time | None = None,
     ) -> MatchAttendance:
         """Record actual attendance for a player at a match."""
         try:

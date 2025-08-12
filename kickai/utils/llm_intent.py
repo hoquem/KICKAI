@@ -6,21 +6,22 @@ in the KICKAI system.
 """
 
 import re
-from typing import Any, Dict, Union
+from typing import Any
 
 from loguru import logger
 
 
-def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
+def extract_intent(message: str, context: str = "") -> dict[str, Any]:
     """
     Extract intent and entities from a natural language message.
 
-    Args:
+
         message: The input message to analyze
         context: Additional context about the conversation
 
-    Returns:
-        Dictionary containing 'intent' and 'entities' keys
+
+    :return: Dictionary containing 'intent' and 'entities' keys
+    :rtype: str  # TODO: Fix type
     """
     try:
         # Convert to lowercase for easier matching
@@ -83,16 +84,17 @@ def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
         return {"intent": "unknown", "entities": {}, "confidence": 0.0}
 
 
-def extract_entities(message: str, intent: str) -> Dict[str, Any]:
+def extract_entities(message: str, intent: str) -> dict[str, Any]:
     """
     Extract entities from the message based on the detected intent.
 
-    Args:
+
         message: The input message
         intent: The detected intent
 
-    Returns:
-        Dictionary of extracted entities
+
+    :return: Dictionary of extracted entities
+    :rtype: str  # TODO: Fix type
     """
     entities = {}
 
@@ -149,16 +151,17 @@ def extract_entities(message: str, intent: str) -> Dict[str, Any]:
     return entities
 
 
-def extract_intent_sync(message: str, context: str = "") -> Dict[str, Any]:
+def extract_intent_sync(message: str, context: str = "") -> dict[str, Any]:
     """
     Synchronous version of extract_intent for backward compatibility.
 
-    Args:
+
         message: The input message to analyze
         context: Additional context about the conversation
 
-    Returns:
-        Dictionary containing 'intent' and 'entities' keys
+
+    :return: Dictionary containing 'intent' and 'entities' keys
+    :rtype: str  # TODO: Fix type
     """
     return extract_intent(message, context)
 
@@ -166,20 +169,21 @@ def extract_intent_sync(message: str, context: str = "") -> Dict[str, Any]:
 class LLMIntent:
     """LLM-based intent extraction using CrewAI agents."""
 
-    def __init__(self, team_id: str = None):
+    def __init__(self, team_id: str | None = None):
         self.team_id = team_id
         logger.info(f"🤖 LLMIntent initialized for team: {team_id}")
 
-    async def extract_intent(self, message: str, context: str = "") -> Dict[str, Any]:
+    async def extract_intent(self, message: str, context: str = "") -> dict[str, Any]:
         """
         Extract intent using LLM-based approach.
 
-        Args:
+
             message: The input message to analyze
             context: Additional context about the conversation
 
-        Returns:
-            Dictionary containing 'intent' and 'entities' keys
+
+    :return: Dictionary containing 'intent' and 'entities' keys
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Use the existing regex-based intent extraction as fallback

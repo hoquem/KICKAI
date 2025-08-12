@@ -111,7 +111,7 @@ class EnhancedRegistryCheck(BaseCheck):
                 issues.append(f"Commands with incomplete metadata: {incomplete_commands}")
 
             # Check for feature coverage
-            features = set(cmd.feature for cmd in commands)
+            features = {cmd.feature for cmd in commands}
             expected_features = [
                 "player_registration", "team_administration", "match_management",
                 "communication", "helper_system"
@@ -329,8 +329,8 @@ class EnhancedRegistryCheck(BaseCheck):
             for module_a, module_b in problematic_imports:
                 try:
                     # Check if both modules import each other
-                    mod_a = importlib.import_module(module_a)
-                    mod_b = importlib.import_module(module_b)
+                    importlib.import_module(module_a)
+                    importlib.import_module(module_b)
 
                     # This is a simplified check - in reality you'd analyze the AST
                     # or use more sophisticated dependency analysis

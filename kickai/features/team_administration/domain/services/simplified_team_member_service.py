@@ -1,4 +1,3 @@
-from typing import Dict, Optional, Tuple
 #!/usr/bin/env python3
 """
 Simplified Team Member Service
@@ -12,11 +11,11 @@ from datetime import datetime
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
+from kickai.core.interfaces.team_repositories import (
+    ITeamRepository,
+)
 from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
 from kickai.features.team_administration.domain.entities.team_member import TeamMember
-from kickai.features.team_administration.domain.repositories.team_repository_interface import (
-    TeamRepositoryInterface,
-)
 from kickai.features.team_administration.domain.services.team_service import TeamService
 from kickai.utils.constants import (
     DEFAULT_MEMBER_ROLE,
@@ -30,24 +29,25 @@ from kickai.utils.simple_id_generator import generate_simple_team_member_id
 class SimplifiedTeamMemberService:
     """Simplified service for team member management."""
 
-    def __init__(self, team_repository: TeamRepositoryInterface):
+    def __init__(self, team_repository: ITeamRepository):
         self.team_repository = team_repository
         self.logger = logger
 
     async def add_team_member(
-        self, name: str, phone: str, role: str = None, team_id: str = None
-    ) -> Tuple[bool, str]:
+        self, name: str, phone: str, role: str | None = None, team_id: str | None = None
+    ) -> tuple[bool, str]:
         """
         Add a new team member with simplified ID generation.
 
-        Args:
+
             name: Team member's full name
             phone: Team member's phone number
             role: Team member's role (optional, can be set later)
             team_id: Team ID
 
-        Returns:
-            Tuple of (success, message)
+
+    :return: Tuple of (success, message)
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Check if team member already exists
@@ -57,7 +57,7 @@ class SimplifiedTeamMemberService:
 
             # Get existing team member IDs for collision detection
             existing_members = await self.team_repository.get_team_members_by_team(team_id)
-            existing_ids = {member.user_id for member in existing_members if member.user_id}
+            existing_ids = {member.member_id for member in existing_members if member.member_id}
 
             # Generate simple team member ID
             member_id = generate_simple_team_member_id(name, team_id, existing_ids)
@@ -82,7 +82,7 @@ class SimplifiedTeamMemberService:
             logger.error(f"Error adding team member {name}: {e}")
             return False, f"❌ Failed to add team member: {e!s}"
 
-    async def get_team_member_by_phone(self, phone: str, team_id: str) -> Optional[TeamMember]:
+    async def get_team_member_by_phone(self, phone: str, team_id: str) -> TeamMember | None:
         """Get team member by phone number using phonenumbers library for flexible matching."""
         try:
             # Use phonenumbers library for proper phone matching
@@ -139,14 +139,15 @@ class SimplifiedTeamMemberService:
         """
         Create an invite link for a team member to join the leadership chat.
 
-        Args:
+
             name: Team member's name
             phone: Team member's phone number
             role: Team member's role
             team_id: Team ID
 
-        Returns:
-            Dict containing invite link details
+
+    :return: Dict containing invite link details
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Get team configuration

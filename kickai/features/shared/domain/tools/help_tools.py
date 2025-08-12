@@ -1,374 +1,442 @@
 #!/usr/bin/env python3
 """
-Help Tools - CrewAI Native Implementation
+Help Tools
 
-This module provides tools for help and command information using CrewAI's
-native parameter passing mechanism. Tools receive parameters directly via
-function signatures following CrewAI best practices.
+This module provides tools for help and command information.
 """
 
-import os
-from typing import Dict, List
-
+from crewai.tools import tool
 from loguru import logger
 
-# Import constants and enums properly
-from kickai.core.enums import ChatType as ChatTypeEnum, PermissionLevel
-import kickai.core.constants as constants_module
-from kickai.utils.crewai_tool_decorator import tool
-from kickai.utils.tool_helpers import (
-    extract_single_value,
-    format_tool_error,
-    validate_required_input,
-)
+from kickai.core.dependency_container import get_container
+from kickai.core.enums import PermissionLevel
+from kickai.features.shared.domain.services.help_service import HelpService
 
 
 @tool("FINAL_HELP_RESPONSE")
-def final_help_response(
-    chat_type: str,
-    telegram_id: str, 
-    team_id: str,
-    username: str
-) -> str:
+def final_help_response(telegram_id: int, team_id: str, chat_type: str) -> str:
     """
-    Generate a comprehensive help response for users based on their chat type and context.
+    Generate dynamic help response based on available commands for the user's context.
 
-    This tool should be used when users ask for help, show commands, or need guidance.
-    The response should be tailored to the specific chat type (main chat vs leadership chat)
-    and include all relevant commands with descriptions.
+    This tool dynamically discovers and presents commands available to the user
+    based on their chat type, role permissions, and team context.
 
-    Args:
-        chat_type: Chat type (main/leadership)
-        telegram_id: User's Telegram ID
-        team_id: Team ID 
-        username: User's username
 
-    Returns:
-        Formatted help response string
+        telegram_id (int): Telegram ID of the user making the request
+        team_id (str): Team identifier for context and data isolation
+        chat_type (str): Chat context (main, leadership, private) - determines command visibility
+
+
+    :return: str: Dynamically generated help content with available commands, descriptions, and usage examples
+    :rtype: str  # TODO: Fix type
     """
+    # Native CrewAI pattern - parameter validation
+    if not isinstance(telegram_id, int) or telegram_id <= 0:
+        return "❌ Valid Telegram ID is required to get help information."
+
+    if not team_id or team_id.strip() == "":
+        return "❌ Team ID is required to get help information."
+
+    if not chat_type or chat_type.strip() == "":
+        return "❌ Chat type is required to get help information."
+
     try:
-        # Validate required parameters
-        if not all([chat_type, telegram_id, team_id, username]):
-            return "❌ Error: Missing required parameters for help generation"
+        # Get service using simple container access
+        container = get_container()
+        help_service = container.get_service(HelpService)
 
-        logger.info(
-            f"🔧 [TOOL DEBUG] Generating help for chat_type: {chat_type}, user: {telegram_id}, team: {team_id}, username: {username}"
-        )
+        if not help_service:
+            return "❌ Help service is temporarily unavailable. Please try again later."
 
-        # Normalize chat type to enum
-        chat_type_enum = constants_module.normalize_chat_type(chat_type)
+        # Get available commands for this context
+        commands = help_service.get_available_commands_sync(team_id.strip(), chat_type.strip())
 
-        # Get commands from the command registry instead of constants
-        try:
-            from kickai.core.command_registry_initializer import get_initialized_command_registry
+        if not commands:
+            return f"📋 HELP INFORMATION (Team: {team_id})\n\nNo commands available for {chat_type} chat. Please check with your team administrator."
 
-            registry = get_initialized_command_registry()
+        # Filter commands based on chat type and appropriate permissions
+        filtered_commands = []
+        for cmd in commands:
+            permission = cmd.get('permission_level', PermissionLevel.PUBLIC.value)
+            
+            if chat_type.lower() == 'main':
+                # Main chat: Show PUBLIC and PLAYER commands, but not LEADERSHIP/ADMIN commands
+                if permission in [PermissionLevel.PUBLIC.value, PermissionLevel.PLAYER.value]:
+                    filtered_commands.append(cmd)
+            elif chat_type.lower() == 'leadership':
+                # Leadership chat: Show all commands (PUBLIC, PLAYER, LEADERSHIP, ADMIN)
+                filtered_commands.append(cmd)
+            else:
+                # Private chat: Show PUBLIC and basic PLAYER commands
+                if permission in [PermissionLevel.PUBLIC.value, PermissionLevel.PLAYER.value]:
+                    filtered_commands.append(cmd)
+        
+        commands = filtered_commands
 
-            # Get commands available for this chat type from the registry
-            commands = []
-            for cmd_name, cmd_metadata in registry._commands.items():
-                # Check if command is available for this chat type
-                if hasattr(cmd_metadata, "chat_type") and cmd_metadata.chat_type == chat_type_enum:
-                    commands.append(cmd_metadata)
-                elif hasattr(cmd_metadata, "feature"):
-                    # Fallback: check if command should be available based on feature
-                    if cmd_metadata.feature in ["shared"]:
-                        commands.append(cmd_metadata)
+        # Generate dynamic help content
+        chat_title = {
+            'main': 'Main Chat Commands',
+            'leadership': 'Leadership Commands',
+            'private': 'Private Chat Commands'
+        }.get(chat_type.lower(), f'{chat_type.title()} Commands')
 
-            logger.info(
-                f"🔧 [TOOL DEBUG] Found {len(commands)} commands for {chat_type_enum.value}"
-            )
+        result = f"📋 {chat_title.upper()} (Team: {team_id})\n\n"
 
-            # Format the help message
-            help_message = _format_help_message(chat_type_enum, commands, username)
+        # Group commands by feature for better organization
+        features = {}
+        for cmd in commands:
+            feature = cmd.get('feature', 'general').replace('_', ' ').title()
+            if feature not in features:
+                features[feature] = []
+            features[feature].append(cmd)
 
-            logger.info(f"✅ [TOOL DEBUG] Generated help message for {username}")
-            return help_message
+        # Display commands grouped by feature
+        for feature, feature_commands in sorted(features.items()):
+            if len(features) > 1:  # Only show feature headers if multiple features
+                result += f"{feature.upper()}:\n"
 
-        except Exception as e:
-            logger.error(f"❌ [TOOL DEBUG] Error getting command registry: {e}")
-            return f"❌ Error: Failed to retrieve command information: {e}"
+            for cmd in sorted(feature_commands, key=lambda x: x['name']):
+                name = cmd['name']
+                desc = cmd['description']
+                permission = cmd.get('permission_level', PermissionLevel.PUBLIC.value)
+
+                # Add permission indicator for restricted commands
+                permission_icon = ""
+                if permission in [PermissionLevel.LEADERSHIP.value, PermissionLevel.ADMIN.value]:
+                    permission_icon = " 👑"
+                elif permission == PermissionLevel.PLAYER.value:
+                    permission_icon = " ⚽"
+
+                result += f"• {name}{permission_icon} - {desc}\n"
+
+            result += "\n"
+
+        # Add helpful footer
+        result += "💡 USAGE TIPS:\n"
+        result += "• Use /help [command] for detailed information about specific commands\n"
+        result += "• Commands marked with 👑 require leadership privileges\n"
+        result += "• Commands marked with ⚽ are for registered players\n\n"
+        result += "🤖 KICKAI - Your AI-powered team management assistant"
+
+        return result
 
     except Exception as e:
-        logger.error(f"❌ [TOOL DEBUG] Error in FINAL_HELP_RESPONSE: {e}")
-        return f"❌ Error: Failed to generate help response: {e}"
-
-
-def _format_help_message(chat_type: ChatTypeEnum, commands: list, username: str) -> str:
-    """Format the help message with commands organized by category."""
-    try:
-        # Get chat type display name
-        chat_display_name = constants_module.get_chat_type_display_name(chat_type)
-
-        # Start building the message
-        message_parts = [
-            "🤖 KICKAI Help System",
-            f"Your Context: {chat_display_name.upper()} (User: {username})",
-            f"📋 Available Commands for {chat_display_name}:",
-            "",
-        ]
-
-        # Group commands by feature/category
-        command_categories = _group_commands_by_category(commands)
-
-        # Add each category
-        for category, category_commands in command_categories.items():
-            if category_commands:
-                message_parts.append(f"{category}:")
-                for cmd in category_commands:
-                    message_parts.append(f"• {cmd.name} - {cmd.description}")
-                message_parts.append("")
-
-        # Add footer
-        message_parts.extend(
-            [
-                "💡 Use /help [command] for detailed help on any command.",
-                "---",
-                "💡 Need more help?",
-                "• Type /help [command] for detailed help",
-                "• Contact team admin for support",
-            ]
-        )
-
-        return "\n".join(message_parts)
-
-    except Exception as e:
-        logger.error(f"Error formatting help message: {e}", exc_info=True)
-        return f"❌ Error formatting help message: {e!s}"
-
-
-def _group_commands_by_category(commands: list) -> Dict[str, list]:
-    """Group commands by their feature/category."""
-    categories = {
-        "Player Commands": [],
-        "Leadership Commands": [],
-        "Match Management": [],
-        "Payments": [],
-        "Communication": [],
-        "Team Administration": [],
-        "System": [],
-    }
-
-    # Map features to display categories
-    feature_to_category = {
-        "player_registration": "Player Commands",
-        "match_management": "Match Management",
-        "attendance_management": "Team Administration",  # Move attendance commands to Team Administration
-        "communication": "Communication",
-        "team_administration": "Team Administration",
-        "system_infrastructure": "System",
-        "shared": "System",
-    }
-
-    for cmd in commands:
-        # Special handling for /update and /list commands - move to Team Administration
-        if cmd.name in ["/update", "/list"]:
-            category = "Team Administration"
-        else:
-            category = feature_to_category.get(cmd.feature, "System")
-        categories[category].append(cmd)
-
-    # Remove empty categories
-    return {k: v for k, v in categories.items() if v}
-
+        logger.error(f"Error generating dynamic help response: {e}")
+        return f"📋 HELP INFORMATION (Team: {team_id})\n\nHelp system encountered an error. Please try again later or contact support."
 
 @tool("get_available_commands")
-def get_available_commands(chat_type: str) -> str:
+def get_available_commands(telegram_id: int, team_id: str, chat_type: str) -> str:
     """
-    Get all available commands for the current chat type.
+    Get available commands for the current context with detailed information.
 
-    Args:
-        chat_type: Chat type (main/leadership/private)
 
-    Returns:
-        List of available commands with descriptions
+        telegram_id (int): Telegram ID of the user making the request
+        team_id (str): Team identifier for context and data isolation
+        chat_type (str): Chat context (main, leadership, private) - determines command visibility
+
+
+    :return: Comprehensive list of available commands with descriptions, permissions, and examples
+    :rtype: str  # TODO: Fix type
     """
+    # Native CrewAI pattern - parameter validation
+    if not isinstance(telegram_id, int) or telegram_id <= 0:
+        return "❌ Valid Telegram ID is required to get available commands."
+
+    if not team_id or team_id.strip() == "":
+        return "❌ Team ID is required to get available commands."
+
+    if not chat_type or chat_type.strip() == "":
+        return "❌ Chat type is required to get available commands."
+
     try:
-        # Normalize chat type
-        chat_type_enum = constants_module.normalize_chat_type(chat_type)
+        # Get service using simple container access
+        container = get_container()
+        help_service = container.get_service(HelpService)
 
-        from kickai.core.command_registry_initializer import get_initialized_command_registry
-        registry = get_initialized_command_registry()
-        commands = registry.get_commands_by_chat_type(chat_type_enum.value)
+        if not help_service:
+            return "❌ Help service is temporarily unavailable. Please try again later."
 
-        # Format response
+        # Get available commands with full details
+        commands = help_service.get_available_commands_sync(team_id.strip(), chat_type.strip())
+
         if not commands:
-            return f"No commands available for chat type: {chat_type}"
+            return f"📋 AVAILABLE COMMANDS (Team: {team_id})\n\nNo commands available for {chat_type} chat context."
 
-        response_parts = [f"Available commands for {constants_module.get_chat_type_display_name(chat_type_enum)}:"]
-
+        # Filter commands based on chat type and appropriate permissions
+        filtered_commands = []
         for cmd in commands:
-            response_parts.append(f"• {cmd.name} - {cmd.description}")
+            permission = cmd.get('permission_level', PermissionLevel.PUBLIC.value)
+            
+            if chat_type.lower() == 'main':
+                # Main chat: Show PUBLIC and PLAYER commands, but not LEADERSHIP/ADMIN commands
+                if permission in [PermissionLevel.PUBLIC.value, PermissionLevel.PLAYER.value]:
+                    filtered_commands.append(cmd)
+            elif chat_type.lower() == 'leadership':
+                # Leadership chat: Show all commands (PUBLIC, PLAYER, LEADERSHIP, ADMIN)
+                filtered_commands.append(cmd)
+            else:
+                # Private chat: Show PUBLIC and basic PLAYER commands
+                if permission in [PermissionLevel.PUBLIC.value, PermissionLevel.PLAYER.value]:
+                    filtered_commands.append(cmd)
+        
+        commands = filtered_commands
 
-        return "\n".join(response_parts)
+        # Format comprehensive command list
+        result = f"📋 AVAILABLE COMMANDS FOR {chat_type.upper()} CHAT (Team: {team_id})\n\n"
+
+        # Group by permission level for clarity
+        permission_groups = {
+            PermissionLevel.PUBLIC.value: {'title': '🌍 PUBLIC COMMANDS', 'commands': []},
+            PermissionLevel.PLAYER.value: {'title': '⚽ PLAYER COMMANDS', 'commands': []},
+            PermissionLevel.LEADERSHIP.value: {'title': '👑 LEADERSHIP COMMANDS', 'commands': []},
+            PermissionLevel.ADMIN.value: {'title': '🔧 ADMIN COMMANDS', 'commands': []},
+            PermissionLevel.SYSTEM.value: {'title': '⚙️ SYSTEM COMMANDS', 'commands': []}
+        }
+
+        # Categorize commands by permission
+        for cmd in commands:
+            perm = cmd.get('permission_level', PermissionLevel.PUBLIC.value)
+            if perm in permission_groups:
+                permission_groups[perm]['commands'].append(cmd)
+
+        # Display each permission group
+        for _perm_level, group_info in permission_groups.items():
+            if group_info['commands']:
+                result += f"{group_info['title']}\n"
+                for cmd in sorted(group_info['commands'], key=lambda x: x['name']):
+                    name = cmd['name']
+                    desc = cmd['description']
+                    feature = cmd.get('feature', 'general').replace('_', ' ').title()
+
+                    result += f"• {name} - {desc}\n"
+                    result += f"  📁 Feature: {feature}\n"
+
+                    # Add examples if available
+                    if cmd.get('examples'):
+                        examples = cmd['examples'][:2]  # Show max 2 examples
+                        result += f"  💡 Examples: {', '.join(examples)}\n"
+
+                    result += "\n"
+
+                result += "\n"
+
+        # Add usage instructions
+        result += "📖 USAGE INSTRUCTIONS:\n"
+        result += "• Type any command directly (e.g., /help)\n"
+        result += "• Use /help [command] for detailed help on specific commands\n"
+        result += "• Commands are filtered based on your role and current chat type\n\n"
+        result += f"📊 TOTAL AVAILABLE: {len(commands)} commands for your current context"
+
+        return result
 
     except Exception as e:
-        logger.error(f"Error getting available commands: {e}", exc_info=True)
-        return format_tool_error(f"Error getting commands: {e!s}")
-
+        logger.error(f"Failed to get available commands: {e}")
+        return f"❌ Failed to get available commands: {e!s}"
 
 @tool("get_command_help")
-def get_command_help(command_name: str, chat_type: str) -> str:
+def get_command_help(telegram_id: int, team_id: str, chat_type: str, command_name: str) -> str:
     """
-    Get detailed help for a specific command.
+    Get comprehensive help for a specific command with usage examples and parameter details.
 
-    Args:
-        command_name: Name of the command (with or without /)
-        chat_type: Chat type context for command availability
 
-    Returns:
-        Detailed help message for the command
+        telegram_id (int): Telegram ID of the user making the request
+        team_id (str): Team identifier for context and data isolation
+        chat_type (str): Chat context (main, leadership, private) - used for permission checking
+        command_name (str): Name of the command to get help for (with or without slash)
+
+
+    :return: Detailed help information including usage, examples, parameters, and permission requirements
+    :rtype: str  # TODO: Fix type
     """
+    # Native CrewAI pattern - parameter validation
+    if not isinstance(telegram_id, int) or telegram_id <= 0:
+        return "❌ Valid Telegram ID is required to get command help."
+
+    if not team_id or team_id.strip() == "":
+        return "❌ Team ID is required to get command help."
+
+    if not chat_type or chat_type.strip() == "":
+        return "❌ Chat type is required to get command help."
+
+    if not command_name or command_name.strip() == "":
+        return "❌ Command name is required to get help."
+
     try:
-        # Validate command name input
-        validation_error = validate_required_input(command_name, "Command Name")
-        if validation_error:
-            return format_tool_error(validation_error)
+        # Clean up command name (handle with/without slash)
+        clean_command = command_name.strip()
+        if not clean_command.startswith('/'):
+            clean_command = f'/{clean_command}'
 
-        # Normalize command name
-        if not command_name.startswith("/"):
-            command_name = f"/{command_name}"
+        # Get service using simple container access
+        container = get_container()
+        help_service = container.get_service(HelpService)
 
-        # Normalize chat type
-        chat_type_enum = constants_module.normalize_chat_type(chat_type)
+        if not help_service:
+            return "❌ Help service is temporarily unavailable. Please try again later."
 
-        from kickai.core.command_registry_initializer import get_initialized_command_registry
-        registry = get_initialized_command_registry()
-        command = registry.get_command(command_name)
+        # Get detailed command help from registry
+        help_info = help_service.get_command_help_sync(clean_command, team_id.strip())
 
-        if not command:
-            return f"❌ Command {command_name} not found or not available in {chat_type} chat."
+        if not help_info:
+            return f"❌ Command '{clean_command}' not found or not available in your current context.\n\n💡 TIP: Use /help to see all available commands."
 
-        # Format detailed help
-        help_text = f"""
-📋 COMMAND HELP: {command_name.upper()}
+        # Build comprehensive help response
+        result = f"📖 DETAILED HELP FOR {clean_command}\n\n"
 
-📝 Description: {command.description}
+        # Basic info
+        result += f"📝 DESCRIPTION: {help_info.get('description', 'No description available')}\n\n"
 
-🎯 Usage: {command.examples[0] if command.examples else command_name}
+        # Permission and access info
+        permission = help_info.get('permission_level', PermissionLevel.PUBLIC.value)
+        feature = help_info.get('feature', 'general').replace('_', ' ').title()
 
-📋 Permission Level: {command.permission_level.value}
+        result += f"🔒 ACCESS LEVEL: {permission}\n"
+        result += f"📁 FEATURE CATEGORY: {feature}\n\n"
 
-📋 Available In: {', '.join([ct.value for ct in command.chat_types])}
+        # Usage information
+        if help_info.get('usage'):
+            result += f"⚙️ USAGE: {help_info['usage']}\n\n"
 
-💡 Examples:
-"""
-        if command.examples:
-            for example in command.examples:
-                help_text += f"• {example}\n"
-        else:
-            help_text += "• No specific examples available\n"
+        # Parameters
+        if help_info.get('parameters'):
+            result += "📊 PARAMETERS:\n"
+            for param, desc in help_info['parameters'].items():
+                result += f"• {param}: {desc}\n"
+            result += "\n"
 
-        return help_text
+        # Examples
+        if help_info.get('examples'):
+            result += "💡 EXAMPLES:\n"
+            for example in help_info['examples'][:5]:  # Show max 5 examples
+                result += f"• {example}\n"
+            result += "\n"
+
+        # Additional notes
+        if help_info.get('notes'):
+            result += f"📝 ADDITIONAL NOTES:\n{help_info['notes']}\n\n"
+
+        # Context info
+        result += "📍 CONTEXT INFORMATION:\n"
+        result += f"• Team: {team_id}\n"
+        result += f"• Chat Type: {chat_type.title()}\n"
+        result += f"• Your Access: Command is {'available' if permission == PermissionLevel.PUBLIC.value or chat_type == 'leadership' else 'restricted'}\n\n"
+
+        # Footer
+        result += "🔗 RELATED: Use /help to see all available commands for your role."
+
+        return result
 
     except Exception as e:
-        logger.error(f"Error getting command help: {e}")
-        return format_tool_error(f"Failed to get command help: {e}")
-
+        logger.error(f"Failed to get command help for '{command_name}': {e}")
+        return f"❌ Failed to get command help for '{command_name}': {e!s}"
 
 @tool("get_welcome_message")
-def get_welcome_message(username: str, chat_type: str, team_id: str) -> str:
+def get_welcome_message(telegram_id: int, team_id: str, chat_type: str) -> str:
     """
-    Generate a welcome message for users.
+    Generate a personalized welcome message with context-aware command previews.
 
-    Args:
-        username: User's username
-        chat_type: Chat type (main/leadership/private)
-        team_id: Team ID
 
-    Returns:
-        Welcome message for the user
+        telegram_id (int): Telegram ID of the user making the request
+        team_id (str): Team identifier for context and data isolation
+        chat_type (str): Chat context (main, leadership, private) - determines available features
+
+
+    :return: Personalized welcome message with available commands and quick start guide
+    :rtype: str  # TODO: Fix type
     """
+    # Native CrewAI pattern - parameter validation
+    if not isinstance(telegram_id, int) or telegram_id <= 0:
+        return "❌ Valid Telegram ID is required to get welcome message."
+
+    if not team_id or team_id.strip() == "":
+        return "❌ Team ID is required to get welcome message."
+
+    if not chat_type or chat_type.strip() == "":
+        return "❌ Chat type is required to get welcome message."
+
     try:
-        # Normalize chat type
-        chat_type_enum = constants_module.normalize_chat_type(chat_type)
+        # Get service using simple container access
+        container = get_container()
+        help_service = container.get_service(HelpService)
 
-        # Generate welcome message based on chat type
-        if chat_type_enum == ChatTypeEnum.MAIN:
-            welcome_message = f"""
-🎉 WELCOME TO THE TEAM, {username.upper()}!
+        if not help_service:
+            return "❌ Help service is temporarily unavailable. Please try again later."
 
-👋 Welcome to KICKAI! We're excited to have you join our football community!
+        # Get available commands to personalize welcome
+        commands = help_service.get_available_commands_sync(team_id.strip(), chat_type.strip())
 
-⚽ WHAT YOU CAN DO HERE:
-• Register as a player with /register [player_id]
-• Check your status with /myinfo
-• See available commands with /help
-• View active players with /list
+        # Build context-aware welcome message
+        chat_context = {
+            'leadership': {
+                'title': '👑 WELCOME TO KICKAI LEADERSHIP CHAT!',
+                'role': 'team leadership',
+                'features': ['Team member management', 'Match creation & squad selection', 'Administrative controls', 'Full system access'],
+                'key_commands': ['/addmember', '/creatematch', '/announce', '/listmembers']
+            },
+            'main': {
+                'title': '⚽ WELCOME TO KICKAI TEAM CHAT!',
+                'role': 'team player',
+                'features': ['Match attendance tracking', 'Team information', 'Player status updates', 'Match schedules'],
+                'key_commands': ['/myinfo', '/attendance', '/matches', '/help']
+            },
+            'private': {
+                'title': '💬 WELCOME TO KICKAI PRIVATE CHAT!',
+                'role': 'team member',
+                'features': ['Personal status checking', 'Individual support', 'Registration assistance', 'Direct communication'],
+                'key_commands': ['/myinfo', '/help', '/register']
+            }
+        }
 
-🔗 GETTING STARTED:
-1. Register as a player - Use /register followed by your player ID
-2. Check your status - Use /myinfo to see your current registration
-3. Explore commands - Use /help to see all available options
+        context = chat_context.get(chat_type.lower(), chat_context['private'])
 
-📱 NEED HELP?
-• Type /help for command information
-• Contact team leadership for assistance
-• Check pinned messages for important updates
+        result = f"{context['title']}\n\n"
+        result += "👋 Hello! I'm KICKAI, your AI-powered team management assistant.\n\n"
 
-Welcome aboard! Let's make this team amazing! ⚽🔥
-            """
-        elif chat_type_enum == ChatTypeEnum.LEADERSHIP:
-            welcome_message = f"""
-🎉 WELCOME TO LEADERSHIP, {username.upper()}!
+        # Role-specific features
+        result += f"🎆 AS {context['role'].upper()}, YOU HAVE ACCESS TO:\n"
+        for feature in context['features']:
+            result += f"• {feature}\n"
+        result += "\n"
 
-👥 Welcome to the KICKAI Leadership Team! You're now part of our administrative team.
+        # Show actual available commands (top 4)
+        if commands:
+            available_key_commands = []
+            for cmd_name in context['key_commands']:
+                for cmd in commands:
+                    if cmd['name'] == cmd_name:
+                        available_key_commands.append(cmd)
+                        break
 
-🛠️ ADMINISTRATIVE FEATURES:
-• Manage players with /add, /approve, /listmembers
-• Handle team operations with /announce, /remind
-• Monitor team activity and performance
-• Coordinate with other leadership members
+            if available_key_commands:
+                result += "📅 QUICK START COMMANDS:\n"
+                for cmd in available_key_commands[:4]:  # Show max 4
+                    result += f"• {cmd['name']} - {cmd['description']}\n"
+                result += "\n"
 
-📋 LEADERSHIP RESPONSIBILITIES:
-• Player registration and approval
-• Team communication and announcements
-• Match organization and coordination
-• Team policy enforcement
+        # Dynamic command count
+        cmd_count = len(commands) if commands else 0
+        result += f"📊 AVAILABLE FEATURES: {cmd_count} commands accessible to you\n\n"
 
-🔗 GETTING STARTED:
-1. Review team policies and procedures
-2. Familiarize yourself with admin commands
-3. Coordinate with other leadership members
-4. Monitor team activity and engagement
+        # Context-specific tips
+        if chat_type.lower() == 'leadership':
+            result += "👑 LEADERSHIP PRIVILEGES: You have administrative access in this chat!\n\n"
+        elif chat_type.lower() == 'main':
+            result += "🏆 TEAM CHAT FEATURES: All team communication happens here!\n\n"
+        else:
+            result += "🗺️ PRIVATE CHAT: This is your personal space with KICKAI!\n\n"
 
-📱 ADMIN TOOLS:
-• Use /help for command information
-• Check /listmembers for team overview
-• Use /announce for team communications
-• Monitor system status and health
+        # Universal help instructions
+        result += "🎓 GETTING STARTED:\n"
+        result += "• Type /help to see all your available commands\n"
+        result += "• Use /help [command] for detailed command information\n"
+        result += "• Commands are personalized based on your role and chat context\n\n"
 
-Welcome to the leadership team! Let's lead this team to success! 🏆⚽
-            """
-        else:  # Private chat
-            welcome_message = f"""
-🎉 WELCOME, {username.upper()}!
+        # Team context
+        result += f"🏠 Team: {team_id} | 💬 Chat: {chat_type.title()}\n\n"
+        result += "⚽ Ready to get started? Try /help to explore what you can do!"
 
-👋 Welcome to KICKAI! You're now connected to our football team management system.
-
-⚽ PERSONAL FEATURES:
-• Check your status with /myinfo
-• Update your information with /update
-• View your match history and attendance
-• Access personalized team information
-
-🔗 GETTING STARTED:
-1. Check your current status - Use /myinfo
-2. Update your information - Use /update if needed
-3. Explore available commands - Use /help
-4. Connect with the team community
-
-📱 PERSONAL ASSISTANCE:
-• Type /help for available commands
-• Contact team leadership for support
-• Check your personal dashboard
-• Review your team participation
-
-Welcome to the KICKAI family! We're here to support your football journey! ⚽💪
-            """
-
-        return welcome_message.strip()
+        return result
 
     except Exception as e:
-        logger.error(f"Error generating welcome message: {e}", exc_info=True)
-        return format_tool_error(f"Failed to generate welcome message: {e}")
+        logger.error(f"Failed to generate welcome message: {e}")
+        return "🎉 WELCOME TO KICKAI!\n\n👋 I'm your AI team management assistant!\n\n⚽ Use /help to see what I can do for you.\n\n❌ Note: Welcome customization is temporarily unavailable."

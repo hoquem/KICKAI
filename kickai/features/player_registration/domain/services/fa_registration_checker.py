@@ -7,9 +7,9 @@ This module provides functionality to check FA registration status.
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
-from ..repositories.player_repository_interface import PlayerRepositoryInterface
+from kickai.core.interfaces.player_repositories import IPlayerRepository
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class FixtureData:
     """Placeholder for fixture data structure."""
 
-    def __init__(self, data: Dict[str, Any]):
+    def __init__(self, data: dict[str, Any]):
         self.data = data
 
     def get_registration_status(self) -> str:
@@ -28,10 +28,10 @@ class FixtureData:
 class FARegistrationChecker:
     """Service for checking FA registration status."""
 
-    def __init__(self, player_repository: PlayerRepositoryInterface):
+    def __init__(self, player_repository: IPlayerRepository):
         self.player_repository = player_repository
 
-    async def check_registration_status(self, player_id: str) -> Dict[str, Any]:
+    async def check_registration_status(self, player_id: str) -> dict[str, Any]:
         """Check FA registration status for a player."""
         try:
             player = await self.player_repository.get_by_id(player_id)
@@ -68,7 +68,7 @@ class FARegistrationChecker:
                 "last_checked": datetime.now().isoformat(),
             }
 
-    async def get_fixture_data(self, player_id: str) -> Optional[FixtureData]:
+    async def get_fixture_data(self, player_id: str) -> FixtureData | None:
         """Get fixture data for a player."""
         try:
             # In a real implementation, this would fetch data from FA fixtures

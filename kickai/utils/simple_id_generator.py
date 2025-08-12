@@ -17,29 +17,29 @@ from datetime import datetime
 
 from loguru import logger
 
-from kickai.utils.constants import FALLBACK_ID_PREFIX, ID_NUMBER_FORMAT, LOG_MESSAGES, MAX_ID_NUMBER
-from typing import Set, Union
+from kickai.utils.constants import ID_NUMBER_FORMAT, LOG_MESSAGES, MAX_ID_NUMBER
 
 
 class SimpleIDGenerator:
     """Simple ID generator for players and team members."""
 
     def __init__(self):
-        self.used_ids: Set[str] = set()
+        self.used_ids: set[str] = set()
 
     def generate_player_id(
-        self, name: str, team_id: str, existing_ids: Union[Set[str], None] = None
+        self, name: str, team_id: str, existing_ids: set[str] | None = None
     ) -> str:
         """
         Generate a simple player ID in format {Number}{Initials}.
 
-        Args:
+
             name: Player's full name
             team_id: Team ID for context
             existing_ids: Set of existing IDs to avoid collisions
 
-        Returns:
-            Player ID in format 01MH, 02MH, etc.
+
+    :return: Player ID in format 01MH, 02MH, etc.
+    :rtype: str  # TODO: Fix type
         """
         # Get initials from name
         initials = self._extract_initials(name)
@@ -64,30 +64,28 @@ class SimpleIDGenerator:
 
             # Safety check to prevent infinite loops
             if number > MAX_ID_NUMBER:
-                logger.warning(
+                logger.error(
                     LOG_MESSAGES["TOO_MANY_PLAYERS"].format(initials=initials, team_id=team_id)
                 )
-                # Use a hash-based fallback
-                import hashlib
-
-                hash_suffix = hashlib.md5(f"{name}{team_id}".encode()).hexdigest()[:2].upper()
-                fallback_id = f"{FALLBACK_ID_PREFIX}{initials}{hash_suffix}"
-                self.used_ids.add(fallback_id)
-                return fallback_id
+                raise ValueError(
+                    f"Cannot generate ID for '{name}' in team '{team_id}': "
+                    f"Too many players with initials '{initials}' (limit: {MAX_ID_NUMBER})"
+                )
 
     def generate_team_member_id(
-        self, name: str, team_id: str, existing_ids: Union[Set[str], None] = None
+        self, name: str, team_id: str, existing_ids: set[str] | None = None
     ) -> str:
         """
         Generate a simple team member ID in format user_{Number}{Initials}.
 
-        Args:
+
             name: Team member's full name
             team_id: Team ID for context
             existing_ids: Set of existing IDs to avoid collisions
 
-        Returns:
-            Team member ID in format user_01MH, user_02MH, etc.
+
+    :return: Team member ID in format user_01MH, user_02MH, etc.
+    :rtype: str  # TODO: Fix type
         """
         # Generate the base ID using the same logic as player IDs
         base_id = self.generate_player_id(name, team_id, existing_ids)
@@ -98,13 +96,14 @@ class SimpleIDGenerator:
         """
         Generate a match ID in format MATCH_{Date}_{Team}_{Opponent}.
 
-        Args:
+
             team_id: Team ID
             opponent: Opponent team name
             match_date: Match date
 
-        Returns:
-            Match ID in format MATCH_2024-01-15_KTI_ARSENAL
+
+    :return: Match ID in format MATCH_2024-01-15_KTI_ARSENAL
+    :rtype: str  # TODO: Fix type
         """
         date_str = match_date.strftime("%Y-%m-%d")
         opponent_clean = re.sub(r'[^A-Za-z0-9]', '', opponent.upper())
@@ -117,12 +116,13 @@ class SimpleIDGenerator:
         """
         Generate an availability ID in format AVAIL_{MatchID}_{PlayerID}.
 
-        Args:
+
             match_id: Match ID
             player_id: Player ID
 
-        Returns:
-            Availability ID in format AVAIL_MATCH_2024-01-15_KTI_ARSENAL_01MH
+
+    :return: Availability ID in format AVAIL_MATCH_2024-01-15_KTI_ARSENAL_01MH
+    :rtype: str  # TODO: Fix type
         """
         availability_id = f"AVAIL_{match_id}_{player_id}"
 
@@ -133,12 +133,13 @@ class SimpleIDGenerator:
         """
         Generate an attendance ID in format ATTEND_{MatchID}_{PlayerID}.
 
-        Args:
+
             match_id: Match ID
             player_id: Player ID
 
-        Returns:
-            Attendance ID in format ATTEND_MATCH_2024-01-15_KTI_ARSENAL_01MH
+
+    :return: Attendance ID in format ATTEND_MATCH_2024-01-15_KTI_ARSENAL_01MH
+    :rtype: str  # TODO: Fix type
         """
         attendance_id = f"ATTEND_{match_id}_{player_id}"
 
@@ -149,11 +150,12 @@ class SimpleIDGenerator:
         """
         Extract initials from a full name.
 
-        Args:
+
             name: Full name (e.g., "Mahmudul Hoque", "John Smith")
 
-        Returns:
-            Initials in uppercase (e.g., "MH", "JS")
+
+    :return: Initials in uppercase (e.g., "MH", "JS")
+    :rtype: str  # TODO: Fix type
         """
         # Split the name into words and extract first letter of each
         words = name.strip().split()
@@ -181,13 +183,13 @@ simple_id_generator = SimpleIDGenerator()
 
 
 # Convenience functions
-def generate_simple_player_id(name: str, team_id: str, existing_ids: Union[Set[str], None] = None) -> str:
+def generate_simple_player_id(name: str, team_id: str, existing_ids: set[str] | None = None) -> str:
     """Generate a simple player ID."""
     return simple_id_generator.generate_player_id(name, team_id, existing_ids)
 
 
 def generate_simple_team_member_id(
-    name: str, team_id: str, existing_ids: Union[Set[str], None] = None
+    name: str, team_id: str, existing_ids: set[str] | None = None
 ) -> str:
     """Generate a simple team member ID."""
     return simple_id_generator.generate_team_member_id(name, team_id, existing_ids)

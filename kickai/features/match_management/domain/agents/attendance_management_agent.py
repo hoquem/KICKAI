@@ -38,9 +38,9 @@ class AttendanceManagementAgent:
         return Agent(
             role="Attendance Manager",
             goal="Accurately track and record match day attendance for team performance analysis",
-            backstory="""You are a meticulous attendance manager responsible for recording and tracking 
-            actual match day attendance. You ensure accurate records of who attended, who was absent, 
-            and who arrived late. You provide detailed attendance reports and statistics to help team 
+            backstory="""You are a meticulous attendance manager responsible for recording and tracking
+            actual match day attendance. You ensure accurate records of who attended, who was absent,
+            and who arrived late. You provide detailed attendance reports and statistics to help team
             managers understand player reliability and make informed decisions about squad selection.""",
             verbose=True,
             allow_delegation=False,

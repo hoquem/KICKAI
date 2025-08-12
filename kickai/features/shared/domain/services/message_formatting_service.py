@@ -8,7 +8,7 @@ the same design patterns and are properly formatted for Telegram.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -22,7 +22,7 @@ class MessageContext:
     user_id: str
     team_id: str
     chat_type: ChatType
-    user_name: Optional[str] = None
+    user_name: str | None = None
     is_player: bool = False
     is_team_member: bool = False
     is_admin: bool = False
@@ -43,7 +43,7 @@ class MessageFormattingService:
         """Initialize the message formatting service."""
         logger.info("✅ MessageFormattingService initialized")
 
-    def format_help_message(self, context: MessageContext, commands_info: Dict[str, Any]) -> str:
+    def format_help_message(self, context: MessageContext, commands_info: dict[str, Any]) -> str:
         """Format help message based on chat type and user context."""
         if context.chat_type == ChatType.LEADERSHIP:
             return self._format_leadership_help(commands_info)
@@ -57,19 +57,19 @@ class MessageFormattingService:
         else:
             return self._format_main_chat_welcome(context)
 
-    def format_error_message(self, error: str, context: Optional[MessageContext] = None) -> str:
+    def format_error_message(self, error: str, context: MessageContext | None = None) -> str:
         """Format error message with consistent styling."""
         return f"❌ Error: {error}\n\nPlease try again or contact support if the issue persists."
 
-    def format_success_message(self, message: str, context: Optional[MessageContext] = None) -> str:
+    def format_success_message(self, message: str, context: MessageContext | None = None) -> str:
         """Format success message with consistent styling."""
         return f"✅ Success: {message}"
 
-    def format_info_message(self, message: str, context: Optional[MessageContext] = None) -> str:
+    def format_info_message(self, message: str, context: MessageContext | None = None) -> str:
         """Format informational message with consistent styling."""
         return f"ℹ️ Info: {message}"
 
-    def format_player_list(self, players: List[Dict[str, Any]], context: MessageContext) -> str:
+    def format_player_list(self, players: list[dict[str, Any]], context: MessageContext) -> str:
         """Format player list with consistent styling."""
         if not players:
             return "📋 No players found"
@@ -89,7 +89,7 @@ class MessageFormattingService:
         return "\n".join(lines)
 
     def format_team_member_list(
-        self, members: List[Dict[str, Any]], context: MessageContext
+        self, members: list[dict[str, Any]], context: MessageContext
     ) -> str:
         """Format team member list with consistent styling."""
         if not members:
@@ -107,7 +107,7 @@ class MessageFormattingService:
 
         return "\n".join(lines)
 
-    def format_user_info(self, user_data: Dict[str, Any], context: MessageContext) -> str:
+    def format_user_info(self, user_data: dict[str, Any], context: MessageContext) -> str:
         """Format user information display."""
         if context.is_player:
             return self._format_player_info(user_data)
@@ -116,7 +116,7 @@ class MessageFormattingService:
         else:
             return "👤 User Information\n\nYou are not registered yet. Contact team leadership to be added to the team."
 
-    def _format_leadership_help(self, commands_info: Dict[str, Any]) -> str:
+    def _format_leadership_help(self, commands_info: dict[str, Any]) -> str:
         """Format help message for leadership chat."""
         lines = ["👔 KICKAI Leadership Commands\n"]
 
@@ -139,7 +139,7 @@ class MessageFormattingService:
 
         return "\n".join(lines)
 
-    def _format_main_chat_help(self, commands_info: Dict[str, Any]) -> str:
+    def _format_main_chat_help(self, commands_info: dict[str, Any]) -> str:
         """Format help message for main chat."""
         lines = ["🤖 KICKAI Commands\n"]
 
@@ -196,7 +196,7 @@ class MessageFormattingService:
             "Let's kick off a smarter season! ⚽️"
         )
 
-    def _format_player_info(self, player_data: Dict[str, Any]) -> str:
+    def _format_player_info(self, player_data: dict[str, Any]) -> str:
         """Format player information display."""
         name = player_data.get("name", "Unknown")
         position = player_data.get("position", "Unknown")
@@ -215,7 +215,7 @@ class MessageFormattingService:
             f"Use /help to see available commands!"
         )
 
-    def _format_team_member_info(self, member_data: Dict[str, Any]) -> str:
+    def _format_team_member_info(self, member_data: dict[str, Any]) -> str:
         """Format team member information display."""
         name = member_data.get("name", "Unknown")
         role = member_data.get("role", "Member")

@@ -23,7 +23,7 @@ class ConfigurationCheck(BaseCheck):
     category = CheckCategory.CONFIGURATION
     description = "Validates that all required configuration is loaded and accessible"
 
-    async def execute(self, context: dict[str, Any] = None) -> CheckResult:
+    async def execute(self, context: dict[str, Any] | None = None) -> CheckResult:
         start_time = asyncio.get_event_loop().time()
 
         try:

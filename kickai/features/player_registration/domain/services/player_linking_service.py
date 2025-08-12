@@ -1,4 +1,4 @@
-from typing import Optional, Union
+
 #!/usr/bin/env python3
 """
 Player Linking Service
@@ -13,10 +13,7 @@ from loguru import logger
 
 from kickai.core.dependency_container import get_container
 from kickai.features.player_registration.domain.entities.player import Player
-from kickai.utils.phone_validation import (
-    normalize_phone_number,
-    validate_phone_number,
-)
+from kickai.utils.phone_utils import normalize_phone
 
 
 class PlayerLinkingService:
@@ -27,18 +24,19 @@ class PlayerLinkingService:
         self.container = get_container()
 
     async def link_telegram_user_by_phone(
-        self, phone: str, telegram_id: Union[str, int], username: str = None
-    ) -> Optional[Player]:
+        self, phone: str, telegram_id: str | int, username: str | None = None
+    ) -> Player | None:
         """
         Link a Telegram user to an existing player record using phone number.
 
-        Args:
+
             phone: Phone number to search for
             telegram_id: Telegram user ID to link
             username: Telegram username (optional)
 
-        Returns:
-            Player object if successfully linked, None otherwise
+
+    :return: Player object if successfully linked, None otherwise
+    :rtype: str  # TODO: Fix type
         """
         try:
             logger.info(f"🔗 Attempting to link telegram_id={telegram_id} to phone={phone}")
@@ -74,7 +72,7 @@ class PlayerLinkingService:
                 # Compare using normalized integer values
                 existing_telegram_id_int = int(existing_player.telegram_id) if existing_player.telegram_id else None
                 input_telegram_id_int = int(telegram_id) if telegram_id else None
-                
+
                 if existing_telegram_id_int == input_telegram_id_int:
                     logger.info(f"✅ Player already linked to telegram_id={telegram_id}")
                     return existing_player
@@ -105,8 +103,8 @@ class PlayerLinkingService:
             return None
 
     async def _update_player_telegram_info(
-        self, player_id: str, telegram_id: str, username: str = None
-    ) -> Optional[Player]:
+        self, player_id: str, telegram_id: str, username: str | None = None
+    ) -> Player | None:
         """Update player record with Telegram information."""
         try:
             # Get database client
@@ -153,11 +151,12 @@ class PlayerLinkingService:
         """
         Validate phone number format using enhanced international validation.
 
-        Args:
+
             phone: Phone number to validate
 
-        Returns:
-            True if valid, False otherwise
+
+    :return: True if valid, False otherwise
+    :rtype: str  # TODO: Fix type
         """
         if not phone:
             return False
@@ -171,11 +170,12 @@ class PlayerLinkingService:
         """
         Normalize phone number to international format using enhanced validation.
 
-        Args:
+
             phone: Phone number to normalize
 
-        Returns:
-            Normalized phone number in international format
+
+    :return: Normalized phone number in international format
+    :rtype: str  # TODO: Fix type
         """
         if not phone:
             return ""
@@ -224,11 +224,12 @@ class PlayerLinkingService:
         """
         Create a message prompting the user to provide their phone number for linking.
 
-        Args:
+
             telegram_id: Telegram user ID
 
-        Returns:
-            Formatted prompt message
+
+    :return: Formatted prompt message
+    :rtype: str  # TODO: Fix type
         """
         # Input validation
         if not isinstance(telegram_id, str):
@@ -243,7 +244,7 @@ class PlayerLinkingService:
         if pending_count == 0:
             return """👋 Welcome to KICKAI!
 
-I don't see any pending player records that need linking. 
+I don't see any pending player records that need linking.
 
 📞 Contact Team Leadership
 You need to be added as a player by someone in the team's leadership.

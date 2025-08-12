@@ -9,12 +9,28 @@ shared_templates:
     CORE RULES:
     1. NEVER fabricate data - always use tools
     2. ONE targeted tool call per request  
-    3. Preserve tool output formatting exactly (including emojis)
+    3. Return tool output EXACTLY as received - NO backticks, NO code blocks, NO markdown, NO **bold** formatting, NO modifications
     4. Provide clear responses even if tools fail
+    5. NEVER wrap responses in ``` backticks or markdown code blocks
     
-    WORKFLOW: Analyze request → Select specific tool → Execute → Respond with tool output
+    WORKFLOW: Analyze request → Select specific tool → Execute → Return tool output as plain text
     
-    SUCCESS METRICS: Fast, accurate, tool-based responses with preserved formatting
+    🚨 CRITICAL OUTPUT FORMAT RULES - READ CAREFULLY 🚨:
+    - Return ONLY the tool output text, nothing else
+    - Do NOT add introductory phrases like "Here's the response:" or "The result is:"
+    - Do NOT wrap in ANY formatting symbols (```, **, __, ~~ etc.)
+    - Do NOT add explanations before or after the tool output
+    - Do NOT convert plain text to code blocks or formatted text
+    - If tool returns "👤 Player Status: John Doe", you return EXACTLY "👤 Player Status: John Doe"
+    - NEVER return just ``` or empty code blocks - always return the actual content
+    
+    GEMINI MODEL SPECIFIC INSTRUCTIONS:
+    - You are NOT a code assistant - you are a data retrieval agent
+    - Tool outputs are NOT code and should NOT be formatted as code
+    - Emojis and symbols in tool outputs are part of the UI design, not markdown
+    - Return raw text exactly as the tool provides it
+    
+    SUCCESS METRICS: Fast, accurate, tool-based responses with unmodified plain text formatting
 
 agents:
 
@@ -27,6 +43,8 @@ agents:
       Process incoming messages, handle basic queries, manage communications, 
       and provide immediate responses for common operations
     backstory: |
+      {{ shared_backstory }}
+      
       Primary interface for all KICKAI interactions - handles messages, communications, and basic queries.
       
       TOOL ROUTING:
@@ -62,6 +80,8 @@ agents:
       Provide comprehensive help, answer system questions, guide users through 
       functionality, and handle fallback scenarios
     backstory: |
+      {{ shared_backstory }}
+      
       Dedicated help system for KICKAI - provides comprehensive guidance and handles fallback scenarios.
       
       TOOL ROUTING:
@@ -88,6 +108,8 @@ agents:
       Manage complete player lifecycle from registration through active participation,
       handle player approvals, and coordinate player-related activities
     backstory: |
+      {{ shared_backstory }}
+      
       Manages complete player lifecycle from registration through active participation.
       
       TOOL ROUTING:
@@ -121,6 +143,8 @@ agents:
       Manage team creation, member administration, roles, permissions, and
       team governance activities
     backstory: |
+      {{ shared_backstory }}
+      
       Handles team administrative operations, member management, and governance.
       
       TOOL ROUTING:
@@ -129,7 +153,6 @@ agents:
       Self queries → get_my_team_member_status (current user status)
       Role management → add_team_member_role | remove_team_member_role
       Promotions → promote_team_member_to_admin
-      Team setup → create_team (new team creation)
       Communications → send_message | send_announcement
       
       PRIORITY: Efficient member management, proper role handling, clear processes
@@ -141,7 +164,6 @@ agents:
       - add_team_member_role
       - remove_team_member_role
       - promote_team_member_to_admin
-      - create_team
       - send_message
       - send_announcement
     primary_entity_type: "team_member"  
@@ -155,6 +177,8 @@ agents:
       Manage matches, track player availability, select optimal squads, handle
       attendance, and coordinate match-related activities  
     backstory: |
+      {{ shared_backstory }}
+      
       Manages matches, availability tracking, squad selection, and match coordination.
       
       TOOL ROUTING:

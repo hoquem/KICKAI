@@ -6,7 +6,7 @@ in the KICKAI system.
 """
 
 import asyncio
-from typing import Any, Dict, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -19,12 +19,13 @@ async def extract_intent(message: str, context: str = "") -> dict[str, Any]:
     """
     Async wrapper for intent extraction.
 
-    Args:
+
         message: The input message to analyze
         context: Additional context about the conversation
 
-    Returns:
-        Dictionary containing 'intent' and 'entities' keys
+
+    :return: Dictionary containing 'intent' and 'entities' keys
+    :rtype: str  # TODO: Fix type
     """
     try:
         # Run the sync function in a thread pool to make it async
@@ -39,7 +40,7 @@ async def extract_intent(message: str, context: str = "") -> dict[str, Any]:
 class LLMClient:
     """LLM client for natural language processing."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
         self._llm_instance = None
         self._initialize_llm()
@@ -54,18 +55,19 @@ class LLMClient:
         except Exception as e:
             logger.warning(f"Failed to initialize LLM: {e}. Using fallback client.")
 
-    
+
 
     async def extract_intent(self, message: str, context: str = "") -> dict[str, Any]:
         """
         Extract intent from a message using the LLM client.
 
-        Args:
+
             message: The input message
             context: Additional context
 
-        Returns:
-            Dictionary with intent and entities
+
+    :return: Dictionary with intent and entities
+    :rtype: str  # TODO: Fix type
         """
         return await extract_intent(message, context)
 
@@ -73,12 +75,13 @@ class LLMClient:
         """
         Process a message and return structured information.
 
-        Args:
+
             message: The input message
             context: Additional context
 
-        Returns:
-            Dictionary with processing results
+
+    :return: Dictionary with processing results
+    :rtype: str  # TODO: Fix type
         """
         try:
             intent_result = await self.extract_intent(message, context)
@@ -110,12 +113,13 @@ class LLMClient:
         """
         Generate text using the LLM client with retry and timeout.
 
-        Args:
+
             prompt: The input prompt
             context: Additional context
 
-        Returns:
-            Generated text response
+
+    :return: Generated text response
+    :rtype: str  # TODO: Fix type
         """
         try:
             if self._llm_instance:
@@ -139,12 +143,13 @@ class LLMClient:
         """
         Generate a response using the LLM client (alias for generate_text).
 
-        Args:
+
             prompt: The input prompt
             context: Additional context
 
-        Returns:
-            Generated response
+
+    :return: Generated response
+    :rtype: str  # TODO: Fix type
         """
         return await self.generate_text(prompt, context)
 
@@ -154,12 +159,13 @@ class LLMClient:
         """
         Analyze text for specific purposes.
 
-        Args:
+
             text: Text to analyze
             analysis_type: Type of analysis to perform
 
-        Returns:
-            Analysis results
+
+    :return: Analysis results
+    :rtype: str  # TODO: Fix type
         """
         try:
             if self._llm_instance:
@@ -221,12 +227,13 @@ async def process_message_with_llm(message: str, context: str = "") -> dict[str,
     """
     Process a message using the global LLM client.
 
-    Args:
+
         message: The input message
         context: Additional context
 
-    Returns:
-        Dictionary with processing results
+
+    :return: Dictionary with processing results
+    :rtype: str  # TODO: Fix type
     """
     client = get_llm_client()
     return await client.process_message(message, context)

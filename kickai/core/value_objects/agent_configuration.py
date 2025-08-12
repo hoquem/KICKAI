@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kickai.core.enums import AgentRole, AIProvider
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -21,7 +20,7 @@ class LLMConfiguration:
     temperature: float
     timeout_seconds: int
     max_retries: int
-    max_tokens: Optional[int] = None
+    max_tokens: int | None = None
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.temperature <= 2.0:
@@ -44,7 +43,7 @@ class LLMConfiguration:
         """Create configuration optimized for data-critical agents (anti-hallucination)."""
         from kickai.core.config import get_settings
         settings = get_settings()
-        
+
         model_map = {
             AIProvider.OLLAMA: "llama3.2:1b",
             AIProvider.HUGGINGFACE: "microsoft/DialoGPT-small",
@@ -66,7 +65,7 @@ class LLMConfiguration:
         """Create configuration for administrative agents (balanced reasoning)."""
         from kickai.core.config import get_settings
         settings = get_settings()
-        
+
         model_map = {
             AIProvider.OLLAMA: "llama3.2:3b",
             AIProvider.HUGGINGFACE: "microsoft/DialoGPT-medium",
@@ -88,7 +87,7 @@ class LLMConfiguration:
         """Create configuration for creative agents (analytical and creative tasks)."""
         from kickai.core.config import get_settings
         settings = get_settings()
-        
+
         model_map = {
             AIProvider.OLLAMA: "llama3.2:3b",
             AIProvider.HUGGINGFACE: "microsoft/DialoGPT-large",

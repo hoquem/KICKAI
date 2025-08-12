@@ -6,7 +6,7 @@ following Enterprise best practices for agentic systems.
 """
 
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from ..reporting import CheckCategory, CheckResult, CheckStatus
 from .base_check import BaseCheck
@@ -35,7 +35,7 @@ class CrewAIAgentHealthCheck(BaseCheck):
             description="Comprehensive CrewAI agent health and performance validation"
         )
 
-    async def execute(self, context: Dict[str, Any]) -> CheckResult:
+    async def execute(self, context: dict[str, Any]) -> CheckResult:
         """Execute comprehensive CrewAI agent health validation."""
         try:
             validation_results = []
@@ -80,7 +80,7 @@ class CrewAIAgentHealthCheck(BaseCheck):
                 error=e
             )
 
-    async def _validate_agent_factory(self) -> Tuple[CheckStatus, str, List[str]]:
+    async def _validate_agent_factory(self) -> tuple[CheckStatus, str, list[str]]:
         """Validate agent factory health and configuration."""
         issues = []
         details = []
@@ -131,7 +131,7 @@ class CrewAIAgentHealthCheck(BaseCheck):
             return CheckStatus.FAILED, f"Agent factory issues: {'; '.join(issues)}", details
         return CheckStatus.PASSED, "Agent factory validation passed", details
 
-    async def _validate_agent_creation(self) -> Tuple[CheckStatus, str, List[str]]:
+    async def _validate_agent_creation(self) -> tuple[CheckStatus, str, list[str]]:
         """Validate that core agents can be created successfully."""
         issues = []
         details = []
@@ -185,7 +185,7 @@ class CrewAIAgentHealthCheck(BaseCheck):
             return CheckStatus.FAILED, f"Agent creation issues: {'; '.join(issues)}", details
         return CheckStatus.PASSED, "Agent creation validation passed", details
 
-    async def _validate_tool_assignment(self) -> Tuple[CheckStatus, str, List[str]]:
+    async def _validate_tool_assignment(self) -> tuple[CheckStatus, str, list[str]]:
         """Validate that agents have proper tool assignments."""
         issues = []
         details = []
@@ -240,7 +240,7 @@ class CrewAIAgentHealthCheck(BaseCheck):
             return CheckStatus.FAILED, f"Tool assignment issues: {'; '.join(issues)}", details
         return CheckStatus.PASSED, "Tool assignment validation passed", details
 
-    async def _validate_llm_configuration(self) -> Tuple[CheckStatus, str, List[str]]:
+    async def _validate_llm_configuration(self) -> tuple[CheckStatus, str, list[str]]:
         """Validate LLM configuration for agents."""
         issues = []
         details = []
@@ -291,7 +291,7 @@ class CrewAIAgentHealthCheck(BaseCheck):
             return CheckStatus.FAILED, f"LLM configuration issues: {'; '.join(issues)}", details
         return CheckStatus.PASSED, "LLM configuration validation passed", details
 
-    async def _validate_agent_communication(self) -> Tuple[CheckStatus, str, List[str]]:
+    async def _validate_agent_communication(self) -> tuple[CheckStatus, str, list[str]]:
         """Validate inter-agent communication capabilities."""
         issues = []
         details = []
@@ -347,7 +347,7 @@ class CrewAIAgentHealthCheck(BaseCheck):
             return CheckStatus.FAILED, f"Agent communication issues: {'; '.join(issues)}", details
         return CheckStatus.PASSED, "Agent communication validation passed", details
 
-    async def _validate_agent_performance(self) -> Tuple[CheckStatus, str, List[str]]:
+    async def _validate_agent_performance(self) -> tuple[CheckStatus, str, list[str]]:
         """Validate agent performance and response times."""
         issues = []
         details = []
@@ -361,12 +361,11 @@ class CrewAIAgentHealthCheck(BaseCheck):
 
             # Performance benchmarks
             max_creation_time = 5.0  # seconds
-            max_response_time = 10.0  # seconds
 
             # Test agent creation performance
             start_time = time.time()
             try:
-                test_agent = agent_factory.create_agent("help_assistant")
+                agent_factory.create_agent("help_assistant")
                 creation_time = time.time() - start_time
 
                 if creation_time <= max_creation_time:
@@ -404,7 +403,7 @@ class CrewAIAgentHealthCheck(BaseCheck):
             return CheckStatus.FAILED, f"Agent performance issues: {'; '.join(issues)}", details
         return CheckStatus.PASSED, "Agent performance validation passed", details
 
-    async def _validate_error_recovery(self) -> Tuple[CheckStatus, str, List[str]]:
+    async def _validate_error_recovery(self) -> tuple[CheckStatus, str, list[str]]:
         """Validate agent error handling and recovery mechanisms."""
         issues = []
         details = []
@@ -457,7 +456,7 @@ class CrewAIAgentHealthCheck(BaseCheck):
                 if hasattr(llm_config, 'test_connection_with_timeout'):
                     try:
                         # This should fail gracefully
-                        result = llm_config.test_connection_with_timeout(timeout=0.001)
+                        llm_config.test_connection_with_timeout(timeout=0.001)
                         details.append("✅ LLM configuration handles connection timeouts")
                     except Exception:
                         details.append("✅ LLM configuration raises appropriate exceptions for connection issues")
@@ -472,7 +471,7 @@ class CrewAIAgentHealthCheck(BaseCheck):
             return CheckStatus.FAILED, f"Error recovery issues: {'; '.join(issues)}", details
         return CheckStatus.PASSED, "Error recovery validation passed", details
 
-    def _aggregate_results(self, validation_results: List[Tuple[str, Tuple[CheckStatus, str, List[str]]]]) -> CheckResult:
+    def _aggregate_results(self, validation_results: list[tuple[str, tuple[CheckStatus, str, list[str]]]]) -> CheckResult:
         """Aggregate all validation results into a single check result."""
         overall_status = CheckStatus.PASSED
         messages = []

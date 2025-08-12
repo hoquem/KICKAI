@@ -7,12 +7,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kickai.core.enums import ChatType
-
-from .identifiers import ChatId, TeamId, UserId
-from typing import Optional
+from kickai.core.value_objects.identifiers import ChatId, TeamId, TelegramId
 
 
-@dataclass(frozen=True)
+@dataclass
 class UserRegistration:
     """Represents user registration status and roles."""
 
@@ -24,79 +22,77 @@ class UserRegistration:
 
     def __post_init__(self) -> None:
         # Business rule validation
-        if self.is_player and self.is_team_member:
-            # A user can be both player and team member (dual role)
-            pass
-        elif not self.is_registered and (self.is_player or self.is_team_member):
-            raise ValueError("User cannot have roles without being registered")
+        if self.is_registered and not (self.is_player or self.is_team_member):
+            raise ValueError("Registered user must have at least one role (player or team_member)")
 
-        if self.is_admin and not (self.is_player or self.is_team_member):
-            raise ValueError("Admin must be either player or team member")
+        if not self.is_registered and (self.is_player or self.is_team_member):
+            raise ValueError("Unregistered user cannot have roles")
 
-        if self.is_leadership and not (self.is_player or self.is_team_member):
-            raise ValueError("Leadership must be either player or team member")
+        if self.is_admin and not self.is_team_member:
+            raise ValueError("Admin users must be team members")
+
+        if self.is_leadership and not self.is_team_member:
+            raise ValueError("Leadership users must be team members")
 
     @classmethod
     def unregistered(cls) -> UserRegistration:
-        """Create unregistered user context."""
+        """Create unregistered user registration."""
         return cls(
             is_registered=False,
             is_player=False,
             is_team_member=False,
             is_admin=False,
-            is_leadership=False
+            is_leadership=False,
         )
 
     @classmethod
     def player_only(cls, is_admin: bool = False, is_leadership: bool = False) -> UserRegistration:
-        """Create player-only user context."""
+        """Create player-only registration."""
         return cls(
             is_registered=True,
             is_player=True,
             is_team_member=False,
             is_admin=is_admin,
-            is_leadership=is_leadership
+            is_leadership=is_leadership,
         )
 
     @classmethod
     def team_member_only(cls, is_admin: bool = False, is_leadership: bool = False) -> UserRegistration:
-        """Create team member-only user context."""
+        """Create team member-only registration."""
         return cls(
             is_registered=True,
             is_player=False,
             is_team_member=True,
             is_admin=is_admin,
-            is_leadership=is_leadership
+            is_leadership=is_leadership,
         )
 
     @classmethod
     def dual_role(cls, is_admin: bool = False, is_leadership: bool = False) -> UserRegistration:
-        """Create dual role (player and team member) user context."""
+        """Create dual-role registration (both player and team member)."""
         return cls(
             is_registered=True,
             is_player=True,
             is_team_member=True,
             is_admin=is_admin,
-            is_leadership=is_leadership
+            is_leadership=is_leadership,
         )
 
     def has_any_role(self) -> bool:
-        """Check if user has any role (player or team member)."""
+        """Check if user has any role."""
         return self.is_player or self.is_team_member
 
     def primary_role(self) -> str:
-        """Get the primary role for context-aware behavior."""
-        if self.is_player and self.is_team_member:
-            return "dual_role"
+        """Get the primary role of the user."""
+        if self.is_team_member:
+            return "team_member"
         elif self.is_player:
             return "player"
-        elif self.is_team_member:
-            return "team_member"
         else:
             return "unregistered"
 
 
-@dataclass(frozen=True)
+@dataclass
 class EntityContext:
     """
     Unified context object that contains all necessary information for
@@ -105,25 +101,22 @@ class EntityContext:
     This replaces scattered context parameters throughout the codebase.
     """
 
-    user_id: UserId
+    telegram_id: TelegramId
     team_id: TeamId
     chat_id: ChatId
     chat_type: ChatType
     user_registration: UserRegistration
-    username: Optional[str] = None
+    username: str | None = None
 
     def __post_init__(self) -> None:
         # Validation rules
-        if self.chat_type == ChatType.PRIVATE and self.chat_id.is_group_chat():
-            raise ValueError("Private chat cannot have negative chat ID")
-
-        if self.chat_type in (ChatType.MAIN, ChatType.LEADERSHIP) and self.chat_id.is_private_chat():
-            raise ValueError("Group chat types cannot have positive chat ID")
+        if not self.telegram_id or not self.team_id or not self.chat_id:
+            raise ValueError("telegram_id, team_id, and chat_id are required")
 
     @classmethod
     def create(
         cls,
-        user_id: str,
+        telegram_id: str,
         team_id: str,
         chat_id: str,
         chat_type: ChatType,
@@ -132,7 +125,7 @@ class EntityContext:
         is_team_member: bool = False,
         is_admin: bool = False,
         is_leadership: bool = False,
-        username: Optional[str] = None,
+        username: str | None = None,
     ) -> EntityContext:
         """
         Convenience factory method for creating EntityContext.
@@ -149,7 +142,7 @@ class EntityContext:
         )
 
         return cls(
-            user_id=UserId(user_id),
+            telegram_id=TelegramId(telegram_id),
             team_id=TeamId(team_id),
             chat_id=ChatId(chat_id),
             chat_type=chat_type,
@@ -204,7 +197,7 @@ class EntityContext:
     def with_updated_registration(self, user_registration: UserRegistration) -> EntityContext:
         """Create new EntityContext with updated user registration."""
         return EntityContext(
-            user_id=self.user_id,
+            telegram_id=self.telegram_id,
             team_id=self.team_id,
             chat_id=self.chat_id,
             chat_type=self.chat_type,
@@ -215,7 +208,7 @@ class EntityContext:
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization/logging."""
         return {
-            "user_id": str(self.user_id),
+            "telegram_id": str(self.telegram_id),
             "team_id": str(self.team_id),
             "chat_id": str(self.chat_id),
             "chat_type": self.chat_type.value,

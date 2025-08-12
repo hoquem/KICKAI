@@ -6,10 +6,9 @@ This module provides a simple, clean LLM factory for creating LangChain-compatib
 """
 
 import logging
+from typing import Any
 
-from typing import Any, Optional
-
-from kickai.core.config import get_settings, AIProvider
+from kickai.core.config import AIProvider, get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -17,29 +16,30 @@ logger = logging.getLogger(__name__)
 class SimpleLLMFactory:
     """Simple LLM factory for creating LangChain-compatible LLM instances."""
 
-    
+
     @staticmethod
-    def create_llm(model_name: Optional[str] = None, temperature: Optional[float] = None) -> Any:
+    def create_llm(model_name: str | None = None, temperature: float | None = None) -> Any:
         """
         Create an LLM instance using the current configuration.
 
-        
-        Args:
+
+
             model_name: Optional model name override
             temperature: Optional temperature override
-            
-        Returns:
-            LangChain-compatible LLM instance
+
+
+    :return: LangChain-compatible LLM instance
+    :rtype: str  # TODO: Fix type
 
         """
         settings = get_settings()
-        
+
         # Use provided values or defaults from settings
         final_model_name = model_name or settings.ai_model_name
         final_temperature = temperature or settings.ai_temperature
-        
+
         logger.info(f"🔧 Creating LLM with provider: {settings.ai_provider.value}, model: {final_model_name}")
-        
+
         try:
             if settings.ai_provider == AIProvider.GROQ:
                 return SimpleLLMFactory._create_groq_llm(settings, final_model_name, final_temperature)
@@ -52,7 +52,7 @@ class SimpleLLMFactory:
 
             else:
                 raise ValueError(f"Unsupported AI provider: {settings.ai_provider}")
-                
+
         except Exception as e:
             logger.error(f"❌ Failed to create LLM: {e}")
             raise e

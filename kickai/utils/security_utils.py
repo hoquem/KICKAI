@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+
 #!/usr/bin/env python3
 """
 Security Utilities for KICKAI System
@@ -17,11 +17,12 @@ def sanitize_username(username: str) -> str:
     """
     Sanitize username to prevent injection attacks.
 
-    Args:
+
         username: Raw username from user input
 
-    Returns:
-        Sanitized username safe for display and processing
+
+    :return: Sanitized username safe for display and processing
+    :rtype: str  # TODO: Fix type
 
     Security measures:
     - HTML entity escaping
@@ -62,15 +63,16 @@ def sanitize_username(username: str) -> str:
         return "Unknown User"
 
 
-def validate_telegram_update(update) -> Tuple[bool, Optional[str]]:
+def validate_telegram_update(update) -> tuple[bool, str | None]:
     """
     Validate Telegram update structure and content.
 
-    Args:
+
         update: Telegram update object
 
-    Returns:
-        Tuple of (is_valid, error_message)
+
+    :return: Tuple of (is_valid, error_message)
+    :rtype: str  # TODO: Fix type
     """
     try:
         # Check if update exists
@@ -107,15 +109,16 @@ def validate_telegram_update(update) -> Tuple[bool, Optional[str]]:
         return False, f"Validation error: {e!s}"
 
 
-def validate_new_chat_members_update(update) -> Tuple[bool, Optional[str]]:
+def validate_new_chat_members_update(update) -> tuple[bool, str | None]:
     """
     Validate new chat members update specifically.
 
-    Args:
+
         update: Telegram update object
 
-    Returns:
-        Tuple of (is_valid, error_message)
+
+    :return: Tuple of (is_valid, error_message)
+    :rtype: str  # TODO: Fix type
     """
     try:
         # Check if update exists
@@ -178,11 +181,12 @@ def sanitize_message_text(text: str) -> str:
     """
     Sanitize message text to prevent injection attacks.
 
-    Args:
+
         text: Raw message text
 
-    Returns:
-        Sanitized text safe for processing
+
+    :return: Sanitized text safe for processing
+    :rtype: str  # TODO: Fix type
     """
     try:
         if not text:
@@ -207,15 +211,16 @@ def sanitize_message_text(text: str) -> str:
         return ""
 
 
-def validate_chat_id(chat_id: str) -> Tuple[bool, Optional[str]]:
+def validate_chat_id(chat_id: str) -> tuple[bool, str | None]:
     """
     Validate chat ID format and content.
 
-    Args:
+
         chat_id: Chat ID to validate
 
-    Returns:
-        Tuple of (is_valid, error_message)
+
+    :return: Tuple of (is_valid, error_message)
+    :rtype: str  # TODO: Fix type
     """
     try:
         if not chat_id:

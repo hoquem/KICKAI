@@ -7,9 +7,9 @@ These interfaces are split into focused, cohesive contracts for player operation
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
-from kickai.core.value_objects import PhoneNumber, PlayerId, TeamId, UserId
+from kickai.core.value_objects import PhoneNumber, PlayerId, TeamId, TelegramId
 
 from .repository_base import IRepository
 
@@ -22,24 +22,24 @@ class IPlayerReadRepository(ABC):
         self,
         phone: PhoneNumber,
         team_id: TeamId
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get player by phone number and team."""
         pass
 
     @abstractmethod
-    async def get_by_user_id(
+    async def get_by_telegram_id(
         self,
-        user_id: UserId,
+        user_id: TelegramId,
         team_id: TeamId
-    ) -> Optional[Dict[str, Any]]:
-        """Get player by user ID and team."""
+    ) -> dict[str, Any] | None:
+        """Get player by telegram ID and team."""
         pass
 
     @abstractmethod
     async def get_active_players(
         self,
         team_id: TeamId
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get all active players for a team."""
         pass
 
@@ -50,9 +50,9 @@ class IPlayerWriteRepository(ABC):
     @abstractmethod
     async def create_player(
         self,
-        player_data: Dict[str, Any],
+        player_data: dict[str, Any],
         team_id: TeamId
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create new player."""
         pass
 
@@ -61,8 +61,8 @@ class IPlayerWriteRepository(ABC):
         self,
         player_id: PlayerId,
         team_id: TeamId,
-        updates: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+        updates: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """Update player information."""
         pass
 
@@ -84,7 +84,7 @@ class IPlayerApprovalRepository(ABC):
     async def get_pending_approvals(
         self,
         team_id: TeamId
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get players pending approval."""
         pass
 
@@ -93,7 +93,7 @@ class IPlayerApprovalRepository(ABC):
         self,
         player_id: PlayerId,
         team_id: TeamId,
-        approved_by: UserId
+        approved_by: TelegramId
     ) -> bool:
         """Approve player registration."""
         pass

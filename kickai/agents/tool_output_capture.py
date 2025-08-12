@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -15,41 +15,41 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ToolExecution:
     tool_name: str
-    input_parameters: Dict[str, Any]
+    input_parameters: dict[str, Any]
     output_result: Any
     execution_time: datetime
     duration_ms: float
     success: bool
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 @dataclass
 class ToolOutputCapture:
-    executions: List[ToolExecution] = field(default_factory=list)
+    executions: list[ToolExecution] = field(default_factory=list)
 
     def add_execution(self, execution: ToolExecution) -> None:
         logger.debug(f"[TOOL CAPTURE] Added execution for {execution.tool_name}")
         self.executions.append(execution)
 
-    def get_latest_output(self, tool_name: str) -> Optional[Any]:
+    def get_latest_output(self, tool_name: str) -> Any | None:
         for execution in reversed(self.executions):
             if execution.tool_name == tool_name and execution.success:
                 return execution.output_result
         return None
 
-    def get_all_outputs(self, tool_name: str) -> List[Any]:
+    def get_all_outputs(self, tool_name: str) -> list[Any]:
         return [e.output_result for e in self.executions if e.tool_name == tool_name and e.success]
 
-    def get_tool_names(self) -> List[str]:
+    def get_tool_names(self) -> list[str]:
         return list({e.tool_name for e in self.executions})
 
-    def get_execution_summary(self) -> Dict[str, Any]:
+    def get_execution_summary(self) -> dict[str, Any]:
         total = len(self.executions)
         successful = sum(1 for e in self.executions if e.success)
         failed = total - successful
-        tools: Set[str] = {e.tool_name for e in self.executions}
+        tools: set[str] = {e.tool_name for e in self.executions}
 
-        latest_outputs: Dict[str, Optional[Any]] = {}
+        latest_outputs: dict[str, Any | None] = {}
         for tool in tools:
             latest_outputs[tool] = self.get_latest_output(tool)
 
@@ -71,8 +71,8 @@ class ToolOutputCaptureMixin:
         logger.debug("🧹 [TOOL CAPTURE] Cleared all captured outputs")
 
 
-def extract_tool_outputs_from_context(context: Dict[str, Any]) -> Dict[str, Any]:
-    result: Dict[str, Any] = {}
+def extract_tool_outputs_from_context(context: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
 
     direct = context.get("tool_outputs")
     if isinstance(direct, dict):
@@ -89,11 +89,11 @@ def extract_tool_outputs_from_context(context: Dict[str, Any]) -> Dict[str, Any]
     return result
 
 
-def _parse_player_names_from_text(text: str) -> Dict[str, List[str]]:
+def _parse_player_names_from_text(text: str) -> dict[str, list[str]]:
     lines = text.splitlines()
-    active: List[str] = []
-    pending: List[str] = []
-    other: List[str] = []
+    active: list[str] = []
+    pending: list[str] = []
+    other: list[str] = []
 
     current_section = "active"
     for raw in lines:
@@ -122,9 +122,9 @@ def _parse_player_names_from_text(text: str) -> Dict[str, List[str]]:
                 other.append(name)
 
     # Deduplicate preserving order
-    def dedupe(seq: List[str]) -> List[str]:
-        seen: Set[str] = set()
-        out: List[str] = []
+    def dedupe(seq: list[str]) -> list[str]:
+        seen: set[str] = set()
+        out: list[str] = []
         for x in seq:
             if x not in seen:
                 seen.add(x)
@@ -144,7 +144,7 @@ def _parse_player_names_from_text(text: str) -> Dict[str, List[str]]:
     }
 
 
-def extract_players_from_text(text: str) -> Dict[str, List[str]]:
+def extract_players_from_text(text: str) -> dict[str, list[str]]:
     if not isinstance(text, str) or not text.strip():
         return {
             "active_players": [],
@@ -155,15 +155,15 @@ def extract_players_from_text(text: str) -> Dict[str, List[str]]:
     return _parse_player_names_from_text(text)
 
 
-def extract_structured_data_from_tool_outputs(tool_outputs: Dict[str, Any]) -> Dict[str, Any]:
-    players_agg: Dict[str, Set[str]] = {
+def extract_structured_data_from_tool_outputs(tool_outputs: dict[str, Any]) -> dict[str, Any]:
+    players_agg: dict[str, set[str]] = {
         "active_players": set(),
         "pending_players": set(),
         "other_players": set(),
         "all_players": set(),
     }
 
-    tools_used: List[str] = list(tool_outputs.keys())
+    tools_used: list[str] = list(tool_outputs.keys())
 
     for _, value in tool_outputs.items():
         if isinstance(value, str):
@@ -171,7 +171,7 @@ def extract_structured_data_from_tool_outputs(tool_outputs: Dict[str, Any]) -> D
             for k in players_agg:
                 players_agg[k].update(parsed.get(k, []))
 
-    players_dict = {k: sorted(list(v)) for k, v in players_agg.items()}
+    players_dict = {k: sorted(v) for k, v in players_agg.items()}
     return {
         "player_count": len(players_dict["all_players"]),
         "tools_used": tools_used,
@@ -179,7 +179,7 @@ def extract_structured_data_from_tool_outputs(tool_outputs: Dict[str, Any]) -> D
     }
 
 
-def extract_structured_data_from_agent_result(agent_result: Any) -> Dict[str, Any]:
+def extract_structured_data_from_agent_result(agent_result: Any) -> dict[str, Any]:
     if not isinstance(agent_result, str) or not agent_result.strip():
         return {
             "player_count": 0,
@@ -195,8 +195,8 @@ def extract_structured_data_from_agent_result(agent_result: Any) -> Dict[str, An
     }
 
 
-def compare_data_consistency(actual_data: Dict[str, Any], agent_data: Dict[str, Any]) -> List[str]:
-    issues: List[str] = []
+def compare_data_consistency(actual_data: dict[str, Any], agent_data: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
 
     actual_players = set(actual_data.get("players", {}).get("all_players", []))
     agent_players = set(agent_data.get("players", {}).get("all_players", []))
@@ -231,7 +231,7 @@ def compare_data_consistency(actual_data: Dict[str, Any], agent_data: Dict[str, 
     return issues
 
 
-def validate_tool_output_consistency(agent_result: Any, tool_outputs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def validate_tool_output_consistency(agent_result: Any, tool_outputs: dict[str, Any] | None) -> dict[str, Any]:
     if not tool_outputs:
         return {"consistent": True, "issues": [], "tool_outputs_used": []}
 
@@ -239,7 +239,7 @@ def validate_tool_output_consistency(agent_result: Any, tool_outputs: Optional[D
     agent_structured = extract_structured_data_from_agent_result(agent_result)
     issues = compare_data_consistency(structured, agent_structured)
 
-    response: Dict[str, Any] = {
+    response: dict[str, Any] = {
         "consistent": len(issues) == 0,
         "issues": issues,
         "tool_outputs_used": structured.get("tools_used", []),

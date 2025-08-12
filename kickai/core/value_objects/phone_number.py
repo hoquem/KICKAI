@@ -1,9 +1,8 @@
-from typing import Optional
+from __future__ import annotations
+
 """
 Phone number value object with validation and formatting using libphonenumber.
 """
-
-from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -24,14 +23,15 @@ class PhoneNumber:
         """
         Create PhoneNumber from string with validation.
 
-        Args:
+
             phone_str: Phone number string in any format
             region: Default region for parsing (ISO 3166-1 alpha-2)
 
-        Returns:
-            Validated PhoneNumber instance
 
-        Raises:
+    :return: Validated PhoneNumber instance
+    :rtype: str  # TODO: Fix type
+
+
             PlayerValidationError: If phone number is invalid
         """
         if not phone_str or not phone_str.strip():
@@ -57,16 +57,17 @@ class PhoneNumber:
             raise PlayerValidationError([f"Cannot parse phone number '{phone_str}': {e}"])
 
     @classmethod
-    def try_parse(cls, phone_str: str, region: str = "GB") -> Optional[PhoneNumber]:
+    def try_parse(cls, phone_str: str, region: str = "GB") -> PhoneNumber | None:
         """
         Try to parse phone number, return None if invalid.
 
-        Args:
+
             phone_str: Phone number string
             region: Default region for parsing
 
-        Returns:
-            PhoneNumber instance or None if parsing fails
+
+    :return: PhoneNumber instance or None if parsing fails
+    :rtype: str  # TODO: Fix type
         """
         try:
             return cls.from_string(phone_str, region)
@@ -102,7 +103,7 @@ class PhoneNumber:
         return self.formatted
 
     @property
-    def region_code(self) -> Optional[str]:
+    def region_code(self) -> str | None:
         """Return the region code for this phone number."""
         try:
             parsed = phonenumbers.parse(self.value, None)

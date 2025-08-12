@@ -74,7 +74,7 @@ class RegistryMonitor:
         metrics.total_items = count
         metrics.last_updated = time.time()
 
-    def get_metrics(self, registry_name: str = None) -> dict[str, Any]:
+    def get_metrics(self, registry_name: str | None = None) -> dict[str, Any]:
         """Get metrics for a specific registry or all registries."""
         if registry_name:
             return self._metrics[registry_name].__dict__
@@ -101,7 +101,7 @@ class RegistryMonitor:
 
         return "\n".join(report)
 
-    def reset_metrics(self, registry_name: str = None) -> None:
+    def reset_metrics(self, registry_name: str | None = None) -> None:
         """Reset metrics for a specific registry or all registries."""
         if registry_name:
             self._metrics[registry_name] = RegistryMetrics(registry_name)

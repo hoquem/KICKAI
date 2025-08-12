@@ -10,12 +10,12 @@ from kickai.features.shared.domain.tools.help_tools import *
 from kickai.features.shared.domain.tools.onboarding_tools import (
     team_member_guidance,
 )
-from kickai.features.shared.domain.tools.user_tools import (
-    get_user_status,
-)
 from kickai.features.shared.domain.tools.system_tools import (
     ping,
     version,
+)
+from kickai.features.shared.domain.tools.user_tools import (
+    get_user_status,
 )
 
 __all__ = [

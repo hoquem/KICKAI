@@ -1,4 +1,3 @@
-from typing import Optional
 import logging
 from datetime import datetime
 
@@ -35,7 +34,7 @@ class FirebaseMatchRepository(MatchRepositoryInterface):
             logger.error(f"Failed to create match {match.match_id}: {e}")
             raise
 
-    async def get_by_id(self, match_id: str) -> Optional[Match]:
+    async def get_by_id(self, match_id: str) -> Match | None:
         """Get match by ID."""
         try:
             # We need to search across all team collections to find the match

@@ -9,7 +9,7 @@ context passing across the entire system to agents and tools.
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional, Set, List
+from typing import Any
 
 from kickai.core.enums import ChatType, PermissionLevel
 
@@ -30,8 +30,8 @@ class UserPermissions:
     is_player: bool = False
     is_team_member: bool = False
     is_admin: bool = False
-    roles: List[str] = field(default_factory=list)
-    permissions: List[PermissionLevel] = field(default_factory=list)
+    roles: list[str] = field(default_factory=list)
+    permissions: list[PermissionLevel] = field(default_factory=list)
 
 
 @dataclass
@@ -44,7 +44,7 @@ class StandardizedContext:
     """
 
     # Core fields (always present)
-    user_id: str
+    telegram_id: str
     team_id: str
     chat_id: str
     chat_type: str
@@ -53,9 +53,9 @@ class StandardizedContext:
     telegram_name: str
 
     # Optional fields (populated when available)
-    user_permissions: Optional[UserPermissions] = None
-    player_data: Optional[Dict[str, Any]] = None
-    team_member_data: Optional[Dict[str, Any]] = None
+    user_permissions: UserPermissions | None = None
+    player_data: dict[str, Any] | None = None
+    team_member_data: dict[str, Any] | None = None
     is_registered: bool = False
     is_player: bool = False
     is_team_member: bool = False
@@ -63,7 +63,7 @@ class StandardizedContext:
     # Context metadata
     source: ContextSource = ContextSource.TELEGRAM_MESSAGE
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         """Post-initialization validation and setup."""
@@ -77,11 +77,10 @@ class StandardizedContext:
             self.is_team_member = self.user_permissions.is_team_member
             self.is_registered = self.is_player or self.is_team_member
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert context to dictionary for serialization."""
         return {
-            "user_id": self.user_id,
-            "telegram_id": self.user_id,  # telegram_id is same as user_id in KICKAI system
+            "telegram_id": self.telegram_id,
             "team_id": self.team_id,
             "chat_id": self.chat_id,
             "chat_type": self.chat_type,
@@ -97,10 +96,10 @@ class StandardizedContext:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "StandardizedContext":
+    def from_dict(cls, data: dict[str, Any]) -> "StandardizedContext":
         """Create context from dictionary with validation of critical fields."""
         # Validate that critical fields are present
-        required_fields = ["user_id", "team_id", "chat_id", "chat_type", "message_text", "username"]
+        required_fields = ["telegram_id", "team_id", "chat_id", "chat_type", "message_text", "username"]
         missing_fields = [
             field for field in required_fields if field not in data or not data[field]
         ]
@@ -136,7 +135,7 @@ class StandardizedContext:
         elif self.username:
             return self.username
         else:
-            return f"User {self.user_id}"
+            return f"User {self.telegram_id}"
 
     def is_leadership_chat(self) -> bool:
         """Check if this is a leadership chat."""
@@ -156,7 +155,7 @@ class StandardizedContext:
         """Get a human-readable context summary."""
         return (
             f"User: {self.get_user_display_name()} "
-            f"({self.user_id}) | "
+            f"({self.telegram_id}) | "
             f"Team: {self.team_id} | "
             f"Chat: {self.chat_type} | "
             f"Registered: {self.is_registered}"
@@ -173,16 +172,15 @@ def create_context_from_telegram_message(
     telegram_name: str = "",
     **kwargs,
 ) -> StandardizedContext:
-    """Create standardized context from Telegram message data."""
+    """Create a standardized context from a Telegram message."""
     return StandardizedContext(
-        user_id=str(telegram_id),
+        telegram_id=telegram_id,
         team_id=team_id,
         chat_id=chat_id,
-        chat_type=chat_type.value if isinstance(chat_type, ChatType) else chat_type,
+        chat_type=chat_type,
         message_text=message_text,
         username=username,
         telegram_name=telegram_name,
-        source=ContextSource.TELEGRAM_MESSAGE,
         **kwargs,
     )
 
@@ -197,12 +195,12 @@ def create_context_from_command(
     telegram_name: str = "",
     **kwargs,
 ) -> StandardizedContext:
-    """Create standardized context from command data."""
+    """Create a standardized context from a command."""
     return StandardizedContext(
-        user_id=str(telegram_id),
+        telegram_id=telegram_id,
         team_id=team_id,
         chat_id=chat_id,
-        chat_type=chat_type.value if isinstance(chat_type, ChatType) else chat_type,
+        chat_type=chat_type,
         message_text=command_text,
         username=username,
         telegram_name=telegram_name,
@@ -213,16 +211,16 @@ def create_context_from_command(
 
 def enhance_context_with_user_data(
     context: StandardizedContext,
-    user_permissions: Optional[UserPermissions] = None,
-    player_data: Optional[Dict[str, Any]] = None,
-    team_member_data: Optional[Dict[str, Any]] = None,
+    user_permissions: UserPermissions | None = None,
+    player_data: dict[str, Any] | None = None,
+    team_member_data: dict[str, Any] | None = None,
 ) -> StandardizedContext:
     """Enhance context with additional user data."""
     context.user_permissions = user_permissions
     context.player_data = player_data
     context.team_member_data = team_member_data
 
-    # Update boolean flags
+    # Update registration status based on available data
     if user_permissions:
         context.is_player = user_permissions.is_player
         context.is_team_member = user_permissions.is_team_member

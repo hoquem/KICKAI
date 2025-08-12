@@ -1,4 +1,3 @@
-from typing import Optional
 #!/usr/bin/env python3
 """
 Centralized Permission Service for KICKAI
@@ -7,395 +6,345 @@ This service provides a single source of truth for all permission checks,
 integrating chat-based role assignment with command permissions.
 """
 
-import logging
-from dataclasses import dataclass
+from loguru import logger
 
-from kickai.core.enums import ChatType, PermissionLevel
-from kickai.database.firebase_client import FirebaseClient
-
-# TeamMemberService removed - using mock service instead
-from kickai.features.team_administration.domain.services.chat_role_assignment_service import (
-    ChatRoleAssignmentService,
-)
-
-logger = logging.getLogger(__name__)
+from kickai.core.enums import ChatType, PermissionLevel, UserRole
+from kickai.core.interfaces.player_repositories import IPlayerRepository
+from kickai.core.interfaces.team_repositories import ITeamRepository
+from kickai.core.value_objects.entity_context import EntityContext, UserRegistration
 
 
-@dataclass
-class PermissionContext:
-    """Context for permission checking."""
-
-    user_id: str
-    team_id: str
-    chat_id: str
-    chat_type: ChatType
-    username: Optional[str] = None
-
-    def __post_init__(self):
-        if self.chat_type is None:
-            self.chat_type = self._determine_chat_type()
-
-    def _determine_chat_type(self) -> ChatType:
-        """Determine chat type based on chat ID or other context."""
-        # This would be enhanced with actual chat mapping logic
-        # For now, return a default
-        return ChatType.MAIN
-
-
-@dataclass
 class UserPermissions:
     """User permissions information."""
 
-    user_id: str
-    team_id: str
-    roles: list[str]
-    chat_access: dict[str, bool]
-    is_admin: bool
-    is_player: bool
-    is_team_member: bool
-    is_first_user: bool
-    can_access_main_chat: bool
-    can_access_leadership_chat: bool
+    def __init__(
+        self,
+        is_player: bool = False,
+        is_team_member: bool = False,
+        is_admin: bool = False,
+        roles: list[str] | None = None,
+        permissions: list[PermissionLevel] | None = None,
+    ):
+        self.is_player = is_player
+        self.is_team_member = is_team_member
+        self.is_admin = is_admin
+        self.roles = roles or []
+        self.permissions = permissions or []
+
+    def has_permission(self, permission: PermissionLevel) -> bool:
+        """Check if user has a specific permission."""
+        return permission in self.permissions
+
+    def has_any_role(self) -> bool:
+        """Check if user has any role."""
+        return self.is_player or self.is_team_member
+
+    def primary_role(self) -> str:
+        """Get the primary role of the user."""
+        if self.is_team_member:
+            return "team_member"
+        elif self.is_player:
+            return "player"
+        else:
+            return "unregistered"
 
 
 class PermissionService:
-    """Centralized service for all permission checking."""
+    """Service for managing user permissions and access control."""
 
-    def __init__(self, firebase_client: FirebaseClient = None):
-        self.firebase_client = firebase_client
-        if firebase_client:
-            self.chat_role_service = ChatRoleAssignmentService(firebase_client)
-        else:
-            # Use mock chat role service when firebase_client is None
-            self.chat_role_service = self._create_mock_chat_role_service()
+    def __init__(
+        self,
+        player_repository: IPlayerRepository,
+        team_repository: ITeamRepository,
+    ):
+        self.player_repository = player_repository
+        self.team_repository = team_repository
+        self.logger = logger
 
-        # Get services from dependency container instead of creating them directly
-        try:
-            from kickai.core.dependency_container import get_service
-            from kickai.features.player_registration.domain.services.player_service import (
-                PlayerService,
-            )
-            from kickai.features.team_administration.domain.services.team_service import TeamService
-
-            self.player_service = get_service(PlayerService)
-            self.team_service = get_service(TeamService)
-
-            # For now, use a simple mock team member service until the full implementation is ready
-            self.team_member_service = self._create_mock_team_member_service()
-
-        except Exception as e:
-            logger.warning(f"⚠️ Could not get services from dependency container: {e}")
-            # Fallback to mock services
-            self.player_service = None
-            self.team_service = None
-            self.team_member_service = self._create_mock_team_member_service()
-
-        logger.info("✅ PermissionService initialized")
-
-    def _create_mock_team_member_service(self):
-        """Create a mock team member service for fallback."""
-
-        class MockTeamMemberService:
-            async def get_team_member_by_telegram_id(self, telegram_id: int, team_id: str):
-                return None
-
-            async def is_first_user(self, team_id: str):
-                return False
-
-        return MockTeamMemberService()
-
-    def _create_mock_chat_role_service(self):
-        """Create a mock chat role service for fallback."""
-
-        class MockChatRoleService:
-            async def assign_role_to_user(
-                self, user_id: str, team_id: str, role: str, chat_type: str
-            ):
-                return True
-
-            async def get_user_role_in_chat(self, user_id: str, team_id: str, chat_type: str):
-                return "player"
-
-        return MockChatRoleService()
-
-    async def get_user_permissions(self, user_id: str, team_id: str) -> UserPermissions:
+    async def get_user_role_in_chat(self, telegram_id: str, team_id: str, chat_type: str):
         """
-        Get comprehensive user permissions information.
+        Get user's role in a specific chat context.
 
-        This is the single source of truth for user permissions.
-        """
-        try:
-            # Get team member information
-            team_member = await self.team_member_service.get_team_member_by_telegram_id(
-                user_id, team_id
-            )
-
-            if team_member:
-                # User exists as team member
-                roles = team_member.roles
-                chat_access = team_member.chat_access
-                is_admin = "admin" in roles
-                is_player = "player" in roles
-                is_team_member = "team_member" in roles
-
-                # Check if this is the first user
-                is_first_user = await self.team_member_service.is_first_user(team_id)
-
-                return UserPermissions(
-                    user_id=user_id,
-                    team_id=team_id,
-                    roles=roles,
-                    chat_access=chat_access,
-                    is_admin=is_admin,
-                    is_player=is_player,
-                    is_team_member=is_team_member,
-                    is_first_user=is_first_user,
-                    can_access_main_chat=chat_access.get("main_chat", False),
-                    can_access_leadership_chat=chat_access.get("leadership_chat", False),
-                )
-            else:
-                # User not found - return default permissions
-                return UserPermissions(
-                    user_id=user_id,
-                    team_id=team_id,
-                    roles=[],
-                    chat_access={},
-                    is_admin=False,
-                    is_player=False,
-                    is_team_member=False,
-                    is_first_user=False,
-                    can_access_main_chat=False,
-                    can_access_leadership_chat=False,
-                )
-
-        except Exception as e:
-            logger.error(f"Error getting user permissions for {user_id}: {e}")
-            # Return default permissions on error
-            return UserPermissions(
-                user_id=user_id,
-                team_id=team_id,
-                roles=[],
-                chat_access={},
-                is_admin=False,
-                is_player=False,
-                is_team_member=False,
-                is_first_user=False,
-                can_access_main_chat=False,
-                can_access_leadership_chat=False,
-            )
-
-    async def can_execute_command(
-        self, permission_level: PermissionLevel, context: PermissionContext
-    ) -> bool:
-        """
-        Check if user can execute a command with given permission level.
-
-        This is the main permission checking method used by all commands.
+        :param telegram_id: User's Telegram ID
+        :type telegram_id: str
+        :param team_id: Team ID
+        :type team_id: str
+        :param chat_type: Type of chat (main_chat, leadership_chat, private)
+        :type chat_type: str
+        :return: User's role in the chat context
+        :rtype: str
         """
         try:
             # Get user permissions
-            user_perms = await self.get_user_permissions(context.user_id, context.team_id)
+            user_perms = await self.get_user_permissions(telegram_id, team_id)
 
-            # Check permission level
-            if permission_level == PermissionLevel.PUBLIC:
-                return True  # Public commands are always allowed
-
-            elif permission_level == PermissionLevel.PLAYER:
-                # Player commands require player role and main chat access only
-                if not user_perms.is_player:
-                    return False
-
-                # Must be in main chat only (not leadership chat)
-                return context.chat_type == ChatType.MAIN
-
-            elif permission_level == PermissionLevel.LEADERSHIP:
-                # Leadership commands require leadership chat access
-                if context.chat_type != ChatType.LEADERSHIP:
-                    return False
-
-                # Must have team member role or be admin
-                return user_perms.is_team_member or user_perms.is_admin
-
-            elif permission_level == PermissionLevel.ADMIN:
-                # Admin commands require leadership chat access and admin role
-                if context.chat_type != ChatType.LEADERSHIP:
-                    return False
-
-                return user_perms.is_admin
-
-            return False
+            # Determine role based on chat type and permissions
+            if chat_type == ChatType.MAIN.value:
+                # In main chat, prioritize player role
+                if user_perms.is_player:
+                    return UserRole.PLAYER.value
+                elif user_perms.is_team_member:
+                    return UserRole.TEAM_MEMBER.value
+                else:
+                    return "unregistered"
+            elif chat_type == ChatType.LEADERSHIP.value:
+                # In leadership chat, prioritize team member role
+                if user_perms.is_team_member:
+                    return UserRole.TEAM_MEMBER.value
+                elif user_perms.is_player:
+                    return "player"
+                else:
+                    return "unregistered"
+            else:
+                # Private chat - use actual roles
+                return user_perms.primary_role()
 
         except Exception as e:
-            logger.error(f"Error checking command permissions: {e}")
-            return False
+            self.logger.error(f"Error getting user role in chat: {e}")
+            return "unregistered"
 
-    async def get_user_role(self, user_id: str, team_id: str) -> str:
+    async def get_user_permissions(self, telegram_id: str, team_id: str) -> UserPermissions:
         """
-        Get the primary role of a user for backward compatibility.
+        Get comprehensive user permissions for a team.
 
-        This method is used by existing code that expects a simple role string.
+        :param telegram_id: User's Telegram ID
+        :type telegram_id: str
+        :param team_id: Team ID
+        :type team_id: str
+        :return: UserPermissions object with user's permissions
+        :rtype: UserPermissions
         """
         try:
-            user_perms = await self.get_user_permissions(user_id, team_id)
+            # Check if user is a player
+            player = await self.player_repository.get_by_telegram_id(telegram_id, team_id)
+            is_player = player is not None
 
-            # Return the most significant role
-            if user_perms.is_admin:
-                return "admin"
-            elif user_perms.is_team_member:
-                return "team_member"
-            elif user_perms.is_player:
-                return "player"
-            else:
-                return "none"
+            # Check if user is a team member
+            team_member = await self.team_repository.get_team_member_by_telegram_id(telegram_id, team_id)
+            is_team_member = team_member is not None
+
+            # Determine admin status
+            is_admin = False
+            if team_member:
+                is_admin = team_member.is_admin
+
+            # Build roles list
+            roles = []
+            if is_player:
+                roles.append(UserRole.PLAYER.value)
+            if is_team_member:
+                roles.append(UserRole.TEAM_MEMBER.value)
+            if is_admin:
+                roles.append(UserRole.ADMIN.value)
+
+            # Determine permissions based on roles
+            permissions = []
+            if is_player:
+                permissions.extend([
+                    PermissionLevel.PLAYER_BASIC,
+                    PermissionLevel.PLAYER_ADVANCED,
+                ])
+            if is_team_member:
+                permissions.extend([
+                    PermissionLevel.TEAM_MEMBER_BASIC,
+                    PermissionLevel.TEAM_MEMBER_ADVANCED,
+                ])
+            if is_admin:
+                permissions.extend([
+                    PermissionLevel.ADMIN_BASIC,
+                    PermissionLevel.ADMIN_ADVANCED,
+                ])
+
+            return UserPermissions(
+                is_player=is_player,
+                is_team_member=is_team_member,
+                is_admin=is_admin,
+                roles=roles,
+                permissions=permissions,
+            )
 
         except Exception as e:
-            logger.error(f"Error getting user role for {user_id}: {e}")
-            return "none"
+            self.logger.error(f"Error getting user permissions: {e}")
+            return UserPermissions()
 
-    async def require_permission(
-        self, permission_level: PermissionLevel, context: PermissionContext
+    async def check_permission(
+        self, context: EntityContext, required_permission: PermissionLevel
     ) -> bool:
         """
-        Require a specific permission level - throws exception if not met.
+        Check if user has a specific permission.
 
-        Use this for critical operations that should fail fast.
-        """
-        if not await self.can_execute_command(permission_level, context):
-            raise PermissionError(
-                f"User {context.user_id} lacks {permission_level.value} permission"
-            )
-        return True
-
-    async def get_available_commands(self, context: PermissionContext) -> list[str]:
-        """
-        Get list of available commands for a user in the given context.
-
-        This is used by the help system to show appropriate commands.
+        :param context: Entity context with user information
+        :type context: EntityContext
+        :param required_permission: Permission level required
+        :type required_permission: PermissionLevel
+        :return: True if user has the required permission
+        :rtype: bool
         """
         try:
-            # Use centralized constants for command lists
-            from kickai.core.constants import get_commands_for_permission_level
-
-            available_commands = []
-
-            # Get commands by permission level
-            public_commands = get_commands_for_permission_level(PermissionLevel.PUBLIC)
-            available_commands.extend([cmd.name for cmd in public_commands])
-
-            if await self.can_execute_command(PermissionLevel.PLAYER, context):
-                player_commands = get_commands_for_permission_level(PermissionLevel.PLAYER)
-                available_commands.extend([cmd.name for cmd in player_commands])
-
-            if await self.can_execute_command(PermissionLevel.LEADERSHIP, context):
-                leadership_commands = get_commands_for_permission_level(PermissionLevel.LEADERSHIP)
-                available_commands.extend([cmd.name for cmd in leadership_commands])
-
-            if await self.can_execute_command(PermissionLevel.ADMIN, context):
-                admin_commands = get_commands_for_permission_level(PermissionLevel.ADMIN)
-                available_commands.extend([cmd.name for cmd in admin_commands])
-
-            return available_commands
+            user_perms = await self.get_user_permissions(context.telegram_id.value, context.team_id.value)
+            return user_perms.has_permission(required_permission)
 
         except Exception as e:
-            logger.error(f"Error getting available commands: {e}")
-            return ["/help"]
-
-    async def get_permission_denied_message(
-        self, permission_level: PermissionLevel, context: PermissionContext
-    ) -> str:
-        """
-        Get a user-friendly message explaining why permission was denied.
-        """
-        try:
-            user_perms = await self.get_user_permissions(context.user_id, context.team_id)
-
-            if permission_level == PermissionLevel.PLAYER:
-                if not user_perms.is_player:
-                    return f"""❌ Access Denied
-
-🔒 This command requires player access.
-💡 Contact your team admin for access.
-
-Your Role: {", ".join(user_perms.roles) if user_perms.roles else "None"}"""
-                else:
-                    return """❌ Access Denied
-
-🔒 Player commands are only available in the main team chat.
-💡 Please use the main team chat for this function."""
-
-            elif permission_level == PermissionLevel.LEADERSHIP:
-                if context.chat_type != ChatType.LEADERSHIP:
-                    return """❌ Access Denied
-
-🔒 Leadership commands are only available in the leadership chat.
-💡 Please use the leadership chat for this function."""
-                else:
-                    return f"""❌ Access Denied
-
-🔒 This command requires leadership access.
-💡 Contact your team admin for access.
-
-Your Role: {", ".join(user_perms.roles) if user_perms.roles else "None"}"""
-
-            elif permission_level == PermissionLevel.ADMIN:
-                if context.chat_type != ChatType.LEADERSHIP:
-                    return """❌ Access Denied
-
-🔒 Admin commands are only available in the leadership chat.
-💡 Please use the leadership chat for this function."""
-                else:
-                    return f"""❌ Access Denied
-
-🔒 This command requires admin access.
-💡 Contact your team admin for access.
-
-Your Role: {", ".join(user_perms.roles) if user_perms.roles else "None"}"""
-
-            return "❌ Access denied for this command."
-
-        except Exception as e:
-            logger.error(f"Error generating permission denied message: {e}")
-            return "❌ Access denied for this command."
-
-    async def is_first_user(self, team_id: str) -> bool:
-        """Check if this would be the first user in the team."""
-        return await self.team_member_service.is_first_user(team_id)
-
-    async def promote_to_admin(self, telegram_id: str, team_id: str, promoted_by: str) -> bool:
-        """Promote a user to admin role (only by existing admin)."""
-        return await self.team_member_service.promote_to_admin(telegram_id, team_id, promoted_by)
-
-    async def handle_last_admin_leaving(self, team_id: str) -> Optional[str]:
-        """Handle when the last admin leaves - promote longest-tenured leadership member."""
-        return await self.team_member_service.handle_last_admin_leaving(team_id)
-
-    async def is_user_registered(self, context: PermissionContext) -> bool:
-        """Check if a user is already registered in the system."""
-        try:
-            user_perms = await self.get_user_permissions(context.user_id, context.team_id)
-            return user_perms.is_player or user_perms.is_team_member or user_perms.is_admin
-        except Exception as e:
-            logger.error(f"Error checking if user is registered: {e}")
+            self.logger.error(f"Error checking permission: {e}")
             return False
 
+    async def require_permission(
+        self, context: EntityContext, required_permission: PermissionLevel
+    ) -> None:
+        """
+        Require a specific permission, raise exception if not met.
 
-# Global instance for easy access
-_permission_service: Optional[PermissionService] = None
+        :param context: Entity context with user information
+        :type context: EntityContext
+        :param required_permission: Permission level required
+        :type required_permission: PermissionLevel
+        :raises PermissionError: If user lacks required permission
+        """
+        if not await self.check_permission(context, required_permission):
+            raise PermissionError(
+                context.telegram_id.value,
+                f"access {required_permission.value}",
+                f"User {context.telegram_id.value} lacks {required_permission.value} permission"
+            )
+
+    async def get_user_role(self, telegram_id: str, team_id: str) -> str:
+        """
+        Get user's primary role in a team.
+
+        :param telegram_id: User's Telegram ID
+        :type telegram_id: str
+        :param team_id: Team ID
+        :type team_id: str
+        :return: User's primary role
+        :rtype: str
+        """
+        try:
+            user_perms = await self.get_user_permissions(telegram_id, team_id)
+            return user_perms.primary_role()
+
+        except Exception as e:
+            self.logger.error(f"Error getting user role: {e}")
+            return "unregistered"
+
+    async def is_user_registered(self, telegram_id: str, team_id: str) -> bool:
+        """
+        Check if user is registered in the team.
+
+        :param telegram_id: User's Telegram ID
+        :type telegram_id: str
+        :param team_id: Team ID
+        :type team_id: str
+        :return: True if user is registered
+        :rtype: bool
+        """
+        try:
+            user_perms = await self.get_user_permissions(telegram_id, team_id)
+            return user_perms.has_any_role()
+
+        except Exception as e:
+            self.logger.error(f"Error checking user registration: {e}")
+            return False
+
+    async def get_user_registration_context(self, telegram_id: str, team_id: str) -> UserRegistration:
+        """
+        Get user registration context.
+
+        :param telegram_id: User's Telegram ID
+        :type telegram_id: str
+        :param team_id: Team ID
+        :type team_id: str
+        :return: UserRegistration object
+        :rtype: UserRegistration
+        """
+        try:
+            user_perms = await self.get_user_permissions(telegram_id, team_id)
+
+            return UserRegistration(
+                is_registered=user_perms.has_any_role(),
+                is_player=user_perms.is_player,
+                is_team_member=user_perms.is_team_member,
+                is_admin=user_perms.is_admin,
+                is_leadership=user_perms.is_admin,  # Admin users are considered leadership
+            )
+
+        except Exception as e:
+            self.logger.error(f"Error getting user registration context: {e}")
+            return UserRegistration.unregistered()
+
+    async def validate_user_access(
+        self, context: EntityContext, required_permission: PermissionLevel
+    ) -> bool:
+        """
+        Validate user access for a specific operation.
 
 
-def get_permission_service(firebase_client: FirebaseClient = None) -> PermissionService:
-    """Get the global permission service instance."""
-    global _permission_service
-    if _permission_service is None:
-        if firebase_client is None:
-            # Get Firebase client from dependency container
-            try:
-                from kickai.database.firebase_client import get_firebase_client
+            context: Entity context with user information
+            required_permission: Permission level required
 
-                firebase_client = get_firebase_client()
-            except Exception as e:
-                logger.warning(f"⚠️ Could not get Firebase client from dependency container: {e}")
-                # Fallback to mock client
-                firebase_client = None
-        _permission_service = PermissionService(firebase_client)
-    return _permission_service
+
+    :return: True if user has access
+    :rtype: str  # TODO: Fix type
+        """
+        try:
+            # Check if user is registered
+            if not await self.is_user_registered(context.telegram_id.value, context.team_id.value):
+                self.logger.warning(f"Unregistered user {context.telegram_id.value} attempted access")
+                return False
+
+            # Check specific permission
+            return await self.check_permission(context, required_permission)
+
+        except Exception as e:
+            self.logger.error(f"Error validating user access: {e}")
+            return False
+
+    async def get_user_permissions_summary(self, telegram_id: str, team_id: str) -> dict[str, any]:
+        """
+        Get a summary of user permissions.
+
+
+            telegram_id: User's Telegram ID
+            team_id: Team ID
+
+
+    :return: Dictionary with permission summary
+    :rtype: str  # TODO: Fix type
+        """
+        try:
+            user_perms = await self.get_user_permissions(telegram_id, team_id)
+
+            return {
+                "telegram_id": telegram_id,
+                "team_id": team_id,
+                "is_registered": user_perms.has_any_role(),
+                "is_player": user_perms.is_player,
+                "is_team_member": user_perms.is_team_member,
+                "is_admin": user_perms.is_admin,
+                "primary_role": user_perms.primary_role(),
+                "roles": user_perms.roles,
+                "permissions": [perm.value for perm in user_perms.permissions],
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error getting user permissions summary: {e}")
+            return {
+                "telegram_id": telegram_id,
+                "team_id": team_id,
+                "is_registered": False,
+                "is_player": False,
+                "is_team_member": False,
+                "is_admin": False,
+                "primary_role": "unregistered",
+                "roles": [],
+                "permissions": [],
+            }
+
+
+class PermissionError(Exception):
+    """Raised when a user lacks required permissions."""
+
+    def __init__(self, telegram_id: str, action: str, reason: str = "Insufficient permissions"):
+        self.telegram_id = telegram_id
+        self.action = action
+        self.reason = reason
+        super().__init__(f"Permission denied for user {telegram_id}: {reason}")

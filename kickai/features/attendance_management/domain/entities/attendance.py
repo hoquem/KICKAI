@@ -8,7 +8,6 @@ This module defines the core entities for tracking player attendance and availab
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Optional, List
 
 
 class AttendanceStatus(Enum):
@@ -42,17 +41,17 @@ class Attendance:
     player_id: str
     match_id: str
     status: AttendanceStatus  # Enum preferred in tests
-    id: Optional[str] = None
-    team_id: Optional[str] = None
-    response_timestamp: Optional[str] = None  # ISO format
+    id: str | None = None
+    team_id: str | None = None
+    response_timestamp: str | None = None  # ISO format
     response_method: str = "command"  # AttendanceResponseMethod value
-    player_name: Optional[str] = None  # Cached for performance
-    match_opponent: Optional[str] = None  # Cached for performance
-    match_date: Optional[str] = None  # Cached for performance
-    notes: Optional[str] = None
-    marked_by: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    player_name: str | None = None  # Cached for performance
+    match_opponent: str | None = None  # Cached for performance
+    match_date: str | None = None  # Cached for performance
+    notes: str | None = None
+    marked_by: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
     def __post_init__(self):
         now = datetime.utcnow().isoformat()
@@ -69,10 +68,10 @@ class Attendance:
         team_id: str,
         status: AttendanceStatus,
         response_method: AttendanceResponseMethod = AttendanceResponseMethod.COMMAND,
-        player_name: Optional[str] = None,
-        match_opponent: Optional[str] = None,
-        match_date: Optional[str] = None,
-        notes: Optional[str] = None,
+        player_name: str | None = None,
+        match_opponent: str | None = None,
+        match_date: str | None = None,
+        notes: str | None = None,
     ) -> "Attendance":
         """Create a new attendance record."""
         now = datetime.utcnow().isoformat()
@@ -100,7 +99,7 @@ class Attendance:
         self,
         status: AttendanceStatus,
         response_method: AttendanceResponseMethod = AttendanceResponseMethod.COMMAND,
-        notes: Optional[str] = None,
+        notes: str | None = None,
     ) -> None:
         """Update attendance status."""
         self.status = status
@@ -185,7 +184,7 @@ class AttendanceSummary:
 
     @classmethod
     def from_attendance_list(
-        cls, match_id: str, team_id: str, attendance_list: List[Attendance]
+        cls, match_id: str, team_id: str, attendance_list: list[Attendance]
     ) -> "AttendanceSummary":
         """Create summary from list of attendance records."""
         total = len(attendance_list)

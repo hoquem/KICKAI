@@ -8,7 +8,7 @@ This module provides context management functionality for user interactions.
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,35 +18,35 @@ class UserContext:
     """User context information."""
 
     user_id: str
-    team_id: Optional[str] = None
-    chat_id: Optional[str] = None
-    username: Optional[str] = None
-    message_text: Optional[str] = None
+    team_id: str | None = None
+    chat_id: str | None = None
+    username: str | None = None
+    message_text: str | None = None
     is_registered_player: bool = False
     is_leadership_chat: bool = False
     user_role: str = "player"
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class ContextManager:
     """Manages user context information."""
 
     def __init__(self):
-        self.contexts: Dict[str, UserContext] = {}
+        self.contexts: dict[str, UserContext] = {}
         logger.info("ContextManager initialized")
 
-    async def get_user_context(self, user_id: str) -> Optional[UserContext]:
+    async def get_user_context(self, user_id: str) -> UserContext | None:
         """Get user context by user ID."""
         return self.contexts.get(user_id)
 
     async def create_user_context(
         self,
         user_id: str,
-        team_id: Optional[str] = None,
-        chat_id: Optional[str] = None,
-        username: Optional[str] = None,
-        message_text: Optional[str] = None,
+        team_id: str | None = None,
+        chat_id: str | None = None,
+        username: str | None = None,
+        message_text: str | None = None,
     ) -> UserContext:
         """Create a new user context."""
         # Determine if this is a leadership chat based on chat ID pattern
@@ -64,7 +64,7 @@ class ContextManager:
         self.contexts[user_id] = context
         return context
 
-    def _is_leadership_chat(self, chat_id: Optional[str]) -> bool:
+    def _is_leadership_chat(self, chat_id: str | None) -> bool:
         """Determine if a chat is a leadership chat based on chat ID pattern."""
         if not chat_id:
             return False
@@ -80,7 +80,7 @@ class ContextManager:
 
         return any(leadership_indicators)
 
-    async def update_user_context(self, user_id: str, **kwargs) -> Optional[UserContext]:
+    async def update_user_context(self, user_id: str, **kwargs) -> UserContext | None:
         """Update user context."""
         if user_id not in self.contexts:
             return None
@@ -99,13 +99,13 @@ class ContextManager:
             return True
         return False
 
-    def get_all_contexts(self) -> Dict[str, UserContext]:
+    def get_all_contexts(self) -> dict[str, UserContext]:
         """Get all user contexts."""
         return self.contexts.copy()
 
 
 # Global context manager instance
-_context_manager_instance: Optional[ContextManager] = None
+_context_manager_instance: ContextManager | None = None
 
 
 def get_context_manager() -> ContextManager:

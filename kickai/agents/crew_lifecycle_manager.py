@@ -7,16 +7,18 @@ including resource monitoring, health checks, and lifecycle management.
 """
 
 import asyncio
+from asyncio import Task
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, List, Optional, Set
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
 # Lazy import to avoid circular dependencies
-# from kickai.agents.crew_agents import TeamManagementSystem
+if TYPE_CHECKING:
+    from kickai.agents.crew_agents import TeamManagementSystem
 
 
 class CrewStatus(Enum):
@@ -57,7 +59,7 @@ class CrewLifecycleManager:
         self._crew_status: dict[str, CrewStatus] = {}
         self._crew_metrics: dict[str, CrewMetrics] = {}
         self._crew_locks: dict[str, asyncio.Lock] = {}
-        self._monitoring_task: asyncio.Optional[Task] = None
+        self._monitoring_task: Task | None = None
         self._shutdown_event = asyncio.Event()
 
         logger.info("🚀 CrewLifecycleManager initialized")
@@ -66,11 +68,12 @@ class CrewLifecycleManager:
         """
         Get an existing crew or create a new one for the team.
 
-        Args:
+
             team_id: The team ID to get/create crew for
 
-        Returns:
-            TeamManagementSystem instance for the team
+
+    :return: TeamManagementSystem instance for the team
+    :rtype: str  # TODO: Fix type
         """
         # Check if crew already exists
         if team_id in self._crews:
@@ -134,13 +137,14 @@ class CrewLifecycleManager:
         """
         Execute a task using the team's crew with metrics tracking.
 
-        Args:
+
             team_id: The team ID
             task_description: The task to execute
             execution_context: Execution context
 
-        Returns:
-            Task execution result
+
+    :return: Task execution result
+    :rtype: str  # TODO: Fix type
         """
         start_time = datetime.now()
 
@@ -336,7 +340,7 @@ If you need immediate assistance, please contact your team administrator."""
         """Shutdown a crew for the specified team."""
         try:
             if team_id in self._crews:
-                crew = self._crews[team_id]
+                self._crews[team_id]
                 # Note: TeamManagementSystem doesn't have explicit shutdown method
                 # but we can clean up references
                 del self._crews[team_id]
@@ -352,11 +356,11 @@ If you need immediate assistance, please contact your team administrator."""
         except Exception as e:
             logger.error(f"❌ Error shutting down crew for team {team_id}: {e}")
 
-    async def get_crew_status(self, team_id: str) -> Optional[CrewStatus]:
+    async def get_crew_status(self, team_id: str) -> CrewStatus | None:
         """Get the status of a crew for the specified team."""
         return self._crew_status.get(team_id)
 
-    async def get_crew_metrics(self, team_id: str) -> Optional[CrewMetrics]:
+    async def get_crew_metrics(self, team_id: str) -> CrewMetrics | None:
         """Get metrics for a crew for the specified team."""
         return self._crew_metrics.get(team_id)
 
@@ -466,7 +470,7 @@ If you need immediate assistance, please contact your team administrator."""
         """
         Context manager for safe crew access.
 
-        Args:
+
             team_id: The team ID to get crew for
 
         Yields:
@@ -483,7 +487,7 @@ If you need immediate assistance, please contact your team administrator."""
 
 
 # Global instance for easy access
-_crew_lifecycle_manager: Optional[CrewLifecycleManager] = None
+_crew_lifecycle_manager: CrewLifecycleManager | None = None
 
 
 def get_crew_lifecycle_manager() -> CrewLifecycleManager:

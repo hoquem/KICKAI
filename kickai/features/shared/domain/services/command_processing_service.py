@@ -8,7 +8,7 @@ and uses agents and tools for complex operations.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -25,15 +25,15 @@ from kickai.features.team_administration.domain.services.team_service import Tea
 class UserContext:
     """Complete user context for command processing."""
 
-    user_id: str
+    telegram_id: int
     team_id: str
     chat_id: str
     chat_type: ChatType
     telegram_username: str
     telegram_name: str
-    user_permissions: Optional[UserPermissions] = None
-    player_data: Optional[Dict[str, Any]] = None
-    team_member_data: Optional[Dict[str, Any]] = None
+    user_permissions: UserPermissions | None = None
+    player_data: dict[str, Any] | None = None
+    team_member_data: dict[str, Any] | None = None
     is_registered: bool = False
     is_player: bool = False
     is_team_member: bool = False
@@ -46,8 +46,8 @@ class CommandResponse:
     message: str
     success: bool
     requires_action: bool = False
-    action_type: Optional[str] = None
-    action_data: Optional[Dict[str, Any]] = None
+    action_type: str | None = None
+    action_data: dict[str, Any] | None = None
 
 
 class CommandProcessingService:
@@ -79,7 +79,7 @@ class CommandProcessingService:
     async def process_command(
         self,
         command_name: str,
-        user_id: str,
+        telegram_id: int,
         team_id: str,
         chat_id: str,
         chat_type: ChatType,
@@ -90,9 +90,9 @@ class CommandProcessingService:
         """
         Process a command with full user validation and context.
 
-        Args:
+
             command_name: Name of the command being processed
-            user_id: Telegram user ID
+            telegram_id: Telegram user ID
             team_id: Team ID
             chat_id: Chat ID
             chat_type: Type of chat (main/leadership)
@@ -100,13 +100,14 @@ class CommandProcessingService:
             telegram_name: Telegram display name
             **kwargs: Additional command-specific parameters
 
-        Returns:
-            CommandResponse with appropriate message and action requirements
+
+    :return: CommandResponse with appropriate message and action requirements
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Step 1: Build user context
             user_context = await self._build_user_context(
-                user_id, team_id, chat_id, chat_type, telegram_username, telegram_name
+                telegram_id, team_id, chat_id, chat_type, telegram_username, telegram_name
             )
 
             # Step 2: Validate user status and handle registration flows
@@ -137,7 +138,7 @@ class CommandProcessingService:
 
     async def _build_user_context(
         self,
-        user_id: str,
+        telegram_id: int,
         team_id: str,
         chat_id: str,
         chat_type: ChatType,
@@ -147,30 +148,30 @@ class CommandProcessingService:
         """Build complete user context with all necessary information."""
         try:
             # Get user permissions
-            user_permissions = await self.permission_service.get_user_permissions(user_id, team_id)
+            user_permissions = await self.permission_service.get_user_permissions(telegram_id, team_id)
 
             # Get player data if user is a player
             player_data = None
             if user_permissions.is_player:
                 try:
                     player_data = await self.player_service.get_player_by_telegram_id(
-                        user_id, team_id
+                        telegram_id, team_id
                     )
                 except Exception as e:
-                    logger.warning(f"⚠️ Could not get player data for {user_id}: {e}")
+                    logger.warning(f"⚠️ Could not get player data for {telegram_id}: {e}")
 
             # Get team member data if user is a team member
             team_member_data = None
             if user_permissions.is_team_member:
                 try:
                     team_member_data = await self.team_service.get_team_member_by_telegram_id(
-                        user_id, team_id
+                        telegram_id, team_id
                     )
                 except Exception as e:
-                    logger.warning(f"⚠️ Could not get team member data for {user_id}: {e}")
+                    logger.warning(f"⚠️ Could not get team member data for {telegram_id}: {e}")
 
             return UserContext(
-                user_id=user_id,
+                telegram_id=telegram_id,
                 team_id=team_id,
                 chat_id=chat_id,
                 chat_type=chat_type,
@@ -188,7 +189,7 @@ class CommandProcessingService:
             logger.error(f"❌ Error building user context: {e}")
             # Return minimal context on error
             return UserContext(
-                user_id=user_id,
+                telegram_id=telegram_id,
                 team_id=team_id,
                 chat_id=chat_id,
                 chat_type=chat_type,
@@ -313,7 +314,7 @@ class CommandProcessingService:
 
     def _build_robust_help_context(
         self, user_context: UserContext, chat_type: str
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """
         Build a robust context for help requests with comprehensive fallbacks.
 
@@ -323,17 +324,17 @@ class CommandProcessingService:
         username = (
             user_context.telegram_username
             or user_context.telegram_name
-            or f"User_{user_context.user_id}"
+            or f"User_{user_context.telegram_id}"
             or "Unknown User"
         )
 
         # Ensure username is not empty or just whitespace
         if not username or not username.strip():
-            username = f"User_{user_context.user_id}"
+            username = f"User_{user_context.telegram_id}"
 
         # Build the context with guaranteed non-None values
         context = {
-            "user_id": str(user_context.user_id) if user_context.user_id else "unknown",
+            "telegram_id": str(user_context.telegram_id) if user_context.telegram_id else "unknown",
             "team_id": str(user_context.team_id) if user_context.team_id else "unknown",
             "chat_type": str(chat_type) if chat_type else "main",
             "username": str(username).strip(),
@@ -347,8 +348,8 @@ class CommandProcessingService:
                     f"🔧 [HELP COMMAND] Context value for {key} is None or empty: {value}"
                 )
                 if key == "username":
-                    context[key] = f"User_{user_context.user_id}"
-                elif key in ["user_id", "team_id"]:
+                    context[key] = f"User_{user_context.telegram_id}"
+                elif key in ["telegram_id", "team_id"]:
                     context[key] = "unknown"
                 elif key == "chat_type":
                     context[key] = "main"
@@ -356,13 +357,13 @@ class CommandProcessingService:
                     context[key] = "unknown"
 
         # Final validation - ensure all required fields have valid values
-        required_fields = ["user_id", "team_id", "chat_type", "username"]
+        required_fields = ["telegram_id", "team_id", "chat_type", "username"]
         for field in required_fields:
             if field not in context or not context[field] or context[field] == "unknown":
                 logger.error(
                     f"🔧 [HELP COMMAND] Required field {field} is missing or invalid: {context.get(field)}"
                 )
-                if field == "user_id":
+                if field == "telegram_id":
                     context[field] = "12345"  # Fallback user ID
                 elif field == "team_id":
                     context[field] = "DEFAULT"  # Fallback team ID
@@ -374,7 +375,7 @@ class CommandProcessingService:
         logger.info(f"🔧 [HELP COMMAND] Final robust context: {context}")
         return context
 
-    async def _get_available_commands_for_user(self, user_context: UserContext) -> Dict[str, Any]:
+    async def _get_available_commands_for_user(self, user_context: UserContext) -> dict[str, Any]:
         """Get available commands for the specific user context."""
         try:
             from kickai.features.shared.application.commands.help_commands import (
@@ -383,7 +384,7 @@ class CommandProcessingService:
 
             return get_available_commands(
                 chat_type=user_context.chat_type,
-                user_id=user_context.user_id,
+                telegram_id=user_context.telegram_id,
                 team_id=user_context.team_id,
             )
 

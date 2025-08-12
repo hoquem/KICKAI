@@ -6,7 +6,7 @@ This module provides the main startup validator that orchestrates all health che
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .checks import (
     AgentInitializationCheck,
@@ -34,9 +34,9 @@ class StartupValidator:
     comprehensive validation reports.
     """
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: str | None = None):
         self.config_path = config_path
-        self.checks: List[Any] = []
+        self.checks: list[Any] = []
         self._load_default_checks()
         logger.info(f"StartupValidator initialized with {len(self.checks)} checks")
 
@@ -75,15 +75,16 @@ class StartupValidator:
         """Remove a health check by name."""
         self.checks = [check for check in self.checks if check.name != check_name]
 
-    async def validate(self, context: Optional[Dict[str, Any]] = None) -> ValidationReport:
+    async def validate(self, context: dict[str, Any] | None = None) -> ValidationReport:
         """
         Execute all health checks and generate a validation report.
 
-        Args:
+
             context: Optional context data for checks
 
-        Returns:
-            ValidationReport with all check results
+
+    :return: ValidationReport with all check results
+    :rtype: str  # TODO: Fix type
         """
         if context is None:
             context = {}
@@ -133,7 +134,7 @@ class StartupValidator:
 
         return report
 
-    async def _execute_check(self, check: Any, context: Dict[str, Any]) -> CheckResult:
+    async def _execute_check(self, check: Any, context: dict[str, Any]) -> CheckResult:
         """Execute a single health check."""
         try:
             logger.info(f"🔧 Executing check: {check.name}")
@@ -224,7 +225,7 @@ class StartupValidator:
         # Summary by category
         logger.info("📊 Summary by Category:")
         for category, counts in report.summary.items():
-            total = sum(counts.values())
+            sum(counts.values())
             passed = counts.get(CheckStatus.PASSED, 0)
             failed = counts.get(CheckStatus.FAILED, 0)
             warnings = counts.get(CheckStatus.WARNING, 0)
@@ -267,15 +268,16 @@ class StartupValidator:
         logger.info("=" * 80)
 
 
-async def run_startup_validation(team_id: Optional[str] = None) -> ValidationReport:
+async def run_startup_validation(team_id: str | None = None) -> ValidationReport:
     """
     Run startup validation for the system.
 
-    Args:
+
         team_id: Team ID for validation context
 
-    Returns:
-        ValidationReport with results
+
+    :return: ValidationReport with results
+    :rtype: str  # TODO: Fix type
     """
     validator = StartupValidator()
 

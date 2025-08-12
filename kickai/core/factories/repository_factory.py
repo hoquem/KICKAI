@@ -8,7 +8,7 @@ dependency injection and configuration.
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -36,14 +36,14 @@ class RepositoryFactory:
 
     def __init__(
         self,
-        config: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
         max_cache_size: int = MAX_CACHE_SIZE,
         cache_ttl: int = CACHE_TTL_SECONDS
     ):
         """
         Initialize repository factory.
 
-        Args:
+
             config: Optional configuration for repositories
             max_cache_size: Maximum number of repositories to cache
             cache_ttl: Time-to-live for cached repositories in seconds
@@ -56,7 +56,7 @@ class RepositoryFactory:
         self._repository_cache: dict[str, tuple[Any, float]] = {}
         self._database_client = None
 
-    def _get_from_cache(self, cache_key: str) -> Optional[Any]:
+    def _get_from_cache(self, cache_key: str) -> Any | None:
         """Get repository from cache if valid, otherwise return None."""
         if cache_key not in self._repository_cache:
             return None
@@ -119,11 +119,12 @@ class RepositoryFactory:
         """
         Create player repository instance.
 
-        Args:
+
             team_id: Team identifier for repository scope
 
-        Returns:
-            Player repository implementation
+
+    :return: Player repository implementation
+    :rtype: str  # TODO: Fix type
         """
         cache_key = f"player_repo_{team_id}"
 
@@ -153,11 +154,12 @@ class RepositoryFactory:
         """
         Create team repository instance.
 
-        Args:
+
             team_id: Team identifier for repository scope
 
-        Returns:
-            Team repository implementation
+
+    :return: Team repository implementation
+    :rtype: str  # TODO: Fix type
         """
         cache_key = f"team_repo_{team_id}"
 
@@ -186,11 +188,12 @@ class RepositoryFactory:
         """
         Create user repository instance.
 
-        Args:
+
             team_id: Team identifier for repository scope
 
-        Returns:
-            User repository implementation
+
+    :return: User repository implementation
+    :rtype: str  # TODO: Fix type
         """
         cache_key = f"user_repo_{team_id}"
 
@@ -219,11 +222,12 @@ class RepositoryFactory:
         """
         Create match repository instance.
 
-        Args:
+
             team_id: Team identifier for repository scope
 
-        Returns:
-            Match repository implementation
+
+    :return: Match repository implementation
+    :rtype: str  # TODO: Fix type
         """
         cache_key = f"match_repo_{team_id}"
 

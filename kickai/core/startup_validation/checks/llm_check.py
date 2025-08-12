@@ -6,6 +6,7 @@ This module provides LLM provider validation health checks.
 
 import asyncio
 import logging
+import os
 from typing import Any
 
 from kickai.core.config import get_settings
@@ -25,15 +26,15 @@ class LLMProviderCheck(BaseCheck):
     category = CheckCategory.LLM
     description = "Validates LLM provider configuration and connectivity"
 
-    async def execute(self, context: dict[str, Any] = None) -> CheckResult:
+    async def execute(self, context: dict[str, Any] | None = None) -> CheckResult:
         start_time = asyncio.get_event_loop().time()
 
         try:
-            config = get_settings()
+            get_settings()
 
             # Validate Groq configuration and connectivity
             provider_str = os.getenv("AI_PROVIDER", "groq")
-            
+
             if provider_str != "groq":
                 return CheckResult(
                     name=self.name,
@@ -107,9 +108,9 @@ class LLMProviderCheck(BaseCheck):
     async def _test_groq_connectivity(self) -> bool:
         """Test actual Groq API connectivity."""
         try:
-            from kickai.utils.llm_factory import LLMFactory, LLMConfig
             from kickai.core.enums import AIProvider
-            
+            from kickai.utils.llm_factory import LLMConfig, LLMFactory
+
             config = LLMConfig(
                 provider=AIProvider.GROQ,
                 model_name="llama3-8b-instruct",
@@ -118,7 +119,7 @@ class LLMProviderCheck(BaseCheck):
                 timeout_seconds=10,
                 max_retries=1
             )
-            
+
             llm = LLMFactory.create_llm(config)
             # Test with simple message
             response = llm.invoke([{"role": "user", "content": "test"}])

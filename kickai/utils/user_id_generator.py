@@ -5,21 +5,21 @@ This module provides utilities for generating consistent user_id values
 that link Team Members and Players when a user has both roles in the system.
 """
 
-from typing import Union
 
 
-def generate_user_id(telegram_id: Union[int, str]) -> str:
+def generate_user_id(telegram_id: int | str) -> str:
     """
     Generate a consistent user_id from a Telegram ID.
 
     This function creates a standardized user_id that can be used to link
     different entity types (Team Members, Players) for the same person.
 
-    Args:
+
         telegram_id: The Telegram user ID (can be int or string)
 
-    Returns:
-        A consistent user_id string in the format "user_{telegram_id}"
+
+    :return: A consistent user_id string in the format "user_{telegram_id}"
+    :rtype: str  # TODO: Fix type
 
     Examples:
         >>> generate_user_id(8148917292)
@@ -40,11 +40,12 @@ def extract_telegram_id_from_user_id(user_id: str) -> str:
     """
     Extract the Telegram ID from a user_id.
 
-    Args:
+
         user_id: The user_id in format "user_{telegram_id}"
 
-    Returns:
-        The Telegram ID as a string
+
+    :return: The Telegram ID as a string
+    :rtype: str  # TODO: Fix type
 
     Examples:
         >>> extract_telegram_id_from_user_id("user_8148917292")
@@ -63,11 +64,12 @@ def is_valid_user_id(user_id: str) -> bool:
     """
     Check if a user_id has the correct format.
 
-    Args:
+
         user_id: The user_id to validate
 
-    Returns:
-        True if the user_id has the correct format, False otherwise
+
+    :return: True if the user_id has the correct format, False otherwise
+    :rtype: str  # TODO: Fix type
 
     Examples:
         >>> is_valid_user_id("user_8148917292")
@@ -89,11 +91,12 @@ def get_user_entities_summary(user_id: str) -> dict:
     This is a helper function that can be used to determine if a user
     has multiple roles in the system.
 
-    Args:
+
         user_id: The user_id to check
 
-    Returns:
-        A dictionary with entity type information
+
+    :return: A dictionary with entity type information
+    :rtype: str  # TODO: Fix type
 
     Example:
         >>> get_user_entities_summary("user_8148917292")

@@ -1,11 +1,11 @@
-from typing import Optional, List, Dict
+
 #!/usr/bin/env python3
 """
 Comprehensive Startup Validation System
 
 This module provides comprehensive system startup validation including:
 - Environment variable validation
-- Database connectivity validation  
+- Database connectivity validation
 - Registry validation
 - Service dependency validation
 - File system permission validation
@@ -35,16 +35,16 @@ class ComprehensiveValidationResult:
     total_checks: int
     passed_checks: int
     failed_checks: int
-    warnings: List[str]
+    warnings: list[str]
 
     # Individual check results
-    environment_result: Optional[EnvironmentValidationResult] = None
-    database_result: Optional[DatabaseValidationResult] = None
-    registry_result: Optional[RegistryValidationResult] = None
+    environment_result: EnvironmentValidationResult | None = None
+    database_result: DatabaseValidationResult | None = None
+    registry_result: RegistryValidationResult | None = None
 
     # Performance metrics
     total_duration: float = 0.0
-    check_durations: Dict[str, float] = None
+    check_durations: dict[str, float] = None
 
     def __post_init__(self):
         if self.check_durations is None:
@@ -267,7 +267,7 @@ class ComprehensiveStartupValidator:
             check_durations=check_durations
         )
 
-    def get_validation_report(self, result: Optional[ComprehensiveValidationResult] = None) -> str:
+    def get_validation_report(self, result: ComprehensiveValidationResult | None = None) -> str:
         """Generate a comprehensive validation report."""
         if result is None:
             result = self.validate_system_startup()
@@ -356,5 +356,5 @@ def validate_system_startup() -> ComprehensiveValidationResult:
 def get_startup_validation_report() -> str:
     """Convenience function to get validation report."""
     validator = ComprehensiveStartupValidator()
-    result = validator.validate_system_startup()
+    validator.validate_system_startup()
     return validator.get_validation_report()

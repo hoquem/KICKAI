@@ -42,7 +42,7 @@ class AdminNotificationService:
         self,
         error_type: str,
         error_message: str,
-        context: dict[str, Any] = None
+        context: dict[str, Any] | None = None
     ):
         """Send a critical error notification to administrators."""
         try:
@@ -66,7 +66,7 @@ class AdminNotificationService:
         alert_type: str,
         message: str,
         severity: str = "info",
-        context: dict[str, Any] = None
+        context: dict[str, Any] | None = None
     ):
         """Send a system alert to administrators."""
         try:
@@ -232,7 +232,7 @@ async def send_critical_error_notification(
     team_id: str,
     error_type: str,
     error_message: str,
-    context: dict[str, Any] = None
+    context: dict[str, Any] | None = None
 ):
     """Send a critical error notification using the global service."""
     service = get_admin_notification_service(bot_service, team_id)
@@ -245,7 +245,7 @@ async def send_system_alert(
     alert_type: str,
     message: str,
     severity: str = "info",
-    context: dict[str, Any] = None
+    context: dict[str, Any] | None = None
 ):
     """Send a system alert using the global service."""
     service = get_admin_notification_service(bot_service, team_id)

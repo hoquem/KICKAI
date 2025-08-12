@@ -1,4 +1,3 @@
-from typing import Set, Union
 from loguru import logger
 from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
@@ -15,8 +14,8 @@ class TelegramBotService(TelegramBotServiceInterface):
         self,
         token: str,
         team_id: str,
-        main_chat_id: str = None,
-        leadership_chat_id: str = None,
+        main_chat_id: str | None = None,
+        leadership_chat_id: str | None = None,
         crewai_system=None,
     ):
         self.token = token
@@ -98,7 +97,7 @@ class TelegramBotService(TelegramBotServiceInterface):
 
             # Add all handlers to the application
             self.app.add_handlers(
-                command_handlers + [message_handler, contact_handler, debug_handler]
+                [*command_handlers, message_handler, contact_handler, debug_handler]
             )
 
             logger.info(
@@ -161,7 +160,6 @@ class TelegramBotService(TelegramBotServiceInterface):
             contact = update.message.contact
             phone_number = contact.phone_number
             user_id = contact.user_id if contact.user_id else update.effective_user.id
-            username = update.effective_user.username
 
             # Validate that the contact belongs to the user
             if str(user_id) != str(update.effective_user.id):
@@ -313,17 +311,17 @@ class TelegramBotService(TelegramBotServiceInterface):
         except Exception as e:
             logger.error(f"❌ Error in debug handler: {e}")
 
-    async def send_message(self, chat_id: Union[int, str], text: str, **kwargs):
+    async def send_message(self, chat_id: int | str, text: str, **kwargs):
         """Send a message to a specific chat in plain text."""
         try:
             # Sanitize text to ensure plain text output
             sanitized_text = self._sanitize_for_plain_text(text)
             logger.info(f"Sending plain text message to chat_id={chat_id}: {sanitized_text}")
-            
+
             # Explicitly send as plain text (no parse_mode)
             await self.app.bot.send_message(
-                chat_id=chat_id, 
-                text=sanitized_text, 
+                chat_id=chat_id,
+                text=sanitized_text,
                 parse_mode=None,  # Explicitly set to None for plain text
                 **kwargs
             )
@@ -335,25 +333,25 @@ class TelegramBotService(TelegramBotServiceInterface):
         """Remove any formatting characters to ensure plain text output."""
         if not text:
             return text
-            
+
         # Remove common markdown characters that might cause issues
         text = text.replace('*', '').replace('_', '').replace('`', '')
         text = text.replace('**', '').replace('__', '').replace('~~', '')
         text = text.replace('#', '').replace('##', '').replace('###', '')
-        
+
         # Remove HTML-like tags
         import re
         text = re.sub(r'<[^>]+>', '', text)
-        
+
         # Remove HTML entities
         text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
-        
+
         # Clean up extra whitespace
         text = re.sub(r'\s+', ' ', text).strip()
-        
+
         return text
 
-    async def send_contact_share_button(self, chat_id: Union[int, str], text: str):
+    async def send_contact_share_button(self, chat_id: int | str, text: str):
         """Send a message with a contact sharing button."""
         try:
             keyboard = [[KeyboardButton(text="📱 Share My Phone Number", request_contact=True)]]

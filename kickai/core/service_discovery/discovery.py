@@ -9,7 +9,7 @@ import importlib
 import inspect
 import logging
 import pkgutil
-from typing import Any, Optional
+from typing import Any
 
 from kickai.core.dependency_container import DependencyContainer, get_container
 
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class DependencyContainerServiceDiscovery(IServiceDiscovery):
     """Service discovery using the existing dependency container."""
 
-    def __init__(self, container: Optional[DependencyContainer] = None):
+    def __init__(self, container: DependencyContainer | None = None):
         self.container = container or get_container()
 
     def discover_services(self) -> list[ServiceDefinition]:
@@ -156,7 +156,7 @@ class DependencyContainerServiceDiscovery(IServiceDiscovery):
 class ModuleServiceDiscovery(IServiceDiscovery):
     """Service discovery by scanning Python modules."""
 
-    def __init__(self, package_names: list[str] = None):
+    def __init__(self, package_names: list[str] | None = None):
         self.package_names = package_names or [
             'kickai.features',
             'kickai.core',
@@ -183,7 +183,7 @@ class ModuleServiceDiscovery(IServiceDiscovery):
         try:
             package = importlib.import_module(package_name)
 
-            for importer, modname, ispkg in pkgutil.iter_modules(package.__path__,
+            for _importer, modname, _ispkg in pkgutil.iter_modules(package.__path__,
                                                                 package.__name__ + "."):
                 try:
                     module = importlib.import_module(modname)
@@ -274,7 +274,7 @@ class ModuleServiceDiscovery(IServiceDiscovery):
 class CompositeServiceDiscovery(IServiceDiscovery):
     """Composite service discovery that combines multiple discovery methods."""
 
-    def __init__(self, discovery_methods: list[IServiceDiscovery] = None):
+    def __init__(self, discovery_methods: list[IServiceDiscovery] | None = None):
         self.discovery_methods = discovery_methods or [
             DependencyContainerServiceDiscovery(),
             ModuleServiceDiscovery()
@@ -322,7 +322,7 @@ class CompositeServiceDiscovery(IServiceDiscovery):
 
 
 # Global discovery instance
-_global_discovery: Optional[CompositeServiceDiscovery] = None
+_global_discovery: CompositeServiceDiscovery | None = None
 
 
 def get_service_discovery() -> CompositeServiceDiscovery:

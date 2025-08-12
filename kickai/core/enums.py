@@ -127,6 +127,22 @@ class TeamStatus(Enum):
 
 
 
+class TeamMemberJobRole(str, Enum):
+    """Team member job roles - essential administrative positions.
+    
+    These are the core job titles/positions that team members can hold,
+    separate from the permission-based UserRole system.
+    """
+    
+    # Core roles only - keep it simple
+    ADMIN = "admin"
+    MANAGER = "manager"
+    COACH = "coach"
+    ASSISTANT = "assistant"
+    COORDINATOR = "coordinator"
+    VOLUNTEER = "volunteer"
+
+
 class ExpenseCategory(Enum):
     """Expense categories."""
 

@@ -7,284 +7,270 @@ based on chat type. Players in main chat update player info, team members in lea
 chat update team member info.
 """
 
-import logging
 from typing import Any
 
-from kickai.core.enums import ChatType
-from kickai.features.shared.domain.services.command_processing_service import (
-    CommandResponse,
-    UserContext,
-)
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from kickai.core.interfaces.player_repositories import IPlayerRepository
+from kickai.core.interfaces.team_repositories import TeamRepositoryInterface
+from kickai.core.value_objects.entity_context import EntityContext
 
 
 class UpdateCommandHandler:
-    """Context-aware handler for /update commands."""
+    """Handler for update commands that can update both players and team members."""
 
-    def __init__(self):
-        self.logger = logging.getLogger(__name__)
+    def __init__(
+        self,
+        player_repository: IPlayerRepository,
+        team_repository: TeamRepositoryInterface,
+    ):
+        self.player_repository = player_repository
+        self.team_repository = team_repository
+        self.logger = logger
 
     async def handle_update_command(
-        self, user_context: UserContext, command_args: list[str], crewai_system: Any = None
-    ) -> CommandResponse:
+        self, user_context: EntityContext, field: str, value: str
+    ) -> dict[str, Any]:
         """
-        Handle /update command with context-aware routing.
+        Handle update command for both players and team members.
 
-        Args:
-            user_context: Complete user context including chat type
-            command_args: Command arguments [field, value]
-            crewai_system: CrewAI system for agent execution
 
-        Returns:
-            CommandResponse with success/error message
+            user_context: User context with telegram_id and team_id
+            field: Field to update
+            value: New value for the field
+
+
+    :return: Dictionary with update result
+    :rtype: str  # TODO: Fix type
         """
         try:
-            self.logger.info(
-                f"🔄 Processing /update command: chat_type={user_context.chat_type.value}, args={command_args}"
+            # Determine if user is a player or team member
+            player = await self.player_repository.get_by_telegram_id(
+                user_context.telegram_id.value, user_context.team_id.value
+            )
+            team_member = await self.team_repository.get_team_member_by_telegram_id(
+                user_context.telegram_id.value, user_context.team_id.value
             )
 
-            # Validate command arguments
-            if len(command_args) < 2:
-                return self._get_usage_help_response(user_context.chat_type)
-
-            field = command_args[0].lower()
-            value = " ".join(command_args[1:])  # Support multi-word values
-
-            # Route based on chat type
-            if user_context.chat_type == ChatType.MAIN:
-                return await self._handle_player_update(user_context, field, value, crewai_system)
-            elif user_context.chat_type == ChatType.LEADERSHIP:
-                return await self._handle_team_member_update(
-                    user_context, field, value, crewai_system
-                )
+            if player and team_member:
+                # User is both player and team member - update both
+                return await self._update_dual_role_user(user_context, field, value, player, team_member)
+            elif player:
+                # User is only a player
+                return await self._update_player(user_context, field, value, player)
+            elif team_member:
+                # User is only a team member
+                return await self._update_team_member(user_context, field, value, team_member)
             else:
-                return CommandResponse(
-                    message="❌ Update command is not available in this chat type.", success=False
-                )
-
-        except Exception as e:
-            self.logger.error(f"❌ Error handling update command: {e}", exc_info=True)
-            return CommandResponse(
-                message="❌ An error occurred processing your update request. Please try again.",
-                success=False,
-            )
-
-    async def _handle_player_update(
-        self, user_context: UserContext, field: str, value: str, crewai_system: Any
-    ) -> CommandResponse:
-        """Handle player information update in main chat."""
-        try:
-            self.logger.info(f"👤 Player update: user_id={user_context.user_id}, field={field}")
-
-            # Check if user is registered as a player
-            if not user_context.is_registered or not user_context.is_player:
-                return CommandResponse(
-                    message="""❌ Update Not Available
-
-🔍 You are not registered as a player in this team.
-
-📞 To register as a player:
-1. Contact someone in the team's leadership
-2. Ask them to add you using /addplayer
-3. They'll send you an invite link
-4. Join the main chat and register with /register
-
-💡 Need help? Use /help to see available commands.""",
-                    success=False,
-                )
-
-            # Create task for PlayerCoordinatorAgent
-            task_description = f"/update {field} {value}"
-
-            execution_context = {
-                "user_id": user_context.user_id,
-                "team_id": user_context.team_id,
-                "chat_id": user_context.chat_id,
-                "is_leadership_chat": False,
-                "username": user_context.telegram_username or user_context.telegram_name,
-                "message_text": task_description,
-                "field": field,
-                "value": value,
-                "entity_type": "player",
-            }
-
-            # Execute with PlayerCoordinatorAgent via CrewAI
-            if crewai_system:
-                result = await crewai_system.execute_task(task_description, execution_context)
-                return CommandResponse(message=result, success="✅" in result)
-            else:
-                return CommandResponse(
-                    message="❌ System temporarily unavailable. Please try again.", success=False
-                )
-
-        except Exception as e:
-            self.logger.error(f"❌ Error handling player update: {e}", exc_info=True)
-            return CommandResponse(
-                message="❌ Error updating player information. Please try again.", success=False
-            )
-
-    async def _handle_team_member_update(
-        self, user_context: UserContext, field: str, value: str, crewai_system: Any
-    ) -> CommandResponse:
-        """Handle team member information update in leadership chat."""
-        try:
-            self.logger.info(
-                f"👔 Team member update: user_id={user_context.user_id}, field={field}"
-            )
-
-            # Check if user is registered as a team member
-            if not user_context.is_registered or not user_context.is_team_member:
-                return CommandResponse(
-                    message="""❌ Update Not Available
-
-🔍 You are not registered as a team member in this team.
-
-📝 To register as a team member:
-1. Use /register [name] [phone] [role]
-2. Example: /register John Smith +447123456789 Assistant Coach
-3. You'll be added to the team members collection
-
-💡 Need help? Use /help to see available commands.""",
-                    success=False,
-                )
-
-            # Create task for TeamManagerAgent
-            task_description = f"/update {field} {value}"
-
-            execution_context = {
-                "user_id": user_context.user_id,
-                "team_id": user_context.team_id,
-                "chat_id": user_context.chat_id,
-                "is_leadership_chat": True,
-                "username": user_context.telegram_username or user_context.telegram_name,
-                "message_text": task_description,
-                "field": field,
-                "value": value,
-                "entity_type": "team_member",
-            }
-
-            # Execute with TeamManagerAgent via CrewAI
-            if crewai_system:
-                result = await crewai_system.execute_task(task_description, execution_context)
-                return CommandResponse(message=result, success="✅" in result)
-            else:
-                return CommandResponse(
-                    message="❌ System temporarily unavailable. Please try again.", success=False
-                )
-
-        except Exception as e:
-            self.logger.error(f"❌ Error handling team member update: {e}", exc_info=True)
-            return CommandResponse(
-                message="❌ Error updating team member information. Please try again.",
-                success=False,
-            )
-
-    def _get_usage_help_response(self, chat_type: ChatType) -> CommandResponse:
-        """Get usage help response based on chat type."""
-        if chat_type == ChatType.MAIN:
-            message = """❌ Invalid Usage
-
-📝 Player Update Command Usage:
-/update [field] [new value]
-
-📋 Available Fields:
-• phone - Your contact phone number
-• position - Your football position  
-• email - Your email address
-• emergency_contact - Emergency contact info
-• medical_notes - Medical information
-
-💡 Examples:
-• /update phone 07123456789
-• /update position midfielder
-• /update email john@example.com
-
-📖 For more details, try: /update (no arguments)"""
-
-        else:  # Leadership chat
-            message = """❌ Invalid Usage
-
-📝 Team Member Update Command Usage:
-/update [field] [new value]
-
-📋 Available Fields:
-• phone - Your contact phone number
-• email - Your email address
-• emergency_contact - Emergency contact info
-• role - Your administrative role (requires admin approval)
-
-💡 Examples:
-• /update phone 07123456789
-• /update email admin@example.com
-• /update role Assistant Coach
-
-📖 For more details, try: /update (no arguments)"""
-
-        return CommandResponse(message=message, success=False)
-
-    async def get_update_help(
-        self, user_context: UserContext, crewai_system: Any = None
-    ) -> CommandResponse:
-        """Get detailed help for update command based on user context."""
-        try:
-            if user_context.chat_type == ChatType.MAIN:
-                # Route to PlayerCoordinatorAgent for player update help
-                task_description = "get_player_updatable_fields"
-
-                execution_context = {
-                    "user_id": user_context.user_id,
-                    "team_id": user_context.team_id,
-                    "chat_id": user_context.chat_id,
-                    "is_leadership_chat": False,
-                    "username": user_context.telegram_username or user_context.telegram_name,
-                    "message_text": task_description,
-                    "entity_type": "player",
+                # User is not registered
+                return {
+                    "success": False,
+                    "message": "❌ You are not registered as a player or team member.",
+                    "error": "User not found",
                 }
 
-                if crewai_system:
-                    result = await crewai_system.execute_task(task_description, execution_context)
-                    return CommandResponse(message=result, success=True)
+        except Exception as e:
+            self.logger.error(f"Error handling update command: {e}")
+            return {
+                "success": False,
+                "message": "❌ An error occurred while updating your information.",
+                "error": str(e),
+            }
 
-            elif user_context.chat_type == ChatType.LEADERSHIP:
-                # Route to TeamManagerAgent for team member update help
-                task_description = "get_team_member_updatable_fields"
+    async def _update_player(
+        self, user_context: EntityContext, field: str, value: str, player: Any
+    ) -> dict[str, Any]:
+        """Update player information."""
+        try:
+            self.logger.info(f"👤 Player update: telegram_id={user_context.telegram_id.value}, field={field}")
 
-                execution_context = {
-                    "user_id": user_context.user_id,
-                    "team_id": user_context.team_id,
-                    "chat_id": user_context.chat_id,
-                    "is_leadership_chat": True,
-                    "username": user_context.telegram_username or user_context.telegram_name,
-                    "message_text": task_description,
-                    "entity_type": "team_member",
+            # Validate field is updatable
+            if not self._is_player_field_updatable(field):
+                return {
+                    "success": False,
+                    "message": f"❌ Field '{field}' cannot be updated for players.",
+                    "error": "Invalid field",
                 }
 
-                if crewai_system:
-                    result = await crewai_system.execute_task(task_description, execution_context)
-                    return CommandResponse(message=result, success=True)
+            # Update the player
+            updated_player = await self.player_repository.update_player(
+                player_id=player.player_id,
+                team_id=user_context.team_id.value,
+                telegram_id=user_context.telegram_id.value,
+                updates={field: value},
+            )
 
-            # Fallback response
-            return self._get_usage_help_response(user_context.chat_type)
+            if updated_player:
+                return {
+                    "success": True,
+                    "message": "✅ Player information updated successfully!",
+                    "updated_field": field,
+                    "new_value": value,
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "❌ Failed to update player information.",
+                    "error": "Update failed",
+                }
 
         except Exception as e:
-            self.logger.error(f"❌ Error getting update help: {e}", exc_info=True)
-            return self._get_usage_help_response(user_context.chat_type)
+            self.logger.error(f"Error updating player: {e}")
+            return {
+                "success": False,
+                "message": "❌ An error occurred while updating player information.",
+                "error": str(e),
+            }
+
+    async def _update_team_member(
+        self, user_context: EntityContext, field: str, value: str, team_member: Any
+    ) -> dict[str, Any]:
+        """Update team member information."""
+        try:
+            self.logger.info(f"👔 Team member update: telegram_id={user_context.telegram_id.value}, field={field}")
+
+            # Validate field is updatable
+            if not self._is_team_member_field_updatable(field):
+                return {
+                    "success": False,
+                    "message": f"❌ Field '{field}' cannot be updated for team members.",
+                    "error": "Invalid field",
+                }
+
+            # Update the team member
+            updated_member = await self.team_repository.update_team_member(
+                telegram_id=user_context.telegram_id.value,
+                team_id=user_context.team_id.value,
+                updates={field: value},
+            )
+
+            if updated_member:
+                return {
+                    "success": True,
+                    "message": "✅ Team member information updated successfully!",
+                    "updated_field": field,
+                    "new_value": value,
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "❌ Failed to update team member information.",
+                    "error": "Update failed",
+                }
+
+        except Exception as e:
+            self.logger.error(f"Error updating team member: {e}")
+            return {
+                "success": False,
+                "message": "❌ An error occurred while updating team member information.",
+                "error": str(e),
+            }
+
+    async def _update_dual_role_user(
+        self, user_context: EntityContext, field: str, value: str, player: Any, team_member: Any
+    ) -> dict[str, Any]:
+        """Update information for a user who is both player and team member."""
+        try:
+            self.logger.info(f"🔄 Dual role update: telegram_id={user_context.telegram_id.value}, field={field}")
+
+            # Determine which entity to update based on field
+            if self._is_player_field_updatable(field):
+                return await self._update_player(user_context, field, value, player)
+            elif self._is_team_member_field_updatable(field):
+                return await self._update_team_member(user_context, field, value, team_member)
+            else:
+                return {
+                    "success": False,
+                    "message": f"❌ Field '{field}' cannot be updated.",
+                    "error": "Invalid field",
+                }
+
+        except Exception as e:
+            self.logger.error(f"Error updating dual role user: {e}")
+            return {
+                "success": False,
+                "message": "❌ An error occurred while updating your information.",
+                "error": str(e),
+            }
+
+    def _is_player_field_updatable(self, field: str) -> bool:
+        """Check if a field can be updated for players."""
+        updatable_fields = {
+            "name",
+            "phone_number",
+            "email",
+            "position",
+            "preferred_foot",
+            "jersey_number",
+            "emergency_contact",
+            "medical_notes",
+        }
+        return field in updatable_fields
+
+    def _is_team_member_field_updatable(self, field: str) -> bool:
+        """Check if a field can be updated for team members."""
+        updatable_fields = {
+            "name",
+            "phone_number",
+            "email",
+            "emergency_contact",
+        }
+        return field in updatable_fields
+
+    async def get_updatable_fields(self, user_context: EntityContext) -> dict[str, Any]:
+        """
+        Get list of updatable fields for the user.
 
 
-# Global instance for use across the system
-update_command_handler = UpdateCommandHandler()
+            user_context: User context
 
 
-async def handle_update_command(
-    user_context: UserContext, command_args: list[str], crewai_system: Any = None
-) -> CommandResponse:
-    """Global function to handle update commands."""
-    return await update_command_handler.handle_update_command(
-        user_context, command_args, crewai_system
-    )
+    :return: Dictionary with updatable fields
+    :rtype: str  # TODO: Fix type
+        """
+        try:
+            player = await self.player_repository.get_by_telegram_id(
+                user_context.telegram_id.value, user_context.team_id.value
+            )
+            team_member = await self.team_repository.get_team_member_by_telegram_id(
+                user_context.telegram_id.value, user_context.team_id.value
+            )
 
+            player_fields = []
+            team_member_fields = []
 
-async def get_update_help(user_context: UserContext, crewai_system: Any = None) -> CommandResponse:
-    """Global function to get update command help."""
-    return await update_command_handler.get_update_help(user_context, crewai_system)
+            if player:
+                player_fields = [
+                    "name",
+                    "phone_number",
+                    "email",
+                    "position",
+                    "preferred_foot",
+                    "jersey_number",
+                    "emergency_contact",
+                    "medical_notes",
+                ]
+
+            if team_member:
+                team_member_fields = [
+                    "name",
+                    "phone_number",
+                    "email",
+                    "emergency_contact",
+                ]
+
+            return {
+                "success": True,
+                "player_fields": player_fields,
+                "team_member_fields": team_member_fields,
+                "is_player": player is not None,
+                "is_team_member": team_member is not None,
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error getting updatable fields: {e}")
+            return {
+                "success": False,
+                "message": "❌ An error occurred while getting updatable fields.",
+                "error": str(e),
+            }

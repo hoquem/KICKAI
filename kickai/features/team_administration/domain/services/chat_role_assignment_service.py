@@ -12,7 +12,7 @@ This service handles automatic role assignment based on chat membership:
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # TeamMemberService removed - using mock service instead
 # Import TeamMember dynamically to avoid circular imports
@@ -78,22 +78,24 @@ class ChatRoleAssignmentService:
         return MockTeamMemberService()
 
     async def add_user_to_chat(
-        self, team_id: str, user_id: str, chat_type: str, username: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, team_id: str, telegram_id: int, chat_type: str, username: str | None = None
+    ) -> dict[str, Any]:
         """
         Add user to a chat and assign appropriate role.
 
-        Args:
-            team_id: The team ID
-            user_id: The Telegram user ID
-            chat_type: Either 'main_chat' or 'leadership_chat'
-            username: Optional Telegram username
-
-        Returns:
-            Dict with assignment results
+        :param team_id: The team ID
+        :type team_id: str
+        :param telegram_id: The Telegram user ID
+        :type telegram_id: int
+        :param chat_type: Either 'main_chat' or 'leadership_chat'
+        :type chat_type: str
+        :param username: Optional Telegram username
+        :type username: str | None
+        :return: Dict with assignment results
+        :rtype: dict[str, Any]
         """
         try:
-            logger.info(f"Adding user {user_id} to {chat_type} for team {team_id}")
+            logger.info(f"Adding user {telegram_id} to {chat_type} for team {team_id}")
 
             # Check if this is the first user (no team members exist)
             existing_members = await self.team_member_service.get_team_members_by_team(team_id)
@@ -101,7 +103,7 @@ class ChatRoleAssignmentService:
 
             # Get or create team member
             team_member = await self.team_member_service.get_team_member_by_telegram_id(
-                user_id, team_id
+                str(telegram_id), team_id
             )
 
             if not team_member:
@@ -113,65 +115,65 @@ class ChatRoleAssignmentService:
                 roles = self._determine_initial_roles(chat_type, is_first_user)
                 team_member = TeamMember(
                     team_id=team_id,
-                    user_id=user_id,
-                    telegram_id=user_id,
+                    telegram_id=str(telegram_id),
                     telegram_username=username,
                     roles=roles,
                     chat_access={chat_type: True},
                     joined_at=datetime.now(),
                 )
 
-                member_id = await self.team_member_service.create_team_member(team_member)
-                # Note: team_member.user_id should already be set, member_id should match
-                logger.info(f"Created new team member {user_id} with roles: {roles}")
+                await self.team_member_service.create_team_member(team_member)
+                # Note: team_member.telegram_id should already be set, member_id should match
+                logger.info(f"Created new team member {telegram_id} with roles: {roles}")
             else:
                 # Update existing team member
                 await self._update_existing_member_roles(team_member, chat_type)
                 team_member.chat_access[chat_type] = True
                 await self.team_member_service.update_team_member(team_member)
-                logger.info(f"Updated existing team member {user_id} for {chat_type}")
+                logger.info(f"Updated existing team member {telegram_id} for {chat_type}")
 
             # Handle player role assignment
             if chat_type == ChatType.MAIN.value:
-                await self._ensure_player_role(team_id, user_id, username)
+                await self._ensure_player_role(team_id, telegram_id, username)
 
             # Handle first user admin assignment
             if is_first_user:
-                await self._assign_first_user_admin(team_id, user_id)
+                await self._assign_first_user_admin(team_id, telegram_id)
 
             return {
                 "success": True,
-                "user_id": user_id,
+                "telegram_id": telegram_id,
                 "team_id": team_id,
                 "chat_type": chat_type,
-                "roles": team_member.roles,
+                "roles": list(team_member.roles) if team_member.roles else [],
                 "is_first_user": is_first_user,
-                "is_admin": "admin" in team_member.roles,
+                "is_admin": "admin" in team_member.roles if team_member.roles else False,
             }
 
         except Exception as e:
-            logger.error(f"Failed to add user {user_id} to {chat_type}: {e}")
+            logger.error(f"Failed to add user {telegram_id} to {chat_type}: {e}")
             raise DatabaseError(f"Failed to add user to chat: {e!s}")
 
     async def remove_user_from_chat(
-        self, team_id: str, user_id: str, chat_type: str
-    ) -> Dict[str, Any]:
+        self, team_id: str, telegram_id: int, chat_type: str
+    ) -> dict[str, Any]:
         """
         Remove user from a chat and update roles accordingly.
 
-        Args:
-            team_id: The team ID
-            user_id: The Telegram user ID
-            chat_type: Either 'main_chat' or 'leadership_chat'
-
-        Returns:
-            Dict with removal results
+        :param team_id: The team ID
+        :type team_id: str
+        :param telegram_id: The Telegram user ID
+        :type telegram_id: int
+        :param chat_type: Either 'main_chat' or 'leadership_chat'
+        :type chat_type: str
+        :return: Dict with removal results
+        :rtype: dict[str, Any]
         """
         try:
-            logger.info(f"Removing user {user_id} from {chat_type} for team {team_id}")
+            logger.info(f"Removing user {telegram_id} from {chat_type} for team {team_id}")
 
             team_member = await self.team_member_service.get_team_member_by_telegram_id(
-                user_id, team_id
+                str(telegram_id), team_id
             )
             if not team_member:
                 return {"success": False, "error": "User not found in team"}
@@ -182,7 +184,7 @@ class ChatRoleAssignmentService:
 
             # Handle admin leaving leadership chat
             if chat_type == ChatType.LEADERSHIP.value and "admin" in team_member.roles:
-                await self._handle_admin_leaving_leadership(team_id, user_id)
+                await self._handle_admin_leaving_leadership(team_id, telegram_id)
 
             # Remove player role if leaving main chat
             if chat_type == ChatType.MAIN.value and "player" in team_member.roles:
@@ -191,59 +193,60 @@ class ChatRoleAssignmentService:
 
             return {
                 "success": True,
-                "user_id": user_id,
+                "telegram_id": telegram_id,
                 "team_id": team_id,
                 "chat_type": chat_type,
                 "roles": team_member.roles,
             }
 
         except Exception as e:
-            logger.error(f"Failed to remove user {user_id} from {chat_type}: {e}")
+            logger.error(f"Failed to remove user {telegram_id} from {chat_type}: {e}")
             raise DatabaseError(f"Failed to remove user from chat: {e!s}")
 
-    async def promote_to_admin(self, team_id: str, user_id: str, promoted_by: str) -> bool:
+    async def promote_to_admin(self, team_id: str, telegram_id: int, promoted_by: int) -> bool:
         """
         Promote a user to admin role.
 
-        Args:
-            team_id: The team ID
-            user_id: The user to promote
-            promoted_by: The user doing the promotion (must be admin)
-
-        Returns:
-            True if successful, False otherwise
+        :param team_id: The team ID
+        :type team_id: str
+        :param telegram_id: The user to promote
+        :type telegram_id: int
+        :param promoted_by: The user doing the promotion (must be admin)
+        :type promoted_by: int
+        :return: True if successful, False otherwise
+        :rtype: bool
         """
         try:
             # Check if promoter is admin
             promoter = await self.team_member_service.get_team_member_by_telegram_id(
-                promoted_by, team_id
+                str(promoted_by), team_id
             )
             if not promoter or "admin" not in promoter.roles:
-                logger.warning(f"Non-admin user {promoted_by} attempted to promote {user_id}")
+                logger.warning(f"Non-admin user {promoted_by} attempted to promote {telegram_id}")
                 return False
 
             # Get user to promote
             team_member = await self.team_member_service.get_team_member_by_telegram_id(
-                user_id, team_id
+                str(telegram_id), team_id
             )
             if not team_member:
-                logger.warning(f"User {user_id} not found in team {team_id}")
+                logger.warning(f"User {telegram_id} not found in team {team_id}")
                 return False
 
             # Add admin role
             if "admin" not in team_member.roles:
                 team_member.roles.append("admin")
                 await self.team_member_service.update_team_member(team_member)
-                logger.info(f"User {user_id} promoted to admin by {promoted_by}")
+                logger.info(f"User {telegram_id} promoted to admin by {promoted_by}")
                 return True
 
             return True  # Already admin
 
         except Exception as e:
-            logger.error(f"Failed to promote user {user_id} to admin: {e}")
+            logger.error(f"Failed to promote user {telegram_id} to admin: {e}")
             return False
 
-    def _determine_initial_roles(self, chat_type: str, is_first_user: bool) -> List[str]:
+    def _determine_initial_roles(self, chat_type: str, is_first_user: bool) -> list[str]:
         """Determine initial roles based on chat type and first user status."""
         roles = []
 
@@ -267,12 +270,21 @@ class ChatRoleAssignmentService:
             team_member.roles.append("team_member")
 
     async def _ensure_player_role(
-        self, team_id: str, user_id: str, username: Optional[str] = None
+        self, team_id: str, telegram_id: int, username: str | None = None
     ) -> None:
-        """Ensure user has a player record if they're in the main chat."""
+        """
+        Ensure user has a player record if they're in the main chat.
+
+        :param team_id: Team ID
+        :type team_id: str
+        :param telegram_id: Telegram user ID
+        :type telegram_id: int
+        :param username: Optional username
+        :type username: str | None
+        """
         try:
             # Check if player already exists
-            existing_player = await self.player_service.get_player_by_telegram_id(user_id, team_id)
+            existing_player = await self.player_service.get_player_by_telegram_id(str(telegram_id), team_id)
             if not existing_player:
                 # Create a basic player record using the PlayerService directly
                 # This avoids creating Player objects manually and ensures proper entity usage
@@ -281,7 +293,7 @@ class ChatRoleAssignmentService:
                 )
 
                 params = PlayerCreateParams(
-                    name=username or f"User {user_id}",
+                    name=username or f"User {telegram_id}",
                     phone="",  # Will be filled during onboarding
                     position="",  # Will be filled during onboarding
                     team_id=team_id,
@@ -289,25 +301,39 @@ class ChatRoleAssignmentService:
                 )
 
                 await self.player_service.create_player(params)
-                logger.info(f"Created player record for user {user_id}")
+                logger.info(f"Created player record for user {telegram_id}")
         except Exception as e:
-            logger.warning(f"Failed to create player record for user {user_id}: {e}")
+            logger.warning(f"Failed to create player record for user {telegram_id}: {e}")
 
-    async def _assign_first_user_admin(self, team_id: str, user_id: str) -> None:
-        """Assign admin role to the first user of a team."""
+    async def _assign_first_user_admin(self, team_id: str, telegram_id: int) -> None:
+        """
+        Assign admin role to the first user of a team.
+
+        :param team_id: Team ID
+        :type team_id: str
+        :param telegram_id: Telegram user ID
+        :type telegram_id: int
+        """
         try:
             team_member = await self.team_member_service.get_team_member_by_telegram_id(
-                user_id, team_id
+                str(telegram_id), team_id
             )
             if team_member and "admin" not in team_member.roles:
                 team_member.roles.append("admin")
                 await self.team_member_service.update_team_member(team_member)
-                logger.info(f"Assigned admin role to first user {user_id} for team {team_id}")
+                logger.info(f"Assigned admin role to first user {telegram_id} for team {team_id}")
         except Exception as e:
-            logger.error(f"Failed to assign admin role to first user {user_id}: {e}")
+            logger.error(f"Failed to assign admin role to first user {telegram_id}: {e}")
 
-    async def _handle_admin_leaving_leadership(self, team_id: str, user_id: str) -> None:
-        """Handle when an admin leaves the leadership chat."""
+    async def _handle_admin_leaving_leadership(self, team_id: str, telegram_id: int) -> None:
+        """
+        Handle when an admin leaves the leadership chat.
+
+        :param team_id: Team ID
+        :type team_id: str
+        :param telegram_id: Telegram user ID
+        :type telegram_id: int
+        """
         try:
             # Check if this was the last admin
             admin_members = await self.team_member_service.get_team_members_by_role(
@@ -316,7 +342,7 @@ class ChatRoleAssignmentService:
             remaining_admins = [
                 m
                 for m in admin_members
-                if m.telegram_id != user_id and m.can_access_chat("leadership_chat")
+                if m.telegram_id != str(telegram_id) and m.can_access_chat("leadership_chat")
             ]
 
             if not remaining_admins:
@@ -324,18 +350,20 @@ class ChatRoleAssignmentService:
                 await self._promote_longest_tenured_to_admin(team_id)
             else:
                 logger.info(
-                    f"Admin {user_id} left leadership chat, but {len(remaining_admins)} admins remain"
+                    f"Admin {telegram_id} left leadership chat, but {len(remaining_admins)} admins remain"
                 )
 
         except Exception as e:
             logger.error(f"Failed to handle admin leaving leadership: {e}")
 
-    async def _promote_longest_tenured_to_admin(self, team_id: str) -> Optional[str]:
+    async def _promote_longest_tenured_to_admin(self, team_id: str) -> str | None:
         """
         Promote the longest-tenured leadership member to admin.
 
-        Returns:
-            The user_id of the promoted member, or None if no suitable candidate
+        :param team_id: Team ID
+        :type team_id: str
+        :return: The telegram_id of the promoted member, or None if no suitable candidate
+        :rtype: str | None
         """
         try:
             # Get all leadership members (excluding the one who just left)
@@ -359,25 +387,34 @@ class ChatRoleAssignmentService:
                 longest_tenured.roles.append("admin")
                 await self.team_member_service.update_team_member(longest_tenured)
                 logger.info(
-                    f"Promoted longest-tenured member {longest_tenured.user_id} to admin in team {team_id}"
+                    f"Promoted longest-tenured member {longest_tenured.telegram_id} to admin in team {team_id}"
                 )
-                return longest_tenured.user_id
+                return longest_tenured.telegram_id
 
-            return longest_tenured.user_id  # Already admin
+            return longest_tenured.telegram_id  # Already admin
 
         except Exception as e:
             logger.error(f"Failed to promote longest-tenured member to admin: {e}")
             return None
 
-    async def get_user_roles(self, team_id: str, user_id: str) -> Dict[str, Any]:
-        """Get comprehensive role information for a user."""
+    async def get_user_roles(self, team_id: str, telegram_id: int) -> dict[str, Any]:
+        """
+        Get comprehensive role information for a user.
+
+        :param team_id: Team ID
+        :type team_id: str
+        :param telegram_id: Telegram user ID
+        :type telegram_id: int
+        :return: Dictionary with user role information
+        :rtype: dict[str, Any]
+        """
         try:
             team_member = await self.team_member_service.get_team_member_by_telegram_id(
-                user_id, team_id
+                str(telegram_id), team_id
             )
             if not team_member:
                 return {
-                    "user_id": user_id,
+                    "telegram_id": telegram_id,
                     "team_id": team_id,
                     "roles": [],
                     "chat_access": {},
@@ -387,7 +424,7 @@ class ChatRoleAssignmentService:
                 }
 
             return {
-                "user_id": user_id,
+                "telegram_id": telegram_id,
                 "team_id": team_id,
                 "roles": team_member.roles,
                 "chat_access": team_member.chat_access,
@@ -398,9 +435,9 @@ class ChatRoleAssignmentService:
             }
 
         except Exception as e:
-            logger.error(f"Failed to get user roles for {user_id}: {e}")
+            logger.error(f"Failed to get user roles for {telegram_id}: {e}")
             return {
-                "user_id": user_id,
+                "telegram_id": telegram_id,
                 "team_id": team_id,
                 "roles": [],
                 "chat_access": {},

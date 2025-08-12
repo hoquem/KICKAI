@@ -7,7 +7,6 @@ This module handles automated and manual reminders for player onboarding.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
 
 from kickai.core.config import Settings
 from kickai.features.communication.domain.interfaces.reminder_service_interface import (
@@ -67,7 +66,7 @@ class ReminderService(IReminderService):
             logging.error(f"Error checking and sending reminders: {e}")
             return []
 
-    async def send_automated_reminder(self, player: Player) -> Optional[ReminderMessage]:
+    async def send_automated_reminder(self, player: Player) -> ReminderMessage | None:
         """Send an automated reminder to a player."""
         try:
             reminder_number = player.reminders_sent + 1
@@ -76,7 +75,7 @@ class ReminderService(IReminderService):
             # Update player reminder tracking
             player.send_reminder()
             await self.player_service.update_player(
-                player.id,
+                player.player_id,
                 reminders_sent=player.reminders_sent,
                 last_reminder_sent=player.last_reminder_sent,
                 next_reminder_due=player.next_reminder_due,
@@ -126,7 +125,7 @@ class ReminderService(IReminderService):
             # Update player reminder tracking
             player.send_reminder()
             await self.player_service.update_player(
-                player.id,
+                player.player_id,
                 reminders_sent=player.reminders_sent,
                 last_reminder_sent=player.last_reminder_sent,
                 next_reminder_due=player.next_reminder_due,
@@ -162,7 +161,7 @@ class ReminderService(IReminderService):
 
         # Check for outstanding onboarding requirements
         outstanding_requirements = []
-        
+
         # Check if player has completed all onboarding steps
         progress = player.get_onboarding_progress()
         for step_name, step_data in progress["steps"].items():

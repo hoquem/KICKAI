@@ -8,7 +8,6 @@ encapsulated methods as the single source of truth for all routing decisions.
 import logging
 
 from kickai.features.player_registration.domain.entities.player import OnboardingStatus, Player
-from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -20,18 +19,19 @@ class MessageRoutingService:
     """
 
     @staticmethod
-    def should_route_to_onboarding(player: Optional[Player], message: str) -> Tuple[bool, str]:
+    def should_route_to_onboarding(player: Player | None, message: str) -> tuple[bool, str]:
         """
         Determine if a message should be routed to onboarding handler.
 
         Uses Player.is_pending_onboarding() as the single source of truth.
 
-        Args:
+
             player: Player object with encapsulated status methods
             message: The message to route
 
-        Returns:
-            Tuple of (should_route, reason)
+
+    :return: Tuple of (should_route, reason)
+    :rtype: str  # TODO: Fix type
         """
         if not player:
             return False, "No player found"
@@ -55,18 +55,19 @@ class MessageRoutingService:
         return False, f"Player {player.name} is not in onboarding"
 
     @staticmethod
-    def should_route_to_player_update(player: Optional[Player], message: str) -> Tuple[bool, str]:
+    def should_route_to_player_update(player: Player | None, message: str) -> tuple[bool, str]:
         """
         Determine if a message should be routed to player update handler.
 
         Uses Player.is_onboarding_complete() as the single source of truth.
 
-        Args:
+
             player: Player object with encapsulated status methods
             message: The message to route
 
-        Returns:
-            Tuple of (should_route, reason)
+
+    :return: Tuple of (should_route, reason)
+    :rtype: str  # TODO: Fix type
         """
         if not player:
             return False, "No player found"
@@ -96,18 +97,19 @@ class MessageRoutingService:
         return False, "Not a player update request"
 
     @staticmethod
-    def should_route_to_general_handler(player: Optional[Player], message: str) -> Tuple[bool, str]:
+    def should_route_to_general_handler(player: Player | None, message: str) -> tuple[bool, str]:
         """
         Determine if a message should be routed to general handler.
 
         This is the default case when other routing conditions are not met.
 
-        Args:
+
             player: Player object with encapsulated status methods
             message: The message to route
 
-        Returns:
-            Tuple of (should_route, reason)
+
+    :return: Tuple of (should_route, reason)
+    :rtype: str  # TODO: Fix type
         """
         if not player:
             return True, "No player found, routing to general handler"
@@ -126,7 +128,7 @@ class MessageRoutingService:
 
     @staticmethod
     def get_routing_decision(
-        player: Optional[Player], message: str, user_role: str = "player"
+        player: Player | None, message: str, user_role: str = "player"
     ) -> dict:
         """
         Get the complete routing decision for a message.
@@ -134,13 +136,14 @@ class MessageRoutingService:
         This is the main method that should be used by all routing logic.
         It uses Player model's encapsulated methods as the single source of truth.
 
-        Args:
+
             player: Player object with encapsulated status methods
             message: The message to route
             user_role: User's role (admin, player, etc.)
 
-        Returns:
-            Dictionary containing routing decision and metadata
+
+    :return: Dictionary containing routing decision and metadata
+    :rtype: str  # TODO: Fix type
         """
         # Admin users bypass all routing logic
         if user_role == "admin":

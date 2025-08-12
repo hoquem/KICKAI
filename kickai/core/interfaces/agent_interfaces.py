@@ -8,7 +8,7 @@ and testability across the agent system.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from kickai.core.enums import AgentRole
 from kickai.core.value_objects import EntityContext
@@ -42,12 +42,13 @@ class IAgentOrchestrator(ABC):
         """
         Process a message using appropriate agents.
 
-        Args:
+
             message: The user message to process
             context: The entity context for the request
 
-        Returns:
-            Agent response with content and metadata
+
+    :return: Agent response with content and metadata
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -56,8 +57,9 @@ class IAgentOrchestrator(ABC):
         """
         Perform health check on the agent system.
 
-        Returns:
-            Health status information
+
+    :return: Health status information
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -74,12 +76,13 @@ class IAgentRouter(ABC):
         """
         Route message to the most appropriate agent.
 
-        Args:
+
             message: The user message
             context: Entity context for routing decisions
 
-        Returns:
-            Response from the selected agent
+
+    :return: Response from the selected agent
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -88,16 +91,17 @@ class IAgentRouter(ABC):
         self,
         message: str,
         context: EntityContext
-    ) -> Optional[AgentRole]:
+    ) -> AgentRole | None:
         """
         Select the most appropriate agent for a message.
 
-        Args:
+
             message: The user message
             context: Entity context for selection
 
-        Returns:
-            Selected agent role or None if no suitable agent
+
+    :return: Selected agent role or None if no suitable agent
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -114,12 +118,13 @@ class IAgentSystem(ABC):
         """
         Execute a task using this agent.
 
-        Args:
+
             task_description: Description of the task to execute
             context: Entity context for the task
 
-        Returns:
-            Agent response
+
+    :return: Agent response
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -154,13 +159,14 @@ class ICrewSystem(ABC):
         """
         Execute task using CrewAI with selected agents.
 
-        Args:
+
             task_description: Task to execute
             context: Entity context
             selected_agents: Specific agents to use (optional)
 
-        Returns:
-            Crew execution response
+
+    :return: Crew execution response
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -170,7 +176,7 @@ class ICrewSystem(ABC):
         pass
 
     @abstractmethod
-    def get_agent_by_role(self, role: AgentRole) -> Optional[IAgentSystem]:
+    def get_agent_by_role(self, role: AgentRole) -> IAgentSystem | None:
         """Get agent instance by role."""
         pass
 
@@ -183,7 +189,7 @@ class ILifecycleManager(ABC):
         """
         Initialize all agents for a team.
 
-        Args:
+
             team_id: Team identifier
         """
         pass
@@ -193,21 +199,22 @@ class ILifecycleManager(ABC):
         """
         Shutdown agents for a team.
 
-        Args:
+
             team_id: Team identifier
         """
         pass
 
     @abstractmethod
-    def get_agent_system(self, team_id: str) -> Optional[ICrewSystem]:
+    def get_agent_system(self, team_id: str) -> ICrewSystem | None:
         """
         Get the agent system for a team.
 
-        Args:
+
             team_id: Team identifier
 
-        Returns:
-            Agent system or None if not found
+
+    :return: Agent system or None if not found
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -216,8 +223,9 @@ class ILifecycleManager(ABC):
         """
         Check health of all managed agent systems.
 
-        Returns:
-            Health status for all systems
+
+    :return: Health status for all systems
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -234,12 +242,13 @@ class IUserFlowHandler(ABC):
         """
         Determine the appropriate user flow for a message.
 
-        Args:
+
             message: User message
             context: Entity context
 
-        Returns:
-            User flow identifier
+
+    :return: User flow identifier
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -252,12 +261,13 @@ class IUserFlowHandler(ABC):
         """
         Handle messages from unregistered users.
 
-        Args:
+
             message: User message
             context: Entity context
 
-        Returns:
-            Response for unregistered user
+
+    :return: Response for unregistered user
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -274,12 +284,13 @@ class IContactHandler(ABC):
         """
         Handle contact sharing from Telegram.
 
-        Args:
+
             contact_data: Contact information from Telegram
             context: Entity context
 
-        Returns:
-            Response to contact sharing
+
+    :return: Response to contact sharing
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -291,11 +302,12 @@ class IContactHandler(ABC):
         """
         Validate contact data structure.
 
-        Args:
+
             contact_data: Contact data to validate
 
-        Returns:
-            True if valid, False otherwise
+
+    :return: True if valid, False otherwise
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -312,12 +324,13 @@ class ICommandValidator(ABC):
         """
         Validate if command is allowed in the given context.
 
-        Args:
+
             command: Command to validate
             context: Entity context for validation
 
-        Returns:
-            True if command is valid for context
+
+    :return: True if command is valid for context
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -326,11 +339,12 @@ class ICommandValidator(ABC):
         """
         Check if command is a helper command.
 
-        Args:
+
             command: Command to check
 
-        Returns:
-            True if helper command
+
+    :return: True if helper command
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -343,11 +357,12 @@ class ICommandValidator(ABC):
         """
         Get error message for invalid command.
 
-        Args:
+
             command: Invalid command
             context: Entity context
 
-        Returns:
-            Error message for user
+
+    :return: Error message for user
+    :rtype: str  # TODO: Fix type
         """
         pass

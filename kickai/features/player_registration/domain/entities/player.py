@@ -1,11 +1,10 @@
-from typing import Optional, Set
 #!/usr/bin/env python3
 """
 Player Entity
 
 This module defines the Player entity for the player registration domain.
 Players represent football players, separate from Team Members who are administrators.
-A person can be both a Player and a Team Member, linked by user_id.
+A person can be both a Player and a Team Member, linked by telegram_id.
 """
 
 from dataclasses import dataclass
@@ -13,15 +12,9 @@ from datetime import datetime
 from enum import Enum
 
 from kickai.core.enums import PlayerPosition
-from kickai.utils.user_id_generator import generate_user_id
 
 
-class PreferredFoot(Enum):
-    """Player preferred foot enumeration."""
 
-    LEFT = "left"
-    RIGHT = "right"
-    BOTH = "both"
 
 
 class OnboardingStatus(Enum):
@@ -52,39 +45,35 @@ class Player:
     """
 
     # Core identification fields
-    telegram_id: Optional[int] = None  # Telegram user ID (integer) - for linking to Telegram
-    player_id: Optional[str] = None    # Player identifier (M001MH format) - unique within team
+    telegram_id: int | None = None  # Telegram user ID (integer) - native Telegram format for linking
+    player_id: str | None = None    # Player identifier (M001MH format) - unique within team
     team_id: str = ""                  # Team identifier (KA format)
-    
-    # Legacy field - being phased out in favor of explicit IDs above
-    user_id: str = ""  # DEPRECATED: Use telegram_id for linking, player_id for identification
 
     # Personal information
-    name: Optional[str] = None
-    username: Optional[str] = None
+    name: str | None = None
+    username: str | None = None
 
     # Football-specific information
-    position: Optional[str] = None  # e.g., "Midfielder", "Forward"
-    preferred_foot: Optional[str] = None  # "left", "right", "both"
-    jersey_number: Optional[str] = None
+    position: str | None = None  # e.g., "Midfielder", "Forward"
+    jersey_number: str | None = None
 
     # Contact and personal information
-    phone_number: Optional[str] = None
-    email: Optional[str] = None
-    date_of_birth: Optional[str] = None
-    emergency_contact: Optional[str] = None
-    medical_notes: Optional[str] = None
+    phone_number: str | None = None
+    email: str | None = None
+    date_of_birth: str | None = None
+    emergency_contact: str | None = None
+    medical_notes: str | None = None
 
     # Status and approval
     status: str = "pending"  # pending, approved, rejected, active, inactive
 
     # Timestamps
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     # Metadata
-    source: Optional[str] = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
-    sync_version: Optional[str] = None
+    source: str | None = None  # e.g., "telegram_sync", "manual_entry", "registration_form"
+    sync_version: str | None = None
 
     def __post_init__(self):
         """Validate and set defaults after initialization."""
@@ -95,18 +84,20 @@ class Player:
         """Validate player data."""
         if not self.team_id:
             raise ValueError("Team ID cannot be empty")
-        
+
         # Require either player_id or telegram_id for identification
         if not self.player_id and not self.telegram_id:
             raise ValueError("Either player_id or telegram_id must be provided")
 
-        # Validate player_id format if provided
-        if self.player_id and not self.player_id.startswith("M"):
-            raise ValueError(f"Invalid player_id format: {self.player_id}. Must start with 'M'")
-            
+        # Player_id can be any format - no specific prefix required
+
         # Validate telegram_id type if provided
         if self.telegram_id is not None and not isinstance(self.telegram_id, int):
             raise ValueError(f"telegram_id must be an integer, got {type(self.telegram_id)}")
+        
+        # Validate telegram_id value if provided
+        if self.telegram_id is not None and self.telegram_id <= 0:
+            raise ValueError(f"telegram_id must be positive, got {self.telegram_id}")
 
         # Validate status
         valid_statuses = ["pending", "approved", "rejected", "active", "inactive"]
@@ -121,13 +112,7 @@ class Player:
                     f"Invalid position: {self.position}. Must be one of {valid_positions}"
                 )
 
-        # Validate preferred foot if provided
-        if self.preferred_foot:
-            valid_feet = [foot.value for foot in PreferredFoot]
-            if self.preferred_foot.lower() not in valid_feet:
-                raise ValueError(
-                    f"Invalid preferred foot: {self.preferred_foot}. Must be one of {valid_feet}"
-                )
+
 
     def _set_defaults(self):
         """Set default values if not provided."""
@@ -145,32 +130,33 @@ class Player:
         cls,
         team_id: str,
         telegram_id: int,
-        name: str = None,
-        username: str = None,
-        phone_number: str = None,
+        name: str | None = None,
+        username: str | None = None,
+        phone_number: str | None = None,
     ) -> "Player":
         """
         Create a Player from Telegram user data.
 
-        Args:
+
             team_id: The team ID
-            telegram_id: The Telegram user ID
+            telegram_id: The Telegram user ID (integer)
             name: Player's display name
             username: Telegram username
             phone_number: Phone number if available
 
-        Returns:
-            A new Player instance
+
+    :return: A new Player instance
+    :rtype: str  # TODO: Fix type
         """
-        user_id = generate_user_id(telegram_id)
+        # Convert telegram_id to string for storage
+        telegram_id_str = str(telegram_id)
 
         # Use provided name or generate default
         display_name = name if name else f"User {telegram_id}"
 
         return cls(
-            user_id=user_id,
             team_id=team_id,
-            telegram_id=telegram_id,  # Keep as integer
+            telegram_id=telegram_id_str,  # Store as string for cross-entity linking
             name=display_name,
             username=username,
             phone_number=phone_number,
@@ -180,14 +166,12 @@ class Player:
     def to_dict(self) -> dict:
         """Convert to dictionary for storage."""
         return {
-            "user_id": self.user_id,
             "team_id": self.team_id,
             "telegram_id": self.telegram_id,
             "player_id": self.player_id,
             "name": self.name,
             "username": self.username,
             "position": self.position,
-            "preferred_foot": self.preferred_foot,
             "jersey_number": self.jersey_number,
             "phone_number": self.phone_number,
             "email": self.email,
@@ -204,20 +188,18 @@ class Player:
     @classmethod
     def from_dict(cls, data: dict) -> "Player":
         """Create from dictionary."""
-        # Ensure telegram_id is integer if provided
+        # Ensure telegram_id is string if provided
         telegram_id = data.get("telegram_id")
         if telegram_id is not None:
-            telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
+            telegram_id = str(telegram_id) if not isinstance(telegram_id, str) else telegram_id
 
         return cls(
-            user_id=data.get("user_id", ""),
             team_id=data.get("team_id", ""),
             telegram_id=telegram_id,
             player_id=data.get("player_id"),
             name=data.get("name"),
             username=data.get("username"),
             position=data.get("position"),
-            preferred_foot=data.get("preferred_foot"),
             jersey_number=data.get("jersey_number"),
             phone_number=data.get("phone_number"),
             email=data.get("email"),
@@ -238,18 +220,16 @@ class Player:
         player = cls.__new__(cls)
 
         # Set attributes directly
-        player.user_id = data.get("user_id", "")
         player.team_id = data.get("team_id", "")
-        # Ensure telegram_id is integer if provided
+        # Ensure telegram_id is string if provided
         telegram_id = data.get("telegram_id")
         if telegram_id is not None:
-            telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
+            telegram_id = str(telegram_id) if not isinstance(telegram_id, str) else telegram_id
         player.telegram_id = telegram_id
         player.player_id = data.get("player_id")
         player.name = data.get("name")
         player.username = data.get("username")
         player.position = data.get("position")
-        player.preferred_foot = data.get("preferred_foot")
         player.jersey_number = data.get("jersey_number")
         player.phone_number = data.get("phone_number")
         player.email = data.get("email")
@@ -280,22 +260,22 @@ class Player:
         return player
 
     @staticmethod
-    def _parse_datetime(dt_value) -> Optional[datetime]:
+    def _parse_datetime(dt_value) -> datetime | None:
         """Parse datetime value handling both string and datetime objects."""
         if not dt_value:
             return None
-        
+
         # If it's already a datetime object (from Firestore), return it
         if isinstance(dt_value, datetime):
             return dt_value
-        
+
         # If it's a string, parse it
         if isinstance(dt_value, str):
             try:
                 return datetime.fromisoformat(dt_value.replace("Z", "+00:00"))
             except ValueError:
                 return None
-        
+
         return None
 
     def approve(self):
@@ -339,7 +319,7 @@ class Player:
         elif self.telegram_id:
             return f"User {self.telegram_id}"
         else:
-            return f"User {self.user_id}"
+            return f"Player {self.player_id}" if self.player_id else "Unknown Player"
 
     def get_position_display(self) -> str:
         """Get formatted position display."""
@@ -348,13 +328,11 @@ class Player:
         return "Not specified"
 
     def update_football_info(
-        self, position: str = None, preferred_foot: str = None, jersey_number: str = None
+        self, position: str | None = None, jersey_number: str | None = None
     ):
         """Update football-specific information."""
         if position is not None:
             self.position = position
-        if preferred_foot is not None:
-            self.preferred_foot = preferred_foot
         if jersey_number is not None:
             self.jersey_number = jersey_number
 
@@ -362,11 +340,11 @@ class Player:
 
     def update_personal_info(
         self,
-        phone_number: str = None,
-        email: str = None,
-        date_of_birth: str = None,
-        emergency_contact: str = None,
-        medical_notes: str = None,
+        phone_number: str | None = None,
+        email: str | None = None,
+        date_of_birth: str | None = None,
+        emergency_contact: str | None = None,
+        medical_notes: str | None = None,
     ):
         """Update personal information."""
         if phone_number is not None:

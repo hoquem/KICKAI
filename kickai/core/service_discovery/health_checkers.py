@@ -5,10 +5,10 @@ Specialized health checkers for different service types, providing
 comprehensive health monitoring and validation capabilities.
 """
 
+import inspect
 import logging
 import time
 from typing import Any
-import inspect
 
 from .interfaces import IServiceHealthChecker, ServiceHealth, ServiceStatus
 

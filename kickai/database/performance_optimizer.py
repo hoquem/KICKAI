@@ -7,7 +7,7 @@ including indexing recommendations and query optimization strategies.
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from typing import Any
 
 from loguru import logger
 
@@ -21,12 +21,13 @@ class DatabasePerformanceOptimizer:
         self.database = database
         self.collection_name = "kickai_invite_links"
 
-    async def get_indexing_recommendations(self) -> Dict[str, Any]:
+    async def get_indexing_recommendations(self) -> dict[str, Any]:
         """
         Get database indexing recommendations for optimal performance.
 
-        Returns:
-            Dict containing indexing recommendations
+
+    :return: Dict containing indexing recommendations
+    :rtype: str  # TODO: Fix type
         """
         recommendations = {
             "critical_indexes": [
@@ -67,7 +68,7 @@ class DatabasePerformanceOptimizer:
 
         return recommendations
 
-    async def _get_performance_metrics(self) -> Dict[str, Any]:
+    async def _get_performance_metrics(self) -> dict[str, Any]:
         """Get current database performance metrics."""
         try:
             # Get invite link statistics
@@ -90,7 +91,7 @@ class DatabasePerformanceOptimizer:
             logger.error(f"❌ Error getting performance metrics: {e}")
             return {"error": str(e)}
 
-    async def _get_optimization_suggestions(self) -> List[str]:
+    async def _get_optimization_suggestions(self) -> list[str]:
         """Get database optimization suggestions."""
         suggestions = []
 
@@ -129,15 +130,16 @@ class DatabasePerformanceOptimizer:
 
         return suggestions
 
-    async def cleanup_expired_links(self, batch_size: int = 100) -> Dict[str, Any]:
+    async def cleanup_expired_links(self, batch_size: int = 100) -> dict[str, Any]:
         """
         Clean up expired invite links in batches.
 
-        Args:
+
             batch_size: Number of links to process in each batch
 
-        Returns:
-            Dict containing cleanup results
+
+    :return: Dict containing cleanup results
+    :rtype: str  # TODO: Fix type
         """
         try:
             logger.info(f"🧹 [DB_OPTIMIZATION] Starting expired link cleanup with batch_size={batch_size}")
@@ -187,7 +189,7 @@ class DatabasePerformanceOptimizer:
             logger.error(f"❌ Error counting documents in {collection}: {e}")
             return 0
 
-    async def _count_documents_with_filter(self, collection: str, filters: Dict[str, Any]) -> int:
+    async def _count_documents_with_filter(self, collection: str, filters: dict[str, Any]) -> int:
         """Count documents matching specific filters."""
         try:
             # This is a simplified implementation - actual implementation would depend on the database interface
@@ -196,7 +198,7 @@ class DatabasePerformanceOptimizer:
             logger.error(f"❌ Error counting documents with filter in {collection}: {e}")
             return 0
 
-    async def _get_expired_links(self, limit: int) -> List[Dict[str, Any]]:
+    async def _get_expired_links(self, limit: int) -> list[dict[str, Any]]:
         """Get expired invite links."""
         try:
             # This is a simplified implementation - actual implementation would depend on the database interface
@@ -205,12 +207,13 @@ class DatabasePerformanceOptimizer:
             logger.error(f"❌ Error getting expired links: {e}")
             return []
 
-    async def optimize_queries(self) -> Dict[str, Any]:
+    async def optimize_queries(self) -> dict[str, Any]:
         """
         Provide query optimization recommendations.
 
-        Returns:
-            Dict containing optimization recommendations
+
+    :return: Dict containing optimization recommendations
+    :rtype: str  # TODO: Fix type
         """
         recommendations = {
             "query_optimizations": [
@@ -264,24 +267,26 @@ async def get_database_optimizer(database: DataStoreInterface) -> DatabasePerfor
     """
     Get a database performance optimizer instance.
 
-    Args:
+
         database: Database interface instance
 
-    Returns:
-        DatabasePerformanceOptimizer instance
+
+    :return: DatabasePerformanceOptimizer instance
+    :rtype: str  # TODO: Fix type
     """
     return DatabasePerformanceOptimizer(database)
 
 
-async def run_performance_audit(database: DataStoreInterface) -> Dict[str, Any]:
+async def run_performance_audit(database: DataStoreInterface) -> dict[str, Any]:
     """
     Run a comprehensive database performance audit.
 
-    Args:
+
         database: Database interface instance
 
-    Returns:
-        Dict containing audit results
+
+    :return: Dict containing audit results
+    :rtype: str  # TODO: Fix type
     """
     optimizer = await get_database_optimizer(database)
 

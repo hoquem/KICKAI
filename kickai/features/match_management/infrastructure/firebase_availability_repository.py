@@ -1,4 +1,3 @@
-from typing import Optional
 import logging
 
 from kickai.features.match_management.domain.entities.availability import (
@@ -39,7 +38,7 @@ class FirebaseAvailabilityRepository(AvailabilityRepositoryInterface):
             logger.error(f"Failed to create availability {availability.availability_id}: {e}")
             raise
 
-    async def get_by_id(self, availability_id: str) -> Optional[Availability]:
+    async def get_by_id(self, availability_id: str) -> Availability | None:
         """Get availability by ID."""
         try:
             # Search across all team collections
@@ -60,7 +59,7 @@ class FirebaseAvailabilityRepository(AvailabilityRepositoryInterface):
             logger.error(f"Failed to get availability {availability_id}: {e}")
             return None
 
-    async def get_by_match_and_player(self, match_id: str, player_id: str) -> Optional[Availability]:
+    async def get_by_match_and_player(self, match_id: str, player_id: str) -> Availability | None:
         """Get availability for a specific match and player."""
         try:
             # Search across all team collections

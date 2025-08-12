@@ -2,12 +2,12 @@
 """
 Configurable Agent for KICKAI System - CrewAI 2025 Best Practices
 
-This module provides a clean, simplified configurable agent that follows CrewAI 2025 
+This module provides a clean, simplified configurable agent that follows CrewAI 2025
 best practices for context passing and tool parameter handling.
 """
 
 import traceback
-from typing import Any, Dict, Set, List
+from typing import Any
 
 from crewai import Agent, Crew, Process, Task
 from loguru import logger
@@ -32,11 +32,11 @@ class ConfigurableAgent:
     - Inter-agent delegation support
     """
 
-    def __init__(self, agent_role: AgentRole, team_id: str, other_agents: List['ConfigurableAgent'] = None):
+    def __init__(self, agent_role: AgentRole, team_id: str, other_agents: list['ConfigurableAgent'] | None = None):
         """
         Initialize agent with role and team ID.
 
-        Args:
+
             agent_role: The role this agent should perform
             team_id: The team this agent belongs to
             other_agents: List of other agents for delegation capabilities
@@ -97,9 +97,9 @@ class ConfigurableAgent:
         from kickai.core.memory_manager import get_memory_manager
         memory_manager = get_memory_manager()
         agent_memory = memory_manager.get_memory_for_agent(self.agent_role)
-        
+
         # Create agent with optimized configuration and memory
-        settings = get_settings()
+        get_settings()
 
         agent = Agent(
             role=self.config.role,
@@ -117,7 +117,7 @@ class ConfigurableAgent:
         )
         return agent
 
-    def _get_delegation_tools(self) -> List[Any]:
+    def _get_delegation_tools(self) -> list[Any]:
         """Get delegation tools for inter-agent communication."""
         if not self.other_agents:
             return []
@@ -142,7 +142,7 @@ class ConfigurableAgent:
             logger.error(f"❌ Error creating delegation tools for {self.agent_role.value}: {e}")
             return []
 
-    def set_other_agents(self, other_agents: List['ConfigurableAgent']):
+    def set_other_agents(self, other_agents: list['ConfigurableAgent']):
         """Set other agents for delegation capabilities."""
         self.other_agents = other_agents
         # Recreate agent with new delegation tools
@@ -161,18 +161,19 @@ class ConfigurableAgent:
         """Check if this agent is enabled."""
         return self.config.enabled if hasattr(self, 'config') else True
 
-    async def execute(self, task_description: str, context: Dict[str, Any]) -> str:
+    async def execute(self, task_description: str, context: dict[str, Any]) -> str:
         """
         Execute a task using CrewAI best practices.
 
-        Args:
+
             task_description: Description of the task to execute
             context: Execution context with user information
 
-        Returns:
-            Result of the task execution
 
-        Raises:
+    :return: Result of the task execution
+    :rtype: str  # TODO: Fix type
+
+
             ValueError: If context is missing or invalid
         """
         if not context:
@@ -198,7 +199,7 @@ class ConfigurableAgent:
             logger.error(traceback.format_exc())
             return f"❌ Task execution failed: {e!s}"
 
-    def _validate_context(self, context: Dict[str, Any]):
+    def _validate_context(self, context: dict[str, Any]):
         """Validate execution context to ensure it's complete and valid."""
         # CrewAI 2025 native validation - check required keys
         required_keys = ['team_id', 'telegram_id', 'username', 'chat_type', 'user_role', 'is_registered']
@@ -207,10 +208,10 @@ class ConfigurableAgent:
                 raise ValueError(f"Missing required context key: {key}")
             if context[key] is None:
                 raise ValueError(f"Context key '{key}' cannot be None")
-        
+
         logger.debug(f"🔍 Context validated for {self.agent_role.value}")
 
-    def _enhance_task_description(self, task_description: str, context: Dict[str, Any]) -> str:
+    def _enhance_task_description(self, task_description: str, context: dict[str, Any]) -> str:
         """
         Enhance task description with execution context for better LLM understanding.
 
@@ -225,7 +226,7 @@ Use these parameters when calling tools."""
 
         return task_description + context_info
 
-    async def _execute_crewai_task(self, task_description: str, context: Dict[str, Any]) -> str:
+    async def _execute_crewai_task(self, task_description: str, context: dict[str, Any]) -> str:
         """Execute the actual CrewAI task with proper context handling."""
         logger.debug(f"🔧 Creating task with context: {context}")
 
@@ -253,30 +254,30 @@ Use these parameters when calling tools."""
         result = crew.kickoff()
 
         logger.info(f"✅ CrewAI execution completed for {self.agent_role.value}")
-        
+
         # Clean up the result to remove any prompt pollution
         result_str = result.raw if hasattr(result, 'raw') else str(result)
-        
+
         # Use the sanitizer to clean up any prompt pollution
         from kickai.utils.tool_output_sanitizer import sanitize_tool_output, validate_tool_output
-        
+
         # Validate the output first
         validation = validate_tool_output(result_str)
-        
+
         if validation["is_polluted"]:
             logger.warning(f"⚠️ Tool output pollution detected for {self.agent_role.value}")
             logger.debug(f"🔍 Pollution issues: {validation['issues']}")
-            
+
             # Use the sanitizer to clean the output
             clean_result = sanitize_tool_output(result_str)
-            
+
             if clean_result and clean_result.strip():
                 logger.info(f"✅ Successfully cleaned polluted output for {self.agent_role.value}")
                 return clean_result
             else:
                 logger.error(f"❌ Failed to extract clean data from polluted output for {self.agent_role.value}")
-                return f"❌ Error: Tool output was corrupted. Please try again."
-        
+                return "❌ Error: Tool output was corrupted. Please try again."
+
         return result_str
 
 
@@ -291,7 +292,7 @@ class AgentFactory:
         """
         Initialize the factory for a specific team.
 
-        Args:
+
             team_id: The team ID for all agents created by this factory
         """
         self.team_id = team_id
@@ -301,13 +302,14 @@ class AgentFactory:
         """
         Create a single configurable agent.
 
-        Args:
+
             role: The role for the agent to create
 
-        Returns:
-            Configured agent ready for execution
 
-        Raises:
+    :return: Configured agent ready for execution
+    :rtype: str  # TODO: Fix type
+
+
             AgentInitializationError: If agent creation fails
         """
         try:
@@ -315,12 +317,13 @@ class AgentFactory:
         except Exception as e:
             raise AgentInitializationError(role.value, f"Failed to create agent for role {role.value}: {e}")
 
-    def create_all_agents(self) -> Dict[AgentRole, ConfigurableAgent]:
+    def create_all_agents(self) -> dict[AgentRole, ConfigurableAgent]:
         """
         Create all enabled agents for the team with delegation support.
 
-        Returns:
-            Dictionary mapping agent roles to configured agents
+
+    :return: Dictionary mapping agent roles to configured agents
+    :rtype: str  # TODO: Fix type
         """
         agents = {}
 
@@ -364,26 +367,28 @@ def create_agent(role: AgentRole, team_id: str) -> ConfigurableAgent:
     """
     Convenience function to create a single agent.
 
-    Args:
+
         role: Agent role to create
         team_id: Team ID for the agent
 
-    Returns:
-        Configured agent
+
+    :return: Configured agent
+    :rtype: str  # TODO: Fix type
     """
     factory = AgentFactory(team_id)
     return factory.create_agent(role)
 
 
-def create_all_agents(team_id: str) -> Dict[AgentRole, ConfigurableAgent]:
+def create_all_agents(team_id: str) -> dict[AgentRole, ConfigurableAgent]:
     """
     Convenience function to create all agents for a team.
 
-    Args:
+
         team_id: Team ID for all agents
 
-    Returns:
-        Dictionary of all created agents
+
+    :return: Dictionary of all created agents
+    :rtype: str  # TODO: Fix type
     """
     factory = AgentFactory(team_id)
     return factory.create_all_agents()

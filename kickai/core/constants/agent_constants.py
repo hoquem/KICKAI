@@ -108,12 +108,13 @@ class AgentConstants:
         """
         Get model name for specific provider and agent type.
 
-        Args:
+
             provider: AI provider (ollama, huggingface, gemini, openai)
             agent_type: Agent type (data_critical, administrative, creative)
 
-        Returns:
-            Model name for the provider and type
+
+    :return: Model name for the provider and type
+    :rtype: str  # TODO: Fix type
         """
         model_map = {
             "ollama": {
@@ -146,11 +147,12 @@ class AgentConstants:
         """
         Get complete configuration for an agent role.
 
-        Args:
+
             agent_role: The agent role name
 
-        Returns:
-            Configuration dictionary
+
+    :return: Configuration dictionary
+    :rtype: str  # TODO: Fix type
         """
         if agent_role in cls.get_data_critical_agent_roles():
             return {

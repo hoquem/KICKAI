@@ -6,23 +6,23 @@ This module serves as the single source of truth for all user-facing formatting.
 from datetime import datetime
 
 from kickai.features.player_registration.domain.entities.player import Player
-from typing import List
 
 
 class PlayerFormattingService:
     """Single source of truth for all player-related formatting."""
 
     @staticmethod
-    def format_player_list(players: List[Player], team_name: str = "Team") -> str:
+    def format_player_list(players: list[Player], team_name: str = "Team") -> str:
         """
         Format a list of players in a clean, Telegram-friendly format.
 
-        Args:
+
             players: List of Player objects
             team_name: Name of the team
 
-        Returns:
-            Formatted string for Telegram display
+
+    :return: Formatted string for Telegram display
+    :rtype: str  # TODO: Fix type
         """
         if not players:
             return f"📋 {team_name} Players\n\n❌ No players found."
@@ -64,16 +64,17 @@ class PlayerFormattingService:
         return "\n".join(output)
 
     @staticmethod
-    def format_player_list_for_leadership(players: List[Player], team_name: str = "Team") -> str:
+    def format_player_list_for_leadership(players: list[Player], team_name: str = "Team") -> str:
         """
         Format a list of players for leadership view - shows all players with detailed status.
 
-        Args:
+
             players: List of Player objects
             team_name: Name of the team
 
-        Returns:
-            Formatted string for Telegram display (leadership view)
+
+    :return: Formatted string for Telegram display (leadership view)
+    :rtype: str  # TODO: Fix type
         """
         if not players:
             return f"📋 {team_name} Players - Leadership View\n\n❌ No players found."
@@ -125,12 +126,13 @@ class PlayerFormattingService:
         """
         Format a single player's status in a clean, Telegram-friendly format.
 
-        Args:
+
             player: Player object
             team_name: Name of the team
 
-        Returns:
-            Formatted string for Telegram display
+
+    :return: Formatted string for Telegram display
+    :rtype: str  # TODO: Fix type
         """
         if not player:
             return "❌ Player not found."
@@ -166,12 +168,13 @@ class PlayerFormattingService:
         """
         Format error messages consistently.
 
-        Args:
+
             error: Error message
             context: Additional context
 
-        Returns:
-            Formatted error message
+
+    :return: Formatted error message
+    :rtype: str  # TODO: Fix type
         """
         output = [f"❌ {error}"]
         if context:
@@ -183,12 +186,13 @@ class PlayerFormattingService:
         """
         Format success messages consistently.
 
-        Args:
+
             message: Success message
             context: Additional context
 
-        Returns:
-            Formatted success message
+
+    :return: Formatted success message
+    :rtype: str  # TODO: Fix type
         """
         output = [f"✅ {message}"]
         if context:

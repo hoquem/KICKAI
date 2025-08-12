@@ -5,7 +5,7 @@ This module provides factories for creating all feature services, ensuring
 proper dependency management and avoiding circular imports.
 """
 
-from typing import Any, List, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
@@ -21,7 +21,7 @@ class ServiceFactory:
     def __init__(self, container, database):
         self.container = container
         self.database = database
-        self._cache: Dict[str, Any] = {}
+        self._cache: dict[str, Any] = {}
 
     def get_database(self) -> DataStoreInterface:
         """Get the database interface."""
@@ -50,19 +50,30 @@ class ServiceFactory:
 
 
         # Register repositories
-        from kickai.features.player_registration.domain.repositories.player_repository_interface import (
-            PlayerRepositoryInterface,
+        from kickai.core.interfaces.player_repositories import (
+            IPlayerRepository,
         )
-        from kickai.features.team_administration.domain.repositories.team_repository_interface import (
+        from kickai.core.interfaces.team_repositories import (
+            ITeamRepository,
             TeamRepositoryInterface,
         )
 
+        # Register both interface patterns for team repository
+        self.container.register_service(ITeamRepository, team_repo)
         self.container.register_service(TeamRepositoryInterface, team_repo)
-        self.container.register_service(PlayerRepositoryInterface, player_repo)
+        self.container.register_service(IPlayerRepository, player_repo)
+
+        # Create shared services
+        logger.debug("🔍 Creating HelpService...")
+        from kickai.features.shared.domain.services.help_service import HelpService
+        help_service = HelpService()
+        self.container.register_service(HelpService, help_service)
+        logger.debug("✅ Registered HelpService")
 
         return {
             "team_repository": team_repo,
             "player_repository": player_repo,
+            "help_service": help_service,
         }
 
 
@@ -73,7 +84,7 @@ class ServiceFactory:
         from kickai.features.team_administration.domain.services.team_service import TeamService
 
         logger.debug("🔍 Imported TeamService")
-        from kickai.features.team_administration.domain.repositories.team_repository_interface import (
+        from kickai.core.interfaces.team_repositories import (
             TeamRepositoryInterface,
         )
 
@@ -131,16 +142,16 @@ class ServiceFactory:
         )
 
         logger.debug("🔍 Imported IPlayerService")
-        from kickai.features.player_registration.domain.repositories.player_repository_interface import (
-            PlayerRepositoryInterface,
+        from kickai.core.interfaces.player_repositories import (
+            IPlayerRepository,
         )
 
-        logger.debug("🔍 Imported PlayerRepositoryInterface")
+        logger.debug("🔍 Imported IPlayerRepository")
         from kickai.features.team_administration.domain.services.team_service import TeamService
 
         logger.debug("🔍 Imported TeamService")
 
-        player_repo = self.container.get_service(PlayerRepositoryInterface)
+        player_repo = self.container.get_service(IPlayerRepository)
         logger.debug("🔍 Got player repository from container")
 
         # Try to get TeamService by interface first, then by concrete class
@@ -425,10 +436,16 @@ class ServiceFactory:
         from kickai.features.system_infrastructure.domain.services.permission_service import (
             PermissionService,
         )
+        from kickai.core.interfaces.player_repositories import IPlayerRepository
+        from kickai.core.interfaces.team_repositories import ITeamRepository
 
+        # Get repositories from container
+        player_repo = self.container.get_service(IPlayerRepository)
+        team_repo = self.container.get_service(ITeamRepository)
+        
         # Create services
         bot_status_service = BotStatusService()
-        permission_service = PermissionService(self.database)
+        permission_service = PermissionService(player_repo, team_repo)
 
         # Register with container
         self.container.register_service(BotStatusService, bot_status_service)
@@ -440,7 +457,7 @@ class ServiceFactory:
         }
 
 
-    def create_all_services(self) -> Dict[str, Any]:
+    def create_all_services(self) -> dict[str, Any]:
         """Create all feature services in the correct dependency order."""
         services = {}
 

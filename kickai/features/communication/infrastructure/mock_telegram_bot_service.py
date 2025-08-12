@@ -9,14 +9,15 @@ It simulates all Telegram bot functionality without requiring actual Telegram AP
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any
 from unittest.mock import Mock
 
 from loguru import logger
 
+from kickai.core.enums import ChatType
+
 # Import centralized types
 from kickai.core.types import AgentResponse, TelegramMessage
-from kickai.core.enums import ChatType
 from kickai.features.communication.domain.interfaces.telegram_bot_service_interface import (
     TelegramBotServiceInterface,
 )
@@ -31,7 +32,7 @@ class MockUpdate:
     effective_chat: 'MockChat'
     effective_user: 'MockUser'
 
-    def __init__(self, message_text: str, chat_id: str, user_id: str, username: str = None):
+    def __init__(self, message_text: str, chat_id: str, user_id: str, username: str | None = None):
         self.message = MockMessage(message_text, chat_id, user_id, username)
         self.effective_message = self.message
         self.effective_chat = MockChat(chat_id)
@@ -45,7 +46,7 @@ class MockMessage:
     text: str
     chat_id: str
     user_id: str
-    username: Optional[str]
+    username: str | None
     date: datetime = field(default_factory=datetime.now)
 
     async def reply_text(self, text: str, **kwargs):
@@ -68,7 +69,7 @@ class MockUser:
     """Mock Telegram User object for testing."""
 
     id: str
-    username: Optional[str]
+    username: str | None
     name: str = "Mock User"
     first_name: str = "Mock"  # Keep for Telegram API compatibility
     last_name: str = "User"   # Keep for Telegram API compatibility
@@ -98,7 +99,7 @@ class MockBot:
         """Mock get_me method."""
         return self
 
-    async def send_message(self, chat_id: Union[int, str], text: str, **kwargs):
+    async def send_message(self, chat_id: int | str, text: str, **kwargs):
         """Mock send_message method."""
         logger.info(f"📤 Mock bot send_message: {text}")
         return MockMessage(text, str(chat_id), "bot", "mock_bot")
@@ -123,8 +124,8 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         self,
         token: str,
         team_id: str,
-        main_chat_id: str = None,
-        leadership_chat_id: str = None,
+        main_chat_id: str | None = None,
+        leadership_chat_id: str | None = None,
         crewai_system=None,
     ):
         self.token = token
@@ -138,9 +139,9 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         self._polling_task = None
 
         # Message tracking for testing
-        self.sent_messages: List[Dict[str, Any]] = []
-        self.received_messages: List[Dict[str, Any]] = []
-        self.command_handlers: List[str] = []
+        self.sent_messages: list[dict[str, Any]] = []
+        self.received_messages: list[dict[str, Any]] = []
+        self.command_handlers: list[str] = []
         self.error_count = 0
 
         # Initialize real agentic router
@@ -187,7 +188,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
             logger.error(f"❌ Error stopping mock bot: {e}")
             raise
 
-    async def send_message(self, chat_id: Union[int, str], text: str, **kwargs) -> Any:
+    async def send_message(self, chat_id: int | str, text: str, **kwargs) -> Any:
         """Mock message sending."""
         try:
             logger.info(f"📤 Mock send_message to {chat_id}: {text}")
@@ -211,7 +212,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
             self.error_count += 1
             raise
 
-    async def send_contact_share_button(self, chat_id: Union[int, str], text: str):
+    async def send_contact_share_button(self, chat_id: int | str, text: str):
         """Mock contact share button sending."""
         try:
             logger.info(f"📱 Mock send_contact_share_button to {chat_id}: {text}")
@@ -308,7 +309,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         except Exception as e:
             logger.error(f"❌ Error sending mock error response: {e}")
 
-    def _convert_telegram_update_to_message(self, update: MockUpdate, command_name: str = None) -> TelegramMessage:
+    def _convert_telegram_update_to_message(self, update: MockUpdate, command_name: str | None = None) -> TelegramMessage:
         """Convert mock update to TelegramMessage."""
         return TelegramMessage(
             text=update.message.text,
@@ -334,15 +335,15 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         return True  # In mock, all messages are considered properly formatted
 
     # Testing utility methods
-    def get_sent_messages(self) -> List[Dict[str, Any]]:
+    def get_sent_messages(self) -> list[dict[str, Any]]:
         """Get all sent messages for testing."""
         return self.sent_messages.copy()
 
-    def get_received_messages(self) -> List[Dict[str, Any]]:
+    def get_received_messages(self) -> list[dict[str, Any]]:
         """Get all received messages for testing."""
         return self.received_messages.copy()
 
-    def get_agentic_responses(self) -> List[AgentResponse]:
+    def get_agentic_responses(self) -> list[AgentResponse]:
         """Get all agentic router responses for testing."""
         # Real AgenticMessageRouter doesn't store responses, so return empty list
         return []
@@ -362,7 +363,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         """Get the number of errors encountered."""
         return self.error_count
 
-    async def simulate_message(self, text: str, chat_id: str, user_id: str, username: str = None):
+    async def simulate_message(self, text: str, chat_id: str, user_id: str, username: str | None = None):
         """Simulate receiving a message for testing."""
         update = MockUpdate(text, chat_id, user_id, username)
         context = MockContext()
@@ -373,7 +374,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         else:
             await self._handle_natural_language_message(update, context)
 
-    async def simulate_contact_share(self, phone: str, chat_id: str, user_id: str, username: str = None):
+    async def simulate_contact_share(self, phone: str, chat_id: str, user_id: str, username: str | None = None):
         """Simulate contact sharing for testing."""
         update = MockUpdate(f"Contact shared: {phone}", chat_id, user_id, username)
         message = self._convert_telegram_update_to_message(update)

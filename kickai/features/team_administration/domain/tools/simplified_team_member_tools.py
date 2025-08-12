@@ -8,12 +8,14 @@ Converted to sync functions for CrewAI compatibility.
 """
 
 import asyncio
+
+from crewai.tools import tool
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
 from kickai.core.exceptions import ServiceNotAvailableError
-from kickai.features.team_administration.domain.repositories.team_repository_interface import (
-    TeamRepositoryInterface,
+from kickai.core.interfaces.team_repositories import (
+    ITeamRepository,
 )
 from kickai.features.team_administration.domain.services.simplified_team_member_service import (
     SimplifiedTeamMemberService,
@@ -27,9 +29,8 @@ from kickai.utils.constants import (
     MAX_TEAM_ID_LENGTH,
     MAX_USER_ID_LENGTH,
 )
-from kickai.utils.crewai_tool_decorator import tool
+from kickai.utils.json_helper import json_error, json_response
 from kickai.utils.tool_helpers import (
-    format_tool_error,
     validate_required_input,
 )
 from kickai.utils.validation_utils import (
@@ -40,20 +41,23 @@ from kickai.utils.validation_utils import (
 
 @tool("add_team_member_simplified")
 def add_team_member_simplified(
-    team_id: str, user_id: str, name: str, phone: str, role: str = None
+    team_id: str, telegram_id: int, name: str, phone: str, role: str | None = None
 ) -> str:
     """
     Add a new team member with simplified ID generation.
 
-    Args:
-        team_id: Team ID (required) - available from context
-        user_id: User ID (required) - available from context
-        name: Team member's full name
-        phone: Team member's phone number
-        role: Team member's role (optional, can be set later)
-
-    Returns:
-        Success message with invite link or error
+    :param team_id: Team ID (required) - available from context
+    :type team_id: str
+    :param telegram_id: Telegram ID (required) - available from context
+    :type telegram_id: int
+    :param name: Team member's full name
+    :type name: str
+    :param phone: Team member's phone number
+    :type phone: str
+    :param role: Team member's role (optional, can be set later)
+    :type role: str | None
+    :return: JSON response with team member addition status
+    :rtype: str
     """
     try:
         # Validate inputs using utility functions
@@ -61,23 +65,28 @@ def add_team_member_simplified(
         if validation_error:
             return validation_error
 
-        validation_error = validate_required_input(user_id, "User ID")
+        validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
             return validation_error
 
         # Simplified validation - only name and phone required
         if not name or not name.strip():
-            return format_tool_error(ERROR_MESSAGES["NAME_REQUIRED"])
+            return json_error(message=ERROR_MESSAGES["NAME_REQUIRED"], error_type="Validation failed")
 
         if not phone or not phone.strip():
-            return format_tool_error(ERROR_MESSAGES["PHONE_REQUIRED"])
+            return json_error(message=ERROR_MESSAGES["PHONE_REQUIRED"], error_type="Validation failed")
 
         # Sanitize inputs
         name = sanitize_input(name, max_length=MAX_NAME_LENGTH)
         phone = sanitize_input(phone, max_length=MAX_PHONE_LENGTH)
         role = sanitize_input(role, max_length=MAX_POSITION_LENGTH) if role else DEFAULT_MEMBER_ROLE
         team_id = sanitize_input(team_id, max_length=MAX_TEAM_ID_LENGTH)
-        user_id = sanitize_input(user_id, max_length=MAX_USER_ID_LENGTH)
+        # Validate telegram_id as positive integer
+        if not isinstance(telegram_id, int) or telegram_id <= 0:
+            return create_error_response(
+                message=f"Invalid telegram_id: {telegram_id}. Must be a positive integer.",
+                error_type="Invalid input"
+            )
 
         # Normalize phone number
         phone = normalize_phone(phone)
@@ -85,10 +94,10 @@ def add_team_member_simplified(
         container = get_container()
 
         # Get team repository for the service
-        team_repository = container.get_service(TeamRepositoryInterface)
+        team_repository = container.get_service(ITeamRepository)
         if not team_repository:
             raise ServiceNotAvailableError(
-                ERROR_MESSAGES["SERVICE_UNAVAILABLE"].format(service="TeamRepositoryInterface")
+                ERROR_MESSAGES["SERVICE_UNAVAILABLE"].format(service="ITeamRepository")
             )
 
         # Create simplified team member service
@@ -109,8 +118,22 @@ def add_team_member_simplified(
                 name, phone, role, team_id
             ))
 
+            data = {
+                'team_id': team_id,
+                'telegram_id': telegram_id,
+                'member_details': {
+                    'name': name,
+                    'phone': phone,
+                    'role': role,
+                    'member_id': member_id,
+                    'status': 'Active'
+                },
+                'invite_link': invite_result.get("invite_link") if invite_result.get("success") else None,
+                'invite_success': invite_result.get("success", False)
+            }
+
             if invite_result.get("success"):
-                return f"""✅ Team Member Added Successfully!
+                ui_format = f"""✅ Team Member Added Successfully!
 
 👔 Member Details:
 • Name: {name}
@@ -136,7 +159,7 @@ def add_team_member_simplified(
 
 🎯 Member ID: {member_id}"""
             else:
-                return f"""✅ Team Member Added Successfully!
+                ui_format = f"""✅ Team Member Added Successfully!
 
 👔 Member Details:
 • Name: {name}
@@ -149,12 +172,14 @@ def add_team_member_simplified(
 Please contact the system administrator.
 
 🎯 Member ID: {member_id}"""
+
+            return json_response(data=data, ui_format=ui_format)
         else:
-            return format_tool_error(f"Failed to add team member: {message}")
+            return json_error(message=f"Failed to add team member: {message}", error_type="Operation failed")
 
     except ServiceNotAvailableError as e:
         logger.error(f"Service not available in add_team_member_simplified: {e}")
-        return format_tool_error(f"Service temporarily unavailable: {e.message}")
+        return json_error(message=f"Service temporarily unavailable: {e.message}", error_type="Service unavailable")
     except Exception as e:
         logger.error(f"Failed to add team member: {e}", exc_info=True)
-        return format_tool_error(f"Failed to add team member: {e}")
+        return json_error(message=f"Failed to add team member: {e}", error_type="Operation failed")

@@ -1,4 +1,3 @@
-from typing import Dict, List, Optional, Union
 #!/usr/bin/env python3
 """
 Agent Registry for KICKAI System
@@ -50,8 +49,8 @@ class AgentMetadata:
     enabled: bool = True
     dependencies: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
-    config_schema: Optional[Dict[str, Any]] = None
-    factory_function: Optional[Callable] = None
+    config_schema: dict[str, Any] | None = None
+    factory_function: Callable | None = None
     feature_module: str = "unknown"
     tags: list[str] = field(default_factory=list)
 
@@ -100,18 +99,18 @@ class AgentRegistry:
         description: str,
         version: str = "1.0.0",
         enabled: bool = True,
-        dependencies: Optional[List[str]] = None,
-        tools: Optional[List[str]] = None,
-        config_schema: Optional[Dict[str, Any]] = None,
-        factory_function: Optional[Callable] = None,
+        dependencies: list[str] | None = None,
+        tools: list[str] | None = None,
+        config_schema: dict[str, Any] | None = None,
+        factory_function: Callable | None = None,
         feature_module: str = "unknown",
-        tags: Optional[List[str]] = None,
-        aliases: Optional[List[str]] = None,
+        tags: list[str] | None = None,
+        aliases: list[str] | None = None,
     ) -> None:
         """
         Register an agent with the registry.
 
-        Args:
+
             agent_id: Unique identifier for the agent
             agent_type: Type of agent
             category: Category of agent
@@ -169,7 +168,7 @@ class AgentRegistry:
         self._factories[agent_id] = factory
         logger.info(f"🏭 Registered factory for agent: {agent_id}")
 
-    def get_agent(self, agent_id: str) -> Optional[AgentMetadata]:
+    def get_agent(self, agent_id: str) -> AgentMetadata | None:
         """Get agent metadata by ID or alias."""
         # Check direct ID
         if agent_id in self._agents:
@@ -182,7 +181,7 @@ class AgentRegistry:
 
         return None
 
-    def get_factory(self, agent_id: str) -> Optional[AgentFactory]:
+    def get_factory(self, agent_id: str) -> AgentFactory | None:
         """Get agent factory by ID."""
         return self._factories.get(agent_id)
 
@@ -392,7 +391,7 @@ class AgentRegistry:
 
 
 # Global agent registry instance
-_agent_registry: Optional[AgentRegistry] = None
+_agent_registry: AgentRegistry | None = None
 
 
 def get_agent_registry() -> AgentRegistry:
@@ -407,16 +406,16 @@ def register_agent_decorator(
     agent_id: str,
     agent_type: AgentType,
     category: AgentCategory = AgentCategory.FEATURE,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
+    name: str | None = None,
+    description: str | None = None,
     version: str = "1.0.0",
     enabled: bool = True,
-    dependencies: Optional[List[str]] = None,
-    tools: Optional[List[str]] = None,
-    config_schema: Optional[Dict[str, Any]] = None,
+    dependencies: list[str] | None = None,
+    tools: list[str] | None = None,
+    config_schema: dict[str, Any] | None = None,
     feature_module: str = "unknown",
-    tags: Optional[List[str]] = None,
-    aliases: Optional[List[str]] = None,
+    tags: list[str] | None = None,
+    aliases: list[str] | None = None,
 ):
     """
     Decorator to register an agent class with the registry.

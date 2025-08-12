@@ -1,4 +1,4 @@
-from typing import Optional
+
 #!/usr/bin/env python3
 """
 Environment Variable Validation Check
@@ -115,7 +115,7 @@ class EnvironmentValidator:
                 invalid_vars=[]
             )
 
-    def _validate_variable(self, var_name: str, value: str) -> Optional[str]:
+    def _validate_variable(self, var_name: str, value: str) -> str | None:
         """Validate a specific environment variable."""
         if var_name not in self.validation_rules:
             return None

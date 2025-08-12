@@ -12,24 +12,32 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class UserId:
-    """Represents a user identifier with validation."""
+class TelegramId:
+    """Represents a Telegram user identifier with validation."""
 
     value: str
 
     def __post_init__(self) -> None:
         if not self.value:
-            raise ValueError("UserId cannot be empty")
+            raise ValueError("TelegramId cannot be empty")
         if not self.value.strip():
-            raise ValueError("UserId cannot be only whitespace")
+            raise ValueError("TelegramId cannot be only whitespace")
         if len(self.value) > 100:
-            raise ValueError("UserId cannot exceed 100 characters")
+            raise ValueError("TelegramId cannot exceed 100 characters")
+        # Telegram IDs should be numeric strings
+        if not self.value.isdigit():
+            raise ValueError("TelegramId must contain only digits")
 
     def __str__(self) -> str:
         return self.value
 
     def __repr__(self) -> str:
-        return f"UserId('{self.value}')"
+        return f"TelegramId('{self.value}')"
+
+    @property
+    def as_int(self) -> int:
+        """Return the Telegram ID as an integer."""
+        return int(self.value)
 
 
 @dataclass(frozen=True)
@@ -104,8 +112,11 @@ class PlayerId:
             raise ValueError("PlayerId cannot be empty")
         if not self.value.strip():
             raise ValueError("PlayerId cannot be only whitespace")
-        if len(self.value) > 50:
-            raise ValueError("PlayerId cannot exceed 50 characters")
+        if len(self.value) > 20:
+            raise ValueError("PlayerId cannot exceed 20 characters")
+        # Player IDs should start with a number and contain letters
+        if not re.match(r"^\d+[A-Z]+$", self.value):
+            raise ValueError("PlayerId must start with numbers and end with uppercase letters")
 
     def __str__(self) -> str:
         return self.value
@@ -125,11 +136,8 @@ class MessageId:
             raise ValueError("MessageId cannot be empty")
         if not self.value.strip():
             raise ValueError("MessageId cannot be only whitespace")
-        # Message IDs should be numeric for Telegram
-        try:
-            int(self.value)
-        except ValueError:
-            raise ValueError("MessageId must be a valid integer") from None
+        if len(self.value) > 50:
+            raise ValueError("MessageId cannot exceed 50 characters")
 
     def __str__(self) -> str:
         return self.value

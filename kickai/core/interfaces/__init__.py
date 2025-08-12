@@ -5,6 +5,8 @@ Service Interfaces Package
 This package contains service interfaces following the Interface Segregation Principle.
 """
 
+# Import repository interfaces
+from .repository_interfaces import *
 from .service_interfaces import (
     IContainerLifecycle,
     IContainerStatistics,
@@ -21,4 +23,9 @@ __all__ = [
     "IContainerLifecycle",
     "IStringServiceLookup",
     "IContainerStatistics",
+    # Repository interfaces
+    "IPlayerRepository",
+    "ITeamRepository",
+    "IUserRepository",
+    "IMatchRepository",
 ]

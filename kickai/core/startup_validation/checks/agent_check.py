@@ -59,7 +59,7 @@ class AgentInitializationCheck(BaseCheck):
                         config=config,
                         team_memory=MockTeamMemory(),
                     )
-                    agent = ConfigurableAgent(agent_context)
+                    ConfigurableAgent(agent_context)
                     logger.info(f"✅ Agent {role} initialized successfully")
                 except Exception as e:
                     logger.error(f"Agent initialization failed for role {role}: {e}")

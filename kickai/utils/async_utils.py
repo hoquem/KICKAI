@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable, Coroutine
 from contextlib import asynccontextmanager
 from functools import wraps
-from typing import Any, List, Optional, Tuple, TypeVar
+from typing import Any, TypeVar
 
 from loguru import logger
 
@@ -33,7 +33,7 @@ def async_retry(
     """
     Decorator for retrying async functions with exponential backoff.
 
-    Args:
+
         max_attempts: Maximum number of retry attempts
         delay: Initial delay between retries in seconds
         backoff_factor: Multiplier for delay on each retry
@@ -76,7 +76,7 @@ def async_timeout(timeout_seconds: float):
     """
     Decorator for adding timeout to async functions.
 
-    Args:
+
         timeout_seconds: Timeout in seconds
     """
 
@@ -101,7 +101,7 @@ async def async_operation_context(operation_name: str, **context):
     """
     Context manager for async operations with logging and error handling.
 
-    Args:
+
         operation_name: Name of the operation for logging
         **context: Additional context information
     """
@@ -122,30 +122,32 @@ async def run_in_executor(func: Callable[..., T], *args, **kwargs) -> T:
     """
     Run a synchronous function in a thread pool executor.
 
-    Args:
+
         func: Synchronous function to run
         *args: Function arguments
         **kwargs: Function keyword arguments
 
-    Returns:
-        Result of the function execution
+
+    :return: Result of the function execution
+    :rtype: str  # TODO: Fix type
     """
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, lambda: func(*args, **kwargs))
 
 
 async def gather_with_concurrency_limit(
-    coroutines: List[Coroutine[Any, Any, T]], max_concurrent: int = 10
-) -> List[T]:
+    coroutines: list[Coroutine[Any, Any, T]], max_concurrent: int = 10
+) -> list[T]:
     """
     Execute coroutines with a concurrency limit using semaphore.
 
-    Args:
+
         coroutines: List of coroutines to execute
         max_concurrent: Maximum number of concurrent executions
 
-    Returns:
-        List of results from the coroutines
+
+    :return: List of results from the coroutines
+    :rtype: str  # TODO: Fix type
     """
     semaphore = asyncio.Semaphore(max_concurrent)
 
@@ -166,14 +168,15 @@ async def execute_with_fallback(
     """
     Execute a primary function with a fallback if it fails.
 
-    Args:
+
         primary_func: Primary function to try first
         fallback_func: Fallback function to use if primary fails
         *args: Arguments to pass to both functions
         **kwargs: Keyword arguments to pass to both functions
 
-    Returns:
-        Result from either primary or fallback function
+
+    :return: Result from either primary or fallback function
+    :rtype: str  # TODO: Fix type
     """
     try:
         return await primary_func(*args, **kwargs)
@@ -194,17 +197,18 @@ class AsyncBatchProcessor:
         self.max_concurrent = max_concurrent
 
     async def process_batches(
-        self, items: List[Any], processor_func: Callable[[List[Any]], Coroutine[Any, Any, List[T]]]
-    ) -> List[T]:
+        self, items: list[Any], processor_func: Callable[[list[Any]], Coroutine[Any, Any, list[T]]]
+    ) -> list[T]:
         """
         Process items in batches asynchronously.
 
-        Args:
+
             items: List of items to process
             processor_func: Function to process each batch
 
-        Returns:
-            List of results from all batches
+
+    :return: List of results from all batches
+    :rtype: str  # TODO: Fix type
         """
         batches = [items[i : i + self.batch_size] for i in range(0, len(items), self.batch_size)]
 
@@ -259,11 +263,12 @@ def create_async_context_manager(func: Callable[..., Coroutine[Any, Any, T]]):
     """
     Create an async context manager from an async function.
 
-    Args:
+
         func: Async function to wrap
 
-    Returns:
-        Async context manager
+
+    :return: Async context manager
+    :rtype: str  # TODO: Fix type
     """
 
     @asynccontextmanager
@@ -282,19 +287,20 @@ def create_async_context_manager(func: Callable[..., Coroutine[Any, Any, T]]):
 
 
 async def safe_async_call(
-    func: Callable[..., Coroutine[Any, Any, T]], *args, default_value: Optional[T] = None, **kwargs
-) -> Optional[T]:
+    func: Callable[..., Coroutine[Any, Any, T]], *args, default_value: T | None = None, **kwargs
+) -> T | None:
     """
     Safely call an async function with error handling.
 
-    Args:
+
         func: Async function to call
         *args: Function arguments
         default_value: Default value to return on error
         **kwargs: Function keyword arguments
 
-    Returns:
-        Function result or default value on error
+
+    :return: Function result or default value on error
+    :rtype: str  # TODO: Fix type
     """
     try:
         return await func(*args, **kwargs)
@@ -304,36 +310,38 @@ async def safe_async_call(
 
 
 async def async_map(
-    func: Callable[[Any], Coroutine[Any, Any, T]], items: List[Any], max_concurrent: int = 10
-) -> List[T]:
+    func: Callable[[Any], Coroutine[Any, Any, T]], items: list[Any], max_concurrent: int = 10
+) -> list[T]:
     """
     Apply an async function to each item in a list with concurrency control.
 
-    Args:
+
         func: Async function to apply
         items: List of items to process
         max_concurrent: Maximum number of concurrent executions
 
-    Returns:
-        List of results
+
+    :return: List of results
+    :rtype: str  # TODO: Fix type
     """
     coroutines = [func(item) for item in items]
     return await gather_with_concurrency_limit(coroutines, max_concurrent)
 
 
 async def async_filter(
-    func: Callable[[Any], Coroutine[Any, Any, bool]], items: List[Any], max_concurrent: int = 10
-) -> List[Any]:
+    func: Callable[[Any], Coroutine[Any, Any, bool]], items: list[Any], max_concurrent: int = 10
+) -> list[Any]:
     """
     Filter items using an async predicate function.
 
-    Args:
+
         func: Async predicate function
         items: List of items to filter
         max_concurrent: Maximum number of concurrent executions
 
-    Returns:
-        Filtered list of items
+
+    :return: Filtered list of items
+    :rtype: str  # TODO: Fix type
     """
     results = await async_map(func, items, max_concurrent)
     return [item for item, keep in zip(items, results, strict=False) if keep]

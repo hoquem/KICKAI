@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -111,7 +111,7 @@ class MultiBotManager:
 
         for team in self.bot_configs:
             team_id = getattr(team, "team_id", None) or getattr(team, "id", None)
-            settings = getattr(team, "settings", {})
+            getattr(team, "settings", {})
 
             # Read bot configuration ONLY from team explicit fields (single source of truth)
             bot_token = getattr(team, "bot_token", None)
@@ -208,7 +208,7 @@ class MultiBotManager:
         self.logger.info("🛑 Stopping all bots...")
 
         # Stop CrewAI systems
-        for team_id, crewai_system in self.crewai_systems.items():
+        for team_id, _crewai_system in self.crewai_systems.items():
             try:
                 # Add cleanup logic for CrewAI systems if needed
                 self.logger.info(f"✅ CrewAI system stopped for team: {team_id}")
@@ -240,7 +240,7 @@ class MultiBotManager:
         for team in self.bot_configs:
             team_id = getattr(team, "team_id", None) or getattr(team, "id", None)
             team_name = getattr(team, "name", "your team")
-            settings = getattr(team, "settings", {})
+            getattr(team, "settings", {})
 
             # Read bot configuration ONLY from team explicit fields (single source of truth)
             main_chat_id = getattr(team, "main_chat_id", None)
@@ -301,7 +301,7 @@ class MultiBotManager:
         for team in self.bot_configs:
             team_id = getattr(team, "team_id", None) or getattr(team, "id", None)
             team_name = getattr(team, "name", "your team")
-            settings = getattr(team, "settings", {})
+            getattr(team, "settings", {})
 
             # Read bot configuration ONLY from team explicit fields (single source of truth)
             main_chat_id = getattr(team, "main_chat_id", None)
@@ -346,15 +346,15 @@ class MultiBotManager:
         """Return True if bots are running."""
         return self._running
 
-    def get_bot(self, team_id: str) -> Optional[Any]:
+    def get_bot(self, team_id: str) -> Any | None:
         """Get the bot instance for a given team ID."""
         return self.bots.get(team_id)
 
-    def get_crewai_system(self, team_id: str) -> Optional[Any]:
+    def get_crewai_system(self, team_id: str) -> Any | None:
         """Get the CrewAI system for a given team ID."""
         return self.crewai_systems.get(team_id)
 
-    async def get_crew_metrics(self, team_id: str = None) -> dict[str, Any]:
+    async def get_crew_metrics(self, team_id: str | None = None) -> dict[str, Any]:
         """Get crew metrics for a specific team or all teams."""
         if team_id:
             return await self.crew_lifecycle_manager.get_crew_metrics(team_id)

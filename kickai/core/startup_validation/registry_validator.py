@@ -154,7 +154,7 @@ class RegistryStartupValidator:
                 "DataStoreInterface",
                 "PlayerRepositoryInterface",
                 "TeamRepositoryInterface",
-                
+
             ]
 
             for service_name in required_services:

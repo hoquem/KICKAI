@@ -7,7 +7,9 @@ to reduce code duplication and ensure consistent error handling patterns.
 """
 
 import functools
-from typing import Callable, Any, TypeVar, ParamSpec
+from collections.abc import Callable
+from typing import ParamSpec, TypeVar
+
 from loguru import logger
 
 # Type variables for generic function signatures
@@ -22,17 +24,18 @@ def critical_system_error_handler(
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """
     Decorator for handling critical system errors with consistent logging and re-raising.
-    
+
     This decorator handles the common pattern of catching RuntimeError and ConnectionError,
     logging them as critical system errors, and optionally re-raising them.
-    
-    Args:
+
+
         operation_name: Human-readable name of the operation for logging
         re_raise_runtime: Whether to re-raise RuntimeError exceptions
         re_raise_connection: Whether to re-raise ConnectionError exceptions
-    
-    Returns:
-        Decorated function with consistent error handling
+
+
+    :return: Decorated function with consistent error handling
+    :rtype: str  # TODO: Fix type
     """
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
@@ -57,7 +60,7 @@ def critical_system_error_handler(
                 logger.critical(f"💥 CRITICAL SYSTEM ERROR in {operation_name}: Unexpected error - {e}")
                 logger.critical("🚨 This indicates an unexpected system failure")
                 raise RuntimeError(f"CRITICAL SYSTEM ERROR in {operation_name}: Unexpected error - {e}")
-        
+
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             try:
@@ -80,20 +83,20 @@ def critical_system_error_handler(
                 logger.critical(f"💥 CRITICAL SYSTEM ERROR in {operation_name}: Unexpected error - {e}")
                 logger.critical("🚨 This indicates an unexpected system failure")
                 raise RuntimeError(f"CRITICAL SYSTEM ERROR in {operation_name}: Unexpected error - {e}")
-        
+
         # Return async wrapper if the function is async, otherwise sync wrapper
         if hasattr(func, '__code__') and func.__code__.co_flags & 0x80:  # CO_COROUTINE flag
             return async_wrapper
         else:
             return sync_wrapper
-    
+
     return decorator
 
 
 def user_registration_check_handler(func: Callable[P, T]) -> Callable[P, T]:
     """
     Specialized decorator for user registration status checks.
-    
+
     This decorator handles the specific error patterns for user registration
     checks, which are critical system operations that require fail-fast behavior.
     """
@@ -128,7 +131,7 @@ def user_registration_check_handler(func: Callable[P, T]) -> Callable[P, T]:
                 f"This is a major system failure that prevents safe operation. "
                 f"Original error: {e}"
             )
-    
+
     @functools.wraps(func)
     def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         try:
@@ -160,7 +163,7 @@ def user_registration_check_handler(func: Callable[P, T]) -> Callable[P, T]:
                 f"This is a major system failure that prevents safe operation. "
                 f"Original error: {e}"
             )
-    
+
     # Return async wrapper if the function is async, otherwise sync wrapper
     if hasattr(func, '__code__') and func.__code__.co_flags & 0x80:  # CO_COROUTINE flag
         return async_wrapper
@@ -171,7 +174,7 @@ def user_registration_check_handler(func: Callable[P, T]) -> Callable[P, T]:
 def command_registry_error_handler(func: Callable[P, T]) -> Callable[P, T]:
     """
     Specialized decorator for command registry operations.
-    
+
     This decorator handles the specific error patterns for command registry
     operations, which are critical system operations that require fail-fast behavior.
     """
@@ -199,7 +202,7 @@ def command_registry_error_handler(func: Callable[P, T]) -> Callable[P, T]:
                 f"This is a major system failure that prevents safe operation. "
                 f"Original error: {e}"
             )
-    
+
     @functools.wraps(func)
     def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         try:
@@ -224,12 +227,13 @@ def command_registry_error_handler(func: Callable[P, T]) -> Callable[P, T]:
                 f"This is a major system failure that prevents safe operation. "
                 f"Original error: {e}"
             )
-    
+
     # Return async wrapper if the function is async, otherwise sync wrapper
     if hasattr(func, '__code__') and func.__code__.co_flags & 0x80:  # CO_COROUTINE flag
         return async_wrapper
     else:
         return sync_wrapper
+
 
 
 

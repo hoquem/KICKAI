@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 from kickai.core.enums import ChatType
 
@@ -12,7 +11,7 @@ class AgentResponse:
     """Simple AgentResponse for unit tests with sensible defaults."""
     message: str
     success: bool = True
-    error: Optional[str] = None
+    error: str | None = None
     needs_contact_button: bool = False
 
 
@@ -27,7 +26,7 @@ class UserFlowAgent:
     def __init__(self, team_id: str) -> None:
         self.team_id = team_id
 
-    async def _format_unregistered_user_message(self, chat_type: ChatType, team_id: str, username: Optional[str] = None) -> AgentResponse:
+    async def _format_unregistered_user_message(self, chat_type: ChatType, team_id: str, username: str | None = None) -> AgentResponse:
         if chat_type != ChatType.MAIN:
             return AgentResponse(message="Leadership chat: please contact admin to link your account.")
 
@@ -41,7 +40,7 @@ class UserFlowAgent:
         except Exception:
             return AgentResponse(message="You're not registered yet. Please share your contact to proceed.", needs_contact_button=False)
 
-    async def _format_registered_user_message(self, user_id: str, team_id: str, username: Optional[str] = None) -> AgentResponse:
+    async def _format_registered_user_message(self, user_id: str, team_id: str, username: str | None = None) -> AgentResponse:
         return AgentResponse(success=True, message=f"Hello {username or 'user'}! How can I help?", needs_contact_button=False)
 
     async def _check_user_registration_context_aware(self, user_id: str, chat_type: ChatType) -> bool:

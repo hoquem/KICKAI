@@ -13,11 +13,12 @@ def serialize_enums_for_firestore(data: dict[str, Any]) -> dict[str, Any]:
     """
     Convert enum values to their string representations for Firestore serialization.
 
-    Args:
+
         data: Dictionary containing data that may include enum values
 
-    Returns:
-        Dictionary with enum values converted to strings
+
+    :return: Dictionary with enum values converted to strings
+    :rtype: str  # TODO: Fix type
     """
     serialized_data = {}
 
@@ -45,11 +46,12 @@ def serialize_enum_value(value: Any) -> Any:
     """
     Serialize a single value, converting enums to their string values.
 
-    Args:
+
         value: Value that may be an enum
 
-    Returns:
-        Serialized value (enum converted to string, other values unchanged)
+
+    :return: Serialized value (enum converted to string, other values unchanged)
+    :rtype: str  # TODO: Fix type
     """
     if isinstance(value, Enum):
         return value.value

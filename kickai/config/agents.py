@@ -8,7 +8,7 @@ template processing and context variable substitution with performance optimizat
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from loguru import logger
@@ -29,7 +29,7 @@ class AgentConfig:
     verbose: bool = True
     temperature: float = 0.3  # Default from settings.ai_temperature
     max_tokens: int = 800  # Use default from settings.ai_max_tokens
-    primary_entity_type: Optional[str] = None
+    primary_entity_type: str | None = None
     entity_types: list[str] = field(default_factory=list)
 
 
@@ -118,7 +118,7 @@ class YAMLAgentConfigurationManager:
         """Get agent-specific temperature setting."""
         from kickai.core.config import get_settings
         settings = get_settings()
-        
+
         agent_optimizations = self._config_data.get("agent_optimizations", {})
 
         # Determine agent type based on name and use settings values
@@ -135,7 +135,7 @@ class YAMLAgentConfigurationManager:
         """Get agent-specific max_tokens setting."""
         from kickai.core.config import get_settings
         settings = get_settings()
-        
+
         agent_optimizations = self._config_data.get("agent_optimizations", {})
 
         # Determine agent type based on name and use settings values
@@ -170,12 +170,12 @@ class YAMLAgentConfigurationManager:
             if agent.get("name") == agent_name:
                 agent_data = agent
                 break
-                
+
         if agent_data is None:
             raise ValueError(f"Agent '{agent_name}' not found in configuration")
 
         # Process templates with context
-        processed_role = self._process_templates(agent_data["role"], context)
+        self._process_templates(agent_data["role"], context)
         processed_goal = self._process_templates(agent_data["goal"], context)
         processed_backstory = self._process_templates(agent_data["backstory"], context)
 
@@ -220,7 +220,7 @@ class YAMLAgentConfigurationManager:
                 if not agent_name:
                     logger.warning(f"⚠️ Agent data missing name: {agent_data}")
                     continue
-                    
+
                 role = AgentRole(agent_name)
                 configs[role] = self.get_agent_config(role, context)
             except ValueError:
@@ -245,7 +245,7 @@ class YAMLAgentConfigurationManager:
         """Get tools for a specific agent."""
         agent_name = role.value
         agents_data = self._config_data.get("agents", [])
-        
+
         for agent in agents_data:
             if agent.get("name") == agent_name:
                 return agent.get("tools", [])
@@ -365,7 +365,7 @@ def get_agent_config_manager_legacy():
     logger.warning("⚠️ Using legacy get_agent_config_manager_legacy() - use get_agent_config_manager() instead")
     return get_agent_config_manager()
 
-def get_agent_config_legacy(role: AgentRole) -> Optional[AgentConfig]:
+def get_agent_config_legacy(role: AgentRole) -> AgentConfig | None:
     """Legacy function for backward compatibility."""
     logger.warning("⚠️ Using legacy get_agent_config_legacy() - use get_agent_config(role, context) instead")
     # Return a basic config without context for backward compatibility

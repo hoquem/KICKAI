@@ -6,8 +6,8 @@ This module registers all player registration related commands with the command 
 Each feature maintains its own command definitions for clean separation.
 """
 
+
 from kickai.core.command_registry import CommandType, PermissionLevel, command
-from typing import List
 
 # ============================================================================
 # MAIN CHAT COMMANDS - For Player Registration

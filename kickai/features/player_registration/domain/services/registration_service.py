@@ -6,18 +6,18 @@ This module provides the registration service for handling player and team membe
 """
 
 from datetime import datetime
-from typing import Any, List, Dict
+from typing import Any
 
 from loguru import logger
 
-from kickai.features.player_registration.domain.entities.player import Player
-from kickai.features.player_registration.domain.repositories.player_repository_interface import (
-    PlayerRepositoryInterface,
+from kickai.core.interfaces.player_repositories import (
+    IPlayerRepository,
 )
-from kickai.features.team_administration.domain.entities.team_member import TeamMember
-from kickai.features.team_administration.domain.repositories.team_repository_interface import (
+from kickai.core.interfaces.team_repositories import (
     TeamRepositoryInterface,
 )
+from kickai.features.player_registration.domain.entities.player import Player
+from kickai.features.team_administration.domain.entities.team_member import TeamMember
 from kickai.utils.simple_id_generator import SimpleIDGenerator
 
 
@@ -26,7 +26,7 @@ class RegistrationService:
 
     def __init__(
         self,
-        player_repository: PlayerRepositoryInterface,
+        player_repository: IPlayerRepository,
         team_repository: TeamRepositoryInterface,
         team_id: str,
     ):
@@ -41,25 +41,25 @@ class RegistrationService:
         phone: str,
         position: str,
         invited_by: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a pending player registration.
 
-        Args:
+
             name: Player's full name
             phone: Player's phone number
             position: Player's position
             invited_by: ID of team member who invited the player
 
-        Returns:
-            Dictionary with player details and invite link
+
+    :return: Dictionary with player details and invite link
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Validate phone number
-            from kickai.utils.phone_validation import validate_phone_number
-            validation_result = validate_phone_number(phone)
-            if not validation_result.is_valid:
-                raise ValueError(f"Invalid phone number format: {phone} - {validation_result.error_message}")
+            from kickai.utils.phone_utils import is_valid_phone
+            if not is_valid_phone(phone):
+                raise ValueError(f"Invalid phone number format: {phone}")
 
             # Check if player already exists
             existing_player = await self.player_repository.get_player_by_phone(phone, self.team_id)
@@ -82,7 +82,7 @@ class RegistrationService:
             )
 
             # Save to repository
-            created_player = await self.player_repository.create_player(player)
+            await self.player_repository.create_player(player)
 
             # Generate invite link
             invite_link = self._generate_invite_link(phone)
@@ -109,25 +109,25 @@ class RegistrationService:
         phone: str,
         role: str,
         invited_by: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a pending team member registration.
 
-        Args:
+
             name: Member's full name
             phone: Member's phone number
             role: Member's role
             invited_by: ID of admin who invited the member
 
-        Returns:
-            Dictionary with member details and invite link
+
+    :return: Dictionary with member details and invite link
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Validate phone number
-            from kickai.utils.phone_validation import validate_phone_number
-            validation_result = validate_phone_number(phone)
-            if not validation_result.is_valid:
-                raise ValueError(f"Invalid phone number format: {phone} - {validation_result.error_message}")
+            from kickai.utils.phone_utils import is_valid_phone
+            if not is_valid_phone(phone):
+                raise ValueError(f"Invalid phone number format: {phone}")
 
             # Check if member already exists
             existing_member = await self.team_repository.get_team_member_by_phone(phone, self.team_id)
@@ -150,7 +150,7 @@ class RegistrationService:
             )
 
             # Save to repository
-            created_member = await self.team_repository.create_team_member(team_member)
+            await self.team_repository.create_team_member(team_member)
 
             # Generate invite link
             invite_link = self._generate_invite_link(phone)
@@ -176,17 +176,18 @@ class RegistrationService:
         phone: str,
         telegram_id: int,
         telegram_username: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Complete player registration by linking Telegram account.
 
-        Args:
+
             phone: Player's phone number
             telegram_id: Player's Telegram ID
             telegram_username: Player's Telegram username
 
-        Returns:
-            Dictionary with updated player details
+
+    :return: Dictionary with updated player details
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Find pending player by phone
@@ -204,7 +205,7 @@ class RegistrationService:
             player.updated_at = datetime.now()
 
             # Save updated player
-            updated_player = await self.player_repository.update_player(player)
+            await self.player_repository.update_player(player)
 
             logger.info(f"✅ Completed player registration for {player.player_id}")
 
@@ -227,17 +228,18 @@ class RegistrationService:
         phone: str,
         telegram_id: int,
         telegram_username: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Complete team member registration by linking Telegram account.
 
-        Args:
+
             phone: Member's phone number
             telegram_id: Member's Telegram ID
             telegram_username: Member's Telegram username
 
-        Returns:
-            Dictionary with updated member details
+
+    :return: Dictionary with updated member details
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Find pending team member by phone
@@ -255,7 +257,7 @@ class RegistrationService:
             member.updated_at = datetime.now()
 
             # Save updated member
-            updated_member = await self.team_repository.update_team_member(member)
+            await self.team_repository.update_team_member(member)
 
             logger.info(f"✅ Completed team member registration for {member.member_id}")
 
@@ -273,16 +275,17 @@ class RegistrationService:
             logger.error(f"❌ Failed to complete team member registration: {e}")
             raise
 
-    async def approve_player(self, player_id: str, approved_by: str) -> Dict[str, Any]:
+    async def approve_player(self, player_id: str, approved_by: str) -> dict[str, Any]:
         """
         Approve a pending player.
 
-        Args:
+
             player_id: Player ID to approve
             approved_by: ID of team member who approved
 
-        Returns:
-            Dictionary with approved player details
+
+    :return: Dictionary with approved player details
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Get player
@@ -300,7 +303,7 @@ class RegistrationService:
             player.approved_at = datetime.now()
 
             # Save updated player
-            updated_player = await self.player_repository.update_player(player)
+            await self.player_repository.update_player(player)
 
             logger.info(f"✅ Approved player {player_id} by {approved_by}")
 
@@ -323,17 +326,18 @@ class RegistrationService:
         player_id: str,
         rejected_by: str,
         reason: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Reject a pending player.
 
-        Args:
+
             player_id: Player ID to reject
             rejected_by: ID of team member who rejected
             reason: Reason for rejection
 
-        Returns:
-            Dictionary with rejected player details
+
+    :return: Dictionary with rejected player details
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Get player
@@ -352,7 +356,7 @@ class RegistrationService:
             player.rejection_reason = reason
 
             # Save updated player
-            updated_player = await self.player_repository.update_player(player)
+            await self.player_repository.update_player(player)
 
             logger.info(f"❌ Rejected player {player_id} by {rejected_by}: {reason}")
 
@@ -371,12 +375,13 @@ class RegistrationService:
             logger.error(f"❌ Failed to reject player: {e}")
             raise
 
-    async def get_pending_players(self) -> List[Dict[str, Any]]:
+    async def get_pending_players(self) -> list[dict[str, Any]]:
         """
         Get all pending players.
 
-        Returns:
-            List of pending player dictionaries
+
+    :return: List of pending player dictionaries
+    :rtype: str  # TODO: Fix type
         """
         try:
             players = await self.player_repository.get_players_by_status(self.team_id, "pending")
@@ -398,12 +403,13 @@ class RegistrationService:
             logger.error(f"❌ Failed to get pending players: {e}")
             return []
 
-    async def get_pending_team_members(self) -> List[Dict[str, Any]]:
+    async def get_pending_team_members(self) -> list[dict[str, Any]]:
         """
         Get all pending team members.
 
-        Returns:
-            List of pending team member dictionaries
+
+    :return: List of pending team member dictionaries
+    :rtype: str  # TODO: Fix type
         """
         try:
             members = await self.team_repository.get_team_members_by_status(self.team_id, "pending")
@@ -429,11 +435,12 @@ class RegistrationService:
         """
         Generate invite link for phone number.
 
-        Args:
+
             phone: Phone number to generate link for
 
-        Returns:
-            Invite link URL
+
+    :return: Invite link URL
+    :rtype: str  # TODO: Fix type
         """
         # Extract last 4 digits for invite code
         phone_clean = phone.replace("+", "").replace(" ", "").replace("-", "")

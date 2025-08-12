@@ -7,20 +7,15 @@ extracting complex business logic from tools and providing clean, testable opera
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
 
-from kickai.core.dependency_container import get_container
 from kickai.core.exceptions import (
     PlayerValidationError,
-    ServiceNotAvailableError,
-    ToolExecutionError,
-    handle_error_gracefully,
 )
-from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
-from kickai.features.player_registration.domain.services.player_service import PlayerService
-from kickai.features.team_administration.domain.services.team_service import TeamService
+from kickai.core.interfaces.player_repositories import IPlayerRepository
+from kickai.core.value_objects.entity_context import EntityContext
 from kickai.utils.constants import (
     DEFAULT_PLAYER_POSITION,
     MAX_NAME_LENGTH,
@@ -49,7 +44,7 @@ class AddPlayerRequest:
     """Request object for adding a player."""
     name: str
     phone: str
-    position: Optional[str] = None
+    position: str | None = None
 
     def __post_init__(self):
         """Validate and sanitize the request after initialization."""
@@ -74,8 +69,8 @@ class PlayerStatusResponse:
     full_name: str
     position: str
     status: str
-    player_id: Optional[str]
-    phone_number: Optional[str]
+    player_id: str | None
+    phone_number: str | None
     is_active: bool
 
     def format_display(self) -> str:
@@ -120,392 +115,320 @@ class ActivePlayersResponse:
 
 
 class PlayerToolService:
-    """
-    Service layer for player tool operations.
+    """Service for player-related tool operations."""
 
-    This service extracts complex business logic from tools and provides
-    clean, testable interfaces for player operations.
-    """
+    def __init__(self, player_repository: IPlayerRepository):
+        self.player_repository = player_repository
+        self.logger = logger
 
-    def __init__(self):
-        self.container = get_container()
-
-    def _get_player_service(self) -> PlayerService:
-        """Get the player service with error handling."""
-        player_service = self.container.get_service(PlayerService)
-        if not player_service:
-            raise ServiceNotAvailableError("PlayerService")
-        return player_service
-
-    def _get_team_service(self) -> TeamService:
-        """Get the team service with error handling."""
-        team_service = self.container.get_service(TeamService)
-        if not team_service:
-            raise ServiceNotAvailableError("TeamService")
-        return team_service
-
-    def _get_invite_service(self) -> Optional[InviteLinkService]:
-        """Get the invite link service (optional)."""
-        return self.container.get_service(InviteLinkService)
-
-    async def add_player_with_invite_link(
-        self,
-        context: PlayerToolContext,
-        request: AddPlayerRequest
-    ) -> str:
+    async def get_player_status(self, context: EntityContext) -> dict[str, Any]:
         """
-        Add a player and generate an invite link.
+        Get player status for a user.
 
-        Args:
-            context: Validated context containing team_id and user_id
-            request: Validated request containing player details
 
-        Returns:
-            Formatted success message with invite link or error message
+            context: User context with telegram_id and team_id
 
-        Raises:
-            ServiceNotAvailableError: If required services are unavailable
-            ToolExecutionError: If the operation fails
+
+    :return: Dictionary with player status information
+    :rtype: str  # TODO: Fix type
         """
         try:
-            player_service = self._get_player_service()
+            if not self._validate_context(context):
+                return {
+                    "success": False,
+                    "message": "❌ Invalid context provided.",
+                    "error": "Context validation failed",
+                }
 
-            # Add player with simplified ID generation
-            success, message = await player_service.add_player(
-                request.name,
-                request.phone,
-                request.position,
-                context.team_id
-            )
-
-            if not success:
-                raise ToolExecutionError("add_player", f"Failed to add player: {message}")
-
-            # Extract player ID and check if existing player
-            player_id, is_existing_player = self._extract_player_info(message)
-
-            # Generate invite link
-            invite_link = await self._generate_invite_link(
-                context.team_id,
-                request,
-                player_id
-            )
-
-            # Format response
-            return self._format_add_player_response(
-                request,
-                player_id,
-                is_existing_player,
-                invite_link,
-                message
-            )
-
-        except (ServiceNotAvailableError, ToolExecutionError):
-            # Re-raise these specific exceptions
-            raise
-        except Exception as e:
-            # Convert unexpected errors to ToolExecutionError
-            raise handle_error_gracefully(e, "add_player_with_invite_link",
-                                        team_id=context.team_id, user_id=context.user_id)
-
-    def _extract_player_info(self, message: str) -> tuple[str, bool]:
-        """Extract player ID and existing player status from service message."""
-        import re
-
-        # Try different patterns for player ID extraction
-        player_id_match = re.search(r"ID: (\w+)", message) or re.search(r"Player ID: (\w+)", message)
-        player_id = player_id_match.group(1) if player_id_match else "Unknown"
-
-        # Check if this is an existing player
-        is_existing_player = "Already Exists" in message
-
-        return player_id, is_existing_player
-
-    async def _generate_invite_link(
-        self,
-        team_id: str,
-        request: AddPlayerRequest,
-        player_id: str
-    ) -> Optional[str]:
-        """Generate invite link for the player."""
-        invite_service = self._get_invite_service()
-        if not invite_service:
-            logger.warning("Invite service not available - cannot generate invite link")
-            return None
-
-        try:
-            # Get team configuration for main chat ID
-            team_service = self._get_team_service()
-            team = await team_service.get_team(team_id=team_id)
-
-            if not team or not team.main_chat_id:
-                logger.warning(f"Team {team_id} configuration incomplete - no main chat ID")
-                return None
-
-            invite_result = await invite_service.create_player_invite_link(
-                team_id=team_id,
-                player_name=request.name,
-                player_phone=request.phone,
-                player_position=request.position,
-                main_chat_id=team.main_chat_id,
-                player_id=player_id,
-            )
-
-            return invite_result.get('invite_link')
-
-        except Exception as e:
-            logger.error(f"Error creating invite link: {e}")
-            return None
-
-    def _format_add_player_response(
-        self,
-        request: AddPlayerRequest,
-        player_id: str,
-        is_existing_player: bool,
-        invite_link: Optional[str],
-        original_message: str
-    ) -> str:
-        """Format the add player response message."""
-        if is_existing_player:
-            base_message = f"""{original_message}
-
-🔗 Invite Link for Main Chat:
-{invite_link or 'Could not generate invite link'}
-
-📋 Next Steps:
-1. Share this invite link with {request.name}
-2. They can join the main chat using the link
-3. Player is already registered - no need to register again
-4. Contact admin if their status needs updating"""
-        else:
-            base_message = f"""✅ Player Added Successfully!
-
-👤 Player Details:
-• Name: {request.name}
-• Phone: {request.phone}
-• Position: {request.position}
-• Player ID: {player_id}
-• Status: Pending Approval
-
-🔗 Invite Link for Main Chat:
-{invite_link or 'Could not generate invite link'}
-
-📋 Next Steps:
-1. Share this invite link with {request.name}
-2. They can join the main chat using the link
-3. Once they join, they can register with /register
-4. Use /approve to approve and activate their registration
-
-💡 Tip: The player will need to register with /register after joining the chat."""
-
-        if invite_link:
-            base_message += """
-
-🔒 Security:
-• Link expires in 7 days
-• One-time use only
-• Automatically tracked in system"""
-        else:
-            base_message += """
-
-⚠️ Note: Could not generate invite link. Please contact the system administrator."""
-
-        return base_message
-
-    async def get_player_status_by_telegram_id(
-        self,
-        context: PlayerToolContext
-    ) -> PlayerStatusResponse:
-        """
-        Get player status by telegram ID.
-
-        Args:
-            context: Validated context containing team_id and user_id
-
-        Returns:
-            PlayerStatusResponse object
-
-        Raises:
-            ServiceNotAvailableError: If required services are unavailable
-            ToolExecutionError: If player not found or operation fails
-        """
-        try:
-            player_service = self._get_player_service()
-
-            # Get player by telegram ID
-            player = await player_service.get_player_by_telegram_id(
-                context.user_id,
-                context.team_id
+            # Get player by telegram_id
+            player = await self.player_repository.get_by_telegram_id(
+                team_id=context.team_id.value, telegram_id=context.telegram_id.value
             )
 
             if not player:
-                raise ToolExecutionError(
-                    "get_player_status",
-                    f"Player not found for user ID {context.user_id} in team {context.team_id}"
-                )
+                return {
+                    "success": False,
+                    "message": "❌ You are not registered as a player in this team.",
+                    "error": "Player not found",
+                }
 
-            return PlayerStatusResponse(
-                full_name=player.name,
-                position=player.position,
-                status=player.status,
-                player_id=player.player_id,
-                phone_number=player.phone_number,
-                is_active=player.status.lower() == "active"
-            )
+            return {
+                "success": True,
+                "message": "✅ Player status retrieved successfully!",
+                "player": {
+                    "name": player.name,
+                    "position": player.position,
+                    "status": player.status,
+                    "phone_number": player.phone_number,
+                    "email": player.email,
+                    "is_active": player.is_active,
+                    "is_approved": player.is_approved,
+                },
+            }
 
-        except (ServiceNotAvailableError, ToolExecutionError):
-            raise
         except Exception as e:
-            raise handle_error_gracefully(e, "get_player_status_by_telegram_id",
-                                        team_id=context.team_id, user_id=context.user_id)
+            self.logger.error(f"Error getting player status: {e}")
+            return {
+                "success": False,
+                "message": "❌ An error occurred while getting player status.",
+                "error": str(e),
+            }
 
-    async def get_player_status_by_phone(
-        self,
-        context: PlayerToolContext,
-        phone: str
-    ) -> PlayerStatusResponse:
+    async def update_player_info(self, context: EntityContext, field: str, value: str) -> dict[str, Any]:
         """
-        Get player status by phone number.
+        Update player information.
 
-        Args:
-            context: Validated context containing team_id and user_id
-            phone: Player's phone number
 
-        Returns:
-            PlayerStatusResponse object
+            context: User context with telegram_id and team_id
+            field: Field to update
+            value: New value
 
-        Raises:
-            ServiceNotAvailableError: If required services are unavailable
-            ToolExecutionError: If player not found or operation fails
+
+    :return: Dictionary with update result
+    :rtype: str  # TODO: Fix type
         """
         try:
-            if not phone or not phone.strip():
-                raise PlayerValidationError(["Phone number is required"])
+            if not self._validate_context(context):
+                return {
+                    "success": False,
+                    "message": "❌ Invalid context provided.",
+                    "error": "Context validation failed",
+                }
 
-            phone = sanitize_input(phone, max_length=20)
-            player_service = self._get_player_service()
-
-            # Get player by phone
-            player = await player_service.get_player_by_phone(phone, context.team_id)
+            # Get player by telegram_id
+            player = await self.player_repository.get_by_telegram_id(
+                team_id=context.team_id.value, telegram_id=context.telegram_id.value
+            )
 
             if not player:
-                raise ToolExecutionError(
-                    "get_player_status",
-                    f"Player not found for phone {phone} in team {context.team_id}"
-                )
+                return {
+                    "success": False,
+                    "message": "❌ You are not registered as a player in this team.",
+                    "error": "Player not found",
+                }
 
-            return PlayerStatusResponse(
-                full_name=player.name,
-                position=player.position,
-                status=player.status,
+            # Validate field is updatable
+            if not self._is_field_updatable(field):
+                return {
+                    "success": False,
+                    "message": f"❌ Field '{field}' cannot be updated.",
+                    "error": "Invalid field",
+                }
+
+            # Update the player
+            updated_player = await self.player_repository.update_player(
                 player_id=player.player_id,
-                phone_number=player.phone_number,
-                is_active=player.status.lower() == "active"
+                team_id=context.team_id.value,
+                telegram_id=context.telegram_id.value,
+                updates={field: value},
             )
 
-        except (ServiceNotAvailableError, ToolExecutionError, PlayerValidationError):
-            raise
+            if updated_player:
+                return {
+                    "success": True,
+                    "message": "✅ Player information updated successfully!",
+                    "updated_field": field,
+                    "new_value": value,
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "❌ Failed to update player information.",
+                    "error": "Update failed",
+                }
+
         except Exception as e:
-            raise handle_error_gracefully(e, "get_player_status_by_phone",
-                                        team_id=context.team_id, phone=phone)
+            self.logger.error(f"Error updating player info: {e}")
+            return {
+                "success": False,
+                "message": "❌ An error occurred while updating player information.",
+                "error": str(e),
+            }
 
-    async def get_active_players(self, context: PlayerToolContext) -> ActivePlayersResponse:
+    async def get_player_list(self, context: EntityContext) -> dict[str, Any]:
         """
-        Get all active players with comprehensive anti-hallucination logging.
+        Get list of all players in the team.
 
-        Args:
-            context: Validated context containing team_id and user_id
 
-        Returns:
-            ActivePlayersResponse object
+            context: User context with telegram_id and team_id
 
-        Raises:
-            ServiceNotAvailableError: If required services are unavailable
-            ToolExecutionError: If operation fails
+
+    :return: Dictionary with player list
+    :rtype: str  # TODO: Fix type
         """
         try:
-            player_service = self._get_player_service()
+            if not self._validate_context(context):
+                return {
+                    "success": False,
+                    "message": "❌ Invalid context provided.",
+                    "error": "Context validation failed",
+                }
 
-            # Get active players from database
-            players = await player_service.get_active_players(context.team_id)
+            # Get all players for the team
+            players = await self.player_repository.get_all_players(context.team_id.value)
 
-            # Comprehensive anti-hallucination logging
-            logger.info(f"🔍 DATABASE QUERY RESULT: Found {len(players) if players else 0} active players in team {context.team_id}")
+            if not players:
+                return {
+                    "success": True,
+                    "message": "📋 No players found in this team.",
+                    "players": [],
+                    "count": 0,
+                }
 
-            if players:
-                player_names = [p.name for p in players]
-                logger.info(f"🔍 ACTUAL PLAYER NAMES FROM DB: {player_names}")
-            else:
-                logger.info(f"🔍 DATABASE RETURNED: Empty list - no active players in team {context.team_id}")
-                logger.info("🚨 ANTI-HALLUCINATION: Returning 'no players found' - DO NOT ADD FAKE PLAYERS")
+            # Format player list
+            player_list = []
+            for player in players:
+                player_list.append({
+                    "name": player.name,
+                    "position": player.position,
+                    "status": player.status,
+                    "is_active": player.is_active,
+                })
 
-            response = ActivePlayersResponse(players=players or [], team_id=context.team_id)
+            return {
+                "success": True,
+                "message": f"📋 Found {len(player_list)} players in the team.",
+                "players": player_list,
+                "count": len(player_list),
+            }
 
-            # Additional validation to prevent fake players
-            if players:
-                fake_player_indicators = ["Farhan Fuad", "03FF", "+447479958935", "Saim", "John Smith", "Jane Doe"]
-                response_text = response.format_display()
-
-                for fake_indicator in fake_player_indicators:
-                    if fake_indicator in response_text:
-                        logger.error(f"🚨 CRITICAL ERROR: Response contains fake player indicator: {fake_indicator}")
-                        logger.error("🚨 THIS SHOULD NEVER HAPPEN - SERVICE IS ONLY RETURNING DATABASE DATA")
-                        logger.error(f"🚨 Response: {response_text!r}")
-
-            return response
-
-        except ServiceNotAvailableError:
-            raise
         except Exception as e:
-            raise handle_error_gracefully(e, "get_active_players", team_id=context.team_id)
+            self.logger.error(f"Error getting player list: {e}")
+            return {
+                "success": False,
+                "message": "❌ An error occurred while getting player list.",
+                "error": str(e),
+            }
 
-    async def approve_player(self, context: PlayerToolContext, player_id: str) -> str:
+    async def get_player_by_telegram_id(self, context: EntityContext) -> dict[str, Any]:
         """
-        Approve a player for team participation.
+        Get player information by Telegram ID.
 
-        Args:
-            context: Validated context containing team_id and user_id
-            player_id: The player ID to approve
 
-        Returns:
-            Formatted success message or error
+            context: User context with telegram_id and team_id
 
-        Raises:
-            ServiceNotAvailableError: If required services are unavailable
-            ToolExecutionError: If operation fails
+
+    :return: Dictionary with player information
+    :rtype: str  # TODO: Fix type
         """
         try:
-            if not player_id or not player_id.strip():
-                raise PlayerValidationError(["Player ID is required"])
+            if not self._validate_context(context):
+                return {
+                    "success": False,
+                    "message": "❌ Invalid context provided.",
+                    "error": "Context validation failed",
+                }
 
-            player_id = sanitize_input(player_id, max_length=20)
-            player_service = self._get_player_service()
+            # Get player by telegram_id
+            player = await self.player_repository.get_by_telegram_id(
+                context.team_id.value, context.telegram_id.value
+            )
 
-            # Approve player
-            result = await player_service.approve_player(player_id, context.team_id)
+            if not player:
+                return {
+                    "success": False,
+                    "message": f"Player not found for Telegram ID {context.telegram_id.value} in team {context.team_id.value}",
+                    "error": "Player not found",
+                }
 
-            # Check if result indicates success (starts with ✅)
-            if result.startswith("✅"):
-                # Extract player name from the result string
-                try:
-                    player_name = result.split("Player ")[1].split(" approved")[0]
-                except (IndexError, AttributeError):
-                    player_name = "Unknown"
+            return {
+                "success": True,
+                "message": "✅ Player information retrieved successfully!",
+                "player": {
+                    "name": player.name,
+                    "position": player.position,
+                    "status": player.status,
+                    "phone_number": player.phone_number,
+                    "email": player.email,
+                    "is_active": player.is_active,
+                    "is_approved": player.is_approved,
+                },
+            }
 
-                return f"""✅ Player Approved and Activated Successfully!
-
-👤 Player Details:
-• Name: {player_name}
-• Player ID: {player_id}
-• Status: Active
-
-🎉 The player is now approved, activated, and can participate in team activities."""
-            else:
-                # Result contains error message
-                raise ToolExecutionError("approve_player", f"Failed to approve player: {result}")
-
-        except (ServiceNotAvailableError, ToolExecutionError, PlayerValidationError):
-            raise
         except Exception as e:
-            raise handle_error_gracefully(e, "approve_player",
-                                        team_id=context.team_id, player_id=player_id)
+            self.logger.error(f"Error getting player by telegram_id: {e}")
+            return {
+                "success": False,
+                "message": "❌ An error occurred while getting player information.",
+                "error": str(e),
+            }
+
+    async def approve_player(self, context: EntityContext, player_telegram_id: str) -> dict[str, Any]:
+        """
+        Approve a player (admin only).
+
+
+            context: User context with telegram_id and team_id
+            player_telegram_id: Telegram ID of player to approve
+
+
+    :return: Dictionary with approval result
+    :rtype: str  # TODO: Fix type
+        """
+        try:
+            if not self._validate_context(context):
+                return {
+                    "success": False,
+                    "message": "❌ Invalid context provided.",
+                    "error": "Context validation failed",
+                }
+
+            # Get player to approve
+            player = await self.player_repository.get_by_telegram_id(
+                context.team_id.value, player_telegram_id
+            )
+
+            if not player:
+                return {
+                    "success": False,
+                    "message": f"Player not found for Telegram ID {player_telegram_id}",
+                    "error": "Player not found",
+                }
+
+            # Approve the player
+            approved_player = await self.player_repository.approve_player(
+                player_id=player.player_id,
+                team_id=context.team_id.value,
+                telegram_id=player_telegram_id,
+            )
+
+            if approved_player:
+                return {
+                    "success": True,
+                    "message": f"✅ Player {player.name} approved successfully!",
+                    "player_name": player.name,
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "❌ Failed to approve player.",
+                    "error": "Approval failed",
+                }
+
+        except Exception as e:
+            self.logger.error(f"Error approving player: {e}")
+            return {
+                "success": False,
+                "message": "❌ An error occurred while approving player.",
+                "error": str(e),
+            }
+
+    def _validate_context(self, context: EntityContext) -> bool:
+        """Validate that context has required fields."""
+        if not context or not context.telegram_id or not context.team_id:
+            return False
+        return True
+
+    def _is_field_updatable(self, field: str) -> bool:
+        """Check if a field can be updated."""
+        updatable_fields = {
+            "name",
+            "phone_number",
+            "email",
+            "position",
+            "preferred_foot",
+            "jersey_number",
+            "emergency_contact",
+            "medical_notes",
+        }
+        return field in updatable_fields

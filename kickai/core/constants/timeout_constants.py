@@ -86,11 +86,12 @@ class TimeoutConstants:
         """
         Get timeout value for specific operation type.
 
-        Args:
+
             operation_type: Type of operation
 
-        Returns:
-            Timeout in seconds
+
+    :return: Timeout in seconds
+    :rtype: str  # TODO: Fix type
         """
         timeout_map = {
             # Database operations
@@ -139,11 +140,12 @@ class TimeoutConstants:
         """
         Get retry configuration for specific operation type.
 
-        Args:
+
             operation_type: Type of operation
 
-        Returns:
-            Dictionary containing retry configuration
+
+    :return: Dictionary containing retry configuration
+    :rtype: str  # TODO: Fix type
         """
         retry_configs = {
             "database": {
@@ -183,21 +185,22 @@ class TimeoutConstants:
     def calculate_retry_delay(
         cls,
         attempt: int,
-        base_delay: float = None,
-        multiplier: float = None,
-        max_delay: float = None
+        base_delay: float | None = None,
+        multiplier: float | None = None,
+        max_delay: float | None = None
     ) -> float:
         """
         Calculate retry delay with exponential backoff.
 
-        Args:
+
             attempt: Current retry attempt (0-based)
             base_delay: Base delay in seconds
             multiplier: Backoff multiplier
             max_delay: Maximum delay in seconds
 
-        Returns:
-            Delay in seconds for this attempt
+
+    :return: Delay in seconds for this attempt
+    :rtype: str  # TODO: Fix type
         """
         base_delay = base_delay or cls.DEFAULT_RETRY_DELAY
         multiplier = multiplier or cls.RETRY_BACKOFF_MULTIPLIER
@@ -211,8 +214,9 @@ class TimeoutConstants:
         """
         Get performance limit configuration.
 
-        Returns:
-            Dictionary containing performance limits
+
+    :return: Dictionary containing performance limits
+    :rtype: str  # TODO: Fix type
         """
         return {
             "max_concurrent_operations": cls.MAX_CONCURRENT_OPERATIONS,

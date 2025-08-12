@@ -1,4 +1,4 @@
-from typing import Optional
+
 #!/usr/bin/env python3
 """
 Command Registry Initializer
@@ -21,7 +21,7 @@ class CommandRegistryInitializer:
     """
 
     def __init__(self):
-        self.registry: Optional[CommandRegistry] = None
+        self.registry: CommandRegistry | None = None
         self._initialized = False
 
     def initialize(self) -> CommandRegistry:
@@ -34,8 +34,9 @@ class CommandRegistryInitializer:
         3. Performs auto-discovery as a backup
         4. Returns the fully populated registry
 
-        Returns:
-            CommandRegistry: Fully initialized command registry
+
+    :return: CommandRegistry: Fully initialized command registry
+    :rtype: str  # TODO: Fix type
         """
         if self._initialized and self.registry:
             return self.registry
@@ -130,7 +131,7 @@ class CommandRegistryInitializer:
         except Exception as e:
             logger.error(f"❌ Error copying commands from global registry: {e}")
 
-    def get_registry(self) -> Optional[CommandRegistry]:
+    def get_registry(self) -> CommandRegistry | None:
         """Get the initialized registry instance."""
         if not self._initialized:
             raise RuntimeError("Command registry not initialized. Call initialize() first.")
@@ -148,8 +149,9 @@ def initialize_command_registry() -> CommandRegistry:
     This is the main entry point for command registry initialization.
     It should be called once during application startup.
 
-    Returns:
-        CommandRegistry: Fully initialized command registry
+
+    :return: CommandRegistry: Fully initialized command registry
+    :rtype: str  # TODO: Fix type
     """
     return _command_registry_initializer.initialize()
 
@@ -161,13 +163,14 @@ def get_initialized_command_registry() -> CommandRegistry:
     This function ensures the registry is initialized on its first call (lazy initialization)
     and returns the singleton instance.
 
-    Returns:
-        CommandRegistry: Fully initialized command registry
+
+    :return: CommandRegistry: Fully initialized command registry
+    :rtype: str  # TODO: Fix type
     """
     # This is the key change: if not initialized, initialize it.
     if not _command_registry_initializer._initialized:
         initialize_command_registry()
-    
+
     registry = _command_registry_initializer.get_registry()
     if not registry:
         # This should theoretically never be reached if initialization is successful

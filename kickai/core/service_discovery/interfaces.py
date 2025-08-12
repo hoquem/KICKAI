@@ -8,7 +8,7 @@ and enable runtime service registration and health checking.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
 
 class ServiceStatus(Enum):
@@ -32,14 +32,14 @@ class ServiceDefinition:
     """Service definition with metadata and configuration."""
     name: str
     service_type: ServiceType
-    interface_name: Optional[str] = None
-    implementation_class: Optional[str] = None
-    dependencies: List[str] = None
+    interface_name: str | None = None
+    implementation_class: str | None = None
+    dependencies: list[str] = None
     health_check_enabled: bool = True
     health_check_interval: int = 60  # seconds
     timeout: float = 30.0
     retry_count: int = 3
-    metadata: Dict[str, Any] = None
+    metadata: dict[str, Any] = None
 
     def __post_init__(self):
         if self.dependencies is None:
@@ -53,10 +53,10 @@ class ServiceHealth:
     """Service health status information."""
     service_name: str
     status: ServiceStatus
-    last_check: Optional[float] = None
-    response_time: Optional[float] = None
-    error_message: Optional[str] = None
-    metadata: Dict[str, Any] = None
+    last_check: float | None = None
+    response_time: float | None = None
+    error_message: str | None = None
+    metadata: dict[str, Any] = None
 
     def __post_init__(self):
         if self.metadata is None:
@@ -89,22 +89,22 @@ class IServiceRegistry(ABC):
         pass
 
     @abstractmethod
-    def get_service(self, service_name: str) -> Optional[Any]:
+    def get_service(self, service_name: str) -> Any | None:
         """Get a service instance by name."""
         pass
 
     @abstractmethod
-    def get_service_definition(self, service_name: str) -> Optional[ServiceDefinition]:
+    def get_service_definition(self, service_name: str) -> ServiceDefinition | None:
         """Get service definition by name."""
         pass
 
     @abstractmethod
-    def list_services(self, service_type: Optional[ServiceType] = None) -> List[str]:
+    def list_services(self, service_type: ServiceType | None = None) -> list[str]:
         """List all registered services, optionally filtered by type."""
         pass
 
     @abstractmethod
-    def get_services_by_type(self, service_type: ServiceType) -> Dict[str, Any]:
+    def get_services_by_type(self, service_type: ServiceType) -> dict[str, Any]:
         """Get all services of a specific type."""
         pass
 
@@ -114,7 +114,7 @@ class IServiceRegistry(ABC):
         pass
 
     @abstractmethod
-    async def check_all_services_health(self) -> Dict[str, ServiceHealth]:
+    async def check_all_services_health(self) -> dict[str, ServiceHealth]:
         """Check health of all registered services."""
         pass
 
@@ -128,7 +128,7 @@ class IServiceDiscovery(ABC):
     """Abstract interface for service discovery system."""
 
     @abstractmethod
-    def discover_services(self) -> List[ServiceDefinition]:
+    def discover_services(self) -> list[ServiceDefinition]:
         """Discover available services."""
         pass
 
@@ -149,7 +149,7 @@ T = TypeVar('T')
 class ServiceFactory(Protocol[T]):
     """Protocol for service factory."""
 
-    def create_service(self, service_name: str, **kwargs) -> Optional[T]:
+    def create_service(self, service_name: str, **kwargs) -> T | None:
         """Create a service instance."""
         ...
 
@@ -171,7 +171,7 @@ class ServiceConfiguration:
     circuit_breaker_timeout: int = 60
 
     # Service type priorities for startup validation
-    startup_service_types: List[ServiceType] = None
+    startup_service_types: list[ServiceType] = None
 
     def __post_init__(self):
         if self.startup_service_types is None:

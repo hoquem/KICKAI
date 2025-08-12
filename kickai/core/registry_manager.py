@@ -7,7 +7,7 @@ It follows the single source of truth principle and ensures clean, loosely coupl
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -54,7 +54,7 @@ class RegistryManager:
         """
         Initialize all registries with auto-discovery.
 
-        Args:
+
             src_path: Path to source directory for discovery
         """
         if self._initialized:
@@ -101,7 +101,7 @@ class RegistryManager:
         """Get the tool registry."""
         return self.get_registry(RegistryType.TOOL)
 
-    def get_registry_info(self, registry_type: RegistryType) -> Optional[RegistryInfo]:
+    def get_registry_info(self, registry_type: RegistryType) -> RegistryInfo | None:
         """Get information about a specific registry."""
         registry = self.get_registry(registry_type)
         if not registry:
@@ -177,8 +177,9 @@ class RegistryManager:
         """
         Validate dependencies between registries.
 
-        Returns:
-            Dictionary of validation results
+
+    :return: Dictionary of validation results
+    :rtype: str  # TODO: Fix type
         """
         validation_results = {"errors": [], "warnings": [], "success": []}
 
@@ -207,7 +208,7 @@ class RegistryManager:
             # Validate command-agent dependencies
             command_registry = self.get_command_registry()
             if command_registry and agent_registry:
-                for command in command_registry.list_all_commands():
+                for _command in command_registry.list_all_commands():
                     # Check if command has associated agent handlers
                     # This would depend on your command implementation
                     pass
@@ -221,11 +222,12 @@ class RegistryManager:
         """
         Search across all registries for a query.
 
-        Args:
+
             query: Search query string
 
-        Returns:
-            Dictionary of search results by registry type
+
+    :return: Dictionary of search results by registry type
+    :rtype: str  # TODO: Fix type
         """
         results = {"commands": [], "agents": [], "tools": []}
 
@@ -251,11 +253,12 @@ class RegistryManager:
         """
         Get comprehensive overview of a specific feature.
 
-        Args:
+
             feature_name: Name of the feature
 
-        Returns:
-            Dictionary with feature overview
+
+    :return: Dictionary with feature overview
+    :rtype: str  # TODO: Fix type
         """
         overview = {
             "feature_name": feature_name,
@@ -294,8 +297,9 @@ class RegistryManager:
         """
         Perform comprehensive health check on all registries.
 
-        Returns:
-            Health check results
+
+    :return: Health check results
+    :rtype: str  # TODO: Fix type
         """
         health_results = {
             "status": "healthy",
@@ -345,15 +349,16 @@ class RegistryManager:
 
         return health_results
 
-    def export_registry_data(self, registry_type: Optional[RegistryType] = None) -> dict[str, Any]:
+    def export_registry_data(self, registry_type: RegistryType | None = None) -> dict[str, Any]:
         """
         Export registry data for backup or analysis.
 
-        Args:
+
             registry_type: Specific registry to export, or None for all
 
-        Returns:
-            Dictionary with exported data
+
+    :return: Dictionary with exported data
+    :rtype: str  # TODO: Fix type
         """
         export_data = {"timestamp": "Now", "version": "1.0.0", "data": {}}
 
@@ -401,7 +406,7 @@ class RegistryManager:
 
 
 # Global registry manager instance
-_registry_manager: Optional[RegistryManager] = None
+_registry_manager: RegistryManager | None = None
 
 
 def get_registry_manager() -> RegistryManager:

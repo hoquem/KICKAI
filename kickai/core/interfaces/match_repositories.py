@@ -7,7 +7,7 @@ These interfaces are split into focused, cohesive contracts for match operations
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from kickai.core.value_objects import PlayerId, TeamId
 
@@ -22,7 +22,7 @@ class IMatchReadRepository(ABC):
         self,
         team_id: TeamId,
         limit: int = 10
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get upcoming matches for a team."""
         pass
 
@@ -31,7 +31,7 @@ class IMatchReadRepository(ABC):
         self,
         match_id: str,
         team_id: TeamId
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get match by ID."""
         pass
 
@@ -40,7 +40,7 @@ class IMatchReadRepository(ABC):
         self,
         team_id: TeamId,
         limit: int = 10
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get past matches for a team."""
         pass
 
@@ -51,9 +51,9 @@ class IMatchWriteRepository(ABC):
     @abstractmethod
     async def create_match(
         self,
-        match_data: Dict[str, Any],
+        match_data: dict[str, Any],
         team_id: TeamId
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create new match."""
         pass
 
@@ -62,8 +62,8 @@ class IMatchWriteRepository(ABC):
         self,
         match_id: str,
         team_id: TeamId,
-        updates: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+        updates: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """Update match information."""
         pass
 
@@ -86,7 +86,7 @@ class IMatchAvailabilityRepository(ABC):
         self,
         match_id: str,
         team_id: TeamId
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get player availability for a match."""
         pass
 
@@ -106,7 +106,7 @@ class IMatchAvailabilityRepository(ABC):
         self,
         match_id: str,
         team_id: TeamId
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """Get availability summary (available, unavailable, pending counts)."""
         pass
 

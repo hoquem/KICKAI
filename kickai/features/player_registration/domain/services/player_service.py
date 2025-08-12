@@ -8,8 +8,9 @@ This module provides player management functionality.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional, Union
+from typing import Any
 
+from kickai.core.interfaces.player_repositories import IPlayerRepository
 from kickai.features.team_administration.domain.services.team_service import TeamService
 from kickai.utils.constants import (
     DEFAULT_CREATED_BY,
@@ -21,7 +22,6 @@ from kickai.utils.constants import (
 )
 
 from ..entities.player import Player
-from ..repositories.player_repository_interface import PlayerRepositoryInterface
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class PlayerCreateParams:
 class PlayerService:
     """Service for managing players."""
 
-    def __init__(self, player_repository: PlayerRepositoryInterface, team_service: TeamService):
+    def __init__(self, player_repository: IPlayerRepository, team_service: TeamService):
         self.player_repository = player_repository
         self.team_service = team_service
 
@@ -102,15 +102,15 @@ class PlayerService:
         if len(team_id.strip()) < 2:
             raise ValueError("Team ID must be at least 2 characters long")
 
-    async def get_player_by_id(self, player_id: str, team_id: str) -> Optional[Player]:
+    async def get_player_by_id(self, player_id: str, team_id: str) -> Player | None:
         """Get a player by ID."""
         return await self.player_repository.get_player_by_id(player_id, team_id)
 
-    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Optional[Player]:
+    async def get_player_by_phone(self, *, phone: str, team_id: str) -> Player | None:
         """Get a player by phone number."""
         return await self.player_repository.get_player_by_phone(phone, team_id)
 
-    async def get_player_by_telegram_id(self, telegram_id: Union[str, int], team_id: str) -> Optional[Player]:
+    async def get_player_by_telegram_id(self, telegram_id: int, team_id: str) -> Player | None:
         """Get a player by Telegram ID."""
         try:
             # Use the database client directly since repository might not have this method
@@ -123,12 +123,10 @@ class PlayerService:
             player_data = await database.get_player_by_telegram_id(telegram_id, team_id)
             if player_data:
                 # Convert to Player entity
-                from datetime import datetime
 
                 from ..entities.player import Player
 
                 return Player(
-                    user_id=player_data.get("user_id", ""),
                     team_id=player_data.get("team_id", ""),
                     telegram_id=player_data.get("telegram_id"),
                     player_id=player_data.get("player_id"),
@@ -145,25 +143,25 @@ class PlayerService:
             logger.error(f"Error getting player by telegram_id {telegram_id}: {e}")
             return None
 
-    def _parse_datetime(self, dt_value) -> Optional[datetime]:
+    def _parse_datetime(self, dt_value) -> datetime | None:
         """Parse datetime value handling both string and datetime objects."""
         if not dt_value:
             return None
-        
+
         # If it's already a datetime object (from Firestore), return it
         if isinstance(dt_value, datetime):
             return dt_value
-        
+
         # If it's a string, parse it
         if isinstance(dt_value, str):
             try:
                 return datetime.fromisoformat(dt_value.replace("Z", "+00:00"))
             except ValueError:
                 return None
-        
+
         return None
 
-    async def get_players_by_team(self, *, team_id: str, status: Optional[str] = None) -> list[Player]:
+    async def get_players_by_team(self, *, team_id: str, status: str | None = None) -> list[Player]:
         """Get players for a team, optionally filtered by status."""
         players = await self.player_repository.get_all_players(team_id)
 
@@ -212,12 +210,13 @@ class PlayerService:
         Get current user's player status and information.
         This method handles players only - team members are handled by TeamMemberService.
 
-        Args:
+
             user_id: The user's Telegram ID
             team_id: The team ID
 
-        Returns:
-            User's player status and information as a formatted string
+
+    :return: User's player status and information as a formatted string
+    :rtype: str  # TODO: Fix type
         """
         try:
             player = await self.get_player_by_telegram_id(user_id, team_id)
@@ -277,7 +276,7 @@ class PlayerService:
         return await self.player_repository.update_player(player)
 
     async def add_player(
-        self, name: str, phone: str, position: Optional[str] = None, team_id: Optional[str] = None
+        self, name: str, phone: str, position: str | None = None, team_id: str | None = None
     ) -> tuple[bool, str]:
         """Add a new player to the team with simplified ID generation."""
         try:
@@ -376,7 +375,7 @@ class PlayerService:
             return f"❌ Error retrieving player status: {e!s}"
 
     # Synchronous methods for CrewAI tools
-    def get_player_by_telegram_id_sync(self, telegram_id: Union[str, int], team_id: str) -> Optional[Player]:
+    def get_player_by_telegram_id_sync(self, telegram_id: int, team_id: str) -> Player | None:
         """Synchronous version of get_player_by_telegram_id for CrewAI tools."""
         try:
             # Import here to avoid circular imports
@@ -384,7 +383,7 @@ class PlayerService:
 
             # Check if we're already in an event loop
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # We're in an event loop, create a task
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -406,7 +405,7 @@ class PlayerService:
 
             # Check if we're already in an event loop
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # We're in an event loop, create a task
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -428,7 +427,7 @@ class PlayerService:
 
             # Check if we're already in an event loop
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # We're in an event loop, create a task
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -450,7 +449,7 @@ class PlayerService:
 
             # Check if we're already in an event loop
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # We're in an event loop, create a task
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -464,7 +463,7 @@ class PlayerService:
             logger.error(f"❌ Failed to get active players for team {team_id}: {e}")
             return []
 
-    def add_player_sync(self, name: str, phone: str, position: Optional[str] = None, team_id: Optional[str] = None) -> tuple[bool, str]:
+    def add_player_sync(self, name: str, phone: str, position: str | None = None, team_id: str | None = None) -> tuple[bool, str]:
         """Synchronous version of add_player for CrewAI tools."""
         try:
             # Import here to avoid circular imports
@@ -472,7 +471,7 @@ class PlayerService:
 
             # Check if we're already in an event loop
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # We're in an event loop, create a task
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -494,7 +493,7 @@ class PlayerService:
 
             # Check if we're already in an event loop
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # We're in an event loop, create a task
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -508,7 +507,7 @@ class PlayerService:
             logger.error(f"❌ Failed to approve player {player_id}: {e}")
             return f"❌ Failed to approve player: {e!s}"
 
-    def get_player_by_phone_sync(self, phone: str, team_id: str) -> Optional[Player]:
+    def get_player_by_phone_sync(self, phone: str, team_id: str) -> Player | None:
         """Synchronous version of get_player_by_phone for CrewAI tools."""
         try:
             # Import here to avoid circular imports
@@ -516,7 +515,7 @@ class PlayerService:
 
             # Check if we're already in an event loop
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # We're in an event loop, create a task
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:

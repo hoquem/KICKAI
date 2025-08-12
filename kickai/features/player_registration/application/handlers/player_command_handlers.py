@@ -27,13 +27,14 @@ async def handle_addplayer_command(update, context, **kwargs) -> CommandResult:
     """
     Handle /addplayer command.
 
-    Args:
+
         update: Telegram update object
         context: Telegram context object
         **kwargs: Additional parameters
 
-    Returns:
-        CommandResult with success status and message
+
+    :return: CommandResult with success status and message
+    :rtype: str  # TODO: Fix type
     """
     try:
         # Extract command parameters
@@ -92,13 +93,14 @@ async def handle_approve_command(update, context, **kwargs) -> CommandResult:
     """
     Handle /approve command.
 
-    Args:
+
         update: Telegram update object
         context: Telegram context object
         **kwargs: Additional parameters
 
-    Returns:
-        CommandResult with success status and message
+
+    :return: CommandResult with success status and message
+    :rtype: str  # TODO: Fix type
     """
     try:
         # Extract command parameters
@@ -155,13 +157,14 @@ async def handle_reject_command(update, context, **kwargs) -> CommandResult:
     """
     Handle /reject command.
 
-    Args:
+
         update: Telegram update object
         context: Telegram context object
         **kwargs: Additional parameters
 
-    Returns:
-        CommandResult with success status and message
+
+    :return: CommandResult with success status and message
+    :rtype: str  # TODO: Fix type
     """
     try:
         # Extract command parameters
@@ -179,12 +182,12 @@ async def handle_reject_command(update, context, **kwargs) -> CommandResult:
 
         # Extract player_id and optional reason
         player_id = parts[1]
-        reason = " ".join(parts[2:]) if len(parts) > 2 else "No reason provided"
+        " ".join(parts[2:]) if len(parts) > 2 else "No reason provided"
 
         # Get context information
         ctx = get_context()
         team_id = ctx.get("team_id", "")
-        user_id = ctx.get("user_id", "")
+        ctx.get("user_id", "")
 
         if not team_id:
             return CommandResult(
@@ -213,13 +216,14 @@ async def handle_pending_command(update, context, **kwargs) -> CommandResult:
     """
     Handle /pending command.
 
-    Args:
+
         update: Telegram update object
         context: Telegram context object
         **kwargs: Additional parameters
 
-    Returns:
-        CommandResult with success status and message
+
+    :return: CommandResult with success status and message
+    :rtype: str  # TODO: Fix type
     """
     try:
         # Get context information
@@ -259,13 +263,14 @@ async def handle_myinfo_command(update, context, **kwargs) -> CommandResult:
     """
     Handle /myinfo command.
 
-    Args:
+
         update: Telegram update object
         context: Telegram context object
         **kwargs: Additional parameters
 
-    Returns:
-        CommandResult with success status and message
+
+    :return: CommandResult with success status and message
+    :rtype: str  # TODO: Fix type
     """
     try:
         # Get context information
@@ -307,13 +312,14 @@ async def handle_list_command(update, context, **kwargs) -> CommandResult:
     """
     Handle /list command.
 
-    Args:
+
         update: Telegram update object
         context: Telegram context object
         **kwargs: Additional parameters
 
-    Returns:
-        CommandResult with success status and message
+
+    :return: CommandResult with success status and message
+    :rtype: str  # TODO: Fix type
     """
     try:
         # Get context information
@@ -361,13 +367,14 @@ async def handle_status_command(update, context, **kwargs) -> CommandResult:
     """
     Handle /status command.
 
-    Args:
+
         update: Telegram update object
         context: Telegram context object
         **kwargs: Additional parameters
 
-    Returns:
-        CommandResult with success status and message
+
+    :return: CommandResult with success status and message
+    :rtype: str  # TODO: Fix type
     """
     try:
         # Extract command parameters

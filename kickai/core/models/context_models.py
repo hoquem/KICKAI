@@ -6,7 +6,7 @@ proper validation and type safety when passing context to CrewAI tools.
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
 from pydantic import BaseModel, Field, validator
@@ -16,16 +16,31 @@ class BaseContext(BaseModel):
     """Base context model for all operations."""
 
     team_id: str = Field(..., description="Team identifier")
-    user_id: str = Field(..., description="User identifier (telegram ID)")
+    telegram_id: int = Field(..., description="Telegram user identifier")
     timestamp: datetime = Field(default_factory=datetime.now, description="Context timestamp")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
-    @validator("team_id", "user_id")
-    def validate_required_fields(cls, v):
-        """Validate that required fields are not empty."""
-        if not v or not str(v).strip():
-            raise ValueError("Field cannot be empty")
-        return str(v).strip()
+    @validator("team_id")
+    def validate_team_id_required(cls, v):
+        """Validate team_id is not empty."""
+        if not v or not v.strip():
+            raise ValueError("Team ID cannot be empty")
+        return v.strip()
+
+    @validator("telegram_id")
+    def validate_telegram_id_required(cls, v):
+        """Validate telegram_id is positive integer."""
+        # First check if it was originally an int (Pydantic may convert strings)
+        if isinstance(v, str):
+            # Try to convert but validate it's a proper integer string
+            try:
+                v = int(v)
+            except ValueError:
+                raise ValueError("Telegram ID must be a valid integer")
+        
+        if not isinstance(v, int) or v <= 0:
+            raise ValueError("Telegram ID must be a positive integer")
+        return v
 
     @validator("team_id")
     def validate_team_id(cls, v):
@@ -34,20 +49,14 @@ class BaseContext(BaseModel):
             raise ValueError("Team ID must be 20 characters or less")
         return v
 
-    @validator("user_id")
-    def validate_user_id(cls, v):
-        """Validate user ID format."""
-        if len(v) > 20:
-            raise ValueError("User ID must be 20 characters or less")
-        return v
 
 
 class PlayerContext(BaseContext):
     """Context for player-related operations."""
 
-    player_id: Optional[str] = Field(None, description="Player identifier")
-    phone: Optional[str] = Field(None, description="Phone number")
-    position: Optional[str] = Field(None, description="Player position")
+    player_id: str | None = Field(None, description="Player identifier")
+    phone: str | None = Field(None, description="Phone number")
+    position: str | None = Field(None, description="Player position")
 
     @validator("player_id")
     def validate_player_id(cls, v):
@@ -71,9 +80,9 @@ class PlayerContext(BaseContext):
 class MatchContext(BaseContext):
     """Context for match-related operations."""
 
-    match_id: Optional[str] = Field(None, description="Match identifier")
-    match_date: Optional[datetime] = Field(None, description="Match date")
-    venue: Optional[str] = Field(None, description="Match venue")
+    match_id: str | None = Field(None, description="Match identifier")
+    match_date: datetime | None = Field(None, description="Match date")
+    venue: str | None = Field(None, description="Match venue")
 
     @validator("match_id")
     def validate_match_id(cls, v):
@@ -86,9 +95,9 @@ class MatchContext(BaseContext):
 class PaymentContext(BaseContext):
     """Context for payment-related operations."""
 
-    amount: Optional[float] = Field(None, description="Payment amount")
+    amount: float | None = Field(None, description="Payment amount")
     currency: str = Field(default="GBP", description="Currency code")
-    payment_type: Optional[str] = Field(None, description="Type of payment")
+    payment_type: str | None = Field(None, description="Type of payment")
 
     @validator("amount")
     def validate_amount(cls, v):
@@ -108,8 +117,8 @@ class PaymentContext(BaseContext):
 class AttendanceContext(BaseContext):
     """Context for attendance-related operations."""
 
-    match_id: Optional[str] = Field(None, description="Match identifier")
-    attendance_status: Optional[str] = Field(None, description="Attendance status")
+    match_id: str | None = Field(None, description="Match identifier")
+    attendance_status: str | None = Field(None, description="Attendance status")
 
     @validator("attendance_status")
     def validate_attendance_status(cls, v):
@@ -124,8 +133,8 @@ class AttendanceContext(BaseContext):
 class CommunicationContext(BaseContext):
     """Context for communication-related operations."""
 
-    message_type: Optional[str] = Field(None, description="Type of message")
-    recipient_group: Optional[str] = Field(None, description="Recipient group")
+    message_type: str | None = Field(None, description="Type of message")
+    recipient_group: str | None = Field(None, description="Recipient group")
 
     @validator("message_type")
     def validate_message_type(cls, v):
@@ -142,14 +151,15 @@ def create_context(context_type: str, **kwargs) -> BaseContext:
     """
     Factory function to create appropriate context objects.
 
-    Args:
+
         context_type: Type of context to create
         **kwargs: Context data
 
-    Returns:
-        Appropriate context object
 
-    Raises:
+    :return: Appropriate context object
+    :rtype: str  # TODO: Fix type
+
+
         ValueError: If context_type is not supported
     """
     context_map = {
@@ -172,12 +182,13 @@ def validate_context_data(context_data: dict[str, Any], context_type: str = "bas
     """
     Validate context data without creating an object.
 
-    Args:
+
         context_data: Data to validate
         context_type: Type of context to validate against
 
-    Returns:
-        True if valid, False otherwise
+
+    :return: True if valid, False otherwise
+    :rtype: str  # TODO: Fix type
     """
     try:
         create_context(context_type, **context_data)

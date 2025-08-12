@@ -6,7 +6,7 @@ This module provides the base class for all health checks.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ..reporting import CheckCategory, CheckResult
 
@@ -26,15 +26,16 @@ class BaseCheck(ABC):
     description: str
 
     @abstractmethod
-    async def execute(self, context: Optional[Dict[str, Any]] = None) -> CheckResult:
+    async def execute(self, context: dict[str, Any] | None = None) -> CheckResult:
         """
         Execute the health check.
 
-        Args:
+
             context: Optional context data for the check
 
-        Returns:
-            CheckResult with the check status and details
+
+    :return: CheckResult with the check status and details
+    :rtype: str  # TODO: Fix type
         """
         pass
 

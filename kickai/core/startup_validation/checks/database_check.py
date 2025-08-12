@@ -46,7 +46,7 @@ class DatabaseValidator:
             # Import here to avoid circular imports
             from kickai.database.firebase_client import get_firebase_client
 
-            db_client = get_firebase_client()
+            get_firebase_client()
             connection_time = time.time() - connection_start
             test_operations["connection"] = True
 
@@ -83,7 +83,7 @@ class DatabaseValidator:
             test_operations["health_check"] = True  # Assume success for now
             warnings.append("Health check skipped (async operation)")
 
-            total_time = time.time() - start_time
+            time.time() - start_time
 
             return DatabaseValidationResult(
                 success=len(errors) == 0,

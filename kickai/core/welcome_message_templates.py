@@ -9,7 +9,6 @@ joining different chat types. Templates can be customized per team or context.
 from dataclasses import dataclass
 
 from kickai.core.enums import ChatType
-from typing import Set
 
 
 @dataclass
@@ -117,7 +116,7 @@ DEFAULT_WELCOME_TEMPLATES = {
 class WelcomeMessageManager:
     """Manager for welcome message templates and customization."""
 
-    def __init__(self, team_id: str = None):
+    def __init__(self, team_id: str | None = None):
         self.team_id = team_id
         self.templates = DEFAULT_WELCOME_TEMPLATES.copy()
         self.custom_templates = {}
@@ -133,7 +132,7 @@ class WelcomeMessageManager:
         # Return default template
         return self.templates.get(chat_type, self.templates[ChatType.MAIN])
 
-    def set_custom_template(self, chat_type: ChatType, template: WelcomeMessageTemplate, team_id: str = None):
+    def set_custom_template(self, chat_type: ChatType, template: WelcomeMessageTemplate, team_id: str | None = None):
         """Set a custom template for a specific chat type and team."""
         target_team = team_id or self.team_id
         if not target_team:
@@ -153,7 +152,7 @@ class WelcomeMessageManager:
             # Fallback to basic welcome
             return f"👋 Welcome to the team, {username}! Use /help to see available commands."
 
-    def reset_to_defaults(self, team_id: str = None):
+    def reset_to_defaults(self, team_id: str | None = None):
         """Reset templates to defaults for a team."""
         target_team = team_id or self.team_id
         if target_team and target_team in self.custom_templates:
@@ -164,14 +163,14 @@ class WelcomeMessageManager:
 _welcome_message_manager = WelcomeMessageManager()
 
 
-def get_welcome_message_manager(team_id: str = None) -> WelcomeMessageManager:
+def get_welcome_message_manager(team_id: str | None = None) -> WelcomeMessageManager:
     """Get the global welcome message manager instance."""
     if team_id:
         _welcome_message_manager.team_id = team_id
     return _welcome_message_manager
 
 
-def generate_welcome_message(username: str, chat_type: ChatType, team_id: str = None, **kwargs) -> str:
+def generate_welcome_message(username: str, chat_type: ChatType, team_id: str | None = None, **kwargs) -> str:
     """Generate a welcome message using the global manager."""
     manager = get_welcome_message_manager(team_id)
     return manager.generate_welcome_message(username, chat_type, **kwargs)

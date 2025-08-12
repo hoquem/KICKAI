@@ -12,7 +12,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from loguru import logger
 from telegram.error import TelegramError
@@ -24,7 +24,7 @@ from kickai.database.interfaces import DataStoreInterface
 class InviteLinkService:
     """Service for creating and managing secure invite links."""
 
-    def __init__(self, bot_token: str = None, database: DataStoreInterface = None):
+    def __init__(self, bot_token: str | None = None, database: DataStoreInterface = None):
         self.database = database
         self.collection_name = (
             "kickai_invite_links"  # TODO: Use constant from firestore_constants.py
@@ -62,8 +62,9 @@ class InviteLinkService:
         """
         Detect if running in mock testing environment.
 
-        Returns:
-            True if in mock environment, False otherwise
+
+    :return: True if in mock environment, False otherwise
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Check for mock server running on localhost:8001
@@ -109,11 +110,12 @@ class InviteLinkService:
         """
         Generate secure invite data with embedded player information.
 
-        Args:
+
             player_data: Dictionary containing player information
 
-        Returns:
-            Base64 encoded and signed invite data
+
+    :return: Base64 encoded and signed invite data
+    :rtype: str  # TODO: Fix type
         """
         import base64
 
@@ -143,15 +145,16 @@ class InviteLinkService:
         # Base64 encode for URL safety
         return base64.urlsafe_b64encode(combined_data.encode("utf-8")).decode("utf-8")
 
-    def _validate_secure_invite_data(self, invite_data: str) -> Optional[dict]:
+    def _validate_secure_invite_data(self, invite_data: str) -> dict | None:
         """
         Validate and decode secure invite data.
 
-        Args:
+
             invite_data: Base64 encoded invite data
 
-        Returns:
-            Decoded player data if valid, None if invalid
+
+    :return: Decoded player data if valid, None if invalid
+    :rtype: str  # TODO: Fix type
         """
         import base64
 
@@ -197,12 +200,12 @@ class InviteLinkService:
         player_phone: str,
         player_position: str,
         main_chat_id: str,
-        player_id: str = None,
-    ) -> Dict[str, Any]:
+        player_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Create a secure invite link for a player to join the main chat.
 
-        Args:
+
             team_id: Team ID
             player_name: Player's name
             player_phone: Player's phone number
@@ -210,8 +213,9 @@ class InviteLinkService:
             main_chat_id: Main chat ID
             player_id: Player ID (optional, will be generated if not provided)
 
-        Returns:
-            Dict containing invite link details
+
+    :return: Dict containing invite link details
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Validate bot token is available
@@ -299,19 +303,20 @@ class InviteLinkService:
         member_phone: str,
         member_role: str,
         leadership_chat_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a secure invite link for a team member to join the leadership chat.
 
-        Args:
+
             team_id: Team ID
             member_name: Team member's name
             member_phone: Team member's phone number
             member_role: Team member's role
             leadership_chat_id: Leadership chat ID
 
-        Returns:
-            Dict containing invite link details
+
+    :return: Dict containing invite link details
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Validate bot token is available
@@ -389,19 +394,20 @@ class InviteLinkService:
             raise
 
     async def validate_and_use_invite_link(
-        self, invite_link: str, user_id: str, username: str = None, secure_data: str = None
-    ) -> Optional[Dict[str, Any]]:
+        self, invite_link: str, user_id: str, username: str | None = None, secure_data: str | None = None
+    ) -> dict[str, Any] | None:
         """
         Validate an invite link and mark it as used.
 
-        Args:
+
             invite_link: The invite link to validate
             user_id: Telegram user ID of the person using the link
             username: Telegram username (optional)
             secure_data: Secure data from the invite link (optional)
 
-        Returns:
-            Dict containing invite details if valid, None if invalid
+
+    :return: Dict containing invite details if valid, None if invalid
+    :rtype: str  # TODO: Fix type
         """
         try:
             invite_id = None
@@ -481,11 +487,12 @@ class InviteLinkService:
         """
         Revoke an invite link (mark as revoked).
 
-        Args:
+
             invite_id: The invite ID to revoke
 
-        Returns:
-            True if successful, False otherwise
+
+    :return: True if successful, False otherwise
+    :rtype: str  # TODO: Fix type
         """
         try:
             await self.database.update_document(
@@ -505,11 +512,12 @@ class InviteLinkService:
         """
         Get all active invite links for a team.
 
-        Args:
+
             team_id: Team ID
 
-        Returns:
-            List of active invite links
+
+    :return: List of active invite links
+    :rtype: str  # TODO: Fix type
         """
         try:
             filters = [
@@ -528,14 +536,15 @@ class InviteLinkService:
         """
         Create a mock invite link for testing environment.
 
-        Args:
+
             invite_id: Unique invite ID
             invite_type: Type of invite ("player" or "team_member")
             chat_id: Chat ID for the invite
             team_id: Team ID
 
-        Returns:
-            Mock invite link URL
+
+    :return: Mock invite link URL
+    :rtype: str  # TODO: Fix type
         """
         mock_base_url = os.getenv("MOCK_TELEGRAM_BASE_URL", "http://localhost:8001")
 
@@ -549,12 +558,13 @@ class InviteLinkService:
         """
         Create a Telegram invite link using the bot API.
 
-        Args:
+
             chat_id: Chat ID to create invite link for
             invite_id: Unique invite ID for reference
 
-        Returns:
-            The generated invite link
+
+    :return: The generated invite link
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Create invite link with custom parameters
@@ -579,15 +589,16 @@ class InviteLinkService:
             logger.error(f"❌ Error creating Telegram invite link: {e}")
             raise
 
-    def _extract_invite_id_from_mock_link(self, invite_link: str) -> Optional[str]:
+    def _extract_invite_id_from_mock_link(self, invite_link: str) -> str | None:
         """
         Extract invite ID from a mock invite link.
 
-        Args:
+
             invite_link: Mock invite link (e.g., http://localhost:8001/?invite=abc123&type=player&chat=123&team=KTI)
 
-        Returns:
-            The invite ID if found, None otherwise
+
+    :return: The invite ID if found, None otherwise
+    :rtype: str  # TODO: Fix type
         """
         try:
             from urllib.parse import parse_qs, urlparse
@@ -606,15 +617,16 @@ class InviteLinkService:
             logger.error(f"❌ Error extracting invite ID from mock link: {e}")
             return None
 
-    def _extract_invite_id_from_link(self, invite_link: str) -> Optional[str]:
+    def _extract_invite_id_from_link(self, invite_link: str) -> str | None:
         """
         Extract invite ID from a Telegram invite link.
 
-        Args:
+
             invite_link: The invite link
 
-        Returns:
-            The invite ID if found, None otherwise
+
+    :return: The invite ID if found, None otherwise
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Telegram invite links have format: https://t.me/+[invite_hash]
@@ -635,8 +647,9 @@ class InviteLinkService:
         """
         Clean up expired invite links from Firestore.
 
-        Returns:
-            Number of links cleaned up
+
+    :return: Number of links cleaned up
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Get all expired links
@@ -668,8 +681,8 @@ class InviteLinkService:
         player_phone: str,
         player_position: str,
         main_chat_id: str,
-        player_id: str = None,
-    ) -> Dict[str, Any]:
+        player_id: str | None = None,
+    ) -> dict[str, Any]:
         """Synchronous version of create_player_invite_link for CrewAI tools."""
         try:
             # Import here to avoid circular imports
@@ -677,7 +690,7 @@ class InviteLinkService:
 
             # Check if we're already in an event loop
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # We're in an event loop, create a task
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:

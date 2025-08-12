@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Team Member Update Tools
+========================
 
 This module provides tools for updating team member information with validation
 and approval workflows.
@@ -9,13 +10,14 @@ and approval workflows.
 import re
 from datetime import datetime
 
+from crewai.tools import tool
 from loguru import logger
 
 from kickai.core.constants import get_team_members_collection
 from kickai.core.dependency_container import get_container
+from kickai.core.enums import TeamMemberJobRole
 from kickai.database.firebase_client import FirebaseClient
-from kickai.utils.crewai_tool_decorator import tool
-from typing import List, Optional
+from kickai.utils.json_helper import json_error, json_response
 
 
 class TeamMemberUpdateValidationError(Exception):
@@ -23,26 +25,11 @@ class TeamMemberUpdateValidationError(Exception):
 
     pass
 
-
 class TeamMemberUpdateValidator:
     """Validator for team member information updates."""
 
-    # Valid roles for team members
-    VALID_ROLES = [
-        "team manager",
-        "coach",
-        "assistant coach",
-        "head coach",
-        "club administrator",
-        "treasurer",
-        "secretary",
-        "volunteer coordinator",
-        "volunteer",
-        "parent helper",
-        "first aid coordinator",
-        "equipment manager",
-        "transport coordinator",
-    ]
+    # Valid roles for team members - using enum as single source of truth
+    VALID_ROLES = [role.value for role in TeamMemberJobRole]
 
     # Fields that team members can update
     UPDATABLE_FIELDS = {
@@ -54,9 +41,8 @@ class TeamMemberUpdateValidator:
 
     # Fields that cannot be updated by users
     PROTECTED_FIELDS = {
-        "user_id",
-        "team_id",
         "telegram_id",
+        "team_id",
         "status",
         "created_at",
         "source",
@@ -168,32 +154,34 @@ class TeamMemberUpdateValidator:
         else:
             raise TeamMemberUpdateValidationError(f"Unknown field type: {field}")
 
-
 @tool("update_team_member_information")
 def update_team_member_information(
-    user_id: str, team_id: str, field: str, value: str, username: str = "Unknown"
+    telegram_id: int, team_id: str, field: str, value: str, username: str = "Unknown"
 ) -> str:
     """
     Update specific team member information field with validation and audit logging.
 
-    Args:
-        user_id: Telegram user ID of the team member
-        team_id: Team ID
-        field: Field name to update (phone, email, emergency_contact, role)
-        value: New value for the field
-        username: Username of the person making the update
-
-    Returns:
-        Success or error message
+    :param telegram_id: Telegram user ID of the team member (integer)
+    :type telegram_id: int
+    :param team_id: Team ID
+    :type team_id: str
+    :param field: Field name to update (phone, email, emergency_contact, role)
+    :type field: str
+    :param value: New value for the field
+    :type value: str
+    :param username: Username of the person making the update
+    :type username: str
+    :returns: Success or error message in JSON format
+    :rtype: str
     """
     try:
         logger.info(
-            f"🔄 Team member update request: user_id={user_id}, team_id={team_id}, field={field}"
+            f"🔄 Team member update request: telegram_id={telegram_id}, team_id={team_id}, field={field}"
         )
 
         # Validate inputs
-        if not user_id or not team_id or not field or not value:
-            return "❌ Update Failed: Missing required parameters (user_id, team_id, field, value)"
+        if not telegram_id or not team_id or not field or not value:
+            return json_error("Missing required parameters (telegram_id, team_id, field, value)", "Validation failed")
 
         # Initialize Firebase service
         container = get_container()
@@ -201,12 +189,12 @@ def update_team_member_information(
         collection_name = get_team_members_collection(team_id)
 
         # Check if team member exists
-        logger.info(f"🔍 Checking if team member exists: user_id={user_id}")
-        members = firebase_service.query_documents(collection_name, [("user_id", "==", user_id)])
+        logger.info(f"🔍 Checking if team member exists: telegram_id={telegram_id}")
+        members = firebase_service.query_documents(collection_name, [("telegram_id", "==", str(telegram_id))])
 
         if not members:
-            logger.warning(f"❌ Team member not found: user_id={user_id}")
-            return "❌ Update Failed: You are not registered as a team member. Use /register to register."
+            logger.warning(f"❌ Team member not found: telegram_id={telegram_id}")
+            return json_error("You are not registered as a team member. Use /register to register.", "Member not found")
 
         member = members[0]
         member_id = member.get("id", "unknown")
@@ -232,14 +220,14 @@ def update_team_member_information(
             )
 
             # Filter out the current member
-            duplicate_members = [m for m in existing_members if m.get("user_id") != user_id]
+            duplicate_members = [m for m in existing_members if m.get("telegram_id") != telegram_id]
 
             if duplicate_members:
                 duplicate_name = duplicate_members[0].get("name", "Unknown")
                 logger.warning(
                     f"❌ Duplicate phone number: {validated_value} already used by {duplicate_name}"
                 )
-                return f"❌ Update Failed: Phone number {validated_value} is already registered to another team member ({duplicate_name})"
+                return json_error(f"Phone number {validated_value} is already registered to another team member ({duplicate_name})", "Duplicate phone number")
 
         # Prepare update data
         current_time = datetime.now().isoformat()
@@ -249,7 +237,7 @@ def update_team_member_information(
             # Create approval request instead of direct update
             approval_data = {
                 "request_type": "field_update",
-                "user_id": user_id,
+                "telegram_id": telegram_id,
                 "member_id": member_id,
                 "member_name": member_name,
                 "team_id": team_id,
@@ -268,7 +256,19 @@ def update_team_member_information(
 
             logger.info(f"✅ Approval request created for {field} update")
 
-            return f"""⏳ Role Change Request Submitted
+            data = {
+                'telegram_id': telegram_id,
+                'team_id': team_id,
+                'field': field,
+                'old_value': old_value,
+                'new_value': validated_value,
+                'requested_by': username,
+                'requested_at': current_time,
+                'status': 'pending_approval',
+                'requires_approval': True
+            }
+
+            ui_format = f"""⏳ Role Change Request Submitted
 
 📋 Requested Change: {field} → {validated_value}
 👤 Requested By: {username}
@@ -278,6 +278,8 @@ def update_team_member_information(
 📧 You'll be notified when the request is processed.
 
 💡 Contact a team admin to expedite the approval."""
+
+            return json_response(data, ui_format=ui_format)
 
         else:
             # Direct update for non-approval fields
@@ -301,7 +303,7 @@ def update_team_member_information(
             "action": "team_member_info_update"
             if not requires_approval
             else "team_member_update_request",
-            "user_id": user_id,
+            "telegram_id": telegram_id,
             "member_id": member_id,
             "member_name": member_name,
             "team_id": team_id,
@@ -324,7 +326,20 @@ def update_team_member_information(
         if not requires_approval:
             field_description = validator.UPDATABLE_FIELDS.get(field, field)
 
-            return f"""✅ Information Updated Successfully!
+            data = {
+                'telegram_id': telegram_id,
+                'team_id': team_id,
+                'member_name': member_name,
+                'field': field,
+                'field_description': field_description,
+                'old_value': old_value,
+                'new_value': validated_value,
+                'updated_by': username,
+                'updated_at': current_time,
+                'status': 'updated'
+            }
+
+            ui_format = f"""✅ Information Updated Successfully!
 
 📋 Team Member: {member_name}
 🔄 Updated Field: {field_description}
@@ -334,41 +349,47 @@ def update_team_member_information(
 
 💡 Use /myinfo to view your complete updated information."""
 
+            return json_response(data, ui_format=ui_format)
+
     except TeamMemberUpdateValidationError as e:
         logger.warning(f"❌ Validation error: {e}")
-        return f"❌ Update Failed: {e!s}"
+        return json_error(f"Update Failed: {e!s}", "Validation failed")
 
     except Exception as e:
         logger.error(f"❌ Error updating team member information: {e}", exc_info=True)
-        return (
-            "❌ Update Failed: An unexpected error occurred. Please try again or contact support."
-        )
-
+        return json_error("An unexpected error occurred. Please try again or contact support.", "Operation failed")
 
 @tool("get_team_member_updatable_fields")
-def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
+def get_team_member_updatable_fields(telegram_id: str, team_id: str) -> str:
     """
     Get list of fields that a team member can update with examples and validation rules.
 
-    Args:
-        user_id: Telegram user ID of the team member
+
+        telegram_id: Telegram user ID of the team member
         team_id: Team ID
 
-    Returns:
-        List of updatable fields with descriptions and examples
+
+    :return: List of updatable fields with descriptions and examples
+    :rtype: str  # TODO: Fix type
     """
     try:
-        logger.info(f"📋 Getting updatable fields for team member: user_id={user_id}")
+        logger.info(f"📋 Getting updatable fields for team member: telegram_id={telegram_id}")
 
         # Check if team member exists
         container = get_container()
         firebase_service = container.get_service(FirebaseClient)
         collection_name = get_team_members_collection(team_id)
 
-        members = firebase_service.query_documents(collection_name, [("user_id", "==", user_id)])
+        members = firebase_service.query_documents(collection_name, [("telegram_id", "==", telegram_id)])
 
         if not members:
-            return """❌ Update Not Available
+            data = {
+                'telegram_id': telegram_id,
+                'team_id': team_id,
+                'status': 'not_registered',
+                'updatable_fields': []
+            }
+            ui_format = """❌ Update Not Available
 
 🔍 You are not registered as a team member in this team.
 
@@ -378,6 +399,7 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
 3. You'll be added to the team members collection
 
 💡 Need help? Use /help to see available commands."""
+            return json_response(data, ui_format=ui_format)
 
         member = members[0]
         member_name = member.get("name", "Unknown Member")
@@ -386,7 +408,45 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
         # Get valid roles for reference
         roles = ", ".join(TeamMemberUpdateValidator.VALID_ROLES[:8]) + "..."
 
-        return f"""✅ Team Member Information Update
+        data = {
+            'telegram_id': telegram_id,
+            'team_id': team_id,
+            'member_name': member_name,
+            'current_role': current_role,
+            'status': 'registered',
+            'updatable_fields': [
+                {
+                    'field': 'phone',
+                    'description': 'Your contact phone number',
+                    'example': '/update phone 07123456789',
+                    'format': 'UK numbers (+44 or 07xxx format)',
+                    'requires_approval': False
+                },
+                {
+                    'field': 'email',
+                    'description': 'Your email address',
+                    'example': '/update email admin@example.com',
+                    'format': 'Valid email address',
+                    'requires_approval': False
+                },
+                {
+                    'field': 'emergency_contact',
+                    'description': 'Emergency contact info',
+                    'example': '/update emergency_contact +44787654321',
+                    'format': 'Phone number or contact details',
+                    'requires_approval': False
+                },
+                {
+                    'field': 'role',
+                    'description': 'Your administrative role (ADMIN APPROVAL REQUIRED)',
+                    'example': '/update role Assistant Coach',
+                    'format': f'Valid: {roles}',
+                    'requires_approval': True
+                }
+            ]
+        }
+
+        ui_format = f"""✅ Team Member Information Update
 
 👤 {member_name} (Current Role: {current_role})
 
@@ -418,24 +478,26 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
 
 💡 Use /myinfo to view your current information before updating."""
 
+        return json_response(data, ui_format=ui_format)
+
     except Exception as e:
         logger.error(f"❌ Error getting updatable fields: {e}", exc_info=True)
-        return "❌ Error retrieving updatable fields. Please try again."
-
+        return json_error("Error retrieving updatable fields. Please try again.", "Operation failed")
 
 @tool("validate_team_member_update_request")
-def validate_team_member_update_request(user_id: str, team_id: str, field: str, value: str) -> str:
+def validate_team_member_update_request(telegram_id: str, team_id: str, field: str, value: str) -> str:
     """
     Validate a team member update request without actually performing the update.
 
-    Args:
-        user_id: Telegram user ID of the team member
+
+        telegram_id: Telegram user ID of the team member
         team_id: Team ID
         field: Field name to validate
         value: Value to validate
 
-    Returns:
-        Validation result message
+
+    :return: Validation result message
+    :rtype: str  # TODO: Fix type
     """
     try:
         logger.info(f"🔍 Validating team member update: field={field}, value={value}")
@@ -445,10 +507,10 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
         firebase_service = container.get_service(FirebaseClient)
         collection_name = get_team_members_collection(team_id)
 
-        members = firebase_service.query_documents(collection_name, [("user_id", "==", user_id)])
+        members = firebase_service.query_documents(collection_name, [("telegram_id", "==", telegram_id)])
 
         if not members:
-            return "❌ Validation Failed: You are not registered as a team member"
+            return json_error("You are not registered as a team member", "Member not found")
 
         # Validate field and value
         validator = TeamMemberUpdateValidator()
@@ -462,15 +524,25 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
                 collection_name, [("phone", "==", validated_value)]
             )
 
-            duplicate_members = [m for m in existing_members if m.get("user_id") != user_id]
+            duplicate_members = [m for m in existing_members if m.get("telegram_id") != telegram_id]
 
             if duplicate_members:
-                return "❌ Validation Failed: Phone number already in use"
+                return json_error("Phone number already in use", "Duplicate phone number")
 
         field_description = validator.UPDATABLE_FIELDS.get(field, field)
         approval_note = " (requires admin approval)" if requires_approval else ""
 
-        return f"""✅ Validation Successful
+        data = {
+            'telegram_id': telegram_id,
+            'team_id': team_id,
+            'field': field,
+            'field_description': field_description,
+            'validated_value': validated_value,
+            'requires_approval': requires_approval,
+            'status': 'validated'
+        }
+
+        ui_format = f"""✅ Validation Successful
 
 🔄 Field: {field_description}{approval_note}
 🆕 Validated Value: {validated_value}
@@ -478,25 +550,27 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
 
 💡 Use /update {field} {validated_value} to apply this change."""
 
+        return json_response(data, ui_format=ui_format)
+
     except TeamMemberUpdateValidationError as e:
-        return f"❌ Validation Failed: {e!s}"
+        return json_error(f"Validation Failed: {e!s}", "Validation failed")
 
     except Exception as e:
         logger.error(f"❌ Error validating update request: {e}")
-        return "❌ Validation Error: Please check your input and try again"
-
+        return json_error("Validation Error: Please check your input and try again", "Operation failed")
 
 @tool("get_pending_team_member_approval_requests")
-def get_pending_team_member_approval_requests(team_id: str, user_id: str = None) -> str:
+def get_pending_team_member_approval_requests(team_id: str, telegram_id: str | None = None) -> str:
     """
     Get pending approval requests for team member updates.
 
-    Args:
-        team_id: Team ID
-        user_id: Optional user ID to filter requests for specific user
 
-    Returns:
-        List of pending approval requests
+        team_id: Team ID
+        telegram_id: Optional user ID to filter requests for specific user
+
+
+    :return: List of pending approval requests
+    :rtype: str  # TODO: Fix type
     """
     try:
         logger.info(f"📋 Getting pending approval requests for team: {team_id}")
@@ -506,22 +580,31 @@ def get_pending_team_member_approval_requests(team_id: str, user_id: str = None)
 
         # Build query filters
         filters = [("status", "==", "pending"), ("request_type", "==", "field_update")]
-        if user_id:
-            filters.append(("user_id", "==", user_id))
+        if telegram_id:
+            filters.append(("telegram_id", "==", telegram_id))
 
         # Get pending requests
         requests = firebase_service.query_documents(f"kickai_{team_id}_approval_requests", filters)
 
         if not requests:
-            if user_id:
-                return "✅ No pending approval requests for your account."
+            data = {
+                'team_id': team_id,
+                'telegram_id': telegram_id,
+                'requests': [],
+                'total_requests': 0,
+                'status': 'no_pending_requests'
+            }
+            if telegram_id:
+                ui_format = "✅ No pending approval requests for your account."
             else:
-                return "✅ No pending approval requests."
+                ui_format = "✅ No pending approval requests."
+            return json_response(data, ui_format=ui_format)
 
         # Format response
-        if user_id:
+        if telegram_id:
             # Single user view
             request_list = []
+            requests_data = []
             for req in requests:
                 request_time = datetime.fromisoformat(req["requested_at"]).strftime(
                     "%d %b %Y at %H:%M"
@@ -529,8 +612,23 @@ def get_pending_team_member_approval_requests(team_id: str, user_id: str = None)
                 request_list.append(
                     f"• {req['field']}: {req['old_value']} → {req['new_value']} (Requested: {request_time})"
                 )
+                requests_data.append({
+                    'field': req['field'],
+                    'old_value': req['old_value'],
+                    'new_value': req['new_value'],
+                    'requested_at': req['requested_at'],
+                    'formatted_time': request_time
+                })
 
-            return f"""⏳ Your Pending Approval Requests:
+            data = {
+                'team_id': team_id,
+                'telegram_id': telegram_id,
+                'requests': requests_data,
+                'total_requests': len(requests),
+                'status': 'user_pending_requests'
+            }
+
+            ui_format = f"""⏳ Your Pending Approval Requests:
 
 {chr(10).join(request_list)}
 
@@ -538,9 +636,12 @@ def get_pending_team_member_approval_requests(team_id: str, user_id: str = None)
 📧 You'll be notified when processed.
 💡 Contact a team admin for status updates."""
 
+            return json_response(data, ui_format=ui_format)
+
         else:
             # Admin view - all pending requests
             request_list = []
+            requests_data = []
             for req in requests:
                 request_time = datetime.fromisoformat(req["requested_at"]).strftime(
                     "%d %b %Y at %H:%M"
@@ -548,8 +649,25 @@ def get_pending_team_member_approval_requests(team_id: str, user_id: str = None)
                 request_list.append(
                     f"• {req['member_name']}: {req['field']} → {req['new_value']} (Requested: {request_time})"
                 )
+                requests_data.append({
+                    'member_name': req['member_name'],
+                    'telegram_id': req['telegram_id'],
+                    'field': req['field'],
+                    'old_value': req['old_value'],
+                    'new_value': req['new_value'],
+                    'requested_at': req['requested_at'],
+                    'formatted_time': request_time
+                })
 
-            return f"""⏳ All Pending Approval Requests:
+            data = {
+                'team_id': team_id,
+                'telegram_id': telegram_id,
+                'requests': requests_data,
+                'total_requests': len(requests),
+                'status': 'admin_pending_requests'
+            }
+
+            ui_format = f"""⏳ All Pending Approval Requests:
 
 {chr(10).join(request_list)}
 
@@ -558,6 +676,8 @@ Use team admin tools to approve or reject these requests.
 
 📊 Total Requests: {len(requests)}"""
 
+            return json_response(data, ui_format=ui_format)
+
     except Exception as e:
         logger.error(f"❌ Error getting approval requests: {e}", exc_info=True)
-        return "❌ Error retrieving approval requests. Please try again."
+        return json_error("Error retrieving approval requests. Please try again.", "Operation failed")

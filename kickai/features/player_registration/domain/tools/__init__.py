@@ -5,26 +5,26 @@ Player registration tools module.
 This module provides tools for player registration and management.
 """
 
-# Import the function-based tools
-from .player_tools import (
+# Import the native CrewAI tools (working version without missing dependencies)
+from .player_tools_native import (
     approve_player,
-    get_all_players,
     get_active_players,
+    get_all_players,
     get_my_status,
-    get_player_match,
-    get_player_status,
     list_team_members_and_players,
 )
 
+# Note: get_player_match and get_player_status are only in the JSON version
+# For now, using native versions which don't include these tools
+
 __all__ = [
-    # Player management tools (only the ones actually used by agents)
+    # Player management tools (available in native version)
     "approve_player",
     "get_my_status",
-    "get_player_status",
     "get_all_players",
     "get_active_players",
-    "get_player_match",
     "list_team_members_and_players",
+    # Note: get_player_status and get_player_match are only in JSON version (temporarily unavailable)
 ]
 
 # Note: Removed unused tools: remove_player, get_player_info, list_players

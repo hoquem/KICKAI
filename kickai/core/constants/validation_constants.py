@@ -8,7 +8,6 @@ field lengths, patterns, and validation rules.
 import re
 from dataclasses import dataclass, field
 from re import Pattern
-from typing import List, Union
 
 
 @dataclass(frozen=True)
@@ -31,12 +30,12 @@ class ValidationConstants:
     INTERNATIONAL_PHONE_REGEX: str = r"^\+?[1-9]\d{1,14}$"
 
     # Player Position Validation
-    VALID_PLAYER_POSITIONS: List[str] = field(default_factory=lambda: [
+    VALID_PLAYER_POSITIONS: list[str] = field(default_factory=lambda: [
         "goalkeeper", "defender", "midfielder", "forward", "winger", "striker", "utility", "any"
     ])
 
     # Team Member Role Validation
-    VALID_TEAM_MEMBER_ROLES: List[str] = field(default_factory=lambda: [
+    VALID_TEAM_MEMBER_ROLES: list[str] = field(default_factory=lambda: [
         "coach", "manager", "assistant", "coordinator", "volunteer", "admin", "member"
     ])
 
@@ -71,8 +70,8 @@ class ValidationConstants:
     MAX_CHAT_ID_VALUE: int = 2147483647   # 32-bit signed integer max
 
     # File Validation
-    ALLOWED_IMAGE_EXTENSIONS: List[str] = field(default_factory=lambda: [".jpg", ".jpeg", ".png", ".gif", ".webp"])
-    ALLOWED_DOCUMENT_EXTENSIONS: List[str] = field(default_factory=lambda: [".pdf", ".doc", ".docx", ".txt", ".csv"])
+    ALLOWED_IMAGE_EXTENSIONS: list[str] = field(default_factory=lambda: [".jpg", ".jpeg", ".png", ".gif", ".webp"])
+    ALLOWED_DOCUMENT_EXTENSIONS: list[str] = field(default_factory=lambda: [".pdf", ".doc", ".docx", ".txt", ".csv"])
     MAX_FILENAME_LENGTH: int = 255
 
     # Email Validation (optional)
@@ -104,11 +103,12 @@ class ValidationConstants:
         """
         Get compiled regex pattern by name.
 
-        Args:
+
             pattern_name: Name of the regex pattern
 
-        Returns:
-            Compiled regex pattern
+
+    :return: Compiled regex pattern
+    :rtype: str  # TODO: Fix type
         """
         patterns = {
             "uk_phone": cls.UK_PHONE_REGEX,
@@ -135,11 +135,12 @@ class ValidationConstants:
         """
         Validate player position.
 
-        Args:
+
             position: Position to validate
 
-        Returns:
-            True if valid position
+
+    :return: True if valid position
+    :rtype: str  # TODO: Fix type
         """
         return position.lower() in cls.VALID_PLAYER_POSITIONS
 
@@ -148,24 +149,26 @@ class ValidationConstants:
         """
         Validate team member role.
 
-        Args:
+
             role: Role to validate
 
-        Returns:
-            True if valid role
+
+    :return: True if valid role
+    :rtype: str  # TODO: Fix type
         """
         return role.lower() in cls.VALID_TEAM_MEMBER_ROLES
 
     @classmethod
-    def get_position_suggestions(cls, partial: str) -> List[str]:
+    def get_position_suggestions(cls, partial: str) -> list[str]:
         """
         Get position suggestions for partial input.
 
-        Args:
+
             partial: Partial position input
 
-        Returns:
-            List of matching positions
+
+    :return: List of matching positions
+    :rtype: str  # TODO: Fix type
         """
         partial_lower = partial.lower()
         return [
@@ -174,15 +177,16 @@ class ValidationConstants:
         ]
 
     @classmethod
-    def get_role_suggestions(cls, partial: str) -> List[str]:
+    def get_role_suggestions(cls, partial: str) -> list[str]:
         """
         Get role suggestions for partial input.
 
-        Args:
+
             partial: Partial role input
 
-        Returns:
-            List of matching roles
+
+    :return: List of matching roles
+    :rtype: str  # TODO: Fix type
         """
         partial_lower = partial.lower()
         return [
@@ -195,13 +199,14 @@ class ValidationConstants:
         """
         Get user-friendly validation error message.
 
-        Args:
+
             field: Field name that failed validation
             value: Value that failed validation
             error_type: Type of validation error
 
-        Returns:
-            User-friendly error message
+
+    :return: User-friendly error message
+    :rtype: str  # TODO: Fix type
         """
         messages = {
             "too_short": f"{field} is too short. Minimum length is {cls._get_min_length(field)} characters.",

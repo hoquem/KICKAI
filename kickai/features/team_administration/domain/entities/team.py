@@ -1,9 +1,8 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional, Set, Dict
+from typing import Any
 
 from kickai.core.enums import TeamStatus
-from .team_member import TeamMember  # re-export compatibility for tests
 
 # TeamMember class moved to separate file: team_member.py
 
@@ -15,26 +14,26 @@ class Team:
     description: str = ""
     created_by: str = "system"
     created_at: datetime = field(default_factory=datetime.now)
-    updated_at: Optional[datetime] = None
-    settings: Dict[str, Any] = field(default_factory=dict)
-    fa_team_url: Optional[str] = None
-    fa_fixtures_url: Optional[str] = None
-    id: Optional[str] = None
+    updated_at: datetime | None = None
+    settings: dict[str, Any] = field(default_factory=dict)
+    fa_team_url: str | None = None
+    fa_fixtures_url: str | None = None
+    id: str | None = None
 
     # Bot configuration - SINGLE SOURCE OF TRUTH
     # These fields are the authoritative source for bot configuration
     # The settings dict should NOT contain duplicate bot config
-    bot_id: Optional[str] = None
-    bot_token: Optional[str] = None
-    main_chat_id: Optional[str] = None
-    leadership_chat_id: Optional[str] = None
+    bot_id: str | None = None
+    bot_token: str | None = None
+    main_chat_id: str | None = None
+    leadership_chat_id: str | None = None
 
     def __post_init__(self):
         """Ensure data consistency after initialization."""
         # Bot configuration is now stored in explicit fields only
         pass
 
-    def get_bot_config(self) -> Dict[str, Any]:
+    def get_bot_config(self) -> dict[str, Any]:
         """Get bot configuration as a dictionary."""
         return {
             "bot_id": self.bot_id,
@@ -45,10 +44,10 @@ class Team:
 
     def set_bot_config(
         self,
-        bot_id: str = None,
-        bot_token: str = None,
-        main_chat_id: str = None,
-        leadership_chat_id: str = None,
+        bot_id: str | None = None,
+        bot_token: str | None = None,
+        main_chat_id: str | None = None,
+        leadership_chat_id: str | None = None,
     ):
         """Set bot configuration."""
         if bot_id is not None:

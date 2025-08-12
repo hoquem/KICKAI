@@ -1,4 +1,3 @@
-from typing import Optional, Set, List
 #!/usr/bin/env python3
 """
 Team Member Service
@@ -12,14 +11,15 @@ from datetime import datetime
 
 from loguru import logger
 
+from kickai.core.interfaces.team_repositories import ITeamRepository
+
 from ..entities.team_member import TeamMember
-from ..repositories.team_repository_interface import TeamRepositoryInterface
 
 
 class TeamMemberService:
     """Service for managing team members (administrative/management roles)."""
 
-    def __init__(self, team_repository: TeamRepositoryInterface):
+    def __init__(self, team_repository: ITeamRepository):
         self.team_repository = team_repository
         self.logger = logger
 
@@ -42,7 +42,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to create team member: {e}")
             raise
 
-    async def get_team_member_by_id(self, member_id: str) -> Optional[TeamMember]:
+    async def get_team_member_by_id(self, member_id: str) -> TeamMember | None:
         """Get a team member by ID."""
         try:
             return await self.team_repository.get_team_member_by_id(member_id)
@@ -50,7 +50,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team member by ID {member_id}: {e}")
             return None
 
-    async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> Optional[TeamMember]:
+    async def get_team_member_by_telegram_id(self, telegram_id: str, team_id: str) -> TeamMember | None:
         """Get a team member by Telegram ID and team."""
         try:
             return await self.team_repository.get_team_member_by_telegram_id(team_id, telegram_id)
@@ -58,7 +58,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team member by Telegram ID {telegram_id}: {e}")
             return None
 
-    async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]:
+    async def get_team_members_by_team(self, team_id: str) -> list[TeamMember]:
         """Get all team members for a team."""
         try:
             members = await self.team_repository.get_team_members(team_id)
@@ -68,7 +68,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team members for team {team_id}: {e}")
             return []
 
-    async def get_team_members_by_role(self, team_id: str, role: str) -> List[TeamMember]:
+    async def get_team_members_by_role(self, team_id: str, role: str) -> list[TeamMember]:
         """Get team members by specific role."""
         try:
             all_members = await self.get_team_members_by_team(team_id)
@@ -125,7 +125,7 @@ class TeamMemberService:
         try:
             import asyncio
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(asyncio.run, self.add_role_to_member(telegram_id, team_id, role))
@@ -161,7 +161,7 @@ class TeamMemberService:
         try:
             import asyncio
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(asyncio.run, self.remove_role_from_member(telegram_id, team_id, role))
@@ -199,7 +199,7 @@ class TeamMemberService:
         try:
             import asyncio
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(asyncio.run, self.promote_to_admin(telegram_id, team_id, promoted_by))
@@ -223,12 +223,13 @@ class TeamMemberService:
         """
         Get current user's team member status and information.
 
-        Args:
+
             telegram_id: The user's Telegram ID
             team_id: The team ID
 
-        Returns:
-            User's team member status and information as a formatted string
+
+    :return: User's team member status and information as a formatted string
+    :rtype: str  # TODO: Fix type
         """
         try:
             team_member = await self.get_team_member_by_telegram_id(telegram_id, team_id)
@@ -256,7 +257,7 @@ class TeamMemberService:
         return f"""👥 Team Member Information
 
 📋 Name: {team_member.name or team_member.first_name or "Not set"}
-🔑 User ID: {team_member.user_id}
+🔑 Member ID: {team_member.member_id or f"TG_{team_member.telegram_id}"}
 {admin_status}
 🎭 Role: {role_text}
 🏢 Team: {team_member.team_id}
@@ -270,20 +271,17 @@ class TeamMemberService:
         """Validate team member data."""
         if not team_member.team_id:
             raise ValueError("Team ID cannot be empty")
-        if not team_member.user_id:
-            raise ValueError("User ID cannot be empty")
-        if not team_member.role:
-            raise ValueError("Team member must have a role")
+        
+        # Require either member_id or telegram_id for identification
+        if not team_member.member_id and not team_member.telegram_id:
+            raise ValueError("Either member_id or telegram_id must be provided")
+        
+        if not team_member.roles:
+            raise ValueError("Team member must have roles")
 
         # Validate that no "player" role exists (handled by Player entity)
-        if team_member.role == "player":
+        if "player" in team_member.roles:
             raise ValueError("Team members cannot have 'player' role - use Player entity instead")
-
-        # Validate user_id format
-        if not team_member.user_id.startswith("user_"):
-            raise ValueError(
-                f"Invalid user_id format: {team_member.user_id}. Must start with 'user_'"
-            )
 
     # Synchronous methods for CrewAI tools
     def get_my_status_sync(self, telegram_id: str, team_id: str) -> str:
@@ -294,7 +292,7 @@ class TeamMemberService:
 
             # Check if we're already in an event loop
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # We're in an event loop, create a task
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -308,7 +306,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get status for user {telegram_id}: {e}")
             return f"❌ Error retrieving status: {e!s}"
 
-    def get_team_members_by_team_sync(self, team_id: str) -> List[TeamMember]:
+    def get_team_members_by_team_sync(self, team_id: str) -> list[TeamMember]:
         """Synchronous version of get_team_members_by_team for CrewAI tools."""
         try:
             # Import here to avoid circular imports
@@ -316,7 +314,7 @@ class TeamMemberService:
 
             # Check if we're already in an event loop
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # We're in an event loop, create a task
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -330,7 +328,7 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to get team members for team {team_id}: {e}")
             return []
 
-    def get_team_members_by_role_sync(self, team_id: str, role: str) -> List[TeamMember]:
+    def get_team_members_by_role_sync(self, team_id: str, role: str) -> list[TeamMember]:
         """Synchronous version of get_team_members_by_role for CrewAI tools."""
         try:
             # Import here to avoid circular imports
@@ -338,7 +336,7 @@ class TeamMemberService:
 
             # Check if we're already in an event loop
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # We're in an event loop, create a task
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:

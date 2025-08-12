@@ -8,14 +8,14 @@ clean separation between application and domain layers.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from kickai.core.value_objects import (
     EntityContext,
     PhoneNumber,
     PlayerId,
     TeamId,
-    UserId,
+    TelegramId,
     UserRegistration,
 )
 
@@ -31,19 +31,22 @@ class IPlayerService(ABC):
         position: str,
         team_id: TeamId,
         context: EntityContext
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Register a new player.
 
-        Args:
-            name: Player name
-            phone: Player phone number
-            position: Player position
-            team_id: Team identifier
-            context: Registration context
-
-        Returns:
-            Registration result with player data
+        :param name: Player name
+        :type name: str
+        :param phone: Player phone number
+        :type phone: PhoneNumber
+        :param position: Player position
+        :type position: str
+        :param team_id: Team identifier
+        :type team_id: TeamId
+        :param context: Registration context
+        :type context: EntityContext
+        :return: Registration result with player data
+        :rtype: dict[str, Any]
         """
         pass
 
@@ -53,17 +56,18 @@ class IPlayerService(ABC):
         player_id: PlayerId,
         team_id: TeamId,
         requester_context: EntityContext
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get player status information.
 
-        Args:
+
             player_id: Player identifier
             team_id: Team identifier
             requester_context: Context of the requester
 
-        Returns:
-            Player status information
+
+    :return: Player status information
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -72,16 +76,17 @@ class IPlayerService(ABC):
         self,
         team_id: TeamId,
         requester_context: EntityContext
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get list of active players.
 
-        Args:
+
             team_id: Team identifier
             requester_context: Context of the requester
 
-        Returns:
-            List of active players
+
+    :return: List of active players
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -95,13 +100,14 @@ class IPlayerService(ABC):
         """
         Approve player registration.
 
-        Args:
+
             player_id: Player to approve
             team_id: Team identifier
             approver_context: Context of the approver
 
-        Returns:
-            True if approved successfully
+
+    :return: True if approved successfully
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -110,20 +116,21 @@ class IPlayerService(ABC):
         self,
         player_id: PlayerId,
         team_id: TeamId,
-        updates: Dict[str, Any],
+        updates: dict[str, Any],
         updater_context: EntityContext
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update player information.
 
-        Args:
+
             player_id: Player identifier
             team_id: Team identifier
             updates: Fields to update
             updater_context: Context of the updater
 
-        Returns:
-            Updated player information
+
+    :return: Updated player information
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -139,19 +146,20 @@ class ITeamService(ABC):
         role: str,
         team_id: TeamId,
         context: EntityContext
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Add new team member.
 
-        Args:
+
             name: Member name
             phone: Member phone number
             role: Member role
             team_id: Team identifier
             context: Addition context
 
-        Returns:
-            Addition result with member data
+
+    :return: Addition result with member data
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -160,38 +168,40 @@ class ITeamService(ABC):
         self,
         team_id: TeamId,
         requester_context: EntityContext
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get list of team members.
 
-        Args:
+
             team_id: Team identifier
             requester_context: Context of the requester
 
-        Returns:
-            List of team members
+
+    :return: List of team members
+    :rtype: str  # TODO: Fix type
         """
         pass
 
     @abstractmethod
     async def update_team_member(
         self,
-        user_id: UserId,
+        user_id: TelegramId,
         team_id: TeamId,
-        updates: Dict[str, Any],
+        updates: dict[str, Any],
         updater_context: EntityContext
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update team member information.
 
-        Args:
+
             user_id: Member identifier
             team_id: Team identifier
             updates: Fields to update
             updater_context: Context of the updater
 
-        Returns:
-            Updated member information
+
+    :return: Updated member information
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -200,16 +210,17 @@ class ITeamService(ABC):
         self,
         team_id: TeamId,
         requester_context: EntityContext
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get team configuration.
 
-        Args:
+
             team_id: Team identifier
             requester_context: Context of the requester
 
-        Returns:
-            Team configuration
+
+    :return: Team configuration
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -220,18 +231,19 @@ class IUserService(ABC):
     @abstractmethod
     async def get_user_registration(
         self,
-        user_id: UserId,
+        user_id: TelegramId,
         team_id: TeamId
     ) -> UserRegistration:
         """
         Get user registration status.
 
-        Args:
+
             user_id: User identifier
             team_id: Team identifier
 
-        Returns:
-            User registration status
+
+    :return: User registration status
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -242,42 +254,44 @@ class IUserService(ABC):
         team_id: str,
         chat_id: str,
         chat_type: str,
-        username: Optional[str] = None
+        username: str | None = None
     ) -> EntityContext:
         """
         Create entity context for a user.
 
-        Args:
+
             user_id: User identifier
             team_id: Team identifier
             chat_id: Chat identifier
             chat_type: Chat type
             username: Optional username
 
-        Returns:
-            Complete entity context
+
+    :return: Complete entity context
+    :rtype: str  # TODO: Fix type
         """
         pass
 
     @abstractmethod
     async def update_user_permissions(
         self,
-        user_id: UserId,
+        user_id: TelegramId,
         team_id: TeamId,
-        permissions: List[str],
+        permissions: list[str],
         updater_context: EntityContext
     ) -> bool:
         """
         Update user permissions.
 
-        Args:
+
             user_id: User identifier
             team_id: Team identifier
             permissions: New permissions
             updater_context: Context of the updater
 
-        Returns:
-            True if updated successfully
+
+    :return: True if updated successfully
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -290,11 +304,12 @@ class IValidationService(ABC):
         """
         Validate phone number format.
 
-        Args:
+
             phone: Phone number to validate
 
-        Returns:
-            True if valid format
+
+    :return: True if valid format
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -303,11 +318,12 @@ class IValidationService(ABC):
         """
         Validate player position.
 
-        Args:
+
             position: Position to validate
 
-        Returns:
-            True if valid position
+
+    :return: True if valid position
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -316,11 +332,12 @@ class IValidationService(ABC):
         """
         Validate team member role.
 
-        Args:
+
             role: Role to validate
 
-        Returns:
-            True if valid role
+
+    :return: True if valid role
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -328,35 +345,37 @@ class IValidationService(ABC):
     def validate_user_permissions(
         self,
         user_context: EntityContext,
-        required_permissions: List[str]
+        required_permissions: list[str]
     ) -> bool:
         """
         Validate user has required permissions.
 
-        Args:
+
             user_context: User context to check
             required_permissions: Required permissions
 
-        Returns:
-            True if user has all required permissions
+
+    :return: True if user has all required permissions
+    :rtype: str  # TODO: Fix type
         """
         pass
 
     @abstractmethod
     def get_validation_errors(
         self,
-        data: Dict[str, Any],
-        validation_rules: Dict[str, Any]
-    ) -> List[str]:
+        data: dict[str, Any],
+        validation_rules: dict[str, Any]
+    ) -> list[str]:
         """
         Get validation errors for data.
 
-        Args:
+
             data: Data to validate
             validation_rules: Validation rules to apply
 
-        Returns:
-            List of validation error messages
+
+    :return: List of validation error messages
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -367,20 +386,21 @@ class INotificationService(ABC):
     @abstractmethod
     async def send_welcome_message(
         self,
-        user_id: UserId,
+        user_id: TelegramId,
         team_id: TeamId,
         message_type: str
     ) -> bool:
         """
         Send welcome message to user.
 
-        Args:
+
             user_id: User identifier
             team_id: Team identifier
             message_type: Type of welcome message
 
-        Returns:
-            True if sent successfully
+
+    :return: True if sent successfully
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -389,58 +409,61 @@ class INotificationService(ABC):
         self,
         player_id: PlayerId,
         team_id: TeamId,
-        approved_by: UserId
+        approved_by: TelegramId
     ) -> bool:
         """
         Send approval notification.
 
-        Args:
+
             player_id: Approved player
             team_id: Team identifier
             approved_by: Who approved
 
-        Returns:
-            True if sent successfully
+
+    :return: True if sent successfully
+    :rtype: str  # TODO: Fix type
         """
         pass
 
     @abstractmethod
     async def send_registration_notification(
         self,
-        new_member_id: UserId,
+        new_member_id: TelegramId,
         team_id: TeamId,
         registration_type: str
     ) -> bool:
         """
         Send registration notification to leadership.
 
-        Args:
+
             new_member_id: New member/player
             team_id: Team identifier
             registration_type: "player" or "team_member"
 
-        Returns:
-            True if sent successfully
+
+    :return: True if sent successfully
+    :rtype: str  # TODO: Fix type
         """
         pass
 
     @abstractmethod
     async def send_error_notification(
         self,
-        user_id: UserId,
+        user_id: TelegramId,
         error_message: str,
         context: EntityContext
     ) -> bool:
         """
         Send error notification to user.
 
-        Args:
+
             user_id: User identifier
             error_message: Error message
             context: Error context
 
-        Returns:
-            True if sent successfully
+
+    :return: True if sent successfully
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -451,15 +474,15 @@ class IAnalyticsService(ABC):
     @abstractmethod
     async def track_user_action(
         self,
-        user_id: UserId,
+        user_id: TelegramId,
         action: str,
         context: EntityContext,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> None:
         """
         Track user action for analytics.
 
-        Args:
+
             user_id: User identifier
             action: Action performed
             context: Action context
@@ -471,17 +494,18 @@ class IAnalyticsService(ABC):
     async def get_team_analytics(
         self,
         team_id: TeamId,
-        date_range: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        date_range: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Get team analytics data.
 
-        Args:
+
             team_id: Team identifier
             date_range: Optional date range filter
 
-        Returns:
-            Analytics data
+
+    :return: Analytics data
+    :rtype: str  # TODO: Fix type
         """
         pass
 
@@ -490,15 +514,16 @@ class IAnalyticsService(ABC):
         self,
         team_id: TeamId,
         period: str = "week"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get user engagement metrics.
 
-        Args:
+
             team_id: Team identifier
             period: Time period for metrics
 
-        Returns:
-            Engagement metrics
+
+    :return: Engagement metrics
+    :rtype: str  # TODO: Fix type
         """
         pass

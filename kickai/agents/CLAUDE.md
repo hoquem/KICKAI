@@ -28,6 +28,43 @@ kickai/agents/
 └── user_flow_agent.py              # User flow and intent detection
 ```
 
+# ⚠️ CREWAI DEVELOPMENT RULES (MANDATORY) ⚠️
+
+## Before Modifying ANY CrewAI Code
+
+**STOP and check these requirements FIRST:**
+
+### 🔍 Pre-Development Checklist
+- [ ] Am I using ONLY native CrewAI patterns?
+- [ ] Am I avoiding custom decorators or wrappers?
+- [ ] Are my tool parameters simple types (str, int, bool)?
+- [ ] Do my tools return strings?
+- [ ] Have I checked the main CLAUDE.md CrewAI rules?
+
+### 🚨 Development Decision Tree
+When encountering any CrewAI issue:
+1. **FIRST**: Check if current approach follows native CrewAI patterns
+2. **SECOND**: Review official CrewAI documentation for the correct pattern
+3. **THIRD**: Simplify to the most basic CrewAI example that works
+4. **ONLY THEN**: If native patterns fail, ask for guidance
+
+### 📝 CrewAI Code Review Checklist
+Before completing any CrewAI-related changes:
+- ✅ Using `@tool` from `crewai.tools`?
+- ✅ Tools have clear docstrings with Args/Returns?
+- ✅ All parameters are simple types (str, int, bool, float)?
+- ✅ All tools return strings?
+- ✅ No custom parameter handling or complex data structures?
+- ✅ Following the exact patterns shown in main CLAUDE.md?
+
+**If ANY checkbox is unchecked, STOP and fix before proceeding.**
+
+### 🎯 Agent-Specific Rules
+- **Tools**: Must be independent, simple functions with `@tool` decorator
+- **Agents**: Use native `Agent` class with simple configuration
+- **Tasks**: Use native `Task` class with clear descriptions
+- **Crew**: Use native `Crew` orchestration only
+
 ## Critical Agent Rules (MANDATORY)
 
 ### ⚠️ CrewAI Native Methods ONLY

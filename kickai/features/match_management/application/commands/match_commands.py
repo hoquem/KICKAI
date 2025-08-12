@@ -15,7 +15,6 @@ from kickai.core.enums import ChatType
 from kickai.features.match_management.domain.entities.attendance import AttendanceStatus
 from kickai.features.match_management.domain.entities.availability import AvailabilityStatus
 from kickai.features.match_management.domain.services.attendance_service import AttendanceService
-from typing import List, Optional
 from kickai.features.match_management.domain.services.availability_service import (
     AvailabilityService,
 )
@@ -680,7 +679,7 @@ async def handle_selectsquad_command(update, context, **kwargs):
             return "❌ **Missing match ID**. Usage: `/selectsquad [match_id] [player_ids]`"
 
         match_id = args[0]
-        player_ids = args[1:] if len(args) > 1 else []
+        args[1:] if len(args) > 1 else []
 
         # Get services
         container = get_container()

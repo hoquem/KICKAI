@@ -8,7 +8,6 @@ This module contains configuration constants used throughout the application.
 # ID Generation Constants
 MAX_ID_NUMBER = 99
 ID_NUMBER_FORMAT = "{:02d}"
-FALLBACK_ID_PREFIX = "99"
 
 # Input Validation Constants
 MAX_NAME_LENGTH = 50
@@ -17,8 +16,6 @@ MAX_POSITION_LENGTH = 30
 MAX_TEAM_ID_LENGTH = 20
 MAX_USER_ID_LENGTH = 20
 
-# Phone Number Validation
-PHONE_PATTERN = r"^\+?[1-9]\d{1,14}$"
 
 # Player Positions
 VALID_PLAYER_POSITIONS = ["goalkeeper", "defender", "midfielder", "forward", "utility"]

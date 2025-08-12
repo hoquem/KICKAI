@@ -7,7 +7,7 @@ CrewAI-based football team management system with 5 essential agents.
 
 ESSENTIAL 5-AGENT SYSTEM:
 1. MESSAGE_PROCESSOR - Primary interface and routing
-2. HELP_ASSISTANT - Help system and guidance  
+2. HELP_ASSISTANT - Help system and guidance
 3. PLAYER_COORDINATOR - Player management and onboarding
 4. TEAM_ADMINISTRATOR - Team member management
 5. SQUAD_SELECTOR - Squad selection and match management
@@ -17,22 +17,22 @@ import asyncio
 import logging
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Optional, Dict
+from typing import Any
 
 from crewai import Crew
 from loguru import logger
 
 from kickai.agents.configurable_agent import ConfigurableAgent
+
 # Removed entity_specific_agents for simplified 5-agent architecture
-from kickai.agents.tool_registry import initialize_tool_registry
-from kickai.config.agents import get_agent_config, get_enabled_agent_configs
-from kickai.config.llm_config import get_llm_config
-from kickai.core.enums import AgentRole
-from kickai.core.config import get_settings, AIProvider
-from kickai.core.exceptions import AgentInitializationError
 # Remove SimpleLLMFactory import - replaced with CrewAI native config
 # from kickai.utils.llm_factory_simple import SimpleLLMFactory
-from kickai.agents.tool_registry import ToolRegistry
+from kickai.agents.tool_registry import ToolRegistry, initialize_tool_registry
+from kickai.config.agents import get_agent_config
+from kickai.config.llm_config import get_llm_config
+from kickai.core.config import get_settings
+from kickai.core.enums import AgentRole
+from kickai.core.exceptions import AgentInitializationError
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class TeamManagementSystem:
     def __init__(self, team_id: str):
         self.team_id = team_id
         self.agents: dict[AgentRole, ConfigurableAgent] = {}
-        self.crew: Optional[Crew] = None
+        self.crew: Crew | None = None
 
         # Initialize team memory for conversation context
         from kickai.agents.team_memory import TeamMemory
@@ -150,14 +150,14 @@ class TeamManagementSystem:
                 AgentRole.TEAM_ADMINISTRATOR,
                 AgentRole.SQUAD_SELECTOR
             ]
-            
+
             for role in agent_roles:
                 try:
                     logger.info(f"[TEAM INIT] Creating agent for role: {role}")
-                    
+
                     # Create agent using ConfigurableAgent directly
                     agent = ConfigurableAgent(role, self.team_id)
-                    
+
                     self.agents[role] = agent
                     logger.info(f"[TEAM INIT] ✅ Created agent for role: {role}")
 
@@ -181,8 +181,7 @@ class TeamManagementSystem:
                 raise AgentInitializationError("TeamManagementSystem", "No agents available for crew creation")
 
             # Get verbose setting from environment
-            settings = get_settings()
-            verbose_mode = settings.verbose_logging or settings.debug
+            get_settings()
 
             # Import Process enum for CrewAI
             from crewai import Process
@@ -191,7 +190,7 @@ class TeamManagementSystem:
                 agents=crew_agents,
                 tasks=[],
                 process=Process.sequential,
-                verbose=verbose_mode,
+                verbose=True,  # Force maximum verbose mode for debugging
                 memory=False,  # Simplified - no memory for now
                 # Add robust retry mechanism with exponential backoff
                 max_retries=2,
@@ -244,7 +243,7 @@ class TeamManagementSystem:
             },
         }
 
-    def get_agent(self, role: AgentRole) -> Optional[ConfigurableAgent]:
+    def get_agent(self, role: AgentRole) -> ConfigurableAgent | None:
         """Get a specific agent by role."""
         return self.agents.get(role)
 
@@ -290,14 +289,15 @@ class TeamManagementSystem:
             # Add conversation context to execution context
             user_id = execution_context.get("user_id")
             if user_id and hasattr(self, "team_memory"):
-                # Get user-specific memory context
-                memory_context = self.team_memory.get_user_memory_context(user_id)
+                # Get user-specific memory context (using telegram_id instead of deprecated user_id)
+                telegram_id = execution_context.get("telegram_id", user_id)
+                memory_context = self.team_memory.get_telegram_memory_context(telegram_id)
                 execution_context["memory_context"] = memory_context
-                logger.info(f"🤖 TEAM MANAGEMENT: Added memory context for user {user_id}")
+                logger.info(f"🤖 TEAM MANAGEMENT: Added memory context for telegram_id {telegram_id}")
 
             # Use basic crew execution directly
             logger.info("🤖 TEAM MANAGEMENT: Using basic crew execution")
-            return await self._execute_with_basic_crew(task_description, execution_context)
+            result = await self._execute_with_basic_crew(task_description, execution_context)
 
             # Store conversation in memory for context persistence
             if user_id and hasattr(self, "team_memory"):
@@ -355,115 +355,156 @@ class TeamManagementSystem:
                     telegram_id = execution_context.get('telegram_id', 'unknown')
                     username = execution_context.get('username', 'unknown')
                     chat_type = execution_context.get('chat_type', 'unknown')
-                    
-                    # Format task description with context parameters for tool calling
-                    structured_description = f"""
-                    User Request: {task_description}
-                    
-                    Context Information:
-                    - Team ID: {team_id}
-                    - User Telegram ID: {telegram_id} 
-                    - Username: {username}
-                    - Chat Type: {chat_type}
-                    
-                    Instructions: Use the provided context information to call tools with the appropriate parameters.
-                    Pass team_id, telegram_id, username, and chat_type as direct parameters to tools that require them.
-                    
-                    IMPORTANT: For get_my_status tool, ALWAYS pass chat_type parameter to determine whether to look up player status (main chat) or team member status (leadership chat).
-                    
-                    🚨 CRITICAL ANTI-HALLUCINATION RULE 🚨: 
-                    Return tool outputs EXACTLY as provided - NEVER add, modify, or invent data.
-                    - Tool output is final - DO NOT add extra players, team members, or any data
-                    - DO NOT reformat, summarize, or remove emojis, symbols, or formatting
-                    - If tool returns 2 players, your response must have EXACTLY 2 players
-                    - NEVER add fictional players like "Saim", "Ahmed", etc.
-                    
-                    MANDATORY TOOL USAGE: You MUST call the appropriate tool for data requests:
-                    - /list: MUST call list_team_members_and_players(team_id) for leadership chat or get_active_players(team_id, telegram_id) for main chat
-                    - /info: MUST call get_my_status(telegram_id, team_id, chat_type) 
-                    - NEVER provide made-up or fabricated data - if no tool is called, return "Error: No tool was used to retrieve data"
 
-                    **IMPORTANT: YOUR FINAL ANSWER MUST BE THE EXACT, UNMODIFIED OUTPUT FROM THE TOOL. DO NOT ADD ANY EXTRA TEXT, FORMATTING, OR EXPLANATIONS.**
-                    """
-                    
-                    # Get the specific tool for the task to avoid overwhelming the LLM
-                    list_tool = self.tool_registry.get_tool_function('list_team_members_and_players')
-           
-                    # Create a task using CrewAI native approach with enhanced output specification
+                    # Format task description with context parameters for tool calling
+                    # Create agent-specific structured descriptions
+                    if selected_agent_role == AgentRole.HELP_ASSISTANT:
+                        # Help-specific description - using dynamic help tools
+                        structured_description = f"""
+                        User Request: {task_description}
+
+                        Context Information:
+                        - Team ID: {team_id}
+                        - User Telegram ID: {telegram_id}
+                        - Username: {username}
+                        - Chat Type: {chat_type}
+
+                        Instructions: Use the dynamic help tools to provide personalized help based on the user's context and available commands.
+
+                        Available Tools:
+                        - FINAL_HELP_RESPONSE: Main help tool that dynamically discovers available commands for the user's role and chat type
+                        - get_available_commands: Get detailed list of commands with permissions and examples
+                        - get_command_help: Get comprehensive help for specific commands
+                        - get_welcome_message: Generate personalized welcome messages
+
+                        For general help requests, use FINAL_HELP_RESPONSE with parameters: telegram_id, team_id, chat_type
+                        For specific command help, extract the command name and use get_command_help
+                        For welcome/greeting requests, use get_welcome_message
+
+                        **IMPORTANT: YOUR FINAL ANSWER MUST BE THE EXACT, UNMODIFIED OUTPUT FROM THE TOOL.**
+                        
+                        🚨 CRITICAL FOR GEMINI MODEL 🚨:
+                        - Do NOT interpret tool output as code that needs formatting
+                        - Do NOT wrap tool output in ``` code blocks  
+                        - Do NOT return empty ``` blocks
+                        - Tool output is final user-facing text, not code to be formatted
+                        - Return the tool output as raw text exactly as provided
+                        """
+                    else:
+                        # Default description for other agents
+                        structured_description = f"""
+                        User Request: {task_description}
+
+                        Context Information:
+                        - Team ID: {team_id}
+                        - User Telegram ID: {telegram_id}
+                        - Username: {username}
+                        - Chat Type: {chat_type}
+
+                        Instructions: Use the provided context information to call tools with the appropriate parameters.
+                        Pass team_id, telegram_id, username, and chat_type as direct parameters to tools that require them.
+
+                        IMPORTANT: For get_my_status tool, ALWAYS pass chat_type parameter to determine whether to look up player status (main chat) or team member status (leadership chat).
+
+                        🚨 CRITICAL ANTI-HALLUCINATION RULE 🚨:
+                        Return tool outputs EXACTLY as provided - NEVER add, modify, or invent data.
+                        - Tool output is final - DO NOT add extra players, team members, or any data
+                        - DO NOT reformat, summarize, or remove emojis, symbols, or formatting
+                        - If tool returns 2 players, your response must have EXACTLY 2 players
+                        - NEVER add fictional players like "Saim", "Ahmed", etc.
+
+                        MANDATORY TOOL USAGE: You MUST call the appropriate tool for data requests:
+                        - /list: MUST call list_team_members_and_players(team_id) for leadership chat or get_active_players(team_id, telegram_id) for main chat
+                        - /info: MUST call get_my_status(telegram_id, team_id, chat_type)
+                        - NEVER provide made-up or fabricated data - if no tool is called, return "Error: No tool was used to retrieve data"
+
+                        **IMPORTANT: YOUR FINAL ANSWER MUST BE THE EXACT, UNMODIFIED OUTPUT FROM THE TOOL. DO NOT ADD ANY EXTRA TEXT, FORMATTING, OR EXPLANATIONS.**
+                        
+                        🚨 CRITICAL FOR GEMINI MODEL 🚨:
+                        - Do NOT interpret tool output as code that needs formatting
+                        - Do NOT wrap tool output in ``` code blocks  
+                        - Do NOT return empty ``` blocks
+                        - Tool output is final user-facing text, not code to be formatted
+                        - Return the tool output as raw text exactly as provided
+                        """
+
+                    # Create a task using CrewAI native approach
+                    # Let the agent use its configured tools instead of hardcoding them
                     task = Task(
                         description=structured_description,
                         agent=agent.crew_agent,
-                        expected_output="The final answer MUST be the exact, raw, and unmodified output from the tool. For example, if the tool returns 'HELLO WORLD', your final answer must also be 'HELLO WORLD'.",
-                        output_format="string",  # Ensure output format is specified
-                        tools=[list_tool],
-
+                        expected_output="The exact tool output as plain text without any formatting, code blocks, or modifications.",
+                        verbose=2,  # Maximum verbose logging for detailed debugging
+                        # Remove output_json=True - CrewAI will handle JSON naturally through tools
+                        # Remove the hardcoded tools parameter - let agent use its configured tools
                     )
-                    
-                    logger.debug(f"✅ Task created with structured description including context")
-                    logger.debug(f"🚀 About to kickoff crew")
+
+                    logger.debug("✅ Task created with structured description including context")
+                    logger.debug("🚀 About to kickoff crew")
 
                     # Add task to crew and execute with enhanced error handling
                     self.crew.tasks = [task]
-                    
+
                     try:
-                        logger.debug(f"🚀 CREW KICKOFF: Starting crew execution")
+                        logger.debug("🚀 CREW KICKOFF: Starting crew execution")
                         logger.debug(f"🚀 CREW KICKOFF: Task description length: {len(structured_description)} chars")
                         logger.debug(f"🚀 CREW KICKOFF: Agent: {agent.crew_agent.role if hasattr(agent.crew_agent, 'role') else 'unknown'}")
-                        
+
                         # Log the exact prompt being sent to the LLM
                         logger.debug(f"🔍 LLM INPUT: Structured description:\n{structured_description}")
-                        
+
                         crew_result = self.crew.kickoff()
                         logger.debug(f"✅ Crew kickoff completed, result type: {type(crew_result)}")
-                        
+
                         # Comprehensive logging of crew result
                         logger.debug(f"🔍 RAW CREW RESULT: {crew_result}")
                         logger.debug(f"🔍 CREW RESULT ATTRIBUTES: {dir(crew_result)}")
-                        
+
                         # Try to access different result attributes and log them
                         if hasattr(crew_result, "raw"):
                             logger.debug(f"🔍 CREW RESULT.RAW: {crew_result.raw}")
                             logger.debug(f"🔍 CREW RESULT.RAW TYPE: {type(crew_result.raw)}")
                             if hasattr(crew_result.raw, "output"):
                                 logger.debug(f"🔍 CREW RESULT.RAW.OUTPUT: {crew_result.raw.output}")
-                        
+
                         if hasattr(crew_result, "output"):
                             logger.debug(f"🔍 CREW RESULT.OUTPUT: {crew_result.output}")
-                        
+
                         if hasattr(crew_result, "result"):
                             logger.debug(f"🔍 CREW RESULT.RESULT: {crew_result.result}")
 
-                        # Convert CrewOutput to string properly
+                        # Extract result from CrewAI output (tools return dict objects naturally)
                         result = None
-                        if hasattr(crew_result, "raw") and hasattr(crew_result.raw, "output"):
-                            result = str(crew_result.raw.output)
-                            logger.debug(f"🔍 EXTRACTED FROM RAW.OUTPUT: '{result}'")
-                        elif hasattr(crew_result, "output"):
+
+                        # CrewAI will convert tool dict outputs to strings automatically
+                        # Check standard CrewAI output attributes
+                        if hasattr(crew_result, "raw") and crew_result.raw:
+                            result = str(crew_result.raw)
+                            logger.debug(f"🔍 EXTRACTED FROM RAW: '{result}'")
+                        elif hasattr(crew_result, "output") and crew_result.output:
                             result = str(crew_result.output)
                             logger.debug(f"🔍 EXTRACTED FROM OUTPUT: '{result}'")
-                        elif hasattr(crew_result, "result"):
-                            result = str(crew_result.result)
-                            logger.debug(f"🔍 EXTRACTED FROM RESULT: '{result}'")
                         else:
+                            # Fallback to string conversion
                             result = str(crew_result)
                             logger.debug(f"🔍 EXTRACTED FROM STR(CREW_RESULT): '{result}'")
-                            
+
                         # Log the final extracted result
                         logger.debug(f"🔍 FINAL EXTRACTED RESULT: '{result}' (length: {len(result) if result else 0})")
-                            
+
                         # Validate we got a meaningful result
                         if not result or result.strip() == "":
                             logger.warning("⚠️ Empty result from crew execution - this is the core issue!")
                             logger.warning(f"⚠️ Original crew_result was: {crew_result}")
                             result = "⚠️ Task completed but produced no output. Please try again."
-                            
+
                     except Exception as crew_error:
                         error_message = str(crew_error)
                         logger.error(f"❌ Crew execution failed: {error_message}")
                         logger.error(f"❌ Crew error type: {type(crew_error)}")
                         logger.error(f"❌ Crew error details: {crew_error}")
 
-                        
+
                         # Handle specific CrewAI errors
                         if "No valid task outputs" in error_message:
                             result = "⚠️ System is temporarily overloaded. Please wait a moment and try again."
@@ -474,8 +515,8 @@ class TeamManagementSystem:
                             logger.error(f"🚨 LLM RESPONSE ISSUE: {error_message}")
 
                         else:
-                            result = f"⚠️ System error occurred. Please try again or contact support."
-                        
+                            result = "⚠️ System error occurred. Please try again or contact support."
+
                         logger.debug(f"Returning error result: {result}")
 
                     logger.info(f"🤖 BASIC CREW: Task completed with result: {result}")
@@ -534,7 +575,7 @@ def create_team_management_system(team_id: str) -> TeamManagementSystem:
     return TeamManagementSystem(team_id)
 
 
-def get_agent(team_id: str, role: AgentRole) -> Optional[ConfigurableAgent]:
+def get_agent(team_id: str, role: AgentRole) -> ConfigurableAgent | None:
     """Get a specific agent for a team."""
     system = TeamManagementSystem(team_id)
     return system.get_agent(role)
@@ -553,13 +594,11 @@ This module provides agent creation and management using the clean configuration
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
-from kickai.core.config import get_settings, AIProvider
-from kickai.core.enums import AgentRole
 # Remove SimpleLLMFactory import - replaced with CrewAI native config
 # from kickai.utils.llm_factory_simple import SimpleLLMFactory
-from kickai.agents.tool_registry import ToolRegistry
+from kickai.core.enums import AgentRole
 
 logger = logging.getLogger(__name__)
 
@@ -570,26 +609,27 @@ class CrewAgentManager:
     def __init__(self, tool_registry: ToolRegistry):
         self.tool_registry = tool_registry
         self.settings = get_settings()
-        self.agents: Dict[AgentRole, Any] = {}
+        self.agents: dict[AgentRole, Any] = {}
 
     def create_agent(self, role: AgentRole) -> Any:
         """
         Create a CrewAI agent for a specific role.
-        
-        Args:
+
+
             role: The agent role
-            
-        Returns:
-            CrewAI agent instance
+
+
+    :return: CrewAI agent instance
+    :rtype: str  # TODO: Fix type
         """
         try:
             # Get temperature based on agent role
             temperature = self._get_temperature_for_role(role)
-            
+
             # Create LLM using CrewAI native configuration
             from kickai.config.llm_config import get_llm_config
             llm_config = get_llm_config()
-            
+
             # Get appropriate LLM based on role
             if role in [AgentRole.PLAYER_COORDINATOR, AgentRole.MESSAGE_PROCESSOR, AgentRole.HELP_ASSISTANT]:
                 llm = llm_config.data_critical_llm  # Ultra-precise for data-critical operations
@@ -599,10 +639,10 @@ class CrewAgentManager:
                 llm = llm_config.creative_llm  # Creative for squad selection
             else:
                 llm = llm_config.main_llm  # Default
-            
+
             # Create CrewAI agent
             from crewai import Agent
-            
+
             agent = Agent(
                 role=role.value,
                 goal=self._get_goal_for_role(role),
@@ -613,12 +653,12 @@ class CrewAgentManager:
 
                 max_iterations=3
             )
-            
+
             logger.info(f"🤖 Created {role.value} agent with {self.settings.ai_provider.value}:{self.settings.ai_model_name} (temp={temperature})")
-            
+
             self.agents[role] = agent
             return agent
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to create agent for {role.value}: {e}")
             raise RuntimeError(
@@ -632,15 +672,15 @@ class CrewAgentManager:
         # Data-critical agents (anti-hallucination priority)
         if role in [AgentRole.PLAYER_COORDINATOR, AgentRole.MESSAGE_PROCESSOR, AgentRole.HELP_ASSISTANT]:
             return self.settings.ai_temperature_tools
-        
+
         # Administrative agents
         elif role == AgentRole.TEAM_ADMINISTRATOR:
             return self.settings.ai_temperature
-        
+
         # Creative/analytical agents
         elif role == AgentRole.SQUAD_SELECTOR:
             return self.settings.ai_temperature_creative
-        
+
         # Default
         else:
             return self.settings.ai_temperature
@@ -649,7 +689,7 @@ class CrewAgentManager:
         """Get the goal for an agent role."""
         goals = {
             AgentRole.MESSAGE_PROCESSOR: "Process and route user messages to appropriate agents",
-            AgentRole.HELP_ASSISTANT: "Provide helpful guidance and answer user questions",
+            AgentRole.HELP_ASSISTANT: "Dynamically discover and present available commands based on user context and permissions",
             AgentRole.PLAYER_COORDINATOR: "Manage player registration, information, and coordination",
             AgentRole.TEAM_ADMINISTRATOR: "Handle team member management and administrative tasks",
             AgentRole.SQUAD_SELECTOR: "Manage squad selection and match-related activities"
@@ -660,7 +700,7 @@ class CrewAgentManager:
         """Get the backstory for an agent role."""
         backstories = {
             AgentRole.MESSAGE_PROCESSOR: "You are the primary interface for the KICKAI system, responsible for understanding user intent and routing requests appropriately.",
-            AgentRole.HELP_ASSISTANT: "You are a helpful assistant that provides guidance and answers questions about the KICKAI system and its features.",
+            AgentRole.HELP_ASSISTANT: "You specialize in dynamic help generation using the command registry. You discover available commands based on user roles and chat contexts, providing personalized help responses with real-time command availability and detailed usage information.",
             AgentRole.PLAYER_COORDINATOR: "You specialize in player management, registration, and coordination. You ensure accurate player data and smooth onboarding processes.",
             AgentRole.TEAM_ADMINISTRATOR: "You handle team member management and administrative tasks. You ensure proper team structure and member coordination.",
             AgentRole.SQUAD_SELECTOR: "You manage squad selection and match-related activities. You help with availability tracking and team formation."

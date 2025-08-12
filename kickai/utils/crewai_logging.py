@@ -6,7 +6,7 @@ This module provides utilities to redirect CrewAI logs to our loguru logging sys
 """
 
 import logging
-from typing import Any, Dict, Optional, Set
+from typing import Any
 
 from loguru import logger
 
@@ -51,7 +51,7 @@ def setup_crewai_logging(level: str = "INFO") -> None:
     """
     Set up CrewAI logging to redirect to loguru.
 
-    Args:
+
         level: Logging level for CrewAI logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     """
     try:
@@ -132,12 +132,12 @@ def get_crewai_log_level() -> str:
 
 
 def log_crewai_agent_activity(
-    agent_name: str, action: str, details: Optional[Dict[str, Any]] = None
+    agent_name: str, action: str, details: dict[str, Any] | None = None
 ) -> None:
     """
     Log CrewAI agent activity with structured information.
 
-    Args:
+
         agent_name: Name of the agent
         action: Action being performed
         details: Optional details about the action
@@ -149,11 +149,11 @@ def log_crewai_agent_activity(
     logger.info(f"[CREWAI AGENT] {message}")
 
 
-def log_crewai_tool_usage(tool_name: str, agent_name: str, result: Optional[str] = None) -> None:
+def log_crewai_tool_usage(tool_name: str, agent_name: str, result: str | None = None) -> None:
     """
     Log CrewAI tool usage.
 
-    Args:
+
         tool_name: Name of the tool being used
         agent_name: Name of the agent using the tool
         result: Optional result of the tool usage
@@ -172,7 +172,7 @@ def log_crewai_task_execution(task_description: str, agent_name: str, status: st
     """
     Log CrewAI task execution.
 
-    Args:
+
         task_description: Description of the task
         agent_name: Name of the agent executing the task
         status: Status of the task execution

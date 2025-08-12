@@ -7,12 +7,12 @@ for agents with entity-specific validation.
 """
 
 from functools import wraps
-from typing import Any, Dict, Optional
+
+# Removed entity_specific_agents dependency for simplified 5-agent architecture
+from typing import Any
 
 from loguru import logger
 
-# Removed entity_specific_agents dependency for simplified 5-agent architecture
-from typing import Optional
 from kickai.config.agents import get_agent_config
 from kickai.core.enums import AgentRole
 
@@ -41,7 +41,7 @@ class AgentToolsManager:
 
     @log_errors
     def get_tools_for_role(
-        self, role: AgentRole, entity_type: Optional[str] = None
+        self, role: AgentRole, entity_type: str | None = None
     ) -> list[Any]:
         """Get tools for a specific role with entity-specific filtering."""
         try:
@@ -82,7 +82,7 @@ class AgentToolsManager:
         """Get list of available tool names."""
         return self._tool_registry.get_tool_names()
 
-    def get_tool_info(self, tool_name: str) -> Optional[Dict[str, Any]]:
+    def get_tool_info(self, tool_name: str) -> dict[str, Any] | None:
         """Get information about a specific tool."""
         tool = self._tool_registry.get_tool(tool_name)
         if tool:

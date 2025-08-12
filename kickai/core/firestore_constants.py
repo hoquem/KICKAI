@@ -39,12 +39,13 @@ def get_team_specific_collection_name(team_id: str, collection_type: str) -> str
     """
     Get team-specific collection name.
 
-    Args:
+
         team_id: The team ID (dynamically read from Firestore)
         collection_type: The collection type (e.g., 'team_members', 'players')
 
-    Returns:
-        Full collection name with prefix and team ID
+
+    :return: Full collection name with prefix and team ID
+    :rtype: str  # TODO: Fix type
     """
     return f"{FIRESTORE_COLLECTION_PREFIX}_{team_id}_{collection_type}"
 
