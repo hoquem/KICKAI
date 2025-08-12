@@ -56,39 +56,24 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "mock_telegram_tester"}
 
-# Serve the enhanced frontend by default
+# Serve the Liverpool FC themed frontend by default
 @app.get("/")
-async def serve_enhanced_frontend():
-    """Serve the enhanced mock Telegram tester frontend"""
-    frontend_path = Path(__file__).parent / "frontend" / "enhanced_index.html"
-    if frontend_path.exists():
-        return FileResponse(str(frontend_path))
-    else:
-        # Fallback to regular index.html if enhanced version doesn't exist
-        fallback_path = Path(__file__).parent / "frontend" / "index.html"
-        if fallback_path.exists():
-            return FileResponse(str(fallback_path))
-        else:
-            return {"error": "Frontend files not found"}
+async def serve_lfc_frontend():
+    """Serve the Liverpool FC themed mock Telegram tester frontend"""
+    # First try the root mock_tester.html (consolidated version)
+    root_frontend_path = project_root / "mock_tester.html"
+    if root_frontend_path.exists():
+        return FileResponse(str(root_frontend_path))
+    
+    # Fallback to the root mock_tester.html
+    return {"error": "Liverpool FC themed frontend not found. Please ensure mock_tester.html exists in the project root."}
 
-@app.get("/legacy")
-async def serve_legacy_frontend():
-    """Serve the legacy mock Telegram tester frontend"""
-    frontend_path = Path(__file__).parent / "frontend" / "index.html"
-    if frontend_path.exists():
-        return FileResponse(str(frontend_path))
-    else:
-        return {"error": "Legacy frontend not found"}
-
-# Serve static files (frontend) - but exclude WebSocket paths and root
-frontend_path = Path(__file__).parent / "frontend"
-if frontend_path.exists():
-    app.mount("/static", StaticFiles(directory=str(frontend_path), html=True, check_dir=False), name="static")
+# Static files are no longer needed since we serve the consolidated mock_tester.html from root
 
 
 def main():
     """Main startup function"""
-    print("🚀 Starting Enhanced Mock Telegram Tester...")
+    print("🚀 Starting Liverpool FC Mock Telegram Tester...")
     print("=" * 50)
     
     # Check if we're in the right directory
@@ -99,51 +84,55 @@ def main():
     # Set up environment
     os.environ["PYTHONPATH"] = str(project_root)
     
-    # Load test environment variables
-    test_env_file = project_root / ".env.test"
-    if test_env_file.exists():
-        print(f"📄 Loading test environment from: {test_env_file}")
-        from dotenv import load_dotenv
-        load_dotenv(test_env_file)
-        print("✅ Test environment loaded")
-    else:
-        print(f"⚠️  Test environment file not found: {test_env_file}")
-        print("Using default environment variables")
-    
-    # Load and validate configuration
+    # Validate configuration
     try:
         config = get_config()
         validate_config(config)
-        print("✅ Configuration loaded and validated")
+        print("✅ Configuration validated")
     except Exception as e:
-        print(f"⚠️  Configuration error: {e}")
-        print("Using default configuration")
-        config = get_config()
+        print(f"❌ Configuration error: {e}")
+        sys.exit(1)
     
-    print("📁 Project root:", project_root)
-    print(f"🔧 Mock service will run on: http://{config.host}:{config.port}")
-    print(f"🌐 Enhanced frontend will be available at: http://{config.host}:{config.port}")
-    print(f"📄 Legacy frontend available at: http://{config.host}:{config.port}/legacy")
-    print(f"📊 Max messages: {config.max_messages}, Max users: {config.max_users}")
-    print(f"🤖 Bot integration: {'Enabled' if config.enable_bot_integration else 'Disabled'}")
+    # Start the server
+    host = config.host
+    port = config.port
+    
+    print(f"🌐 Starting server on http://{host}:{port}")
+    print(f"📱 Mock Telegram API: http://{host}:{port}/api")
+    print(f"🔗 WebSocket: ws://{host}:{port}/ws")
+    print(f"💚 Health Check: http://{host}:{port}/health")
     print("=" * 50)
+    
+    # Open browser after a short delay
+    def open_browser():
+        time.sleep(2)
+        try:
+            webbrowser.open(f"http://{host}:{port}")
+            print("🌐 Browser opened automatically")
+        except Exception as e:
+            print(f"⚠️ Could not open browser automatically: {e}")
+            print(f"📱 Please open: http://{host}:{port}")
+    
+    # Start browser in a separate thread
+    import threading
+    browser_thread = threading.Thread(target=open_browser)
+    browser_thread.daemon = True
+    browser_thread.start()
     
     # Start the server
     try:
-        print("🔄 Starting server...")
         uvicorn.run(
-            "start_mock_tester:app",
-            host=config.host,
-            port=config.port,
-            reload=config.debug,
-            log_level=config.log_level.lower()
+            app,
+            host=host,
+            port=port,
+            log_level="info",
+            reload=False
         )
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")
     except Exception as e:
-        print(f"❌ Error starting server: {e}")
+        print(f"❌ Server error: {e}")
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main() 

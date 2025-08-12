@@ -110,8 +110,8 @@ KICKAI/
 │   │   │   └── tests/           # Feature-specific tests
 │   │   ├── team_administration/ # Team administration feature
 │   │   ├── match_management/    # Match management feature
-│   │   ├── training_management/ # Training management feature
-│   │   ├── payment_management/  # Payment management feature
+│   │   ├── attendance_management/ # Attendance management feature
+│   │   ├── communication/        # Communication feature
 │   │   ├── attendance_management/ # Attendance management feature
 │   │   ├── communication/       # Communication feature
 │   │   ├── health_monitoring/   # Health monitoring feature
@@ -395,25 +395,15 @@ KICKAI/
 - Fixture integration
 - Match communication
 
-### 4. Training Management (`kickai/features/training_management/`)
-**Purpose:** Training session coordination
+### 4. Attendance Management (`kickai/features/attendance_management/`)
+**Purpose:** Attendance tracking and management
 
 **Features:**
-- Training session scheduling
-- Attendance tracking
-- Training statistics and analytics
-- Training communication
+- Attendance tracking and management
+- Attendance statistics and analytics
+- Attendance communication
+- Attendance reporting
 - Performance tracking
-
-### 5. Payment Management (`kickai/features/payment_management/`)
-**Purpose:** Financial operations and Collectiv integration
-
-**Features:**
-- Payment processing and tracking
-- Collectiv payment gateway integration
-- Financial reporting and analytics
-- Payment history and reconciliation
-- Budget management
 
 ### 6. Attendance Management (`kickai/features/attendance_management/`)
 **Purpose:** Player attendance tracking
@@ -474,11 +464,11 @@ Each feature module contains its own service layer:
 - Team configuration
 - Administrative operations
 
-**Payment Services:**
-- Payment processing
-- Financial tracking
-- Budget management
-- Payment analytics
+**Attendance Services:**
+- Attendance tracking
+- Attendance management
+- Attendance reporting
+- Attendance analytics
 
 ### 2. Cross-Feature Services
 Services that span multiple features:

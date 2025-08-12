@@ -1,3 +1,4 @@
+from typing import Optional
 #!/usr/bin/env python3
 """
 Centralized Permission Service for KICKAI
@@ -28,7 +29,7 @@ class PermissionContext:
     team_id: str
     chat_id: str
     chat_type: ChatType
-    username: str | None = None
+    username: Optional[str] = None
 
     def __post_init__(self):
         if self.chat_type is None:
@@ -95,7 +96,7 @@ class PermissionService:
         """Create a mock team member service for fallback."""
 
         class MockTeamMemberService:
-            async def get_team_member_by_telegram_id(self, user_id: str, team_id: str):
+            async def get_team_member_by_telegram_id(self, telegram_id: int, team_id: str):
                 return None
 
             async def is_first_user(self, team_id: str):
@@ -360,11 +361,11 @@ Your Role: {", ".join(user_perms.roles) if user_perms.roles else "None"}"""
         """Check if this would be the first user in the team."""
         return await self.team_member_service.is_first_user(team_id)
 
-    async def promote_to_admin(self, user_id: str, team_id: str, promoted_by: str) -> bool:
+    async def promote_to_admin(self, telegram_id: str, team_id: str, promoted_by: str) -> bool:
         """Promote a user to admin role (only by existing admin)."""
-        return await self.team_member_service.promote_to_admin(user_id, team_id, promoted_by)
+        return await self.team_member_service.promote_to_admin(telegram_id, team_id, promoted_by)
 
-    async def handle_last_admin_leaving(self, team_id: str) -> str | None:
+    async def handle_last_admin_leaving(self, team_id: str) -> Optional[str]:
         """Handle when the last admin leaves - promote longest-tenured leadership member."""
         return await self.team_member_service.handle_last_admin_leaving(team_id)
 
@@ -379,7 +380,7 @@ Your Role: {", ".join(user_perms.roles) if user_perms.roles else "None"}"""
 
 
 # Global instance for easy access
-_permission_service: PermissionService | None = None
+_permission_service: Optional[PermissionService] = None
 
 
 def get_permission_service(firebase_client: FirebaseClient = None) -> PermissionService:

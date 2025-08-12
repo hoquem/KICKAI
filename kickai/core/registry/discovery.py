@@ -5,7 +5,7 @@ This module provides utilities for discovering registry items
 from setuptools entry points.
 """
 
-from typing import Any
+from typing import Any, Dict, List
 
 import pkg_resources
 from loguru import logger
@@ -15,7 +15,7 @@ class EntryPointDiscovery:
     """Discovers items from setuptools entry points."""
 
     @staticmethod
-    def discover_tools() -> dict[str, Any]:
+    def discover_tools() -> Dict[str, Any]:
         """Discover tools from entry points."""
         tools = {}
 
@@ -30,7 +30,7 @@ class EntryPointDiscovery:
         return tools
 
     @staticmethod
-    def discover_commands() -> dict[str, Any]:
+    def discover_commands() -> Dict[str, Any]:
         """Discover commands from entry points."""
         commands = {}
 
@@ -45,7 +45,7 @@ class EntryPointDiscovery:
         return commands
 
     @staticmethod
-    def discover_services() -> dict[str, Any]:
+    def discover_services() -> Dict[str, Any]:
         """Discover services from entry points."""
         services = {}
 
@@ -60,7 +60,7 @@ class EntryPointDiscovery:
         return services
 
     @staticmethod
-    def list_all_entry_points() -> dict[str, list[str]]:
+    def list_all_entry_points() -> Dict[str, List[str]]:
         """List all available entry points."""
         entry_points = {}
 

@@ -9,6 +9,8 @@ import logging
 from pydantic import BaseModel
 
 from kickai.utils.crewai_tool_decorator import tool
+from kickai.utils.tool_helpers import create_json_response
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -17,20 +19,20 @@ class LogCommandInput(BaseModel):
     """Input model for log_command tool."""
 
     command: str
-    user_id: str | None = None
-    team_id: str | None = None
+    user_id: Optional[str] = None
+    team_id: Optional[str] = None
 
 
 class LogErrorInput(BaseModel):
     """Input model for log_error tool."""
 
     error_message: str
-    context: str | None = None
-    team_id: str | None = None
+    context: Optional[str] = None
+    team_id: Optional[str] = None
 
 
 @tool("log_command")
-def log_command(command: str, user_id: str | None = None, team_id: str | None = None) -> str:
+def log_command(command: str, user_id: Optional[str] = None, team_id: Optional[str] = None) -> str:
     """
     Log a command execution. Requires: command
 
@@ -52,16 +54,16 @@ def log_command(command: str, user_id: str | None = None, team_id: str | None = 
         context_str = f" [{', '.join(context_info)}]" if context_info else ""
 
         logger.info(f"📝 Command executed: {command}{context_str}")
-        return f"✅ Command logged: {command}"
+        return create_json_response("success", data=f"Command logged: {command}")
 
     except Exception as e:
         logger.error(f"❌ Failed to log command: {e}")
-        return f"❌ Failed to log command: {e!s}"
+        return create_json_response("error", message=f"Failed to log command: {e!s}")
 
 
 @tool("log_error")
 def log_error(
-    error_message: str, error_context: str | None = None, team_id: str | None = None
+    error_message: str, error_context: Optional[str] = None, team_id: Optional[str] = None
 ) -> str:
     """
     Log an error message. Requires: error_message
@@ -84,8 +86,8 @@ def log_error(
         context_str = f" [{', '.join(context_info)}]" if context_info else ""
 
         logger.error(f"❌ Error: {error_message}{context_str}")
-        return f"✅ Error logged: {error_message}"
+        return create_json_response("success", data=f"Error logged: {error_message}")
 
     except Exception as e:
         logger.error(f"❌ Failed to log error: {e}")
-        return f"❌ Failed to log error: {e!s}"
+        return create_json_response("error", message=f"Failed to log error: {e!s}")

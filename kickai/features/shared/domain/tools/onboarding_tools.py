@@ -3,7 +3,7 @@
 Enhanced Onboarding Tools for KICKAI system.
 
 This module provides comprehensive onboarding tools for both players and team members,
-supporting the dual-entity ONBOARDING_AGENT functionality.
+supporting the dual-entity PLAYER_COORDINATOR functionality.
 """
 
 from loguru import logger
@@ -13,6 +13,7 @@ from kickai.core.dependency_container import get_container
 from kickai.features.player_registration.domain.services.player_registration_service import (
     PlayerRegistrationService,
 )
+from typing import Optional, Union
 from kickai.features.team_administration.domain.services.simplified_team_member_service import (
     SimplifiedTeamMemberService,
 )
@@ -22,6 +23,7 @@ from kickai.utils.constants import (
 )
 from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.validation_utils import normalize_phone, sanitize_input
+from kickai.utils.tool_helpers import create_json_response
 
 
 class TeamMemberGuidanceInput(BaseModel):
@@ -29,7 +31,7 @@ class TeamMemberGuidanceInput(BaseModel):
 
     user_id: str
     team_id: str
-    chat_type: str | None = None
+    chat_type: Optional[str] = None
 
 
 class ValidationInput(BaseModel):
@@ -86,12 +88,12 @@ Just say "I want to register as a team member" and I'll guide you through step b
 ℹ️ **Questions?** I'm here to help throughout the process.
         """
 
-        logger.info(f"✅ Team member guidance provided to user {user_id}")
-        return guidance.strip()
+        logger.info(f"Team member guidance provided to user {user_id}")
+        return create_json_response("success", data=guidance.strip())
 
     except Exception as e:
         logger.error(f"❌ Failed to provide team member guidance: {e}")
-        return f"❌ Failed to provide team member guidance: {e!s}"
+        return create_json_response("error", message=f"Failed to provide team member guidance: {e!s}")
 
     # Registration tools removed - /register command has been removed from the system
     # @tool("validate_registration_data")
@@ -104,14 +106,14 @@ Just say "I want to register as a team member" and I'll guide you through step b
     # ) -> str:
     """
     Validate registration data for players or team members.
-    
+
     Args:
         name: Full name to validate
         phone: Phone number to validate  
         role_or_position: Role (team member) or position (player) to validate
         entity_type: Either "player" or "team_member"
         team_id: Team ID (required)
-        
+
     Returns:
         Validation result message
     """
@@ -150,11 +152,11 @@ Just say "I want to register as a team member" and I'll guide you through step b
 
         # All validation passed
         entity_display = "player" if entity_type.lower() == "player" else "team member"
-        return f"✅ All data validated successfully for {entity_display} registration!"
+        return create_json_response("success", data=f"All data validated successfully for {entity_display} registration!")
 
     except Exception as e:
         logger.error(f"❌ Validation error: {e}")
-        return f"❌ Validation failed: {e!s}"
+        return create_json_response("error", message=f"Validation failed: {e!s}")
 
     # Registration tools removed - /register command has been removed from the system
     # @tool("register_team_member_onboarding")
@@ -167,15 +169,15 @@ Just say "I want to register as a team member" and I'll guide you through step b
     # ) -> str:
     """
     Register a new team member through the onboarding process.
-    Optimized for ONBOARDING_AGENT with enhanced feedback.
-    
+    Optimized for PLAYER_COORDINATOR with enhanced feedback.
+
     Args:
         name: Full name of the team member
         phone: Phone number (UK format)
         role: Administrative role
         team_id: Team ID (required)
         user_id: Optional user ID
-        
+
     Returns:
         Registration confirmation with next steps
     """
@@ -197,7 +199,7 @@ Just say "I want to register as a team member" and I'll guide you through step b
 
         if not registration_service:
             logger.error("❌ No registration service available")
-            return "❌ Registration service not available. Please try again later."
+            return create_json_response("error", message=f"Registration service not available. Please try again later.")
 
         # Register using player service (temporary solution)
         member = registration_service.register_player(name, phone, role, team_id)
@@ -216,7 +218,7 @@ Just say "I want to register as a team member" and I'll guide you through step b
 
 🚀 **WHAT'S NEXT:**
 • You now have administrative access
-• Explore team management features  
+• Explore team management features
 • Contact leadership for orientation
 • Access leadership chat for admin functions
 
@@ -225,14 +227,14 @@ Type /help to see available commands or ask me anything!
 
 Welcome to the team! 🤝
             """
-            return success_msg.strip()
+            return create_json_response("success", data=success_msg.strip())
         else:
             logger.error(f"❌ Failed to register team member: {name}")
-            return f"❌ Registration failed for {name}. Please check the information and try again."
+            return create_json_response("error", message=f"Registration failed for {name}. Please check the information and try again.")
 
     except Exception as e:
         logger.error(f"❌ Team member registration error: {e}")
-        return f"❌ Registration failed: {e!s}"
+        return create_json_response("error", message=f"Registration failed: {e!s}")
 
     # Context detection helpers
     # Registration tools removed - /register command has been removed from the system
@@ -244,12 +246,12 @@ Welcome to the team! 🤝
     # ) -> str:
     """
     Detect whether user wants player or team member registration.
-    
+
     Args:
         message: User's message/request
         chat_type: Chat type (main/leadership)
         user_context: Additional user context
-        
+
     Returns:
         Detected registration type and confidence
     """
@@ -298,8 +300,8 @@ Welcome to the team! 🤝
             confidence = "high" if player_score >= 2 else "medium"
             return f"player|{confidence}|Player registration detected"
         else:
-            return "Union[ambiguous, low]|Cannot determine registration type - clarification needed"
+            return "ambiguous|low|Cannot determine registration type - clarification needed"
 
     except Exception as e:
         logger.error(f"❌ Context detection error: {e}")
-        return "Union[error, low]|Context detection failed"
+        return "error|low|Context detection failed"

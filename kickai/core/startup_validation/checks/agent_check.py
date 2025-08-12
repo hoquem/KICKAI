@@ -23,7 +23,15 @@ class AgentInitializationCheck(BaseCheck):
             from kickai.utils.llm_factory import LLMFactory
 
             # Simulate agent instantiation for all enabled configs
-            configs = get_enabled_agent_configs()
+            # Use default context for validation
+            context = {
+                "team_name": "KICKAI",
+                "team_id": "KAI",
+                "chat_type": "main",
+                "user_role": "public",
+                "username": "user"
+            }
+            configs = get_enabled_agent_configs(context)
             errors = []
             for role, config in configs.items():
                 try:

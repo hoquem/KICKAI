@@ -7,11 +7,11 @@
 
 ## 🎯 Overview
 
-KICKAI is an AI-powered football team management system that combines advanced AI capabilities with practical team management tools. The system uses a sophisticated 12-agent CrewAI architecture to provide intelligent, context-aware responses to team management needs through an agentic-first approach.
+KICKAI is an AI-powered football team management system that combines advanced AI capabilities with practical team management tools. The system uses a sophisticated 5-agent CrewAI architecture to provide intelligent, context-aware responses to team management needs through an agentic-first approach.
 
 ### 🚀 Key Features
 
-- ✅ **12-Agent CrewAI System** for intelligent task processing
+- ✅ **5-Agent CrewAI System** for intelligent task processing
 - ✅ **Agentic-First Architecture** with no dedicated command handlers
 - ✅ **Feature-First Clean Architecture** with clean separation of concerns
 - ✅ **Dynamic Command Discovery** from centralized registry
@@ -83,13 +83,10 @@ graph TB
     
     subgraph "Agent System"
         MP[Message Processor Agent]
-        TM[Team Manager Agent]
+        HA[Help Assistant Agent]
         PC[Player Coordinator Agent]
-        PA[Performance Analyst Agent]
-        FM[Finance Manager Agent]
-        LA[Learning Agent]
-        OA[Onboarding Agent]
-        IS[Intelligent System]
+        TA[Team Administrator Agent]
+        SS[Squad Selector Agent]
     end
     
     subgraph "Application Layer"
@@ -147,27 +144,46 @@ graph TB
     IS --> LLM
 ```
 
+### Architectural Principles: Embracing CrewAI Native Features
+
+KICKAI is built with a strong commitment to leveraging the native capabilities and design patterns of the CrewAI framework. This approach ensures:
+
+*   **Maintainability:** By adhering to CrewAI's conventions, the codebase remains consistent and easier to understand for anyone familiar with the framework.
+*   **Scalability:** Native features are often optimized for performance and scalability, allowing the system to grow efficiently.
+*   **Robustness:** Relying on well-tested CrewAI functionalities reduces the risk of introducing bugs or unexpected behavior.
+*   **Future-Proofing:** Staying aligned with the framework's evolution makes upgrades and new feature integration smoother.
+
+**Key Principles for CrewAI Usage:**
+
+*   **Task Context (`Task.config`):** All context and parameters required by tools should be passed via the `Task.config` dictionary. Tools should retrieve their necessary inputs from this context.
+*   **Native Memory:** Utilize CrewAI's built-in memory management features for persistent context across tasks and agents, rather than implementing custom memory solutions.
+*   **Delegation and Orchestration:** Employ CrewAI's inherent delegation mechanisms for agents to collaborate and for complex tasks to be broken down and orchestrated.
+*   **Agent and Task Design:** Adhere to CrewAI's recommended patterns for defining agent roles, goals, backstories, and structuring tasks.
+*   **Avoid Reinvention:** Do not re-implement functionalities (e.g., task execution, agent communication, tool invocation) that are already provided and optimized by the CrewAI framework.
+
+For detailed guidelines and examples, refer to the [CrewAI Best Practices Implementation Guide](CREWAI_BEST_PRACTICES_IMPLEMENTATION.md) and the [Architecture Documentation](docs/ARCHITECTURE.md).
+
 ### Agent Responsibilities
 
-#### 1. **HelpAssistantAgent**
-- **Primary Commands**: `/help`, help-related natural language
-- **Responsibilities**: Context-aware help information, user validation, command discovery
+#### 1. **Message Processor**
+- **Primary Commands**: `/info`, `/myinfo`, `/status`, `/list`, `/ping`, `/version`, general natural language
+- **Responsibilities**: Primary interface for all interactions, message processing, basic queries, communications management, agent routing
 
-#### 2. **MessageProcessorAgent**
-- **Primary Commands**: `/start`, `/version`, general natural language
-- **Responsibilities**: Message parsing, intent classification, agent routing
+#### 2. **Help Assistant**
+- **Primary Commands**: `/help`, help-related natural language, command guidance
+- **Responsibilities**: Comprehensive help system, user guidance, command discovery, fallback handling for unrecognized inputs
 
-#### 3. **PlayerCoordinatorAgent**
-- **Primary Commands**: `/addplayer`, `/addmember`, `/update`, `/myinfo`, `/status`
-- **Responsibilities**: Player registration, individual support, status tracking
+#### 3. **Player Coordinator**
+- **Primary Commands**: `/addplayer`, `/register`, `/myinfo`, `/status`, player-related queries
+- **Responsibilities**: Player registration and onboarding, player status tracking, player approvals, player lifecycle management
 
-#### 4. **TeamManagerAgent**
-- **Primary Commands**: `/list`, `/add`, `/approve`, `/reject`, `/team`, `/invite`, `/announce`
-- **Responsibilities**: Team administration, player management, coordination
+#### 4. **Team Administrator**
+- **Primary Commands**: `/addmember`, `/register`, team member management, role management
+- **Responsibilities**: Team member registration, role and permission management, team governance, team configuration
 
-#### 5. **SystemInfrastructureAgent**
-- **Primary Commands**: `/health`, `/config`
-- **Responsibilities**: System health monitoring, configuration management
+#### 5. **Squad Selector**
+- **Primary Commands**: Match management, availability tracking, squad selection, attendance
+- **Responsibilities**: Match creation and management, player availability tracking, squad selection, attendance recording, match logistics
 
 ### Command Processing Flow
 
@@ -299,9 +315,9 @@ KICKAI/
 │   │   ├── team_administration/  # Team management
 │   │   ├── match_management/     # Match operations
 │   │   ├── attendance_management/ # Attendance tracking
-│   │   ├── payment_management/   # Payment processing
+│   │   ├── attendance_management/   # Attendance tracking
 │   │   ├── communication/        # Messaging
-│   │   ├── health_monitoring/    # System health
+│   │   ├── payment_management/   # Payment processing
 │   │   └── system_infrastructure/ # Core services
 │   ├── agents/                   # AI Agent System
 │   │   ├── crew_agents.py        # Main agent definitions

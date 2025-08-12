@@ -222,7 +222,7 @@ class LeadershipAdminAdder:
             collection_name = f"kickai_{self.team_id}_team_members"
             
             # Check if member already exists
-            existing_docs = self.db.collection(collection_name).where("telegram_id", "==", str(member.user_id)).stream()
+            existing_docs = self.db.collection(collection_name).where("telegram_id", "==", member.user_id).stream()
             existing_members = list(existing_docs)
             
             if existing_members:
@@ -232,7 +232,7 @@ class LeadershipAdminAdder:
             # Create new team member document
             member_data = {
                 "team_id": self.team_id,
-                "telegram_id": str(member.user_id),
+                "telegram_id": member.user_id,
                 "username": member.username,
                 "first_name": member.first_name,
                 "last_name": member.last_name,

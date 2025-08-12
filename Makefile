@@ -32,7 +32,10 @@ help:
 # Development setup
 setup-dev:
 	@echo "Setting up development environment..."
+	@echo "Checking Python version requirements..."
+	python3.11 check_python_version.py
 	python3.11 -m venv venv311
+	. venv311/bin/activate && python check_python_version.py
 	. venv311/bin/activate && pip install -r requirements.txt
 	. venv311/bin/activate && pip install -r requirements-local.txt
 	pre-commit install
@@ -41,6 +44,8 @@ setup-dev:
 # Development server
 dev:
 	@echo "Starting development server..."
+	@echo "Checking Python version..."
+	. venv311/bin/activate && python check_python_version.py
 	. venv311/bin/activate && PYTHONPATH=. python run_bot_local.py
 
 # Testing commands

@@ -226,7 +226,7 @@ class LoggingConfig:
 - **Priority**: Highest (100)
 - **Usage**: Production deployments
 - **Format**: Standard environment variable format
-- **Example**: `AI_PROVIDER=google_gemini`, `AI_API_KEY=your_key`
+- **Example**: `AI_PROVIDER=groq`, `GROQ_API_KEY=your_key`, `AI_MODEL_SIMPLE=llama3-8b-8192`
 
 ### JSON Files
 - **Priority**: Medium (50)
@@ -260,14 +260,17 @@ required_fields_dev = ["TEAM_ID", "BOT_TOKEN"]
 
 # Production
 required_fields_prod = [
-    "TEAM_ID", "BOT_TOKEN", "AI_PROVIDER", "AI_API_KEY",
-    "FIREBASE_CREDENTIALS_JSON", "MAIN_CHAT_ID", "LEADERSHIP_CHAT_ID"
+    "TEAM_ID", "BOT_TOKEN", "AI_PROVIDER", "GROQ_API_KEY",
+    "FIREBASE_CREDENTIALS_JSON", "MAIN_CHAT_ID", "LEADERSHIP_CHAT_ID",
+    "AI_MODEL_SIMPLE"  # or AI_MODEL_ADVANCED or AI_MODEL_NAME
 ]
 ```
 
 ### AI Provider Validation
+- **Groq**: Requires `GROQ_API_KEY` and at least one model configuration
 - **Google Gemini**: Requires `GOOGLE_API_KEY`
 - **OpenAI**: Requires `OPENAI_API_KEY`
+- **Ollama**: Requires `OLLAMA_BASE_URL` (optional, has default)
 
 ## Usage Patterns
 

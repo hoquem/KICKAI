@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KickAI - Liverpool FC Mock Tester</title>
+    <style>
+        :root {
+            /* Liverpool FC Official Colors */
+            --lfc-red: #C8102E;
+            --lfc-gold: #F6EB61;
+            --lfc-dark-red: #8B0000;
+            --lfc-white: #FFFFFF;
+            --lfc-dark: #1A1A1A;
+            --lfc-gray: #F5F5F5;
+            --lfc-light-gray: #E8E8E8;
+            
+            /* Status Colors */
+            --status-online: #28a745;
+            --status-offline: #dc3545;
+            --status-warning: #ffc107;
+            
+            /* User Role Colors */
+            --role-player: #C8102E;
+            --role-admin: #8B0000;
+            --role-leadership: #F6EB61;
+            --role-member: #28a745;
+            
+            /* Neutral Colors */
+            --bg-primary: var(--lfc-white);
+            --bg-secondary: var(--lfc-gray);
+            --bg-tertiary: var(--lfc-light-gray);
+            --text-primary: var(--lfc-dark);
+            --text-secondary: #666666;
+            --border-color: #DDDDDD;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--lfc-red) 0%, var(--lfc-dark-red) 100%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: var(--bg-primary);
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(200, 16, 46, 0.15);
+            margin-bottom: 24px;
+            border: 2px solid var(--lfc-gold);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--lfc-red), var(--lfc-gold), var(--lfc-red));
+        }
+        
+        .header h1 {
+            color: var(--lfc-red);
+            margin-bottom: 8px;
+            font-size: 32px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header h1::before {
+            content: '⚽';
+            font-size: 28px;
+        }
+        
+        .header p {
+            color: var(--text-secondary);
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .lfc-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, var(--lfc-red), var(--lfc-dark-red));
+            color: var(--lfc-white);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(200, 16, 46, 0.3);
+        }
+        
+        .lfc-badge::before {
+            content: '🏆';
+        }
+        
+        .team-info {
+            background: linear-gradient(135deg, var(--lfc-gray), var(--lfc-light-gray));
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-top: 16px;
+            border-left: 4px solid var(--lfc-red);
+            border-right: 4px solid var(--lfc-gold);
+        }
+        
+        .team-info .team-id {
+            font-weight: 700;
+            color: var(--lfc-red);
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .team-info .team-source {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .team-source.firestore {
+            color: var(--status-online) !important;
+            font-weight: bold;
+        }
+        
+        .team-source.mock-fallback {
+            color: var(--status-warning) !important;
+            font-weight: bold;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 24px;
+        }
+        
+        .sidebar {
+            background: var(--bg-primary);
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(200, 16, 46, 0.15);
+            height: fit-content;
+            border: 2px solid var(--lfc-gold);
+        }
+        
+        .sidebar h3 {
+            color: var(--lfc-red);
+            margin-bottom: 16px;
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .sidebar h3::before {
+            content: '👥';
+        }
+        
+        .chat-area {
+            background: var(--bg-primary);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(200, 16, 46, 0.15);
+            display: flex;
+            flex-direction: column;
+            height: 700px;
+            border: 2px solid var(--lfc-gold);
+        }
+        
+        .chat-header {
+            padding: 20px 24px;
+            border-bottom: 2px solid var(--lfc-light-gray);
+            background: linear-gradient(135deg, var(--lfc-red), var(--lfc-dark-red));
+            color: var(--lfc-white);
+            border-radius: 14px 14px 0 0;
+            position: relative;
+        }
+        
+        .chat-header h3 {
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .chat-header h3::before {
+            content: '💬';
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            background: var(--bg-secondary);
+        }
+        
+        .message {
+            margin-bottom: 16px;
+            padding: 12px 18px;
+            border-radius: 20px;
+            max-width: 75%;
+            word-wrap: break-word;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .message.user {
+            background: linear-gradient(135deg, var(--lfc-red), var(--lfc-dark-red));
+            color: var(--lfc-white);
+            margin-left: auto;
+            border-bottom-right-radius: 8px;
+        }
+        
+        .message.bot {
+            background: var(--lfc-white);
+            color: var(--text-primary);
+            border: 2px solid var(--lfc-light-gray);
+            border-bottom-left-radius: 8px;
+        }
+        
+        .message-info {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        
+        .chat-input {
+            padding: 20px 24px;
+            border-top: 2px solid var(--lfc-light-gray);
+            background: var(--lfc-white);
+            border-radius: 0 0 14px 14px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .input-group input {
+            flex: 1;
+            padding: 14px 16px;
+            border: 2px solid var(--lfc-light-gray);
+            border-radius: 12px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--lfc-red);
+            box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.1);
+        }
+        
+        .input-group button {
+            padding: 14px 24px;
+            background: linear-gradient(135deg, var(--lfc-red), var(--lfc-dark-red));
+            color: var(--lfc-white);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(200, 16, 46, 0.3);
+        }
+        
+        .input-group button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(200, 16, 46, 0.4);
+        }
+        
+        .input-group button:active {
+            transform: translateY(0);
+        }
+        
+        .user-list {
+            list-style: none;
+        }
+        
+        .user-item {
+            padding: 12px 16px;
+            border: 2px solid var(--lfc-light-gray);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--lfc-white);
+        }
+        
+        .user-item:hover {
+            background: var(--lfc-gray);
+            border-color: var(--lfc-red);
+            transform: translateX(4px);
+        }
+        
+        .user-item.active {
+            background: linear-gradient(135deg, var(--lfc-red), var(--lfc-dark-red));
+            color: var(--lfc-white);
+            border-color: var(--lfc-gold);
+            box-shadow: 0 4px 12px rgba(200, 16, 46, 0.3);
+        }
+        
+        .user-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+        
+        .user-role {
+            font-size: 12px;
+            opacity: 0.8;
+            text-transform: capitalize;
+        }
+        
+        .status {
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .status.connected {
+            background: linear-gradient(135deg, var(--status-online), #1e7e34);
+            color: var(--lfc-white);
+            border: 2px solid var(--status-online);
+        }
+        
+        .status.disconnected {
+            background: linear-gradient(135deg, var(--status-offline), #c82333);
+            color: var(--lfc-white);
+            border: 2px solid var(--status-offline);
+        }
+        
+        .create-user-form {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 2px solid var(--lfc-light-gray);
+        }
+        
+        .create-user-form h4 {
+            color: var(--lfc-red);
+            margin-bottom: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .create-user-form h4::before {
+            content: '➕';
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid var(--lfc-light-gray);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--lfc-red);
+            box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.1);
+        }
+        
+        .form-group button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--status-online), #1e7e34);
+            color: var(--lfc-white);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+        
+        .form-group button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        }
+        
+        .form-group button:active {
+            transform: translateY(0);
+        }
+        
+        /* Chat selector styling */
+        #chatSelector {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid var(--lfc-light-gray);
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        #chatSelector:focus {
+            outline: none;
+            border-color: var(--lfc-red);
+            box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.1);
+        }
+        
+        /* Scrollbar styling */
+        .chat-messages::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-track {
+            background: var(--lfc-light-gray);
+            border-radius: 4px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: var(--lfc-red);
+            border-radius: 4px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: var(--lfc-dark-red);
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
+            .container {
+                padding: 16px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+        }
+        
+        /* Loading animation */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--lfc-light-gray);
+            border-radius: 50%;
+            border-top-color: var(--lfc-red);
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Football-themed decorations */
+        .football-decoration {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            opacity: 0.1;
+            pointer-events: none;
+        }
+        
+        .header .football-decoration::before {
+            content: '⚽🏆⚽';
+            letter-spacing: 8px;
+        }
+        
+        /* Enhanced features */
+        .quick-actions {
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--lfc-gray);
+            border-radius: 12px;
+            border: 2px solid var(--lfc-light-gray);
+        }
+        
+        .quick-actions h4 {
+            color: var(--lfc-red);
+            margin-bottom: 12px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .quick-action-btn {
+            display: inline-block;
+            padding: 8px 12px;
+            margin: 4px;
+            background: var(--lfc-white);
+            color: var(--lfc-red);
+            border: 2px solid var(--lfc-red);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .quick-action-btn:hover {
+            background: var(--lfc-red);
+            color: var(--lfc-white);
+            transform: translateY(-1px);
+        }
+        
+        .system-info {
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--lfc-light-gray);
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .system-info .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        
+        .system-info .info-label {
+            font-weight: 600;
+            color: var(--lfc-red);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="football-decoration"></div>
+            <h1>KickAI - Liverpool FC</h1>
+            <p>Professional football team management system with AI-powered communication</p>
+            <div class="lfc-badge">You'll Never Walk Alone</div>
+            
+            <div class="team-info">
+                <div class="team-id">Team: Liverpool FC</div>
+                <div class="team-source firestore">Data Source: Firestore Database</div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="sidebar">
+                <div id="status" class="status disconnected">
+                    🔴 Disconnected
+                </div>
+                
+                <h3>Select Chat</h3>
+                <select id="chatSelector" onchange="selectChatFromSelector()">
+                    <option value="">Select a chat...</option>
+                </select>
+                
+                <h3>Test Users</h3>
+                <ul id="userList" class="user-list">
+                    <!-- Users will be populated here -->
+                </ul>
+                
+                <div class="quick-actions">
+                    <h4>Quick Actions</h4>
+                    <button class="quick-action-btn" onclick="loadUsers()">🔄 Refresh Users</button>
+                    <button class="quick-action-btn" onclick="loadChats()">🔄 Refresh Chats</button>
+                    <button class="quick-action-btn" onclick="clearChat()">🗑️ Clear Chat</button>
+                    <button class="quick-action-btn" onclick="exportChat()">📤 Export Chat</button>
+                </div>
+                
+                <div class="create-user-form">
+                    <h4>Create New User</h4>
+                    <div class="form-group">
+                        <label for="newUsername">Username:</label>
+                        <input type="text" id="newUsername" placeholder="lfc_player_01">
+                    </div>
+                    <div class="form-group">
+                        <label for="newFirstName">First Name:</label>
+                        <input type="text" id="newFirstName" placeholder="Mo">
+                    </div>
+                    <div class="form-group">
+                        <label for="newLastName">Last Name:</label>
+                        <input type="text" id="newLastName" placeholder="Salah">
+                    </div>
+                    <div class="form-group">
+                        <label for="newRole">Role:</label>
+                        <select id="newRole">
+                            <option value="player">Player</option>
+                            <option value="team_member">Team Member</option>
+                            <option value="admin">Admin</option>
+                            <option value="leadership">Leadership</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPhone">Phone Number:</label>
+                        <input type="text" id="newPhone" placeholder="+44 123 456 7890">
+                    </div>
+                    <div class="form-group">
+                        <button onclick="createUser()">Create User</button>
+                    </div>
+                </div>
+                
+                <div class="system-info">
+                    <div class="info-item">
+                        <span class="info-label">API Status:</span>
+                        <span id="apiStatus">Checking...</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">WebSocket:</span>
+                        <span id="wsStatus">Disconnected</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Users:</span>
+                        <span id="userCount">0</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Chats:</span>
+                        <span id="chatCount">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-area">
+                <div class="chat-header">
+                    <h3 id="chatTitle">Select a user to start chatting</h3>
+                </div>
+                
+                <div id="chatMessages" class="chat-messages">
+                    <div class="message bot">
+                        <div class="message-info">🤖 KickAI Bot</div>
+                        Welcome to Liverpool FC's KickAI system! ⚽<br><br>
+                        Select a user from the sidebar to start testing our AI-powered team management system. You'll Never Walk Alone! 🔴<br><br>
+                        <strong>Available Commands:</strong><br>
+                        • /help - Show available commands<br>
+                        • /register - Register as a new player<br>
+                        • /myinfo - Show your information<br>
+                        • /list - List team members<br>
+                        • /status - Check your status
+                    </div>
+                </div>
+                
+                <div class="chat-input">
+                    <div class="input-group">
+                        <input 
+                            type="text" 
+                            id="messageInput" 
+                            placeholder="Type your message here..."
+                            onkeypress="handleKeyPress(event)"
+                        >
+                        <button onclick="sendMessage()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentUser = null;
+        let currentChat = null;
+        let users = [];
+        let chats = [];
+        let ws = null;
+        let chatHistory = [];
+        
+        // API base URL
+        const API_BASE = 'http://localhost:8001/api';
+        
+        // Initialize the application
+        async function init() {
+            await loadUsers();
+            await loadChats();
+            connectWebSocket();
+            updateSystemInfo();
+        }
+        
+        // Load users from API
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_BASE}/users`);
+                users = await response.json();
+                renderUsers();
+                updateSystemInfo();
+            } catch (error) {
+                console.error('Error loading users:', error);
+                updateApiStatus('Error');
+            }
+        }
+        
+        // Load chats from API
+        async function loadChats() {
+            try {
+                const response = await fetch(`${API_BASE}/chats`);
+                chats = await response.json();
+                renderChatSelector();
+                updateSystemInfo();
+            } catch (error) {
+                console.error('Error loading chats:', error);
+                updateApiStatus('Error');
+            }
+        }
+        
+        // Update system information
+        function updateSystemInfo() {
+            document.getElementById('userCount').textContent = users.length;
+            document.getElementById('chatCount').textContent = chats.length;
+            updateApiStatus('Connected');
+        }
+        
+        // Update API status
+        function updateApiStatus(status) {
+            document.getElementById('apiStatus').textContent = status;
+        }
+        
+        // Update WebSocket status
+        function updateWsStatus(status) {
+            document.getElementById('wsStatus').textContent = status;
+        }
+        
+        // Render chat selector
+        function renderChatSelector() {
+            const chatSelector = document.getElementById('chatSelector');
+            chatSelector.innerHTML = '<option value="">Select a chat...</option>';
+            
+            chats.forEach(chat => {
+                const option = document.createElement('option');
+                option.value = chat.id;
+                
+                if (chat.is_main_chat) {
+                    option.textContent = `🏠 ${chat.title} (Main Chat)`;
+                } else if (chat.is_leadership_chat) {
+                    option.textContent = `👑 ${chat.title} (Leadership)`;
+                } else if (chat.type === 'private') {
+                    option.textContent = `💬 ${chat.first_name} ${chat.last_name || ''} (Private)`;
+                } else {
+                    option.textContent = `💬 ${chat.title || 'Unknown Chat'}`;
+                }
+                
+                chatSelector.appendChild(option);
+            });
+        }
+        
+        // Render users in sidebar
+        function renderUsers() {
+            const userList = document.getElementById('userList');
+            userList.innerHTML = '';
+            
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.className = 'user-item';
+                li.onclick = () => selectUser(user);
+                
+                li.innerHTML = `
+                    <div class="user-name">${user.first_name} ${user.last_name || ''}</div>
+                    <div class="user-role">@${user.username} • ${user.role}</div>
+                `;
+                
+                userList.appendChild(li);
+            });
+        }
+        
+        // Select a user for chatting
+        function selectUser(user) {
+            currentUser = user;
+            
+            // Update UI
+            document.querySelectorAll('.user-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.closest('.user-item').classList.add('active');
+            
+            // If no chat is selected, select user's private chat
+            if (!currentChat) {
+                const privateChat = chats.find(chat => chat.id === user.id);
+                if (privateChat) {
+                    selectChat(privateChat);
+                }
+            }
+        }
+        
+        // Select a chat for messaging
+        function selectChat(chat) {
+            currentChat = chat;
+            
+            // Update chat selector
+            document.getElementById('chatSelector').value = chat.id;
+            
+            // Update chat title
+            let chatTitle = '';
+            if (chat.is_main_chat) {
+                chatTitle = `🏠 ${chat.title} (Main Chat)`;
+            } else if (chat.is_leadership_chat) {
+                chatTitle = `👑 ${chat.title} (Leadership)`;
+            } else if (chat.type === 'private') {
+                chatTitle = `💬 ${chat.first_name} ${chat.last_name || ''} (Private)`;
+            } else {
+                chatTitle = `💬 ${chat.title || 'Unknown Chat'}`;
+            }
+            
+            document.getElementById('chatTitle').textContent = chatTitle;
+            document.getElementById('messageInput').disabled = false;
+            
+            if (currentUser) {
+                document.getElementById('messageInput').placeholder = `Send message as ${currentUser.first_name}...`;
+            } else {
+                document.getElementById('messageInput').placeholder = 'Select a user first...';
+            }
+            
+            // Load chat history
+            loadChatHistory(chat.id);
+        }
+        
+        // Handle chat selector change
+        function selectChatFromSelector() {
+            const chatId = parseInt(document.getElementById('chatSelector').value);
+            if (chatId) {
+                const chat = chats.find(c => c.id === chatId);
+                if (chat) {
+                    selectChat(chat);
+                }
+            }
+        }
+        
+        // Load chat history for a chat
+        async function loadChatHistory(chatId) {
+            try {
+                const response = await fetch(`${API_BASE}/chats/${chatId}/messages`);
+                const messages = await response.json();
+                
+                chatHistory = messages;
+                renderChatMessages();
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+            }
+        }
+        
+        // Render chat messages
+        function renderChatMessages() {
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = '';
+            
+            chatHistory.forEach(message => {
+                addMessageToChat(message);
+            });
+            
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Send a message
+        async function sendMessage() {
+            if (!currentUser) {
+                alert('Please select a user first');
+                return;
+            }
+            
+            if (!currentChat) {
+                alert('Please select a chat first');
+                return;
+            }
+            
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            
+            if (!text) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/send_message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: currentUser.id,
+                        chat_id: currentChat.id,
+                        text: text
+                    })
+                });
+                
+                if (response.ok) {
+                    input.value = '';
+                } else {
+                    const errorData = await response.json();
+                    console.error('Error sending message:', errorData);
+                    
+                    // Extract error message properly
+                    let errorMessage = 'Failed to send message';
+                    if (errorData.detail) {
+                        errorMessage = errorData.detail;
+                    } else if (errorData.error) {
+                        errorMessage = errorData.error;
+                    } else if (typeof errorData === 'string') {
+                        errorMessage = errorData;
+                    } else if (errorData.message) {
+                        errorMessage = errorData.message;
+                    }
+                    
+                    alert(`Error: ${errorMessage}`);
+                }
+            } catch (error) {
+                console.error('Error sending message:', error);
+                alert('Failed to send message. Please try again.');
+            }
+        }
+        
+        // Handle Enter key press
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        // Create a new user
+        async function createUser() {
+            const username = document.getElementById('newUsername').value;
+            const firstName = document.getElementById('newFirstName').value;
+            const lastName = document.getElementById('newLastName').value;
+            const role = document.getElementById('newRole').value;
+            const phone = document.getElementById('newPhone').value;
+            
+            if (!username || !firstName) {
+                alert('Username and First Name are required');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/users`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        first_name: firstName,
+                        last_name: lastName || null,
+                        role: role,
+                        phone_number: phone || null
+                    })
+                });
+                
+                if (response.ok) {
+                    await loadUsers();
+                    
+                    // Clear form
+                    document.getElementById('newUsername').value = '';
+                    document.getElementById('newFirstName').value = '';
+                    document.getElementById('newLastName').value = '';
+                    document.getElementById('newPhone').value = '';
+                } else {
+                    const errorData = await response.json();
+                    console.error('Error creating user:', errorData);
+                    
+                    // Extract error message properly
+                    let errorMessage = 'Failed to create user';
+                    if (errorData.detail) {
+                        errorMessage = errorData.detail;
+                    } else if (errorData.error) {
+                        errorMessage = errorData.error;
+                    } else if (typeof errorData === 'string') {
+                        errorMessage = errorData;
+                    } else if (errorData.message) {
+                        errorMessage = errorData.message;
+                    }
+                    
+                    alert(`Error creating user: ${errorMessage}`);
+                }
+            } catch (error) {
+                console.error('Error creating user:', error);
+                alert('Failed to create user. Please try again.');
+            }
+        }
+        
+        // Quick action functions
+        function clearChat() {
+            if (confirm('Are you sure you want to clear the chat?')) {
+                chatHistory = [];
+                renderChatMessages();
+            }
+        }
+        
+        function exportChat() {
+            if (chatHistory.length === 0) {
+                alert('No chat history to export');
+                return;
+            }
+            
+            const chatData = {
+                chat: currentChat,
+                user: currentUser,
+                messages: chatHistory,
+                exportDate: new Date().toISOString()
+            };
+            
+            const dataStr = JSON.stringify(chatData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `chat_export_${Date.now()}.json`;
+            link.click();
+        }
+        
+        // Connect to WebSocket for real-time updates
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://localhost:8001/ws`);
+            
+            ws.onopen = function() {
+                document.getElementById('status').className = 'status connected';
+                document.getElementById('status').innerHTML = '🟢 Connected';
+                updateWsStatus('Connected');
+            };
+            
+            ws.onclose = function() {
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('status').innerHTML = '🔴 Disconnected';
+                updateWsStatus('Disconnected');
+                
+                // Try to reconnect after 5 seconds
+                setTimeout(connectWebSocket, 5000);
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                updateWsStatus('Error');
+            };
+        }
+        
+        // Handle WebSocket messages
+        function handleWebSocketMessage(data) {
+            if (data.type === 'new_message') {
+                addMessageToChat(data.message);
+            } else if (data.type === 'bot_response') {
+                addBotMessageToChat(data.message);
+            }
+        }
+        
+        // Add a user message to the chat
+        function addMessageToChat(message) {
+            chatHistory.push(message);
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user';
+            
+            // Robust date parsing
+            let displayTime = 'Unknown Time';
+            if (typeof message.date === 'number' && !isNaN(message.date)) {
+                try {
+                    displayTime = new Date(message.date * 1000).toLocaleTimeString();
+                } catch (e) {
+                    console.error('Error formatting date:', e);
+                    displayTime = 'Invalid Date';
+                }
+            }
+            
+            // Robust sender name and message text
+            const senderName = message.from?.first_name || 'Unknown User';
+            const messageText = message.text || ''; // Fallback to empty string if text is null/undefined
+            
+            messageDiv.innerHTML = `
+                <div class="message-info">${senderName} • ${displayTime}</div>
+                ${messageText}
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Add a bot message to the chat
+        function addBotMessageToChat(message) {
+            chatHistory.push(message);
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot';
+            
+            // Robust date parsing
+            let displayTime = 'Unknown Time';
+            if (typeof message.date === 'number' && !isNaN(message.date)) {
+                try {
+                    displayTime = new Date(message.date * 1000).toLocaleTimeString();
+                } catch (e) {
+                    console.error('Error formatting date:', e);
+                    displayTime = 'Invalid Date';
+                }
+            }
+            
+            // Robust message text
+            const messageText = message.text || ''; // Fallback to empty string if text is null/undefined
+            
+            messageDiv.innerHTML = `
+                <div class="message-info">🤖 KickAI Bot • ${displayTime}</div>
+                ${messageText}
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
+

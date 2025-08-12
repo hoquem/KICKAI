@@ -9,12 +9,75 @@ This is the ONLY place where these enums should be defined to prevent circular i
 from enum import Enum
 
 
-class ChatType(Enum):
-    """Chat types for permission checking and role assignment."""
+class AgentRole(str, Enum):
+    """Agent roles in the 5-Agent CrewAI system."""
 
-    MAIN = "main_chat"
-    LEADERSHIP = "leadership_chat"
+    # Essential 5-Agent System
+    MESSAGE_PROCESSOR = "message_processor"        # Primary interface and routing
+    HELP_ASSISTANT = "help_assistant"              # Help system and guidance
+    PLAYER_COORDINATOR = "player_coordinator"      # Player management and onboarding
+    TEAM_ADMINISTRATOR = "team_administrator"      # Team member management
+    SQUAD_SELECTOR = "squad_selector"              # Squad selection and match management
+
+
+class UserRole(str, Enum):
+    """User roles in the system."""
+
+    # Player roles
+    PLAYER = "player"
+
+    # Team member roles
+    TEAM_MEMBER = "team_member"
+    TEAM_MANAGER = "team_manager"
+    CLUB_ADMINISTRATOR = "club_administrator"
+    COACH = "coach"
+    ASSISTANT_COACH = "assistant_coach"
+
+    # System roles
+    ADMIN = "admin"
+    LEADERSHIP = "leadership"
+
+
+class UserStatus(str, Enum):
+    """User status values."""
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    SUSPENDED = "suspended"
+    PENDING = "pending"
+
+
+class ChatType(str, Enum):
+    """Chat types for Telegram integration."""
+
     PRIVATE = "private"
+    GROUP = "group"
+    SUPERGROUP = "supergroup"
+    CHANNEL = "channel"
+    MAIN = "main"
+    LEADERSHIP = "leadership"
+
+
+class EntityType(str, Enum):
+    """Types of entities that tools can operate on."""
+
+    PLAYER = "player"
+    TEAM_MEMBER = "team_member"
+    TEAM = "team"
+    MATCH = "match"
+    BOTH = "both"  # For entities that work with both players and team members
+    NEITHER = "neither"
+
+
+class AIProvider(str, Enum):
+    """AI providers supported by the system."""
+
+    OLLAMA = "ollama"
+    OPENAI = "openai"
+    GOOGLE_GEMINI = "google_gemini"
+    HUGGINGFACE = "huggingface"
+    MOCK = "mock"
+    GROQ = "groq"
 
 
 class PermissionLevel(Enum):
@@ -34,42 +97,10 @@ class CommandType(Enum):
     NATURAL_LANGUAGE = "natural_language"
     PLAYER_MANAGEMENT = "player_management"
     MATCH_MANAGEMENT = "match_management"
-    PAYMENT_MANAGEMENT = "payment_management"
+
     TEAM_ADMINISTRATION = "team_administration"
     SYSTEM_OPERATION = "system_operation"
     HELP = "help"
-
-
-class AgentRole(Enum):
-    """CrewAI agent roles."""
-
-    INTELLIGENT_SYSTEM = "intelligent_system"
-    MESSAGE_PROCESSOR = "message_processor"
-    TEAM_ADMINISTRATOR = "team_administrator"
-    PLAYER_COORDINATOR = "player_coordinator"
-    ONBOARDING_AGENT = "onboarding_agent"
-    AVAILABILITY_MANAGER = "availability_manager"
-    SQUAD_SELECTOR = "squad_selector"
-    MATCH_COORDINATOR = "match_coordinator"
-    TRAINING_COORDINATOR = "training_coordinator"
-    COMMUNICATION_MANAGER = "communication_manager"
-    HELP_ASSISTANT = "help_assistant"
-    ANALYTICS_AGENT = "analytics_agent"
-    TEAM_MANAGER = "team_manager"
-    FINANCE_MANAGER = "finance_manager"
-    PERFORMANCE_ANALYST = "performance_analyst"
-    LEARNING_AGENT = "learning_agent"
-    COMMAND_FALLBACK_AGENT = "command_fallback_agent"
-
-
-class AIProvider(Enum):
-    """AI providers for different environments."""
-
-    OLLAMA = "ollama"
-    GEMINI = "gemini"
-    HUGGINGFACE = "huggingface"
-    OPENAI = "openai"
-    MOCK = "mock"
 
 
 class PlayerPosition(Enum):
@@ -93,26 +124,7 @@ class TeamStatus(Enum):
     PENDING = "pending"
 
 
-class PaymentType(Enum):
-    """Payment types."""
 
-    MATCH_FEE = "match_fee"
-    MEMBERSHIP_FEE = "membership_fee"
-    FINE = "fine"
-    REFUND = "refund"
-    MANUAL = "manual"
-    LINK = "link"
-    REQUEST = "request"
-
-
-class PaymentStatus(Enum):
-    """Payment status values."""
-
-    PENDING = "pending"
-    PAID = "paid"
-    OVERDUE = "overdue"
-    CANCELLED = "cancelled"
-    REFUNDED = "refunded"
 
 
 class ExpenseCategory(Enum):
@@ -146,7 +158,7 @@ class ComponentType(Enum):
     DATABASE = "database"
     TELEGRAM = "telegram"
     AI_SERVICE = "ai_service"
-    PAYMENT_GATEWAY = "payment_gateway"
+
     NOTIFICATION_SERVICE = "notification_service"
     AGENT = "agent"
     TOOL = "tool"
@@ -250,6 +262,7 @@ class CheckCategory(Enum):
     FUNCTIONALITY = "functionality"
     PERFORMANCE = "performance"
     SECURITY = "security"
+    SYSTEM = "SYSTEM"
     LLM = "LLM"
     AGENT = "AGENT"
     TOOL = "TOOL"
@@ -284,7 +297,7 @@ class CacheNamespace(Enum):
     USER_SESSION = "user_session"
     TEAM_DATA = "team_data"
     MATCH_DATA = "match_data"
-    PAYMENT_DATA = "payment_data"
+
     SYSTEM_CONFIG = "system_config"
 
 
@@ -294,8 +307,8 @@ class IDType(Enum):
     PLAYER = "player"
     TEAM = "team"
     MATCH = "match"
-    PAYMENT = "payment"
-    EXPENSE = "expense"
+
+
     MESSAGE = "message"
 
 

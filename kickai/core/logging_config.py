@@ -23,7 +23,7 @@ is_test = os.getenv("TESTING", "false").lower() == "true"
 # Using only stdout to prevent double logging when redirecting with 2>&1
 logger.add(
     sys.stdout,
-    level="INFO",
+    level="DEBUG",  # Temporarily set to DEBUG to capture LLM response logging
     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
     enqueue=True,
     backtrace=True,

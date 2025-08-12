@@ -7,7 +7,7 @@ name = "kickai"
 version = "0.1.0"
 description = "AI-powered Telegram bot for Sunday league football team management"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.12"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

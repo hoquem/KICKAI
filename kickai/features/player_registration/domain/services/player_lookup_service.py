@@ -1,6 +1,7 @@
 import logging
 
 from kickai.database.interfaces import DataStoreInterface
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

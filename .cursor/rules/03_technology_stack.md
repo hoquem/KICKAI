@@ -1,278 +1,344 @@
-# Technology Stack
+# Technology Stack and Dependencies
 
-## Current Technology Stack
+## 🎯 **Core Technology Stack**
 
-### ✅ **Core Technologies**
+### **Primary Technologies**
+- **Python 3.11** - Core runtime and development language
+- **CrewAI** - AI agent orchestration framework
+- **Firebase Firestore** - Primary database
+- **python-telegram-bot** - Telegram Bot API integration
+- **Groq LLM** - Primary AI provider (fail-fast configuration)
+- **Ruff** - Linting, formatting, and import sorting
+- **Pytest** - Testing framework
+- **Loguru** - Structured logging
 
-#### Python Framework
-- **Python**: 3.11 (Primary language)
-- **Async Support**: asyncio for asynchronous operations
-- **Type Hints**: Full type safety with mypy
-- **Dataclasses**: For data structures and validation
+### **Development Tools**
+- **VS Code** - Primary IDE with workspace configuration
+- **Cursor** - AI-powered development with custom rules
+- **Pre-commit** - Git hooks for code quality
+- **Makefile** - Build and development commands
 
-#### AI and Agent Framework
-- **CrewAI**: Primary agent orchestration framework
-- **8-Agent System**: Specialized agents for different domains
-- **Tool Integration**: CrewAI tools for agent capabilities
-- **LLM Integration**: Ollama for local LLM processing
+### **Deployment Platform**
+- **Railway** - Production deployment platform
+- **Firebase** - Database and authentication services
+- **Telegram Bot API** - Bot platform
 
-#### Database and Storage
-- **Firebase Firestore**: Primary database (NoSQL)
-- **Real-time Updates**: Firestore real-time listeners
-- **Data Validation**: Pydantic models for data validation
-- **Collection Structure**: Feature-based collection organization
+---
 
-#### Messaging Platform
-- **Telegram Bot API**: Primary user interface
-- **python-telegram-bot**: Official Telegram bot library
-- **Multi-Chat Support**: Main chat and leadership chat
-- **Message Handling**: Unified message processing system
+## 🤖 **AI and LLM Stack**
 
-### ✅ **Development and Quality Tools**
+### **Primary LLM Provider: Groq**
+- **Provider**: Groq (fail-fast configuration)
+- **Model**: Groq's high-performance LLM models
+- **Configuration**: Single provider with no fallbacks
+- **Error Handling**: Fail-fast behavior with immediate error propagation
+- **Startup Validation**: Comprehensive LLM connectivity checks
 
-#### Code Quality
-- **Ruff**: Fast Python linter, formatter, and import sorter
-- **mypy**: Static type checking
-- **pre-commit**: Git hooks for quality checks
-- **Black**: Code formatting (replaced by Ruff)
+**Adherence to CrewAI Native Features:**
+KICKAI is built to fully leverage CrewAI's native features for agent orchestration, task management, and tool utilization. When working with the AI and LLM stack, always prioritize CrewAI's built-in mechanisms for passing context (e.g., `Task.config`), managing memory, and orchestrating agent interactions. Avoid custom implementations for functionalities already supported by CrewAI. For detailed guidelines, refer to the [Architecture Documentation](docs/ARCHITECTURE.md).
 
-#### Testing Framework
-- **pytest**: Primary testing framework
-- **pytest-asyncio**: Async test support
-- **pytest-cov**: Coverage reporting
-- **pytest-mock**: Mocking and patching
-- **telethon**: Telegram client for E2E testing
-
-#### Logging and Monitoring
-- **loguru**: Structured logging
-- **Structured Logs**: JSON-formatted log output
-- **Log Levels**: DEBUG, INFO, WARNING, ERROR
-- **Performance Monitoring**: Built-in performance tracking
-
-### ✅ **Architecture and Design**
-
-#### Clean Architecture
-- **Domain-Driven Design**: Business logic separation
-- **Feature-Based Modules**: Modular feature organization
-- **Dependency Injection**: Modern DI container
-- **Repository Pattern**: Data access abstraction
-
-#### Command System
-- **Unified Command Registry**: Centralized command management
-- **Permission-Based Access**: Role-based command access
-- **Chat-Specific Commands**: Context-aware command availability
-- **Command Metadata**: Rich command documentation
-
-#### Agent System
-- **8-Agent Orchestration**: Specialized agent roles
-- **Tool Discovery**: Automatic tool registration
-- **Context-Aware Routing**: Intelligent message routing
-- **Task Decomposition**: Complex task breakdown
-
-### 🚧 **Partially Implemented Technologies**
-
-#### E2E Testing
-- **Telethon**: Telegram client for testing (missing dependency)
-- **E2E Framework**: Custom testing framework (needs completion)
-- **Test Environment**: Separate test configuration (incomplete)
-
-#### Advanced Features
-- **Training Management**: Domain implemented, integration pending
-- **Advanced Analytics**: Basic implementation, needs enhancement
-- **Real-time Notifications**: Planned but not implemented
-
-## Technology Integration
-
-### Core System Integration
-
-#### Agent-Command Integration
+### **LLM Factory Architecture**
 ```python
-# Agent system handles all user interactions
-@command("/addplayer", "Add a new player", feature="player_registration")
-async def handle_addplayer_command(update, context, **kwargs):
-    # Command delegates to PlayerCoordinatorAgent
-    return None
+# Centralized LLM factory with Groq-only configuration
+from kickai.utils.llm_factory import LLMFactory, LLMConfig
+
+# Groq configuration with AI_MODEL_SIMPLE and AI_MODEL_ADVANCED
+config = LLMConfig(
+    provider=AIProvider.GROQ,
+    api_key=os.getenv("GROQ_API_KEY"),
+    # Model selection based on use case:
+    # - AI_MODEL_SIMPLE: For lightweight agents and tools
+    # - AI_MODEL_ADVANCED: For complex reasoning and creative tasks
+    # - AI_MODEL_NAME: Legacy fallback
+)
+
+# Factory creates Groq instances with model selection
+llm = LLMFactory.create_llm(config)
+
+### **Model Configuration System**
+The system supports three model configuration approaches:
+
+1. **Dual Model System** (Recommended):
+   - `AI_MODEL_SIMPLE`: For lightweight agents and tool execution
+   - `AI_MODEL_ADVANCED`: For complex reasoning and creative tasks
+
+2. **Legacy Single Model**:
+   - `AI_MODEL_NAME`: Single model for all use cases (backward compatible)
+
+3. **Automatic Model Selection**:
+   - Agents automatically get appropriate models based on their role
+   - Tool LLMs use simple models for efficiency
+   - Creative LLMs use advanced models for better reasoning
+
+### **Environment Variables for AI/LLM Configuration**
+
+#### **Required Variables**
+```bash
+# AI Provider Selection
+AI_PROVIDER=groq                    # Options: groq, gemini, openai, ollama
+
+# API Keys (required based on provider)
+GROQ_API_KEY=your_groq_api_key      # Required for Groq provider
+GOOGLE_API_KEY=your_gemini_key      # Required for Gemini provider  
+OPENAI_API_KEY=your_openai_key      # Required for OpenAI provider
+
+# Model Configuration (at least one required)
+AI_MODEL_SIMPLE=llama3-8b-8192      # For lightweight agents and tools
+AI_MODEL_ADVANCED=llama3-70b-8192   # For complex reasoning tasks
+AI_MODEL_NAME=llama3-8b-8192        # Legacy: single model for all use cases
 ```
 
-#### Tool-Agent Integration
-```python
-# Tools are independent functions used by agents
-@tool
-def add_player_tool(name: str, phone: str, position: str) -> str:
-    """Add a new player to the system."""
-    # Tool implementation
-    return "Player added successfully"
+#### **Optional Variables**
+```bash
+# Ollama Configuration (only if using Ollama provider)
+OLLAMA_BASE_URL=http://localhost:11434
+
+# AI Performance Tuning
+AI_TEMPERATURE=0.3                  # Default temperature (0.0-1.0)
+AI_MAX_TOKENS=800                   # Default max tokens
+AI_TIMEOUT=120                      # Request timeout in seconds
+```
 ```
 
-#### Database-Repository Integration
-```python
-# Repository pattern for data access
-class FirestorePlayerRepository(PlayerRepository):
-    async def create_player(self, player_data: dict) -> Player:
-        # Firestore implementation
-        return player
+### **LLM Health Monitoring**
+- **Startup Validation**: Comprehensive LLM connectivity checks
+- **Error Propagation**: Clean error handling without silent failures
+- **Factory Design**: Preserved modularity for future provider switching
+
+---
+
+## 🏗️ **Architecture Components**
+
+=======
+# Groq-only configuration
+config = LLMConfig(
+    provider=AIProvider.GROQ,
+    api_key=os.getenv("GROQ_API_KEY"),
+    model=os.getenv("GROQ_MODEL")
+)
+
+# Factory creates Groq instances
+llm = LLMFactory.create_llm(config)
 ```
 
-### External Service Integration
+### **LLM Health Monitoring**
+- **Startup Validation**: Comprehensive LLM connectivity checks
+- **Error Propagation**: Clean error handling without silent failures
+- **Factory Design**: Preserved modularity for future provider switching
 
-#### Firebase Firestore
-- **Collection Structure**: `kickai_{team_id}_{entity_type}`
-- **Real-time Updates**: Automatic data synchronization
-- **Security Rules**: Team-based data isolation
-- **Backup Strategy**: Automated data backup
 
-#### Telegram Bot API
-- **Multi-Chat Support**: Main and leadership chats
-- **Message Types**: Text, commands, and natural language
-- **User Management**: Player and team member management
-- **Notification System**: Automated team notifications
+### **5-Agent CrewAI System**
+1. **MESSAGE_PROCESSOR** - Primary interface and routing
+2. **HELP_ASSISTANT** - Help system and guidance
+3. **PLAYER_COORDINATOR** - Player management and onboarding
+4. **TEAM_ADMINISTRATOR** - Team member management
+5. **SQUAD_SELECTOR** - Squad selection and match management
 
-#### CrewAI Framework
-- **Agent Specialization**: Domain-specific agent roles
-- **Tool Management**: Automatic tool discovery and registration
-- **Task Orchestration**: Complex task decomposition
-- **Context Management**: Chat and user context awareness
+### **Enhanced Error Handling System**
+- **Centralized Decorators**: `@critical_system_error_handler`, `@user_registration_check_handler`, `@command_registry_error_handler`
+- **Fail-Fast Behavior**: Immediate error detection and propagation
+- **Consistent Logging**: Standardized critical error messages
+- **Code Reduction**: ~67% reduction in error handling code
 
-## Development Environment
+### **Standardized Dependency Injection**
+- **Service-Specific Functions**: `get_player_service()`, `get_team_service()`, etc.
+- **Validation Utilities**: `validate_required_services()`
+- **Container Monitoring**: `get_container_status()`, `ensure_container_initialized()`
+- **Consistent Patterns**: Eliminated mixed dependency injection approaches
 
-### Local Development
-- **Python 3.11**: Primary runtime
-- **Virtual Environment**: venv311 for dependency isolation
-- **Environment Variables**: .env for local configuration
-- **Hot Reloading**: Development server with auto-reload
+---
 
-### Testing Environment
-- **Test Database**: Separate Firestore instance
-- **Test Configuration**: .env.test for test environment
-- **Test Data**: Isolated test data management
-- **E2E Testing**: Real Telegram bot testing
+## 🗄️ **Database and Storage**
 
-### Production Environment
-- **Railway**: Primary deployment platform
-- **Environment Variables**: Secure configuration management
-- **Logging**: Structured logging with loguru
-- **Monitoring**: Health checks and performance monitoring
+### **Firebase Firestore**
+- **Primary Database**: Firebase Firestore for all data storage
+- **Collections**: `kickai_teams`, `kickai_players`, `kickai_matches`, etc.
+- **Client**: `kickai/database/firebase_client.py`
+- **Interfaces**: `kickai/database/interfaces.py`
 
-## Technology Decisions
+### **Data Models**
+- **Pydantic Models**: Type-safe data validation
+- **Clean Architecture**: Clear separation between domain and infrastructure
+- **Repository Pattern**: Abstracted data access through repositories
 
-### Why These Technologies?
+---
 
-#### CrewAI for Agent Orchestration
-- **Specialized Agents**: Domain-specific agent roles
-- **Tool Integration**: Seamless tool registration and usage
-- **Task Decomposition**: Complex task breakdown capabilities
-- **Context Awareness**: Chat and user context understanding
+## 🔧 **Development and Quality Tools**
 
-#### Firebase Firestore for Database
-- **Real-time Updates**: Automatic data synchronization
-- **Scalability**: Handles team growth and data volume
-- **Security**: Team-based data isolation
-- **Integration**: Easy integration with other Firebase services
+### **Code Quality**
+- **Ruff**: Linting, formatting, and import sorting (10-100x faster than flake8/black/isort)
+- **Pre-commit**: Git hooks for automated code quality checks
+- **Type Hints**: Comprehensive type annotations throughout codebase
+- **Docstrings**: Detailed documentation for all functions and classes
 
-#### Telegram for User Interface
-- **User Familiarity**: Most users already use Telegram
-- **Rich Features**: Support for various message types
-- **Multi-Chat Support**: Main and leadership chat separation
-- **Bot API**: Comprehensive bot development capabilities
+### **Testing Framework**
+- **Pytest**: Primary testing framework
+- **Test Categories**: Unit, integration, and end-to-end tests
+- **Mock Testing**: Custom mock Telegram framework
+- **Coverage**: Comprehensive test coverage reporting
 
-#### Python 3.11 for Backend
-- **Async Support**: Excellent async/await support
-- **Type Safety**: Strong type hinting capabilities
-- **Rich Ecosystem**: Extensive library support
-- **Performance**: Good performance for bot applications
+### **Logging and Monitoring**
+- **Loguru**: Structured logging with emoji and formatting
+- **Log Files**: `logs/kickai.log` for application logs
+- **Error Tracking**: Centralized error handling with detailed logging
+- **Health Checks**: System health monitoring and validation
 
-## Technology Roadmap
+---
 
-### Short Term (Next 2 Weeks)
-1. **Complete Training Management Integration**
-   - Integrate training commands with main system
-   - Add training tools to agent system
-   - Complete training E2E tests
+## 📱 **Telegram Integration**
 
-2. **Fix E2E Testing Framework**
-   - Install telethon dependency
-   - Fix test runner issues
-   - Complete test environment setup
+### **python-telegram-bot**
+- **Version**: Latest stable version
+- **Features**: Webhook and polling support
+- **Message Handling**: Unified message processing through agentic system
+- **Plain Text**: All messages sent as plain text for compatibility
 
-3. **Enhance Monitoring**
-   - Add comprehensive logging
-   - Implement performance monitoring
-   - Set up error tracking
+### **Bot Configuration**
+- **Parse Mode**: Plain text only (no Markdown/HTML)
+- **Text Sanitization**: Automatic removal of formatting characters
+- **Error Handling**: Robust error handling for Telegram API calls
+- **Multi-Chat Support**: Main team chat and leadership chat functionality
 
-### Medium Term (Next Month)
-1. **Advanced Analytics**
-   - Implement advanced reporting
-   - Add performance metrics
-   - Create data visualization
+---
 
-2. **Performance Optimization**
-   - Optimize database queries
-   - Implement caching strategies
-   - Add load testing
+## 🛠️ **Utility Libraries**
 
-3. **Enhanced Security**
-   - Implement advanced access controls
-   - Add audit logging
-   - Enhance data validation
+### **Core Utilities**
+- **`kickai/utils/error_handling.py`**: Centralized error handling decorators
+- **`kickai/utils/dependency_utils.py`**: Standardized dependency injection utilities
+- **`kickai/utils/tool_validation.py`**: Tool input validation system
+- **`kickai/utils/tool_context_helpers.py`**: Tool context access helpers
 
-### Long Term (Next Quarter)
-1. **Real-time Notifications**
-   - WebSocket-based updates
-   - Push notifications
-   - Real-time collaboration
+### **LLM and AI Utilities**
+- **`kickai/utils/llm_factory.py`**: LLM provider factory (42KB, 1000 lines)
+- **`kickai/utils/llm_intent.py`**: LLM intent processing
+- **`kickai/utils/crewai_logging.py`**: CrewAI logging utilities
 
-2. **API Gateway**
-   - REST API for external integrations
-   - Webhook support
-   - Third-party integrations
+### **Validation and Security**
+- **`kickai/utils/phone_validation.py`**: Phone number validation (15KB, 454 lines)
+- **`kickai/utils/security_utils.py`**: Security utilities
+- **`kickai/utils/validation_utils.py`**: General validation utilities
 
-3. **Microservices Architecture**
-   - Service decomposition
-   - Independent deployment
-   - Enhanced scalability
+### **ID and Data Generation**
+- **`kickai/utils/football_id_generator.py`**: Football ID generation (20KB, 641 lines)
+- **`kickai/utils/simple_id_generator.py`**: Simple ID generation
+- **`kickai/utils/user_id_generator.py`**: User ID generation
 
-## Technology Constraints
+---
 
-### Current Limitations
-- **E2E Testing**: Missing telethon dependency
-- **Training Management**: Incomplete integration
-- **Advanced Analytics**: Basic implementation only
-- **Real-time Features**: Limited real-time capabilities
+## 🧪 **Testing Infrastructure**
 
-### Technical Debt
-- **Test Coverage**: Incomplete E2E test coverage
-- **Documentation**: Some features need better documentation
-- **Performance**: Some areas need optimization
-- **Monitoring**: Limited production monitoring
+### **Test Categories**
+1. **Unit Tests**: Individual components and functions
+2. **Integration Tests**: Component interactions and service integration
+3. **End-to-End Tests**: Complete user workflows and system behavior
+4. **Mock Testing**: Simulated Telegram interactions
 
-### Future Considerations
-- **Scalability**: Plan for team growth
-- **Security**: Enhanced security measures
-- **Performance**: Optimization for larger teams
-- **Integration**: Third-party service integrations
+### **Test Frameworks**
+- **Pytest**: Primary testing framework
+- **Custom E2E Framework**: End-to-end testing with Telegram integration
+- **Mock Telegram Framework**: Custom mock testing infrastructure
+- **Test Utilities**: Comprehensive test utilities and fixtures
 
-## Technology Best Practices
+---
 
-### Code Quality
-- **Type Safety**: Use type hints throughout
-- **Linting**: Use Ruff for code quality
-- **Testing**: Comprehensive test coverage
-- **Documentation**: Maintain up-to-date documentation
+## 📦 **Package Management**
 
-### Architecture
-- **Clean Architecture**: Follow DDD principles
-- **Modularity**: Feature-based organization
-- **Dependency Injection**: Use DI container
-- **Separation of Concerns**: Clear layer separation
+### **Dependencies**
+- **Production**: `requirements.txt` (Railway deployment)
+- **Development**: `requirements-local.txt` (local development)
+- **Package Config**: `pyproject.toml` (Ruff, dependencies, project metadata)
 
-### Performance
-- **Async Operations**: Use async/await patterns
-- **Database Optimization**: Optimize Firestore queries
-- **Caching**: Implement appropriate caching
-- **Monitoring**: Track performance metrics
+### **Virtual Environment**
+- **Python Version**: 3.11 (strict version requirement)
+- **Environment**: `venv311/` (Python virtual environment)
+- **Activation**: `source venv311/bin/activate`
 
-### Security
-- **Input Validation**: Validate all user inputs
-- **Access Control**: Implement proper permissions
-- **Data Sanitization**: Sanitize data before storage
-- **Audit Logging**: Log sensitive operations
+---
+
+## 🚀 **Deployment and Infrastructure**
+
+### **Railway Deployment**
+- **Platform**: Railway for production deployment
+- **Startup Script**: `run_bot_railway.py`
+- **Environment**: Production environment variables
+- **Monitoring**: Railway's built-in monitoring and logging
+
+### **Local Development**
+- **Startup Script**: `run_bot_local.py`
+- **Environment**: Local environment variables
+- **Safe Startup**: `start_bot_safe.sh` with validation
+
+### **Environment Configuration**
+- **Template**: `env.example` (environment variables template)
+- **Validation**: Environment validation on startup
+- **Security**: Secure credential management
+
+---
+
+## 🔍 **Monitoring and Observability**
+
+### **Logging Strategy**
+- **Structured Logging**: Loguru with emoji and formatting
+- **Log Levels**: DEBUG, INFO, WARNING, ERROR, CRITICAL
+- **Log Files**: Centralized logging to `logs/kickai.log`
+- **Error Tracking**: Comprehensive error logging and tracking
+
+### **Health Monitoring**
+- **System Health**: Health check services and monitoring
+- **Component Status**: Individual component health monitoring
+- **Error Metrics**: Error tracking and metrics collection
+- **Performance Monitoring**: System performance monitoring
+
+---
+
+## 🎯 **Technology Stack Benefits**
+
+### **🏆 Key Advantages**
+- **Modern Stack**: Latest stable versions of all technologies
+- **Performance**: High-performance LLM and database solutions
+- **Reliability**: Robust error handling and fail-fast design
+- **Scalability**: Modular architecture for easy scaling
+- **Maintainability**: Clean code with comprehensive testing
+
+### **🚀 Technical Excellence**
+- **Type Safety**: Comprehensive type hints and validation
+- **Code Quality**: Automated linting and formatting
+- **Testing**: Multi-layer testing with comprehensive coverage
+- **Documentation**: Extensive documentation and guides
+
+### **📈 Future-Ready**
+- **Modular Design**: Easy to add new technologies
+- **Standardized Patterns**: Consistent development approach
+- **Comprehensive Testing**: Robust quality assurance
+- **Extensive Documentation**: Clear development guidance
+
+---
+
+## 🔧 **Development Guidelines**
+
+### **1. Technology Selection**
+- **Always**: Use established, well-maintained technologies
+- **Always**: Follow the technology stack for consistency
+- **Always**: Use the centralized error handling and DI utilities
+- **Never**: Introduce technologies that conflict with existing stack
+
+### **2. Code Quality**
+- **Always**: Use Ruff for linting and formatting
+- **Always**: Include comprehensive type hints
+- **Always**: Write unit tests for new functionality
+- **Always**: Follow established patterns and conventions
+
+### **3. Error Handling**
+- **Always**: Use centralized error handling decorators
+- **Always**: Follow fail-fast principles
+- **Always**: Log errors with clear context
+- **Never**: Suppress or ignore errors silently
+
+### **4. Dependency Management**
+- **Always**: Use standardized dependency injection utilities
+- **Always**: Validate service availability
+- **Always**: Follow clean architecture principles
+- **Never**: Create circular dependencies
+
+The technology stack provides a solid foundation for building robust, scalable, and maintainable systems! 🛠️✨

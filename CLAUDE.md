@@ -4,329 +4,424 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-KICKAI is an AI-powered football team management system built with a **12-agent CrewAI architecture** and clean architecture principles. The system processes ALL user interactions through specialized AI agents, ensuring intelligent, context-aware responses.
+KICKAI is an AI-powered football team management system built with a **5-agent CrewAI architecture** and clean architecture principles. The system processes ALL user interactions through specialized AI agents, ensuring intelligent, context-aware responses.
 
-**Version:** 3.1  
-**Status:** Production Ready  
-**Architecture:** Agentic Clean Architecture with CrewAI  
-**Python Version:** 3.11+
+**Version:** 5.0  
+**Status:** Production Ready with Simplified Agentic Architecture  
+**Python Version:** 3.11+ (MANDATORY - Will NOT work with Python 3.9)  
+**Deployment:** Railway (Production), Local Development with Groq  
+**Test UI:** Mock Telegram at http://localhost:8001
 
-## Development Commands
+## Critical Requirements
 
-### Environment Setup
+### ⚠️ Python 3.11+ MANDATORY (NOT 3.9)
+**IMPORTANT**: This project requires Python 3.11+ and will NOT work with Python 3.9. Always verify the Python version before starting work.
+
 ```bash
-# Set up development environment
-make setup-dev
+# Always verify Python version first
+python3.11 check_python_version.py
 
-# Start development server
-make dev
-# OR
-python run_bot_local.py
-
-# Activate virtual environment
+# Activate correct virtual environment  
 source venv311/bin/activate
+
+# Verify activation
+which python  # Should show: /path/to/KICKAI/venv311/bin/python
+python --version  # Should show: Python 3.11.x
 ```
 
-### Testing Commands
+### Essential Environment Variables
+```bash
+# Always use PYTHONPATH when running
+PYTHONPATH=. python run_bot_local.py
+
+# Core configuration
+AI_PROVIDER=groq  # primary for local development, groq, gemini, openai, ollama
+KICKAI_INVITE_SECRET_KEY=test-invite-secret-key-for-testing-only
+FIREBASE_PROJECT_ID=<project name>
+FIREBASE_CREDENTIALS_FILE=credentials/<filename>.json
+
+# API configuration
+# The system now relies on CrewAI's native retry and backoff mechanisms
+```
+
+## Common Development Commands
+
+### Starting Development
+```bash
+# Standard startup (ALWAYS use this pattern)
+source venv311/bin/activate && PYTHONPATH=. python run_bot_local.py
+
+# Safe startup (kills existing processes)
+./start_bot_safe.sh
+
+# Mock Telegram UI
+PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py
+# Access at: http://localhost:8001
+
+```
+
+### Testing
 ```bash
 # Run all tests
 make test
-# OR
-python -m pytest tests/ -v
 
-# Run specific test types
-make test-unit          # Unit tests only
-make test-integration   # Integration tests only  
-make test-e2e          # E2E tests only
+# Specific test types
+make test-unit          # Unit tests
+make test-integration   # Integration tests  
+make test-e2e          # E2E tests
+
+# Run specific test
+PYTHONPATH=. python -m pytest tests/unit/test_file.py::test_function -v -s
+
+# Run with specific features
+PYTHONPATH=. python -m pytest tests/unit/features/player_registration/ -v
+PYTHONPATH=. python -m pytest tests/integration/features/ -v
 
 # Run with coverage
-python -m pytest tests/ --cov=src --cov-report=html
-
-# Run specific test file
-python -m pytest tests/unit/test_specific.py::test_function -v -s
-
-# Test LLM connectivity
-source venv311/bin/activate && PYTHONPATH=. python test_hf_connectivity.py  # Test Hugging Face connectivity
+PYTHONPATH=. python -m pytest tests/ --cov=kickai --cov-report=html
 ```
 
 ### Code Quality
 ```bash
-# Run linting and formatting
-make lint
-# OR
-scripts/lint.sh
+make lint  # Run all linting and formatting
 
-# Individual tools
-ruff check kickai/              # Linting
-ruff format kickai/            # Formatting  
-mypy kickai/                   # Type checking
-pre-commit run --all-files     # All pre-commit hooks
-```
+# Individual tools (must be in venv311)
+source venv311/bin/activate && ruff check kickai/
+source venv311/bin/activate && ruff format kickai/
+source venv311/bin/activate && mypy kickai/
 
-### Deployment
-```bash
-# Deploy to testing
-make deploy-testing
-
-# Deploy to production
-make deploy-production
-
-# Validate deployment
-make validate-testing
-make validate-production
-
-# Health checks
-make health-check
+# Pre-commit hooks
+pre-commit install
+pre-commit run --all-files
 ```
 
 ## Architecture Overview
 
-### 12-Agent CrewAI System
+### 5-Agent CrewAI System
+The system uses **5 essential agents** (simplified from 11):
 
-The system uses 12 specialized AI agents organized in logical layers:
-
-#### Primary Interface Layer
-- **MESSAGE_PROCESSOR**: Primary interface for user interactions and routing
-- **INTELLIGENT_SYSTEM**: Central orchestrator for task decomposition and routing
-
-#### Operational Layer  
-- **PLAYER_COORDINATOR**: Player registration, status, and management
-- **TEAM_ADMINISTRATOR**: Team administration and member management
-- **SQUAD_SELECTOR**: Match squad selection and availability
-- **AVAILABILITY_MANAGER**: Player availability tracking
-
-#### Specialized Layer
-- **HELP_ASSISTANT**: Help system and command guidance
-- **ONBOARDING_AGENT**: New user registration and onboarding
-- **COMMUNICATION_MANAGER**: Team communications and announcements
-- **ANALYTICS_AGENT**: Analytics and reporting
-
-#### Infrastructure Layer
-- **SYSTEM_INFRASTRUCTURE**: System health and maintenance
-- **COMMAND_FALLBACK_AGENT**: Fallback for unhandled requests
+1. **MessageProcessorAgent** - Primary interface and command routing
+2. **HelpAssistantAgent** - Help system and guidance  
+3. **PlayerCoordinatorAgent** - Player management and onboarding
+4. **TeamAdministrationAgent** - Team member management
+5. **SquadSelectorAgent** - Squad selection and availability
 
 ### Unified Processing Pipeline
+```
+User Input → AgenticMessageRouter → CrewAI System → Agent Selection → Tool Execution → Response
 
-Both slash commands and natural language use the **exact same processing pipeline**:
-
-1. **Input Processing** → Handle both slash commands and natural language
-2. **Command Registry** → Auto-discovery and metadata for slash commands  
-3. **Unified Processing** → Both paths converge to `_handle_crewai_processing`
-4. **CrewAI System** → Single orchestration pipeline for all requests
-5. **Intent Classification** → Determine user intent (for both input types)
-6. **Complexity Assessment** → Analyze request complexity
-7. **Task Decomposition** → Break down into subtasks with agent assignments
-8. **Agent Routing** → Route subtasks to appropriate agents
-9. **Task Execution** → Execute tasks through specialized agents
-10. **Result Aggregation** → Combine results and format response
-
-## Code Architecture
+```
+- Both slash commands and natural language use the **same pipeline**
+- Consistent security and permission checking
+- No duplicate logic between input types
 
 ### Feature-First Clean Architecture
 ```
 kickai/
-├── features/                    # Feature-based modules (domain-driven)
-│   ├── player_registration/     # Player onboarding and management
-│   ├── team_administration/     # Team management and roles
-│   ├── match_management/        # Match operations and squad selection
-│   ├── attendance_management/   # Attendance tracking
-│   ├── payment_management/      # Payment processing with Collectiv
-│   ├── communication/           # Messaging and notifications
-│   ├── health_monitoring/       # System health checks
-│   ├── system_infrastructure/   # Core system services
-│   └── shared/                  # Shared domain logic
-├── agents/                      # 12-Agent CrewAI System
-│   ├── crew_agents.py          # Main agent definitions
-│   ├── configurable_agent.py   # Base agent class
-│   ├── agentic_message_router.py # Central message routing
-│   └── behavioral_mixins.py    # Agent behavior patterns
-├── core/                        # Core utilities and registries
-│   ├── command_registry.py     # Command registration system
-│   ├── dependency_container.py # Dependency injection
-│   └── startup_validation/     # System validation checks
-├── database/                    # Data layer with Firebase/Firestore
-│   ├── firebase_client.py      # Firebase client setup
-│   └── interfaces.py           # Repository interfaces
-└── utils/                       # Utilities and helpers
+├── features/                    # Domain-driven feature modules
+│   ├── player_registration/     
+│   ├── team_administration/     
+│   ├── match_management/        
+│   └── shared/                  
+├── agents/                      # 5-Agent CrewAI System
+│   ├── crew_agents.py          # Agent definitions
+│   └── agentic_message_router.py # Central routing (MODERNIZED)
+├── core/                        # Core utilities
+│   ├── command_registry.py     # Command discovery
+│   └── dependency_container.py # DI container
+└── database/                    # Firebase/Firestore
 ```
 
-### Each Feature Module Structure
+## Critical System Changes (Recent Updates)
+
+### ✅ **Legacy Component Removal (Completed)**
+The following legacy components have been **REMOVED** and functionality consolidated:
+- `kickai/agents/handlers/` - All message handlers removed (functionality moved to router)
+- `kickai/agents/context/` - Context builder removed (logic moved to router)
+- `kickai/core/factories/agent_system_factory.py` - Unused factory removed
+
+### ✅ **AgenticMessageRouter Modernization**
+The `AgenticMessageRouter` is now the **single source of truth** for all message routing:
+- **Consolidated Logic**: All handler functionality moved to router methods
+- **Resource Management**: Circuit breaker patterns and memory management
+- **Type Safety**: Consistent `telegram_id` handling as `int` throughout
+- **Memory Management**: Proper cleanup and garbage collection
+
+## Critical CrewAI Rules (MANDATORY) - UPDATED 2025
+
+### 🚨 ALWAYS USE CREWAI NATIVE METHODS!!! 
+
+**MEMORY: CrewAI tools receive parameters directly via function signatures.**
+
+### Tool Parameter Passing - NEW NATIVE APPROACH
+```python
+# ✅ CORRECT - Native CrewAI parameter passing
+@tool("FINAL_HELP_RESPONSE")
+def final_help_response(
+    chat_type: str,
+    telegram_id: str, 
+    team_id: str,
+    username: str
+) -> str:
+    """Tool receives parameters directly from agent."""
+    return f"Help for {username} in {chat_type}"
 ```
-feature_name/
-├── application/
-│   ├── commands/               # Command definitions with @command decorator
-│   └── handlers/               # Command handlers (minimal - delegate to agents)
-├── domain/
-│   ├── entities/               # Domain entities and business objects
-│   ├── repositories/           # Repository interfaces
-│   ├── services/               # Business logic services
-│   └── tools/                  # CrewAI tools for agents (@tool decorator)
-├── infrastructure/             # External integrations
-│   └── firebase_*_repository.py # Firestore repository implementations
-└── tests/
-    ├── unit/                   # Unit tests
-    ├── integration/            # Integration tests
-    └── e2e/                    # End-to-end tests
+
+### Task Creation - Native Structured Description
+```python
+# ✅ CORRECT - Structured task description
+structured_description = f"""
+User Request: {task_description}
+
+Context Information:
+- Team ID: {team_id}
+- User Telegram ID: {telegram_id} 
+- Username: {username}
+- Chat Type: {chat_type}
+
+Instructions: Use the provided context information to call tools 
+with the appropriate parameters.
+"""
+
+task = Task(
+    description=structured_description,
+    agent=agent.crew_agent,
+    expected_output="A clear and helpful response to the user's request",
+)
 ```
 
-## Critical CrewAI Rules
-
-**MANDATORY**: Follow these CrewAI patterns strictly:
-
-### Tool Independence
+### Tool Independence (CRITICAL)
 - **❌ NEVER**: Tools calling other tools or services
 - **✅ ALWAYS**: Tools are simple, independent functions
-- **✅ ALWAYS**: Parameters passed directly via Task.config
+- **✅ ALWAYS**: Parameters passed directly via Task descriptions
 - **✅ ALWAYS**: Tools return simple string responses
 
-### Native CrewAI Features Only
-- **✅ REQUIRED**: `@tool` decorator from `crewai.tools`
-- **✅ REQUIRED**: `Agent` class from `crewai`
-- **✅ REQUIRED**: `Task` class with `config` parameter
-- **✅ REQUIRED**: `Crew` orchestration
-- **❌ FORBIDDEN**: Custom tool wrappers or parameter passing mechanisms
-
-### Absolute Imports with PYTHONPATH
-All code uses absolute imports with `PYTHONPATH=.` or `PYTHONPATH=src`:
+### Absolute Imports
 ```python
-# ✅ Correct
-from kickai.features.player_registration.domain.tools.player_tools import get_player_status
+# ✅ CORRECT
+from kickai.features.player_registration.domain.tools.player_tools import get_status
 
-# ❌ Wrong
-from .domain.tools.player_tools import get_player_status
+# ❌ WRONG  
+from .domain.tools.player_tools import get_status
 ```
 
-## Database & Infrastructure
+## Key Files to Understand
 
-### Firestore Collections
-- Prefix: `kickai_` for all collections
-- Collections: `kickai_teams`, `kickai_players`, `kickai_matches`, etc.
-- Use async patterns for all database operations
+### Core System (READ THESE FIRST)
+- `kickai/agents/agentic_message_router.py` - **Central message routing (MODERNIZED)**
+- `kickai/agents/crew_agents.py` - 5-agent system definition  
+- `kickai/core/dependency_container.py` - DI and service initialization
+- `kickai/core/command_registry.py` - Command discovery system
+- `kickai/config/agents.yaml` - Agent configuration
 
-### LLM Provider Architecture
-The system supports multiple LLM providers with agent-specific model optimization:
-
-#### Supported Providers
-- **Hugging Face** (`AIProvider.HUGGINGFACE`) - Primary provider with free tier
-- **Google Gemini** (`AIProvider.GOOGLE`) - Fallback provider
-- **OpenAI** (`AIProvider.OPENAI`) - Optional provider
-- **Ollama** (`AIProvider.OLLAMA`) - Local deployment option
-
-#### Agent-Specific Models
-Each agent uses optimized models based on task requirements:
-- **Data-critical agents** (temp 0.1): `Qwen2.5-1.5B-Instruct` for anti-hallucination
-- **Administrative agents** (temp 0.3): `Gemma-2-2B-IT` for balanced performance
-- **Creative agents** (temp 0.7): Larger models for complex reasoning
-
-#### Configuration Files
-- `kickai/config/agent_models.py` - Agent-specific model mappings
-- `kickai/utils/llm_factory.py` - Multi-provider LLM factory
-- `kickai/core/settings.py` - Provider API token configuration
-
-### Security & Permissions
-- **Role-Based Access Control**: PUBLIC, PLAYER, LEADERSHIP, ADMIN, SYSTEM
-- **Chat-Based Permissions**: Different permissions for main chat vs leadership chat
-- **Unified Security**: Same permission checking for slash commands and natural language
-
-### Configuration
-- **Environment Files**: `.env`, `.env.development`, `.env.testing`, `.env.production`
-- **LLM API Keys**: `HUGGINGFACE_API_TOKEN`, `GOOGLE_API_KEY`, `OPENAI_API_KEY`
-- **Bot Configs**: `config/bot_config.json` for different environments
-- **Firebase**: `credentials/firebase_credentials_*.json`
-
-## Testing Strategy
-
-### Test Pyramid
-- **Unit Tests**: Individual components with mocked dependencies
-- **Integration Tests**: Service interactions with mock external services
-- **E2E Tests**: Complete user workflows with real APIs
-
-### Test Commands by Type
-```bash
-# Unit tests (fast, isolated)
-python -m pytest tests/unit/ -v
-
-# Integration tests (service interactions)  
-python -m pytest tests/integration/ -v
-
-# E2E tests (full workflows)
-python -m pytest tests/e2e/ -v
-
-# Agent-specific tests
-python -m pytest tests/unit/agents/ -v
-
-# Feature-specific tests
-python -m pytest tests/unit/features/player_registration/ -v
+### Feature Pattern (CRITICAL ARCHITECTURE)
+Each feature in `kickai/features/` follows clean architecture:
 ```
-
-## Development Workflow
-
-### Adding New Features
-1. **Follow Feature-First Architecture**: Create in `kickai/features/`
-2. **Implement Clean Architecture**: Domain → Application → Infrastructure layers
-3. **Use Agentic Patterns**: Delegate to CrewAI agents for user interactions
-4. **Write Comprehensive Tests**: Unit, integration, and E2E tests
-5. **Update Agent Tools**: Add new tools to appropriate agents
-
-### Command Development
-1. **Register Command**: Use `@command` decorator in feature module
-2. **Delegate to Agent**: No direct implementation - delegate to CrewAI agent
-3. **Define Permissions**: Set appropriate permission levels
-4. **Add Tests**: Test command registration and agent routing
-
-### Agent Development
-1. **Define Agent Role**: Clear responsibility and primary commands
-2. **Implement Tools**: Create domain-specific tools for the agent
-3. **Configure Context**: Ensure proper context configuration
-4. **Test Agent Behavior**: Verify agent responses and tool usage
-
-## Key Implementation Files
-
-### Core System Files
-- `kickai/agents/agentic_message_router.py` - Central message routing
-- `kickai/core/command_registry.py` - Command registration system
-- `kickai/core/dependency_container.py` - Dependency injection container
-
-### Agent System Files
-- `kickai/agents/crew_agents.py` - 12 specialized agents
-- `kickai/agents/configurable_agent.py` - Base agent class
-- `kickai/agents/tool_registry.py` - Tool discovery and registration
-
-### Entry Points
-- `run_bot_local.py` - Local development entry point
-- `run_bot_railway.py` - Production deployment entry point
+feature_name/
+├── application/commands/     # @command decorator, NO business logic
+├── domain/
+│   ├── tools/               # @tool decorator, independent functions
+│   ├── services/            # Business logic (async for I/O)
+│   └── entities/            # Domain models
+└── infrastructure/          # Firebase repositories, external APIs
+```
+**Rule**: Commands delegate to agents, agents use tools, tools are independent
 
 ## Common Issues & Solutions
 
 ### CrewAI Tool Issues
-- **Tool not found**: Check tool registration in feature `__init__.py`
-- **Import errors**: Ensure absolute imports with `PYTHONPATH=.`
-- **Tool parameter issues**: Pass parameters via `Task.config`, not tool arguments
+- **"Tool object is not callable"** → Tool is calling services/other tools
+- **Tool not found** → Check registration in feature `__init__.py`
+- **Import errors** → Use `PYTHONPATH=.` when running
 
-### Testing Issues
-- **Test isolation**: Use separate test environment and cleanup between tests
-- **Async test issues**: Use `pytest-asyncio` and proper async test patterns
-- **Mock issues**: Mock external services but use real Firebase for E2E tests
+### Development Issues  
+- **Python version errors** → Must use Python 3.11+ with `venv311`
+- **Process already running** → Use `./start_bot_safe.sh` or `./stop_bot.sh`
+- **Environment not activated** → Run `source venv311/bin/activate`
+- **Module not found errors** → Ensure `PYTHONPATH=.` is set
+- **Firebase authentication** → Check credentials file path and permissions
 
-### Development Issues
-- **Environment setup**: Run `make setup-dev` for complete environment setup
-- **Dependency issues**: Check `requirements.txt` and `requirements-local.txt`
-- **Type checking**: Use `mypy kickai/` to catch type issues early
+### Router Issues (Post-Modernization)
+- **Missing handler methods** → Functionality moved to `AgenticMessageRouter` methods
+- **Import errors from handlers/** → Directory removed, update imports
+- **Context builder issues** → Logic moved directly into router
 
-## Production Considerations
+### Firebase Issues
+- **Authentication failed** → Check `FIREBASE_CREDENTIALS_FILE` path
+- **Collection not found** → Ensure `kickai_` prefix on collection names
+- **Async errors** → All Firebase operations must use async/await
 
-### Deployment
-- **Railway**: Used for production deployment
-- **Environment Variables**: Set in Railway dashboard
-- **Health Checks**: Automatic health monitoring via agents
-- **Logging**: Structured logging with proper context
+### Type Consistency
+- **telegram_id type errors** → Must be `int` throughout system (NOT string)
+- **Message validation** → Use `TelegramMessage` type for consistency
 
-### Monitoring
-- **System Health**: Via `SYSTEM_INFRASTRUCTURE` agent
-- **Agent Performance**: Track response times and success rates
-- **Error Handling**: Comprehensive error logging and user feedback
+## Testing Strategy
 
-### Security
-- **Access Control**: Multi-layered permission system
-- **Data Validation**: Pydantic models for all data structures
-- **Secret Management**: Environment variables and Firebase credentials
+### Test Organization
+- `tests/unit/` - Fast, isolated component tests
+- `tests/integration/` - Service interaction tests
+- `tests/e2e/` - Full workflow tests
+- `tests/agents/` - Agent behavior tests
+- `tests/mock_telegram/` - Interactive UI testing
+
+### Running Tests
+```bash
+# Always use PYTHONPATH
+PYTHONPATH=. python -m pytest tests/unit/ -v
+
+# Feature-specific tests
+PYTHONPATH=. python -m pytest tests/features/player_registration/ -v
+
+# Mock Telegram UI
+PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py
+```
+
+## Production Deployment
+
+### Railway Deployment
+```bash
+make deploy-testing
+make deploy-production
+make health-check
+```
+
+### Performance Optimizations
+- 55% reduction in agent complexity (11→5)
+- Context bypass for common requests
+- Optimized for `llama3.1:8b-instruct-q4_k_m` model
+- Token-efficient prompt design
+
+## Development Workflow
+
+### Adding New Features
+1. Create feature in `kickai/features/` following clean architecture
+2. Add CrewAI tools with `@tool` decorator (independent functions)
+3. Register commands with `@command` decorator  
+4. Update agent tool assignments in `agents.yaml`
+5. Add tests (unit, integration, E2E)
+
+### Adding New Tools
+1. Create independent tool function with `@tool` decorator
+2. Export from feature's `__init__.py`
+3. Add to agent configuration in `agents.yaml`
+4. Ensure NO service/tool dependencies
+
+### Modifying AgenticMessageRouter
+1. **DO NOT** create new handler classes - extend router methods
+2. **PRESERVE** resource management and error handling
+3. **MAINTAIN** telegram_id as int consistency
+4. **TEST** thoroughly - router is critical path
+
+## Quick Validation Commands
+
+### Pre-Development Checklist
+```bash
+# 1. Verify Python version (MANDATORY)
+python3.11 check_python_version.py
+source venv311/bin/activate && python --version  # Should show 3.11.x
+
+# 2. Run quick system validation
+PYTHONPATH=. python scripts/quick_validation.py
+
+# 3. Test basic functionality
+PYTHONPATH=. timeout 30s python run_bot_local.py
+```
+
+### System Health
+```bash
+# Container initialization
+PYTHONPATH=. KICKAI_INVITE_SECRET_KEY=test_key python -c "
+from kickai.core.dependency_container import ensure_container_initialized
+ensure_container_initialized()
+print('✅ Container OK')
+"
+
+# Agent system
+PYTHONPATH=. python -c "
+from kickai.agents.crew_agents import TeamManagementSystem
+system = TeamManagementSystem('KTI')
+print(f'✅ {len(system.agents)} agents loaded')
+"
+
+# Router functionality
+PYTHONPATH=. python -c "
+from kickai.agents.agentic_message_router import AgenticMessageRouter
+from kickai.core.types import TelegramMessage
+from kickai.core.enums import ChatType
+router = AgenticMessageRouter('KTI')
+print('✅ Router initialized')
+msg = TelegramMessage(telegram_id=123, text='test', chat_id='-100123', chat_type=ChatType.MAIN, team_id='KTI', username='test')
+print('✅ Message creation works')
+"
+```
+
+### Quick Debug
+```bash
+# Test with timeout
+PYTHONPATH=. timeout 30s python run_bot_local.py
+
+
+# Validation checks
+PYTHONPATH=. python scripts/run_health_checks.py
+```
+
+## Mock Telegram Testing
+
+### Interactive Testing UI
+```bash
+# Start Mock Telegram UI (recommended for testing)
+PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py
+# Access at: http://localhost:8001
+```
+
+### Key Benefits
+- **Liverpool FC themed interface** for professional testing
+- **No real Telegram API calls** needed during development
+- **Complete command testing** including slash commands and natural language
+- **Real-time agent responses** and system monitoring
+
+## Legacy Migration Notes
+
+### For Developers Working on Old Code
+If you encounter references to deleted components:
+
+1. **Handler Classes** → Methods in `AgenticMessageRouter`
+   - `UnregisteredUserHandler` → `_get_unregistered_user_message()`
+   - `ContactShareHandler` → `route_contact_share()`
+   - `RegisteredUserHandler` → `_process_with_crewai_system()`
+
+2. **Context Classes** → Direct logic in router
+   - `ContextBuilder` → Logic moved to router methods
+   - `AgentContext` → Use `tests/agents/test_context.py` for tests
+
+3. **Factory Classes** → Use dependency container
+   - `AgentSystemFactory` → Removed, use `dependency_container.py`
+
+### System Modernization Benefits
+- **-500+ lines** of duplicate code eliminated
+- **Single source of truth** for message routing
+- **Consistent type handling** (telegram_id as int)
+- **Better error handling** with circuit breakers
+- **Improved testability** with unified routing
+
+## Important Development Notes
+
+### Before Making Changes
+1. **Always read existing CLAUDE.md and Cursor rules** in `.cursor/rules/`
+2. **Check recent changes** in project status files and documentation
+3. **Run validation** with `PYTHONPATH=. python scripts/quick_validation.py`
+4. **Use Mock Telegram UI** for testing instead of real bot
+
+### When Adding Features
+1. **Follow clean architecture** - see existing features as examples
+2. **Tools must be independent** - no service calls in @tool functions
+3. **Use absolute imports** - `from kickai.features...`
+4. **Register in feature __init__.py** - export tools and commands
+5. **Update agents.yaml** - assign tools to appropriate agents
+
+### When Debugging
+1. **Check agent logs** for CrewAI execution details
+2. **Use validation scripts** in `scripts/` directory
+3. **Test with Mock UI** before real Telegram testing
+4. **Check dependency container** status with utility functions
+

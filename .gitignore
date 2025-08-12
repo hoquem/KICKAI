@@ -190,3 +190,8 @@ logs/
 temp/
 tmp/
 bot.lock
+.env.test
+.env.claude_optimization
+
+E2E_TEST_SUMMARY_REPORT.md
+

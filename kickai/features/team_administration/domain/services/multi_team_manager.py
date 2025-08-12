@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, Dict, Optional
 
 
 class MultiTeamManager:
@@ -20,7 +20,7 @@ class MultiTeamManager:
         self.logger.info(f"✅ Loaded {len(self.teams)} team configurations.")
         return teams
 
-    def get_team(self, team_id: str) -> dict[str, Any] | None:
+    def get_team(self, team_id: str) -> Optional[Dict[str, Any]]:
         return self.teams.get(team_id)
 
     def list_teams(self) -> list[dict[str, Any]]:

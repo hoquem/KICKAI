@@ -2,22 +2,23 @@
 
 ## Overview
 
-KICKAI follows a **Clean Architecture** pattern with **Domain-Driven Design** principles, implemented as a **feature-based modular system** with **8-agent CrewAI orchestration**. The system is designed for scalability, maintainability, and extensibility.
+KICKAI follows a **Clean Architecture** pattern with **Domain-Driven Design** principles, implemented as a **feature-based modular system** with **13-agent CrewAI orchestration**. The system is designed for scalability, maintainability, and extensibility with a comprehensive **service discovery system** for dynamic service management.
 
 ## 🏗️ **Current Architecture Status**
 
 ### ✅ **Fully Implemented Components**
 - **Core System**: Complete with dependency injection, command registry, and agent orchestration
+- **Service Discovery System**: **NEW** - Dynamic service registration, health monitoring, and circuit breaker
 - **Player Management**: Full player registration, approval, and management system
 - **Match Management**: Complete match creation, scheduling, and attendance tracking
 - **Attendance Management**: Full attendance tracking and reporting system
 - **Payment Management**: Complete payment creation and tracking system
 - **Communication**: Full team messaging and announcement system
-- **Agent System**: 8-agent CrewAI orchestration working correctly
+- **Agent System**: 13-agent CrewAI orchestration working correctly
+- **Comprehensive Test Suite**: **NEW** - Unit, integration, and E2E tests with service discovery testing
 
 ### 🚧 **Partially Implemented Components**
 - **Training Management**: Domain entities and tools implemented, commands defined but not integrated
-- **E2E Testing**: Framework exists but requires telethon dependency
 - **Advanced Analytics**: Basic implementation, needs enhancement
 
 ## System Architecture Layers
@@ -63,6 +64,22 @@ kickai/features/{feature_name}/domain/
 - Implement business logic
 - Provide CrewAI tools for agents
 - Define repository contracts
+
+### 2.5. **Service Discovery Layer** (NEW)
+```
+kickai/core/service_discovery/
+├── interfaces.py                 # Service definitions and protocols
+├── registry.py                   # Central service registry with circuit breaker
+├── discovery.py                  # Auto-discovery mechanisms
+├── health_checkers.py           # Specialized health checkers by service type
+└── config.py                    # Configuration loading and defaults
+```
+
+**Responsibilities**:
+- Dynamic service registration and discovery
+- Health monitoring with specialized checkers
+- Circuit breaker pattern for failure isolation
+- Configuration-driven service definitions
 
 ### 4. **Infrastructure Layer** (External Dependencies)
 ```
@@ -120,7 +137,7 @@ kickai/features/{feature_name}/infrastructure/
     └── firestore_attendance_repository.py
 ```
 
-**Payment Management** (`kickai/features/payment_management/`)
+**Attendance Management** (`kickai/features/attendance_management/`)
 ```
 ├── application/commands/
 │   └── payment_commands.py      # /createpayment, /payments, etc.
@@ -146,7 +163,7 @@ kickai/features/{feature_name}/infrastructure/
 
 #### 🚧 **Partially Implemented Features**
 
-**Training Management** (`kickai/features/training_management/`)
+**Communication Management** (`kickai/features/communication/`)
 ```
 ├── application/commands/
 │   └── training_commands.py     # Commands defined but not integrated
@@ -165,49 +182,38 @@ kickai/features/{feature_name}/infrastructure/
 
 ## Agent Architecture
 
-### 8-Agent CrewAI System
+### 13-Agent CrewAI System
 
-The system uses 8 specialized agents for intelligent task processing:
+The system uses 13 specialized agents organized in logical layers for intelligent task processing:
 
-#### 1. **MessageProcessorAgent**
-- **Primary Role**: Message parsing and intent classification
-- **Commands**: `/version`, general natural language
-- **Tools**: Intent analysis, context extraction, message routing
+#### Primary Interface Layer
 
-#### 2. **PlayerCoordinatorAgent**
-- **Primary Role**: Player registration and individual support
-- **Commands**: `/addplayer`, `/addmember`, `/update`, `/myinfo`, `/status`
-- **Tools**: Player management, registration, status tracking
+**1. MESSAGE_PROCESSOR**
+- **Primary Role**: Primary interface for user interactions and routing
+- **Tools**: Intent analysis, context extraction, message parsing
 
-#### 3. **TeamManagerAgent**
-- **Primary Role**: Team administration and coordination
-- **Commands**: `/list`, `/approve`, `/reject`, `/team`, `/invite`, `/announce`
+**2. TEAM_ADMINISTRATOR**
+- **Primary Role**: Team administration and member management
 - **Tools**: Team management, player administration, team coordination
 
-#### 4. **FinanceManagerAgent**
-- **Primary Role**: Financial management and payments
-- **Commands**: `/createpayment`, `/payments`, `/budget`, `/markpaid`
-- **Tools**: Payment management, budget tracking, financial reporting
+#### Operational Layer
 
-#### 5. **PerformanceAnalystAgent**
-- **Primary Role**: Analytics and performance tracking
-- **Commands**: `/stats`, `/analytics`, performance reports
-- **Tools**: Data analysis, performance metrics, reporting
+**3. PLAYER_COORDINATOR**
+- **Primary Role**: Player registration, status, and management
+- **Tools**: Player management, registration, status tracking
 
-#### 6. **LearningAgent**
-- **Primary Role**: System learning and improvement
-- **Commands**: Learning-related operations
-- **Tools**: Pattern recognition, system optimization
+**4. SQUAD_SELECTOR**
+- **Primary Role**: Match squad selection and availability
+- **Tools**: Squad selection, availability tracking, match coordination
 
-#### 7. **OnboardingAgent**
-- **Primary Role**: User onboarding and guidance
-- **Commands**: `/start`, onboarding flows
-- **Tools**: User guidance, onboarding assistance
+#### Specialized Layer
 
-#### 8. **CommandFallbackAgent**
-- **Primary Role**: Handle unrecognized commands
-- **Commands**: Fallback for unknown commands
-- **Tools**: Error handling, user guidance
+**5. HELP_ASSISTANT**
+- **Primary Role**: Help system and command guidance
+- **Tools**: Help generation, command documentation, user guidance
+
+**📋 For complete command-to-agent mapping, see [11_unified_command_system.md](11_unified_command_system.md)**
+
 
 ## Core System Components
 
@@ -351,3 +357,14 @@ Training Session
 - **Dependency Inversion**: Depend on abstractions, not concretions
 - **Interface Segregation**: Small, focused interfaces
 - **Liskov Substitution**: Subtypes are substitutable for base types
+- **Clean Error Propagation**: Allow errors to propagate cleanly rather than masking issues with fallback systems
+
+### Error Handling Strategy
+- **Fail Fast**: Detect and report issues immediately
+- **Fail Loud**: Provide clear, actionable error messages
+- **No Silent Failures**: Always log and report errors
+- **Structured Errors**: Use proper error hierarchies and context
+- **Observability**: Ensure errors are visible and monitorable
+- **Graceful Degradation**: When possible, degrade functionality rather than masking errors
+
+See [Error Handling and System Robustness](17_error_handling_and_robustness.md) for detailed guidelines.

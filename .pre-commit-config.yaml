@@ -40,6 +40,12 @@ repos:
 
   - repo: local
     hooks:
+      - id: python-version-check
+        name: Python Version Check
+        entry: python check_python_version.py
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: typing-imports-check
         name: Check Typing Imports
         entry: python scripts/check_typing_imports.py
