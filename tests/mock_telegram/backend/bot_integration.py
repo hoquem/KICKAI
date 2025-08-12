@@ -161,9 +161,19 @@ async def process_mock_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
         else:
             response_text = str(response)
         
+        # Format JSON responses for human readability (same as real telegram service)
+        try:
+            from kickai.features.communication.domain.services.response_formatter import ResponseFormatter
+            formatter = ResponseFormatter()
+            formatted_text = formatter.format_for_telegram(response_text)
+            logger.info(f"🔄 Applied ResponseFormatter: {len(response_text)} chars -> {len(formatted_text)} chars")
+        except Exception as formatter_error:
+            logger.warning(f"⚠️ ResponseFormatter failed, using original: {formatter_error}")
+            formatted_text = response_text
+        
         return {
             "success": True,
-            "message": response_text,
+            "message": formatted_text,
             "agent_type": getattr(response, 'agent_type', 'unknown'),
             "confidence": getattr(response, 'confidence', 1.0),
             "tools_used": getattr(response, 'tools_used', []),
