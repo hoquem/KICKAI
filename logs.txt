@@ -1,0 +1,56 @@
+2025-08-12 18:40:34: task_name="None", task="
+                    User Request: /help
+                    
+                    Context Information:
+                    - Team ID: KTI
+                    - User Telegram ID: 1003 
+                    - Username: coach_wilson
+                    - Chat Type: leadership
+                    
+                    Instructions: Use the provided context information to call tools with the appropriate parameters.
+                    Pass team_id, telegram_id, username, and chat_type as direct parameters to tools that require them.
+                    
+                    Note: JSON parsing instructions and anti-hallucination rules are now part of your agent backstory.
+                    ", agent="help_assistant", status="started"
+2025-08-12 18:40:38: task_name="None", task="
+                    User Request: /help
+                    
+                    Context Information:
+                    - Team ID: KTI
+                    - User Telegram ID: 1003 
+                    - Username: coach_wilson
+                    - Chat Type: leadership
+                    
+                    Instructions: Use the provided context information to call tools with the appropriate parameters.
+                    Pass team_id, telegram_id, username, and chat_type as direct parameters to tools that require them.
+                    
+                    Note: JSON parsing instructions and anti-hallucination rules are now part of your agent backstory.
+                    ", agent="help_assistant", status="completed", output="🤖 KICKAI Help System\nYour Context: LEADERSHIP CHAT (User: coach_wilson)\n📋 Available Commands for Leadership Chat:\n\nMatch Management:\n• /creatematch - Create a new match (Leadership only)\n• /selectsquad - Select squad for a match (Leadership only)\n• /markmatchattendance - Mark actual match day attendance (Leadership only)\n\nTeam Administration:\n• /addmember - Add a team member (Leadership only)\n• /attendanceexport - Export attendance data (Leadership only)\n• /list - List team members or players\n• /update - Update your information (context-aware for players/team members)\n\nSystem:\n• /help - Show context-aware help information\n• /info - Show your user information and status\n• /myinfo - Show your user information and status (alias for /info)\n• /status - Check status of a player or yourself\n• /ping - Test bot connectivity and response time\n• /version - Show bot version and system information\n\n💡 Use /help [command] for detailed help on any command.\n---\n💡 Need more help?\n• Type /help [command] for detailed help\n• Contact team admin for support"
+2025-08-12 18:56:06: task_name="help_task_/help", task="
+                    User Request: /help
+                    
+                    Context Information:
+                    - Team ID: KTI
+                    - User Telegram ID: 1003 
+                    - Username: coach_wilson
+                    - Chat Type: leadership
+                    
+                    Instructions: Use the provided context information to call tools with the appropriate parameters.
+                    Pass team_id, telegram_id, username, and chat_type as direct parameters to tools that require them.
+                    
+                    Note: JSON parsing instructions and anti-hallucination rules are now part of your agent backstory.
+                    ", agent="help_assistant", status="started"
+2025-08-12 18:56:06: task_name="help_task_/help", task="
+                    User Request: /help
+                    
+                    Context Information:
+                    - Team ID: KTI
+                    - User Telegram ID: 1003 
+                    - Username: coach_wilson
+                    - Chat Type: leadership
+                    
+                    Instructions: Use the provided context information to call tools with the appropriate parameters.
+                    Pass team_id, telegram_id, username, and chat_type as direct parameters to tools that require them.
+                    
+                    Note: JSON parsing instructions and anti-hallucination rules are now part of your agent backstory.
+                    ", agent="help_assistant", status="completed", output="{"status": "success", "data": "🤖 KICKAI Help System\nYour Context: LEADERSHIP CHAT (User: coach_wilson)\n📋 Available Commands for Leadership Chat:\n\nMatch Management:\n• /creatematch - Create a new match (Leadership only)\n• /selectsquad - Select squad for a match (Leadership only)\n• /markmatchattendance - Mark actual match day attendance (Leadership only)\n\nTeam Administration:\n• /addmember - Add a team member (Leadership only)\n• /attendanceexport - Export attendance data (Leadership only)\n• /list - List team members or players\n• /update - Update your information (context-aware for players/team members)\n\nSystem:\n• /help - Show context-aware help information\n• /info - Show your user information and status\n• /myinfo - Show your user information and status (alias for /info)\n• /status - Check status of a player or yourself\n• /ping - Test bot connectivity and response time\n• /version - Show bot version and system information\n\n💡 Use /help [command] for detailed help on any command.\n---\n💡 Need more help?\n• Type /help [command] for detailed help\n• Contact team admin for support"}"

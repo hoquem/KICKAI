@@ -127,11 +127,17 @@ class PlayerService:
 
                 from ..entities.player import Player
 
+                # Handle legacy player_id formats - if it doesn't start with 'M', treat as None
+                player_id = player_data.get("player_id")
+                if player_id and not player_id.startswith("M"):
+                    logger.warning(f"Legacy player_id format detected: {player_id}. Treating as None.")
+                    player_id = None
+                
                 return Player(
                     user_id=player_data.get("user_id", ""),
                     team_id=player_data.get("team_id", ""),
                     telegram_id=player_data.get("telegram_id"),
-                    player_id=player_data.get("player_id"),
+                    player_id=player_id,  # Use cleaned player_id
                     name=player_data.get("name") or player_data.get("full_name"),
                     username=player_data.get("username"),
                     position=player_data.get("position"),

@@ -31,7 +31,7 @@ class LogErrorInput(BaseModel):
     team_id: Optional[str] = None
 
 
-@tool("log_command")
+@tool("log_command", result_as_answer=True)
 def log_command(command: str, user_id: Optional[str] = None, team_id: Optional[str] = None) -> str:
     """
     Log a command execution. Requires: command
@@ -61,7 +61,7 @@ def log_command(command: str, user_id: Optional[str] = None, team_id: Optional[s
         return create_json_response("error", message=f"Failed to log command: {e!s}")
 
 
-@tool("log_error")
+@tool("log_error", result_as_answer=True)
 def log_error(
     error_message: str, error_context: Optional[str] = None, team_id: Optional[str] = None
 ) -> str:

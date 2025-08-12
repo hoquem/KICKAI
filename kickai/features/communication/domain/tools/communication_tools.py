@@ -31,19 +31,28 @@ from kickai.utils.tool_validation import (
 )
 
 
-@tool("send_message")
+@tool("send_message", result_as_answer=True)
 @tool_error_handler
 def send_message(message: str, chat_type: str, team_id: str) -> str:
-    """
-    Send a message to a specific chat using CrewAI native parameter passing.
-
-    Args:
-        message: The message to send
-        chat_type: The chat type (main or leadership)
-        team_id: The team ID
-
-    Returns:
-        Success or error message
+    """Send a message to a specific chat.
+    
+    Sends a message to either the main team chat or leadership chat
+    using the communication service with CrewAI native parameter passing.
+    
+    :param message: The message content to send
+    :type message: str
+    :param chat_type: The target chat type (main or leadership)
+    :type chat_type: str
+    :param team_id: The team identifier
+    :type team_id: str
+    :returns: JSON string with success status or error message
+    :rtype: str
+    :raises ToolExecutionError: When CommunicationService unavailable or send fails
+    
+    .. example::
+       >>> result = send_message("Team meeting at 5PM", "main", "KTI")
+       >>> print(result)
+       '{"status": "success", "data": "Message sent successfully"}'
     """
     # Validate inputs
     message = extract_single_value(message, "message")
@@ -85,18 +94,25 @@ def send_message(message: str, chat_type: str, team_id: str) -> str:
         raise ToolExecutionError("Failed to send message")
 
 
-@tool("send_announcement")
+@tool("send_announcement", result_as_answer=True)
 @tool_error_handler
 def send_announcement(announcement: str, team_id: str) -> str:
-    """
-    Send an announcement to all team members. Requires: announcement, team_id
-
-    Args:
-        announcement: The announcement message
-        team_id: Team ID (required)
-
-    Returns:
-        Success or error message
+    """Send an announcement to all team members.
+    
+    Broadcasts an important announcement message to all team members
+    across all relevant communication channels.
+    
+    :param announcement: The announcement message content
+    :type announcement: str
+    :param team_id: Team ID (required)
+    :type team_id: str
+    :returns: JSON string with success status or error message
+    :rtype: str
+    :raises ToolExecutionError: When CommunicationService unavailable or broadcast fails
+    
+    .. note::
+       Announcements are sent to all team communication channels
+       and may trigger notifications to all members
     """
     # Handle JSON string input and validate
     announcement = extract_single_value(announcement, "announcement")
@@ -140,19 +156,29 @@ def send_announcement(announcement: str, team_id: str) -> str:
         raise ToolExecutionError("Failed to send announcement")
 
 
-@tool("send_poll")
+@tool("send_poll", result_as_answer=True)
 @tool_error_handler
 def send_poll(question: str, options: str, team_id: str) -> str:
-    """
-    Send a poll to team members. Requires: question, options, team_id
-
-    Args:
-        question: The poll question
-        options: Comma-separated poll options
-        team_id: Team ID (required)
-
-    Returns:
-        Success or error message
+    """Send a poll to team members.
+    
+    Creates and sends an interactive poll to team members for
+    gathering feedback or making team decisions.
+    
+    :param question: The poll question to ask
+    :type question: str
+    :param options: Comma-separated poll options (2-10 options)
+    :type options: str
+    :param team_id: Team ID (required)
+    :type team_id: str
+    :returns: JSON string with success status or error message
+    :rtype: str
+    :raises ToolValidationError: When options format invalid or count out of range
+    :raises ToolExecutionError: When CommunicationService unavailable or poll creation fails
+    
+    .. example::
+       >>> result = send_poll("Match time?", "5PM,6PM,7PM", "KTI")
+       >>> print(result)
+       '{"status": "success", "data": "Poll sent successfully"}'
     """
     # Handle JSON string input and validate
     question = extract_single_value(question, "question")

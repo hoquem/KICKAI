@@ -22,7 +22,7 @@ from kickai.utils.tool_helpers import (
 )
 
 
-@tool("team_member_registration")
+@tool("team_member_registration", result_as_answer=True)
 def team_member_registration(
     name: str,
     telegram_id: str,
@@ -31,19 +31,32 @@ def team_member_registration(
     team_id: str,
     is_admin: bool = False
 ) -> str:
-    """
-    Register a new team member. Requires: name, telegram_id, phone_number, role, team_id
-
-    Args:
-        name: Name of the team member
-        telegram_id: Telegram ID of the team member
-        phone_number: Phone number of the team member
-        role: Role of the team member (e.g., Coach, Manager, Assistant)
-        team_id: Team ID (required)
-        is_admin: Whether the member is an admin (default: False)
-
-    Returns:
-        JSON string with success or error message
+    """Register a new team member.
+    
+    Registers a new team member (coach, manager, assistant) with
+    administrative privileges and role assignment.
+    
+    :param name: Name of the team member
+    :type name: str
+    :param telegram_id: Telegram ID of the team member
+    :type telegram_id: str
+    :param phone_number: Phone number of the team member
+    :type phone_number: str
+    :param role: Role of the team member (e.g., Coach, Manager, Assistant)
+    :type role: str
+    :param team_id: Team ID (required)
+    :type team_id: str
+    :param is_admin: Whether the member has admin privileges, defaults to False
+    :type is_admin: bool
+    :returns: JSON string with registration details or error message
+    :rtype: str
+    :raises ServiceNotAvailableError: When TeamMemberService is not available
+    :raises Exception: When registration fails or validation errors occur
+    
+    .. example::
+       >>> result = team_member_registration("John Coach", "123456", "+1234567890", "Coach", "KTI", True)
+       >>> print(result)
+       '{"status": "success", "data": {"message": "Team Member Registered Successfully!", ...}}'
     """
     try:
         # Handle JSON string input using utility functions
@@ -129,19 +142,24 @@ def team_member_registration(
         return create_json_response("error", message=f"Failed to register team member: {e}")
 
 
-@tool("get_my_team_member_status")
+@tool("get_my_team_member_status", result_as_answer=True)
 def get_my_team_member_status(team_id: str, telegram_id: str) -> str:
-    """
-    Get current user's team member status and information.
-    This tool is for team members in the leadership chat.
-    For players in main chat, use get_my_status.
-
-    Args:
-        team_id: The team ID
-        telegram_id: The user's Telegram ID
-
-    Returns:
-        JSON string with team member status information or error message
+    """Get current user's team member status and information.
+    
+    Retrieves team member status and details for users in leadership chat.
+    For players in main chat, use get_my_status instead.
+    
+    :param team_id: The team ID
+    :type team_id: str
+    :param telegram_id: The user's Telegram ID
+    :type telegram_id: str
+    :returns: JSON string with team member status information or error message
+    :rtype: str
+    :raises Exception: When service unavailable or status retrieval fails
+    
+    .. note::
+       This tool is specifically for team members in leadership chat.
+       Players should use get_my_status tool instead.
     """
     try:
         # Lazy-load services only when needed
@@ -166,17 +184,23 @@ def get_my_team_member_status(team_id: str, telegram_id: str) -> str:
         return create_json_response("error", message=f"Failed to get team member status: {e!s}")
 
 
-@tool("get_team_members")
+@tool("get_team_members", result_as_answer=True)
 def get_team_members(team_id: str, role: Optional[str] = None) -> str:
-    """
-    Get team members for a team, optionally filtered by role.
-
-    Args:
-        team_id: The team ID
-        role: Optional role to filter by
-
-    Returns:
-        JSON string with team member information
+    """Get team members for a team.
+    
+    Retrieves list of team members (administrative staff) with
+    optional filtering by role.
+    
+    :param team_id: The team ID
+    :type team_id: str
+    :param role: Optional role to filter by (e.g., Coach, Manager)
+    :type role: Optional[str]
+    :returns: JSON string with team member list or error message
+    :rtype: str
+    :raises Exception: When service unavailable or retrieval fails
+    
+    .. note::
+       Returns empty list with success status if no members found
     """
     try:
         # Lazy-load services only when needed
@@ -214,18 +238,26 @@ def get_team_members(team_id: str, role: Optional[str] = None) -> str:
         return create_json_response("error", message=f"Failed to get team members: {e!s}")
 
 
-@tool("add_team_member_role")
+@tool("add_team_member_role", result_as_answer=True)
 def add_team_member_role(telegram_id: str, team_id: str, role: str) -> str:
-    """
-    Add a role to a team member.
-
-    Args:
-        telegram_id: The user's Telegram ID
-        team_id: The team ID
-        role: The role to add
-
-    Returns:
-        JSON string with confirmation message
+    """Add a role to a team member.
+    
+    Assigns an additional role to an existing team member.
+    
+    :param telegram_id: The user's Telegram ID
+    :type telegram_id: str
+    :param team_id: The team ID
+    :type team_id: str
+    :param role: The role to add
+    :type role: str
+    :returns: JSON string with confirmation or error message
+    :rtype: str
+    :raises Exception: When role addition fails
+    
+    .. example::
+       >>> result = add_team_member_role("123456", "KTI", "Assistant Coach")
+       >>> print(result)
+       '{"status": "success", "data": {"message": "Successfully added role...", ...}}'
     """
     try:
         container = get_container()
@@ -243,18 +275,21 @@ def add_team_member_role(telegram_id: str, team_id: str, role: str) -> str:
         return create_json_response("error", message=f"Error adding role: {e!s}")
 
 
-@tool("remove_team_member_role")
+@tool("remove_team_member_role", result_as_answer=True)
 def remove_team_member_role(telegram_id: str, team_id: str, role: str) -> str:
-    """
-    Remove a role from a team member.
-
-    Args:
-        telegram_id: The user's Telegram ID
-        team_id: The team ID
-        role: The role to remove
-
-    Returns:
-        JSON string with confirmation message
+    """Remove a role from a team member.
+    
+    Removes a specific role from an existing team member.
+    
+    :param telegram_id: The user's Telegram ID
+    :type telegram_id: str
+    :param team_id: The team ID
+    :type team_id: str
+    :param role: The role to remove
+    :type role: str
+    :returns: JSON string with confirmation or error message
+    :rtype: str
+    :raises Exception: When role removal fails
     """
     try:
         container = get_container()
@@ -272,18 +307,24 @@ def remove_team_member_role(telegram_id: str, team_id: str, role: str) -> str:
         return create_json_response("error", message=f"Error removing role: {e!s}")
 
 
-@tool("promote_team_member_to_admin")
+@tool("promote_team_member_to_admin", result_as_answer=True)
 def promote_team_member_to_admin(telegram_id: str, team_id: str, promoted_by: str) -> str:
-    """
-    Promote a team member to admin role.
-
-    Args:
-        telegram_id: The user's Telegram ID
-        team_id: The team ID
-        promoted_by: The user ID of who is doing the promotion
-
-    Returns:
-        JSON string with confirmation message
+    """Promote a team member to admin role.
+    
+    Grants administrative privileges to an existing team member.
+    
+    :param telegram_id: The user's Telegram ID to promote
+    :type telegram_id: str
+    :param team_id: The team ID
+    :type team_id: str
+    :param promoted_by: The user ID of who is doing the promotion
+    :type promoted_by: str
+    :returns: JSON string with confirmation or error message
+    :rtype: str
+    :raises Exception: When promotion fails
+    
+    .. note::
+       Promotion requires existing admin privileges for the promoting user
     """
     try:
         container = get_container()

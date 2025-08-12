@@ -15,7 +15,6 @@ from .factory import (
     OllamaProvider,
     ProviderConfig,
     create_llm_provider,
-    create_llm_provider_from_environment,
     create_llm_provider_from_settings,
     get_provider_health_status,
 )
@@ -30,6 +29,5 @@ __all__ = [
     "MockProvider",
     "create_llm_provider",
     "create_llm_provider_from_settings",
-    "create_llm_provider_from_environment",
     "get_provider_health_status",
 ]

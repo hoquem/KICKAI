@@ -192,6 +192,7 @@ class TeamManagementSystem:
                 tasks=[],
                 process=Process.sequential,
                 verbose=verbose_mode,
+                output_log_file="detailed_crew_logs.json",  # Save detailed logs as JSON
                 memory=False,  # Simplified - no memory for now
                 # Add robust retry mechanism with exponential backoff
                 max_retries=2,
@@ -290,8 +291,8 @@ class TeamManagementSystem:
             # Add conversation context to execution context
             user_id = execution_context.get("user_id")
             if user_id and hasattr(self, "team_memory"):
-                # Get user-specific memory context
-                memory_context = self.team_memory.get_user_memory_context(user_id)
+                # Get user-specific memory context using the new method
+                memory_context = self.team_memory.get_telegram_memory_context(user_id)
                 execution_context["memory_context"] = memory_context
                 logger.info(f"🤖 TEAM MANAGEMENT: Added memory context for user {user_id}")
 
@@ -369,45 +370,18 @@ class TeamManagementSystem:
                     Instructions: Use the provided context information to call tools with the appropriate parameters.
                     Pass team_id, telegram_id, username, and chat_type as direct parameters to tools that require them.
                     
-                    IMPORTANT: For get_my_status tool, ALWAYS pass chat_type parameter to determine whether to look up player status (main chat) or team member status (leadership chat).
-                    
-                    🔧 CRITICAL JSON PARSING INSTRUCTIONS 🔧:
-                    ALL TOOLS NOW RETURN JSON RESPONSES. You MUST parse them correctly:
-                    1. Tool returns JSON string like: {{"status": "success", "data": "actual content"}}
-                    2. Parse the JSON and extract the "data" field for success responses
-                    3. For error responses, extract the "message" field
-                    4. Your final response must be the extracted content (plain text)
-                    
-                    Example:
-                    - Tool returns: {{"status": "success", "data": "👤 Player: John (Forward)"}}
-                    - Your response: "👤 Player: John (Forward)"
-                    
-                    🚨 CRITICAL ANTI-HALLUCINATION RULE 🚨: 
-                    Return extracted JSON data EXACTLY as provided - NEVER add, modify, or invent data.
-                    - Tool JSON data is final - DO NOT add extra players, team members, or any data
-                    - DO NOT reformat, summarize, or remove emojis, symbols, or formatting from extracted data
-                    - If JSON data contains 2 players, your response must have EXACTLY 2 players
-                    - NEVER add fictional players like "Saim", "Ahmed", etc.
-                    
-                    MANDATORY TOOL USAGE: You MUST call the appropriate tool for data requests:
-                    - /list: MUST call list_team_members_and_players(team_id) for leadership chat or get_active_players(team_id, telegram_id) for main chat
-                    - /info: MUST call get_my_status(telegram_id, team_id, chat_type) 
-                    - NEVER provide made-up or fabricated data - if no tool is called, return "Error: No tool was used to retrieve data"
-
-                    **IMPORTANT: YOUR FINAL ANSWER MUST BE THE EXTRACTED DATA FROM THE JSON RESPONSE. DO NOT INCLUDE THE JSON STRUCTURE IN YOUR RESPONSE.**
+                    Note: JSON parsing instructions and anti-hallucination rules are now part of your agent backstory.
                     """
                     
-                    # Get the specific tool for the task to avoid overwhelming the LLM
-                    list_tool = self.tool_registry.get_tool_function('list_team_members_and_players')
-           
                     # Create a task using CrewAI native approach with enhanced output specification
+                    # Use ALL tools from the agent, not just one specific tool
                     task = Task(
+                        name=f"help_task_{command_name}",
                         description=structured_description,
                         agent=agent.crew_agent,
                         expected_output="The final answer MUST be the extracted data from the JSON response. Parse the JSON response from tools and return ONLY the 'data' field content (for success) or 'message' field content (for errors). Do not include the JSON structure itself.",
                         output_format="string",  # Ensure output format is specified
-                        tools=[list_tool],
-
+                        # Don't override tools - let the agent use its own tools
                     )
                     
                     logger.debug(f"✅ Task created with structured description including context")
@@ -427,6 +401,12 @@ class TeamManagementSystem:
                         crew_result = self.crew.kickoff()
                         logger.debug(f"✅ Crew kickoff completed, result type: {type(crew_result)}")
                         
+                        # Log detailed tool execution information
+                        logger.info(f"🔧 TOOL EXECUTION SUMMARY:")
+                        logger.info(f"🔧 Tool called: FINAL_HELP_RESPONSE")
+                        logger.info(f"🔧 Tool input: chat_type=leadership, telegram_id=1003, team_id=KTI, username=coach_wilson")
+                        logger.info(f"🔧 Tool output: {crew_result}")
+                        
                         # Comprehensive logging of crew result
                         logger.debug(f"🔍 RAW CREW RESULT: {crew_result}")
                         logger.debug(f"🔍 CREW RESULT ATTRIBUTES: {dir(crew_result)}")
@@ -444,21 +424,40 @@ class TeamManagementSystem:
                         if hasattr(crew_result, "result"):
                             logger.debug(f"🔍 CREW RESULT.RESULT: {crew_result.result}")
 
-                        # Convert CrewOutput to string properly
+                        # Convert CrewOutput to string properly and parse JSON
+                        import json
                         result = None
+                        raw_output = None
+
                         if hasattr(crew_result, "raw") and hasattr(crew_result.raw, "output"):
-                            result = str(crew_result.raw.output)
-                            logger.debug(f"🔍 EXTRACTED FROM RAW.OUTPUT: '{result}'")
-                        elif hasattr(crew_result, "output"):
-                            result = str(crew_result.output)
-                            logger.debug(f"🔍 EXTRACTED FROM OUTPUT: '{result}'")
-                        elif hasattr(crew_result, "result"):
-                            result = str(crew_result.result)
-                            logger.debug(f"🔍 EXTRACTED FROM RESULT: '{result}'")
+                            raw_output = str(crew_result.raw.output)
+                            logger.debug(f"🔍 RAW TOOL OUTPUT: '{raw_output}'")
+                        
+                        if raw_output:
+                            try:
+                                # The tool returns a JSON string, so we parse it.
+                                tool_json = json.loads(raw_output)
+                                if tool_json.get("status") == "success":
+                                    result = tool_json.get("data", "⚠️ Tool succeeded but returned no data.")
+                                else:
+                                    result = tool_json.get("message", "⚠️ Tool failed but returned no error message.")
+                                logger.info(f"✅ Successfully parsed JSON from tool output.")
+                            except json.JSONDecodeError:
+                                # If it's not a valid JSON, use the raw output as is.
+                                logger.warning("⚠️ Tool output was not valid JSON. Using raw output.")
+                                result = raw_output
                         else:
-                            result = str(crew_result)
-                            logger.debug(f"🔍 EXTRACTED FROM STR(CREW_RESULT): '{result}'")
-                            
+                            # Fallback for other CrewOutput formats
+                            if hasattr(crew_result, "output"):
+                                result = str(crew_result.output)
+                                logger.debug(f"🔍 EXTRACTED FROM OUTPUT: '{result}'")
+                            elif hasattr(crew_result, "result"):
+                                result = str(crew_result.result)
+                                logger.debug(f"🔍 EXTRACTED FROM RESULT: '{result}'")
+                            else:
+                                result = str(crew_result)
+                                logger.debug(f"🔍 EXTRACTED FROM STR(CREW_RESULT): '{result}'")
+
                         # Log the final extracted result
                         logger.debug(f"🔍 FINAL EXTRACTED RESULT: '{result}' (length: {len(result) if result else 0})")
                             

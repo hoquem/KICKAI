@@ -170,7 +170,7 @@ class TeamMemberUpdateValidator:
             raise TeamMemberUpdateValidationError(f"Unknown field type: {field}")
 
 
-@tool("update_team_member_information")
+@tool("update_team_member_information", result_as_answer=True)
 def update_team_member_information(
     user_id: str, team_id: str, field: str, value: str, username: str = "Unknown"
 ) -> str:
@@ -347,7 +347,7 @@ def update_team_member_information(
         return create_json_response("error", message="Update Failed: An unexpected error occurred. Please try again or contact support.")
 
 
-@tool("get_team_member_updatable_fields")
+@tool("get_team_member_updatable_fields", result_as_answer=True)
 def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
     """
     Get list of fields that a team member can update with examples and validation rules.
@@ -425,7 +425,7 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
         return "❌ Error retrieving updatable fields. Please try again."
 
 
-@tool("validate_team_member_update_request")
+@tool("validate_team_member_update_request", result_as_answer=True)
 def validate_team_member_update_request(user_id: str, team_id: str, field: str, value: str) -> str:
     """
     Validate a team member update request without actually performing the update.
@@ -488,7 +488,7 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
         return "❌ Validation Error: Please check your input and try again"
 
 
-@tool("get_pending_team_member_approval_requests")
+@tool("get_pending_team_member_approval_requests", result_as_answer=True)
 def get_pending_team_member_approval_requests(team_id: str, user_id: str = None) -> str:
     """
     Get pending approval requests for team member updates.
