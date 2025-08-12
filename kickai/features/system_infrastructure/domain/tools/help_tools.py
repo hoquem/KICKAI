@@ -22,6 +22,7 @@ from kickai.utils.tool_helpers import (
     format_tool_error,
     sanitize_input,
     validate_required_input,
+    create_json_response,
 )
 
 
@@ -82,9 +83,7 @@ def get_version_info(user_id: Optional[str] = None, team_id: Optional[str] = Non
         version_info = bot_status_service.get_version_info()
 
         if version_info.get("status") == "error":
-            return format_tool_error(
-                f"Error retrieving version information: {version_info.get('error', 'Unknown error')}"
-            )
+            return create_json_response("error", message=f"Error retrieving version information: {version_info.get('error', 'Unknown error')}")
 
         # Format the response
         response = f"""📱 KICKAI Bot Version Information
@@ -121,12 +120,12 @@ def get_version_info(user_id: Optional[str] = None, team_id: Optional[str] = Non
 
 💪 Ready to help with all your football team management needs!"""
 
-        logger.info("✅ Retrieved version info successfully")
-        return response
+        logger.info("Retrieved version info successfully")
+        return create_json_response("success", data=response)
 
     except Exception as e:
         logger.error(f"❌ Error getting version info: {e}")
-        return format_tool_error(f"Error retrieving version information: {e!s}")
+        return create_json_response("error", message=f"Error retrieving version information: {e!s}")
 
 
 @tool("get_system_available_commands")
@@ -155,11 +154,11 @@ def get_system_available_commands(
     try:
         # Validate that user registration status is provided (no defaults allowed)
         if is_registered is None:
-            return "❌ Error: is_registered parameter is required and must be explicitly set"
+            return create_json_response("error", message=f"Error: is_registered parameter is required and must be explicitly set")
         if is_player is None:
-            return "❌ Error: is_player parameter is required and must be explicitly set"
+            return create_json_response("error", message=f"Error: is_player parameter is required and must be explicitly set")
         if is_team_member is None:
-            return "❌ Error: is_team_member parameter is required and must be explicitly set"
+            return create_json_response("error", message=f"Error: is_team_member parameter is required and must be explicitly set")
 
         logger.info(
             f"🔍 Getting available commands for chat_type={chat_type}, user_id={user_id}, team_id={team_id}, is_registered={is_registered}, is_player={is_player}, is_team_member={is_team_member}"
@@ -175,13 +174,13 @@ def get_system_available_commands(
         elif chat_type == "leadership_chat":
             chat_type_enum = ChatType.LEADERSHIP
         else:
-            return f"❌ Invalid chat type: {chat_type}. Must be 'main_chat' or 'leadership_chat'"
+            return create_json_response("error", message=f"Invalid chat type: {chat_type}. Must be 'main_chat' or 'leadership_chat'")
 
         # Get commands for this chat type
         commands = registry.get_commands_by_chat_type(chat_type)
 
         if not commands:
-            return f"❌ No commands found for chat type: {chat_type}"
+            return create_json_response("error", message=f"No commands found for chat type: {chat_type}")
 
         # Filter commands based on user registration status
         available_commands = []
@@ -253,10 +252,10 @@ def get_system_available_commands(
         response += "💡 Tip: You can also ask me questions in natural language!"
 
         logger.info(
-            f"✅ Retrieved {len(available_commands)} commands for {chat_type} (filtered from {len(commands)} total)"
+            f"Retrieved {len(available_commands)} commands for {chat_type} (filtered from {len(commands)} total)"
         )
-        return response
+        return create_json_response("success", data=response)
 
     except Exception as e:
         logger.error(f"❌ Error getting available commands: {e}")
-        return f"❌ Error retrieving available commands: {e!s}"
+        return create_json_response("error", message=f"Error retrieving available commands: {e!s}")

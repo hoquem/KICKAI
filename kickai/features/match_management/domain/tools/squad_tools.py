@@ -15,6 +15,7 @@ from kickai.utils.tool_helpers import (
     format_tool_error,
     sanitize_input,
     validate_required_input,
+    create_json_response,
 )
 
 
@@ -77,7 +78,7 @@ def get_available_players_for_match(team_id: str, telegram_id: Union[str, int], 
             try:
                 telegram_id_int = int(telegram_id)
             except ValueError:
-                return format_tool_error(f"Invalid telegram_id format: {telegram_id}")
+                return create_json_response("error", message=f"Invalid telegram_id format: {telegram_id}")
         else:
             telegram_id_int = int(telegram_id)
         match_id = sanitize_input(match_id, max_length=50)
@@ -87,7 +88,7 @@ def get_available_players_for_match(team_id: str, telegram_id: Union[str, int], 
         match_service = container.get_service("MatchService")
 
         if not match_service:
-            return format_tool_error("Match service not available")
+            return create_json_response("error", message="Match service not available")
 
         # Get available players for match
         success, message = match_service.get_available_players_for_match_sync(
@@ -95,17 +96,18 @@ def get_available_players_for_match(team_id: str, telegram_id: Union[str, int], 
         )
 
         if success:
-            return f"""👥 Available Players for Match
+            data = f"""👥 Available Players for Match
 
 {message}
 
 💡 Use /squad [match_id] to select the squad for this match"""
+            return create_json_response("success", data=data)
         else:
-            return format_tool_error(f"Failed to get available players: {message}")
+            return create_json_response("error", message=f"Failed to get available players: {message}")
 
     except Exception as e:
         logger.error(f"Failed to get available players for match: {e}", exc_info=True)
-        return format_tool_error(f"Failed to get available players for match: {e}")
+        return create_json_response("error", message=f"Failed to get available players for match: {e}")
 
 
 @tool("select_squad")
@@ -148,7 +150,7 @@ def select_squad(
         squad_service = container.get_service("SquadService")
 
         if not squad_service:
-            return format_tool_error("Squad service not available")
+            return create_json_response("error", message="Squad service not available")
 
         # Select squad
         success, message = squad_service.select_squad_sync(
@@ -156,17 +158,18 @@ def select_squad(
         )
 
         if success:
-            return f"""⚽ Squad Selected Successfully!
+            data = f"""⚽ Squad Selected Successfully!
 
 {message}
 
 💡 Use /squad [match_id] to view or modify the squad selection"""
+            return create_json_response("success", data=data)
         else:
-            return format_tool_error(f"Failed to select squad: {message}")
+            return create_json_response("error", message=f"Failed to select squad: {message}")
 
     except Exception as e:
         logger.error(f"Failed to select squad: {e}", exc_info=True)
-        return format_tool_error(f"Failed to select squad: {e}")
+        return create_json_response("error", message=f"Failed to select squad: {e}")
 
 
 @tool("get_match")
@@ -206,7 +209,7 @@ def get_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
         match_service = container.get_service("MatchService")
 
         if not match_service:
-            return format_tool_error("Match service not available")
+            return create_json_response("error", message="Match service not available")
 
         # Get match details
         success, message = match_service.get_match_sync(
@@ -214,17 +217,18 @@ def get_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
         )
 
         if success:
-            return f"""🏆 Match Details
+            data = f"""🏆 Match Details
 
 {message}
 
 💡 Use /match [match_id] to view detailed match information"""
+            return create_json_response("success", data=data)
         else:
-            return format_tool_error(f"Failed to get match details: {message}")
+            return create_json_response("error", message=f"Failed to get match details: {message}")
 
     except Exception as e:
         logger.error(f"Failed to get match: {e}", exc_info=True)
-        return format_tool_error(f"Failed to get match: {e}")
+        return create_json_response("error", message=f"Failed to get match: {e}")
 
 
 @tool("get_all_players")
@@ -256,7 +260,7 @@ def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
             try:
                 telegram_id_int = int(telegram_id)
             except ValueError:
-                return format_tool_error(f"Invalid telegram_id format: {telegram_id}")
+                return create_json_response("error", message=f"Invalid telegram_id format: {telegram_id}")
         else:
             telegram_id_int = int(telegram_id)
 
@@ -265,13 +269,13 @@ def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
         player_service = container.get_service("PlayerService")
 
         if not player_service:
-            return format_tool_error("Player service not available")
+            return create_json_response("error", message="Player service not available")
 
         # Get all players
         players = player_service.get_all_players_sync(team_id=team_id)
 
         if not players:
-            return "📋 No players found in the team."
+            return create_json_response("success", data="📋 No players found in the team.")
 
         # Format response
         result = "👥 All Team Players\n\n"
@@ -285,8 +289,8 @@ def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
             result += f"   • Phone: {player.phone_number or 'Not provided'}\n\n"
 
         result += "💡 Use /players to view all team players for squad selection"
-        return result
+        return create_json_response("success", data=result)
 
     except Exception as e:
         logger.error(f"Failed to get all players: {e}", exc_info=True)
-        return format_tool_error(f"Failed to get all players: {e}")
+        return create_json_response("error", message=f"Failed to get all players: {e}")

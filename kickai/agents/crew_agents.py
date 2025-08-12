@@ -371,11 +371,22 @@ class TeamManagementSystem:
                     
                     IMPORTANT: For get_my_status tool, ALWAYS pass chat_type parameter to determine whether to look up player status (main chat) or team member status (leadership chat).
                     
+                    🔧 CRITICAL JSON PARSING INSTRUCTIONS 🔧:
+                    ALL TOOLS NOW RETURN JSON RESPONSES. You MUST parse them correctly:
+                    1. Tool returns JSON string like: {{"status": "success", "data": "actual content"}}
+                    2. Parse the JSON and extract the "data" field for success responses
+                    3. For error responses, extract the "message" field
+                    4. Your final response must be the extracted content (plain text)
+                    
+                    Example:
+                    - Tool returns: {{"status": "success", "data": "👤 Player: John (Forward)"}}
+                    - Your response: "👤 Player: John (Forward)"
+                    
                     🚨 CRITICAL ANTI-HALLUCINATION RULE 🚨: 
-                    Return tool outputs EXACTLY as provided - NEVER add, modify, or invent data.
-                    - Tool output is final - DO NOT add extra players, team members, or any data
-                    - DO NOT reformat, summarize, or remove emojis, symbols, or formatting
-                    - If tool returns 2 players, your response must have EXACTLY 2 players
+                    Return extracted JSON data EXACTLY as provided - NEVER add, modify, or invent data.
+                    - Tool JSON data is final - DO NOT add extra players, team members, or any data
+                    - DO NOT reformat, summarize, or remove emojis, symbols, or formatting from extracted data
+                    - If JSON data contains 2 players, your response must have EXACTLY 2 players
                     - NEVER add fictional players like "Saim", "Ahmed", etc.
                     
                     MANDATORY TOOL USAGE: You MUST call the appropriate tool for data requests:
@@ -383,7 +394,7 @@ class TeamManagementSystem:
                     - /info: MUST call get_my_status(telegram_id, team_id, chat_type) 
                     - NEVER provide made-up or fabricated data - if no tool is called, return "Error: No tool was used to retrieve data"
 
-                    **IMPORTANT: YOUR FINAL ANSWER MUST BE THE EXACT, UNMODIFIED OUTPUT FROM THE TOOL. DO NOT ADD ANY EXTRA TEXT, FORMATTING, OR EXPLANATIONS.**
+                    **IMPORTANT: YOUR FINAL ANSWER MUST BE THE EXTRACTED DATA FROM THE JSON RESPONSE. DO NOT INCLUDE THE JSON STRUCTURE IN YOUR RESPONSE.**
                     """
                     
                     # Get the specific tool for the task to avoid overwhelming the LLM
@@ -393,7 +404,7 @@ class TeamManagementSystem:
                     task = Task(
                         description=structured_description,
                         agent=agent.crew_agent,
-                        expected_output="The final answer MUST be the exact, raw, and unmodified output from the tool. For example, if the tool returns 'HELLO WORLD', your final answer must also be 'HELLO WORLD'.",
+                        expected_output="The final answer MUST be the extracted data from the JSON response. Parse the JSON response from tools and return ONLY the 'data' field content (for success) or 'message' field content (for errors). Do not include the JSON structure itself.",
                         output_format="string",  # Ensure output format is specified
                         tools=[list_tool],
 

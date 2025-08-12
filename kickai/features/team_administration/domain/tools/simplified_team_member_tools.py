@@ -29,6 +29,7 @@ from kickai.utils.constants import (
 )
 from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
+    create_json_response,
     format_tool_error,
     validate_required_input,
 )
@@ -53,24 +54,24 @@ def add_team_member_simplified(
         role: Team member's role (optional, can be set later)
 
     Returns:
-        Success message with invite link or error
+        JSON string with success message and invite link or error
     """
     try:
         # Validate inputs using utility functions
         validation_error = validate_required_input(team_id, "Team ID")
         if validation_error:
-            return validation_error
+            return create_json_response("error", message=validation_error.replace("❌ ", ""))
 
         validation_error = validate_required_input(user_id, "User ID")
         if validation_error:
-            return validation_error
+            return create_json_response("error", message=validation_error.replace("❌ ", ""))
 
         # Simplified validation - only name and phone required
         if not name or not name.strip():
-            return format_tool_error(ERROR_MESSAGES["NAME_REQUIRED"])
+            return create_json_response("error", message=ERROR_MESSAGES["NAME_REQUIRED"])
 
         if not phone or not phone.strip():
-            return format_tool_error(ERROR_MESSAGES["PHONE_REQUIRED"])
+            return create_json_response("error", message=ERROR_MESSAGES["PHONE_REQUIRED"])
 
         # Sanitize inputs
         name = sanitize_input(name, max_length=MAX_NAME_LENGTH)
@@ -109,52 +110,39 @@ def add_team_member_simplified(
                 name, phone, role, team_id
             ))
 
+            member_data = {
+                'name': name,
+                'phone': phone,
+                'role': role,
+                'member_id': member_id,
+                'status': 'Active'
+            }
+
             if invite_result.get("success"):
-                return f"""✅ Team Member Added Successfully!
-
-👔 Member Details:
-• Name: {name}
-• Phone: {phone}
-• Role: {role}
-• Member ID: {member_id}
-• Status: Active
-
-🔗 Invite Link for Leadership Chat:
-{invite_result["invite_link"]}
-
-📋 Next Steps:
-1. Send the invite link to {name}
-2. Ask them to join the leadership chat
-3. They can then access admin commands and team management features
-
-🔒 Security:
-• Link expires in 7 days
-• One-time use only
-• Automatically tracked in system
-
-💡 Note: This invite link is unique, expires in 7 days, and can only be used once.
-
-🎯 Member ID: {member_id}"""
+                member_data['invite_link'] = invite_result["invite_link"]
+                member_data['invite_success'] = True
+                member_data['next_steps'] = [
+                    f"Send the invite link to {name}",
+                    "Ask them to join the leadership chat",
+                    "They can then access admin commands and team management features"
+                ]
+                member_data['security_info'] = [
+                    "Link expires in 7 days",
+                    "One-time use only",
+                    "Automatically tracked in system"
+                ]
+                return create_json_response("success", data=member_data)
             else:
-                return f"""✅ Team Member Added Successfully!
-
-👔 Member Details:
-• Name: {name}
-• Phone: {phone}
-• Role: {role}
-• Member ID: {member_id}
-• Status: Active
-
-⚠️ Note: Could not generate invite link - {invite_result.get("error", "Unknown error")}.
-Please contact the system administrator.
-
-🎯 Member ID: {member_id}"""
+                member_data['invite_link'] = None
+                member_data['invite_success'] = False
+                member_data['invite_error'] = invite_result.get("error", "Unknown error")
+                return create_json_response("success", data=member_data)
         else:
-            return format_tool_error(f"Failed to add team member: {message}")
+            return create_json_response("error", message=f"Failed to add team member: {message}")
 
     except ServiceNotAvailableError as e:
         logger.error(f"Service not available in add_team_member_simplified: {e}")
-        return format_tool_error(f"Service temporarily unavailable: {e.message}")
+        return create_json_response("error", message=f"Service temporarily unavailable: {e.message}")
     except Exception as e:
         logger.error(f"Failed to add team member: {e}", exc_info=True)
-        return format_tool_error(f"Failed to add team member: {e}")
+        return create_json_response("error", message=f"Failed to add team member: {e}")
