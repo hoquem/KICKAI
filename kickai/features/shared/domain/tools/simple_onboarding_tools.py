@@ -8,6 +8,7 @@ decorator-based tools fail to load due to dependency issues.
 
 
 from kickai.utils.crewai_tool_decorator import tool
+from kickai.utils.tool_helpers import create_json_response
 
 
 @tool("register_player")
@@ -46,10 +47,10 @@ Type /help to see available commands or ask me anything!
 
 Welcome to the team! ⚽
         """
-        return success_msg.strip()
+        return create_json_response("success", data=success_msg.strip())
 
     except Exception as e:
-        return f"❌ Registration failed: {e!s}"
+        return create_json_response("error", message=f"Registration failed: {e!s}")
 
 
 @tool("register_team_member")
@@ -88,10 +89,10 @@ Type /help to see available commands or ask me anything!
 
 Welcome to the team! 🤝
         """
-        return success_msg.strip()
+        return create_json_response("success", data=success_msg.strip())
 
     except Exception as e:
-        return f"❌ Registration failed: {e!s}"
+        return create_json_response("error", message=f"Registration failed: {e!s}")
 
 
 @tool("registration_guidance")
@@ -153,10 +154,10 @@ Just tell me which type of registration you want:
 ℹ️ **Questions?** I'm here to help throughout the process!
         """
 
-        return guidance.strip()
+        return create_json_response("success", data=guidance.strip())
 
     except Exception as e:
-        return f"❌ Failed to provide registration guidance: {e!s}"
+        return create_json_response("error", message=f"Failed to provide registration guidance: {e!s}")
 
 
 # Tool metadata for manual registration

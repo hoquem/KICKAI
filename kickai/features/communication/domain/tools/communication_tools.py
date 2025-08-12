@@ -17,6 +17,7 @@ from kickai.utils.tool_helpers import (
     format_tool_error,
     format_tool_success,
     validate_required_input,
+    create_json_response,
 )
 from kickai.utils.tool_validation import (
     tool_error_handler,
@@ -25,7 +26,6 @@ from kickai.utils.tool_validation import (
     validate_chat_type,
     validate_context_requirements,
     log_tool_execution,
-    create_tool_response,
     ToolValidationError,
     ToolExecutionError,
 )
@@ -80,7 +80,7 @@ def send_message(message: str, chat_type: str, team_id: str) -> str:
         raise ToolExecutionError(f"Failed to send message: {e}")
 
     if success:
-        return create_tool_response(True, "Message sent successfully")
+        return create_json_response("success", data="Message sent successfully")
     else:
         raise ToolExecutionError("Failed to send message")
 
@@ -135,7 +135,7 @@ def send_announcement(announcement: str, team_id: str) -> str:
         raise ToolExecutionError(f"Failed to send announcement: {e}")
 
     if success:
-        return create_tool_response(True, "Announcement sent successfully")
+        return create_json_response("success", data="Announcement sent successfully")
     else:
         raise ToolExecutionError("Failed to send announcement")
 
@@ -196,6 +196,6 @@ def send_poll(question: str, options: str, team_id: str) -> str:
         raise ToolExecutionError(f"Failed to send poll: {e}")
 
     if success:
-        return create_tool_response(True, "Poll sent successfully")
+        return create_json_response("success", data="Poll sent successfully")
     else:
         raise ToolExecutionError("Failed to send poll")

@@ -11,6 +11,7 @@ import asyncio
 
 from kickai.utils.crewai_tool_decorator import tool
 from kickai.core.dependency_container import get_container
+from kickai.utils.tool_helpers import create_json_response
 
 from kickai.features.match_management.domain.entities.availability import AvailabilityStatus
 from kickai.features.match_management.domain.services.availability_service import (
@@ -36,7 +37,7 @@ def mark_availability(
         try:
             availability_status = AvailabilityStatus(status.lower())
         except ValueError:
-            return f"❌ **Invalid status**: {status}. Valid options: available, unavailable, maybe"
+            return create_json_response("error", message=f"Invalid status: {status}. Valid options: available, unavailable, maybe")
 
         # Mark availability
         availability = asyncio.run(
@@ -52,7 +53,7 @@ def mark_availability(
         summary = asyncio.run(availability_service.get_availability_summary(match_id))
 
         result = [
-            "✅ **Availability Updated**",
+            "Availability Updated",
             "",
             f"**Match**: {match_id}",
             f"**Your Status**: {availability.status_emoji} {availability_status.value.title()}",
@@ -72,11 +73,11 @@ def mark_availability(
             "💡 **Tip**: You can update your availability anytime before squad selection",
         ])
 
-        return "\n".join(result)
+        return create_json_response("success", data="\n".join(result))
 
     except Exception as e:
         logger.error(f"Failed to mark availability: {e}")
-        return f"❌ **Error marking availability**: {e!s}"
+        return create_json_response("error", message=f"Error marking availability: {e!s}")
 
 
 @tool("get_availability")
@@ -137,11 +138,11 @@ def get_availability(match_id: str) -> str:
         result.append("📋 **Actions**")
         result.append("• /markattendance [match_id] [status] - Mark your availability")
 
-        return "\n".join(result)
+        return create_json_response("success", data="\n".join(result))
 
     except Exception as e:
         logger.error(f"Failed to get availability: {e}")
-        return f"❌ **Error getting availability**: {e!s}"
+        return create_json_response("error", message=f"Error getting availability: {e!s}")
 
 
 @tool("get_player_availability_history")
@@ -156,7 +157,7 @@ def get_player_availability_history(
         history = asyncio.run(availability_service.get_player_history(player_id, limit))
 
         if not history:
-            return f"📈 **Availability History**\n\nNo availability records found for player {player_id}."
+            return create_json_response("success", data=f"📈 **Availability History**\n\nNo availability records found for player {player_id}.")
 
         result = [
             f"📈 **Availability History for {player_id}**",
@@ -203,11 +204,11 @@ def get_player_availability_history(
 
         result.append(f"• **Reliability Rating**: {reliability}")
 
-        return "\n".join(result)
+        return create_json_response("success", data="\n".join(result))
 
     except Exception as e:
         logger.error(f"Failed to get player availability history: {e}")
-        return f"❌ **Error getting availability history**: {e!s}"
+        return create_json_response("error", message=f"Error getting availability history: {e!s}")
 
 
 @tool("send_availability_reminders")
@@ -220,16 +221,11 @@ def send_availability_reminders(match_id: str) -> str:
 
         if success:
             pending_players = asyncio.run(availability_service.get_pending_players(match_id))
-            return (
-                "✅ **Reminders Sent**\n\n"
-                f"Reminders sent to {len(pending_players)} players who haven't responded to availability requests for match {match_id}."
-            )
+            message = f"Reminders sent to {len(pending_players)} players who haven't responded to availability requests for match {match_id}."
+            return create_json_response("success", data=f"Reminders Sent\n\n{message}")
         else:
-            return (
-                "❌ **Failed to send reminders**\n\n"
-                f"Unable to send availability reminders for match {match_id}."
-            )
+            return create_json_response("error", message=f"Unable to send availability reminders for match {match_id}.")
 
     except Exception as e:
         logger.error(f"Failed to send reminders: {e}")
-        return f"❌ **Error sending reminders**: {e!s}"
+        return create_json_response("error", message=f"Error sending reminders: {e!s}")

@@ -19,6 +19,7 @@ from kickai.utils.tool_helpers import (
     format_tool_error,
     format_tool_success,
     validate_required_input,
+    create_json_response,
 )
 
 from kickai.features.match_management.domain.services.match_service import MatchService
@@ -67,7 +68,7 @@ def list_matches(team_id: str, status: str = "all", limit: int = 10) -> str:
             title = f"📅 **All Matches** (Last {len(matches)})"
 
         if not matches:
-            return format_tool_success(f"{title}\n\nNo matches found.")
+            return create_json_response("success", data=f"{title}\n\nNo matches found.")
 
         result = [title, ""]
         for i, match in enumerate(matches, 1):
@@ -82,14 +83,14 @@ def list_matches(team_id: str, status: str = "all", limit: int = 10) -> str:
         result.append("• /matchdetails [match_id] - View full details")
         result.append("• /markattendance [match_id] - Mark availability")
 
-        return format_tool_success("\n".join(result))
+        return create_json_response("success", data="\n".join(result))
 
     except ServiceNotAvailableError as e:
         logger.error(f"Service not available in list_matches: {e}")
-        return format_tool_error(f"Service temporarily unavailable: {e.message}")
+        return create_json_response("error", message=f"Service temporarily unavailable: {e.message}")
     except Exception as e:
         logger.error(f"Failed to list matches: {e}", exc_info=True)
-        return format_tool_error(f"Failed to list matches: {e}")
+        return create_json_response("error", message=f"Failed to list matches: {e}")
 
 
 @tool("create_match")
@@ -113,7 +114,7 @@ def create_match(
         container = get_container()
         match_service: MatchService = container.get_service(MatchService)
         if not match_service:
-            return format_tool_error("Match service not available")
+            return create_json_response("error", message="Match service not available")
 
         created_match = asyncio.run(
             match_service.create_match(
@@ -128,16 +129,17 @@ def create_match(
             )
         )
 
-        return (
-            "✅ Match created successfully!\n\n"
+        message = (
+            "Match created successfully!\n\n"
             f"🏆 **Match Details**\n• **Opponent**: {created_match.opponent}\n"
             f"• **Date**: {created_match.formatted_date}\n• **Time**: {created_match.formatted_time}\n"
             f"• **Venue**: {created_match.venue}\n• **Competition**: {created_match.competition}\n"
             f"• **Match ID**: {created_match.match_id}"
         )
+        return create_json_response("success", data=message)
     except Exception as e:
         logger.error(f"Failed to create match: {e}")
-        return f"❌ **Error creating match**: {e!s}"
+        return create_json_response("error", message=f"Error creating match: {e!s}")
 
 
 @tool("list_matches_sync")
@@ -147,7 +149,7 @@ def list_matches_sync(team_id: str, status: str = "all", limit: int = 10) -> str
         container = get_container()
         match_service: MatchService = container.get_service(MatchService)
         if not match_service:
-            return format_tool_error("Match service not available")
+            return create_json_response("error", message="Match service not available")
 
         if status == "upcoming":
             matches = asyncio.run(match_service.get_upcoming_matches(team_id, limit))
@@ -160,7 +162,7 @@ def list_matches_sync(team_id: str, status: str = "all", limit: int = 10) -> str
             title = f"📅 **All Matches** (Last {len(matches)})"
 
         if not matches:
-            return f"{title}\n\nNo matches found."
+            return create_json_response("success", data=f"{title}\n\nNo matches found.")
 
         result = [title, ""]
         for i, match in enumerate(matches, 1):
@@ -175,10 +177,10 @@ def list_matches_sync(team_id: str, status: str = "all", limit: int = 10) -> str
         result.append("• /matchdetails [match_id] - View full details")
         result.append("• /markattendance [match_id] - Mark availability")
 
-        return "\n".join(result)
+        return create_json_response("success", data="\n".join(result))
     except Exception as e:
         logger.error(f"Failed to list matches: {e}")
-        return f"❌ **Error listing matches**: {e!s}"
+        return create_json_response("error", message=f"Error listing matches: {e!s}")
 
 
 @tool("get_match_details")
@@ -188,11 +190,11 @@ def get_match_details(match_id: str) -> str:
         container = get_container()
         match_service: MatchService = container.get_service(MatchService)
         if not match_service:
-            return format_tool_error("Match service not available")
+            return create_json_response("error", message="Match service not available")
 
         match = asyncio.run(match_service.get_match(match_id))
         if not match:
-            return f"❌ **Match not found**: {match_id}"
+            return create_json_response("error", message=f"Match not found: {match_id}")
 
         result = [
             f"🏆 **Match Details: {match.match_id}**",
@@ -222,10 +224,10 @@ def get_match_details(match_id: str) -> str:
         result.append("• /markattendance [match_id] - Mark availability")
         result.append("• /selectsquad [match_id] - Select final squad (Leadership only)")
 
-        return "\n".join(result)
+        return create_json_response("success", data="\n".join(result))
     except Exception as e:
         logger.error(f"Failed to get match details: {e}")
-        return f"❌ **Error getting match details**: {e!s}"
+        return create_json_response("error", message=f"Error getting match details: {e!s}")
 
 
 @tool("select_squad_tool")
@@ -235,14 +237,14 @@ def select_squad_tool(match_id: str, player_ids: Optional[List[str]] = None) -> 
         container = get_container()
         match_service: MatchService = container.get_service(MatchService)
         if not match_service:
-            return format_tool_error("Match service not available")
+            return create_json_response("error", message="Match service not available")
 
         match = asyncio.run(match_service.get_match(match_id))
         if not match:
-            return f"❌ **Match not found**: {match_id}"
+            return create_json_response("error", message=f"Match not found: {match_id}")
 
         if not match.is_upcoming:
-            return "❌ **Cannot select squad**: Match is not in upcoming status"
+            return create_json_response("error", message="Cannot select squad: Match is not in upcoming status")
 
         result = [
             f"👥 **Squad Selection: {match.match_id}**",
@@ -262,10 +264,10 @@ def select_squad_tool(match_id: str, player_ids: Optional[List[str]] = None) -> 
             "• /attendance [match_id] - View current availability",
         ]
 
-        return "\n".join(result)
+        return create_json_response("success", data="\n".join(result))
     except Exception as e:
         logger.error(f"Failed to select squad: {e}")
-        return f"❌ **Error selecting squad**: {e!s}"
+        return create_json_response("error", message=f"Error selecting squad: {e!s}")
 
 
 @tool("record_match_result")
@@ -283,14 +285,14 @@ def record_match_result(
         container = get_container()
         match_service: MatchService = container.get_service(MatchService)
         if not match_service:
-            return format_tool_error("Match service not available")
+            return create_json_response("error", message="Match service not available")
 
         match = asyncio.run(match_service.get_match(match_id))
         if not match:
-            return f"❌ **Match not found**: {match_id}"
+            return create_json_response("error", message=f"Match not found: {match_id}")
 
         if match.is_completed:
-            return "❌ **Match already completed**: Result already recorded"
+            return create_json_response("error", message="Match already completed: Result already recorded")
 
         updated_match = asyncio.run(
             match_service.record_match_result(
@@ -320,9 +322,9 @@ def record_match_result(
             result.append(f"**Notes**: {notes}")
 
         result.append("")
-        result.append("✅ Match result has been recorded and match status updated to completed.")
+        result.append("Match result has been recorded and match status updated to completed.")
 
-        return "\n".join(result)
+        return create_json_response("success", data="\n".join(result))
     except Exception as e:
         logger.error(f"Failed to record match result: {e}")
-        return f"❌ **Error recording match result**: {e!s}"
+        return create_json_response("error", message=f"Error recording match result: {e!s}")

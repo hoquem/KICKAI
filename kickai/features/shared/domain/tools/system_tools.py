@@ -26,11 +26,11 @@ def ping() -> str:
         response = f"🏓 Pong!\n\n⏰ Response Time: {timestamp}\n🤖 Bot Version: {BOT_VERSION}\n✅ System Status: Operational"
         
         logger.info(f"✅ Ping response sent at {timestamp}")
-        return format_tool_success(response)
+        return create_json_response("success", data=response)
         
     except Exception as e:
         logger.error(f"❌ Error in ping tool: {e}")
-        return f"❌ Ping failed: {str(e)}"
+        return create_json_response("error", message=f"Ping failed: {str(e)}")
 
 
 @tool("version")
@@ -46,8 +46,8 @@ def version() -> str:
         response = f"📱 KICKAI Bot Information\n\n🤖 Version: {BOT_VERSION}\n⏰ Current Time: {timestamp}\n🏗️ Architecture: CrewAI Agentic System\n✅ Status: Production Ready"
         
         logger.info(f"✅ Version info requested at {timestamp}")
-        return format_tool_success(response)
+        return create_json_response("success", data=response)
         
     except Exception as e:
         logger.error(f"❌ Error in version tool: {e}")
-        return f"❌ Version check failed: {str(e)}"
+        return create_json_response("error", message=f"Version check failed: {str(e)}")
