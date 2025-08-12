@@ -11,7 +11,7 @@ from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import create_json_response
 
 
-@tool("register_player")
+@tool("register_player", result_as_answer=True)
 def register_player(player_name: str, phone_number: str, position: str, team_id: str) -> str:
     """
     Register a new player through the onboarding process.
@@ -53,7 +53,7 @@ Welcome to the team! ⚽
         return create_json_response("error", message=f"Registration failed: {e!s}")
 
 
-@tool("register_team_member")
+@tool("register_team_member", result_as_answer=True)
 def register_team_member(player_name: str, phone_number: str, role: str, team_id: str) -> str:
     """
     Register a new team member through the onboarding process.
@@ -95,7 +95,7 @@ Welcome to the team! 🤝
         return create_json_response("error", message=f"Registration failed: {e!s}")
 
 
-@tool("registration_guidance")
+@tool("registration_guidance", result_as_answer=True)
 def registration_guidance(user_id: str, team_id: str) -> str:
     """
     Provide comprehensive registration guidance to a user.

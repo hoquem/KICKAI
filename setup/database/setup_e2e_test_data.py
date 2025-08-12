@@ -22,15 +22,15 @@ from typing import Dict, Any, List
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from features.player_registration.domain.entities.player import (
+from kickai.features.player_registration.domain.entities.player import (
     Player, PlayerPosition, PlayerRole, OnboardingStatus
 )
-from features.team_administration.domain.entities.team import Team, TeamStatus
-from features.team_administration.domain.entities.team_member import TeamMember
-from features.team_administration.domain.entities.bot_mapping import BotMapping
-from features.team_administration.domain.entities.match import Match, MatchStatus
-from features.team_administration.domain.entities.payment import Payment, PaymentType, PaymentStatus
-from utils.football_id_generator import FootballIDGenerator
+from kickai.features.team_administration.domain.entities.team import Team, TeamStatus
+from kickai.features.team_administration.domain.entities.team_member import TeamMember
+from kickai.features.team_administration.domain.entities.bot_mapping import BotMapping
+from kickai.features.team_administration.domain.entities.match import Match, MatchStatus
+from kickai.features.team_administration.domain.entities.payment import Payment, PaymentType, PaymentStatus
+from kickai.utils.football_id_generator import FootballIDGenerator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

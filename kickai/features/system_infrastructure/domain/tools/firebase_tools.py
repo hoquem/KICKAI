@@ -25,7 +25,7 @@ class GetFirebaseDocumentInput(BaseModel):
     team_id: Optional[str] = None
 
 
-@tool("get_firebase_document")
+@tool("get_firebase_document", result_as_answer=True)
 def get_firebase_document(collection: str, document_id: str, team_id: Optional[str] = None) -> str:
     """
     Get a document from Firebase/Firestore. Requires: collection, document_id

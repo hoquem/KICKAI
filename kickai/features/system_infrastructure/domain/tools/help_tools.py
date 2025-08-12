@@ -41,7 +41,7 @@ class GetVersionInfoInput(BaseModel):
     team_id: Optional[str] = None
 
 
-@tool("get_version_info")
+@tool("get_version_info", result_as_answer=True)
 def get_version_info(user_id: Optional[str] = None, team_id: Optional[str] = None) -> str:
     """
     Get bot version and system information.
@@ -128,7 +128,7 @@ def get_version_info(user_id: Optional[str] = None, team_id: Optional[str] = Non
         return create_json_response("error", message=f"Error retrieving version information: {e!s}")
 
 
-@tool("get_system_available_commands")
+@tool("get_system_available_commands", result_as_answer=True)
 def get_system_available_commands(
     chat_type: str,
     user_id: Optional[str] = None,

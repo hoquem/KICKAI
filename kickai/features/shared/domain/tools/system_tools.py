@@ -13,7 +13,7 @@ from kickai.utils.tool_helpers import format_tool_success
 from kickai.core.constants import BOT_VERSION
 
 
-@tool("ping")
+@tool("ping", result_as_answer=True)
 def ping() -> str:
     """
     Simple ping test to verify bot connectivity and response time.
@@ -33,7 +33,7 @@ def ping() -> str:
         return create_json_response("error", message=f"Ping failed: {str(e)}")
 
 
-@tool("version")
+@tool("version", result_as_answer=True)
 def version() -> str:
     """
     Get bot version and system information.

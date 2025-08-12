@@ -21,14 +21,36 @@ from kickai.features.match_management.domain.services.availability_service impor
 logger = logging.getLogger(__name__)
 
 
-@tool("mark_availability")
+@tool("mark_availability", result_as_answer=True)
 def mark_availability(
     match_id: str,
     player_id: str,
     status: str,  # available, unavailable, maybe
     reason: Optional[str] = None,
 ) -> str:
-    """Mark player availability for a match."""
+    """Mark player availability for a match.
+    
+    Records a player's availability status for a specific match
+    with optional reason for unavailability.
+    
+    :param match_id: The unique match identifier
+    :type match_id: str
+    :param player_id: The player ID (format: 01MH)
+    :type player_id: str
+    :param status: Availability status (available, unavailable, maybe)
+    :type status: str
+    :param reason: Optional reason for unavailability or uncertainty
+    :type reason: Optional[str]
+    :returns: JSON string with updated availability and team summary
+    :rtype: str
+    :raises ValueError: When status is not valid
+    :raises Exception: When availability service fails
+    
+    .. example::
+       >>> result = mark_availability("MATCH001", "01MH", "available")
+       >>> print(result)
+       '{"status": "success", "data": "Availability Updated..."}
+    """
     try:
         container = get_container()
         availability_service: AvailabilityService = container.get_service(AvailabilityService)
@@ -80,9 +102,23 @@ def mark_availability(
         return create_json_response("error", message=f"Error marking availability: {e!s}")
 
 
-@tool("get_availability")
+@tool("get_availability", result_as_answer=True)
 def get_availability(match_id: str) -> str:
-    """Get availability information for a match."""
+    """Get availability information for a match.
+    
+    Retrieves comprehensive availability status for all players
+    for a specific match, grouped by status.
+    
+    :param match_id: The unique match identifier
+    :type match_id: str
+    :returns: JSON string with detailed availability breakdown
+    :rtype: str
+    :raises Exception: When availability service fails
+    
+    .. note::
+       Shows players grouped by status: Available, Unavailable,
+       Maybe, and Pending (not yet responded)
+    """
     try:
         container = get_container()
         availability_service: AvailabilityService = container.get_service(AvailabilityService)
@@ -145,12 +181,28 @@ def get_availability(match_id: str) -> str:
         return create_json_response("error", message=f"Error getting availability: {e!s}")
 
 
-@tool("get_player_availability_history")
+@tool("get_player_availability_history", result_as_answer=True)
 def get_player_availability_history(
     player_id: str,
     limit: int = 10,
 ) -> str:
-    """Get availability history for a player."""
+    """Get availability history for a player.
+    
+    Retrieves historical availability records for a player
+    including statistics and reliability rating.
+    
+    :param player_id: The player ID (format: 01MH)
+    :type player_id: str
+    :param limit: Maximum number of matches to retrieve, defaults to 10
+    :type limit: int
+    :returns: JSON string with availability history and statistics
+    :rtype: str
+    :raises Exception: When availability service fails
+    
+    .. note::
+       Includes availability rate calculation and reliability
+       rating from 1-5 stars based on historical attendance
+    """
     try:
         container = get_container()
         availability_service: AvailabilityService = container.get_service(AvailabilityService)
@@ -211,9 +263,22 @@ def get_player_availability_history(
         return create_json_response("error", message=f"Error getting availability history: {e!s}")
 
 
-@tool("send_availability_reminders")
+@tool("send_availability_reminders", result_as_answer=True)
 def send_availability_reminders(match_id: str) -> str:
-    """Send availability reminders for a match."""
+    """Send availability reminders for a match.
+    
+    Sends reminder notifications to all players who have not yet
+    responded to availability requests for a specific match.
+    
+    :param match_id: The unique match identifier
+    :type match_id: str
+    :returns: JSON string with reminder status and count
+    :rtype: str
+    :raises Exception: When reminder service fails
+    
+    .. note::
+       Only sends reminders to players with pending status
+    """
     try:
         container = get_container()
         availability_service: AvailabilityService = container.get_service(AvailabilityService)

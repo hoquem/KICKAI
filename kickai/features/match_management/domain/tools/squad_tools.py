@@ -44,18 +44,25 @@ class GetMatchInput(BaseModel):
     match_id: str
 
 
-@tool("get_available_players_for_match")
+@tool("get_available_players_for_match", result_as_answer=True)
 def get_available_players_for_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
-    """
-    Get list of available players for a specific match.
-
-    Args:
-        team_id: Team ID (required) - available from context
-        telegram_id: Telegram ID (required) - available from context (accepts string or int)
-        match_id: Match ID to check availability for
-
-    Returns:
-        List of available players or error
+    """Get list of available players for a specific match.
+    
+    Retrieves players who have marked themselves as available
+    for a specific match, useful for squad selection.
+    
+    :param team_id: Team ID (required, available from context)
+    :type team_id: str
+    :param telegram_id: Telegram ID (required, accepts string or int)
+    :type telegram_id: Union[str, int]
+    :param match_id: Match ID to check availability for
+    :type match_id: str
+    :returns: JSON string with list of available players or error
+    :rtype: str
+    :raises Exception: When match service unavailable or query fails
+    
+    .. note::
+       Only shows players who have explicitly marked availability
     """
     try:
         # Validate inputs
@@ -110,21 +117,31 @@ def get_available_players_for_match(team_id: str, telegram_id: Union[str, int], 
         return create_json_response("error", message=f"Failed to get available players for match: {e}")
 
 
-@tool("select_squad")
+@tool("select_squad", result_as_answer=True)
 def select_squad(
     team_id: str, telegram_id: Union[str, int], match_id: str, squad_size: Optional[int] = None
 ) -> str:
-    """
-    Select optimal squad for a match based on availability and tactical requirements.
-
-    Args:
-        team_id: Team ID (required) - available from context
-        telegram_id: Telegram ID (required) - available from context
-        match_id: Match ID to select squad for
-        squad_size: Squad size (optional) - defaults to optimal size
-
-    Returns:
-        Selected squad details or error
+    """Select optimal squad for a match.
+    
+    Selects the best available squad for a match based on player
+    availability, positions, and tactical requirements.
+    
+    :param team_id: Team ID (required, available from context)
+    :type team_id: str
+    :param telegram_id: Telegram ID (required, available from context)
+    :type telegram_id: Union[str, int]
+    :param match_id: Match ID to select squad for
+    :type match_id: str
+    :param squad_size: Optional squad size, defaults to optimal size
+    :type squad_size: Optional[int]
+    :returns: JSON string with selected squad details or error
+    :rtype: str
+    :raises Exception: When squad service unavailable or selection fails
+    
+    .. example::
+       >>> result = select_squad("KTI", "123456", "MATCH001", 11)
+       >>> print(result)
+       '{"status": "success", "data": "Squad Selected Successfully!..."}
     """
     try:
         # Validate inputs
@@ -172,18 +189,22 @@ def select_squad(
         return create_json_response("error", message=f"Failed to select squad: {e}")
 
 
-@tool("get_match")
+@tool("get_match", result_as_answer=True)
 def get_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
-    """
-    Get match details and information.
-
-    Args:
-        team_id: Team ID (required) - available from context
-        telegram_id: Telegram ID (required) - available from context
-        match_id: Match ID to get details for
-
-    Returns:
-        Match details or error
+    """Get match details and information.
+    
+    Retrieves comprehensive information about a specific match
+    including date, time, venue, and current status.
+    
+    :param team_id: Team ID (required, available from context)
+    :type team_id: str
+    :param telegram_id: Telegram ID (required, available from context)
+    :type telegram_id: Union[str, int]
+    :param match_id: Match ID to get details for
+    :type match_id: str
+    :returns: JSON string with match details or error
+    :rtype: str
+    :raises Exception: When match service unavailable or retrieval fails
     """
     try:
         # Validate inputs
@@ -231,17 +252,23 @@ def get_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
         return create_json_response("error", message=f"Failed to get match: {e}")
 
 
-@tool("get_all_players")
+@tool("get_all_players", result_as_answer=True)
 def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
-    """
-    Get all players in the team for squad selection reference.
-
-    Args:
-        team_id: Team ID (required) - available from context
-        telegram_id: Telegram ID (required) - available from context (accepts string or int)
-
-    Returns:
-        All players list or error
+    """Get all players in the team for squad selection reference.
+    
+    Retrieves complete roster of all team players with their status,
+    position, and contact information for squad selection purposes.
+    
+    :param team_id: Team ID (required, available from context)
+    :type team_id: str
+    :param telegram_id: Telegram ID (required, accepts string or int)
+    :type telegram_id: Union[str, int]
+    :returns: JSON string with all players list or error
+    :rtype: str
+    :raises Exception: When player service unavailable or retrieval fails
+    
+    .. note::
+       Shows all players regardless of availability status
     """
     try:
         # Validate inputs

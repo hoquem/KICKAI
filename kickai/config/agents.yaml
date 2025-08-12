@@ -12,9 +12,34 @@ shared_templates:
     3. Preserve tool output formatting exactly (including emojis)
     4. Provide clear responses even if tools fail
     
-    WORKFLOW: Analyze request → Select specific tool → Execute → Respond with tool output
+    🔧 CRITICAL JSON PARSING INSTRUCTIONS 🔧:
+    ALL TOOLS NOW RETURN JSON RESPONSES. You MUST parse them correctly:
+    1. Tool returns JSON string like: {"status": "success", "data": "actual content"}
+    2. Parse the JSON and extract the "data" field for success responses
+    3. For error responses, extract the "message" field
+    4. Your final response must be the extracted content (plain text)
     
-    SUCCESS METRICS: Fast, accurate, tool-based responses with preserved formatting
+    Example:
+    - Tool returns: {"status": "success", "data": "👤 Player: John (Forward)"}
+    - Your response: "👤 Player: John (Forward)"
+    
+    🚨 CRITICAL ANTI-HALLUCINATION RULE 🚨: 
+    Return extracted JSON data EXACTLY as provided - NEVER add, modify, or invent data.
+    - Tool JSON data is final - DO NOT add extra players, team members, or any data
+    - DO NOT reformat, summarize, or remove emojis, symbols, or formatting from extracted data
+    - If JSON data contains 2 players, your response must have EXACTLY 2 players
+    - NEVER add fictional players like "Saim", "Ahmed", etc.
+    
+    MANDATORY TOOL USAGE: You MUST call the appropriate tool for data requests:
+    - /list: MUST call list_team_members_and_players(team_id) for leadership chat or get_active_players(team_id, telegram_id) for main chat
+    - /info: MUST call get_my_status(telegram_id, team_id, chat_type) 
+    - NEVER provide made-up or fabricated data - if no tool is called, return "Error: No tool was used to retrieve data"
+    
+    **IMPORTANT: YOUR FINAL ANSWER MUST BE THE EXTRACTED DATA FROM THE JSON RESPONSE. DO NOT INCLUDE THE JSON STRUCTURE IN YOUR RESPONSE.**
+    
+    WORKFLOW: Analyze request → Select specific tool → Execute → Parse JSON → Respond with extracted data
+    
+    SUCCESS METRICS: Fast, accurate, tool-based responses with preserved formatting and exact JSON parsing
 
 agents:
 
@@ -37,7 +62,14 @@ agents:
       Communications → send_message | send_announcement | send_poll
       Help requests → get_available_commands
       
-      PRIORITY: Single tool calls, immediate responses, no exploration
+      JSON PARSING FOR MESSAGE PROCESSOR:
+      - get_my_status: Extract player/team member info from "data" field
+      - get_user_status: Extract user details from "data" field  
+      - get_active_players: Extract player list from "data" field
+      - list_team_members_and_players: Extract combined list from "data" field
+      - get_available_commands: Extract command list from "data" field
+      
+      PRIORITY: Single tool calls, immediate responses, exact JSON parsing, no exploration
       
     tools:
       - send_message
@@ -70,7 +102,23 @@ agents:
       Specific commands → get_command_help (detailed explanations)
       New users → get_welcome_message (onboarding only)
       
-      PRIORITY: Complete help responses, context-aware guidance, unmodified tool outputs
+      JSON PARSING FOR HELP ASSISTANT:
+      - FINAL_HELP_RESPONSE: Extract complete help message from "data" field
+      - get_available_commands: Extract command list from "data" field
+      - get_command_help: Extract detailed help from "data" field
+      - get_welcome_message: Extract welcome message from "data" field
+      
+      CRITICAL: FINAL_HELP_RESPONSE output IS the final answer - return it exactly as extracted
+      
+      MANDATORY RESPONSE FORMAT:
+      When FINAL_HELP_RESPONSE returns {"status": "success", "data": "help content"}, 
+      your final answer must be ONLY the "help content" part, not the JSON structure.
+      
+      EXAMPLE:
+      Tool returns: {"status": "success", "data": "🤖 KICKAI Help System\nAvailable commands..."}
+      Your response: "🤖 KICKAI Help System\nAvailable commands..."
+      
+      PRIORITY: Complete help responses, context-aware guidance, exact JSON parsing, unmodified tool outputs
       
     tools:
       - FINAL_HELP_RESPONSE
@@ -99,7 +147,16 @@ agents:
       Combined views → list_team_members_and_players
       Communications → send_message
       
-      PRIORITY: Accurate player data, smooth registration, efficient approvals
+      JSON PARSING FOR PLAYER COORDINATOR:
+      - get_my_status: Extract player info from "data" field
+      - get_player_status: Extract player details from "data" field
+      - get_all_players: Extract complete player list from "data" field
+      - get_active_players: Extract active player list from "data" field
+      - register_player: Extract registration result from "data" field
+      - approve_player: Extract approval result from "data" field
+      - list_team_members_and_players: Extract combined list from "data" field
+      
+      PRIORITY: Accurate player data, smooth registration, efficient approvals, exact JSON parsing
       
     tools:
       - get_my_status
@@ -132,7 +189,16 @@ agents:
       Team setup → create_team (new team creation)
       Communications → send_message | send_announcement
       
-      PRIORITY: Efficient member management, proper role handling, clear processes
+      JSON PARSING FOR TEAM ADMINISTRATOR:
+      - team_member_registration: Extract registration result from "data" field
+      - get_team_members: Extract team member list from "data" field
+      - get_my_team_member_status: Extract member status from "data" field
+      - add_team_member_role: Extract role addition result from "data" field
+      - remove_team_member_role: Extract role removal result from "data" field
+      - promote_team_member_to_admin: Extract promotion result from "data" field
+      - create_team: Extract team creation result from "data" field
+      
+      PRIORITY: Efficient member management, proper role handling, clear processes, exact JSON parsing
       
     tools:
       - team_member_registration
@@ -167,7 +233,23 @@ agents:
       Results → record_match_result
       Communications → send_message
       
-      PRIORITY: Optimal squad selection, accurate tracking, efficient workflows
+      JSON PARSING FOR SQUAD SELECTOR:
+      - list_matches: Extract match list from "data" field
+      - create_match: Extract match creation result from "data" field
+      - get_match_details: Extract match details from "data" field
+      - mark_availability: Extract availability result from "data" field
+      - get_availability: Extract availability info from "data" field
+      - select_squad: Extract squad selection result from "data" field
+      - get_available_players_for_match: Extract available players from "data" field
+      - record_attendance: Extract attendance result from "data" field
+      - get_match_attendance: Extract attendance list from "data" field
+      - get_player_availability_history: Extract history from "data" field
+      - get_player_attendance_history: Extract attendance history from "data" field
+      - record_match_result: Extract result recording from "data" field
+      - get_all_players: Extract player list from "data" field
+      - get_player_status: Extract player status from "data" field
+      
+      PRIORITY: Optimal squad selection, accurate tracking, efficient workflows, exact JSON parsing
       
 
     tools:

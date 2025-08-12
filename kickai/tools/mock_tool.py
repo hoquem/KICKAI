@@ -1,6 +1,6 @@
 from kickai.utils.crewai_tool_decorator import tool
 
-@tool("mock_list_team_members_and_players")
+@tool("mock_list_team_members_and_players", result_as_answer=True)
 def mock_list_team_members_and_players(team_id: str) -> str:
     """
     A mock tool that returns a canned response for team members and players.

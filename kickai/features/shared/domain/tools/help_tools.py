@@ -24,28 +24,34 @@ from kickai.utils.tool_helpers import (
 )
 
 
-@tool("FINAL_HELP_RESPONSE")
+@tool("FINAL_HELP_RESPONSE", result_as_answer=True)
 def final_help_response(
     chat_type: str,
     telegram_id: str, 
     team_id: str,
     username: str
 ) -> str:
-    """
-    Generate a comprehensive help response for users based on their chat type and context.
-
-    This tool should be used when users ask for help, show commands, or need guidance.
-    The response should be tailored to the specific chat type (main chat vs leadership chat)
-    and include all relevant commands with descriptions.
-
-    Args:
-        chat_type: Chat type (main/leadership)
-        telegram_id: User's Telegram ID
-        team_id: Team ID 
-        username: User's username
-
-    Returns:
-        Formatted help response string
+    """Generate a comprehensive help response for users.
+    
+    Creates a tailored help message based on user's chat context,
+    showing available commands and guidance specific to their role
+    and chat type (main chat vs leadership chat).
+    
+    :param chat_type: Chat type (main/leadership)
+    :type chat_type: str
+    :param telegram_id: User's Telegram ID
+    :type telegram_id: str
+    :param team_id: Team ID
+    :type team_id: str
+    :param username: User's username
+    :type username: str
+    :returns: JSON string with formatted help response or error message
+    :rtype: str
+    :raises Exception: When command registry unavailable or help generation fails
+    
+    .. note::
+       Response is tailored to chat type - leadership chat shows
+       admin commands, main chat shows player commands
     """
     try:
         # Validate required parameters
@@ -173,16 +179,21 @@ def _group_commands_by_category(commands: list) -> Dict[str, list]:
     return {k: v for k, v in categories.items() if v}
 
 
-@tool("get_available_commands")
+@tool("get_available_commands", result_as_answer=True)
 def get_available_commands(chat_type: str) -> str:
-    """
-    Get all available commands for the current chat type.
-
-    Args:
-        chat_type: Chat type (main/leadership/private)
-
-    Returns:
-        List of available commands with descriptions
+    """Get all available commands for the current chat type.
+    
+    Retrieves a filtered list of commands available in the
+    specified chat context.
+    
+    :param chat_type: Chat type (main/leadership/private)
+    :type chat_type: str
+    :returns: JSON string with list of available commands and descriptions
+    :rtype: str
+    :raises Exception: When command retrieval fails
+    
+    .. note::
+       Commands are filtered based on chat type permissions
     """
     try:
         # Normalize chat type
@@ -208,17 +219,25 @@ def get_available_commands(chat_type: str) -> str:
         return create_json_response("error", message=f"Error getting commands: {e!s}")
 
 
-@tool("get_command_help")
+@tool("get_command_help", result_as_answer=True)
 def get_command_help(command_name: str, chat_type: str) -> str:
-    """
-    Get detailed help for a specific command.
-
-    Args:
-        command_name: Name of the command (with or without /)
-        chat_type: Chat type context for command availability
-
-    Returns:
-        Detailed help message for the command
+    """Get detailed help for a specific command.
+    
+    Provides comprehensive help information for a single command
+    including usage, examples, and permission requirements.
+    
+    :param command_name: Name of the command (with or without /)
+    :type command_name: str
+    :param chat_type: Chat type context for command availability
+    :type chat_type: str
+    :returns: JSON string with detailed command help or error message
+    :rtype: str
+    :raises Exception: When command not found or help retrieval fails
+    
+    .. example::
+       >>> result = get_command_help("register", "main")
+       >>> print(result)
+       '{"status": "success", "data": "COMMAND HELP: /REGISTER..."}'
     """
     try:
         # Validate command name input
@@ -267,18 +286,28 @@ def get_command_help(command_name: str, chat_type: str) -> str:
         return create_json_response("error", message=f"Failed to get command help: {e}")
 
 
-@tool("get_welcome_message")
+@tool("get_welcome_message", result_as_answer=True)
 def get_welcome_message(username: str, chat_type: str, team_id: str) -> str:
-    """
-    Generate a welcome message for users.
-
-    Args:
-        username: User's username
-        chat_type: Chat type (main/leadership/private)
-        team_id: Team ID
-
-    Returns:
-        Welcome message for the user
+    """Generate a welcome message for users.
+    
+    Creates a personalized welcome message based on user context
+    and chat type, providing onboarding guidance and available actions.
+    
+    :param username: User's username
+    :type username: str
+    :param chat_type: Chat type (main/leadership/private)
+    :type chat_type: str
+    :param team_id: Team ID
+    :type team_id: str
+    :returns: JSON string with formatted welcome message
+    :rtype: str
+    :raises Exception: When welcome message generation fails
+    
+    .. note::
+       Welcome messages vary significantly based on chat type:
+       - Main chat: Player registration and participation
+       - Leadership: Administrative features and responsibilities
+       - Private: Personal features and dashboard access
     """
     try:
         # Normalize chat type

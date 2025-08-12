@@ -1,0 +1,148 @@
+================================================================================
+🔍 KICKAI TOOL JSON COMPLIANCE AUDIT REPORT
+================================================================================
+
+📊 SUMMARY:
+  • Total tool files found: 19
+  • Files containing tools: 19
+  • Total tool functions: 57
+  • JSON compliant files: 19
+  • Non-compliant files: 0
+  • Files with old format: 0
+
+🎯 JSON COMPLIANCE RATE: 100.0%
+
+📋 DETAILED RESULTS:
+
+  ✅ COMPLIANT
+    File: kickai/features/player_registration/domain/tools/player_tools.py
+    Tools: 7 functions
+    Functions: approve_player, get_my_status, get_player_status, get_all_players, get_active_players, get_player_match, list_team_members_and_players
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/team_administration/domain/tools/simplified_team_member_tools.py
+    Tools: 1 functions
+    Functions: add_team_member_simplified
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/team_administration/domain/tools/team_management_tools.py
+    Tools: 1 functions
+    Functions: create_team
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/team_administration/domain/tools/update_team_member_tools.py
+    Tools: 4 functions
+    Functions: update_team_member_information, get_team_member_updatable_fields, validate_team_member_update_request, get_pending_team_member_approval_requests
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/team_administration/domain/tools/team_member_tools.py
+    Tools: 6 functions
+    Functions: team_member_registration, get_my_team_member_status, get_team_members, add_team_member_role, remove_team_member_role, promote_team_member_to_admin
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/shared/domain/tools/help_tools.py
+    Tools: 4 functions
+    Functions: final_help_response, get_available_commands, get_command_help, get_welcome_message
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/shared/domain/tools/system_tools.py
+    Tools: 2 functions
+    Functions: ping, version
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/shared/domain/tools/simple_onboarding_tools.py
+    Tools: 3 functions
+    Functions: register_player, register_team_member, registration_guidance
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/shared/domain/tools/onboarding_tools.py
+    Tools: 1 functions
+    Functions: team_member_guidance
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/shared/domain/tools/user_tools.py
+    Tools: 1 functions
+    Functions: get_user_status
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/communication/domain/tools/communication_tools.py
+    Tools: 3 functions
+    Functions: send_message, send_announcement, send_poll
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/communication/domain/tools/telegram_tools.py
+    Tools: 1 functions
+    Functions: send_telegram_message
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/system_infrastructure/domain/tools/help_tools.py
+    Tools: 2 functions
+    Functions: get_version_info, get_system_available_commands
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/system_infrastructure/domain/tools/logging_tools.py
+    Tools: 2 functions
+    Functions: log_command, log_error
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/system_infrastructure/domain/tools/firebase_tools.py
+    Tools: 1 functions
+    Functions: get_firebase_document
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/match_management/domain/tools/squad_tools.py
+    Tools: 4 functions
+    Functions: get_available_players_for_match, select_squad, get_match, get_all_players
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/match_management/domain/tools/availability_tools.py
+    Tools: 4 functions
+    Functions: mark_availability, get_availability, get_player_availability_history, send_availability_reminders
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/match_management/domain/tools/match_tools.py
+    Tools: 6 functions
+    Functions: list_matches, create_match, list_matches_sync, get_match_details, select_squad_tool, record_match_result
+    JSON Import: Yes
+    JSON Usage: Yes
+
+  ✅ COMPLIANT
+    File: kickai/features/match_management/domain/tools/attendance_tools.py
+    Tools: 4 functions
+    Functions: record_attendance, get_match_attendance, get_player_attendance_history, bulk_record_attendance
+    JSON Import: Yes
+    JSON Usage: Yes

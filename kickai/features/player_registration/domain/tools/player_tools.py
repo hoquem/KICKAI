@@ -67,18 +67,27 @@ class GetMatchInput(BaseModel):
     team_id: str
 
 
-@tool("approve_player")
+@tool("approve_player", result_as_answer=True)
 @tool_error_handler
 def approve_player(team_id: str, player_id: str) -> str:
-    """
-    Approve a player for match squad selection.
-
-    Args:
-        team_id: Team ID (required) - available from context
-        player_id: The player ID to approve (M001MH format)
-
-    Returns:
-        JSON string with success/error status and data
+    """Approve a player for match squad selection.
+    
+    Approves a pending player registration and activates their account
+    for participation in team activities and squad selection.
+    
+    :param team_id: The team identifier (available from context)
+    :type team_id: str
+    :param player_id: The player ID to approve (format: 01MH)
+    :type player_id: str
+    :returns: JSON string with success/error status and approval details
+    :rtype: str
+    :raises ToolValidationError: When team_id or player_id format is invalid
+    :raises ToolExecutionError: When PlayerService is unavailable or approval fails
+    
+    .. example::
+       >>> result = approve_player("KTI", "01MH")
+       >>> print(result)
+       '{"status": "success", "data": {"message": "Player Approved...", ...}}'
     """
     # Validate inputs
     team_id = validate_team_id(team_id)
@@ -119,19 +128,29 @@ def approve_player(team_id: str, player_id: str) -> str:
         raise ToolExecutionError(f"Failed to approve player: {error_message}")
 
 
-@tool("get_my_status")
+@tool("get_my_status", result_as_answer=True)
 @tool_error_handler
 def get_my_status(telegram_id: Union[str, int], team_id: str, chat_type: str) -> str:
-    """
-    Get the current user's status (player or team member based on chat type).
-
-    Args:
-        telegram_id: The Telegram ID of the user whose status is to be retrieved (accepts string or int).
-        team_id: The ID of the team the user belongs to.
-        chat_type: The chat type - determines whether to look up player or team member status.
-
-    Returns:
-        JSON string with user status information (player or team member) or error message
+    """Get the current user's status.
+    
+    Retrieves the current user's status as either a player or team member
+    based on the chat type context. In leadership chat, returns team member
+    status; in main chat, returns player status.
+    
+    :param telegram_id: The Telegram ID of the user (accepts string or int)
+    :type telegram_id: Union[str, int]
+    :param team_id: The ID of the team the user belongs to
+    :type team_id: str
+    :param chat_type: The chat type - determines status lookup type
+    :type chat_type: str
+    :returns: JSON string with user status information or error message
+    :rtype: str
+    :raises ToolValidationError: When telegram_id format is invalid
+    :raises ToolExecutionError: When service is unavailable or lookup fails
+    
+    .. note::
+       Chat type "leadership" returns team member status,
+       other chat types return player status
     """
     # Validate inputs - convert telegram_id to int first for consistency
     team_id = validate_team_id(team_id)
@@ -200,18 +219,28 @@ def get_my_status(telegram_id: Union[str, int], team_id: str, chat_type: str) ->
             raise ToolExecutionError(f"Player not found for telegram ID {telegram_id_int} in team {team_id}")
 
 
-@tool("get_player_status")
+@tool("get_player_status", result_as_answer=True)
 def get_player_status(team_id: str, telegram_id: str, phone: str) -> str:
-    """
-    Get player status by phone number.
-
-    Args:
-        team_id: Team ID (required) - available from context
-        telegram_id: Telegram ID (required) - available from context
-        phone: The player's phone number
-
-    Returns:
-        JSON string with player status or error message
+    """Get player status by phone number.
+    
+    Retrieves detailed player information and status using their
+    registered phone number as the lookup key.
+    
+    :param team_id: Team ID (required, available from context)
+    :type team_id: str
+    :param telegram_id: Telegram ID (required, available from context)
+    :type telegram_id: str
+    :param phone: The player's phone number
+    :type phone: str
+    :returns: JSON string with player status and details or error message
+    :rtype: str
+    :raises ServiceNotAvailableError: When PlayerService is not available
+    :raises Exception: When player lookup fails
+    
+    .. example::
+       >>> result = get_player_status("KTI", "123456", "+1234567890")
+       >>> print(result)
+       '{"status": "success", "data": {"name": "John", ...}}'
     """
     try:
         # Validate inputs using utility functions
@@ -270,17 +299,24 @@ def get_player_status(team_id: str, telegram_id: str, phone: str) -> str:
         return create_json_response("error", message=f"Failed to get player status: {e}")
 
 
-@tool("get_all_players")
+@tool("get_all_players", result_as_answer=True)
 def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
-    """
-    Get all players in the team.
-
-    Args:
-        team_id: Team ID (required) - available from context
-        telegram_id: Telegram ID (required) - available from context (accepts string or int)
-
-    Returns:
-        JSON string with list of all players or error message
+    """Get all players in the team.
+    
+    Retrieves a complete list of all registered players in the team,
+    including their status, position, and contact information.
+    
+    :param team_id: Team ID (required, available from context)
+    :type team_id: str
+    :param telegram_id: Telegram ID (required, accepts string or int)
+    :type telegram_id: Union[str, int]
+    :returns: JSON string with list of all players or error message
+    :rtype: str
+    :raises ServiceNotAvailableError: When PlayerService is not available
+    :raises Exception: When retrieval fails
+    
+    .. note::
+       Returns empty list with success status if no players found
     """
     try:
         # Validate inputs using utility functions
@@ -338,24 +374,29 @@ def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
         return create_json_response("error", message=f"Failed to get all players: {e}")
 
 
-@tool("get_active_players")
+@tool("get_active_players", result_as_answer=True)
 def get_active_players(team_id: str, telegram_id: str) -> str:
-    """
-    Get all active players in the team.
-
-    🚨 CRITICAL ANTI-HALLUCINATION INSTRUCTIONS:
-    - This tool queries the ACTUAL DATABASE for active players
-    - If the database returns NO players, return "No active players found" - DO NOT INVENT PLAYERS
-    - DO NOT add fake players like "John Smith", "Saim", or any other fictional names
-    - The agent MUST return this tool's output EXACTLY as received - NO additions, NO modifications
-    - NEVER create imaginary player data if the database is empty
-
-    Args:
-        team_id: Team ID (required) - available from context
-        telegram_id: Telegram ID (required) - available from context
-
-    Returns:
-        JSON string with EXACT database results - List of active players or "No active players found" message
+    """Get all active players in the team.
+    
+    Retrieves a list of players with "active" status from the database.
+    Returns actual database results without any modifications or additions.
+    
+    :param team_id: Team ID (required, available from context)
+    :type team_id: str
+    :param telegram_id: Telegram ID (required, available from context)
+    :type telegram_id: str
+    :returns: JSON string with exact database results - active players or empty list
+    :rtype: str
+    :raises ServiceNotAvailableError: When PlayerService is not available
+    :raises Exception: When database query fails
+    
+    .. warning::
+       This tool returns ONLY actual database results.
+       Agents must not modify or add to the returned data.
+    
+    .. note::
+       Returns empty list with "No active players found" message
+       if database contains no active players
     """
     try:
         # Validate inputs using utility functions
@@ -423,23 +464,7 @@ def get_active_players(team_id: str, telegram_id: str) -> str:
         logger.info(f"🚨 FINAL TOOL OUTPUT (EXACT): {result_data!r}")
         logger.info("🚨 AGENT MUST RETURN THIS EXACTLY - NO FAKE PLAYERS ALLOWED")
 
-        # Additional validation: Check for specific fake players in the result
-        fake_player_indicators = [
-            "Farhan Fuad",
-            "03FF",
-            "+447479958935",
-            "Saim",
-            "John Smith",
-            "Jane Doe",
-        ]
-        result_str = str(result_data)
-        for fake_indicator in fake_player_indicators:
-            if fake_indicator in result_str:
-                logger.error(
-                    f"🚨 CRITICAL ERROR: Tool output contains fake player indicator: {fake_indicator}"
-                )
-                logger.error("🚨 THIS SHOULD NEVER HAPPEN - TOOL IS ONLY RETURNING DATABASE DATA")
-                logger.error(f"🚨 Result: {result_str!r}")
+        # Note: Removed bogus fake player validation that was incorrectly flagging real players
 
         return create_json_response("success", data=result_data)
 
@@ -478,17 +503,26 @@ def validate_tool_output_integrity(original_output: str, agent_response: str) ->
     return False
 
 
-@tool("get_player_match")
+@tool("get_player_match", result_as_answer=True)
 def get_player_match(match_id: str, team_id: str) -> str:
-    """
-    Get match details by match ID. Requires: match_id, team_id
-
-    Args:
-        match_id: The match ID to retrieve
-        team_id: Team ID (required)
-
-    Returns:
-        JSON string with match details or error message
+    """Get match details by match ID.
+    
+    Retrieves comprehensive match information including date, time,
+    location, opponent, and current status.
+    
+    :param match_id: The match ID to retrieve
+    :type match_id: str
+    :param team_id: Team ID (required)
+    :type team_id: str
+    :returns: JSON string with match details or error message
+    :rtype: str
+    :raises ServiceNotAvailableError: When MatchService is not available
+    :raises Exception: When match retrieval fails
+    
+    .. example::
+       >>> result = get_player_match("MATCH001", "KTI")
+       >>> print(result)
+       '{"status": "success", "data": {"match_id": "MATCH001", ...}}'
     """
     try:
         # Handle JSON string input using utility functions
@@ -541,16 +575,23 @@ def get_player_match(match_id: str, team_id: str) -> str:
         return create_json_response("error", message=f"Failed to get match: {e}")
 
 
-@tool("list_team_members_and_players")
+@tool("list_team_members_and_players", result_as_answer=True)
 def list_team_members_and_players(team_id: str) -> str:
-    """
-    List all team members and players for a team. Requires: team_id
-
-    Args:
-        team_id: Team ID
-
-    Returns:
-        JSON string with list of team members and players or error message
+    """List all team members and players for a team.
+    
+    Retrieves comprehensive team roster including both administrative
+    team members (coaches, managers) and registered players.
+    
+    :param team_id: The team identifier
+    :type team_id: str
+    :returns: JSON string with team members and players or error message
+    :rtype: str
+    :raises ServiceNotAvailableError: When PlayerService or TeamService unavailable
+    :raises Exception: When roster retrieval fails
+    
+    .. note::
+       Returns both team_members (administrative) and players (athletes)
+       in separate arrays within the response
     """
     try:
         # Handle JSON string input using utility functions
