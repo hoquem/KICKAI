@@ -216,11 +216,16 @@ def get_available_commands(telegram_id: int, team_id: str, username: str, chat_t
         # Create structured command data
         commands_data = []
         for cmd in commands:
+            # Convert permission level enum to string value
+            permission_level = getattr(cmd, 'permission_level', 'unknown')
+            if hasattr(permission_level, 'value'):
+                permission_level = permission_level.value
+            
             command_info = {
                 "name": cmd.name,
                 "description": cmd.description,
                 "feature": getattr(cmd, 'feature', 'unknown'),
-                "permission_level": getattr(cmd, 'permission_level', 'unknown'),
+                "permission_level": permission_level,
                 "examples": getattr(cmd, 'examples', [])
             }
             commands_data.append(command_info)

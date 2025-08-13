@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from kickai.core.enums import CommandType, PermissionLevel
 
@@ -20,7 +20,30 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CommandMetadata:
-    """Metadata for a command."""
+    """
+    Enhanced metadata for a command with NLP classification support.
+    
+    This metadata structure supports both traditional command routing
+    and advanced NLP-based natural language understanding for determining
+    command clarity and processing requirements.
+    
+    Attributes:
+        name: Command name (e.g., "/help", "/status")
+        description: Brief description of command functionality
+        command_type: Type classification for routing decisions
+        permission_level: Required permission level for execution
+        feature: Feature module that owns this command
+        handler: Command handler function
+        aliases: Alternative command names
+        examples: Usage examples for documentation
+        parameters: Parameter descriptions for help text
+        help_text: Detailed help documentation
+        chat_type: Chat context restrictions
+        requires_nlp: Whether command needs NLP processing
+        clarity_level: Command clarity classification
+        parameter_optional: Whether parameters are optional for clarity
+        semantic_tags: Tags for semantic routing and classification
+    """
 
     name: str
     description: str
@@ -33,6 +56,11 @@ class CommandMetadata:
     parameters: dict[str, str] = field(default_factory=dict)
     help_text: Optional[str] = None
     chat_type: Optional[str] = None  # ChatType.MAIN, ChatType.LEADERSHIP, or None for all
+    # NLP-related metadata fields
+    requires_nlp: bool = False
+    clarity_level: str = "clear"  # "clear", "ambiguous", "contextual"
+    parameter_optional: bool = True
+    semantic_tags: list[str] = field(default_factory=list)
 
 
 class CommandHandler(ABC):
@@ -477,6 +505,262 @@ class CommandRegistry:
             "commands_by_feature": commands_by_feature,
             "features": list(self._feature_commands.keys()),
         }
+
+    def classify_command_for_nlp(self, command_name: str, metadata: CommandMetadata) -> dict[str, Any]:
+        """
+        Classify command for NLP processing requirements.
+        
+        Analyzes command metadata to determine if NLP processing is needed
+        and provides classification details for routing decisions.
+        
+        Args:
+            command_name: The command name to classify
+            metadata: Command metadata from registry
+            
+        Returns:
+            Dictionary containing classification results with keys:
+            - requires_nlp: bool indicating if NLP processing needed
+            - clarity_level: str classification ("clear", "ambiguous", "contextual") 
+            - confidence: float confidence score (0.0-1.0)
+            - routing_recommendation: dict with recommended agent and priority
+            - parameter_analysis: dict analyzing parameter requirements
+            
+        Raises:
+            ValidationError: When command classification fails
+            
+        Example:
+            >>> result = registry.classify_command_for_nlp("/help", help_metadata)
+            >>> result["requires_nlp"]
+            False
+            >>> result["clarity_level"]
+            "clear"
+        """
+        try:
+            # Validate inputs
+            if not command_name or not isinstance(command_name, str):
+                raise ValueError("Command name must be a non-empty string")
+            
+            if not isinstance(metadata, CommandMetadata):
+                raise ValueError("Metadata must be a CommandMetadata instance")
+            
+            # Calculate clarity confidence based on metadata characteristics
+            clarity_confidence = self._calculate_clarity_confidence(metadata)
+            
+            # Get routing recommendation based on command characteristics
+            routing_recommendation = self._get_routing_recommendation(metadata)
+            
+            # Analyze parameter requirements
+            parameter_analysis = self._analyze_parameters(metadata)
+            
+            # Build comprehensive classification result
+            classification = {
+                "requires_nlp": metadata.requires_nlp,
+                "clarity_level": metadata.clarity_level,
+                "confidence": clarity_confidence,
+                "routing_recommendation": routing_recommendation,
+                "parameter_analysis": parameter_analysis,
+                "semantic_tags": metadata.semantic_tags,
+                "command_type": metadata.command_type.value if metadata.command_type else "unknown"
+            }
+            
+            logger.debug(f"🔍 Classified command '{command_name}': {classification}")
+            return classification
+            
+        except Exception as e:
+            logger.error(f"❌ Error in classify_command_for_nlp: {e}")
+            from kickai.core.exceptions import ValidationError
+            raise ValidationError(f"Command classification failed: {str(e)}")
+
+    def _calculate_clarity_confidence(self, metadata: CommandMetadata) -> float:
+        """
+        Calculate confidence score for command clarity classification.
+        
+        Args:
+            metadata: Command metadata to analyze
+            
+        Returns:
+            Float confidence score between 0.0 and 1.0
+        """
+        try:
+            confidence_factors = []
+            
+            # System commands have high confidence
+            if metadata.command_type in ["system", "utility"]:
+                confidence_factors.append(0.95)
+            
+            # Commands without parameters are clearer
+            if not metadata.parameters or metadata.parameter_optional:
+                confidence_factors.append(0.9)
+            
+            # Commands with clear descriptions have higher confidence
+            if metadata.description and len(metadata.description) > 10:
+                confidence_factors.append(0.85)
+            
+            # Commands with examples are clearer
+            if metadata.examples:
+                confidence_factors.append(0.8)
+            
+            # Commands with aliases suggest clarity
+            if metadata.aliases:
+                confidence_factors.append(0.75)
+            
+            # Base confidence for any registered command
+            confidence_factors.append(0.6)
+            
+            # Return maximum confidence factor found
+            return max(confidence_factors) if confidence_factors else 0.5
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Error calculating clarity confidence: {e}")
+            return 0.5  # Default safe confidence
+
+    def _get_routing_recommendation(self, metadata: CommandMetadata) -> dict[str, Any]:
+        """
+        Get routing recommendation based on command metadata.
+        
+        Args:
+            metadata: Command metadata to analyze
+            
+        Returns:
+            Dictionary with routing recommendations
+        """
+        try:
+            # Map command types to recommended agents
+            type_to_agent_mapping = {
+                "system": "message_processor",
+                "utility": "message_processor", 
+                "help": "help_assistant",
+                "player": "player_coordinator",
+                "team": "team_administrator",
+                "squad": "squad_selector",
+                "match": "squad_selector"
+            }
+            
+            # Determine recommended agent based on command type or semantic tags
+            recommended_agent = type_to_agent_mapping.get(
+                metadata.command_type.value if metadata.command_type else "unknown",
+                "message_processor"  # Default fallback
+            )
+            
+            # Check semantic tags for more specific routing
+            for tag in metadata.semantic_tags:
+                if tag in type_to_agent_mapping:
+                    recommended_agent = type_to_agent_mapping[tag]
+                    break
+            
+            # Determine priority based on command characteristics
+            priority = "high" if metadata.command_type in ["system", "help"] else "medium"
+            
+            return {
+                "agent": recommended_agent,
+                "priority": priority,
+                "reason": f"Based on command type: {metadata.command_type.value if metadata.command_type else 'unknown'}"
+            }
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Error getting routing recommendation: {e}")
+            return {
+                "agent": "message_processor",
+                "priority": "medium",
+                "reason": "Default fallback due to analysis error"
+            }
+
+    def _analyze_parameters(self, metadata: CommandMetadata) -> dict[str, Any]:
+        """
+        Analyze parameter requirements for command clarity.
+        
+        Args:
+            metadata: Command metadata to analyze
+            
+        Returns:
+            Dictionary with parameter analysis results
+        """
+        try:
+            parameter_count = len(metadata.parameters) if metadata.parameters else 0
+            
+            analysis = {
+                "has_parameters": parameter_count > 0,
+                "parameter_count": parameter_count,
+                "parameters_optional": metadata.parameter_optional,
+                "complexity_score": self._calculate_parameter_complexity(metadata.parameters),
+                "clarity_impact": "high" if parameter_count == 0 else "medium" if metadata.parameter_optional else "low"
+            }
+            
+            return analysis
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Error analyzing parameters: {e}")
+            return {
+                "has_parameters": False,
+                "parameter_count": 0,
+                "parameters_optional": True,
+                "complexity_score": 0.0,
+                "clarity_impact": "high"
+            }
+
+    def _calculate_parameter_complexity(self, parameters: Optional[dict[str, str]]) -> float:
+        """
+        Calculate complexity score based on parameter requirements.
+        
+        Args:
+            parameters: Parameter dictionary from metadata
+            
+        Returns:
+            Float complexity score (0.0 = simple, 1.0 = complex)
+        """
+        try:
+            if not parameters:
+                return 0.0
+            
+            # Base complexity from parameter count
+            param_count = len(parameters)
+            base_complexity = min(param_count / 5.0, 1.0)  # Scale to max 1.0
+            
+            # Additional complexity factors
+            complexity_keywords = ["optional", "required", "multiple", "complex"]
+            keyword_complexity = 0.0
+            
+            for param_desc in parameters.values():
+                if isinstance(param_desc, str):
+                    for keyword in complexity_keywords:
+                        if keyword.lower() in param_desc.lower():
+                            keyword_complexity += 0.1
+            
+            total_complexity = min(base_complexity + keyword_complexity, 1.0)
+            return total_complexity
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Error calculating parameter complexity: {e}")
+            return 0.5  # Default medium complexity
+
+    def get_commands_requiring_nlp(self) -> list[CommandMetadata]:
+        """
+        Get all commands that require NLP processing.
+        
+        Returns:
+            List of CommandMetadata for commands needing NLP
+        """
+        try:
+            return [cmd for cmd in self._commands.values() if cmd.requires_nlp]
+        except Exception as e:
+            logger.error(f"❌ Error getting NLP commands: {e}")
+            return []
+
+    def get_clear_commands(self) -> list[CommandMetadata]:
+        """
+        Get all commands classified as clear (not requiring NLP).
+        
+        Returns:
+            List of CommandMetadata for clear commands
+        """
+        try:
+            return [
+                cmd for cmd in self._commands.values() 
+                if not cmd.requires_nlp and cmd.clarity_level == "clear"
+            ]
+        except Exception as e:
+            logger.error(f"❌ Error getting clear commands: {e}")
+            return []
 
 
 # Global command registry instance (DEPRECATED - use CommandRegistryInitializer instead)

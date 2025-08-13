@@ -10,7 +10,7 @@ from enum import Enum
 
 
 class AgentRole(str, Enum):
-    """Agent roles in the 5-Agent CrewAI system."""
+    """Agent roles in the enhanced 6-Agent CrewAI system with NLP support."""
 
     # Essential 5-Agent System
     MESSAGE_PROCESSOR = "message_processor"        # Primary interface and routing
@@ -18,6 +18,9 @@ class AgentRole(str, Enum):
     PLAYER_COORDINATOR = "player_coordinator"      # Player management and onboarding
     TEAM_ADMINISTRATOR = "team_administrator"      # Team member management
     SQUAD_SELECTOR = "squad_selector"              # Squad selection and match management
+    
+    # NLP Enhancement Agent
+    NLP_PROCESSOR = "nlp_processor"                # Natural language processing and understanding
 
 
 class UserRole(str, Enum):
