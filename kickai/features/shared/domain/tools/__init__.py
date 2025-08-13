@@ -10,6 +10,7 @@ from kickai.features.shared.domain.tools.help_tools import *
 from kickai.features.shared.domain.tools.onboarding_tools import (
     team_member_guidance,
 )
+# register_player import removed - /register command no longer supported
 from kickai.features.shared.domain.tools.user_tools import (
     get_user_status,
 )

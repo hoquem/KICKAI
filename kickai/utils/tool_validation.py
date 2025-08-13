@@ -185,9 +185,13 @@ def validate_player_id(player_id: Any) -> str:
 
 
 def validate_chat_type(chat_type: Any) -> str:
-    """Validate chat type."""
-    valid_types = ['main', 'leadership', 'private']
+    """Validate chat type using ChatType enum values."""
+    from kickai.core.enums import ChatType
+    
     chat_type = validate_string_input(chat_type, "Chat Type", max_length=20)
+    
+    # Get valid types from ChatType enum
+    valid_types = [ct.value for ct in ChatType]
     
     if chat_type not in valid_types:
         raise ToolValidationError(f"Chat Type must be one of: {', '.join(valid_types)}")
@@ -431,16 +435,30 @@ def create_tool_response(success: bool, message: str, data: Optional[Dict[str, A
         data: Optional data to include in response
         
     Returns:
-        Formatted response string
+        JSON-formatted response string for consistent tool output
     """
-    if success:
-        response = f"✅ {message}"
-        if data:
-            response += f"\n📊 Data: {data}"
-    else:
-        response = f"❌ {message}"
-        if data:
-            response += f"\n🔍 Details: {data}"
+    import json
+    from datetime import datetime
     
-    return response
+    # Create structured response
+    response_data = {
+        "success": success,
+        "message": message,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
+    
+    # Add data payload if provided
+    if data:
+        response_data["data"] = data
+    
+    # Add status for backwards compatibility
+    if success:
+        response_data["status"] = "success"
+        response_data["emoji"] = "✅"
+    else:
+        response_data["status"] = "error" 
+        response_data["emoji"] = "❌"
+    
+    # Return JSON string
+    return json.dumps(response_data, ensure_ascii=False, indent=2)
 

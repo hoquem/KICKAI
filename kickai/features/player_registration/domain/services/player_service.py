@@ -231,7 +231,7 @@ class PlayerService:
 🔍 User ID: {user_id}
 🏢 Team ID: {team_id}
 
-💡 You may need to register as a player using /register command."""
+💡 Ask team leadership to add you as a player using /addplayer command."""
 
         except Exception as e:
             logger.error(f"Error getting player status for {user_id}: {e}")

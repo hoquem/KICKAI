@@ -9,6 +9,9 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
+# Import commands for discovery
+from . import application  # This will discover all commands
+
 
 def initialize_team_administration(config: dict[str, Any]) -> None:
     """Initialize the team administration feature."""

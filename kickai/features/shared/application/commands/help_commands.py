@@ -15,8 +15,8 @@ from typing import List, Optional
     command_type=CommandType.SLASH_COMMAND,
     permission_level=PermissionLevel.PUBLIC,
     feature="shared",
-    examples=["/help", "/help /register", "/help /announce"],
-    parameters={"command": "Optional command name for detailed help (e.g., /help /register)"},
+    examples=["/help", "/help /addplayer", "/help /announce"],
+    parameters={"command": "Optional command name for detailed help (e.g., /help /addplayer)"},
     help_text="""
 📚 Help System
 
@@ -28,7 +28,7 @@ Usage:
 
 Examples:
 • /help - List all commands you can use
-• /help /register - Get detailed help for registration
+• /help /addplayer - Get detailed help for adding players
 • /help /announce - Get help for announcements (leadership only)
 
 What you'll see:

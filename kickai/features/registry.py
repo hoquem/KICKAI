@@ -27,6 +27,43 @@ class ServiceFactory:
         """Get the database interface."""
         return self.database
 
+    def _should_use_mock_telegram_service(self) -> bool:
+        """Determine if MockTelegramBotService should be used based on environment and context."""
+        import os
+        import sys
+        
+        # Check for explicit environment override first
+        explicit_setting = os.getenv("USE_MOCK_TELEGRAM")
+        if explicit_setting is not None:
+            return explicit_setting.lower() == "true"
+        
+        # Auto-detect based on environment context
+        environment = os.getenv("ENVIRONMENT", "development").lower()
+        ai_provider = os.getenv("AI_PROVIDER", "groq").lower()
+        
+        # Use mock service in development environments
+        if environment in ["development", "local", "testing"]:
+            logger.debug(f"🔍 Auto-detection: environment={environment}, using MockTelegramBotService")
+            return True
+            
+        # Use mock service when using local AI providers (indicates local development)
+        if ai_provider in ["groq", "ollama", "local"]:
+            logger.debug(f"🔍 Auto-detection: ai_provider={ai_provider}, using MockTelegramBotService")
+            return True
+            
+        # Use mock service if local bot mode is explicitly enabled
+        if os.getenv("KICKAI_LOCAL_MODE", "false").lower() == "true":
+            logger.debug("🔍 Auto-detection: KICKAI_LOCAL_MODE=true, using MockTelegramBotService")
+            return True
+            
+        # Use mock service if running tests
+        if os.getenv("PYTEST_CURRENT_TEST") or "pytest" in sys.modules:
+            logger.debug("🔍 Auto-detection: pytest environment, using MockTelegramBotService")
+            return True
+            
+        logger.debug("🔍 Auto-detection: production environment detected, using real TelegramBotService")
+        return False
+
     def create_base_services(self):
         """Create base services that don't depend on other services."""
         # Create repositories first
@@ -371,7 +408,8 @@ class ServiceFactory:
 
 
     def create_communication_services(self):
-        """Create communication services."""
+        """Create communication services with environment-based TelegramBotService selection."""
+        import os
         from kickai.features.communication.domain.services.communication_service import (
             CommunicationService,
         )
@@ -388,6 +426,9 @@ class ServiceFactory:
         from kickai.features.communication.infrastructure.firebase_notification_repository import (
             FirebaseNotificationRepository,
         )
+        from kickai.features.communication.domain.interfaces.telegram_bot_service_interface import (
+            TelegramBotServiceInterface,
+        )
 
         # Create services
         message_repository = FirebaseMessageRepository(self.database)
@@ -398,22 +439,49 @@ class ServiceFactory:
         # Create invite link service (bot token will be set later from Firestore)
         invite_link_service = InviteLinkService(bot_token=None, database=self.database)
 
-        # Create communication service (TelegramBotService will be injected later)
-        communication_service = CommunicationService(
-            None
-        )  # Will be updated when TelegramBotService is available
+        # Enhanced environment-based TelegramBotService selection with auto-detection
+        use_mock_telegram = self._should_use_mock_telegram_service()
+        telegram_bot_service = None
+        
+        if use_mock_telegram:
+            logger.info("🤖 Using MockTelegramBotService (auto-detected or explicitly enabled)")
+            from kickai.features.communication.infrastructure.mock_telegram_bot_service import (
+                MockTelegramBotService,
+            )
+            
+            # Create mock service with auto-detection and enhanced UI integration
+            telegram_bot_service = MockTelegramBotService(
+                token="mock-token-for-development",
+                team_id="KTI",  # Default team for testing
+                main_chat_id="2001",  # Mock UI main chat
+                leadership_chat_id="2002"  # Mock UI leadership chat
+            )
+            logger.info("🔗 MockTelegramBotService will auto-detect Mock UI availability")
+        else:
+            logger.info("📱 Real TelegramBotService will be created when bot configuration is available")
+            # Real TelegramBotService will be created later when bot token is available from Firestore
+            telegram_bot_service = None
+
+        # Create communication service with TelegramBotService (if available)
+        communication_service = CommunicationService(telegram_bot_service)
 
         # Register with container
         self.container.register_service(MessageService, message_service)
         self.container.register_service(NotificationService, notification_service)
         self.container.register_service(InviteLinkService, invite_link_service)
         self.container.register_service(CommunicationService, communication_service)
+        
+        # Register TelegramBotService interface if mock is available
+        if telegram_bot_service:
+            self.container.register_service(TelegramBotServiceInterface, telegram_bot_service)
+            logger.info("✅ MockTelegramBotService registered in container")
 
         return {
             "message_service": message_service,
             "notification_service": notification_service,
             "invite_link_service": invite_link_service,
             "communication_service": communication_service,
+            "telegram_bot_service": telegram_bot_service,
         }
 
 

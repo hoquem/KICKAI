@@ -1,10 +1,11 @@
-from typing import Optional, Set
 """
 Communication Service for handling Telegram communication operations.
 """
 
+from typing import Optional, Set, Union
 from loguru import logger
 
+from kickai.core.enums import ChatType
 from kickai.features.communication.infrastructure.telegram_bot_service import TelegramBotService
 
 
@@ -19,13 +20,13 @@ class CommunicationService:
         self.telegram_bot_service = telegram_bot_service
         logger.info("✅ CommunicationService: TelegramBotService set")
 
-    async def send_message(self, message: str, chat_type: str, team_id: str) -> bool:
+    async def send_message(self, message: str, chat_type: Union[str, ChatType], team_id: str) -> bool:
         """
         Send a message to a specific chat type.
 
         Args:
             message: The message to send
-            chat_type: The chat type ('main_chat' or 'leadership_chat')
+            chat_type: The chat type (ChatType enum or string)
             team_id: The team ID
 
         Returns:
@@ -36,22 +37,32 @@ class CommunicationService:
                 logger.error("❌ TelegramBotService not available in CommunicationService")
                 return False
 
-            # Determine the chat ID based on chat type
-            if chat_type == "main_chat":
+            # Normalize chat_type to ChatType enum
+            if isinstance(chat_type, str):
+                try:
+                    chat_type_enum = ChatType(chat_type.lower())
+                except ValueError:
+                    logger.error(f"Invalid chat_type string: {chat_type}")
+                    return False
+            else:
+                chat_type_enum = chat_type
+
+            # Determine the chat ID based on chat type enum
+            if chat_type_enum == ChatType.MAIN:
                 chat_id = self.telegram_bot_service.main_chat_id
-            elif chat_type == "leadership_chat":
+            elif chat_type_enum == ChatType.LEADERSHIP:
                 chat_id = self.telegram_bot_service.leadership_chat_id
             else:
-                logger.error(f"Invalid chat_type: {chat_type}")
+                logger.error(f"Unsupported chat_type: {chat_type_enum}")
                 return False
 
             if not chat_id:
-                logger.error(f"No chat_id configured for chat_type: {chat_type}")
+                logger.error(f"No chat_id configured for chat_type: {chat_type_enum}")
                 return False
 
             # Send the message using TelegramBotService (plain text only)
             await self.telegram_bot_service.send_message(chat_id, message)
-            logger.info(f"✅ Plain text message sent to {chat_type} (team_id: {team_id})")
+            logger.info(f"✅ Plain text message sent to {chat_type_enum.value} chat (team_id: {team_id})")
             return True
 
         except Exception as e:
@@ -75,7 +86,7 @@ class CommunicationService:
                 return False
 
             # Send announcement to main chat
-            success = await self.send_message(announcement, "main_chat", team_id)
+            success = await self.send_message(announcement, ChatType.MAIN, team_id)
             if success:
                 logger.info(f"✅ Announcement sent to team {team_id}")
             return success
@@ -111,7 +122,7 @@ class CommunicationService:
             poll_message += f"\nPlease respond with your choice (1-{len(option_list)})"
 
             # Send poll to main chat
-            success = await self.send_message(poll_message, "main_chat", team_id)
+            success = await self.send_message(poll_message, ChatType.MAIN, team_id)
             if success:
                 logger.info(f"✅ Poll sent to team {team_id}")
             return success

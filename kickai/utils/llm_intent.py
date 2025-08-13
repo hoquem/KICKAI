@@ -1,20 +1,254 @@
 """
 LLM Intent Extraction Utility
 
-This module provides intent extraction functionality for natural language processing
-in the KICKAI system.
+This module provides LLM-based intent extraction functionality for natural language processing
+in the KICKAI system using CrewAI agents and structured output.
 """
 
-import re
-from typing import Any, Dict, Union
+import json
+from typing import Any, Dict, Union, Optional
+from dataclasses import dataclass
 
 from loguru import logger
+from crewai import Agent, Task, Crew
+from kickai.config.llm_config import get_llm_config
+from kickai.core.enums import AgentRole
 
 
+@dataclass
+class IntentResult:
+    """Structured result for intent recognition."""
+    intent: str
+    confidence: float
+    entities: Dict[str, Any]
+    reasoning: str
+    original_message: str
+
+
+class LLMIntentRecognizer:
+    """
+    Pure LLM-based intent recognition using CrewAI agents.
+    
+    This replaces the regex-based approach with sophisticated LLM understanding
+    that can handle context, paraphrases, and complex natural language.
+    """
+
+    def __init__(self, team_id: str = None):
+        self.team_id = team_id
+        self.llm_config = get_llm_config()
+        self.llm = self.llm_config.get_main_llm()
+        self.agent = self._create_intent_agent()
+        logger.info(f"🤖 LLMIntentRecognizer initialized for team: {team_id}")
+
+    def _create_intent_agent(self) -> Agent:
+        """Create the intent recognition agent."""
+        return Agent(
+            role="Intent Recognition Specialist",
+            goal="Accurately identify user intent and extract relevant entities from natural language messages in a football team management context",
+            backstory="""You are an expert at understanding user intent in football team management contexts.
+            
+            You specialize in:
+            - Understanding football terminology and team management concepts
+            - Recognizing user communication patterns and paraphrases
+            - Extracting relevant entities and context from messages
+            - Providing confidence scores based on your analysis
+            - Explaining your reasoning for intent classification
+            
+            You understand that users may express the same intent in many different ways,
+            and you can handle context, ambiguity, and conversational language effectively.""",
+            llm=self.llm,
+            verbose=False,
+            allow_delegation=False
+        )
+
+    async def extract_intent(self, message: str, context: Dict[str, Any] = None) -> IntentResult:
+        """
+        Extract intent using LLM-based analysis.
+        
+        Args:
+            message: The input message to analyze
+            context: Additional context (chat_type, user_role, etc.)
+            
+        Returns:
+            IntentResult with intent, confidence, entities, and reasoning
+        """
+        try:
+            # Create the intent analysis task
+            task = self._create_intent_task(message, context or {})
+            
+            # Create a simple crew with just the intent agent
+            crew = Crew(
+                agents=[self.agent],
+                tasks=[task],
+                verbose=False,
+                process="sequential"
+            )
+            
+            # Execute the task
+            result = await crew.kickoff()
+            
+            # Parse the structured result
+            return self._parse_llm_result(result, message)
+            
+        except Exception as e:
+            logger.error(f"❌ Error in LLM intent extraction: {e}")
+            return IntentResult(
+                intent="unknown",
+                confidence=0.0,
+                entities={},
+                reasoning=f"Error during intent extraction: {str(e)}",
+                original_message=message
+            )
+
+    def _create_intent_task(self, message: str, context: Dict[str, Any]) -> Task:
+        """Create the intent analysis task."""
+        
+        context_info = self._format_context(context)
+        
+        task_description = f"""
+        Analyze this user message and determine their intent in the context of a football team management system.
+
+        USER MESSAGE: "{message}"
+        
+        CONTEXT: {context_info}
+        
+        AVAILABLE INTENTS:
+        1. get_player_info - User wants information about themselves or another player
+           Examples: "What's my phone number?", "Show me my details", "Am I registered?", "What's my position?"
+           
+        2. update_profile - User wants to update their information
+           Examples: "I need to change my phone number", "Update my position", "Modify my details"
+           
+        3. get_team_info - User wants information about the team or players
+           Examples: "Show me all players", "List the team", "Who's on the team?"
+           
+        4. get_help - User needs help or assistance
+           Examples: "Help me", "What can you do?", "How do I use this?", "I need assistance"
+           
+        5. filter_players - User wants to filter or search players
+           Examples: "Show me goalkeepers", "Who's available?", "Players in midfield"
+           
+        6. get_team_stats - User wants team statistics
+           Examples: "How many players do we have?", "Team statistics", "Player count"
+           
+        7. unknown - Cannot determine intent or doesn't fit other categories
+
+        REQUIREMENTS:
+        1. Analyze the message carefully considering context and football terminology
+        2. Identify the most likely intent from the available options
+        3. Extract relevant entities (player names, positions, info types, etc.)
+        4. Provide a confidence score (0.0-1.0) based on how certain you are
+        5. Explain your reasoning for the classification
+        6. Return your analysis in this exact JSON format:
+        {{
+            "intent": "intent_name",
+            "confidence": 0.85,
+            "entities": {{
+                "player_name": "John Doe",
+                "info_type": "phone",
+                "position": "midfielder"
+            }},
+            "reasoning": "The user is asking about their personal information, specifically their phone number, which falls under get_player_info intent."
+        }}
+
+        IMPORTANT: Return ONLY the JSON object, no additional text or explanation.
+        """
+        
+        return Task(
+            description=task_description,
+            agent=self.agent,
+            expected_output="JSON object with intent, confidence, entities, and reasoning"
+        )
+
+    def _format_context(self, context: Dict[str, Any]) -> str:
+        """Format context information for the task."""
+        if not context:
+            return "No additional context provided"
+        
+        context_parts = []
+        for key, value in context.items():
+            if value is not None:
+                context_parts.append(f"{key}: {value}")
+        
+        return ", ".join(context_parts) if context_parts else "No additional context provided"
+
+    def _parse_llm_result(self, result: str, original_message: str) -> IntentResult:
+        """Parse the LLM result into a structured IntentResult."""
+        try:
+            # Clean the result - remove any markdown formatting
+            cleaned_result = result.strip()
+            if cleaned_result.startswith("```json"):
+                cleaned_result = cleaned_result[7:]
+            if cleaned_result.endswith("```"):
+                cleaned_result = cleaned_result[:-3]
+            cleaned_result = cleaned_result.strip()
+            
+            # Parse JSON
+            parsed = json.loads(cleaned_result)
+            
+            return IntentResult(
+                intent=parsed.get("intent", "unknown"),
+                confidence=float(parsed.get("confidence", 0.0)),
+                entities=parsed.get("entities", {}),
+                reasoning=parsed.get("reasoning", "No reasoning provided"),
+                original_message=original_message
+            )
+            
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            logger.error(f"❌ Error parsing LLM result: {e}")
+            logger.error(f"Raw result: {result}")
+            
+            # Fallback parsing - try to extract intent from text
+            return self._fallback_parse(result, original_message)
+
+    def _fallback_parse(self, result: str, original_message: str) -> IntentResult:
+        """Fallback parsing when JSON parsing fails."""
+        try:
+            # Try to extract intent from the text response
+            result_lower = result.lower()
+            
+            intent_mapping = {
+                "get_player_info": ["player", "info", "details", "phone", "position", "registration"],
+                "update_profile": ["update", "change", "modify", "edit"],
+                "get_team_info": ["team", "players", "list", "show"],
+                "get_help": ["help", "assist", "support"],
+                "filter_players": ["filter", "search", "goalkeeper", "defender", "midfielder"],
+                "get_team_stats": ["stats", "statistics", "count", "how many"]
+            }
+            
+            detected_intent = "unknown"
+            confidence = 0.3  # Low confidence for fallback
+            
+            for intent, keywords in intent_mapping.items():
+                if any(keyword in result_lower for keyword in keywords):
+                    detected_intent = intent
+                    confidence = 0.5
+                    break
+            
+            return IntentResult(
+                intent=detected_intent,
+                confidence=confidence,
+                entities={},
+                reasoning=f"Fallback parsing used due to JSON parsing error. Raw response: {result[:200]}...",
+                original_message=original_message
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ Error in fallback parsing: {e}")
+            return IntentResult(
+                intent="unknown",
+                confidence=0.0,
+                entities={},
+                reasoning=f"Complete parsing failure: {str(e)}",
+                original_message=original_message
+            )
+
+
+# Backward compatibility functions
 def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
     """
-    Extract intent and entities from a natural language message.
-
+    Backward compatibility function - now uses LLM-based recognition.
+    
     Args:
         message: The input message to analyze
         context: Additional context about the conversation
@@ -22,169 +256,86 @@ def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
     Returns:
         Dictionary containing 'intent' and 'entities' keys
     """
+    logger.warning("⚠️ Using deprecated extract_intent function. Use LLMIntentRecognizer instead.")
+    
+    # Create a temporary recognizer for backward compatibility
+    recognizer = LLMIntentRecognizer()
+    
+    # Convert context string to dict if needed
+    context_dict = {}
+    if context:
+        context_dict = {"context": context}
+    
+    # This is a sync wrapper around async - not ideal but maintains compatibility
+    import asyncio
     try:
-        # Convert to lowercase for easier matching
-        message_lower = message.lower().strip()
-
-        # Define intent patterns
-        intent_patterns = {
-            "get_player_info": [
-                # Pattern for "What's my registration status?" and similar queries
-                r"\b(what|show|tell|get|my|me)\b.*\b(phone|number|position|role|id|player|info|information|status|fa|registration)\b",
-                r"\b(phone|number|position|role|id|player|info|information|status|fa|registration)\b.*\b(what|is|my|me)\b",
-                r"\b(am|i|are|you|is|my)\b.*\b(fa|registered|eligible|active|pending)\b",
-                r"\b(my|me)\b.*\b(phone|number|position|role|id|info|information)\b",
-                # Additional patterns for registration status queries
-                r"\b(what|how)\b.*\b(registration|status)\b",
-                r"\b(registration|status)\b.*\b(what|how)\b",
-                r"\b(my|me)\b.*\b(registration|status)\b",
-                r"\b(registration|status)\b.*\b(my|me)\b",
-            ],
-            "get_help": [
-                r"\b(help|how|what)\b.*\b(you|commands|available)\b",
-                r"\b(how|do|what|should|does)\b",
-                r"\b(help|me|assist|support)\b",
-            ],
-            "update_profile": [
-                r"\b(update|change|modify|edit)\b.*\b(phone|number|position|role|info|information|profile)\b",
-                r"\b(my|me)\b.*\b(phone|number|position|role|info|information)\b.*\b(is|are)\b",
-                r"\b(change|update|modify)\b.*\b(my|me)\b",
-            ],
-            "get_team_info": [
-                r"\b(team|players|members|list|show)\b.*\b(all|everyone|everybody)\b",
-                r"\b(how|many|count|total)\b.*\b(players|members|team)\b",
-                r"\b(show|list|get)\b.*\b(team|players|members)\b",
-            ],
-            "filter_players": [
-                r"\b(players|members)\b.*\b(position|role|fa|registered|eligible|active|pending)\b",
-                r"\b(show|list|get)\b.*\b(goalkeeper|defender|midfielder|forward|striker|utility)\b",
-                r"\b(goalkeeper|defender|midfielder|forward|striker|utility)\b.*\b(players|members)\b",
-            ],
-            "get_team_stats": [
-                r"\b(stats|statistics|numbers|count|total)\b",
-                r"\b(how|many|much)\b.*\b(players|members|active|pending|registered)\b",
-                r"\b(team|overall|summary)\b.*\b(stats|statistics|info|information)\b",
-            ],
-        }
-
-        # Check each intent pattern
-        for intent, patterns in intent_patterns.items():
-            for pattern in patterns:
-                if re.search(pattern, message_lower):
-                    # Extract entities based on intent
-                    entities = extract_entities(message_lower, intent)
-                    return {"intent": intent, "entities": entities, "confidence": 0.8}
-
-        # Default to unknown intent
-        return {"intent": "unknown", "entities": {}, "confidence": 0.0}
-
-    except Exception as e:
-        logger.error(f"Error extracting intent: {e}")
-        return {"intent": "unknown", "entities": {}, "confidence": 0.0}
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If we're in an async context, we can't run sync
+            logger.error("❌ Cannot use sync extract_intent in async context")
+            return {"intent": "unknown", "entities": {}, "confidence": 0.0}
+        else:
+            result = loop.run_until_complete(recognizer.extract_intent(message, context_dict))
+    except RuntimeError:
+        # No event loop - create one
+        result = asyncio.run(recognizer.extract_intent(message, context_dict))
+    
+    return {
+        "intent": result.intent,
+        "entities": result.entities,
+        "confidence": result.confidence
+    }
 
 
 def extract_entities(message: str, intent: str) -> Dict[str, Any]:
     """
-    Extract entities from the message based on the detected intent.
-
-    Args:
-        message: The input message
-        intent: The detected intent
-
-    Returns:
-        Dictionary of extracted entities
+    Backward compatibility function - now uses LLM-based extraction.
     """
-    entities = {}
-
+    logger.warning("⚠️ Using deprecated extract_entities function. Use LLMIntentRecognizer instead.")
+    
+    # Create a temporary recognizer
+    recognizer = LLMIntentRecognizer()
+    
+    # This is a sync wrapper around async - not ideal but maintains compatibility
+    import asyncio
     try:
-        if intent == "get_player_info":
-            # Extract specific info type requested
-            if re.search(r"\b(phone|number)\b", message):
-                entities["info_type"] = "phone"
-            elif re.search(r"\b(position|role)\b", message):
-                entities["info_type"] = "position"
-            elif re.search(r"\b(id|player.?id)\b", message):
-                entities["info_type"] = "id"
-            elif re.search(r"\b(fa|registration|registered)\b", message):
-                entities["info_type"] = "fa_status"
-            elif re.search(r"\b(status|onboarding)\b", message):
-                entities["info_type"] = "status"
-            else:
-                entities["info_type"] = "all"
-
-        elif intent == "update_profile":
-            # Extract what needs to be updated
-            if re.search(r"\b(phone|number)\b", message):
-                entities["update_type"] = "phone"
-            elif re.search(r"\b(position|role)\b", message):
-                entities["update_type"] = "position"
-            elif re.search(r"\b(emergency|contact)\b", message):
-                entities["update_type"] = "emergency_contact"
-            elif re.search(r"\b(dob|birth|date)\b", message):
-                entities["update_type"] = "date_of_birth"
-            else:
-                entities["update_type"] = "general"
-
-        elif intent == "filter_players":
-            # Extract position filter
-            positions = ["goalkeeper", "defender", "midfielder", "forward", "striker", "utility"]
-            for pos in positions:
-                if pos in message:
-                    entities["position"] = pos
-                    break
-
-            # Extract status filter
-            if re.search(r"\b(Union[fa, registered])\b", message):
-                entities["fa_status"] = "registered"
-            elif re.search(r"\b(eligible)\b", message):
-                entities["fa_status"] = "eligible"
-            elif re.search(r"\b(active)\b", message):
-                entities["status"] = "active"
-            elif re.search(r"\b(pending)\b", message):
-                entities["status"] = "pending"
-
-    except Exception as e:
-        logger.error(f"Error extracting entities: {e}")
-
-    return entities
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            logger.error("❌ Cannot use sync extract_entities in async context")
+            return {}
+        else:
+            result = loop.run_until_complete(recognizer.extract_intent(message, {"intent": intent}))
+    except RuntimeError:
+        result = asyncio.run(recognizer.extract_intent(message, {"intent": intent}))
+    
+    return result.entities
 
 
 def extract_intent_sync(message: str, context: str = "") -> Dict[str, Any]:
     """
     Synchronous version of extract_intent for backward compatibility.
-
-    Args:
-        message: The input message to analyze
-        context: Additional context about the conversation
-
-    Returns:
-        Dictionary containing 'intent' and 'entities' keys
     """
     return extract_intent(message, context)
 
 
 class LLMIntent:
-    """LLM-based intent extraction using CrewAI agents."""
-
+    """Legacy class for backward compatibility."""
+    
     def __init__(self, team_id: str = None):
         self.team_id = team_id
+        self.recognizer = LLMIntentRecognizer(team_id)
         logger.info(f"🤖 LLMIntent initialized for team: {team_id}")
 
     async def extract_intent(self, message: str, context: str = "") -> Dict[str, Any]:
         """
         Extract intent using LLM-based approach.
-
-        Args:
-            message: The input message to analyze
-            context: Additional context about the conversation
-
-        Returns:
-            Dictionary containing 'intent' and 'entities' keys
         """
-        try:
-            # Use the existing regex-based intent extraction as fallback
-            # In the future, this can be replaced with actual LLM-based extraction
-            return extract_intent(message, context)
-        except Exception as e:
-            logger.error(f"Error in LLM intent extraction: {e}")
-            return {"intent": "unknown", "entities": {}, "confidence": 0.0}
+        context_dict = {"context": context} if context else {}
+        result = await self.recognizer.extract_intent(message, context_dict)
+        
+        return {
+            "intent": result.intent,
+            "entities": result.entities,
+            "confidence": result.confidence,
+            "reasoning": result.reasoning
+        }

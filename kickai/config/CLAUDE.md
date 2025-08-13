@@ -8,7 +8,10 @@ This file provides guidance for working with the KICKAI configuration system, wh
 ```
 kickai/config/
 ├── agents.yaml                    # Agent definitions and tool assignments (CRITICAL)
+├── command_routing.yaml           # Dynamic command routing configuration (NEW)
 ├── agents.py                     # YAML configuration manager
+├── command_routing_manager.py    # Dynamic command routing system (NEW)
+├── config_validator.py          # Configuration validation system (NEW)
 ├── tasks.yaml                    # Task templates and patterns
 ├── llm_config.py                # LLM provider configuration  
 ├── optimized_agent_prompts.py   # Agent prompt optimization
@@ -18,7 +21,110 @@ kickai/config/
 
 ## Core Configuration Files
 
-### 1. agents.yaml - Agent Configuration (MOST CRITICAL)
+### 1. command_routing.yaml - Dynamic Command Routing (NEW & CRITICAL)
+**Purpose**: Centralized command-to-agent routing configuration that eliminates hardcoded routing logic.
+
+**Key Features (SIMPLIFIED)**:
+- **Flexible Command Routing**: Maps commands to agents with flexible slash handling
+- **Slash-Agnostic Matching**: Both `/info` and `info` work automatically
+- **Context-Aware Routing**: Different behavior based on chat type (main/leadership/private)
+- **Agent Constraints**: Performance and permission settings per agent
+- **Strict Validation**: Fail-fast validation with no silent failures
+- **No Caching**: Simplified for reliability and maintainability
+
+**Complete Configuration Structure**:
+```yaml
+# Default routing behavior
+default_routing:
+  default_agent: "message_processor"
+  fallback_agent: "message_processor"
+  case_sensitive: false
+  strip_prefix: true
+
+# Command routing rules - maps commands to specific agents
+command_routing:
+  help_commands:
+    agent: "help_assistant"
+    commands: ["/help", "help", "/help@KickAI_bot"]
+    description: "All help-related queries and guidance"
+    priority: 1
+
+  player_info_commands:
+    agent: "player_coordinator"
+    commands: ["/info", "/myinfo", "/status", "/approve", "/reject"]
+    description: "Player information, status queries, and coordination"
+    priority: 2
+    # Note: Commands work with or without slash - "/info" matches both "/info" and "info"
+
+  admin_commands:
+    agent: "team_administrator"
+    commands: ["/addplayer", "/addmember", "/creatematch", "/promote"]
+    description: "Team administration and management operations"
+    priority: 2
+
+  squad_commands:
+    agent: "squad_selector"
+    commands: ["/attendance", "/availability", "/squad", "/matches"]
+    description: "Squad selection, availability, and match management"
+    priority: 2
+
+  basic_commands:
+    agent: "message_processor"
+    commands: ["/list", "/ping", "/version", "/announce", "/poll"]
+    description: "Basic queries, communications, and system information"
+    priority: 3
+
+# Pattern matching removed for simplicity - use exact commands only
+
+# Context-based routing modifiers
+context_routing:
+  chat_type_rules:
+    main_chat:
+      blocked_commands: ["/addplayer", "/promote", "/demote"]
+      redirect_agent: "message_processor"
+    leadership_chat:
+      blocked_commands: []
+    private_chat:
+      allowed_agents: ["message_processor", "help_assistant", "player_coordinator"]
+
+# Agent capabilities and constraints
+agent_constraints:
+  message_processor:
+    max_concurrent_requests: 10
+    can_handle_fallback: true
+  player_coordinator:
+    max_concurrent_requests: 8
+    requires_context: ["telegram_id", "team_id"]
+  team_administrator:
+    max_concurrent_requests: 3
+    requires_permissions: ["leadership"]
+    requires_context: ["telegram_id", "team_id", "chat_type"]
+
+# Performance optimization - caching removed for simplicity
+optimization:
+  load_balancing:
+    enabled: false  # Disabled for current 5-agent system
+```
+
+**Usage in Code (Flexible Slash Handling)**:
+```python
+from kickai.config.command_routing_manager import get_command_routing_manager
+
+# Get routing decision - both work the same way!
+routing_manager = get_command_routing_manager()
+
+# With slash
+decision1 = routing_manager.route_command("/info", chat_type="main_chat")
+print(f"Route /info to: {decision1.agent_role}")
+
+# Without slash - automatically works!
+decision2 = routing_manager.route_command("info", chat_type="main_chat")  
+print(f"Route info to: {decision2.agent_role}")
+
+# Both return: player_coordinator
+```
+
+### 2. agents.yaml - Agent Configuration (MOST CRITICAL)
 **Purpose**: Defines all 5 agents with roles, goals, backstories, and tool assignments using **optimized prompts**.
 
 **Recent Optimization (2025)**: Agent prompts have been streamlined for **57.2% token reduction** while preserving all critical functionality.
@@ -53,7 +159,69 @@ agents:
 - **Entity Types**: Primary and secondary entity type handling
 - **Backstory Templates**: Streamlined shared template (433 chars vs. ~1,200 original)
 
-### 2. agents.py - Configuration Manager
+### 2. Command Routing System Components (NEW)
+
+#### 2a. command_routing_manager.py - Dynamic Routing Engine
+**Purpose**: Provides runtime command routing based on YAML configuration.
+
+**Key Classes**:
+- `CommandRoutingManager` - Main routing engine
+- `RoutingDecision` - Routing result with metadata
+- `RoutingRule` - Configuration rule representation
+
+**Features (SIMPLIFIED + FLEXIBLE)**:
+- **Flexible Command Routing**: Route commands with automatic slash handling
+- **User-Friendly Input**: Both `/info` and `info` work automatically
+- **Context-Aware Processing**: Different behavior per chat type
+- **Fail-Fast Validation**: Ensures routed agents exist and configuration is valid
+- **No Silent Failures**: System fails immediately on configuration issues
+
+**Usage Example (Flexible Slash Matching)**:
+```python
+from kickai.config.command_routing_manager import get_command_routing_manager
+
+# Initialize routing manager (global singleton)
+routing_manager = get_command_routing_manager()
+
+# Route commands - both work identically!
+decision1 = routing_manager.route_command("/info", chat_type="main_chat")
+decision2 = routing_manager.route_command("info", chat_type="main_chat")  # No slash!
+decision3 = routing_manager.route_command("INFO", chat_type="main_chat")  # Case insensitive!
+
+# All three return the same result:
+# agent_role=AgentRole.PLAYER_COORDINATOR, match_type='exact' or 'flexible'
+```
+
+#### 2b. config_validator.py - Configuration Validation System
+**Purpose**: Comprehensive validation for all configuration files and cross-file consistency.
+
+**Key Classes**:
+- `ConfigValidator` - Main validation engine
+- `ValidationResult` - Validation results with errors/warnings
+- `ValidationError` - Individual validation issue
+
+**Validation Coverage**:
+- **YAML Structure Validation**: Syntax, required fields, data types
+- **Agent Reference Validation**: Ensures all referenced agents exist
+- **Cross-File Consistency**: Validates consistency between configs
+- **Pattern Validation**: Regex pattern syntax checking
+- **Context Requirements**: Validates context parameter requirements
+
+**Usage Example**:
+```python
+from kickai.config.config_validator import validate_configuration, print_validation_results
+
+# Validate all configurations
+result = validate_configuration()
+
+# Check results
+if result.is_valid:
+    print("✅ All configurations valid")
+else:
+    print_validation_results(result)  # Show detailed errors
+```
+
+### 3. agents.py - Agent Configuration Manager
 **Purpose**: Loads and processes YAML configurations with template substitution.
 
 **Key Classes**:
@@ -66,7 +234,7 @@ agents:
 - Configuration validation
 - Dynamic context injection
 
-### 3. llm_config.py - LLM Provider Management  
+### 4. llm_config.py - LLM Provider Management  
 **Purpose**: Manages CrewAI-native LLM configuration for multiple providers.
 
 **Key Features**:
@@ -81,7 +249,7 @@ from kickai.config.llm_config import get_llm_config
 llm = get_llm_config(provider=AIProvider.GROQ)
 ```
 
-### 4. tasks.yaml - Task Templates
+### 5. tasks.yaml - Task Templates
 **Purpose**: Provides task templates and patterns for CrewAI task creation.
 
 **Template Structure**:
@@ -95,6 +263,100 @@ tasks:
     description: Process and route user messages
     expected_output: Formatted response with tool outputs
 ```
+
+## Dynamic Routing System Integration
+
+### Integration with TeamManagementSystem
+The new command routing system is integrated with the existing `TeamManagementSystem` in `kickai/agents/crew_agents.py`:
+
+```python
+class TeamManagementSystem:
+    def __init__(self, team_id: str):
+        # Initialize routing manager
+        try:
+            self.routing_manager = CommandRoutingManager()
+            logger.info("✅ Dynamic command routing enabled")
+        except Exception as e:
+            logger.warning(f"Dynamic routing unavailable, using fallback: {e}")
+            self.routing_manager = None
+
+    def _route_command_to_agent(
+        self, 
+        command: str, 
+        chat_type: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None
+    ) -> AgentRole:
+        """Route command to appropriate agent using dynamic routing."""
+        if self.routing_manager:
+            try:
+                decision = self.routing_manager.route_command(command, chat_type, context)
+                return decision.agent_role
+            except Exception as e:
+                logger.error(f"Dynamic routing failed: {e}")
+        
+        # Fallback to legacy hardcoded routing if needed
+        return self._legacy_route_command(command)
+```
+
+### Migration from Hardcoded Routing
+**Before (Hardcoded - REMOVED)**:
+```python
+# OLD - Hardcoded routing logic with fallbacks (REMOVED)
+if command in ["/help", "help"]:
+    return AgentRole.HELP_ASSISTANT
+elif command in ["/info", "/myinfo", "/status"]:
+    return AgentRole.PLAYER_COORDINATOR
+# ... with silent fallback to MESSAGE_PROCESSOR
+```
+
+**After (Configuration-Driven - SIMPLIFIED)**:
+```yaml
+# NEW - YAML configuration in command_routing.yaml (EXACT MATCHES ONLY)
+command_routing:
+  help_commands:
+    agent: "help_assistant"
+    commands: ["/help", "help"]  # Exact commands only
+  player_info_commands:
+    agent: "player_coordinator" 
+    commands: ["/info", "/myinfo", "/status"]  # No patterns
+```
+
+**Critical Change**: System now **FAILS FAST** if routing configuration is invalid - no silent fallbacks.
+
+### Benefits of the Simplified + Flexible System
+1. **Reliability**: No silent failures - configuration issues cause immediate failure
+2. **User-Friendly**: Commands work with or without slash prefix automatically
+3. **Maintainability**: Simple exact-match routing with flexible input handling
+4. **Predictability**: No caching complexity, deterministic routing
+5. **Debuggability**: Clear error messages when configuration is wrong
+6. **Context-Awareness**: Different routing based on chat type (preserved)
+7. **Validation**: Strict validation prevents configuration errors
+
+### Flexible Command Matching Feature
+The system now supports **slash-agnostic command matching**:
+
+**How it works:**
+- Configuration defines commands with slashes: `["/info", "/status"]`
+- Users can type with or without slashes: `/info` or `info` both work
+- Case insensitive: `/INFO`, `Info`, `info` all work
+- Context restrictions also work flexibly: blocking `/addplayer` also blocks `addplayer`
+
+**Examples:**
+```yaml
+# Configuration (define with slashes)
+player_info_commands:
+  agent: "player_coordinator" 
+  commands: ["/info", "/myinfo", "/status"]
+
+# All these user inputs work:
+# /info, info, /INFO, INFO, /MyInfo, myinfo, etc.
+```
+
+**Implementation:**
+- Exact match tried first (fastest path)
+- Flexible match tried second (removes slashes, compares)
+- Both blocked commands and routing rules use same logic
+- No configuration duplication needed
 
 ## Agent Configuration Deep Dive
 
@@ -214,11 +476,11 @@ MESSAGE_PROCESSOR:
 
 PLAYER_COORDINATOR:
   tools: [get_my_status, get_player_status, get_all_players, get_active_players,
-          approve_player, register_player, list_team_members_and_players, send_message]
+          approve_player, list_team_members_and_players, send_message]
   routing: |
     Self queries → get_my_status (current user player info)
     Specific players → get_player_status (individual details)
-    Registrations → register_player | Approvals → approve_player
+    Approvals → approve_player | Player registration via /addplayer command
 ```
 
 ### Optimized Tool Selection Rules
@@ -395,6 +657,125 @@ LLAMA_OPTIMIZATION = {
 
 ## Common Issues & Solutions
 
+### Dynamic Routing Issues (SIMPLIFIED SYSTEM)
+```bash
+# Issue: System fails to start due to routing configuration
+# Solution: Check configuration syntax and completeness - NO FALLBACKS
+PYTHONPATH=. python -c "
+from kickai.config.command_routing_manager import get_command_routing_manager
+try:
+    routing_manager = get_command_routing_manager()
+    print('✅ Routing manager initialized')
+    stats = routing_manager.get_routing_statistics()
+    print(f'Rules loaded: {stats[\"routing_rules_count\"]}')
+except Exception as e:
+    print(f'❌ SYSTEM WILL NOT START: {e}')
+    print('Fix configuration - no silent fallbacks available')
+"
+
+# Issue: Commands not routing correctly
+# Solution: Test flexible command matching
+PYTHONPATH=. python -c "
+from kickai.config.command_routing_manager import get_command_routing_manager
+routing_manager = get_command_routing_manager()
+
+# Test both slash and non-slash versions
+test_commands = ['/info', 'info', '/INFO', 'Info']
+for cmd in test_commands:
+    decision = routing_manager.route_command(cmd)
+    print(f'{cmd:6} → {decision.agent_role.value:18} ({decision.match_type})')
+# All should route to same agent with 'exact' or 'flexible' match type
+"
+
+# Issue: Configuration validation errors
+# Solution: System enforces strict validation - fix all errors
+PYTHONPATH=. python -c "
+from kickai.config.config_validator import validate_configuration
+result = validate_configuration()
+if not result.is_valid:
+    print('❌ CONFIGURATION INVALID - SYSTEM WILL NOT START')
+    for error in result.errors:
+        print(f'   {error.file_path}: {error.message}')
+else:
+    print('✅ Configuration valid')
+"
+```
+
+### Configuration Validation Issues
+```bash
+# Issue: Invalid agent reference in routing config
+# Solution: Validate agent names match AgentRole enum
+PYTHONPATH=. python -c "
+from kickai.config.config_validator import validate_configuration
+from kickai.core.enums import AgentRole
+
+result = validate_configuration()
+if not result.is_valid:
+    for error in result.errors:
+        if 'Invalid agent' in error.message:
+            print(f'❌ {error.message}')
+            
+print('Valid agents:', [role.value.lower() for role in AgentRole])
+"
+
+# Issue: Context validation failures
+# Solution: Check required context parameters
+PYTHONPATH=. python -c "
+from kickai.config.command_routing_manager import get_command_routing_manager
+routing_manager = get_command_routing_manager()
+
+# Test with missing context
+decision = routing_manager.route_command('/addplayer', context={'telegram_id': 123})
+print(f'Context valid: {decision.context_valid}')
+
+# Test with complete context  
+decision = routing_manager.route_command('/addplayer', context={'telegram_id': 123, 'team_id': 'KTI', 'chat_type': 'leadership'})
+print(f'Context valid: {decision.context_valid}')
+"
+```
+
+### Integration Issues
+```bash
+# Issue: TeamManagementSystem not using dynamic routing
+# Solution: Check routing manager initialization in crew_agents.py
+PYTHONPATH=. python -c "
+from kickai.agents.crew_agents import TeamManagementSystem
+team_system = TeamManagementSystem('TEST')
+
+if hasattr(team_system, 'routing_manager') and team_system.routing_manager:
+    print('✅ Dynamic routing active')
+else:
+    print('❌ Dynamic routing not initialized, check crew_agents.py')
+"
+
+# Issue: /register command still referenced
+# Solution: All /register references have been removed, replaced with /addplayer
+PYTHONPATH=. python -c "
+import os
+from pathlib import Path
+
+# Search for any remaining /register references
+project_root = Path('kickai')
+register_files = []
+
+for file_path in project_root.rglob('*.py'):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            if '/register' in content.lower():
+                register_files.append(str(file_path))
+    except:
+        continue
+
+if register_files:
+    print('❌ /register references still found in:')
+    for file in register_files:
+        print(f'   {file}')
+else:
+    print('✅ All /register references removed')
+"
+```
+
 ### Configuration Loading Issues
 ```bash
 # Issue: YAML syntax error
@@ -403,7 +784,11 @@ PYTHONPATH=. python -c "
 import yaml
 with open('kickai/config/agents.yaml') as f:
     config = yaml.safe_load(f)
-print('✅ YAML valid')
+print('✅ agents.yaml valid')
+
+with open('kickai/config/command_routing.yaml') as f:
+    config = yaml.safe_load(f)
+print('✅ command_routing.yaml valid')
 "
 ```
 
@@ -497,12 +882,52 @@ print(f'📊 Total: {total_chars} chars (target: <3000)')
 
 ## Testing Configuration
 
+### Configuration System Testing
+```bash
+# Run comprehensive configuration system tests
+PYTHONPATH=. python scripts/test_configuration_system.py
+
+# This tests:
+# - Configuration loading
+# - Command routing accuracy
+# - Context-aware routing
+# - Configuration validation
+# - Integration with crew agents
+# - Performance metrics
+```
+
 ### Configuration Validation
 ```bash
 # Validate all configuration files
-PYTHONPATH=. python scripts/validate_config.py
+PYTHONPATH=. python -c "
+from kickai.config.config_validator import validate_configuration, print_validation_results
+result = validate_configuration()
+print_validation_results(result)
+"
 
-# Test specific agent configuration
+# Validate specific configuration
+PYTHONPATH=. python -c "
+from kickai.config.config_validator import ConfigValidator
+validator = ConfigValidator()
+result = validator.validate_specific_file('routing')
+print(f'Routing config valid: {result.is_valid}')
+"
+
+# Test command routing
+PYTHONPATH=. python -c "
+from kickai.config.command_routing_manager import get_command_routing_manager
+from kickai.core.enums import AgentRole
+
+routing_manager = get_command_routing_manager()
+
+# Test specific commands
+test_commands = ['/help', '/info', '/addplayer', '/attendance']
+for cmd in test_commands:
+    decision = routing_manager.route_command(cmd)
+    print(f'{cmd:12} → {decision.agent_role.value:18} ({decision.match_type})')
+"
+
+# Test agent configuration
 PYTHONPATH=. python -c "
 from kickai.config.agents import get_agent_config
 from kickai.core.enums import AgentRole
@@ -510,6 +935,30 @@ from kickai.core.enums import AgentRole
 for role in ['MESSAGE_PROCESSOR', 'HELP_ASSISTANT', 'PLAYER_COORDINATOR']:
     config = get_agent_config(role)
     print(f'✅ {role}: {len(config.tools)} tools')
+"
+```
+
+### Routing Performance Testing
+```bash
+# Test routing performance
+PYTHONPATH=. python -c "
+import time
+from kickai.config.command_routing_manager import get_command_routing_manager
+
+routing_manager = get_command_routing_manager()
+commands = ['/help', '/info', '/addplayer', '/list'] * 100
+
+start_time = time.time()
+for cmd in commands:
+    routing_manager.route_command(cmd)
+end_time = time.time()
+
+print(f'Routed {len(commands)} commands in {end_time - start_time:.4f}s')
+print(f'Average: {(end_time - start_time) / len(commands) * 1000:.2f}ms per command')
+
+# Check cache effectiveness
+stats = routing_manager.get_routing_statistics()
+print(f'Cache size: {stats[\"cache_size\"]} entries')
 "
 ```
 

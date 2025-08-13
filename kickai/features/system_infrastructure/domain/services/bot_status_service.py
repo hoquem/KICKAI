@@ -75,7 +75,7 @@ class BotStatusService:
                 "features": {
                     "player_registration": {
                         "enabled": True,
-                        "commands": ["/register", "/myinfo", "/list"],
+                        "commands": ["/myinfo", "/list", "/help"],
                         "description": "Player registration and management",
                     },
                     "match_management": {

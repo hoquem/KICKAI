@@ -206,7 +206,7 @@ def update_team_member_information(
 
         if not members:
             logger.warning(f"❌ Team member not found: user_id={user_id}")
-            return "❌ Update Failed: You are not registered as a team member. Use /register to register."
+            return "❌ Update Failed: You are not registered as a team member. Ask leadership to add you."
 
         member = members[0]
         member_id = member.get("id", "unknown")
@@ -372,9 +372,9 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
 
 🔍 You are not registered as a team member in this team.
 
-📝 To register as a team member:
-1. Use /register [name] [phone] [role]
-2. Example: /register John Smith +447123456789 Assistant Coach
+📝 To become a team member:
+1. Ask leadership to add you using /addmember [name] [phone] [role]
+2. Example: /addmember John Smith +447123456789 Assistant Coach
 3. You'll be added to the team members collection
 
 💡 Need help? Use /help to see available commands."""

@@ -293,10 +293,10 @@ class PlayerToolService:
 📋 Next Steps:
 1. Share this invite link with {request.name}
 2. They can join the main chat using the link
-3. Once they join, they can register with /register
+3. Once they join, leadership can add them with /addplayer
 4. Use /approve to approve and activate their registration
 
-💡 Tip: The player will need to register with /register after joining the chat."""
+💡 Tip: Leadership will add the player using /addplayer after they join the chat."""
 
         if invite_link:
             base_message += """
