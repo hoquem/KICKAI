@@ -5,7 +5,7 @@ Player Entity
 
 This module defines the Player entity for the player registration domain.
 Players represent football players, separate from Team Members who are administrators.
-A person can be both a Player and a Team Member, linked by user_id.
+A person can be both a Player and a Team Member, linked by telegram_id.
 """
 
 from dataclasses import dataclass
@@ -13,7 +13,6 @@ from datetime import datetime
 from enum import Enum
 
 from kickai.core.enums import PlayerPosition
-from kickai.utils.user_id_generator import generate_user_id
 
 
 class PreferredFoot(Enum):
@@ -55,9 +54,6 @@ class Player:
     telegram_id: Optional[int] = None  # Telegram user ID (integer) - for linking to Telegram
     player_id: Optional[str] = None    # Player identifier (M001MH format) - unique within team
     team_id: str = ""                  # Team identifier (KA format)
-    
-    # Legacy field - being phased out in favor of explicit IDs above
-    user_id: str = ""  # DEPRECATED: Use telegram_id for linking, player_id for identification
 
     # Personal information
     name: Optional[str] = None
@@ -100,9 +96,7 @@ class Player:
         if not self.player_id and not self.telegram_id:
             raise ValueError("Either player_id or telegram_id must be provided")
 
-        # Validate player_id format if provided
-        if self.player_id and not self.player_id.startswith("M"):
-            raise ValueError(f"Invalid player_id format: {self.player_id}. Must start with 'M'")
+        # Note: player_id format validation removed - 01JD format is valid
             
         # Validate telegram_id type if provided
         if self.telegram_id is not None and not isinstance(self.telegram_id, int):
@@ -162,13 +156,10 @@ class Player:
         Returns:
             A new Player instance
         """
-        user_id = generate_user_id(telegram_id)
-
         # Use provided name or generate default
         display_name = name if name else f"User {telegram_id}"
 
         return cls(
-            user_id=user_id,
             team_id=team_id,
             telegram_id=telegram_id,  # Keep as integer
             name=display_name,
@@ -180,7 +171,6 @@ class Player:
     def to_dict(self) -> dict:
         """Convert to dictionary for storage."""
         return {
-            "user_id": self.user_id,
             "team_id": self.team_id,
             "telegram_id": self.telegram_id,
             "player_id": self.player_id,
@@ -210,7 +200,6 @@ class Player:
             telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
 
         return cls(
-            user_id=data.get("user_id", ""),
             team_id=data.get("team_id", ""),
             telegram_id=telegram_id,
             player_id=data.get("player_id"),
@@ -238,7 +227,6 @@ class Player:
         player = cls.__new__(cls)
 
         # Set attributes directly
-        player.user_id = data.get("user_id", "")
         player.team_id = data.get("team_id", "")
         # Ensure telegram_id is integer if provided
         telegram_id = data.get("telegram_id")
@@ -338,8 +326,10 @@ class Player:
             return f"@{self.username}"
         elif self.telegram_id:
             return f"User {self.telegram_id}"
+        elif self.player_id:
+            return f"Player {self.player_id}"
         else:
-            return f"User {self.user_id}"
+            return "Unknown Player"
 
     def get_position_display(self) -> str:
         """Get formatted position display."""

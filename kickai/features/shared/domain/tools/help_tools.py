@@ -22,14 +22,15 @@ from kickai.utils.tool_helpers import (
     format_tool_error,
     validate_required_input,
 )
+from kickai.utils.tool_validation import create_tool_response
 
 
-@tool("FINAL_HELP_RESPONSE")
+@tool("FINAL_HELP_RESPONSE", result_as_answer=True)
 def final_help_response(
-    chat_type: str,
-    telegram_id: str, 
-    team_id: str,
-    username: str
+    telegram_id: int,
+    team_id: str, 
+    username: str,
+    chat_type: str
 ) -> str:
     """
     Generate a comprehensive help response for users based on their chat type and context.
@@ -39,10 +40,10 @@ def final_help_response(
     and include all relevant commands with descriptions.
 
     Args:
-        chat_type: Chat type (main/leadership)
         telegram_id: User's Telegram ID
         team_id: Team ID 
         username: User's username
+        chat_type: Chat type (main/leadership)
 
     Returns:
         Formatted help response string
@@ -172,17 +173,20 @@ def _group_commands_by_category(commands: list) -> Dict[str, list]:
     # Remove empty categories
     return {k: v for k, v in categories.items() if v}
 
-
 @tool("get_available_commands")
-def get_available_commands(chat_type: str) -> str:
+def get_available_commands(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get all available commands for the current chat type.
 
     Args:
+        telegram_id: User's Telegram ID
+        team_id: Team ID
+        username: User's username
         chat_type: Chat type (main/leadership/private)
 
     Returns:
-        List of available commands with descriptions
+        JSON response with list of available commands and descriptions
+
     """
     try:
         # Normalize chat type
@@ -192,30 +196,66 @@ def get_available_commands(chat_type: str) -> str:
         registry = get_initialized_command_registry()
         commands = registry.get_commands_by_chat_type(chat_type_enum.value)
 
+        # Get chat display name
+        chat_display_name = constants_module.get_chat_type_display_name(chat_type_enum)
+
         # Format response
         if not commands:
-            return create_json_response("success", data=f"No commands available for chat type: {chat_type}")
+            return create_tool_response(
+                success=True,
+                message=f"No commands available for {chat_display_name} chat",
+                data={
+                    "chat_type": chat_type,
+                    "chat_display_name": chat_display_name,
+                    "commands": [],
+                    "count": 0
+                }
+            )
 
-        response_parts = [f"Available commands for {constants_module.get_chat_type_display_name(chat_type_enum)}:"]
 
+        # Create structured command data
+        commands_data = []
         for cmd in commands:
-            response_parts.append(f"• {cmd.name} - {cmd.description}")
+            command_info = {
+                "name": cmd.name,
+                "description": cmd.description,
+                "feature": getattr(cmd, 'feature', 'unknown'),
+                "permission_level": getattr(cmd, 'permission_level', 'unknown'),
+                "examples": getattr(cmd, 'examples', [])
+            }
+            commands_data.append(command_info)
 
-        return create_json_response("success", data="\n".join(response_parts))
+        return create_tool_response(
+            success=True,
+            message=f"Retrieved {len(commands)} available commands for {chat_display_name} chat",
+            data={
+                "chat_type": chat_type,
+                "chat_display_name": chat_display_name,
+                "commands": commands_data,
+                "count": len(commands_data)
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error getting available commands: {e}", exc_info=True)
-        return create_json_response("error", message=f"Error getting commands: {e!s}")
+        return create_tool_response(
+            success=False,
+            message=f"Error getting commands: {e!s}",
+            data={"chat_type": chat_type, "error": str(e)}
+        )
 
 
 @tool("get_command_help")
-def get_command_help(command_name: str, chat_type: str) -> str:
+def get_command_help(telegram_id: int, team_id: str, username: str, chat_type: str, command_name: str) -> str:
     """
     Get detailed help for a specific command.
 
     Args:
-        command_name: Name of the command (with or without /)
+        telegram_id: User's Telegram ID
+        team_id: Team ID
+        username: User's username
         chat_type: Chat type context for command availability
+        command_name: Name of the command (with or without /)
 
     Returns:
         Detailed help message for the command
@@ -268,14 +308,15 @@ def get_command_help(command_name: str, chat_type: str) -> str:
 
 
 @tool("get_welcome_message")
-def get_welcome_message(username: str, chat_type: str, team_id: str) -> str:
+def get_welcome_message(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Generate a welcome message for users.
 
     Args:
+        telegram_id: User's Telegram ID
+        team_id: Team ID
         username: User's username
         chat_type: Chat type (main/leadership/private)
-        team_id: Team ID
 
     Returns:
         Welcome message for the user
@@ -292,13 +333,13 @@ def get_welcome_message(username: str, chat_type: str, team_id: str) -> str:
 👋 Welcome to KICKAI! We're excited to have you join our football community!
 
 ⚽ WHAT YOU CAN DO HERE:
-• Register as a player with /register [player_id]
 • Check your status with /myinfo
 • See available commands with /help
 • View active players with /list
+• Ask leadership to add you as a player
 
 🔗 GETTING STARTED:
-1. Register as a player - Use /register followed by your player ID
+1. Ask leadership to add you - Team leaders can add you using /addplayer
 2. Check your status - Use /myinfo to see your current registration
 3. Explore commands - Use /help to see all available options
 

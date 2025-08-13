@@ -25,7 +25,7 @@ class SendTelegramMessageInput(BaseModel):
     team_id: Optional[str] = None
 
 
-@tool("send_telegram_message")
+@tool("send_telegram_message", result_as_answer=True)
 def send_telegram_message(chat_id: str, text: str, team_id: Optional[str] = None) -> str:
     """
     Send a message to a Telegram chat using the Telegram bot service. Requires: chat_id, text

@@ -25,18 +25,30 @@ class CreateTeamInput(BaseModel):
     admin_user_id: Optional[str] = None
 
 
-@tool("create_team")
+@tool("create_team", result_as_answer=True)
 def create_team(team_name: str, team_id: str, admin_user_id: Optional[str] = None) -> str:
-    """
-    Create a new team. Requires: team_name, team_id
-
-    Args:
-        team_name: The name of the team to create
-        team_id: The unique identifier for the team
-        admin_user_id: Optional admin user ID for the team
-
-    Returns:
-        JSON string with confirmation message indicating success or failure
+    """Create a new team.
+    
+    Creates a new team entity in the system with the specified
+    name, identifier, and optional admin user.
+    
+    :param team_name: The name of the team to create
+    :type team_name: str
+    :param team_id: The unique identifier for the team
+    :type team_id: str
+    :param admin_user_id: Optional admin user ID for the team
+    :type admin_user_id: Optional[str]
+    :returns: JSON string with confirmation message and team details
+    :rtype: str
+    :raises Exception: When TeamService unavailable or team creation fails
+    
+    .. example::
+       >>> result = create_team("Liverpool FC", "LFC", "admin123")
+       >>> print(result)
+       '{"status": "success", "data": {"message": "Team created successfully...", ...}}'
+    
+    .. note::
+       Team ID must be unique across the system
     """
     try:
         container = get_container()

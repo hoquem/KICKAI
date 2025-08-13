@@ -39,7 +39,7 @@ from kickai.utils.validation_utils import (
 )
 
 
-@tool("add_team_member_simplified")
+@tool("add_team_member_simplified", result_as_answer=True)
 def add_team_member_simplified(
     team_id: str, user_id: str, name: str, phone: str, role: str = None
 ) -> str:

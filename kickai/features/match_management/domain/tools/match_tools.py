@@ -25,18 +25,26 @@ from kickai.utils.tool_helpers import (
 from kickai.features.match_management.domain.services.match_service import MatchService
 
 
-@tool("list_matches")
+@tool("list_matches", result_as_answer=True)
 def list_matches(team_id: str, status: str = "all", limit: int = 10) -> str:
-    """
-    List matches for a team with optional status filter. Requires: team_id
-
-    Args:
-        team_id: Team ID (required)
-        status: Match status filter (upcoming, past, all) - default: all
-        limit: Maximum number of matches to return - default: 10
-
-    Returns:
-        Formatted list of matches or error message
+    """List matches for a team with optional status filter.
+    
+    Retrieves and formats a list of team matches, optionally filtered
+    by status (upcoming, past, or all matches).
+    
+    :param team_id: Team ID (required)
+    :type team_id: str
+    :param status: Match status filter (upcoming, past, all), defaults to "all"
+    :type status: str
+    :param limit: Maximum number of matches to return, defaults to 10
+    :type limit: int
+    :returns: JSON string with formatted list of matches or error message
+    :rtype: str
+    :raises ServiceNotAvailableError: When MatchService is not available
+    :raises Exception: When match listing fails
+    
+    .. note::
+       Returns matches sorted by date with quick action commands included
     """
     try:
         # Handle JSON string input using utility functions
@@ -93,7 +101,7 @@ def list_matches(team_id: str, status: str = "all", limit: int = 10) -> str:
         return create_json_response("error", message=f"Failed to list matches: {e}")
 
 
-@tool("create_match")
+@tool("create_match", result_as_answer=True)
 def create_match(
     team_id: str,
     opponent: str,
@@ -104,7 +112,35 @@ def create_match(
     notes: Optional[str] = None,
     created_by: str = "",
 ) -> str:
-    """Create a new match."""
+    """Create a new match.
+    
+    Creates a new match entry in the system with specified details.
+    
+    :param team_id: The team identifier
+    :type team_id: str
+    :param opponent: Name of the opposing team
+    :type opponent: str
+    :param match_date: Match date in YYYY-MM-DD format
+    :type match_date: str
+    :param match_time_str: Match time in HH:MM format
+    :type match_time_str: str
+    :param venue: Match location/venue
+    :type venue: str
+    :param competition: Competition name, defaults to "League Match"
+    :type competition: str
+    :param notes: Optional match notes
+    :type notes: Optional[str]
+    :param created_by: User ID of match creator
+    :type created_by: str
+    :returns: JSON string with created match details or error message
+    :rtype: str
+    :raises Exception: When match creation fails or date/time parsing fails
+    
+    .. example::
+       >>> result = create_match("KTI", "City FC", "2024-03-15", "18:00", "Home Stadium")
+       >>> print(result)
+       '{"status": "success", "data": "Match created successfully!..."}
+    """
     try:
         # Parse date and time
         date_obj = datetime.strptime(match_date, "%Y-%m-%d")
@@ -142,9 +178,22 @@ def create_match(
         return create_json_response("error", message=f"Error creating match: {e!s}")
 
 
-@tool("list_matches_sync")
+@tool("list_matches_sync", result_as_answer=True)
 def list_matches_sync(team_id: str, status: str = "all", limit: int = 10) -> str:
-    """List matches for a team (sync wrapper)."""
+    """List matches for a team (synchronous wrapper).
+    
+    Synchronous version of list_matches for compatibility.
+    
+    :param team_id: The team identifier
+    :type team_id: str
+    :param status: Match status filter (upcoming, past, all), defaults to "all"
+    :type status: str
+    :param limit: Maximum number of matches to return, defaults to 10
+    :type limit: int
+    :returns: JSON string with formatted list of matches or error message
+    :rtype: str
+    :raises Exception: When match service unavailable or listing fails
+    """
     try:
         container = get_container()
         match_service: MatchService = container.get_service(MatchService)
@@ -183,9 +232,22 @@ def list_matches_sync(team_id: str, status: str = "all", limit: int = 10) -> str
         return create_json_response("error", message=f"Error listing matches: {e!s}")
 
 
-@tool("get_match_details")
+@tool("get_match_details", result_as_answer=True)
 def get_match_details(match_id: str) -> str:
-    """Get detailed match information."""
+    """Get detailed match information.
+    
+    Retrieves comprehensive details about a specific match including
+    venue, time, competition, status, and results if available.
+    
+    :param match_id: The unique match identifier
+    :type match_id: str
+    :returns: JSON string with match details or error message
+    :rtype: str
+    :raises Exception: When match not found or service fails
+    
+    .. note::
+       Includes match result and scorer information if match is completed
+    """
     try:
         container = get_container()
         match_service: MatchService = container.get_service(MatchService)
@@ -230,9 +292,24 @@ def get_match_details(match_id: str) -> str:
         return create_json_response("error", message=f"Error getting match details: {e!s}")
 
 
-@tool("select_squad_tool")
+@tool("select_squad_tool", result_as_answer=True)
 def select_squad_tool(match_id: str, player_ids: Optional[List[str]] = None) -> str:
-    """Select squad for a match."""
+    """Select squad for a match.
+    
+    Initiates squad selection process for an upcoming match.
+    Currently returns placeholder for future implementation.
+    
+    :param match_id: The unique match identifier
+    :type match_id: str
+    :param player_ids: Optional list of player IDs to include in squad
+    :type player_ids: Optional[List[str]]
+    :returns: JSON string with squad selection status or error message
+    :rtype: str
+    :raises Exception: When match not found or not in upcoming status
+    
+    .. note::
+       Full squad selection functionality to be implemented in next phase
+    """
     try:
         container = get_container()
         match_service: MatchService = container.get_service(MatchService)
@@ -270,7 +347,7 @@ def select_squad_tool(match_id: str, player_ids: Optional[List[str]] = None) -> 
         return create_json_response("error", message=f"Error selecting squad: {e!s}")
 
 
-@tool("record_match_result")
+@tool("record_match_result", result_as_answer=True)
 def record_match_result(
     match_id: str,
     home_score: int,
@@ -280,7 +357,34 @@ def record_match_result(
     notes: Optional[str] = None,
     recorded_by: str = "",
 ) -> str:
-    """Record match result."""
+    """Record match result.
+    
+    Records the final result of a completed match including score,
+    scorers, assists, and additional notes.
+    
+    :param match_id: The unique match identifier
+    :type match_id: str
+    :param home_score: Home team score
+    :type home_score: int
+    :param away_score: Away team score
+    :type away_score: int
+    :param scorers: Optional list of goal scorers
+    :type scorers: Optional[List[str]]
+    :param assists: Optional list of assist providers
+    :type assists: Optional[List[str]]
+    :param notes: Optional match notes or highlights
+    :type notes: Optional[str]
+    :param recorded_by: User ID of person recording result
+    :type recorded_by: str
+    :returns: JSON string with confirmation or error message
+    :rtype: str
+    :raises Exception: When match not found, already completed, or recording fails
+    
+    .. example::
+       >>> result = record_match_result("MATCH001", 2, 1, ["01MH", "02JD"])
+       >>> print(result)
+       '{"status": "success", "data": "Match Result Recorded..."}
+    """
     try:
         container = get_container()
         match_service: MatchService = container.get_service(MatchService)

@@ -9,7 +9,8 @@ import logging
 
 from typing import Any, Optional
 
-from kickai.core.config import get_settings, AIProvider
+from kickai.core.config import get_settings
+from kickai.core.enums import AIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class SimpleLLMFactory:
         settings = get_settings()
         
         # Use provided values or defaults from settings
-        final_model_name = model_name or settings.ai_model_name
+        final_model_name = model_name or settings.ai_model_simple or settings.ai_model_advanced or settings.ai_model_name or "gemini-1.5-flash"
         final_temperature = temperature or settings.ai_temperature
         
         logger.info(f"🔧 Creating LLM with provider: {settings.ai_provider.value}, model: {final_model_name}")
@@ -43,7 +44,7 @@ class SimpleLLMFactory:
         try:
             if settings.ai_provider == AIProvider.GROQ:
                 return SimpleLLMFactory._create_groq_llm(settings, final_model_name, final_temperature)
-            elif settings.ai_provider == AIProvider.GEMINI:
+            elif settings.ai_provider == AIProvider.GOOGLE_GEMINI:
                 return SimpleLLMFactory._create_gemini_llm(settings, final_model_name, final_temperature)
             elif settings.ai_provider == AIProvider.OPENAI:
                 return SimpleLLMFactory._create_openai_llm(settings, final_model_name, final_temperature)

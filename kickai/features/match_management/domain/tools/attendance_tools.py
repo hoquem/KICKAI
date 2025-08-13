@@ -11,7 +11,7 @@ from kickai.features.match_management.domain.services.attendance_service import 
 logger = logging.getLogger(__name__)
 
 
-@tool("record_attendance")
+@tool("record_attendance", result_as_answer=True)
 def record_attendance(
     match_id: str,
     player_id: str,
@@ -97,7 +97,7 @@ def record_attendance(
 
 
 
-@tool("get_match_attendance")
+@tool("get_match_attendance", result_as_answer=True)
 def get_match_attendance(match_id: str) -> str:
     """Get attendance information for a match.
     
@@ -174,7 +174,7 @@ def get_match_attendance(match_id: str) -> str:
 
 
 
-@tool("get_player_attendance_history")
+@tool("get_player_attendance_history", result_as_answer=True)
 def get_player_attendance_history(
     player_id: str,
     limit: int = 10,
@@ -227,7 +227,7 @@ def get_player_attendance_history(
         return f"❌ Error getting attendance history: {e!s}"
 
 
-@tool("bulk_record_attendance")
+@tool("bulk_record_attendance", result_as_answer=True)
 def bulk_record_attendance(
     match_id: str,
     attendance_records: List[dict],

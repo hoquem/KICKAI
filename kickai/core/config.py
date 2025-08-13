@@ -21,12 +21,7 @@ class Environment(str, Enum):
     TESTING = "testing"
 
 
-class AIProvider(str, Enum):
-    """AI providers supported by the system."""
-    GROQ = "groq"
-    GEMINI = "gemini"
-    OPENAI = "openai"
-    OLLAMA = "ollama"
+from kickai.core.enums import AIProvider
 
 
 class Settings(BaseSettings):
@@ -233,7 +228,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_gemini_api_key(cls, v, info):
         """Validate Gemini API key when using Gemini provider."""
-        if info.data and info.data.get("ai_provider") == AIProvider.GEMINI and not v:
+        if info.data and info.data.get("ai_provider") == AIProvider.GOOGLE_GEMINI and not v:
             raise ValueError("GOOGLE_API_KEY is required when using Gemini provider")
         return v
     
@@ -253,7 +248,7 @@ class Settings(BaseSettings):
         """Get the appropriate API key for the configured AI provider."""
         if self.ai_provider == AIProvider.GROQ:
             return self.groq_api_key
-        elif self.ai_provider == AIProvider.GEMINI:
+        elif self.ai_provider == AIProvider.GOOGLE_GEMINI:
             return self.gemini_api_key
         elif self.ai_provider == AIProvider.OPENAI:
             return self.openai_api_key

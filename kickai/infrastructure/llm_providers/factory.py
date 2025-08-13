@@ -14,7 +14,27 @@ from typing import Any, Dict, List, Optional, Set
 
 from kickai.core.enums import AIProvider
 from kickai.core.config import get_settings
-from kickai.utils.llm_factory import LLMConfig, LLMFactory, LLMProviderError
+# Simple compatibility classes for LLM factory
+@dataclass
+class LLMConfig:
+    """Legacy LLM configuration for compatibility."""
+    provider: AIProvider
+    model_name: str
+    api_key: Optional[str] = None
+    temperature: float = 0.7
+    timeout: int = 30
+
+class LLMFactory:
+    """Legacy LLM factory for compatibility."""
+    @staticmethod
+    def create_llm(config: LLMConfig) -> Any:
+        """Create LLM using the new factory."""
+        from kickai.utils.llm_factory_simple import SimpleLLMFactory
+        return SimpleLLMFactory.create_llm(config.model_name, config.temperature)
+
+class LLMProviderError(Exception):
+    """LLM provider error."""
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -241,7 +261,7 @@ class LLMProviderFactory:
 
     _providers: Dict[AIProvider, type[BaseLLMProvider]] = {
         AIProvider.OLLAMA: OllamaProvider,
-        AIProvider.GEMINI: GeminiProvider,
+        AIProvider.GOOGLE_GEMINI: GeminiProvider,
         AIProvider.HUGGINGFACE: HuggingFaceProvider,
         AIProvider.MOCK: MockProvider,
     }
@@ -298,7 +318,7 @@ class LLMProviderFactory:
         # Get API key based on provider
         api_key = None
         if selected_provider == AIProvider.GOOGLE_GEMINI:
-            api_key = settings.google_gemini_api_key
+            api_key = settings.gemini_api_key
         elif selected_provider == AIProvider.GROQ:
             api_key = settings.groq_api_key
         elif selected_provider == AIProvider.HUGGINGFACE:

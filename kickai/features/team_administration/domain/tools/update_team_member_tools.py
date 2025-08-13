@@ -170,7 +170,7 @@ class TeamMemberUpdateValidator:
             raise TeamMemberUpdateValidationError(f"Unknown field type: {field}")
 
 
-@tool("update_team_member_information")
+@tool("update_team_member_information", result_as_answer=True)
 def update_team_member_information(
     user_id: str, team_id: str, field: str, value: str, username: str = "Unknown"
 ) -> str:
@@ -206,8 +206,9 @@ def update_team_member_information(
         members = firebase_service.query_documents(collection_name, [("user_id", "==", user_id)])
 
         if not members:
-            logger.warning(f"Team member not found: user_id={user_id}")
-            return create_json_response("error", message="Update Failed: You are not registered as a team member. Use /register to register.")
+            logger.warning(f"❌ Team member not found: user_id={user_id}")
+            # TODO - need to return error as JSON
+            return "❌ Update Failed: You are not registered as a team member. Ask leadership to add you."
 
         member = members[0]
         member_id = member.get("id", "unknown")
@@ -347,7 +348,7 @@ def update_team_member_information(
         return create_json_response("error", message="Update Failed: An unexpected error occurred. Please try again or contact support.")
 
 
-@tool("get_team_member_updatable_fields")
+@tool("get_team_member_updatable_fields", result_as_answer=True)
 def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
     """
     Get list of fields that a team member can update with examples and validation rules.
@@ -374,9 +375,9 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
 
 🔍 You are not registered as a team member in this team.
 
-📝 To register as a team member:
-1. Use /register [name] [phone] [role]
-2. Example: /register John Smith +447123456789 Assistant Coach
+📝 To become a team member:
+1. Ask leadership to add you using /addmember [name] [phone] [role]
+2. Example: /addmember John Smith +447123456789 Assistant Coach
 3. You'll be added to the team members collection
 
 💡 Need help? Use /help to see available commands."""
@@ -425,7 +426,7 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
         return "❌ Error retrieving updatable fields. Please try again."
 
 
-@tool("validate_team_member_update_request")
+@tool("validate_team_member_update_request", result_as_answer=True)
 def validate_team_member_update_request(user_id: str, team_id: str, field: str, value: str) -> str:
     """
     Validate a team member update request without actually performing the update.
@@ -488,7 +489,7 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
         return "❌ Validation Error: Please check your input and try again"
 
 
-@tool("get_pending_team_member_approval_requests")
+@tool("get_pending_team_member_approval_requests", result_as_answer=True)
 def get_pending_team_member_approval_requests(team_id: str, user_id: str = None) -> str:
     """
     Get pending approval requests for team member updates.

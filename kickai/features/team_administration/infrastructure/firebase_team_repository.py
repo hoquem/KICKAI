@@ -168,21 +168,23 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
     # Team Member Methods
     async def create_team_member(self, team_member: TeamMember) -> TeamMember:
         """Create a new team member."""
-        # TeamMember entity uses user_id as the primary identifier
-        # The user_id should already be set by the service layer
-        if not team_member.user_id:
-            raise ValueError("TeamMember user_id must be set before creation")
+        # TeamMember entity uses telegram_id as the primary identifier
+        # Generate member_id if not already set
+        if not team_member.member_id and team_member.telegram_id:
+            from kickai.utils.id_generator import generate_member_id
+            existing_members = await self.get_team_members(team_member.team_id)
+            existing_ids = {member.member_id for member in existing_members if member.member_id}
+            team_member.member_id = generate_member_id(team_member.name or f"User{team_member.telegram_id}", existing_ids)
 
         team_member_data = team_member.to_dict()
 
-        # Create document in team_members collection using user_id as document ID
+        # Create document in team_members collection using member_id as document ID
         doc_id = await self.database.create_document(
             collection=get_team_members_collection(team_member.team_id),
-            document_id=team_member.user_id,
+            document_id=team_member.member_id,
             data=team_member_data,
         )
 
-        # The user_id remains unchanged, doc_id should match user_id
         return team_member
 
     async def get_team_members(self, team_id: str) -> List[TeamMember]:
@@ -286,7 +288,7 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
         await self.database.update_document(
             collection=get_team_members_collection(team_member.team_id),
-            document_id=team_member.user_id,
+            document_id=team_member.member_id,
             data=team_member_data,
         )
 
@@ -355,24 +357,12 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         if isinstance(updated_at, str):
             updated_at = datetime.fromisoformat(updated_at)
 
-        # Generate user_id from telegram_id if missing or empty
-        user_id = doc.get("user_id", "")
         telegram_id = doc.get("telegram_id")
 
-        if not user_id and telegram_id:
-            # Generate user_id from telegram_id with safe conversion
-            from kickai.utils.user_id_generator import generate_user_id
-            try:
-                from kickai.utils.telegram_id_converter import safe_telegram_id_to_int
-                user_id = generate_user_id(safe_telegram_id_to_int(telegram_id))
-            except ValueError as e:
-                logger.warning(f"❌ Cannot generate user_id from telegram_id {telegram_id}: {e}")
-                user_id = f"user_temp_{telegram_id}"  # Fallback user_id
-
         return TeamMember(
-            user_id=user_id,
             team_id=doc.get("team_id", ""),
             telegram_id=telegram_id,
+            member_id=doc.get("member_id"),
             name=doc.get("name"),
             username=doc.get("username"),
             role=doc.get("role", "Team Member"),

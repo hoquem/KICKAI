@@ -234,21 +234,22 @@ class TelegramBotService(TelegramBotServiceInterface):
                 await self._send_error_response(update, message_text)
                 return
 
-            # Check if message is already properly formatted (from agents)
-            # Agent messages are already safely formatted for Telegram
-            is_agent_message = self._is_agent_formatted_message(message_text)
-            logger.debug(
-                f"🔍 Is agent message: {is_agent_message} | Message preview: {message_text[:50]}..."
-            )
+            # Format JSON responses for human readability
+            from kickai.features.communication.domain.services.response_formatter import ResponseFormatter
+            formatter = ResponseFormatter()
+            formatted_text = formatter.format_for_telegram(message_text)
+            
+            logger.debug(f"🔍 Original message: {message_text[:100]}...")
+            logger.debug(f"🔍 Formatted message: {formatted_text[:100]}...")
 
             # Check if we need to send contact sharing button
             if hasattr(response, "needs_contact_button") and response.needs_contact_button:
                 logger.info("📱 Sending message with contact sharing button")
-                await self.send_contact_share_button(update.effective_chat.id, message_text)
+                await self.send_contact_share_button(update.effective_chat.id, formatted_text)
             else:
                 # Send as plain text - no Markdown or HTML formatting
-                logger.debug("✅ Sending message as plain text")
-                await update.message.reply_text(message_text)
+                logger.debug("✅ Sending formatted message as plain text")
+                await update.message.reply_text(formatted_text)
 
             logger.info("✅ Agentic response sent successfully")
 

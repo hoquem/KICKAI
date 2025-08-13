@@ -16,6 +16,9 @@ from .update_team_member_tools import (
     validate_team_member_update_request,
 )
 
+# Import player management tools
+from .player_management_tools import add_player
+
 __all__ = [
     # Simplified team member tools
     "add_team_member_simplified",
@@ -24,4 +27,6 @@ __all__ = [
     "get_team_member_updatable_fields",
     "validate_team_member_update_request",
     "get_pending_team_member_approval_requests",
+    # Player management tools
+    "add_player",
 ]

@@ -22,28 +22,32 @@ from kickai.utils.tool_helpers import (
 )
 
 
-@tool("team_member_registration")
+@tool("team_member_registration", result_as_answer=True)
 def team_member_registration(
+    telegram_id: int,
+    team_id: str,
+    username: str,
+    chat_type: str,
     name: str,
-    telegram_id: str,
     phone_number: str,
     role: str,
-    team_id: str,
     is_admin: bool = False
 ) -> str:
     """
-    Register a new team member. Requires: name, telegram_id, phone_number, role, team_id
+    Register a new team member.
 
     Args:
-        name: Name of the team member
         telegram_id: Telegram ID of the team member
+        team_id: Team ID (required)
+        username: Username of the team member
+        chat_type: Chat type context
+        name: Name of the team member
         phone_number: Phone number of the team member
         role: Role of the team member (e.g., Coach, Manager, Assistant)
-        team_id: Team ID (required)
         is_admin: Whether the member is an admin (default: False)
 
     Returns:
-        JSON string with success or error message
+        Success or error message
     """
     try:
         # Handle JSON string input using utility functions
@@ -128,20 +132,21 @@ def team_member_registration(
         logger.error(f"Failed to register team member: {e}", exc_info=True)
         return create_json_response("error", message=f"Failed to register team member: {e}")
 
-
 @tool("get_my_team_member_status")
-def get_my_team_member_status(team_id: str, telegram_id: str) -> str:
+def get_my_team_member_status(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get current user's team member status and information.
     This tool is for team members in the leadership chat.
     For players in main chat, use get_my_status.
 
     Args:
-        team_id: The team ID
         telegram_id: The user's Telegram ID
+        team_id: The team ID
+        username: Username of the requesting user
+        chat_type: Chat type context
 
     Returns:
-        JSON string with team member status information or error message
+        Team member status information or error message
     """
     try:
         # Lazy-load services only when needed
@@ -165,18 +170,20 @@ def get_my_team_member_status(team_id: str, telegram_id: str) -> str:
         logger.error(f"Failed to get team member status: {e}")
         return create_json_response("error", message=f"Failed to get team member status: {e!s}")
 
-
 @tool("get_team_members")
-def get_team_members(team_id: str, role: Optional[str] = None) -> str:
+def get_team_members(telegram_id: int, team_id: str, username: str, chat_type: str, role: Optional[str] = None) -> str:
     """
     Get team members for a team, optionally filtered by role.
 
     Args:
+        telegram_id: Telegram ID of the requesting user
         team_id: The team ID
+        username: Username of the requesting user
+        chat_type: Chat type context
         role: Optional role to filter by
 
     Returns:
-        JSON string with team member information
+        Formatted string with team member information
     """
     try:
         # Lazy-load services only when needed
@@ -215,7 +222,7 @@ def get_team_members(team_id: str, role: Optional[str] = None) -> str:
 
 
 @tool("add_team_member_role")
-def add_team_member_role(telegram_id: str, team_id: str, role: str) -> str:
+def add_team_member_role(telegram_id: int, team_id: str, role: str) -> str:
     """
     Add a role to a team member.
 
@@ -225,7 +232,7 @@ def add_team_member_role(telegram_id: str, team_id: str, role: str) -> str:
         role: The role to add
 
     Returns:
-        JSON string with confirmation message
+        Confirmation message
     """
     try:
         container = get_container()
@@ -242,9 +249,8 @@ def add_team_member_role(telegram_id: str, team_id: str, role: str) -> str:
         logger.error(f"❌ Failed to add role {role} to member {telegram_id}: {e}")
         return create_json_response("error", message=f"Error adding role: {e!s}")
 
-
 @tool("remove_team_member_role")
-def remove_team_member_role(telegram_id: str, team_id: str, role: str) -> str:
+def remove_team_member_role(telegram_id: int, team_id: str, role: str) -> str:
     """
     Remove a role from a team member.
 
@@ -254,7 +260,7 @@ def remove_team_member_role(telegram_id: str, team_id: str, role: str) -> str:
         role: The role to remove
 
     Returns:
-        JSON string with confirmation message
+        Confirmation message
     """
     try:
         container = get_container()
@@ -273,7 +279,7 @@ def remove_team_member_role(telegram_id: str, team_id: str, role: str) -> str:
 
 
 @tool("promote_team_member_to_admin")
-def promote_team_member_to_admin(telegram_id: str, team_id: str, promoted_by: str) -> str:
+def promote_team_member_to_admin(telegram_id: int, team_id: str, promoted_by: str) -> str:
     """
     Promote a team member to admin role.
 
@@ -283,7 +289,7 @@ def promote_team_member_to_admin(telegram_id: str, team_id: str, promoted_by: st
         promoted_by: The user ID of who is doing the promotion
 
     Returns:
-        JSON string with confirmation message
+        Confirmation message
     """
     try:
         container = get_container()

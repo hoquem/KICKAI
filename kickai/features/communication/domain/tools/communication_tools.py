@@ -11,6 +11,7 @@ from loguru import logger
 
 from kickai.core.dependency_container import get_container
 from kickai.core.exceptions import ServiceNotAvailableError
+from kickai.core.enums import ChatType
 from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
     extract_single_value,
@@ -31,19 +32,22 @@ from kickai.utils.tool_validation import (
 )
 
 
-@tool("send_message")
+@tool("send_message", result_as_answer=True)
 @tool_error_handler
-def send_message(message: str, chat_type: str, team_id: str) -> str:
+def send_message(telegram_id: int, team_id: str, username: str, chat_type: str, message: str) -> str:
     """
     Send a message to a specific chat using CrewAI native parameter passing.
-
+    
     Args:
-        message: The message to send
-        chat_type: The chat type (main or leadership)
+        telegram_id: Telegram ID of the user sending the message
         team_id: The team ID
+        username: Username of the user sending the message
+        chat_type: The chat type (main or leadership)
+        message: The message to send
 
     Returns:
-        Success or error message
+        JSON response with success or error message
+
     """
     # Validate inputs
     message = extract_single_value(message, "message")
@@ -51,9 +55,14 @@ def send_message(message: str, chat_type: str, team_id: str) -> str:
     chat_type = validate_chat_type(chat_type)
     team_id = validate_team_id(team_id)
     
-    # Log tool execution start
-    inputs = {'message': message, 'chat_type': chat_type, 'team_id': team_id}
-    log_tool_execution("send_message", inputs, True)
+    # Convert validated string to ChatType enum
+    try:
+        chat_type_enum = ChatType(chat_type)
+    except ValueError:
+        raise ToolValidationError(f"Invalid chat type: {chat_type}")
+    
+    # Prepare inputs for logging
+    inputs = {'message': message, 'chat_type': chat_type, 'chat_type_enum': chat_type_enum.value, 'team_id': team_id}
     
     # Get services from container
     container = get_container()
@@ -70,30 +79,44 @@ def send_message(message: str, chat_type: str, team_id: str) -> str:
             # We're in an event loop, create a task
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, communication_service.send_message(message, chat_type, team_id))
+                future = executor.submit(asyncio.run, communication_service.send_message(message, chat_type_enum, team_id))
                 success = future.result()
         except RuntimeError:
             # No event loop running, we can use asyncio.run
-            success = asyncio.run(communication_service.send_message(message, chat_type, team_id))
+            success = asyncio.run(communication_service.send_message(message, chat_type_enum, team_id))
     except Exception as e:
         logger.error(f"❌ Error sending message: {e}")
         raise ToolExecutionError(f"Failed to send message: {e}")
 
     if success:
-        return create_json_response("success", data="Message sent successfully")
+        log_tool_execution("send_message", inputs, True)
+        return create_tool_response(
+            success=True, 
+            message="Message sent successfully", 
+            data={
+                "chat_type": chat_type,
+                "chat_type_enum": chat_type_enum.value,
+                "team_id": team_id,
+                "message_length": len(message)
+            }
+        )
     else:
+        log_tool_execution("send_message", inputs, False, "Failed to send message")
         raise ToolExecutionError("Failed to send message")
 
 
-@tool("send_announcement")
+@tool("send_announcement", result_as_answer=True)
 @tool_error_handler
-def send_announcement(announcement: str, team_id: str) -> str:
+def send_announcement(telegram_id: int, team_id: str, username: str, chat_type: str, announcement: str) -> str:
     """
-    Send an announcement to all team members. Requires: announcement, team_id
+    Send an announcement to all team members.
 
     Args:
-        announcement: The announcement message
+        telegram_id: Telegram ID of the user sending the announcement
         team_id: Team ID (required)
+        username: Username of the user sending the announcement
+        chat_type: Chat type context
+        announcement: The announcement message
 
     Returns:
         Success or error message
@@ -106,9 +129,8 @@ def send_announcement(announcement: str, team_id: str) -> str:
     announcement = validate_message_content(announcement, max_length=4096)
     team_id = validate_team_id(team_id)
     
-    # Log tool execution start
+    # Prepare inputs for logging
     inputs = {'announcement': announcement, 'team_id': team_id}
-    log_tool_execution("send_announcement", inputs, True)
     
     # Get services from container
     container = get_container()
@@ -135,21 +157,26 @@ def send_announcement(announcement: str, team_id: str) -> str:
         raise ToolExecutionError(f"Failed to send announcement: {e}")
 
     if success:
-        return create_json_response("success", data="Announcement sent successfully")
+        log_tool_execution("send_announcement", inputs, True)
+        return create_tool_response(True, "Announcement sent successfully")
     else:
+        log_tool_execution("send_announcement", inputs, False, "Failed to send announcement")
         raise ToolExecutionError("Failed to send announcement")
 
 
-@tool("send_poll")
+@tool("send_poll", result_as_answer=True)
 @tool_error_handler
-def send_poll(question: str, options: str, team_id: str) -> str:
+def send_poll(telegram_id: int, team_id: str, username: str, chat_type: str, question: str, options: str) -> str:
     """
-    Send a poll to team members. Requires: question, options, team_id
+    Send a poll to team members.
 
     Args:
+        telegram_id: Telegram ID of the user sending the poll
+        team_id: Team ID (required)
+        username: Username of the user sending the poll
+        chat_type: Chat type context
         question: The poll question
         options: Comma-separated poll options
-        team_id: Team ID (required)
 
     Returns:
         Success or error message
@@ -167,9 +194,8 @@ def send_poll(question: str, options: str, team_id: str) -> str:
     from kickai.utils.tool_validation import validate_list
     option_list = validate_list(options, "Options", min_items=2, max_items=10)
     
-    # Log tool execution start
+    # Prepare inputs for logging
     inputs = {'question': question, 'options': option_list, 'team_id': team_id}
-    log_tool_execution("send_poll", inputs, True)
     
     # Get services from container
     container = get_container()
@@ -196,6 +222,8 @@ def send_poll(question: str, options: str, team_id: str) -> str:
         raise ToolExecutionError(f"Failed to send poll: {e}")
 
     if success:
-        return create_json_response("success", data="Poll sent successfully")
+        log_tool_execution("send_poll", inputs, True)
+        return create_tool_response(True, "Poll sent successfully")
     else:
+        log_tool_execution("send_poll", inputs, False, "Failed to send poll")
         raise ToolExecutionError("Failed to send poll")

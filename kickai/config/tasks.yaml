@@ -9,11 +9,11 @@ task_templates:
   shared_instructions: |
     CRITICAL: Use CrewAI native parameter passing - pass context parameters directly to tools.
     
-    Context parameters available:
-    - team_id: Team identifier
-    - telegram_id: User's Telegram ID  
-    - username: User's username
-    - chat_type: Chat context (main/leadership/private)
+    Context parameters available (STANDARDIZED ORDER):
+    - telegram_id: User's Telegram ID (int)
+    - team_id: Team identifier (str)
+    - username: User's username (str)
+    - chat_type: Chat context (str: main/leadership/private)
     
     WORKFLOW:
     1. Analyze user request and extract intent
@@ -39,7 +39,7 @@ tasks:
       
       Use structured description with embedded context for CrewAI native approach:
       - Extract user intent from message
-      - Pass team_id, telegram_id, username, chat_type to tools
+      - Pass telegram_id, team_id, username, chat_type to tools (STANDARDIZED ORDER)
       - Select appropriate tools: get_user_status, get_available_commands, 
         send_message, send_announcement, send_poll
       - Use get_active_players (MAIN chat) or get_all_players (LEADERSHIP chat) for lists
@@ -54,7 +54,7 @@ tasks:
       
       Use structured description with embedded context:
       - Validate user permissions for communication type
-      - Pass team_id, telegram_id, username, chat_type to communication tools
+      - Pass telegram_id, team_id, username, chat_type to communication tools (STANDARDIZED ORDER)
       - Select appropriate tools: send_message, send_announcement, send_poll
       - Provide delivery confirmation and status
     expected_output: >
@@ -69,7 +69,7 @@ tasks:
       
       Use structured description with embedded context:
       - For /help requests, ALWAYS use FINAL_HELP_RESPONSE tool first
-      - Pass chat_type, telegram_id, team_id, username directly to tools
+      - Pass telegram_id, team_id, username, chat_type directly to tools (STANDARDIZED ORDER)
       - Use get_available_commands for context-specific command lists
       - Use get_command_help for detailed command explanations
       - Use get_welcome_message ONLY for new user onboarding (not help requests)
@@ -83,7 +83,7 @@ tasks:
       Provide specific command help and system guidance.
       
       Use structured description with embedded context:
-      - Pass chat_type parameter to get_available_commands and get_command_help
+      - Pass telegram_id, team_id, username, chat_type parameters to tools (STANDARDIZED ORDER)
       - Provide context-appropriate command information
       - Include usage examples and next steps
     expected_output: >
@@ -96,10 +96,10 @@ tasks:
       Handle complete player lifecycle from registration through active participation.
       
       Use structured description with embedded context:
-      - Pass team_id, telegram_id parameters directly to player tools
+      - Pass telegram_id, team_id, username, chat_type parameters directly to player tools (STANDARDIZED ORDER)
       - Use get_my_status for current user, get_player_status for specific players
       - Use get_all_players (all) or get_active_players (active only) for lists
-      - Use register_player for new registrations, approve_player for approvals
+      - Use approve_player for player approvals (registration via /addplayer command)
       - Use list_team_members_and_players for combined views
     expected_output: >
       Accurate player information and successful registration/approval processes,
@@ -111,7 +111,7 @@ tasks:
       Guide new players through registration and onboarding process.
       
       Use structured description with embedded context:
-      - Use register_player tool with full player information
+      - Player registration is now handled via /addplayer command by leadership
       - Provide clear guidance on registration requirements
       - Handle validation and error cases gracefully
     expected_output: >
@@ -124,7 +124,7 @@ tasks:
       Handle team member management, roles, permissions, and governance.
       
       Use structured description with embedded context:
-      - Pass team_id, telegram_id parameters to team administration tools
+      - Pass telegram_id, team_id, username, chat_type parameters to team administration tools (STANDARDIZED ORDER)
       - Use team_member_registration for new team members
       - Use get_team_members for member information
       - Use get_my_team_member_status for current user team member info
@@ -154,7 +154,7 @@ tasks:
       Handle complete match lifecycle, availability tracking, and squad selection.
       
       Use structured description with embedded context:
-      - Pass team_id, match_id, player_id parameters to match/squad tools
+      - Pass telegram_id, team_id, username, chat_type parameters plus match_id, player_id as needed (STANDARDIZED ORDER)
       - Use list_matches, create_match, get_match_details for match operations
       - Use mark_availability, get_availability for availability management
       - Use select_squad, get_available_players_for_match for squad building
@@ -197,21 +197,21 @@ execution_guidelines:
     User Request: {task_description}
     
     Context Information:
-    - Team ID: {team_id}
     - User Telegram ID: {telegram_id} 
+    - Team ID: {team_id}
     - Username: {username}
     - Chat Type: {chat_type}
     
     Instructions: Use the provided context information to call tools with the appropriate parameters.
-    Pass team_id, telegram_id, username, and chat_type as direct parameters to tools that require them.
+    Pass telegram_id, team_id, username, and chat_type as direct parameters to tools (STANDARDIZED ORDER).
     ```
   
   parameter_passing: |
-    CRITICAL: Always pass context parameters directly to tools:
-    - team_id: Required by most tools
-    - telegram_id: User identification
-    - username: Display name
-    - chat_type: Permission context (main/leadership/private)
+    CRITICAL: Always pass context parameters directly to tools in STANDARDIZED ORDER:
+    - telegram_id: User identification (int)
+    - team_id: Required by most tools (str)
+    - username: Display name (str)
+    - chat_type: Permission context (str: main/leadership/private)
   
   response_handling: |
     - Use complete tool outputs without modification
