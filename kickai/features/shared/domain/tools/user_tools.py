@@ -21,7 +21,7 @@ from kickai.utils.tool_helpers import (
 )
 
 
-@tool("get_user_status")
+@tool("get_user_status", result_as_answer=True)
 def get_user_status(telegram_id: int, team_id: str, username: str, chat_type: str, target_name: str) -> str:
     """
     Get user status and information by name lookup.

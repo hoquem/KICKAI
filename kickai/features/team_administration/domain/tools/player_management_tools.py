@@ -19,7 +19,7 @@ from kickai.utils.validation_utils import normalize_phone, sanitize_input, is_va
 from kickai.utils.id_generator import generate_member_id
 
 
-@tool("add_player")
+@tool("add_player", result_as_answer=True)
 def add_player(
     telegram_id: int,
     team_id: str,

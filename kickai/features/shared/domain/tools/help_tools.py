@@ -173,7 +173,7 @@ def _group_commands_by_category(commands: list) -> Dict[str, list]:
     # Remove empty categories
     return {k: v for k, v in categories.items() if v}
 
-@tool("get_available_commands")
+@tool("get_available_commands", result_as_answer=True)
 def get_available_commands(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get all available commands for the current chat type.
@@ -245,7 +245,7 @@ def get_available_commands(telegram_id: int, team_id: str, username: str, chat_t
         )
 
 
-@tool("get_command_help")
+@tool("get_command_help", result_as_answer=True)
 def get_command_help(telegram_id: int, team_id: str, username: str, chat_type: str, command_name: str) -> str:
     """
     Get detailed help for a specific command.
@@ -307,7 +307,7 @@ def get_command_help(telegram_id: int, team_id: str, username: str, chat_type: s
         return create_json_response("error", message=f"Failed to get command help: {e}")
 
 
-@tool("get_welcome_message")
+@tool("get_welcome_message", result_as_answer=True)
 def get_welcome_message(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Generate a welcome message for users.
