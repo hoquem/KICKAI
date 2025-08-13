@@ -62,7 +62,7 @@ def list_matches(team_id: str, status: str = "all", limit: int = 10) -> str:
         match_service = container.get_service(MatchService)
 
         if not match_service:
-            raise ServiceNotAvailableError("MatchService")
+            return create_json_response("error", message="MatchService not available")
 
         # Get matches based on status (sync calls via asyncio.run)
         if status == "upcoming":

@@ -56,10 +56,10 @@ def get_user_status(telegram_id: int, team_id: str, username: str, chat_type: st
         team_service = container.get_service("TeamService")
 
         if not player_service:
-            raise ServiceNotAvailableError("PlayerService")
+            return create_json_response("error", message="PlayerService is not available")
 
         if not team_service:
-            raise ServiceNotAvailableError("TeamService")
+            return create_json_response("error", message="TeamService is not available")
 
         # Convert telegram_id to integer
         try:
@@ -116,9 +116,6 @@ def get_user_status(telegram_id: int, team_id: str, username: str, chat_type: st
             }
             return create_json_response("success", data=user_status_data)
 
-    except ServiceNotAvailableError as e:
-        logger.error(f"Service not available in get_user_status: {e}")
-        return create_json_response("error", message=f"Service temporarily unavailable: {e.message}")
     except Exception as e:
-        logger.error(f"Failed to get user status: {e}", exc_info=True)
-        return create_json_response("error", message=f"Failed to get user status: {e}")
+        logger.error(f"❌ Error in get_user_status tool: {e}")
+        return create_json_response("error", message="Failed to get user status")

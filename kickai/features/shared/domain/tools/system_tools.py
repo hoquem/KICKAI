@@ -9,7 +9,7 @@ from datetime import datetime
 from loguru import logger
 
 from kickai.utils.crewai_tool_decorator import tool
-from kickai.utils.tool_helpers import format_tool_success
+from kickai.utils.tool_helpers import create_json_response
 from kickai.core.constants import BOT_VERSION
 
 

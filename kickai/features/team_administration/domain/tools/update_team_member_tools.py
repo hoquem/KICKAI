@@ -207,8 +207,7 @@ def update_team_member_information(
 
         if not members:
             logger.warning(f"❌ Team member not found: user_id={user_id}")
-            # TODO - need to return error as JSON
-            return "❌ Update Failed: You are not registered as a team member. Ask leadership to add you."
+            return create_json_response("error", message="Update Failed: You are not registered as a team member. Ask leadership to add you.")
 
         member = members[0]
         member_id = member.get("id", "unknown")

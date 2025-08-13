@@ -84,7 +84,7 @@ def team_member_registration(
         team_member_service = container.get_service("TeamMemberService")
 
         if not team_member_service:
-            raise ServiceNotAvailableError("TeamMemberService")
+            return create_json_response("error", message="TeamMemberService is not available")
 
         # Build TeamMember entity
         try:
@@ -125,12 +125,9 @@ def team_member_registration(
         else:
             return create_json_response("error", message="Failed to register team member")
 
-    except ServiceNotAvailableError as e:
-        logger.error(f"Service not available in team_member_registration: {e}")
-        return create_json_response("error", message=f"Service temporarily unavailable: {e.message}")
     except Exception as e:
-        logger.error(f"Failed to register team member: {e}", exc_info=True)
-        return create_json_response("error", message=f"Failed to register team member: {e}")
+        logger.error(f"❌ Error in team_member_registration tool: {e}")
+        return create_json_response("error", message="Failed to register team member")
 
 @tool("get_my_team_member_status")
 def get_my_team_member_status(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
