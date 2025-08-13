@@ -273,16 +273,8 @@ class CommandProcessingService:
         )
 
     async def _process_help_command(self, user_context: UserContext, **kwargs) -> CommandResponse:
-        """Process the help command using the new HelpAssistantAgent."""
+        """Process the help command using the unified crew system."""
         try:
-            from kickai.features.shared.domain.agents.help_assistant_agent import (
-                get_help_assistant_agent,
-            )
-
-            # Get help assistant agent instance
-            help_assistant = get_help_assistant_agent()
-
-            # Use the normalized chat type from constants
             from kickai.core.constants import normalize_chat_type
 
             # Handle chat type conversion properly
@@ -300,10 +292,29 @@ class CommandProcessingService:
             # DEBUG: Log the final context being sent
             logger.info(f"🔧 [HELP COMMAND] Final context being sent: {context}")
 
-            # Process help request using HelpAssistantAgent
-            help_message = help_assistant.process_help_request(context)
+            # Use the crew system for help command processing
+            # The crew system will automatically route to the help_assistant agent
+            task_description = "/help"
+            
+            execution_context = {
+                "user_id": user_context.user_id,
+                "team_id": user_context.team_id,
+                "telegram_id": user_context.user_id,
+                "username": user_context.telegram_username or user_context.telegram_name or "Unknown User",
+                "chat_type": chat_type,
+                "message_text": task_description,
+            }
 
-            return CommandResponse(message=help_message, success=True)
+            # Get the crew system from kwargs or use a default approach
+            crewai_system = kwargs.get('crewai_system')
+            if crewai_system:
+                result = await crewai_system.execute_task(task_description, execution_context)
+                return CommandResponse(message=result, success=True)
+            else:
+                # Fallback response if no crew system available
+                return CommandResponse(
+                    message="❌ Crew system not available for help processing.", success=False
+                )
 
         except Exception as e:
             logger.error(f"❌ Error processing help command: {e}")
@@ -396,7 +407,7 @@ class CommandProcessingService:
                 "features": {},
             }
 
-    # Note: Old help formatting methods removed - now using HelpAssistantAgent
+    # Note: Old help formatting methods removed - now using ConfigurableAgent system
 
     async def _process_myinfo_command(self, user_context: UserContext, **kwargs) -> CommandResponse:
         """Process the myinfo command."""

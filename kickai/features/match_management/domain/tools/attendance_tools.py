@@ -5,12 +5,13 @@ from typing import List, Optional
 from crewai.tools import tool
 
 from kickai.features.match_management.domain.entities.attendance import AttendanceStatus
+from kickai.utils.tool_helpers import create_json_response
 from kickai.features.match_management.domain.services.attendance_service import AttendanceService
 
 logger = logging.getLogger(__name__)
 
 
-@tool("record_attendance")
+@tool("record_attendance", result_as_answer=True)
 def record_attendance(
     match_id: str,
     player_id: str,
@@ -19,18 +20,22 @@ def record_attendance(
     recorded_by: str = "",
     arrival_time: Optional[str] = None,  # HH:MM format
 ) -> str:
-    """Record actual attendance for a player at a match."""
+    """Record actual attendance for a player at a match.
+    
+    Returns:
+        JSON string with attendance record result
+    """
     try:
         from kickai.core.dependency_container import get_container
         container = get_container()
         attendance_service = container.get_service(AttendanceService)
         if not attendance_service:
-            return "❌ Service unavailable: Attendance service not available."
+            return create_json_response("error", message="Service unavailable: Attendance service not available.")
         # Convert status string to enum
         try:
             attendance_status = AttendanceStatus(status.lower())
         except ValueError:
-            return f"❌ Invalid status: {status}. Valid options: attended, absent, late"
+            return create_json_response("error", message=f"Invalid status: {status}. Valid options: attended, absent, late")
 
         # Parse arrival time if provided
         arrival_time_obj = None
@@ -38,7 +43,7 @@ def record_attendance(
             try:
                 arrival_time_obj = time.fromisoformat(arrival_time)
             except ValueError:
-                return f"❌ Invalid arrival time format: {arrival_time}. Use HH:MM format"
+                return create_json_response("error", message=f"Invalid arrival time format: {arrival_time}. Use HH:MM format")
 
         # Record attendance
         attendance = attendance_service.record_attendance(
@@ -67,34 +72,44 @@ def record_attendance(
         if arrival_time_obj:
             result.append(f"Arrival Time: {attendance.formatted_arrival_time}")
 
-        result.extend([
-            f"Recorded by: {recorded_by or 'System'}",
-            f"Time: {attendance.recorded_at.strftime('%H:%M')}",
-            "",
-            "📊 Match Summary",
-            f"• Attended: {summary['attended']} players",
-            f"• Absent: {summary['absent']} players",
-            f"• Late: {summary['late']} players",
-            f"• Pending: {summary['not_recorded']} players",
-        ])
-
-        return "\n".join(result)
+        attendance_data = {
+            'message': 'Match Attendance Recorded',
+            'match_id': match_id,
+            'player_id': player_id,
+            'status': attendance_status.value.title(),
+            'status_emoji': attendance.status_emoji,
+            'reason': reason,
+            'arrival_time': attendance.formatted_arrival_time if arrival_time_obj else None,
+            'recorded_by': recorded_by or 'System',
+            'recorded_at': attendance.recorded_at.strftime('%H:%M'),
+            'match_summary': {
+                'attended': summary['attended'],
+                'absent': summary['absent'],
+                'late': summary['late'],
+                'pending': summary['not_recorded']
+            }
+        }
+        return create_json_response("success", data=attendance_data)
 
     except Exception as e:
         logger.error(f"Failed to record attendance: {e}")
-        return f"❌ Error recording attendance: {e!s}"
+        return create_json_response("error", message=f"Error recording attendance: {e!s}")
 
 
 
-@tool("get_match_attendance")
+@tool("get_match_attendance", result_as_answer=True)
 def get_match_attendance(match_id: str) -> str:
-    """Get attendance information for a match."""
+    """Get attendance information for a match.
+    
+    Returns:
+        JSON string with match attendance information
+    """
     try:
         from kickai.core.dependency_container import get_container
         container = get_container()
         attendance_service = container.get_service(AttendanceService)
         if not attendance_service:
-            return "❌ Service unavailable: Attendance service not available."
+            return create_json_response("error", message="Service unavailable: Attendance service not available.")
         # Get attendance summary
         summary = attendance_service.get_attendance_summary(match_id)
 
@@ -139,18 +154,27 @@ def get_match_attendance(match_id: str) -> str:
                     result.append(f"  - Reason: {attendance.reason}")
             result.append("")
 
-        result.append("📋 Actions")
-        result.append("• /markmatchattendance [match_id] [player_id] [status] - Record attendance")
-
-        return "\n".join(result)
+        attendance_info = {
+            'match_id': match_id,
+            'total_players': summary['total_players'],
+            'attended_players': [{'player_id': a.player_id, 'arrival_time': a.formatted_arrival_time} for a in attended_players],
+            'absent_players': [{'player_id': a.player_id, 'reason': a.reason} for a in absent_players],
+            'late_players': [{'player_id': a.player_id, 'arrival_time': a.formatted_arrival_time, 'reason': a.reason} for a in late_players],
+            'summary': {
+                'attended': len(attended_players),
+                'absent': len(absent_players),
+                'late': len(late_players)
+            }
+        }
+        return create_json_response("success", data=attendance_info)
 
     except Exception as e:
         logger.error(f"Failed to get match attendance: {e}")
-        return f"❌ Error getting match attendance: {e!s}"
+        return create_json_response("error", message=f"Error getting match attendance: {e!s}")
 
 
 
-@tool("get_player_attendance_history")
+@tool("get_player_attendance_history", result_as_answer=True)
 def get_player_attendance_history(
     player_id: str,
     limit: int = 10,
@@ -203,7 +227,7 @@ def get_player_attendance_history(
         return f"❌ Error getting attendance history: {e!s}"
 
 
-@tool("bulk_record_attendance")
+@tool("bulk_record_attendance", result_as_answer=True)
 def bulk_record_attendance(
     match_id: str,
     attendance_records: List[dict],

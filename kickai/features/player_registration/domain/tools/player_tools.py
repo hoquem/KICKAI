@@ -25,6 +25,7 @@ from kickai.utils.constants import (
 )
 from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
+    create_json_response,
     extract_single_value,
     format_tool_error,
     sanitize_input,
@@ -116,7 +117,7 @@ class GetMatchInput(BaseModel):
     team_id: str
 
 
-@tool("approve_player")
+@tool("approve_player", result_as_answer=True)
 @tool_error_handler
 def approve_player(telegram_id: int, team_id: str, username: str, chat_type: str, player_id: str) -> str:
     """
@@ -159,17 +160,19 @@ def approve_player(telegram_id: int, team_id: str, username: str, chat_type: str
         except (IndexError, AttributeError):
             player_name = "Unknown"
 
-        return create_tool_response(True, "Player Approved and Activated Successfully", {
+        return create_json_response("success", data={
+            'message': 'Player Approved and Activated Successfully',
             'player_name': player_name,
             'player_id': player_id,
             'status': 'Active'
         })
     else:
-        # Result contains error message
-        raise ToolExecutionError(f"Failed to approve player: {result}")
+        # Result contains error message - remove ❌ prefix if present
+        error_message = result.replace("❌ ", "")
+        raise ToolExecutionError(f"Failed to approve player: {error_message}")
 
 
-@tool("get_my_status")
+@tool("get_my_status", result_as_answer=True)
 @tool_error_handler
 def get_my_status(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
@@ -220,6 +223,7 @@ def get_my_status(telegram_id: int, team_id: str, username: str, chat_type: str)
                 message="Team member status retrieved successfully",
                 data=team_member_data
             )
+
             
         except Exception as e:
             logger.error(f"Failed to get team member status: {e}")
@@ -338,16 +342,17 @@ def get_all_players(telegram_id: int, team_id: str, username: str, chat_type: st
         # Validate inputs using utility functions
         validation_error = validate_required_input(team_id, "Team ID")
         if validation_error:
-            return validation_error
+            return create_json_response("error", message=validation_error.replace("❌ ", ""))
 
         validation_error = validate_required_input(telegram_id, "Telegram ID")
         if validation_error:
-            return validation_error
+            return create_json_response("error", message=validation_error.replace("❌ ", ""))
 
         # Sanitize inputs
         team_id = sanitize_input(team_id, max_length=20)
         # Validate telegram_id
         telegram_id_int = validate_telegram_id(telegram_id)  # This validates and returns int
+
 
         container = get_container()
         player_service = container.get_service(PlayerService)
@@ -392,11 +397,10 @@ def get_all_players(telegram_id: int, team_id: str, username: str, chat_type: st
 
     except ServiceNotAvailableError as e:
         logger.error(f"Service not available in get_all_players: {e}")
-        return format_tool_error(f"Service temporarily unavailable: {e.message}")
+        return create_json_response("error", message=f"Service temporarily unavailable: {e.message}")
     except Exception as e:
         logger.error(f"Failed to get all players: {e}", exc_info=True)
-        return format_tool_error(f"Failed to get all players: {e}")
-
+        return create_json_response("error", message=f"Failed to get all players: {e}")
 
 @tool("get_active_players")
 @tool_error_handler
@@ -479,28 +483,11 @@ def get_active_players(telegram_id: int, team_id: str, username: str, chat_type:
             "status_emoji": "✅"
         }
         
-        # Additional validation: Check for specific fake players
-        fake_player_indicators = [
-            "Farhan Fuad",
-            "03FF", 
-            "+447479958935",
-            "Saim",
-            "John Smith",
-            "Jane Doe",
-        ]
-        for fake_indicator in fake_player_indicators:
-            if fake_indicator in str(player_info.values()):
-                logger.error(
-                    f"🚨 CRITICAL ERROR: Player data contains fake player indicator: {fake_indicator}"
-                )
-                logger.error("🚨 THIS SHOULD NEVER HAPPEN - TOOL IS ONLY RETURNING DATABASE DATA")
-                logger.error(f"🚨 Player info: {player_info!r}")
         
         players_data.append(player_info)
 
     # 🚨 CRITICAL: This exact output must be returned by the agent without any modifications
     logger.info(f"🚨 FINAL TOOL OUTPUT: {len(players_data)} real players from database")
-    logger.info("🚨 AGENT MUST RETURN THIS EXACTLY - NO FAKE PLAYERS ALLOWED")
 
     return create_tool_response(
         success=True,
@@ -540,7 +527,6 @@ def validate_tool_output_integrity(original_output: str, agent_response: str) ->
 
     return False
 
-
 @tool("get_player_match")
 @tool_error_handler
 def get_player_match(telegram_id: int, team_id: str, username: str, chat_type: str, match_id: str) -> str:
@@ -560,6 +546,7 @@ def get_player_match(telegram_id: int, team_id: str, username: str, chat_type: s
     # Validate inputs
     match_id = validate_string_input(match_id, "Match ID", max_length=50)
     team_id = validate_team_id(team_id)
+
 
     # Log tool execution start
     inputs = {'match_id': match_id, 'team_id': team_id}
@@ -674,3 +661,4 @@ def list_team_members_and_players(telegram_id: int, team_id: str, username: str,
         message=f"Retrieved team overview for {team_id}: {len(team_members_data)} team members, {len(players_data)} players",
         data=summary_data
     )
+

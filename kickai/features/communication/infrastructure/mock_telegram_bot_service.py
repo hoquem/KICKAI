@@ -363,12 +363,19 @@ class MockTelegramBotService(TelegramBotServiceInterface):
     async def _send_response(self, update: MockUpdate, response: AgentResponse):
         """Mock response sending."""
         try:
+            message_text = response.message
+            
             if response.success:
-                await update.message.reply_text(response.message)
-                logger.info(f"✅ Mock response sent: {response.message}")
+                # Format JSON responses for human readability (same as real telegram service)
+                from kickai.features.communication.domain.services.response_formatter import ResponseFormatter
+                formatter = ResponseFormatter()
+                formatted_text = formatter.format_for_telegram(message_text)
+                
+                await update.message.reply_text(formatted_text)
+                logger.info(f"✅ Mock response sent (formatted): {formatted_text[:100]}...")
             else:
-                await update.message.reply_text(f"❌ {response.message}")
-                logger.warning(f"⚠️ Mock error response sent: {response.message}")
+                await update.message.reply_text(f"❌ {message_text}")
+                logger.warning(f"⚠️ Mock error response sent: {message_text}")
 
         except Exception as e:
             logger.error(f"❌ Error sending mock response: {e}")

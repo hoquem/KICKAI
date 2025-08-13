@@ -96,9 +96,7 @@ class Player:
         if not self.player_id and not self.telegram_id:
             raise ValueError("Either player_id or telegram_id must be provided")
 
-        # Validate player_id format if provided
-        if self.player_id and not self.player_id.startswith("M"):
-            raise ValueError(f"Invalid player_id format: {self.player_id}. Must start with 'M'")
+        # Note: player_id format validation removed - 01JD format is valid
             
         # Validate telegram_id type if provided
         if self.telegram_id is not None and not isinstance(self.telegram_id, int):

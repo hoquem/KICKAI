@@ -61,15 +61,28 @@ class AgentToolsManager:
             # Get tools based on agent-specific configuration
             tools = []
             for tool_name in config.tools:
-                # Simplified tool loading without entity validation
+                # Try to get tool by name from registry
                 tool_func = self._tool_registry.get_tool_function(tool_name)
                 if tool_func:
                     tools.append(tool_func)
                     logger.info(f"[AGENT TOOLS] ✅ Found tool '{tool_name}' for {role.value}")
                 else:
-                    logger.warning(
-                        f"[AGENT TOOLS] ❌ Tool '{tool_name}' not found for {role.value}"
-                    )
+                    # Try alternative approaches if direct lookup fails
+                    logger.warning(f"[AGENT TOOLS] ❌ Tool '{tool_name}' not found directly, trying alternatives...")
+                    
+                    # Try getting all tools and finding by name
+                    all_tools = self._tool_registry.list_all_tools()
+                    found_tool = None
+                    for tool in all_tools:
+                        if tool.name == tool_name:
+                            found_tool = tool
+                            break
+                    
+                    if found_tool:
+                        tools.append(found_tool)
+                        logger.info(f"[AGENT TOOLS] ✅ Found tool '{tool_name}' via search for {role.value}")
+                    else:
+                        logger.error(f"[AGENT TOOLS] ❌ Tool '{tool_name}' not found for {role.value}")
 
             logger.info(f"🔧 Loading {len(tools)} tools for {role.value}")
             return tools

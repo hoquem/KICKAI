@@ -15,6 +15,7 @@ from kickai.core.constants import get_team_members_collection
 from kickai.core.dependency_container import get_container
 from kickai.database.firebase_client import FirebaseClient
 from kickai.utils.crewai_tool_decorator import tool
+from kickai.utils.tool_helpers import create_json_response
 from typing import List, Optional
 
 
@@ -169,7 +170,7 @@ class TeamMemberUpdateValidator:
             raise TeamMemberUpdateValidationError(f"Unknown field type: {field}")
 
 
-@tool("update_team_member_information")
+@tool("update_team_member_information", result_as_answer=True)
 def update_team_member_information(
     user_id: str, team_id: str, field: str, value: str, username: str = "Unknown"
 ) -> str:
@@ -184,7 +185,7 @@ def update_team_member_information(
         username: Username of the person making the update
 
     Returns:
-        Success or error message
+        JSON string with success or error message
     """
     try:
         logger.info(
@@ -193,7 +194,7 @@ def update_team_member_information(
 
         # Validate inputs
         if not user_id or not team_id or not field or not value:
-            return "❌ Update Failed: Missing required parameters (user_id, team_id, field, value)"
+            return create_json_response("error", message="Update Failed: Missing required parameters (user_id, team_id, field, value)")
 
         # Initialize Firebase service
         container = get_container()
@@ -206,6 +207,7 @@ def update_team_member_information(
 
         if not members:
             logger.warning(f"❌ Team member not found: user_id={user_id}")
+            # TODO - need to return error as JSON
             return "❌ Update Failed: You are not registered as a team member. Ask leadership to add you."
 
         member = members[0]
@@ -237,9 +239,9 @@ def update_team_member_information(
             if duplicate_members:
                 duplicate_name = duplicate_members[0].get("name", "Unknown")
                 logger.warning(
-                    f"❌ Duplicate phone number: {validated_value} already used by {duplicate_name}"
+                    f"Duplicate phone number: {validated_value} already used by {duplicate_name}"
                 )
-                return f"❌ Update Failed: Phone number {validated_value} is already registered to another team member ({duplicate_name})"
+                return create_json_response("error", message=f"Update Failed: Phone number {validated_value} is already registered to another team member ({duplicate_name})")
 
         # Prepare update data
         current_time = datetime.now().isoformat()
@@ -266,18 +268,19 @@ def update_team_member_information(
             # Store approval request
             firebase_service.create_document(f"kickai_{team_id}_approval_requests", approval_data)
 
-            logger.info(f"✅ Approval request created for {field} update")
+            logger.info(f"Approval request created for {field} update")
 
-            return f"""⏳ Role Change Request Submitted
-
-📋 Requested Change: {field} → {validated_value}
-👤 Requested By: {username}
-📅 Requested: {datetime.fromisoformat(current_time).strftime("%d %b %Y at %H:%M")}
-
-🔒 This change requires admin approval.
-📧 You'll be notified when the request is processed.
-
-💡 Contact a team admin to expedite the approval."""
+            return create_json_response("success", data={
+                'message': 'Role Change Request Submitted',
+                'status': 'pending_approval',
+                'field': field,
+                'old_value': old_value,
+                'new_value': validated_value,
+                'requested_by': username,
+                'requested_at': datetime.fromisoformat(current_time).strftime("%d %b %Y at %H:%M"),
+                'requires_approval': True,
+                'note': 'This change requires admin approval. You\'ll be notified when the request is processed.'
+            })
 
         else:
             # Direct update for non-approval fields
@@ -324,28 +327,28 @@ def update_team_member_information(
         if not requires_approval:
             field_description = validator.UPDATABLE_FIELDS.get(field, field)
 
-            return f"""✅ Information Updated Successfully!
-
-📋 Team Member: {member_name}
-🔄 Updated Field: {field_description}
-🆕 New Value: {validated_value}
-🕐 Updated: {datetime.fromisoformat(current_time).strftime("%d %b %Y at %H:%M")}
-👤 Updated By: {username}
-
-💡 Use /myinfo to view your complete updated information."""
+            return create_json_response("success", data={
+                'message': 'Information Updated Successfully!',
+                'member_name': member_name,
+                'field': field,
+                'field_description': field_description,
+                'old_value': old_value,
+                'new_value': validated_value,
+                'updated_at': datetime.fromisoformat(current_time).strftime("%d %b %Y at %H:%M"),
+                'updated_by': username,
+                'status': 'updated'
+            })
 
     except TeamMemberUpdateValidationError as e:
-        logger.warning(f"❌ Validation error: {e}")
-        return f"❌ Update Failed: {e!s}"
+        logger.warning(f"Validation error: {e}")
+        return create_json_response("error", message=f"Update Failed: {e!s}")
 
     except Exception as e:
-        logger.error(f"❌ Error updating team member information: {e}", exc_info=True)
-        return (
-            "❌ Update Failed: An unexpected error occurred. Please try again or contact support."
-        )
+        logger.error(f"Error updating team member information: {e}", exc_info=True)
+        return create_json_response("error", message="Update Failed: An unexpected error occurred. Please try again or contact support.")
 
 
-@tool("get_team_member_updatable_fields")
+@tool("get_team_member_updatable_fields", result_as_answer=True)
 def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
     """
     Get list of fields that a team member can update with examples and validation rules.
@@ -355,7 +358,7 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
         team_id: Team ID
 
     Returns:
-        List of updatable fields with descriptions and examples
+        JSON string with list of updatable fields with descriptions and examples
     """
     try:
         logger.info(f"📋 Getting updatable fields for team member: user_id={user_id}")
@@ -423,7 +426,7 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
         return "❌ Error retrieving updatable fields. Please try again."
 
 
-@tool("validate_team_member_update_request")
+@tool("validate_team_member_update_request", result_as_answer=True)
 def validate_team_member_update_request(user_id: str, team_id: str, field: str, value: str) -> str:
     """
     Validate a team member update request without actually performing the update.
@@ -486,7 +489,7 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
         return "❌ Validation Error: Please check your input and try again"
 
 
-@tool("get_pending_team_member_approval_requests")
+@tool("get_pending_team_member_approval_requests", result_as_answer=True)
 def get_pending_team_member_approval_requests(team_id: str, user_id: str = None) -> str:
     """
     Get pending approval requests for team member updates.

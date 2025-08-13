@@ -8,16 +8,12 @@ decorator-based tools fail to load due to dependency issues.
 
 
 from kickai.utils.crewai_tool_decorator import tool
-
-
-# register_player function removed - /register command no longer supported
-
-
-# register_team_member function removed - registration functions no longer supported
+from kickai.utils.tool_helpers import create_json_response
 
 
 @tool("registration_guidance")
 def registration_guidance(telegram_id: int, team_id: str, username: str, chat_type: str, user_id: str) -> str:
+
     """
     Provide comprehensive registration guidance to a user.
 
@@ -78,10 +74,10 @@ Just tell me which type of registration you want:
 ℹ️ **Questions?** I'm here to help throughout the process!
         """
 
-        return guidance.strip()
+        return create_json_response("success", data=guidance.strip())
 
     except Exception as e:
-        return f"❌ Failed to provide registration guidance: {e!s}"
+        return create_json_response("error", message=f"Failed to provide registration guidance: {e!s}")
 
 
 # Tool metadata for manual registration

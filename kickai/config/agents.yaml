@@ -14,6 +14,7 @@ shared_templates:
     5.  **Clarity:** If a tool fails or returns no data, provide a clear, helpful message (e.g., "No players found," "Could not retrieve status").
     6.  **Efficiency:** Do not engage in conversational chit-chat. Be direct and to the point.
 
+
 agents:
 
   # 1. MESSAGE PROCESSOR - Primary Interface
@@ -47,6 +48,7 @@ agents:
       - **User Input**: `/list`
       - **Your Action**: Call `get_active_players()`
       - **Your Output**: (The exact output of the tool)
+
     tools:
       - send_message
       - get_user_status  
@@ -84,6 +86,7 @@ agents:
       2.  Select the most appropriate help tool from the `Tool Routing`.
       3.  Execute the tool.
       4.  Return the tool's output without any modification.
+
     tools:
       - FINAL_HELP_RESPONSE
       - get_available_commands  
@@ -117,6 +120,7 @@ agents:
       2.  Use the `Tool Routing` to select the precise tool.
       3.  Execute the tool with the correct player or team identifiers.
       4.  Return the exact, unmodified output.
+
     tools:
       - get_my_status
       - get_player_status
@@ -154,6 +158,7 @@ agents:
       2.  Select the appropriate tool from `Tool Routing`.
       3.  Execute with necessary parameters (e.g., member ID, role).
       4.  Return the direct output from the tool.
+
     tools:
       - team_member_registration
       - get_team_members

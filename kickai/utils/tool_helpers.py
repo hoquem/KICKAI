@@ -7,7 +7,45 @@ standardizing error messages across all tools.
 """
 
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Union
+
+
+def create_json_response(status: str, data: Any = None, message: str = None) -> str:
+    """
+    Create a standardized JSON response for tools.
+    
+    Args:
+        status: Either "success" or "error"
+        data: The data to include in the response (for success responses)
+        message: Error message (for error responses)
+        
+    Returns:
+        JSON string with standardized format
+    """
+    if status == "success":
+        response = {"status": "success", "data": data}
+    elif status == "error":
+        response = {"status": "error", "message": message}
+    else:
+        raise ValueError("Status must be either 'success' or 'error'")
+        
+    return json.dumps(response, ensure_ascii=False)
+
+
+def parse_json_response(json_string: str) -> Dict[str, Any]:
+    """
+    Parse a JSON response string and return the parsed dict.
+    
+    Args:
+        json_string: JSON string to parse
+        
+    Returns:
+        Parsed dictionary
+        
+    Raises:
+        json.JSONDecodeError: If the string is not valid JSON
+    """
+    return json.loads(json_string)
 
 
 def parse_crewai_json_input(input_value: str, expected_keys: List[str]) -> Dict[str, str]:

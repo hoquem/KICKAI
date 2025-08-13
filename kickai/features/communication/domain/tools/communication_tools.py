@@ -18,6 +18,7 @@ from kickai.utils.tool_helpers import (
     format_tool_error,
     format_tool_success,
     validate_required_input,
+    create_json_response,
 )
 from kickai.utils.tool_validation import (
     tool_error_handler,
@@ -26,13 +27,12 @@ from kickai.utils.tool_validation import (
     validate_chat_type,
     validate_context_requirements,
     log_tool_execution,
-    create_tool_response,
     ToolValidationError,
     ToolExecutionError,
 )
 
 
-@tool("send_message")
+@tool("send_message", result_as_answer=True)
 @tool_error_handler
 def send_message(telegram_id: int, team_id: str, username: str, chat_type: str, message: str) -> str:
     """
@@ -47,6 +47,7 @@ def send_message(telegram_id: int, team_id: str, username: str, chat_type: str, 
 
     Returns:
         JSON response with success or error message
+
     """
     # Validate inputs
     message = extract_single_value(message, "message")
@@ -104,7 +105,7 @@ def send_message(telegram_id: int, team_id: str, username: str, chat_type: str, 
         raise ToolExecutionError("Failed to send message")
 
 
-@tool("send_announcement")
+@tool("send_announcement", result_as_answer=True)
 @tool_error_handler
 def send_announcement(telegram_id: int, team_id: str, username: str, chat_type: str, announcement: str) -> str:
     """
@@ -163,7 +164,7 @@ def send_announcement(telegram_id: int, team_id: str, username: str, chat_type: 
         raise ToolExecutionError("Failed to send announcement")
 
 
-@tool("send_poll")
+@tool("send_poll", result_as_answer=True)
 @tool_error_handler
 def send_poll(telegram_id: int, team_id: str, username: str, chat_type: str, question: str, options: str) -> str:
     """

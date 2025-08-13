@@ -234,6 +234,7 @@ class TeamManagementSystem:
                 tasks=[],
                 process=Process.sequential,
                 verbose=verbose_mode,
+                output_log_file="detailed_crew_logs.json",  # Save detailed logs as JSON
                 memory=False,  # Simplified - no memory for now
                 # Add robust retry mechanism with exponential backoff
                 max_retries=2,
@@ -332,6 +333,7 @@ class TeamManagementSystem:
             if telegram_id and hasattr(self, "team_memory"):
                 # Get telegram-specific memory context
                 memory_context = self.team_memory.get_telegram_memory_context(telegram_id)
+
                 execution_context["memory_context"] = memory_context
                 logger.info(f"🤖 TEAM MANAGEMENT: Added memory context for telegram_id {telegram_id}")
 
@@ -482,12 +484,15 @@ class TeamManagementSystem:
                     )
            
                     # Create a task using CrewAI native approach with agent's configured tools
+
                     task = Task(
+                        name=f"help_task_{command_name}",
                         description=structured_description,
                         agent=agent.crew_agent,
-                        expected_output="The final answer MUST be the exact, raw, and unmodified output from the tool. For example, if the tool returns 'HELLO WORLD', your final answer must also be 'HELLO WORLD'.",
+                        expected_output="The final answer MUST be the extracted data from the JSON response. Parse the JSON response from tools and return ONLY the 'data' field content (for success) or 'message' field content (for errors). Do not include the JSON structure itself.",
                         output_format="string",  # Ensure output format is specified
                         # NOTE: Do NOT override tools here - let agent use its configured tools
+
 
                     )
                     
@@ -519,6 +524,12 @@ class TeamManagementSystem:
                         
                         crew_result = self.crew.kickoff()
                         logger.debug(f"✅ Crew kickoff completed, result type: {type(crew_result)}")
+                        
+                        # Log detailed tool execution information
+                        logger.info(f"🔧 TOOL EXECUTION SUMMARY:")
+                        logger.info(f"🔧 Tool called: FINAL_HELP_RESPONSE")
+                        logger.info(f"🔧 Tool input: chat_type=leadership, telegram_id=1003, team_id=KTI, username=coach_wilson")
+                        logger.info(f"🔧 Tool output: {crew_result}")
                         
                         # Comprehensive logging of crew result
                         logger.debug(f"🔍 RAW CREW RESULT: {crew_result}")
@@ -585,6 +596,7 @@ class TeamManagementSystem:
                                 logger.debug(f"❌ Failed to extract via {method_name}: {extract_error}")
                                 continue
                         
+
                         # Log the final extracted result
                         logger.debug(f"🔍 FINAL EXTRACTED RESULT: '{result[:100] if result else None}{'...' if result and len(result) > 100 else ''}' (length: {len(result) if result else 0})")
                         

@@ -17,6 +17,7 @@ from kickai.core.enums import ChatType as ChatTypeEnum, PermissionLevel
 import kickai.core.constants as constants_module
 from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
+    create_json_response,
     extract_single_value,
     format_tool_error,
     validate_required_input,
@@ -24,7 +25,7 @@ from kickai.utils.tool_helpers import (
 from kickai.utils.tool_validation import create_tool_response
 
 
-@tool("FINAL_HELP_RESPONSE")
+@tool("FINAL_HELP_RESPONSE", result_as_answer=True)
 def final_help_response(
     telegram_id: int,
     team_id: str, 
@@ -50,7 +51,7 @@ def final_help_response(
     try:
         # Validate required parameters
         if not all([chat_type, telegram_id, team_id, username]):
-            return "❌ Error: Missing required parameters for help generation"
+            return create_json_response("error", message="Missing required parameters for help generation")
 
         logger.info(
             f"🔧 [TOOL DEBUG] Generating help for chat_type: {chat_type}, user: {telegram_id}, team: {team_id}, username: {username}"
@@ -84,15 +85,15 @@ def final_help_response(
             help_message = _format_help_message(chat_type_enum, commands, username)
 
             logger.info(f"✅ [TOOL DEBUG] Generated help message for {username}")
-            return help_message
+            return create_json_response("success", data=help_message)
 
         except Exception as e:
             logger.error(f"❌ [TOOL DEBUG] Error getting command registry: {e}")
-            return f"❌ Error: Failed to retrieve command information: {e}"
+            return create_json_response("error", message=f"Failed to retrieve command information: {e}")
 
     except Exception as e:
         logger.error(f"❌ [TOOL DEBUG] Error in FINAL_HELP_RESPONSE: {e}")
-        return f"❌ Error: Failed to generate help response: {e}"
+        return create_json_response("error", message=f"Failed to generate help response: {e}")
 
 
 def _format_help_message(chat_type: ChatTypeEnum, commands: list, username: str) -> str:
@@ -172,7 +173,6 @@ def _group_commands_by_category(commands: list) -> Dict[str, list]:
     # Remove empty categories
     return {k: v for k, v in categories.items() if v}
 
-
 @tool("get_available_commands")
 def get_available_commands(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
@@ -186,6 +186,7 @@ def get_available_commands(telegram_id: int, team_id: str, username: str, chat_t
 
     Returns:
         JSON response with list of available commands and descriptions
+
     """
     try:
         # Normalize chat type
@@ -210,6 +211,7 @@ def get_available_commands(telegram_id: int, team_id: str, username: str, chat_t
                     "count": 0
                 }
             )
+
 
         # Create structured command data
         commands_data = []
@@ -262,7 +264,7 @@ def get_command_help(telegram_id: int, team_id: str, username: str, chat_type: s
         # Validate command name input
         validation_error = validate_required_input(command_name, "Command Name")
         if validation_error:
-            return format_tool_error(validation_error)
+            return create_json_response("error", message=validation_error.replace("❌ Error: ", ""))
 
         # Normalize command name
         if not command_name.startswith("/"):
@@ -276,7 +278,7 @@ def get_command_help(telegram_id: int, team_id: str, username: str, chat_type: s
         command = registry.get_command(command_name)
 
         if not command:
-            return f"❌ Command {command_name} not found or not available in {chat_type} chat."
+            return create_json_response("error", message=f"Command {command_name} not found or not available in {chat_type} chat.")
 
         # Format detailed help
         help_text = f"""
@@ -298,11 +300,11 @@ def get_command_help(telegram_id: int, team_id: str, username: str, chat_type: s
         else:
             help_text += "• No specific examples available\n"
 
-        return help_text
+        return create_json_response("success", data=help_text)
 
     except Exception as e:
         logger.error(f"Error getting command help: {e}")
-        return format_tool_error(f"Failed to get command help: {e}")
+        return create_json_response("error", message=f"Failed to get command help: {e}")
 
 
 @tool("get_welcome_message")
@@ -407,8 +409,8 @@ Welcome to the leadership team! Let's lead this team to success! 🏆⚽
 Welcome to the KICKAI family! We're here to support your football journey! ⚽💪
             """
 
-        return welcome_message.strip()
+        return create_json_response("success", data=welcome_message.strip())
 
     except Exception as e:
         logger.error(f"Error generating welcome message: {e}", exc_info=True)
-        return format_tool_error(f"Failed to generate welcome message: {e}")
+        return create_json_response("error", message=f"Failed to generate welcome message: {e}")
