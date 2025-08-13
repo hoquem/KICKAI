@@ -14,12 +14,12 @@ from kickai.core.dependency_container import get_container
 from kickai.core.exceptions import ServiceNotAvailableError
 from kickai.utils.constants import ERROR_MESSAGES, MAX_NAME_LENGTH, MAX_PHONE_LENGTH, MAX_TEAM_ID_LENGTH
 from kickai.utils.crewai_tool_decorator import tool
-from kickai.utils.tool_helpers import format_tool_error, validate_required_input
+from kickai.utils.tool_helpers import format_tool_error, validate_required_input, create_json_response
 from kickai.utils.validation_utils import normalize_phone, sanitize_input, is_valid_phone
 from kickai.utils.id_generator import generate_member_id
 
 
-@tool("add_player")
+@tool("add_player", result_as_answer=True)
 def add_player(
     telegram_id: int,
     team_id: str,
@@ -55,14 +55,11 @@ def add_player(
         
         validation_errors = [error for error in validations if error]
         if validation_errors:
-            return format_tool_error("INVALID_INPUT", "; ".join(validation_errors))
+            return create_json_response("error", message=f"INVALID_INPUT: {'; '.join(validation_errors)}")
 
         # Validate chat type is leadership
         if chat_type.lower() != "leadership":
-            return format_tool_error(
-                "PERMISSION_DENIED",
-                "Add player command can only be used in the leadership chat."
-            )
+            return create_json_response("error", message="PERMISSION_DENIED: Add player command can only be used in the leadership chat.")
 
         # Sanitize inputs
         player_name = sanitize_input(player_name, MAX_NAME_LENGTH)
@@ -71,7 +68,7 @@ def add_player(
 
         # Validate phone number format
         if not is_valid_phone(phone_number):
-            return format_tool_error("INVALID_PHONE", "Invalid phone number format. Please use UK format: +447123456789 or 07123456789")
+            return create_json_response("error", message="INVALID_PHONE: Invalid phone number format. Please use UK format: +447123456789 or 07123456789")
 
         # Normalize phone number
         normalized_phone = normalize_phone(phone_number)
@@ -93,7 +90,7 @@ def add_player(
 
     except Exception as e:
         logger.error(f"❌ Error in add_player tool: {e}")
-        return format_tool_error("SYSTEM_ERROR", f"Failed to add player: {str(e)}")
+        return create_json_response("error", message=f"SYSTEM_ERROR: Failed to add player: {str(e)}")
 
 
 async def _add_player_async(
@@ -134,24 +131,24 @@ async def _add_player_async(
         
         if existing_players:
             existing_player = existing_players[0]
-            return format_tool_error(
-                "DUPLICATE_PHONE",
-                f"❌ Player with phone number {phone_number} already exists: {existing_player.get('player_name', 'Unknown')}"
+            return create_json_response(
+                "error",
+                message=f"DUPLICATE_PHONE: Player with phone number {phone_number} already exists: {existing_player.get('player_name', 'Unknown')}"
             )
 
         # Get team configuration for main chat ID
         team_config = await database.get_document("kickai_teams", team_id)
         if not team_config:
-            return format_tool_error(
-                "TEAM_CONFIG_ERROR",
-                "❌ Team configuration not found. Please contact system administrator."
+            return create_json_response(
+                "error",
+                message="TEAM_CONFIG_ERROR: Team configuration not found. Please contact system administrator."
             )
         
         main_chat_id = team_config.get("main_chat_id")
         if not main_chat_id:
-            return format_tool_error(
-                "TEAM_CONFIG_ERROR",
-                "❌ Team main chat not configured. Please contact system administrator."
+            return create_json_response(
+                "error",
+                message="TEAM_CONFIG_ERROR: Team main chat not configured. Please contact system administrator."
             )
 
         team_name = team_config.get("team_name", f"Team {team_id}")
@@ -218,23 +215,23 @@ async def _add_player_async(
 3. Player uses /update to set position and details
 4. Player is ready to participate!"""
 
-        return success_response
+        return create_json_response("success", data=success_response)
 
     except ImportError as e:
         logger.error(f"❌ Import error in add_player: {e}")
-        return format_tool_error(
-            "SYSTEM_ERROR",
-            "❌ Invite link service not available. Please contact system administrator."
+        return create_json_response(
+            "error",
+            message="SYSTEM_ERROR: Invite link service not available. Please contact system administrator."
         )
     except ServiceNotAvailableError as e:
         logger.error(f"❌ Service not available in add_player: {e}")
-        return format_tool_error(
-            "SERVICE_ERROR",
-            "❌ Required service not available. Please try again later."
+        return create_json_response(
+            "error",
+            message="SERVICE_ERROR: Required service not available. Please try again later."
         )
     except Exception as e:
         logger.error(f"❌ Error in _add_player_async: {e}")
-        return format_tool_error(
-            "SYSTEM_ERROR",
-            f"❌ Failed to add player: {str(e)}"
+        return create_json_response(
+            "error",
+            message=f"SYSTEM_ERROR: Failed to add player: {str(e)}"
         )

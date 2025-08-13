@@ -3,17 +3,18 @@
 Player Tools
 
 This module provides tools for player management operations.
+Refactored to follow Single Try/Except Boundary Pattern and eliminate duplicate code.
 """
 
 from loguru import logger
 from pydantic import BaseModel
+from typing import List, Optional, Union, Dict, Any
 
 from kickai.core.dependency_container import get_container
 from kickai.core.exceptions import ServiceNotAvailableError
 from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
 from kickai.features.player_registration.domain.services.player_service import PlayerService
 from kickai.features.team_administration.domain.services.team_service import TeamService
-from typing import List, Optional, Union, Dict, Any
 from kickai.utils.constants import (
     DEFAULT_PLAYER_POSITION,
     ERROR_MESSAGES,
@@ -45,6 +46,75 @@ from kickai.utils.tool_validation import (
     ToolValidationError,
     ToolExecutionError,
 )
+
+
+# ============================================================================
+# UTILITY FUNCTIONS - Extract common patterns
+# ============================================================================
+
+def _get_service_from_container(service_class: type) -> Any:
+    """
+    Get service from container with standard error handling.
+    
+    Args:
+        service_class: The service class to retrieve
+        
+    Returns:
+        Service instance or None if not available
+    """
+    container = get_container()
+    service = container.get_service(service_class)
+    
+    if not service:
+        logger.warning(f"⚠️ {service_class.__name__} is not available")
+        
+    return service
+
+
+def _create_player_data(player: Any, telegram_id: int, team_id: str) -> Dict[str, Any]:
+    """
+    Create standardized player data structure.
+    
+    Args:
+        player: Player object from service
+        telegram_id: User's Telegram ID
+        team_id: Team identifier
+        
+    Returns:
+        Standardized player data dictionary
+    """
+    return {
+        "type": "player",
+        "name": player.name or "Not provided",
+        "position": player.position or "Not assigned",
+        "status": player.status.title() if player.status else "Unknown",
+        "player_id": player.player_id or "Not assigned",
+        "phone_number": player.phone_number or "Not provided",
+        "telegram_id": telegram_id,
+        "team_id": team_id,
+        "is_active": player.status and player.status.lower() == "active",
+        "is_pending": player.status and player.status.lower() == "pending",
+        "status_emoji": "✅" if player.status and player.status.lower() == "active" else "⏳"
+    }
+
+
+def _create_team_member_data(member: Any, team_id: str) -> Dict[str, Any]:
+    """
+    Create standardized team member data structure.
+    
+    Args:
+        member: Team member object from service
+        team_id: Team identifier
+        
+    Returns:
+        Standardized team member data dictionary
+    """
+    return {
+        "name": member.name,
+        "role": member.role.title() if hasattr(member.role, 'title') else str(member.role).title(),
+        "type": "team_member"
+    }
+
 
 def _parse_team_member_status(status_text: str, telegram_id: int, team_id: str) -> Dict[str, Any]:
     """
@@ -96,29 +166,63 @@ def _parse_team_member_status(status_text: str, telegram_id: int, team_id: str) 
     return team_member_data
 
 
+def _validate_standard_inputs(team_id: str, telegram_id: Union[str, int]) -> tuple[str, int]:
+    """
+    Validate standard tool inputs.
+    
+    Args:
+        team_id: Team identifier
+        telegram_id: Telegram ID (can be string or int)
+        
+    Returns:
+        Tuple of (validated_team_id, validated_telegram_id_int)
+        
+    Raises:
+        ToolValidationError: If validation fails
+    """
+    validated_team_id = validate_team_id(team_id)
+    validated_telegram_id = validate_telegram_id(telegram_id)
+    return validated_team_id, validated_telegram_id
+
+
+def _log_tool_start(tool_name: str, inputs: Dict[str, Any]) -> None:
+    """
+    Log tool execution start with standard format.
+    
+    Args:
+        tool_name: Name of the tool being executed
+        inputs: Input parameters for logging
+    """
+    log_tool_execution(tool_name, inputs, True)
+
+
+# ============================================================================
+# INPUT MODELS
+# ============================================================================
+
 class ApprovePlayerInput(BaseModel):
     """Input model for approve_player tool."""
-
     player_id: str
     team_id: str
 
 
 class GetPlayerStatusInput(BaseModel):
     """Input model for get_player_status tool."""
-
     player_id: str
     team_id: str
 
 
 class GetMatchInput(BaseModel):
     """Input model for get_match tool."""
-
     match_id: str
     team_id: str
 
 
+# ============================================================================
+# TOOL FUNCTIONS - Following Single Try/Except Boundary Pattern
+# ============================================================================
+
 @tool("approve_player", result_as_answer=True)
-@tool_error_handler
 def approve_player(telegram_id: int, team_id: str, username: str, chat_type: str, player_id: str) -> str:
     """
     Approve a player for match squad selection.
@@ -133,47 +237,45 @@ def approve_player(telegram_id: int, team_id: str, username: str, chat_type: str
     Returns:
         Success message or error
     """
-    # Validate inputs
-    team_id = validate_team_id(team_id)
-    player_id = validate_player_id(player_id)
-    
-    # Log tool execution start
-    inputs = {'team_id': team_id, 'player_id': player_id}
-    log_tool_execution("approve_player", inputs, True)
-    
-    # Get service
-    container = get_container()
-    player_service = container.get_service(PlayerService)
+    try:
+        # Validate inputs
+        team_id, telegram_id_int = _validate_standard_inputs(team_id, telegram_id)
+        player_id = validate_player_id(player_id)
+        
+        # Log tool execution start
+        _log_tool_start("approve_player", {'team_id': team_id, 'player_id': player_id})
+        
+        # Get service
+        player_service = _get_service_from_container(PlayerService)
+        if not player_service:
+            return create_json_response("error", message="PlayerService is not available")
 
-    if not player_service:
-        raise ToolExecutionError("PlayerService is not available")
+        # Approve player
+        result = player_service.approve_player_sync(player_id, team_id)
 
-    # Approve player
-    result = player_service.approve_player_sync(player_id, team_id)
-
-    # Check if result indicates success (starts with ✅)
-    if result.startswith("✅"):
-        # Extract player name from the result string
-        # Expected format: "✅ Player {name} approved and activated successfully"
-        try:
+        # Check if result indicates success (starts with ✅)
+        if result.startswith("✅"):
+            # Extract player name from the result string
+            # Expected format: "✅ Player {name} approved and activated successfully"
             player_name = result.split("Player ")[1].split(" approved")[0]
-        except (IndexError, AttributeError):
-            player_name = "Unknown"
 
-        return create_json_response("success", data={
-            'message': 'Player Approved and Activated Successfully',
-            'player_name': player_name,
-            'player_id': player_id,
-            'status': 'Active'
-        })
-    else:
-        # Result contains error message - remove ❌ prefix if present
-        error_message = result.replace("❌ ", "")
-        raise ToolExecutionError(f"Failed to approve player: {error_message}")
+            return create_json_response("success", data={
+                'message': 'Player Approved and Activated Successfully',
+                'player_name': player_name,
+                'player_id': player_id,
+                'status': 'Active'
+            })
+        else:
+            # Result contains error message - remove ❌ prefix if present
+            error_message = result.replace("❌ ", "")
+            return create_json_response("error", message=f"Failed to approve player: {error_message}")
+
+    except Exception as e:
+        logger.error(f"❌ Error in approve_player: {e}")
+        return create_json_response("error", message="Failed to approve player")
 
 
 @tool("get_my_status", result_as_answer=True)
-@tool_error_handler
 def get_my_status(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get the current user's status (player or team member based on chat type).
@@ -187,35 +289,25 @@ def get_my_status(telegram_id: int, team_id: str, username: str, chat_type: str)
     Returns:
         User status information (player or team member) or error message
     """
-    # Validate inputs
-    team_id = validate_team_id(team_id)
-    telegram_id_int = validate_telegram_id(telegram_id)  # This validates and returns int
-    
-    # Log tool execution start
-    inputs = {'team_id': team_id, 'telegram_id': telegram_id_int, 'chat_type': chat_type}
-    log_tool_execution("get_my_status", inputs, True)
-    
-    # Get services from container
-    container = get_container()
-    player_service = container.get_service(PlayerService)
-    
-    if not player_service:
-        raise ToolExecutionError("PlayerService is not available")
-
-    # Route based on chat type
-    if chat_type.lower() in ["leadership", "leadership_chat"]:
-        # Get team member information for leadership chat
-        try:
-            team_member_service = container.get_service("TeamMemberService")
+    try:
+        # Validate inputs
+        team_id, telegram_id_int = _validate_standard_inputs(team_id, telegram_id)
+        
+        # Log tool execution start
+        _log_tool_start("get_my_status", {'team_id': team_id, 'telegram_id': telegram_id_int, 'chat_type': chat_type})
+        
+        # Route based on chat type
+        if chat_type.lower() in ["leadership", "leadership_chat"]:
+            # Get team member information for leadership chat
+            team_member_service = _get_service_from_container("TeamMemberService")
             
             if not team_member_service:
-                raise ToolExecutionError("TeamMemberService is not available")
+                return create_json_response("error", message="TeamMemberService is not available")
             
             # Get team member status - this returns formatted text, we need to parse it
             status_text = team_member_service.get_my_status_sync(str(telegram_id_int), team_id)
             
             # Parse the formatted text to extract structured data
-            # The status_text format is like: "👥 Team Member Information\n📋 Name: Coach Wilson..."
             team_member_data = _parse_team_member_status(status_text, telegram_id_int, team_id)
             
             return create_tool_response(
@@ -223,46 +315,37 @@ def get_my_status(telegram_id: int, team_id: str, username: str, chat_type: str)
                 message="Team member status retrieved successfully",
                 data=team_member_data
             )
-
-            
-        except Exception as e:
-            logger.error(f"Failed to get team member status: {e}")
-            raise ToolExecutionError(f"Failed to get team member status: {e}")
-    
-    else:
-        # Get player information for main chat
-        player = player_service.get_player_by_telegram_id_sync(telegram_id_int, team_id)
-
-        if player:
-            # Create structured player data
-            player_data = {
-                "type": "player",
-                "name": player.name or "Not provided",
-                "position": player.position or "Not assigned", 
-                "status": player.status.title() if player.status else "Unknown",
-                "player_id": player.player_id or "Not assigned",
-                "phone_number": player.phone_number or "Not provided",
-                "telegram_id": telegram_id_int,
-                "team_id": team_id,
-                "is_active": player.status and player.status.lower() == "active",
-                "is_pending": player.status and player.status.lower() == "pending"
-            }
-            
-            # Add pending note if applicable
-            if player_data["is_pending"]:
-                player_data["note"] = "Your registration is pending approval by team leadership."
-            
-            return create_tool_response(
-                success=True,
-                message="Player status retrieved successfully",
-                data=player_data
-            )
+        
         else:
-            raise ToolExecutionError(f"Player not found for telegram ID {telegram_id_int} in team {team_id}")
+            # Get player information for main chat
+            player_service = _get_service_from_container(PlayerService)
+            if not player_service:
+                return create_json_response("error", message="PlayerService is not available")
+
+            player = player_service.get_player_by_telegram_id_sync(telegram_id_int, team_id)
+
+            if player:
+                # Create structured player data
+                player_data = _create_player_data(player, telegram_id_int, team_id)
+                
+                # Add pending note if applicable
+                if player_data["is_pending"]:
+                    player_data["note"] = "Your registration is pending approval by team leadership."
+                
+                return create_tool_response(
+                    success=True,
+                    message="Player status retrieved successfully",
+                    data=player_data
+                )
+            else:
+                return create_json_response("error", message=f"Player not found for telegram ID {telegram_id_int} in team {team_id}")
+
+    except Exception as e:
+        logger.error(f"❌ Error in get_my_status: {e}")
+        return create_json_response("error", message="Failed to get user status")
 
 
-@tool("get_player_status")
-@tool_error_handler
+@tool("get_player_status", result_as_answer=True)
 def get_player_status(telegram_id: int, team_id: str, username: str, chat_type: str, phone: str) -> str:
     """
     Get player status by phone number.
@@ -277,54 +360,44 @@ def get_player_status(telegram_id: int, team_id: str, username: str, chat_type: 
     Returns:
         JSON response with player status or error message
     """
-    # Validate inputs
-    team_id = validate_team_id(team_id)
-    telegram_id_int = validate_telegram_id(telegram_id)
-    phone = validate_phone_number(phone)
+    try:
+        # Validate inputs
+        team_id, telegram_id_int = _validate_standard_inputs(team_id, telegram_id)
+        phone = validate_phone_number(phone)
 
-    # Log tool execution start
-    inputs = {'team_id': team_id, 'telegram_id': telegram_id_int, 'phone': phone}
-    log_tool_execution("get_player_status", inputs, True)
+        # Log tool execution start
+        _log_tool_start("get_player_status", {'team_id': team_id, 'telegram_id': telegram_id_int, 'phone': phone})
 
-    container = get_container()
-    player_service = container.get_service(PlayerService)
+        # Get service
+        player_service = _get_service_from_container(PlayerService)
+        if not player_service:
+            return create_json_response("error", message="PlayerService is not available")
 
-    if not player_service:
-        raise ToolExecutionError("PlayerService is not available")
+        # Get player status
+        player = player_service.get_player_by_phone_sync(phone, team_id)
 
-    # Get player status
-    player = player_service.get_player_by_phone_sync(phone, team_id)
+        if not player:
+            return create_json_response("error", message=f"Player not found for phone {phone} in team {team_id}")
 
-    if not player:
-        raise ToolExecutionError(f"Player not found for phone {phone} in team {team_id}")
+        # Create structured player data
+        player_data = _create_player_data(player, telegram_id_int, team_id)
 
-    # Create structured player data
-    player_data = {
-        "type": "player",
-        "name": player.name or "Not provided",
-        "position": player.position or "Not assigned",
-        "status": player.status.title() if player.status else "Unknown",
-        "player_id": player.player_id or "Not assigned",
-        "phone_number": player.phone_number or "Not provided",
-        "telegram_id": telegram_id_int,
-        "team_id": team_id,
-        "is_active": player.status and player.status.lower() == "active",
-        "is_pending": player.status and player.status.lower() == "pending",
-        "status_emoji": "✅" if player.status and player.status.lower() == "active" else "⏳"
-    }
+        # Add pending note if applicable
+        if player_data["is_pending"]:
+            player_data["note"] = "This player's registration is pending approval by team leadership."
 
-    # Add pending note if applicable
-    if player_data["is_pending"]:
-        player_data["note"] = "This player's registration is pending approval by team leadership."
+        return create_tool_response(
+            success=True,
+            message="Player status retrieved successfully",
+            data=player_data
+        )
 
-    return create_tool_response(
-        success=True,
-        message="Player status retrieved successfully",
-        data=player_data
-    )
+    except Exception as e:
+        logger.error(f"❌ Error in get_player_status: {e}")
+        return create_json_response("error", message="Failed to get player status")
 
 
-@tool("get_all_players")
+@tool("get_all_players", result_as_answer=True)
 def get_all_players(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get all players in the team.
@@ -339,7 +412,7 @@ def get_all_players(telegram_id: int, team_id: str, username: str, chat_type: st
         List of all players or error message
     """
     try:
-        # Validate inputs using utility functions
+        # Validate inputs
         validation_error = validate_required_input(team_id, "Team ID")
         if validation_error:
             return create_json_response("error", message=validation_error.replace("❌ ", ""))
@@ -348,17 +421,14 @@ def get_all_players(telegram_id: int, team_id: str, username: str, chat_type: st
         if validation_error:
             return create_json_response("error", message=validation_error.replace("❌ ", ""))
 
-        # Sanitize inputs
+        # Sanitize and validate inputs
         team_id = sanitize_input(team_id, max_length=20)
-        # Validate telegram_id
-        telegram_id_int = validate_telegram_id(telegram_id)  # This validates and returns int
+        team_id, telegram_id_int = _validate_standard_inputs(team_id, telegram_id)
 
-
-        container = get_container()
-        player_service = container.get_service(PlayerService)
-
+        # Get service
+        player_service = _get_service_from_container(PlayerService)
         if not player_service:
-            raise ServiceNotAvailableError("PlayerService")
+            return create_json_response("error", message="PlayerService is not available")
 
         # Get all players
         players = player_service.get_all_players_sync(team_id)
@@ -395,15 +465,12 @@ def get_all_players(telegram_id: int, team_id: str, username: str, chat_type: st
             }
         )
 
-    except ServiceNotAvailableError as e:
-        logger.error(f"Service not available in get_all_players: {e}")
-        return create_json_response("error", message=f"Service temporarily unavailable: {e.message}")
     except Exception as e:
-        logger.error(f"Failed to get all players: {e}", exc_info=True)
-        return create_json_response("error", message=f"Failed to get all players: {e}")
+        logger.error(f"❌ Error in get_all_players: {e}")
+        return create_json_response("error", message="Failed to get all players")
 
-@tool("get_active_players")
-@tool_error_handler
+
+@tool("get_active_players", result_as_answer=True)
 def get_active_players(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get all active players in the team.
@@ -411,7 +478,6 @@ def get_active_players(telegram_id: int, team_id: str, username: str, chat_type:
     🚨 CRITICAL ANTI-HALLUCINATION INSTRUCTIONS:
     - This tool queries the ACTUAL DATABASE for active players
     - If the database returns NO players, return JSON with empty players array - DO NOT INVENT PLAYERS
-    - DO NOT add fake players like "John Smith", "Saim", or any other fictional names
     - The agent MUST return this tool's output EXACTLY as received - NO additions, NO modifications
     - NEVER create imaginary player data if the database is empty
 
@@ -424,81 +490,77 @@ def get_active_players(telegram_id: int, team_id: str, username: str, chat_type:
     Returns:
         JSON response with EXACT database results - List of active players or empty array
     """
-    # Validate inputs
-    team_id = validate_team_id(team_id)
-    telegram_id_int = validate_telegram_id(telegram_id)  # Validates int or str, returns int
+    try:
+        # Validate inputs
+        team_id, telegram_id_int = _validate_standard_inputs(team_id, telegram_id)
 
-    # Log tool execution start
-    inputs = {'team_id': team_id, 'telegram_id': telegram_id_int}
-    log_tool_execution("get_active_players", inputs, True)
+        # Log tool execution start
+        _log_tool_start("get_active_players", {'team_id': team_id, 'telegram_id': telegram_id_int})
 
-    container = get_container()
-    player_service = container.get_service(PlayerService)
+        # Get service
+        player_service = _get_service_from_container(PlayerService)
+        if not player_service:
+            return create_json_response("error", message="PlayerService is not available")
 
-    if not player_service:
-        raise ToolExecutionError("PlayerService is not available")
+        # Get active players from database
+        players = player_service.get_active_players_sync(team_id)
 
-    # Get active players from database
-    players = player_service.get_active_players_sync(team_id)
+        # Log the actual database results for debugging
+        logger.info(
+            f"🔍 DATABASE QUERY RESULT: Found {len(players) if players else 0} active players in team {team_id}"
+        )
 
-    # Log the actual database results for debugging
-    logger.info(
-        f"🔍 DATABASE QUERY RESULT: Found {len(players) if players else 0} active players in team {team_id}"
-    )
-    if players:
+        if not players:
+            # 🚨 CRITICAL: If database has no players, DO NOT INVENT ANY
+            logger.info(f"🔍 DATABASE RETURNED: Empty list - no active players in team {team_id}")
+            return create_tool_response(
+                success=True,
+                message="No active players found in the team",
+                data={
+                    "players": [],
+                    "count": 0,
+                    "team_id": team_id,
+                    "telegram_id": telegram_id_int
+                }
+            )
+
         player_names = [p.name for p in players]
         logger.info(f"🔍 ACTUAL PLAYER NAMES FROM DB: {player_names}")
-    else:
-        logger.info(f"🔍 DATABASE RETURNED: Empty list - no active players in team {team_id}")
+        # Create structured player data with actual database data only
+        logger.info(f"🔍 FORMATTING {len(players)} REAL PLAYERS FROM DATABASE")
+        players_data = []
+        
+        for player in players:
+            logger.info(f"🔍 PROCESSING REAL PLAYER: {player.name} (ID: {player.player_id})")
+            
+            player_info = {
+                "name": player.name,
+                "position": player.position or "Not assigned",
+                "player_id": player.player_id or "Not assigned", 
+                "phone_number": player.phone_number or "Not provided",
+                "status": "Active",
+                "status_emoji": "✅"
+            }
+            
+            players_data.append(player_info)
 
-    if not players:
-        # 🚨 CRITICAL: If database has no players, DO NOT INVENT ANY
-        logger.info(
-            "🚨 ANTI-HALLUCINATION: Returning empty players array - DO NOT ADD FAKE PLAYERS"
-        )
+        # 🚨 CRITICAL: This exact output must be returned by the agent without any modifications
+        logger.info(f"🚨 FINAL TOOL OUTPUT: {len(players_data)} real players from database")
+
         return create_tool_response(
             success=True,
-            message="No active players found in the team",
+            message=f"Retrieved {len(players)} active players from team",
             data={
-                "players": [],
-                "count": 0,
+                "players": players_data,
+                "count": len(players_data),
                 "team_id": team_id,
                 "telegram_id": telegram_id_int
             }
         )
 
-    # Create structured player data with actual database data only
-    logger.info(f"🔍 FORMATTING {len(players)} REAL PLAYERS FROM DATABASE")
-    players_data = []
-    
-    for player in players:
-        logger.info(f"🔍 PROCESSING REAL PLAYER: {player.name} (ID: {player.player_id})")
-        
-        player_info = {
-            "name": player.name,
-            "position": player.position or "Not assigned",
-            "player_id": player.player_id or "Not assigned", 
-            "phone_number": player.phone_number or "Not provided",
-            "status": "Active",
-            "status_emoji": "✅"
-        }
-        
-        
-        players_data.append(player_info)
-
-    # 🚨 CRITICAL: This exact output must be returned by the agent without any modifications
-    logger.info(f"🚨 FINAL TOOL OUTPUT: {len(players_data)} real players from database")
-
-    return create_tool_response(
-        success=True,
-        message=f"Retrieved {len(players)} active players from team",
-        data={
-            "players": players_data,
-            "count": len(players_data),
-            "team_id": team_id,
-            "telegram_id": telegram_id_int
-        }
-    )
+    except Exception as e:
+        logger.error(f"❌ Error in get_active_players: {e}")
+        return create_json_response("error", message="Failed to get active players")
 
 
 def validate_tool_output_integrity(original_output: str, agent_response: str) -> bool:
@@ -527,8 +589,8 @@ def validate_tool_output_integrity(original_output: str, agent_response: str) ->
 
     return False
 
-@tool("get_player_match")
-@tool_error_handler
+
+@tool("get_player_match", result_as_answer=True)
 def get_player_match(telegram_id: int, team_id: str, username: str, chat_type: str, match_id: str) -> str:
     """
     Get match details by match ID.
@@ -543,48 +605,48 @@ def get_player_match(telegram_id: int, team_id: str, username: str, chat_type: s
     Returns:
         JSON response with match details or error message
     """
-    # Validate inputs
-    match_id = validate_string_input(match_id, "Match ID", max_length=50)
-    team_id = validate_team_id(team_id)
+    try:
+        # Validate inputs
+        match_id = validate_string_input(match_id, "Match ID", max_length=50)
+        team_id = validate_team_id(team_id)
+
+        # Log tool execution start
+        _log_tool_start("get_player_match", {'match_id': match_id, 'team_id': team_id})
+
+        # Get service
+        match_service = _get_service_from_container("MatchService")
+        if not match_service:
+            return create_json_response("error", message="MatchService is not available")
+
+        # Get match details
+        match = match_service.get_match_sync(match_id, team_id)
+
+        if not match:
+            return create_json_response("error", message=f"Match {match_id} not found in team {team_id}")
+
+        # Create structured match data
+        match_data = {
+            "match_id": match.get("match_id", "N/A"),
+            "date": match.get("date", "N/A"),
+            "time": match.get("time", "N/A"),
+            "location": match.get("location", "N/A"),
+            "opponent": match.get("opponent", "N/A"),
+            "status": match.get("status", "N/A"),
+            "team_id": team_id
+        }
+
+        return create_tool_response(
+            success=True,
+            message="Match details retrieved successfully",
+            data=match_data
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Error in get_player_match: {e}")
+        return create_json_response("error", message="Failed to get match details")
 
 
-    # Log tool execution start
-    inputs = {'match_id': match_id, 'team_id': team_id}
-    log_tool_execution("get_player_match", inputs, True)
-
-    # Get services from container
-    container = get_container()
-    match_service = container.get_service("MatchService")
-
-    if not match_service:
-        raise ToolExecutionError("MatchService is not available")
-
-    # Get match details
-    match = match_service.get_match_sync(match_id, team_id)
-
-    if not match:
-        raise ToolExecutionError(f"Match {match_id} not found in team {team_id}")
-
-    # Create structured match data
-    match_data = {
-        "match_id": match.get("match_id", "N/A"),
-        "date": match.get("date", "N/A"),
-        "time": match.get("time", "N/A"),
-        "location": match.get("location", "N/A"),
-        "opponent": match.get("opponent", "N/A"),
-        "status": match.get("status", "N/A"),
-        "team_id": team_id
-    }
-
-    return create_tool_response(
-        success=True,
-        message="Match details retrieved successfully",
-        data=match_data
-    )
-
-
-@tool("list_team_members_and_players")
-@tool_error_handler
+@tool("list_team_members_and_players", result_as_answer=True)
 def list_team_members_and_players(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     List all team members and players for a team.
@@ -598,67 +660,66 @@ def list_team_members_and_players(telegram_id: int, team_id: str, username: str,
     Returns:
         JSON response with list of team members and players or error message
     """
-    # Validate input
-    team_id = validate_team_id(team_id)
+    try:
+        # Validate input
+        team_id = validate_team_id(team_id)
 
-    # Log tool execution start
-    inputs = {'team_id': team_id}
-    log_tool_execution("list_team_members_and_players", inputs, True)
+        # Log tool execution start
+        _log_tool_start("list_team_members_and_players", {'team_id': team_id})
 
-    # Get services from container
-    container = get_container()
-    player_service = container.get_service(PlayerService)
-    team_service = container.get_service("TeamService")
+        # Get services
+        player_service = _get_service_from_container(PlayerService)
+        team_service = _get_service_from_container("TeamService")
 
-    if not player_service:
-        raise ToolExecutionError("PlayerService is not available")
+        if not player_service:
+            return create_json_response("error", message="PlayerService is not available")
 
-    if not team_service:
-        raise ToolExecutionError("TeamService is not available")
+        if not team_service:
+            return create_json_response("error", message="TeamService is not available")
 
-    # Get players and team members
-    players = player_service.get_all_players_sync(team_id)
-    team_members = team_service.get_team_members_sync(team_id)
+        # Get players and team members
+        players = player_service.get_all_players_sync(team_id)
+        team_members = team_service.get_team_members_sync(team_id)
 
-    # Create structured team member data
-    team_members_data = []
-    if team_members:
-        for member in team_members:
-            member_info = {
-                "name": member.name,
-                "role": member.role.title() if hasattr(member.role, 'title') else str(member.role).title(),
-                "type": "team_member"
-            }
-            team_members_data.append(member_info)
+        # Create structured team member data
+        team_members_data = []
+        if team_members:
+            for member in team_members:
+                member_info = _create_team_member_data(member, team_id)
+                team_members_data.append(member_info)
 
-    # Create structured player data
-    players_data = []
-    if players:
-        for player in players:
-            player_info = {
-                "name": player.name,
-                "position": player.position or "Not assigned",
-                "status": player.status.title() if player.status else "Unknown",
-                "player_id": player.player_id or "Not assigned",
-                "status_emoji": "✅" if player.status and player.status.lower() == "active" else "⏰",
-                "is_active": player.status and player.status.lower() == "active",
-                "type": "player"
-            }
-            players_data.append(player_info)
+        # Create structured player data
+        players_data = []
+        if players:
+            for player in players:
+                player_info = {
+                    "name": player.name,
+                    "position": player.position or "Not assigned",
+                    "status": player.status.title() if player.status else "Unknown",
+                    "player_id": player.player_id or "Not assigned",
+                    "status_emoji": "✅" if player.status and player.status.lower() == "active" else "⏰",
+                    "is_active": player.status and player.status.lower() == "active",
+                    "type": "player"
+                }
+                players_data.append(player_info)
 
-    # Create summary data
-    summary_data = {
-        "team_id": team_id,
-        "team_members": team_members_data,
-        "players": players_data,
-        "team_members_count": len(team_members_data),
-        "players_count": len(players_data),
-        "total_count": len(team_members_data) + len(players_data)
-    }
+        # Create summary data
+        summary_data = {
+            "team_id": team_id,
+            "team_members": team_members_data,
+            "players": players_data,
+            "team_members_count": len(team_members_data),
+            "players_count": len(players_data),
+            "total_count": len(team_members_data) + len(players_data)
+        }
 
-    return create_tool_response(
-        success=True,
-        message=f"Retrieved team overview for {team_id}: {len(team_members_data)} team members, {len(players_data)} players",
-        data=summary_data
-    )
+        return create_tool_response(
+            success=True,
+            message=f"Retrieved team overview for {team_id}: {len(team_members_data)} team members, {len(players_data)} players",
+            data=summary_data
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Error in list_team_members_and_players: {e}")
+        return create_json_response("error", message="Failed to list team members and players")
 

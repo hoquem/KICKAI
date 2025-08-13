@@ -9,11 +9,11 @@ from datetime import datetime
 from loguru import logger
 
 from kickai.utils.crewai_tool_decorator import tool
-from kickai.utils.tool_helpers import format_tool_success
+from kickai.utils.tool_helpers import create_json_response
 from kickai.core.constants import BOT_VERSION
 
 
-@tool("ping")
+@tool("ping", result_as_answer=True)
 def ping(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Simple ping test to verify bot connectivity and response time.
@@ -39,7 +39,7 @@ def ping(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
         return create_json_response("error", message=f"Ping failed: {str(e)}")
 
 
-@tool("version")
+@tool("version", result_as_answer=True)
 def version(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get bot version and system information.

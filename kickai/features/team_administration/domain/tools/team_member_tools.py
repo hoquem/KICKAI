@@ -84,7 +84,7 @@ def team_member_registration(
         team_member_service = container.get_service("TeamMemberService")
 
         if not team_member_service:
-            raise ServiceNotAvailableError("TeamMemberService")
+            return create_json_response("error", message="TeamMemberService is not available")
 
         # Build TeamMember entity
         try:
@@ -125,14 +125,11 @@ def team_member_registration(
         else:
             return create_json_response("error", message="Failed to register team member")
 
-    except ServiceNotAvailableError as e:
-        logger.error(f"Service not available in team_member_registration: {e}")
-        return create_json_response("error", message=f"Service temporarily unavailable: {e.message}")
     except Exception as e:
-        logger.error(f"Failed to register team member: {e}", exc_info=True)
-        return create_json_response("error", message=f"Failed to register team member: {e}")
+        logger.error(f"❌ Error in team_member_registration tool: {e}")
+        return create_json_response("error", message="Failed to register team member")
 
-@tool("get_my_team_member_status")
+@tool("get_my_team_member_status", result_as_answer=True)
 def get_my_team_member_status(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get current user's team member status and information.
@@ -170,7 +167,7 @@ def get_my_team_member_status(telegram_id: int, team_id: str, username: str, cha
         logger.error(f"Failed to get team member status: {e}")
         return create_json_response("error", message=f"Failed to get team member status: {e!s}")
 
-@tool("get_team_members")
+@tool("get_team_members", result_as_answer=True)
 def get_team_members(telegram_id: int, team_id: str, username: str, chat_type: str, role: Optional[str] = None) -> str:
     """
     Get team members for a team, optionally filtered by role.
@@ -221,7 +218,7 @@ def get_team_members(telegram_id: int, team_id: str, username: str, chat_type: s
         return create_json_response("error", message=f"Failed to get team members: {e!s}")
 
 
-@tool("add_team_member_role")
+@tool("add_team_member_role", result_as_answer=True)
 def add_team_member_role(telegram_id: int, team_id: str, role: str) -> str:
     """
     Add a role to a team member.
@@ -249,7 +246,7 @@ def add_team_member_role(telegram_id: int, team_id: str, role: str) -> str:
         logger.error(f"❌ Failed to add role {role} to member {telegram_id}: {e}")
         return create_json_response("error", message=f"Error adding role: {e!s}")
 
-@tool("remove_team_member_role")
+@tool("remove_team_member_role", result_as_answer=True)
 def remove_team_member_role(telegram_id: int, team_id: str, role: str) -> str:
     """
     Remove a role from a team member.
@@ -278,7 +275,7 @@ def remove_team_member_role(telegram_id: int, team_id: str, role: str) -> str:
         return create_json_response("error", message=f"Error removing role: {e!s}")
 
 
-@tool("promote_team_member_to_admin")
+@tool("promote_team_member_to_admin", result_as_answer=True)
 def promote_team_member_to_admin(telegram_id: int, team_id: str, promoted_by: str) -> str:
     """
     Promote a team member to admin role.

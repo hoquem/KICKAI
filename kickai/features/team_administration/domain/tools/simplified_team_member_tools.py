@@ -88,9 +88,7 @@ def add_team_member_simplified(
         # Get team repository for the service
         team_repository = container.get_service(TeamRepositoryInterface)
         if not team_repository:
-            raise ServiceNotAvailableError(
-                ERROR_MESSAGES["SERVICE_UNAVAILABLE"].format(service="TeamRepositoryInterface")
-            )
+            return create_json_response("error", message="TeamRepositoryInterface is not available")
 
         # Create simplified team member service
         team_member_service = SimplifiedTeamMemberService(team_repository)
@@ -140,9 +138,6 @@ def add_team_member_simplified(
         else:
             return create_json_response("error", message=f"Failed to add team member: {message}")
 
-    except ServiceNotAvailableError as e:
-        logger.error(f"Service not available in add_team_member_simplified: {e}")
-        return create_json_response("error", message=f"Service temporarily unavailable: {e.message}")
     except Exception as e:
-        logger.error(f"Failed to add team member: {e}", exc_info=True)
-        return create_json_response("error", message=f"Failed to add team member: {e}")
+        logger.error(f"❌ Error in add_team_member_simplified tool: {e}")
+        return create_json_response("error", message="Failed to add team member")

@@ -11,7 +11,7 @@ from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import create_json_response
 
 
-@tool("registration_guidance")
+@tool("registration_guidance", result_as_answer=True)
 def registration_guidance(telegram_id: int, team_id: str, username: str, chat_type: str, user_id: str) -> str:
 
     """
