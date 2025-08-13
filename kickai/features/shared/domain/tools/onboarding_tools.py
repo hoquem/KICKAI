@@ -148,7 +148,7 @@ Just say "I want to register as a team member" and I'll guide you through step b
             errors.append("❌ Entity type must be 'player' or 'team_member'")
 
         if errors:
-            return "\n".join(errors)
+            return create_json_response("error", message="\n".join(errors))
 
         # All validation passed
         entity_display = "player" if entity_type.lower() == "player" else "team member"
@@ -295,13 +295,25 @@ Welcome to the team! 🤝
 
         if team_member_score > player_score:
             confidence = "high" if team_member_score >= 2 else "medium"
-            return f"team_member|{confidence}|Team member registration detected"
+            return create_json_response("success", data={
+                "entity_type": "team_member",
+                "confidence": confidence,
+                "message": "Team member registration detected"
+            })
         elif player_score > team_member_score:
             confidence = "high" if player_score >= 2 else "medium"
-            return f"player|{confidence}|Player registration detected"
+            return create_json_response("success", data={
+                "entity_type": "player",
+                "confidence": confidence,
+                "message": "Player registration detected"
+            })
         else:
-            return "ambiguous|low|Cannot determine registration type - clarification needed"
+            return create_json_response("success", data={
+                "entity_type": "ambiguous",
+                "confidence": "low",
+                "message": "Cannot determine registration type - clarification needed"
+            })
 
     except Exception as e:
         logger.error(f"❌ Context detection error: {e}")
-        return "error|low|Context detection failed"
+        return create_json_response("error", message="Context detection failed")

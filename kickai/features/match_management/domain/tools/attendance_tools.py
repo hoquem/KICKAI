@@ -185,11 +185,11 @@ def get_player_attendance_history(
         container = get_container()
         attendance_service = container.get_service(AttendanceService)
         if not attendance_service:
-            return "❌ Service unavailable: Attendance service not available."
+            return create_json_response("error", message="Service unavailable: Attendance service not available.")
         history = attendance_service.get_player_attendance_history(player_id, limit)
 
         if not history:
-            return f"📈 Attendance History\n\nNo attendance records found for player {player_id}."
+            return create_json_response("success", data={"message": f"No attendance records found for player {player_id}", "player_id": player_id, "history": []})
 
         result = [
             f"📈 Attendance History for {player_id}",
@@ -208,7 +208,7 @@ def get_player_attendance_history(
                 result.append(f"  - Reason: {attendance.reason}")
 
         # Calculate statistics
-        stats = self.attendance_service.calculate_attendance_stats(player_id)
+        stats = attendance_service.calculate_attendance_stats(player_id)
 
         result.extend([
             "",
@@ -220,11 +220,25 @@ def get_player_attendance_history(
             f"• Reliability Rating: {stats['reliability_rating']}",
         ])
 
-        return "\n".join(result)
+        attendance_data = {
+            "player_id": player_id,
+            "history": [
+                {
+                    "match_id": attendance.match_id,
+                    "status": attendance.status.value.title(),
+                    "status_emoji": attendance.status_emoji,
+                    "arrival_time": attendance.formatted_arrival_time if attendance.arrival_time else None,
+                    "reason": attendance.reason
+                } for attendance in history
+            ],
+            "statistics": stats,
+            "formatted_message": "\n".join(result)
+        }
+        return create_json_response("success", data=attendance_data)
 
     except Exception as e:
         logger.error(f"Failed to get player attendance history: {e}")
-        return f"❌ Error getting attendance history: {e!s}"
+        return create_json_response("error", message=f"Error getting attendance history: {e!s}")
 
 
 @tool("bulk_record_attendance", result_as_answer=True)
@@ -239,13 +253,13 @@ def bulk_record_attendance(
         container = get_container()
         attendance_service = container.get_service(AttendanceService)
         if not attendance_service:
-            return "❌ Service unavailable: Attendance service not available."
+            return create_json_response("error", message="Service unavailable: Attendance service not available.")
         # Validate attendance records format
         for record in attendance_records:
             required_fields = ["player_id", "status"]
             missing_fields = [field for field in required_fields if field not in record]
             if missing_fields:
-                return f"❌ Invalid record format: Missing fields {missing_fields}"
+                return create_json_response("error", message=f"Invalid record format: Missing fields {missing_fields}")
 
         # Record attendance for all players
         recorded_attendances = attendance_service.bulk_record_attendance(
@@ -271,8 +285,15 @@ def bulk_record_attendance(
             f"• Pending: {summary['not_recorded']} players",
         ]
 
-        return "\n".join(result)
+        bulk_data = {
+            "match_id": match_id,
+            "players_recorded": len(recorded_attendances),
+            "recorded_by": recorded_by or 'System',
+            "match_summary": summary,
+            "formatted_message": "\n".join(result)
+        }
+        return create_json_response("success", data=bulk_data)
 
     except Exception as e:
         logger.error(f"Failed to bulk record attendance: {e}")
-        return f"❌ Error bulk recording attendance: {e!s}"
+        return create_json_response("error", message=f"Error bulk recording attendance: {e!s}")
