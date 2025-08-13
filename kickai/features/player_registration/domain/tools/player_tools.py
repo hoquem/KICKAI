@@ -63,9 +63,7 @@ def _parse_team_member_status(status_text: str, telegram_id: int, team_id: str) 
     team_member_data = {
         "type": "team_member",
         "name": "Unknown",
-        "user_id": f"user_{telegram_id}",
         "role": "Team Member",
-        "team": team_id,
         "phone": "Not set",
         "email": "Not set",
         "joined": "Unknown",
@@ -78,10 +76,8 @@ def _parse_team_member_status(status_text: str, telegram_id: int, team_id: str) 
         # Parse each field using regex patterns
         patterns = {
             "name": r"📋 Name: (.+)",
-            "user_id": r"🔑 User ID: (.+)",
             "role": r"🎭 Role: (.+)",
-            "team": r"🏢 Team: (.+)",
-            "phone": r"📱 Phone: (.+)",
+            "phone": r"📞 Phone: (.+)",
             "email": r"📧 Email: (.+)",
             "joined": r"📅 Joined: (.+)",
             "updated": r"🔄 Updated: (.+)"

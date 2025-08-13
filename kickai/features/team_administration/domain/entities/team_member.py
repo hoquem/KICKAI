@@ -2,8 +2,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, Set
 
-from kickai.utils.user_id_generator import generate_user_id
-
 
 @dataclass
 class TeamMember:
@@ -19,9 +17,6 @@ class TeamMember:
     telegram_id: Optional[int] = None  # Telegram user ID (integer) - for linking to Telegram
     member_id: Optional[str] = None    # Member identifier (M001MH format) - unique within team
     team_id: str = ""                  # Team identifier (KA format)
-    
-    # Legacy field - being phased out in favor of explicit IDs above
-    user_id: str = ""  # DEPRECATED: Use telegram_id for linking, member_id for identification
 
     # Personal information
     name: Optional[str] = None
@@ -108,8 +103,6 @@ class TeamMember:
         Returns:
             A new TeamMember instance
         """
-        user_id = generate_user_id(telegram_id)
-
         # Determine role based on admin status
         role = "Club Administrator" if is_admin else "Team Member"
 
@@ -117,7 +110,6 @@ class TeamMember:
         display_name = name if name else f"User {telegram_id}"
 
         return cls(
-            user_id=user_id,
             team_id=team_id,
             telegram_id=telegram_id,  # Keep as integer
             name=display_name,
@@ -130,9 +122,9 @@ class TeamMember:
     def to_dict(self) -> dict:
         """Convert to dictionary for storage."""
         return {
-            "user_id": self.user_id,
             "team_id": self.team_id,
             "telegram_id": self.telegram_id,
+            "member_id": self.member_id,
             "name": self.name,
             "username": self.username,
             "role": self.role,
@@ -150,24 +142,16 @@ class TeamMember:
     @classmethod
     def from_dict(cls, data: dict) -> "TeamMember":
         """Create from dictionary."""
-        # Generate user_id from telegram_id if missing or empty
-        user_id = data.get("user_id", "")
         telegram_id = data.get("telegram_id")
-
-        if not user_id and telegram_id:
-            # Generate user_id from telegram_id
-            # Handle both string and integer telegram_id from database
-            telegram_id_int = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
-            user_id = generate_user_id(telegram_id_int)
 
         # Ensure telegram_id is integer if provided
         if telegram_id is not None:
             telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
 
         return cls(
-            user_id=user_id,
             team_id=data.get("team_id", ""),
             telegram_id=telegram_id,
+            member_id=data.get("member_id"),
             name=data.get("name"),
             username=data.get("username"),
             role=data.get("role", "Team Member"),
@@ -218,8 +202,10 @@ class TeamMember:
             return f"@{self.username}"
         elif self.telegram_id:
             return f"User {self.telegram_id}"
+        elif self.member_id:
+            return f"Member {self.member_id}"
         else:
-            return f"User {self.user_id}"
+            return "Unknown Member"
 
     def get_role_display(self) -> str:
         """Get formatted role display."""

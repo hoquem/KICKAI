@@ -239,7 +239,7 @@ class TeamMemberService:
             # User not found as team member
             return f"""❌ Team Member Not Found
 
-🔍 User ID: {telegram_id}
+📱 Telegram ID: {telegram_id}
 🏢 Team ID: {team_id}
 
 💡 You may need to be added as a team member by your team admin."""
@@ -255,12 +255,12 @@ class TeamMemberService:
 
         return f"""👥 Team Member Information
 
-📋 Name: {team_member.name or team_member.first_name or "Not set"}
-🔑 User ID: {team_member.user_id}
+📋 Name: {team_member.name or "Not set"}
+📱 Telegram ID: {team_member.telegram_id}
 {admin_status}
 🎭 Role: {role_text}
 🏢 Team: {team_member.team_id}
-📱 Phone: {team_member.phone_number or "Not set"}
+📞 Phone: {team_member.phone_number or "Not set"}
 📧 Email: {team_member.email or "Not set"}
 
 📅 Joined: {team_member.created_at.strftime("%Y-%m-%d") if team_member.created_at else "Unknown"}
@@ -270,20 +270,14 @@ class TeamMemberService:
         """Validate team member data."""
         if not team_member.team_id:
             raise ValueError("Team ID cannot be empty")
-        if not team_member.user_id:
-            raise ValueError("User ID cannot be empty")
+        if not team_member.telegram_id:
+            raise ValueError("Telegram ID cannot be empty")
         if not team_member.role:
             raise ValueError("Team member must have a role")
 
         # Validate that no "player" role exists (handled by Player entity)
         if team_member.role == "player":
             raise ValueError("Team members cannot have 'player' role - use Player entity instead")
-
-        # Validate user_id format
-        if not team_member.user_id.startswith("user_"):
-            raise ValueError(
-                f"Invalid user_id format: {team_member.user_id}. Must start with 'user_'"
-            )
 
     # Synchronous methods for CrewAI tools
     def get_my_status_sync(self, telegram_id: str, team_id: str) -> str:

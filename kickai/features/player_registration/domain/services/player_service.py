@@ -47,13 +47,6 @@ class PlayerService:
         # Validate input parameters
         self._validate_player_input(params.name, params.phone, params.position, params.team_id)
 
-        # Generate user_id from phone number as a fallback
-        import hashlib
-
-        # Create a user_id from phone number if no telegram_id available
-        phone_hash = hashlib.md5(params.phone.encode()).hexdigest()[:8]
-        user_id = f"{phone_hash}"
-
         # Generate simple member ID
         from kickai.utils.id_generator import generate_member_id
 
@@ -64,7 +57,6 @@ class PlayerService:
         player_id = generate_member_id(params.name, existing_ids)
 
         player = Player(
-            user_id=user_id,
             team_id=params.team_id,
             name=params.name,
             phone_number=params.phone,
@@ -128,7 +120,6 @@ class PlayerService:
                 from ..entities.player import Player
 
                 return Player(
-                    user_id=player_data.get("user_id", ""),
                     team_id=player_data.get("team_id", ""),
                     telegram_id=player_data.get("telegram_id"),
                     player_id=player_data.get("player_id"),
@@ -228,7 +219,7 @@ class PlayerService:
             # User not found as player
             return f"""❌ Player Not Found
 
-🔍 User ID: {user_id}
+📱 Telegram ID: {user_id}
 🏢 Team ID: {team_id}
 
 💡 Ask team leadership to add you as a player using /addplayer command."""
@@ -345,15 +336,8 @@ class PlayerService:
         # Validate input parameters
         self._validate_player_input(params.name, params.phone, params.position, params.team_id)
 
-        # Generate user_id from phone number as a fallback
-        import hashlib
-
-        phone_hash = hashlib.md5(params.phone.encode()).hexdigest()[:8]
-        user_id = f"{phone_hash}"
-
         # Create player with the provided ID
         player = Player(
-            user_id=user_id,
             team_id=params.team_id,
             name=params.name,
             phone_number=params.phone,
