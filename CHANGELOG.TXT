@@ -1,0 +1,61 @@
+# KICKAI Changelog
+
+## [2025-01-XX] - LLM-Based Intent Recognition
+
+### 🚀 Major Improvements
+
+#### Natural Language Understanding
+- **Replaced regex-based intent recognition with pure LLM-based approach**
+  - Eliminated brittle regex patterns that couldn't handle natural language variations
+  - Implemented `LLMIntentRecognizer` using CrewAI agents for sophisticated understanding
+  - Added context-aware intent recognition that considers user roles and chat types
+  - Improved entity extraction with LLM reasoning capabilities
+
+#### New Features
+- **`LLMIntentRecognizer` class**: Pure LLM-based intent recognition
+  - Uses CrewAI agents for sophisticated natural language understanding
+  - Provides confidence scoring based on LLM analysis
+  - Includes reasoning explanations for intent classification
+  - Handles context, paraphrases, and complex natural language
+
+- **Enhanced entity extraction**: 
+  - Extracts entities like player names, positions, phone numbers
+  - Understands relationships and context in natural language
+  - Provides structured output with confidence scores
+
+- **Context-aware processing**:
+  - Considers user registration status, chat type, and team context
+  - Adapts intent recognition based on user role (player vs team member)
+  - Handles different chat contexts (main vs leadership)
+
+#### Technical Improvements
+- **Structured output**: Uses JSON format for consistent parsing
+- **Error handling**: Robust fallback mechanisms for parsing failures
+- **Backward compatibility**: Maintains compatibility with existing code
+- **Async support**: Full async/await support for better performance
+
+#### Files Modified
+- `kickai/utils/llm_intent.py`: Complete rewrite with LLM-based approach
+- `kickai/utils/llm_client.py`: Updated to use new intent recognizer
+- `scripts/test_llm_intent.py`: New test script for intent recognition
+
+### 🔧 Bug Fixes
+- Fixed issues with regex patterns missing natural language variations
+- Improved handling of ambiguous user requests
+- Better error handling for intent extraction failures
+
+### 📚 Documentation
+- Added comprehensive test script demonstrating LLM-based intent recognition
+- Updated inline documentation for all new classes and methods
+- Added examples of natural language processing capabilities
+
+### 🧪 Testing
+- Created comprehensive test suite for intent recognition
+- Added tests for context awareness and entity extraction
+- Included test cases for complex and ambiguous natural language
+
+---
+
+## Previous Versions
+
+[Add previous version history here as needed]

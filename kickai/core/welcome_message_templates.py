@@ -101,7 +101,7 @@ DEFAULT_WELCOME_TEMPLATES = {
         features="""⚽ AVAILABLE COMMANDS:
 • Get help with `/help`
 • Check your status with `/myinfo`
-• Register as a player with `/register`""",
+• Contact leadership to be added as a player""",
         getting_started="""🔗 NEXT STEPS:
 1. Join the main team chat for full access
 2. Register as a player or team member

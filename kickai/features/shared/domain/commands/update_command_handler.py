@@ -88,7 +88,7 @@ class UpdateCommandHandler:
 1. Contact someone in the team's leadership
 2. Ask them to add you using /addplayer
 3. They'll send you an invite link
-4. Join the main chat and register with /register
+4. Join the main chat and ask leadership to add you with /addplayer
 
 💡 Need help? Use /help to see available commands.""",
                     success=False,
@@ -141,8 +141,8 @@ class UpdateCommandHandler:
 🔍 You are not registered as a team member in this team.
 
 📝 To register as a team member:
-1. Use /register [name] [phone] [role]
-2. Example: /register John Smith +447123456789 Assistant Coach
+1. Ask leadership to use /addmember [name] [phone] [role]
+2. Example: /addmember John Smith +447123456789 Assistant Coach
 3. You'll be added to the team members collection
 
 💡 Need help? Use /help to see available commands.""",

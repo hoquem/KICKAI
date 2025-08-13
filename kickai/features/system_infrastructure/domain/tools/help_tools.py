@@ -246,7 +246,7 @@ def get_system_available_commands(
                 response += "📞 **To access more commands, contact team leadership to be added as a player.**\n\n"
             elif chat_type == "leadership_chat":
                 response += (
-                    "📝 **To access more commands, use /register to become a team member.**\n\n"
+                    "📝 **To access more commands, ask team leadership to add you as a player.**\n\n"
                 )
 
         response += "💡 Tip: You can also ask me questions in natural language!"

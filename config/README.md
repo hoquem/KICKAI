@@ -48,17 +48,32 @@ best_agent = find_best_agent_for_capabilities([
 ])
 ```
 
-### `bot_config.json.backup`
-Backup of the bot configuration file.
+### `bot_config.example.json`
+**⚠️ DEPRECATED**: Example bot configuration file for reference only.
 
-## Benefits of Unified Configuration
+**IMPORTANT**: Bot configuration is now stored in Firestore (teams collection). Each team entity contains bot configuration fields:
+- `bot_id`: Bot identifier
+- `bot_token`: Telegram bot token
+- `main_chat_id`: Main chat ID
+- `leadership_chat_id`: Leadership chat ID
 
+The JSON configuration files are no longer used by the system and exist only for documentation purposes.
+
+## Configuration Architecture
+
+### Bot Configuration (Firestore)
+- **Primary Source**: Teams collection in Firestore
+- **Fields**: `bot_id`, `bot_token`, `main_chat_id`, `leadership_chat_id`  
+- **Management**: Via `TeamService.set_bot_config()` method
+- **Loading**: Via `MultiBotManager.load_bot_configurations()`
+
+### Agent Configuration (YAML)
 1. **Single Source of Truth**: All agent properties are defined in one place
-2. **Reduced Code Duplication**: Eliminates scattered agent definitions
+2. **Reduced Code Duplication**: Eliminates scattered agent definitions  
 3. **Easy Maintenance**: Changes to agent properties only need to be made in one location
 4. **Consistent Structure**: All agents follow the same configuration pattern
 5. **Dynamic Tool Assignment**: Tools are assigned based on configuration rather than hardcoded
-6. **Capability-Based Routing**: Intelligent agent selection based on required capabilities
+6. **Standardized Parameters**: All tools use consistent parameter order (telegram_id, team_id, username, chat_type)
 
 ## Agent Roles
 

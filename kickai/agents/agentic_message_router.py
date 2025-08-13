@@ -415,7 +415,7 @@ class AgenticMessageRouter:
             try:
                 from kickai.core.command_registry_initializer import get_initialized_command_registry
                 registry = get_initialized_command_registry()
-                available_commands = registry.get_commands_for_chat_type(chat_type.value)
+                available_commands = registry.get_commands_by_chat_type(chat_type.value)
                 
                 # Format the response
                 message_parts = [

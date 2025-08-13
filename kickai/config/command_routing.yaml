@@ -1,0 +1,183 @@
+# KICKAI Command Routing Configuration - Dynamic Configuration System
+# This file defines command-to-agent routing rules to eliminate hardcoded routing logic
+
+# Version and metadata
+version: "1.0.0"
+description: "Dynamic command routing configuration for KICKAI 5-agent system"
+last_updated: "2025-01-13"
+
+# Default routing behavior
+default_routing:
+  default_agent: "message_processor"
+  fallback_agent: "message_processor"
+  case_sensitive: false
+  strip_prefix: true  # Remove leading '/' from commands
+
+# Command routing rules - maps commands to specific agents
+# Format: command_pattern → agent_role
+command_routing:
+  
+  # Help system commands → HELP_ASSISTANT
+  help_commands:
+    agent: "help_assistant"
+    commands:
+      - "/help"
+      - "help"
+      - "/help@KickAI_bot"
+    description: "All help-related queries and guidance"
+    priority: 1
+
+  # Player information and status commands → PLAYER_COORDINATOR  
+  player_info_commands:
+    agent: "player_coordinator"
+    commands:
+      - "/info"
+      - "/myinfo"
+      - "/status"      # Self-status queries (no parameters)
+      - "/approve"
+      - "/reject"
+      - "/pending"
+      - "/playerstatus"
+      - "/playerinfo"
+    description: "Player information, status queries, and coordination"
+    priority: 2
+
+  # Team administration commands → TEAM_ADMINISTRATOR  
+  admin_commands:
+    agent: "team_administrator"
+    commands:
+      - "/addplayer"
+      - "/addmember" 
+      - "/creatematch"
+      - "/selectsquad"
+      - "/createteam"
+      - "/promote"
+      - "/demote"
+    description: "Team administration and management operations"
+    priority: 2
+
+  # Squad selection and match commands → SQUAD_SELECTOR
+  squad_commands:
+    agent: "squad_selector"
+    commands:
+      - "/markattendance"
+      - "/attendance"
+      - "/attendancehistory"
+      - "/availability"
+      - "/markavailability"
+      - "/squad"
+      - "/matches"
+      - "/matchdetails"
+    description: "Squad selection, availability, and match management"
+    priority: 2
+
+  # Basic/communication commands → MESSAGE_PROCESSOR  
+  basic_commands:
+    agent: "message_processor"
+    commands:
+      - "/list"
+      - "/ping"
+      - "/version"
+      - "/announce"
+      - "/poll"
+      - "/send"
+    description: "Basic queries, communications, and system information"
+    priority: 3
+
+# Pattern matching removed - simplified routing uses exact command matching only
+
+# Context-based routing modifiers
+context_routing:
+  # Different routing based on chat context
+  chat_type_rules:
+    main_chat:
+      # In main chat, some admin commands are blocked
+      blocked_commands: ["/addplayer", "/promote", "/demote"]
+      redirect_agent: "message_processor"  # Redirect to basic processor for error message
+      
+    leadership_chat:
+      # Leadership chat has full access
+      blocked_commands: []
+      
+    private_chat:
+      # Private chats have limited functionality
+      allowed_agents: ["message_processor", "help_assistant", "player_coordinator"]
+
+# Agent capabilities and constraints
+agent_constraints:
+  message_processor:
+    max_concurrent_requests: 10
+    can_handle_fallback: true
+    
+  help_assistant:
+    max_concurrent_requests: 5
+    can_handle_fallback: true
+    
+  player_coordinator:
+    max_concurrent_requests: 8
+    can_handle_fallback: false
+    requires_context: ["telegram_id", "team_id"]
+    
+  team_administrator:
+    max_concurrent_requests: 3
+    can_handle_fallback: false
+    requires_permissions: ["leadership"]
+    requires_context: ["telegram_id", "team_id", "chat_type"]
+    
+  squad_selector:
+    max_concurrent_requests: 5
+    can_handle_fallback: false
+    requires_context: ["telegram_id", "team_id"]
+
+# Validation rules
+validation_rules:
+  command_format:
+    # Commands must start with / or be in allowed natural language list
+    allowed_prefixes: ["/", "help", "info", "status", "list"]
+    max_length: 100
+    
+  agent_validation:
+    # All referenced agents must exist in AgentRole enum
+    validate_agent_roles: true
+    
+  context_validation:
+    # Required context parameters for different command types
+    required_context:
+      admin_commands: ["telegram_id", "team_id", "chat_type"]
+      player_info_commands: ["telegram_id", "team_id"]  
+      basic_commands: ["telegram_id", "team_id"]
+
+# Error handling configuration  
+error_handling:
+  unknown_command:
+    action: "route_to_default"
+    response_template: "Command not recognized. Type /help for available commands."
+    
+  agent_unavailable:
+    action: "route_to_fallback"
+    response_template: "Service temporarily unavailable. Please try again."
+    
+  permission_denied:
+    action: "send_error_message"
+    response_template: "❌ You don't have permission to use this command in this chat."
+    
+  context_missing:
+    action: "request_context"
+    response_template: "⚠️ Missing required information. Please try again."
+
+# Performance optimization - caching removed for simplicity
+optimization:
+  load_balancing:
+    enabled: false  # Disabled for current 5-agent system
+    
+  metrics:
+    track_routing_decisions: true
+    track_response_times: true
+    track_error_rates: true
+
+# Development and debugging
+debug:
+  log_routing_decisions: true
+  log_context_validation: true
+  log_performance_metrics: false
+  validate_configuration_on_startup: true

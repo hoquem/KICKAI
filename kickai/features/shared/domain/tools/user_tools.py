@@ -21,31 +21,20 @@ from kickai.utils.tool_helpers import (
 )
 
 
-@tool("get_user_status", result_as_answer=True)
-def get_user_status(telegram_id: str, team_id: str) -> str:
-    """Get user status and information.
-    
-    Retrieves comprehensive user status including whether they are
-    registered as a player, team member, or not registered at all.
-    
-    :param telegram_id: The user's Telegram ID (as string, converted to integer internally)
-    :type telegram_id: str
-    :param team_id: Team ID (required)
-    :type team_id: str
-    :returns: JSON string with user status information or error message
-    :rtype: str
-    :raises ServiceNotAvailableError: When PlayerService or TeamService unavailable
-    :raises ValueError: When telegram_id cannot be converted to integer
-    :raises Exception: When status retrieval fails
-    
-    .. example::
-       >>> result = get_user_status("123456", "KTI")
-       >>> print(result)
-       '{"status": "success", "data": {"user_type": "Player", ...}}'
-    
-    .. note::
-       Returns different data structures based on user type:
-       Player, Team Member, or Not Registered
+@tool("get_user_status")
+def get_user_status(telegram_id: int, team_id: str, username: str, chat_type: str, target_name: str) -> str:
+    """
+    Get user status and information by name lookup.
+
+    Args:
+        telegram_id: Telegram ID of the requesting user
+        team_id: Team ID (required)
+        username: Username of the requesting user
+        chat_type: Chat type context
+        target_name: Name of the user to look up
+
+    Returns:
+        User status information or error message
     """
     try:
         # Handle JSON string input using utility functions

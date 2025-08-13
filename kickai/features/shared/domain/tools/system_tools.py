@@ -13,10 +13,16 @@ from kickai.utils.tool_helpers import format_tool_success
 from kickai.core.constants import BOT_VERSION
 
 
-@tool("ping", result_as_answer=True)
-def ping() -> str:
+@tool("ping")
+def ping(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Simple ping test to verify bot connectivity and response time.
+    
+    Args:
+        telegram_id: Telegram ID of the requesting user
+        team_id: Team ID
+        username: Username of the requesting user
+        chat_type: Chat type context
     
     Returns:
         Pong response with timestamp and bot version
@@ -33,10 +39,16 @@ def ping() -> str:
         return create_json_response("error", message=f"Ping failed: {str(e)}")
 
 
-@tool("version", result_as_answer=True)
-def version() -> str:
+@tool("version")
+def version(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get bot version and system information.
+    
+    Args:
+        telegram_id: Telegram ID of the requesting user
+        team_id: Team ID
+        username: Username of the requesting user
+        chat_type: Chat type context
     
     Returns:
         Version information and system details

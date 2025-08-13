@@ -24,41 +24,8 @@ from typing import List
 # ============================================================================
 
 
-@command(
-    name="/addplayer",
-    description="Add a new player with simplified ID generation (Leadership only)",
-    command_type=CommandType.SLASH_COMMAND,
-    permission_level=PermissionLevel.LEADERSHIP,
-    feature="player_registration",
-    examples=["/addplayer John Smith +447123456789"],
-    parameters={"name": "Player's full name", "phone": "Phone number (e.g., +447123456789)"},
-    help_text="""
-👤 Add Player (Leadership Only)
-
-Add a new player to the team with simplified ID generation and invite link.
-
-Usage:
-/addplayer [name] [phone]
-
-Example:
-/addplayer John Smith +447123456789
-
-What happens:
-1. Player record is created with simple ID (e.g., 01JS)
-2. Position can be set later by team members
-3. Unique Telegram invite link is generated for main chat
-4. Link is sent to you to share with the player
-
-🔒 Security: Links are one-time use and expire automatically.
-
-💡 Note: This command is only available in the leadership chat.
-    """,
-)
-async def handle_addplayer_command(update, context, **kwargs):
-    """Handle /addplayer command."""
-    # This will be handled by the agent system
-    return None
-
+# /addplayer command moved to team_administration feature for better organization
+# This avoids duplication and consolidates player management in one place
 
 @command(
     name="/addmember",
