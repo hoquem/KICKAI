@@ -90,10 +90,10 @@ def send_message(telegram_id: int, team_id: str, username: str, chat_type: str, 
 
     if success:
         log_tool_execution("send_message", inputs, True)
-        return create_tool_response(
-            success=True, 
-            message="Message sent successfully", 
+        return create_json_response(
+            "success", 
             data={
+                "message": "Message sent successfully",
                 "chat_type": chat_type,
                 "chat_type_enum": chat_type_enum.value,
                 "team_id": team_id,
@@ -102,7 +102,7 @@ def send_message(telegram_id: int, team_id: str, username: str, chat_type: str, 
         )
     else:
         log_tool_execution("send_message", inputs, False, "Failed to send message")
-        raise ToolExecutionError("Failed to send message")
+        return create_json_response("error", message="Failed to send message")
 
 
 @tool("send_announcement", result_as_answer=True)
@@ -158,10 +158,10 @@ def send_announcement(telegram_id: int, team_id: str, username: str, chat_type: 
 
     if success:
         log_tool_execution("send_announcement", inputs, True)
-        return create_tool_response(True, "Announcement sent successfully")
+        return create_json_response("success", data="Announcement sent successfully")
     else:
         log_tool_execution("send_announcement", inputs, False, "Failed to send announcement")
-        raise ToolExecutionError("Failed to send announcement")
+        return create_json_response("error", message="Failed to send announcement")
 
 
 @tool("send_poll", result_as_answer=True)
@@ -223,7 +223,7 @@ def send_poll(telegram_id: int, team_id: str, username: str, chat_type: str, que
 
     if success:
         log_tool_execution("send_poll", inputs, True)
-        return create_tool_response(True, "Poll sent successfully")
+        return create_json_response("success", data="Poll sent successfully")
     else:
         log_tool_execution("send_poll", inputs, False, "Failed to send poll")
-        raise ToolExecutionError("Failed to send poll")
+        return create_json_response("error", message="Failed to send poll")
