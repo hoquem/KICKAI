@@ -663,14 +663,19 @@ Use /help to see available commands or ask me questions!"""
                 f"🔄 AgenticMessageRouter: User registration status - is_registered={is_registered}, is_player={is_player}, is_team_member={is_team_member}"
             )
 
-            # Always use crew lifecycle manager - no fallback needed
-            logger.info("🔄 AgenticMessageRouter: Routing to crew lifecycle manager")
-            result = await self.crew_lifecycle_manager.execute_task(
-                team_id=self.team_id,
-                task_description=message.text,
-                execution_context=execution_context,
-            )
-            return AgentResponse(success=True, message=result)
+            # Determine if NLP processing is needed
+            if self._requires_nlp_processing(message):
+                logger.info("🧠 AgenticMessageRouter: Processing with NLP enhancement")
+                return await self._process_with_nlp_enhancement(message, execution_context)
+            else:
+                logger.info("🚀 AgenticMessageRouter: Direct routing for clear command")
+                # Direct routing for clear commands
+                result = await self.crew_lifecycle_manager.execute_task(
+                    team_id=self.team_id,
+                    task_description=message.text,
+                    execution_context=execution_context,
+                )
+                return AgentResponse(success=True, message=result)
 
         except Exception as e:
             logger.error(f"❌ Error routing to specialized agent: {e}")
@@ -799,6 +804,324 @@ Use /help to see available commands or ask me questions!"""
             "last_telegram_id": self._last_telegram_id,
             "last_username": self._last_username,
         }
+
+    def _requires_nlp_processing(self, message: TelegramMessage) -> bool:
+        """
+        Enhanced NLP requirement detection using command registry integration.
+        
+        Determines if a message requires natural language processing based on
+        registry-based command classification and content analysis.
+        
+        Args:
+            message: TelegramMessage to analyze
+            
+        Returns:
+            True if message needs NLP processing, False for clear commands
+            
+        Raises:
+            ValidationError: When message analysis fails
+            
+        Example:
+            >>> router._requires_nlp_processing(help_message)
+            False
+            >>> router._requires_nlp_processing(natural_language_message)
+            True
+        """
+        try:
+            # Use the improved clear command detection
+            if self._is_clear_command(message.text, message.chat_type.value):
+                logger.info(f"🚀 Skipping NLP for clear command: {message.text}")
+                return False
+            
+            # Check if it's a conversational follow-up
+            if self._is_conversational_followup(message):
+                logger.info(f"🗣️ NLP needed for conversational follow-up: {message.text}")
+                return True
+            
+            # Check if text contains ambiguous references
+            if self._contains_ambiguous_references(message.text):
+                logger.info(f"🔍 NLP needed for ambiguous references: {message.text}")
+                return True
+            
+            # Default to NLP for natural language queries
+            logger.info(f"🧠 NLP needed for natural language: {message.text}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error in _requires_nlp_processing: {e}")
+            # Fail safe - assume needs NLP if uncertain
+            return True
+
+    def _is_clear_command(self, text: str, chat_type: Optional[str] = None) -> bool:
+        """
+        Registry-based clear command detection with slash-agnostic support.
+        
+        Determines if a command is unambiguous and doesn't require NLP processing
+        by leveraging the command registry metadata and classification rules.
+        
+        Args:
+            text: User input text to analyze
+            chat_type: Optional chat context for classification
+            
+        Returns:
+            True if command is clear and doesn't need NLP processing
+            
+        Raises:
+            ValidationError: When command analysis fails
+            
+        Example:
+            >>> router._is_clear_command("/help")
+            True
+            >>> router._is_clear_command("tell me about the team")
+            False
+        """
+        try:
+            # Input validation using utility functions
+            from kickai.utils.tool_validation import validate_string_input, ToolValidationError
+            try:
+                validated_text = validate_string_input(text, "Command text", allow_empty=False)
+            except ToolValidationError as e:
+                logger.warning(f"⚠️ Invalid input for command analysis: {str(e)}")
+                return False
+            
+            # Extract command from text
+            command = self._extract_command_from_text(text)
+            if not command:
+                return False
+            
+            # Get command registry
+            from kickai.core.command_registry_initializer import get_initialized_command_registry
+            registry = get_initialized_command_registry()
+            if not registry:
+                logger.warning("⚠️ Command registry not available")
+                return False
+            
+            # Query registry with multiple variants
+            command_metadata = self._find_command_in_registry(registry, command)
+            if not command_metadata:
+                return False
+            
+            # Classify command clarity
+            return self._classify_command_clarity(command_metadata, text, chat_type)
+            
+        except Exception as e:
+            logger.error(f"❌ Error in _is_clear_command: {e}")
+            # Fail safe - assume needs NLP if uncertain
+            return False
+
+    def _extract_command_from_text(self, text: str) -> Optional[str]:
+        """
+        Extract the command portion from user text.
+        
+        Args:
+            text: User input text
+            
+        Returns:
+            Command string if found, None otherwise
+        """
+        try:
+            if not text or not text.strip():
+                return None
+            
+            # Get first word
+            first_word = text.strip().split()[0]
+            
+            # Handle slash commands and natural references
+            if first_word.startswith('/'):
+                return first_word.lower()
+            
+            # For non-slash text, check if it looks like a command
+            # (single word that could be a command)
+            if len(text.strip().split()) == 1:
+                return first_word.lower()
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Error extracting command from text: {e}")
+            return None
+
+    def _find_command_in_registry(self, registry, command: str):
+        """
+        Find command in registry with multiple variants.
+        
+        Args:
+            registry: Command registry instance
+            command: Command to find
+            
+        Returns:
+            CommandMetadata if found, None otherwise
+        """
+        try:
+            # Try both with and without slash for flexibility
+            command_variants = [command, f"/{command.lstrip('/')}", command.lstrip('/')]
+            
+            for variant in command_variants:
+                command_metadata = registry.get_command(variant)
+                if command_metadata:
+                    return command_metadata
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Error finding command in registry: {e}")
+            return None
+
+    def _classify_command_clarity(
+        self, 
+        command_metadata, 
+        original_text: str,
+        chat_type: Optional[str] = None
+    ) -> bool:
+        """
+        Intelligent command clarity classification based on metadata.
+        
+        Analyzes command characteristics to determine if it's unambiguous
+        enough to skip NLP processing.
+        
+        Args:
+            command_metadata: Command metadata from registry
+            original_text: Original user input text
+            chat_type: Optional chat context
+            
+        Returns:
+            True if command is considered clear/unambiguous
+            
+        Raises:
+            ValidationError: When classification fails
+        """
+        try:
+            # System commands are always clear
+            if hasattr(command_metadata, 'command_type') and command_metadata.command_type:
+                if command_metadata.command_type.value in ["system", "utility"]:
+                    return True
+            
+            # Commands marked as not requiring NLP
+            if hasattr(command_metadata, 'requires_nlp') and not command_metadata.requires_nlp:
+                return True
+            
+            # Commands with no required parameters
+            if not command_metadata.parameters or getattr(command_metadata, 'parameter_optional', True):
+                return True
+            
+            # Self-referential commands without parameters
+            if self._is_self_referential_command(command_metadata, original_text):
+                return True
+            
+            # Specific clear commands (extensible via config)
+            return self._check_specific_clear_commands(command_metadata.name)
+            
+        except Exception as e:
+            logger.error(f"❌ Error in _classify_command_clarity: {e}")
+            from kickai.core.exceptions import ValidationError
+            raise ValidationError(f"Command clarity classification failed: {str(e)}")
+
+    def _is_self_referential_command(self, command_metadata, original_text: str) -> bool:
+        """Check if command is self-referential (e.g., /info without parameters)."""
+        try:
+            text_parts = original_text.strip().split()
+            if len(text_parts) == 1 and command_metadata.name.lower() in ['info', '/info', 'status', '/status']:
+                return True  # Single word info/status commands are clear (self-reference)
+            return False
+        except Exception:
+            return False
+
+    def _check_specific_clear_commands(self, command_name: str) -> bool:
+        """Check if command is in the list of specifically clear commands."""
+        try:
+            clear_command_names = {
+                '/help', '/ping', '/version', '/list',
+                'help', 'ping', 'version', 'list'
+            }
+            return command_name.lower() in clear_command_names
+        except Exception:
+            return False
+
+    def _is_conversational_followup(self, message: TelegramMessage) -> bool:
+        """
+        Check if message is a conversational follow-up that needs context.
+        
+        Args:
+            message: TelegramMessage to analyze
+            
+        Returns:
+            True if message appears to be a conversational follow-up
+        """
+        try:
+            followup_indicators = [
+                'yes', 'no', 'thanks', 'ok', 'sure', 'please',
+                'what about', 'and', 'also', 'too', 'again',
+                'it', 'that', 'this', 'them', 'those'
+            ]
+            
+            text_lower = message.text.lower().strip()
+            return any(indicator in text_lower for indicator in followup_indicators)
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Error checking conversational follow-up: {e}")
+            return False
+
+    def _contains_ambiguous_references(self, text: str) -> bool:
+        """
+        Check if text contains references that need context resolution.
+        
+        Args:
+            text: Text to analyze
+            
+        Returns:
+            True if text contains ambiguous references
+        """
+        try:
+            ambiguous_refs = [
+                'it', 'that', 'this', 'them', 'those', 'he', 'she', 'they',
+                'last', 'previous', 'next', 'current', 'recent'
+            ]
+            
+            text_lower = text.lower()
+            return any(ref in text_lower.split() for ref in ambiguous_refs)
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Error checking ambiguous references: {e}")
+            return False
+
+    async def _process_with_nlp_enhancement(self, message: TelegramMessage, execution_context: dict) -> AgentResponse:
+        """
+        Process message with NLP enhancement for natural language understanding.
+        
+        Args:
+            message: TelegramMessage to process
+            execution_context: Execution context for processing
+            
+        Returns:
+            AgentResponse with NLP-enhanced processing results
+            
+        Raises:
+            ToolError: When NLP processing fails
+        """
+        try:
+            logger.info("🧠 Starting NLP-enhanced message processing")
+            
+            # For now, route to crew lifecycle manager with enhanced context
+            # TODO: Implement actual NLP agent when created in Phase 2
+            enhanced_context = execution_context.copy()
+            enhanced_context.update({
+                "nlp_required": True,
+                "processing_type": "nlp_enhanced",
+                "original_message": message.text
+            })
+            
+            result = await self.crew_lifecycle_manager.execute_task(
+                team_id=self.team_id,
+                task_description=message.text,
+                execution_context=enhanced_context,
+            )
+            
+            return AgentResponse(success=True, message=result)
+            
+        except Exception as e:
+            logger.error(f"❌ Error in NLP-enhanced processing: {e}")
+            from kickai.core.exceptions import ToolError
+            raise ToolError(f"NLP-enhanced processing failed: {str(e)}")
 
     def _looks_like_phone_number(self, text: str) -> bool:
         """
