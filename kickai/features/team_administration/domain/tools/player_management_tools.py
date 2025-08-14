@@ -55,11 +55,11 @@ def add_player(
         
         validation_errors = [error for error in validations if error]
         if validation_errors:
-            return create_json_response("error", message=f"INVALID_INPUT: {'; '.join(validation_errors)}")
+            return create_json_response("error", message=f"❌ **Missing Information**\n\n💡 I need complete details to add a player:\n{'; '.join(validation_errors)}")
 
         # Validate chat type is leadership
         if chat_type.lower() != "leadership":
-            return create_json_response("error", message="PERMISSION_DENIED: Add player command can only be used in the leadership chat.")
+            return create_json_response("error", message="❌ **Permission Required**\n\n🔒 Adding players is a leadership function. Please use this command in the leadership chat.")
 
         # Sanitize inputs
         player_name = sanitize_input(player_name, MAX_NAME_LENGTH)
@@ -68,7 +68,7 @@ def add_player(
 
         # Validate phone number format
         if not is_valid_phone(phone_number):
-            return create_json_response("error", message="INVALID_PHONE: Invalid phone number format. Please use UK format: +447123456789 or 07123456789")
+            return create_json_response("error", message=f"❌ **Invalid Phone Number**\n\n📱 Please use UK format:\n• +447123456789 (with country code)\n• 07123456789 (without country code)\n\n🔍 You provided: {phone_number}")
 
         # Normalize phone number
         normalized_phone = normalize_phone(phone_number)
@@ -90,7 +90,7 @@ def add_player(
 
     except Exception as e:
         logger.error(f"❌ Error in add_player tool: {e}")
-        return create_json_response("error", message=f"SYSTEM_ERROR: Failed to add player: {str(e)}")
+        return create_json_response("error", message=f"❌ **System Error**\n\n🛠️ Failed to add player: {str(e)}\n\n💬 Please try again or contact your system administrator.")
 
 
 async def _add_player_async(
@@ -133,7 +133,7 @@ async def _add_player_async(
             existing_player = existing_players[0]
             return create_json_response(
                 "error",
-                message=f"DUPLICATE_PHONE: Player with phone number {phone_number} already exists: {existing_player.get('player_name', 'Unknown')}"
+                message=f"❌ **Phone Number Already Registered**\n\n📱 {phone_number} is already used by: **{existing_player.get('player_name', 'Unknown')}**\n\n💡 Each player needs a unique phone number. Please check with the existing player or use a different number."
             )
 
         # Get team configuration for main chat ID
@@ -141,14 +141,14 @@ async def _add_player_async(
         if not team_config:
             return create_json_response(
                 "error",
-                message="TEAM_CONFIG_ERROR: Team configuration not found. Please contact system administrator."
+                message="❌ **Team Setup Issue**\n\n🔧 Team configuration not found. This shouldn't happen!\n\n💬 Please contact your system administrator to resolve this issue."
             )
         
         main_chat_id = team_config.get("main_chat_id")
         if not main_chat_id:
             return create_json_response(
                 "error",
-                message="TEAM_CONFIG_ERROR: Team main chat not configured. Please contact system administrator."
+                message="❌ **Main Chat Not Configured**\n\n📱 Your team's main chat isn't set up yet.\n\n💬 Please contact your system administrator to configure the main chat for invite links."
             )
 
         team_name = team_config.get("team_name", f"Team {team_id}")
@@ -221,17 +221,17 @@ async def _add_player_async(
         logger.error(f"❌ Import error in add_player: {e}")
         return create_json_response(
             "error",
-            message="SYSTEM_ERROR: Invite link service not available. Please contact system administrator."
+            message="❌ **System Component Unavailable**\n\n🔗 Invite link generation is temporarily unavailable.\n\n⏱️ Please try again in a moment, or contact your system administrator if the issue persists."
         )
     except ServiceNotAvailableError as e:
         logger.error(f"❌ Service not available in add_player: {e}")
         return create_json_response(
             "error",
-            message="SERVICE_ERROR: Required service not available. Please try again later."
+            message="❌ **Service Temporarily Unavailable**\n\n⏱️ A required service is currently unavailable.\n\n🔄 Please try again in a few moments."
         )
     except Exception as e:
         logger.error(f"❌ Error in _add_player_async: {e}")
         return create_json_response(
             "error",
-            message=f"SYSTEM_ERROR: Failed to add player: {str(e)}"
+            message=f"❌ **System Error**\n\n🛠️ Something went wrong while adding the player.\n\n📝 Error details: {str(e)}\n\n💬 Please try again or contact your system administrator."
         )

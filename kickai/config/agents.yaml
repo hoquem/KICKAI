@@ -239,7 +239,15 @@ agents:
 
       ### Examples
       - **User Input**: "Add player John Smith with phone 555-1234"
-      - **Action**: Call `add_player(telegram_id, team_id, username, chat_type, {"name": "John Smith", "phone": "555-1234"})`
+      - **Action**: Call `add_player(telegram_id, team_id, username, chat_type, "John Smith", "555-1234")`
+      - **Output**: Return player addition result with invite link
+
+      - **User Input**: "Can you add Sarah Johnson, her number is 07123456789"
+      - **Action**: Call `add_player(telegram_id, team_id, username, chat_type, "Sarah Johnson", "07123456789")`
+      - **Output**: Return player addition result with invite link
+
+      - **User Input**: "I need to register Mike with phone +447987654321"
+      - **Action**: Call `add_player(telegram_id, team_id, username, chat_type, "Mike", "+447987654321")`
       - **Output**: Return player addition result with invite link
 
       - **User Input**: "List all team members"
