@@ -1,20 +1,226 @@
-# KICKAI Changelog
+KICKAI CHANGELOG
+
+[2025-01-XX] - /addplayer Command Enhancement, AI Expert Docstrings, Configuration-Driven Player Management, Simplified Argument Parsing, PlayerToolService & PlayerService Code Quality Improvements
+
+CODE QUALITY IMPROVEMENTS
+
+PLAYERTOOLSERVICE & PLAYERSERVICE REFACTORING & STANDARDS COMPLIANCE
+- Comprehensive refactoring of `kickai/features/player_registration/domain/services/player_tool_service.py`:
+  - Import Organization: Reorganized imports per PEP 8 standards (standard library, third-party, local)
+  - Constants Extraction: Added comprehensive constants for magic numbers and message templates
+  - Method Decomposition: Broke down complex methods into smaller, single-responsibility functions
+  - Hardcoded String Elimination: Extracted all hardcoded strings to MESSAGES and LOG_MESSAGES constants
+  - Logging Cleanup: Removed emojis from logging messages for production compatibility
+  - Exception Handling: Standardized exception handling with proper chaining (`from None`)
+  - Code Deduplication: Consolidated duplicate logic between similar methods
+  - Type Safety: Improved type hints and added missing return type annotations
+  - String Parsing: Enhanced string parsing with multiple patterns for robustness
+
+- Specific improvements:
+  - Import Reorganization: Moved `import re` to top, organized imports by category
+  - Constants Added: 
+    - `MAX_PLAYER_ID_LENGTH = 20`
+    - `MAX_PHONE_VALIDATION_LENGTH = 20`
+    - `MESSAGES` dictionary with 20+ message templates
+    - `LOG_MESSAGES` dictionary with logging templates
+  - Method Refactoring:
+    - `_format_add_player_response` → `_format_existing_player_response` + `_format_new_player_response` + `_add_security_info`
+    - `_extract_player_name_from_result` with multiple regex patterns for robustness
+    - `_format_approval_success_response` for consistent formatting
+    - `_create_player_status_response` to eliminate code duplication
+  - Exception Handling: All exception handlers now use `from None` for proper chaining
+  - Logging: Removed emojis from log messages, used template-based logging
+  - String Parsing: Enhanced player name extraction with multiple regex patterns
+
+FILES MODIFIED
+Files Modified
+- `kickai/features/player_registration/domain/services/player_tool_service.py`:
+  - Reorganized imports per PEP 8 standards
+  - Added comprehensive constants for magic numbers and messages
+  - Refactored complex methods into smaller, single-responsibility functions
+  - Eliminated all hardcoded strings with template system
+  - Improved exception handling with proper chaining
+  - Enhanced string parsing with multiple patterns
+  - Consolidated duplicate logic between similar methods
+  - Improved type safety and documentation
+
+- Comprehensive refactoring of `kickai/features/player_registration/domain/services/player_service.py`:
+  - Import Organization: Reorganized imports per PEP 8 standards (standard library, local application)
+  - Constants Extraction: Added comprehensive constants for magic numbers, status values, and message templates
+  - Method Decomposition: Broke down complex methods into smaller, single-responsibility functions
+  - Hardcoded String Elimination: Extracted all hardcoded strings to ERROR_TEMPLATES and SUCCESS_TEMPLATES constants
+  - Status Handling: Standardized status handling with constants (DEFAULT_STATUS, ACTIVE_STATUS)
+  - Code Deduplication: Consolidated duplicate logic and extracted helper methods
+  - Type Safety: Improved type hints and added missing return type annotations
+  - Error Handling: Standardized error handling with template-based messages
+  - String Parsing: Enhanced datetime parsing with better type safety
+
+- Specific improvements for PlayerService:
+  - Import Reorganization: Organized imports by category (standard library, local application)
+  - Constants Added: 
+    - `MIN_NAME_LENGTH = 2`, `MIN_TEAM_ID_LENGTH = 2`
+    - `PLAYER_ID_PREFIX = "M"`, `DEFAULT_STATUS = "pending"`, `ACTIVE_STATUS = "active"`
+    - `STATUS_EMOJIS` dictionary for consistent status display
+    - `DEFAULT_VALUES` dictionary for common default values
+    - `ERROR_TEMPLATES` dictionary with 9+ error message templates
+    - `SUCCESS_TEMPLATES` dictionary with 6+ success message templates
+  - Method Refactoring:
+    - `get_player_by_telegram_id` → `_create_player_from_data` helper method
+    - `add_player` → `_handle_existing_player` + `_create_new_player` helper methods
+    - Enhanced `_parse_datetime` with proper type hints
+  - Error Handling: All error messages now use template system with placeholders
+  - Status Handling: Consistent use of status constants throughout the codebase
+  - Type Safety: Added missing type hints and improved existing ones
+  - Modern Type Hints: Updated to use modern Python type syntax (`|` instead of `Union`/`Optional`)
+
+- Comprehensive refactoring of `kickai/features/player_registration/infrastructure/firebase_player_repository.py`:
+  - Import Organization: Reorganized imports per PEP 8 standards (standard library, local application)
+  - Constants Extraction: Added comprehensive constants for error and success messages
+  - Method Decomposition: Broke down complex methods into smaller, single-responsibility functions
+  - Hardcoded String Elimination: Extracted all hardcoded strings to ERROR_MESSAGES and SUCCESS_MESSAGES constants
+  - Code Deduplication: Consolidated duplicate logic and extracted helper methods
+  - Type Safety: Updated type hints to modern Python syntax (`|` instead of `Optional`)
+  - Error Handling: Standardized error handling with template-based messages
+  - Import Cleanup: Removed unused imports and moved duplicate imports to top
+
+- Specific improvements for FirebasePlayerRepository:
+  - Import Reorganization: Organized imports by category and moved `get_team_players_collection` to top
+  - Constants Added: 
+    - `ERROR_MESSAGES` dictionary with 9+ error message templates
+    - `SUCCESS_MESSAGES` dictionary with 3+ success message templates
+  - Method Refactoring:
+    - `create_player` → `_prepare_player_data` helper method
+    - `update_player` → `_prepare_update_player_data` helper method
+    - Removed unused `_parse_datetime` method
+  - Error Handling: All error messages now use template system with placeholders
+  - Type Safety: Updated all `Optional[X]` to `X | None` syntax
+  - Code Cleanup: Removed duplicate imports and unused methods
+
+CRITICAL BUG FIXES
+
+PLAYER STATUS VALIDATION FIX
+- Fixed critical bug in player status validation:
+  - Issue: `PLAYER_DEFAULT_STATUS` constant was set to uppercase "PENDING" but Player entity validation expects lowercase statuses
+  - Error: `Invalid status: PENDING. Must be one of ['pending', 'approved', 'rejected', 'active', 'inactive']`
+  - Root Cause: Inconsistent status constants in `kickai/utils/constants.py`
+  - Fix: Changed `PLAYER_DEFAULT_STATUS = "PENDING"` to `PLAYER_DEFAULT_STATUS = "pending"`
+  - Impact: Resolves `/addplayer` command failure due to status validation error
+  - Files Modified: `kickai/utils/constants.py`
+
+MAJOR ENHANCEMENTS
+
+/ADDPLAYER COMMAND ENHANCEMENT & AI EXPERT DOCSTRINGS
+- Enhanced `/addplayer` command with AI expert-friendly documentation and configuration-driven approach:
+  - AI Expert Docstrings: Added comprehensive AI expert guidance to `add_player` tool with usage examples, error scenarios, and technical details
+  - Simplified Argument Parsing: Replaced complex 100+ line parser with simplified 30-line parser (70% reduction in code)
+  - Configuration-Driven: Replaced all hardcoded values with constants and configuration templates
+  - Enhanced Error Handling: Implemented template-based error messages with dynamic content
+  - AI Agent Guidance: Added context usage guidance, alternatives, and performance characteristics
+  - Phone Number Validation: Improved validation using configuration constants
+  - Success Message Templates: Created comprehensive success message templates with placeholders
+
+- Specific enhancements:
+  - Enhanced Tool Docstring: Added 50+ lines of AI expert documentation including:
+    - Primary function and core workflow description
+    - Critical validations and security features
+    - Context usage guidance for different chat types
+    - Usage examples for AI agents with expected outputs
+    - Error scenarios with expected responses
+    - Technical notes and performance characteristics
+    - Alternatives and when to avoid using the tool
+  - Simplified Argument Parser: Replaced `_parse_addplayer_arguments` with `parse_addplayer_args`:
+    - Reduced from 100+ lines to 30 lines
+    - Intelligent phone number detection
+    - Support for multiple input formats
+    - Clear error handling and validation
+  - Configuration Constants: Added comprehensive constants to `kickai/utils/constants.py`:
+    - Player management constants (status, position, name/phone limits)
+    - Phone validation constants (digits, prefixes)
+    - Error message templates with placeholders
+    - Success message templates with placeholders
+  - New Configuration File: Created `kickai/config/player_management.yaml`:
+    - Player registration settings
+    - Validation rules and patterns
+    - Performance and security settings
+    - Message templates for easy customization
+
+FILES MODIFIED
+Files Modified
+- `kickai/utils/constants.py`:
+  - Added player management constants (PLAYER_DEFAULT_STATUS, PLAYER_DEFAULT_POSITION, etc.)
+  - Added phone validation constants (PHONE_MIN_DIGITS, PHONE_MAX_DIGITS, PHONE_VALID_PREFIXES)
+  - Added comprehensive error message templates with placeholders
+  - Added success message templates with placeholders
+  - Centralized all hardcoded values for easy maintenance
+- `kickai/features/team_administration/domain/tools/player_management_tools.py`:
+  - Enhanced `add_player` tool docstring with 50+ lines of AI expert documentation
+  - Updated tool implementation to use configuration constants
+  - Replaced hardcoded values with constants (status, position, messages)
+  - Improved error handling with template-based messages
+  - Added comprehensive AI agent usage guidance
+- `kickai/features/team_administration/application/commands/player_admin_commands.py`:
+  - Replaced complex argument parser with simplified version
+  - Updated validation logic to use configuration constants
+  - Improved error messages with template system
+  - Enhanced phone number detection and validation
+  - Simplified command handler logic
+- `kickai/config/player_management.yaml` (NEW):
+  - Created comprehensive configuration file for player management
+  - Added player registration settings and validation rules
+  - Included performance and security settings
+  - Added message templates for easy customization
+  - Centralized all configurable values
+
+### 🔧 Code Quality Improvements
+
+SIMPLIFIED ARGUMENT PARSING
+- Replaced complex argument parser with simplified version:
+  - Before: 100+ lines with multiple parsing strategies, fallback methods, and complex heuristics
+  - After: 30 lines with intelligent phone number detection and clear validation
+  - Benefits: 70% reduction in code, improved maintainability, clearer logic
+  - Features: Support for multiple input formats, intelligent phone detection, clear error handling
+
+CONFIGURATION-DRIVEN APPROACH
+- Eliminated all hardcoded values:
+  - Status Values: Replaced hardcoded "PENDING" with PLAYER_DEFAULT_STATUS constant
+  - Position Values: Replaced hardcoded "" with PLAYER_DEFAULT_POSITION constant
+  - Error Messages: Replaced hardcoded messages with template system
+  - Success Messages: Replaced hardcoded messages with template system
+  - Validation Rules: Replaced hardcoded limits with configuration constants
+
+AI EXPERT DOCUMENTATION
+- Enhanced tool docstrings for AI agent usage:
+  - Context Usage Guidance: Clear guidance for different chat types
+  - Usage Examples: Real-world examples with expected outputs
+  - Error Scenarios: Expected errors and appropriate responses
+  - Technical Details: Performance characteristics and limitations
+  - Alternatives: When to use other tools instead
+  - Security Features: Access control and validation details
+
+### 📊 Impact Summary
+- Code Reduction: 70% reduction in argument parsing code
+- Maintainability: All hardcoded values replaced with configuration
+- AI Agent Support: Comprehensive documentation for AI agent usage
+- Error Handling: Template-based messages with dynamic content
+- Configuration: Centralized configuration for easy customization
+- Documentation: 50+ lines of AI expert guidance added
 
 ## [2025-01-XX] - ChatType Enum Fix, CrewAI Agents Refactoring, Required Chat ID Parameters, LLM-Based Intent Recognition, Async Utils & Tool Registry Code Quality
 
 ### 🔧 Critical Fixes
 
-#### ChatType Enum Error Fix
-- **Fixed `'str' object has no attribute 'value'` error in AgenticMessageRouter and Tools**:
-  - **Root Cause**: Functions expecting `ChatType` enum were receiving string values instead, and tools were calling `create_json_response()` with string values instead of `ResponseStatus` enum
-  - **Impact**: Caused tool execution failures and system errors across multiple tools (ping, version, help tools)
-  - **Solution**: Added robust type checking and conversion in `_check_command_availability()` and `_handle_unrecognized_command()` functions, and fixed all `create_json_response()` calls to use proper enum values
-  - **Implementation**: Added `isinstance(chat_type, str)` checks with proper enum conversion using `normalize_chat_type()`, and updated all tool responses to use `ResponseStatus.SUCCESS` and `ResponseStatus.ERROR`
-  - **Fallback**: Default to `ChatType.MAIN` if conversion fails
-  - **Logging**: Added warning logs when string-to-enum conversion occurs
-  - **Error Prevention**: Prevents future similar errors with proper type validation
+FILES MODIFIED
+ChatType Enum Error Fix
+- Fixed `'str' object has no attribute 'value'` error in AgenticMessageRouter and Tools:
+  - Root Cause: Functions expecting `ChatType` enum were receiving string values instead, and tools were calling `create_json_response()` with string values instead of `ResponseStatus` enum
+  - Impact: Caused tool execution failures and system errors across multiple tools (ping, version, help tools)
+  - Solution: Added robust type checking and conversion in `_check_command_availability()` and `_handle_unrecognized_command()` functions, and fixed all `create_json_response()` calls to use proper enum values
+  - Implementation: Added `isinstance(chat_type, str)` checks with proper enum conversion using `normalize_chat_type()`, and updated all tool responses to use `ResponseStatus.SUCCESS` and `ResponseStatus.ERROR`
+  - Fallback: Default to `ChatType.MAIN` if conversion fails
+  - Logging: Added warning logs when string-to-enum conversion occurs
+  - Error Prevention: Prevents future similar errors with proper type validation
 
-- **Specific fixes**:
+- Specific fixes:
   - Fixed `_check_command_availability()` function to handle string chat_type parameters
   - Fixed `_handle_unrecognized_command()` function to handle string chat_type parameters
   - Fixed `create_json_response()` calls in `system_tools.py` (ping, version tools)
@@ -23,7 +229,8 @@
   - Maintained backward compatibility while ensuring type safety
   - Enhanced error messages for debugging
 
-#### Files Modified
+FILES MODIFIED
+Files Modified
 - `kickai/agents/agentic_message_router.py`: 
   - Added type checking for chat_type parameters
   - Implemented string-to-enum conversion with error handling
@@ -49,55 +256,57 @@
   - Added `ResponseStatus` import for type safety
   - Fixed 2 instances of string-based enum usage
 
-#### Comprehensive ResponseStatus Enum Fix (All Tools)
-- **Fixed `'str' object has no attribute 'value'` error across ALL tools**:
-  - **Scope**: Fixed 20 tools files across 6 feature domains
-  - **Root Cause**: All tools were calling `create_json_response()` with string values instead of `ResponseStatus` enum values
-  - **Impact**: Eliminated tool execution failures across the entire system
-  - **Solution**: Systematic replacement of all string-based enum usage with proper `ResponseStatus` enum values
+FILES MODIFIED
+Comprehensive ResponseStatus Enum Fix (All Tools)
+- Fixed `'str' object has no attribute 'value'` error across ALL tools:
+  - Scope: Fixed 20 tools files across 6 feature domains
+  - Root Cause: All tools were calling `create_json_response()` with string values instead of `ResponseStatus` enum values
+  - Impact: Eliminated tool execution failures across the entire system
+  - Solution: Systematic replacement of all string-based enum usage with proper `ResponseStatus` enum values
 
-- **Files Fixed**:
-  - **Match Management Tools** (4 files): `attendance_tools.py`, `availability_tools.py`, `match_tools.py`, `squad_tools.py`
-  - **Player Registration Tools** (1 file): `player_tools.py`
-  - **Team Administration Tools** (5 files): `player_management_tools.py`, `simplified_team_member_tools.py`, `team_management_tools.py`, `update_team_member_tools.py`, `team_member_tools.py`
-  - **Shared Tools** (5 files): `help_tools.py`, `system_tools.py`, `simple_onboarding_tools.py`, `onboarding_tools.py`, `user_tools.py`
-  - **System Infrastructure Tools** (3 files): `help_tools.py`, `logging_tools.py`, `firebase_tools.py`
-  - **Communication Tools** (2 files): `communication_tools.py`, `telegram_tools.py`
+- Files Fixed:
+  - Match Management Tools (4 files): `attendance_tools.py`, `availability_tools.py`, `match_tools.py`, `squad_tools.py`
+  - Player Registration Tools (1 file): `player_tools.py`
+  - Team Administration Tools (5 files): `player_management_tools.py`, `simplified_team_member_tools.py`, `team_management_tools.py`, `update_team_member_tools.py`, `team_member_tools.py`
+  - Shared Tools (5 files): `help_tools.py`, `system_tools.py`, `simple_onboarding_tools.py`, `onboarding_tools.py`, `user_tools.py`
+  - System Infrastructure Tools (3 files): `help_tools.py`, `logging_tools.py`, `firebase_tools.py`
+  - Communication Tools (2 files): `communication_tools.py`, `telegram_tools.py`
 
-- **Changes Applied**:
+- Changes Applied:
   - Added `from kickai.core.enums import ResponseStatus` import to all 20 files
   - Replaced `create_json_response("success", ...)` with `create_json_response(ResponseStatus.SUCCESS, ...)`
   - Replaced `create_json_response("error", ...)` with `create_json_response(ResponseStatus.ERROR, ...)`
   - Fixed import issue in `match_management/domain/tools/__init__.py` (corrected `list_matches_sync` to `list_matches`)
 
-- **Total Impact**:
-  - **20 files processed**
-  - **100+ create_json_response calls fixed**
-  - **Complete elimination of string-based enum usage in tools**
-  - **System-wide type safety improvement**
-  - **All tool imports now working correctly**
+- Total Impact:
+  - 20 files processed
+  - 100+ create_json_response calls fixed
+  - Complete elimination of string-based enum usage in tools
+  - System-wide type safety improvement
+  - All tool imports now working correctly
 
 ## [2025-01-XX] - CrewAI Agents Refactoring, Required Chat ID Parameters, LLM-Based Intent Recognition, Async Utils & Tool Registry Code Quality
 
 ### 🔧 Critical Fixes
 
-#### CrewAI Agents Code Quality Improvements
-- **Comprehensive code review and refactoring for `crew_agents.py`**:
-  - **Import Organization**: Reorganized imports according to PEP 8 standards (standard library, third-party, local)
-  - **Constants**: Added constants for magic numbers (DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_FACTOR, etc.)
-  - **Single Try/Except Boundary**: Refactored complex functions to adhere to single try/except pattern
-  - **Function Decomposition**: Broke down massive `execute_task` and `_execute_with_basic_crew` functions into smaller, focused functions
-  - **Type Safety**: Added missing return type hints and updated to modern Python syntax
-  - **Error Handling**: Standardized exception chaining with `raise ... from e` pattern
-  - **Code Quality**: Removed excessive debug logging, improved variable naming, and cleaned up duplicate code
-  - **Documentation**: Enhanced docstrings with proper Args/Returns/Raises sections
-  - **Linting**: All ruff linting errors resolved (96 → 0 errors)
-  - **Architecture**: Maintained clean architecture principles while improving code quality
-  - **Performance**: Eliminated nested try/except blocks and improved error handling efficiency
-  - **Maintainability**: Decomposed 200+ line functions into focused, single-responsibility functions
-  - **Standards Compliance**: 100% compliance with project coding standards achieved
+FILES MODIFIED
+CrewAI Agents Code Quality Improvements
+- Comprehensive code review and refactoring for `crew_agents.py`:
+  - Import Organization: Reorganized imports according to PEP 8 standards (standard library, third-party, local)
+  - Constants: Added constants for magic numbers (DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_FACTOR, etc.)
+  - Single Try/Except Boundary: Refactored complex functions to adhere to single try/except pattern
+  - Function Decomposition: Broke down massive `execute_task` and `_execute_with_basic_crew` functions into smaller, focused functions
+  - Type Safety: Added missing return type hints and updated to modern Python syntax
+  - Error Handling: Standardized exception chaining with `raise ... from e` pattern
+  - Code Quality: Removed excessive debug logging, improved variable naming, and cleaned up duplicate code
+  - Documentation: Enhanced docstrings with proper Args/Returns/Raises sections
+  - Linting: All ruff linting errors resolved (96 → 0 errors)
+  - Architecture: Maintained clean architecture principles while improving code quality
+  - Performance: Eliminated nested try/except blocks and improved error handling efficiency
+  - Maintainability: Decomposed 200+ line functions into focused, single-responsibility functions
+  - Standards Compliance: 100% compliance with project coding standards achieved
 
-- **Specific improvements**:
+- Specific improvements:
   - Fixed import organization with proper grouping and ordering
   - Added constants for default values (retry parameters, limits, etc.)
   - Refactored `execute_task()` into multiple focused functions (`_execute_task_with_memory`, `_log_agent_details`, etc.)
@@ -108,7 +317,8 @@
   - Enhanced error messages and logging consistency
   - Removed duplicate code and imports
 
-#### Files Modified
+FILES MODIFIED
+Files Modified
 - `kickai/agents/crew_agents.py`: 
   - Reorganized imports according to PEP 8
   - Added constants for magic numbers
@@ -124,19 +334,20 @@
 
 ### 🔧 Critical Fixes
 
-#### Tool Registry Code Quality Improvements
-- **Comprehensive code review and fixes for `tool_registry.py`**:
-  - **Import Organization**: Reorganized imports according to PEP 8 standards (standard library, third-party, local)
-  - **Constants**: Extracted magic numbers to named constants (`DEFAULT_TOOL_VERSION`, `DEFAULT_FEATURE_MODULE`, etc.)
-  - **Single Try/Except Boundary**: Refactored all functions to follow the required single try/except boundary pattern
-  - **Function Decomposition**: Split complex functions into smaller, focused helper functions
-  - **Type Safety**: Added missing return type hints and improved type annotations
-  - **Error Handling**: Standardized error handling patterns across all functions
-  - **Code Organization**: Improved function structure and reduced complexity
-  - **Duplicate Removal**: Removed duplicate function definitions
-  - **Logging Consistency**: Standardized logging levels and messages
+FILES MODIFIED
+Tool Registry Code Quality Improvements
+- Comprehensive code review and fixes for `tool_registry.py`:
+  - Import Organization: Reorganized imports according to PEP 8 standards (standard library, third-party, local)
+  - Constants: Extracted magic numbers to named constants (`DEFAULT_TOOL_VERSION`, `DEFAULT_FEATURE_MODULE`, etc.)
+  - Single Try/Except Boundary: Refactored all functions to follow the required single try/except boundary pattern
+  - Function Decomposition: Split complex functions into smaller, focused helper functions
+  - Type Safety: Added missing return type hints and improved type annotations
+  - Error Handling: Standardized error handling patterns across all functions
+  - Code Organization: Improved function structure and reduced complexity
+  - Duplicate Removal: Removed duplicate function definitions
+  - Logging Consistency: Standardized logging levels and messages
 
-- **Specific improvements**:
+- Specific improvements:
   - Fixed import organization with proper grouping and ordering
   - Added constants for default values (tool versions, feature modules, etc.)
   - Refactored `_discover_tools_from_file()` into multiple focused functions
@@ -147,7 +358,8 @@
   - Removed duplicate `get_context_aware_tools()` method
   - Enhanced error messages and logging consistency
 
-#### Files Modified
+FILES MODIFIED
+Files Modified
 - `kickai/agents/tool_registry.py`: 
   - Reorganized imports according to PEP 8
   - Added constants for magic numbers
@@ -162,18 +374,19 @@
 
 ### 🔧 Critical Fixes
 
-#### Async Utils Code Quality Improvements
-- **Comprehensive code review and fixes for `async_utils.py`**:
-  - **Import Organization**: Reorganized imports according to PEP 8 standards (standard library, third-party, local)
-  - **Constants**: Extracted magic numbers to named constants (`DEFAULT_CONCURRENCY_LIMIT`, `DEFAULT_BATCH_SIZE`, etc.)
-  - **Type Safety**: Replaced generic `T` type variable with more descriptive `ResultType`
-  - **Error Handling**: Refactored nested try/except blocks to follow single try/except boundary pattern
-  - **Code Organization**: Extracted complex logic into focused helper functions
-  - **Documentation**: Improved docstrings and inline comments
-  - **Redundancy Removal**: Removed redundant logger assignment
-  - **Consistency**: Standardized type hints throughout the module
+FILES MODIFIED
+Async Utils Code Quality Improvements
+- Comprehensive code review and fixes for `async_utils.py`:
+  - Import Organization: Reorganized imports according to PEP 8 standards (standard library, third-party, local)
+  - Constants: Extracted magic numbers to named constants (`DEFAULT_CONCURRENCY_LIMIT`, `DEFAULT_BATCH_SIZE`, etc.)
+  - Type Safety: Replaced generic `T` type variable with more descriptive `ResultType`
+  - Error Handling: Refactored nested try/except blocks to follow single try/except boundary pattern
+  - Code Organization: Extracted complex logic into focused helper functions
+  - Documentation: Improved docstrings and inline comments
+  - Redundancy Removal: Removed redundant logger assignment
+  - Consistency: Standardized type hints throughout the module
 
-- **Specific improvements**:
+- Specific improvements:
   - Fixed import organization with proper grouping and ordering
   - Added constants for default values (concurrency limits, batch sizes, retry parameters)
   - Replaced all `T` type variables with `ResultType` for better clarity
@@ -182,7 +395,8 @@
   - Improved type hints consistency across all functions
   - Enhanced error messages and logging
 
-#### Files Modified
+FILES MODIFIED
+Files Modified
 - `kickai/utils/async_utils.py`: 
   - Reorganized imports according to PEP 8
   - Added constants for magic numbers
@@ -195,15 +409,16 @@
 
 ### 🔧 Critical Fixes
 
-#### Comprehensive Parameter Validation
-- **Added comprehensive validation for all required parameters in TelegramBotService**
-  - **Required Parameters**: `token`, `team_id`, `main_chat_id`, `leadership_chat_id` must all be provided
-  - **Type Validation**: All parameters must be strings
-  - **Content Validation**: Parameters cannot be empty strings
-  - **Business Logic Validation**: `main_chat_id` and `leadership_chat_id` must be different
-  - **Fail Fast**: System fails immediately with clear error messages if validation fails
+FILES MODIFIED
+Comprehensive Parameter Validation
+- Added comprehensive validation for all required parameters in TelegramBotService
+  - Required Parameters: `token`, `team_id`, `main_chat_id`, `leadership_chat_id` must all be provided
+  - Type Validation: All parameters must be strings
+  - Content Validation: Parameters cannot be empty strings
+  - Business Logic Validation: `main_chat_id` and `leadership_chat_id` must be different
+  - Fail Fast: System fails immediately with clear error messages if validation fails
 
-- **Updated both real and mock Telegram bot services**:
+- Updated both real and mock Telegram bot services:
   - `TelegramBotService`: 
     - Comprehensive validation for all parameters
     - Removed redundant team_id assignment
@@ -222,7 +437,8 @@
   - Eliminated redundant processing in message flow
   - Improved test integration code organization and maintainability
 
-#### Files Modified
+FILES MODIFIED
+Files Modified
 - `kickai/features/communication/infrastructure/telegram_bot_service.py`: 
   - Added comprehensive parameter validation
   - Removed redundant team_id assignment
@@ -249,41 +465,46 @@
 
 ### 🚀 Major Improvements
 
-#### Natural Language Understanding
+FILES MODIFIED
+Natural Language Understanding
 
 ### 🚀 Major Improvements
 
-#### Natural Language Understanding
-- **Replaced regex-based intent recognition with pure LLM-based approach**
+FILES MODIFIED
+Natural Language Understanding
+- Replaced regex-based intent recognition with pure LLM-based approach
   - Eliminated brittle regex patterns that couldn't handle natural language variations
   - Implemented `LLMIntentRecognizer` using CrewAI agents for sophisticated understanding
   - Added context-aware intent recognition that considers user roles and chat types
   - Improved entity extraction with LLM reasoning capabilities
 
-#### New Features
-- **`LLMIntentRecognizer` class**: Pure LLM-based intent recognition
+FILES MODIFIED
+New Features
+- `LLMIntentRecognizer` class: Pure LLM-based intent recognition
   - Uses CrewAI agents for sophisticated natural language understanding
   - Provides confidence scoring based on LLM analysis
   - Includes reasoning explanations for intent classification
   - Handles context, paraphrases, and complex natural language
 
-- **Enhanced entity extraction**: 
+- Enhanced entity extraction: 
   - Extracts entities like player names, positions, phone numbers
   - Understands relationships and context in natural language
   - Provides structured output with confidence scores
 
-- **Context-aware processing**:
+- Context-aware processing:
   - Considers user registration status, chat type, and team context
   - Adapts intent recognition based on user role (player vs team member)
   - Handles different chat contexts (main vs leadership)
 
-#### Technical Improvements
-- **Structured output**: Uses JSON format for consistent parsing
-- **Error handling**: Robust fallback mechanisms for parsing failures
-- **Backward compatibility**: Maintains compatibility with existing code
-- **Async support**: Full async/await support for better performance
+FILES MODIFIED
+Technical Improvements
+- Structured output: Uses JSON format for consistent parsing
+- Error handling: Robust fallback mechanisms for parsing failures
+- Backward compatibility: Maintains compatibility with existing code
+- Async support: Full async/await support for better performance
 
-#### Files Modified
+FILES MODIFIED
+Files Modified
 - `kickai/utils/llm_intent.py`: Complete rewrite with LLM-based approach
 - `kickai/utils/llm_client.py`: Updated to use new intent recognizer
 - `scripts/test_llm_intent.py`: New test script for intent recognition

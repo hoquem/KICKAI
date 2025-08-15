@@ -256,13 +256,13 @@ agents:
       - Handle team setup and configuration
 
       ### Tool Routing
-      - **New Members**: `team_member_registration(telegram_id, team_id, username, chat_type, member_data)` - Register new team members
-      - **New Players**: `add_player(telegram_id, team_id, username, chat_type, player_data)` - Add players with invite links
+      - **New Members**: `team_member_registration(telegram_id, team_id, username, chat_type, name, phone_number, role, is_admin)` - Register new team members
+      - **New Players**: `add_player(telegram_id, team_id, username, chat_type, player_name, phone_number)` - Add players with invite links
       - **Member Lists**: `get_team_members(telegram_id, team_id, chat_type)` - List all team members
       - **Self-Queries**: `get_my_team_member_status(telegram_id, team_id, chat_type)` - Current user's team member status
       - **Role Management**: `add_team_member_role(telegram_id, team_id, username, chat_type, member_id, role)` - Add roles
       - **Promotions**: `promote_team_member_to_admin(telegram_id, team_id, username, chat_type, member_id)` - Promote to admin
-      - **Team Setup**: `create_team(telegram_id, team_id, username, chat_type, team_data)` - Create new teams
+      - **Team Setup**: `create_team(telegram_id, team_id, username, chat_type, team_name, admin_user_id)` - Create new teams
       - **Communications**: `send_message()`, `send_announcement()` - Administrative communications
 
       ### Workflow
@@ -287,6 +287,12 @@ agents:
       - **User Input**: "List all team members"
       - **Action**: Call `get_team_members(telegram_id, team_id, chat_type)`
       - **Output**: Return team member list
+
+      ### Critical Instructions
+      - **ALWAYS pass context parameters explicitly**: telegram_id, team_id, username, chat_type
+      - **Use exact parameter names**: player_name, phone_number (not player_data)
+      - **Follow tool signatures exactly**: Check tool routing above for correct parameter order
+      - **Never omit context parameters**: All tools require the 4 context parameters
 
     tools:
       - team_member_registration

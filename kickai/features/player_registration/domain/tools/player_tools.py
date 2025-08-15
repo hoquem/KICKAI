@@ -419,7 +419,7 @@ async def get_player_status(telegram_id: int, team_id: str, username: str, chat_
             return create_json_response(ResponseStatus.ERROR, message="PlayerService is not available")
 
         # Get player status
-        player = await player_service.get_player_by_phone(phone, team_id)
+        player = await player_service.get_player_by_phone(phone=phone, team_id=team_id)
 
         if not player:
             return create_json_response(ResponseStatus.ERROR, message=f"Player not found for phone {phone} in team {team_id}")

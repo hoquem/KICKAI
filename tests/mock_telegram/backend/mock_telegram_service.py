@@ -925,8 +925,8 @@ async def get_firebase_users():
         # Convert players to Firebase format
         for player in players:
             firebase_user = {
-                "id": str(player.user_id),
-                "username": player.username or f"player_{player.user_id}",
+                "id": str(player.user_id) if player.user_id else str(player.player_id),
+                "username": player.username or f"player_{player.user_id or player.player_id}",
                 "first_name": player.first_name or "Player",
                 "last_name": player.last_name,
                 "role": "player",
@@ -1001,8 +1001,8 @@ async def get_firebase_players():
         firebase_players = []
         for player in players:
             firebase_player = {
-                "id": str(player.user_id),
-                "username": player.username or f"player_{player.user_id}",
+                "id": str(player.user_id) if player.user_id else str(player.player_id),
+                "username": player.username or f"player_{player.user_id or player.player_id}",
                 "first_name": player.first_name or "Player",
                 "last_name": player.last_name,
                 "phone_number": player.phone_number,

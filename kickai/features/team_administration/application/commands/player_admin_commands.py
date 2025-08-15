@@ -23,7 +23,7 @@ from kickai.core.enums import ChatType
     chat_type=ChatType.LEADERSHIP,
     examples=[
         "/addplayer \"John Smith\" \"+447123456789\"",  # Quoted name (recommended)
-        "/addplayer John +447123456789",                # Single name (works too) 
+        "/addplayer John +447123456789",                # Single name (works too)
         "/addplayer John Smith 07123456789"              # Unquoted multi-word name (smart parsing)
     ],
     parameters={
@@ -49,7 +49,7 @@ Add a new player to the team and generate an invite link for them to join the ma
 
 ⚡ **What happens:**
 1. Player record created with "pending_activation" status
-2. Secure invite link generated (expires in 7 days)  
+2. Secure invite link generated (expires in 7 days)
 3. You get formatted message with link to send to player
 4. Player joins via link → uses /update → ready to play!
 
@@ -64,42 +64,41 @@ Add a new player to the team and generate an invite link for them to join the ma
 async def handle_addplayer_command(update, context, **kwargs):
     """
     Handle /addplayer command for adding new players with invite links.
-    
+
     Args:
         update: Telegram update object
         context: Telegram context object
         **kwargs: Additional context including team_id, user permissions, etc.
-    
+
     Returns:
         Response message with player details and invite link
     """
     try:
-        from kickai.core.dependency_container import get_container
-        from kickai.core.types import TelegramMessage
+
         from kickai.core.enums import ChatType
+        from kickai.core.types import TelegramMessage
         from kickai.utils.validation_utils import sanitize_input
-        import re
-        
+
         # Get message info
         message = update.message
         chat_id = str(message.chat_id)
         telegram_id = message.from_user.id
         username = message.from_user.username or "unknown"
-        
+
         # Get team_id from context
         team_id = kwargs.get("team_id")
         if not team_id:
             return "❌ Team ID not available. Please contact system administrator."
-        
+
         # Parse command arguments
         command_text = message.text.strip()
-        
+
         # Remove the command name to get arguments
         if command_text.startswith("/addplayer"):
             args_text = command_text[10:].strip()  # Remove "/addplayer"
         else:
             return "❌ Invalid command format."
-        
+
         if not args_text:
             return """❌ **Missing Arguments**
 
@@ -110,55 +109,50 @@ Examples:
 • `/addplayer "Sarah Johnson" "07987654321"`
 
 💡 Use quotes around names with spaces."""
-        
-        # Parse arguments - handle both quoted and unquoted formats intelligently
-        args = _parse_addplayer_arguments(args_text)
-        
-        if len(args) < 2:
-            return """❌ **Missing Information**
 
-To add a player, I need both a name and phone number.
+        # Parse arguments using simplified parser
+        player_name, phone_number = parse_addplayer_args(args_text)
+
+        if not player_name or not phone_number:
+            return """❌ **Invalid Format**
+
+I need both a player name and phone number.
 
 💡 **Examples that work:**
-• `/addplayer "John Smith" "+447123456789"` (quoted name)
-• `/addplayer John "+447123456789"` (single name)
-• `/addplayer "Sarah Johnson" "07987654321"` (UK format)
+• `/addplayer John Smith +447123456789`
+• `/addplayer "John Smith" +447123456789`
+• `/addplayer John +447123456789`
 
 📝 **What you provided:** """ + args_text + """
-🎯 **What I need:** Player name and phone number"""
-        
-        if len(args) > 2:
-            return """❌ **Too Much Information**
+🎯 **What I need:** Player name + phone number (phone number should be last)"""
 
-I can only add one player at a time.
+        player_name = sanitize_input(player_name, 100)
+        phone_number = sanitize_input(phone_number, 20)
 
-💡 **If the name has spaces, use quotes:**
-• Correct: `/addplayer "John Smith" "+447123456789"`
-• Incorrect: `/addplayer John Smith +447123456789`
+        # Validate inputs using configuration constants
+        from kickai.utils.constants import (
+            ERROR_MESSAGES,
+            PLAYER_MIN_NAME_LENGTH,
+        )
 
-📝 **What you provided:** """ + args_text + """
-🎯 **Try:** Player name in quotes + phone number"""
-        
-        player_name = sanitize_input(args[0], 100)
-        phone_number = sanitize_input(args[1], 20)
-        
-        # Validate inputs (check for missing data indicators)
-        if not player_name or not player_name.strip() or player_name == "[MISSING_NAME]":
-            return "❌ **Player name is required**\n\n💡 Please provide a player name (at least 2 characters)."
-        
-        if not phone_number or not phone_number.strip() or phone_number == "[MISSING_PHONE]":
-            return "❌ **Phone number is required**\n\n💡 Please provide a UK phone number (+447123456789 or 07123456789)."
-        
-        if len(player_name.strip()) < 2:
-            return "❌ **Name too short**\n\n💡 Player name must be at least 2 characters long."
-        
+        if not player_name or not player_name.strip():
+            return ERROR_MESSAGES["MISSING_ARGUMENTS"] + f"\n\n📝 **What you provided:** {args_text}"
+
+        # Validate name length
+        if len(player_name.strip()) < PLAYER_MIN_NAME_LENGTH:
+            return ERROR_MESSAGES["NAME_TOO_SHORT"].format(min_length=PLAYER_MIN_NAME_LENGTH) + f"\n\n📝 **What you provided:** {args_text}"
+
+        # Validate phone number format
+        if not _is_phone_number(phone_number):
+            return ERROR_MESSAGES["INVALID_PHONE_FORMAT"].format(phone=phone_number)
+
         # Route to CrewAI agent via AgenticMessageRouter
         from kickai.agents.agentic_message_router import AgenticMessageRouter
         router = AgenticMessageRouter(team_id)
-        
+
         # Create structured message for the agent
         agent_message_text = f"/addplayer {player_name} {phone_number}"
-        
+
         telegram_message = TelegramMessage(
             telegram_id=telegram_id,
             text=agent_message_text,
@@ -168,157 +162,114 @@ I can only add one player at a time.
             username=username,
             raw_update=update
         )
-        
+
         # Route to CrewAI system
         response = await router.route_message(telegram_message)
-        
+
         if response and response.success:
             return response.message
         else:
             error_msg = response.error if response else "Unknown error"
             return f"❌ Failed to add player: {error_msg}"
-            
+
     except Exception as e:
         from loguru import logger
         logger.error(f"❌ Error in handle_addplayer_command: {e}")
-        return f"❌ System error: {str(e)}"
+        return ERROR_MESSAGES["ADDPLAYER_SYSTEM_ERROR"].format(error=str(e))
 
 
-def _parse_addplayer_arguments(args_text: str) -> list:
+def parse_addplayer_args(args_text: str) -> tuple[str, str]:
     """
-    Intelligent argument parser for /addplayer command.
-    
-    Handles both quoted and unquoted formats:
-    - "/addplayer \"John Smith\" \"+447123456789\"" -> ["John Smith", "+447123456789"]  
-    - "/addplayer John +447123456789" -> ["John", "+447123456789"]
-    - "/addplayer John Smith 07123456789" -> ["John Smith", "07123456789"] (assumes last token is phone)
-    
-    Args:
+    🧠 **AI EXPERT: Simplified Argument Parser**
+
+    **PURPOSE**: Parse /addplayer command arguments with intelligent phone number detection.
+
+    **PARSING STRATEGY**:
+    1. Split arguments by whitespace
+    2. Identify phone number (last token matching phone pattern)
+    3. Combine remaining tokens as player name
+    4. Validate both components exist
+
+    **SUPPORTED FORMATS**:
+    - "John Smith +447123456789" → ("John Smith", "+447123456789")
+    - "John +447123456789" → ("John", "+447123456789")
+    - "John Smith 07123456789" → ("John Smith", "07123456789")
+
+    **Args**:
         args_text: Raw argument text after /addplayer command
-        
-    Returns:
-        List of parsed arguments [player_name, phone_number]
+
+    **Returns**:
+        Tuple of (player_name, phone_number) or (None, None) if parsing fails
+
+    **🎯 AI AGENT USAGE**:
+    - Use this function to parse user input before calling add_player tool
+    - Handle (None, None) return as parsing failure
+    - Provide clear error message for parsing failures
     """
-    import re
-    import shlex
-    
     if not args_text or not args_text.strip():
-        return []
-    
+        return None, None
+
     args_text = args_text.strip()
-    
-    # Try shell-like parsing first (handles quotes properly)
-    try:
-        args = shlex.split(args_text)
-        if len(args) == 2:
-            return args
-        elif len(args) == 1:
-            # Single argument - check if it looks like a phone number
-            arg = args[0]
-            if _looks_like_phone_number(arg):
-                return ["[MISSING_NAME]", arg]  # Clear indicator of missing name
-            else:
-                return [arg, "[MISSING_PHONE]"]  # Clear indicator of missing phone
-        elif len(args) > 2:
-            # Multiple arguments - scan for phone number in any position
-            phone_index = None
-            for i, arg in enumerate(args):
-                if _looks_like_phone_number(arg):
-                    phone_index = i
-                    break
-            
-            if phone_index is not None:
-                # Found phone number - combine other args as name
-                phone = args[phone_index]
-                name_parts = args[:phone_index] + args[phone_index+1:]
-                return [" ".join(name_parts), phone]
-            else:
-                # No phone found - all args are probably name
-                return [" ".join(args), "[MISSING_PHONE]"]
+    parts = args_text.split()
+
+    if len(parts) < 2:
+        return None, None
+
+    # Find phone number (last part that looks like a phone number)
+    phone_number = None
+    name_parts = []
+
+    for part in parts:
+        if _is_phone_number(part):
+            phone_number = part
         else:
-            return []
-    except ValueError:
-        # Shlex parsing failed, fall back to manual parsing
-        pass
-    
-    # Manual parsing for edge cases
-    # Look for quoted strings first
-    quoted_pattern = r'"([^"]*)"'
-    quoted_matches = list(re.finditer(quoted_pattern, args_text))
-    
-    if len(quoted_matches) >= 2:
-        # Two quoted strings
-        return [quoted_matches[0].group(1), quoted_matches[1].group(1)]
-    elif len(quoted_matches) == 1:
-        # One quoted string - determine if it's name or phone
-        quoted_text = quoted_matches[0].group(1)
-        remaining_text = args_text.replace(quoted_matches[0].group(0), "").strip()
-        
-        if _looks_like_phone_number(quoted_text):
-            # Quoted phone number
-            return [remaining_text, quoted_text]
-        else:
-            # Quoted name
-            return [quoted_text, remaining_text]
-    
-    # No quotes - split on whitespace and use heuristics
-    tokens = args_text.split()
-    if len(tokens) == 2:
-        return tokens
-    elif len(tokens) == 1:
-        # Single token
-        if _looks_like_phone_number(tokens[0]):
-            return ["[MISSING_NAME]", tokens[0]]
-        else:
-            return [tokens[0], "[MISSING_PHONE]"]
-    elif len(tokens) > 2:
-        # Multiple tokens - scan for phone number in any position
-        phone_index = None
-        for i, token in enumerate(tokens):
-            if _looks_like_phone_number(token):
-                phone_index = i
-                break
-        
-        if phone_index is not None:
-            # Found phone number - combine other tokens as name
-            phone = tokens[phone_index]
-            name_tokens = tokens[:phone_index] + tokens[phone_index+1:]
-            return [" ".join(name_tokens), phone]
-        else:
-            # No phone found - all tokens are probably name
-            return [" ".join(tokens), "[MISSING_PHONE]"]
-    
-    return []
+            name_parts.append(part)
+
+    if not phone_number or not name_parts:
+        return None, None
+
+    player_name = " ".join(name_parts)
+    return player_name, phone_number
 
 
-def _looks_like_phone_number(text: str) -> bool:
+def _is_phone_number(text: str) -> bool:
     """
-    Simple heuristic to identify if text looks like a phone number.
-    
-    Args:
-        text: Text to check
-        
-    Returns:
-        True if text looks like a phone number
+    🎯 **AI EXPERT: Phone Number Detection**
+
+    **PURPOSE**: Identify if text represents a valid UK phone number.
+
+    **VALIDATION RULES**:
+    - 10-15 digits after formatting removal
+    - Must start with valid UK prefixes (+44, 07, 44)
+    - Accepts common formatting characters (+, -, spaces, parentheses)
+
+    **Args**:
+        text: Text to validate
+
+    **Returns**:
+        True if text appears to be a valid UK phone number
+
+    **🎯 AI AGENT USAGE**:
+    - Use for input validation before processing
+    - Provides consistent phone number detection across tools
     """
     import re
-    
-    if not text:
+
+    from kickai.utils.constants import PHONE_MAX_DIGITS, PHONE_MIN_DIGITS, PHONE_VALID_PREFIXES
+
+    # Remove formatting characters
+    clean_text = re.sub(r'[+\-\s\(\)]', '', text)
+
+    # Check digit requirements
+    if not clean_text.isdigit():
         return False
-    
-    # Check for common UK phone patterns first
-    if text.startswith(('+44', '07', '44')):
-        digits_only = re.sub(r'[+\-\s\(\)]', '', text)
-        return digits_only.isdigit() and 10 <= len(digits_only) <= 15
-    
-    # Check if text starts with + and has reasonable digit count  
-    if text.startswith('+'):
-        digits_only = re.sub(r'[+\-\s\(\)]', '', text)
-        return digits_only.isdigit() and 10 <= len(digits_only) <= 15
-        
-    # Check if it's all digits with reasonable length (for cases like "07123456789")
-    digits_only = re.sub(r'[+\-\s\(\)]', '', text)
-    if digits_only.isdigit() and 10 <= len(digits_only) <= 15:
-        return True
-        
-    return False
+
+    if not (PHONE_MIN_DIGITS <= len(clean_text) <= PHONE_MAX_DIGITS):
+        return False
+
+    # Check for valid prefixes
+    for prefix in PHONE_VALID_PREFIXES:
+        if text.startswith(prefix):
+            return True
+
+    return True  # Allow other formats if they meet digit requirements

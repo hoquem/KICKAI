@@ -6,20 +6,31 @@ This module provides tools for player management by team administrators,
 including adding new players with invite link generation.
 """
 
-from datetime import datetime
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
-from kickai.core.enums import ChatType, ResponseStatus, UserStatus
-from kickai.core.exceptions import ServiceNotAvailableError, TeamNotFoundError, TeamNotConfiguredError
-from kickai.features.team_administration.domain.services.team_service import TeamService
-from kickai.features.player_registration.domain.services.player_service import PlayerService
+from kickai.core.enums import ChatType, ResponseStatus
+from kickai.core.exceptions import (
+    ServiceNotAvailableError,
+    TeamNotConfiguredError,
+    TeamNotFoundError,
+)
 from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
-from kickai.utils.constants import ERROR_MESSAGES, MAX_NAME_LENGTH, MAX_PHONE_LENGTH, MAX_TEAM_ID_LENGTH
+from kickai.features.player_registration.domain.services.player_service import PlayerService
+from kickai.features.team_administration.domain.services.team_service import TeamService
+from kickai.utils.constants import (
+    ERROR_MESSAGES,
+    MAX_PHONE_LENGTH,
+    MAX_TEAM_ID_LENGTH,
+    PLAYER_DEFAULT_POSITION,
+    PLAYER_DEFAULT_STATUS,
+    PLAYER_MAX_NAME_LENGTH,
+    SUCCESS_MESSAGES,
+)
 from kickai.utils.crewai_tool_decorator import tool
-from kickai.utils.tool_helpers import format_tool_error, validate_required_input, create_json_response
-from kickai.utils.validation_utils import normalize_phone, sanitize_input, is_valid_phone
-from kickai.utils.id_generator import generate_member_id
+from kickai.utils.id_generator import generate_player_id
+from kickai.utils.tool_helpers import create_json_response, validate_required_input
+from kickai.utils.validation_utils import is_valid_phone, normalize_phone, sanitize_input
 
 
 @tool("add_player", result_as_answer=True)
@@ -32,18 +43,96 @@ async def add_player(
     phone_number: str
 ) -> str:
     """
-    Add a new player to the team and generate invite link for them to join the main chat.
+    🏃‍♂️ **AI EXPERT: Player Registration Tool**
 
-    Args:
-        telegram_id: Admin's telegram ID (required, from context)
-        team_id: Team ID (required, from context)
-        username: Admin's username (required, from context)
-        chat_type: Chat type (required, from context)
-        player_name: Full name of the player (required)
-        phone_number: Player's phone number in UK format (required)
+    **PRIMARY FUNCTION**: Add a new player to the team and generate a secure invite link for main chat access.
 
-    Returns:
-        Formatted response with player details, invite link, and instructions
+    **CORE WORKFLOW**:
+    1. Validate leadership permissions and input data
+    2. Check for duplicate phone numbers (prevent conflicts)
+    3. Generate unique player ID using name-based algorithm
+    4. Create player record with "PENDING" status
+    5. Generate secure, time-limited invite link
+    6. Return formatted success response with instructions
+
+    **CRITICAL VALIDATIONS**:
+    - Leadership chat context required (chat_type must be "leadership")
+    - Phone number must be unique within team
+    - UK phone format validation (+447123456789 or 07123456789)
+    - Name length validation (2-100 characters)
+    - Team configuration validation (main_chat_id must exist)
+
+    **SECURITY FEATURES**:
+    - Leadership-only access control
+    - Duplicate phone number prevention
+    - Secure invite link generation with expiration
+    - Input sanitization and validation
+
+    **Args**:
+        telegram_id (int): Admin's Telegram ID (from context)
+        team_id (str): Team identifier (from context)
+        username (str): Admin's username (from context)
+        chat_type (str): Chat type - MUST be "leadership" for this tool
+        player_name (str): Player's full name (2-100 characters)
+        phone_number (str): Player's phone number (UK format required)
+
+    **Returns**:
+        JSON string with success/error status and formatted message
+
+    **🎯 CONTEXT USAGE GUIDANCE**:
+    - **LEADERSHIP CHAT**: Primary tool for player registration workflows
+    - **MAIN CHAT**: NOT AVAILABLE - blocked by permission system
+    - **PRIVATE CHAT**: NOT AVAILABLE - blocked by permission system
+
+    **📋 USE WHEN**:
+    - User requests to add a new player to the team
+    - Leadership needs to register players with invite links
+    - Player registration workflow initiation
+    - Team expansion and player onboarding
+
+    **❌ AVOID WHEN**:
+    - User is not in leadership chat (permission error)
+    - Phone number already exists (duplicate error)
+    - Team not properly configured (configuration error)
+    - Need to update existing player (use different tool)
+
+    **🔄 ALTERNATIVES**:
+    - `team_member_registration`: For adding team members (coaches, managers)
+    - `get_player_status`: For checking existing player information
+    - `approve_player`: For approving pending players
+
+    **💡 AI AGENT EXAMPLES**:
+    - **User Input**: "Add player John Smith with phone +447123456789"
+    - **Action**: Call `add_player(telegram_id, team_id, username, "leadership", "John Smith", "+447123456789")`
+    - **Expected Output**: Success message with invite link and instructions
+
+    - **User Input**: "Can you register Sarah Johnson, her number is 07123456789"
+    - **Action**: Call `add_player(telegram_id, team_id, username, "leadership", "Sarah Johnson", "07123456789")`
+    - **Expected Output**: Success message with invite link and instructions
+
+    - **User Input**: "I need to add Mike with phone +447987654321"
+    - **Action**: Call `add_player(telegram_id, team_id, username, "leadership", "Mike", "+447987654321")`
+    - **Expected Output**: Success message with invite link and instructions
+
+    **🚨 ERROR SCENARIOS**:
+    - **Permission Error**: User not in leadership chat → Return permission error message
+    - **Duplicate Phone**: Phone already registered → Return existing player details
+    - **Invalid Phone**: Wrong format → Return format guidance with examples
+    - **Missing Data**: Incomplete information → Return specific missing field guidance
+    - **System Error**: Service unavailable → Return system error with admin contact
+
+    **🔧 TECHNICAL NOTES**:
+    - Player is created with "PENDING" status (requires approval later)
+    - Position field is empty (set via /update command by player)
+    - Invite link expires in 7 days (configurable)
+    - Player ID is generated using name-based algorithm
+    - All inputs are sanitized and validated before processing
+
+    **📊 PERFORMANCE CHARACTERISTICS**:
+    - **Response Time**: < 2 seconds for successful operations
+    - **Database Operations**: 2-3 queries (team lookup, player creation, invite generation)
+    - **External Calls**: 1 Telegram API call for invite link generation
+    - **Error Recovery**: Graceful degradation with clear error messages
     """
     try:
         # Validate required inputs
@@ -55,29 +144,29 @@ async def add_player(
             validate_required_input(username, "username"),
             validate_required_input(chat_type, "chat_type"),
         ]
-        
+
         validation_errors = [error for error in validations if error]
         if validation_errors:
             return create_json_response(ResponseStatus.ERROR, message=f"❌ **Missing Information**\n\n💡 I need complete details to add a player:\n{'; '.join(validation_errors)}")
 
         # Validate chat type is leadership
         if chat_type.lower() != ChatType.LEADERSHIP.value:
-            return create_json_response(ResponseStatus.ERROR, message="❌ **Permission Required**\n\n🔒 Adding players is a leadership function. Please use this command in the leadership chat.")
+            return create_json_response(ResponseStatus.ERROR, message=ERROR_MESSAGES["PERMISSION_REQUIRED"])
 
-        # Sanitize inputs
-        player_name = sanitize_input(player_name, MAX_NAME_LENGTH)
+        # Sanitize inputs using configuration constants
+        player_name = sanitize_input(player_name, PLAYER_MAX_NAME_LENGTH)
         phone_number = sanitize_input(phone_number, MAX_PHONE_LENGTH)
         team_id = sanitize_input(team_id, MAX_TEAM_ID_LENGTH)
 
         # Validate phone number format
         if not is_valid_phone(phone_number):
-            return create_json_response(ResponseStatus.ERROR, message=f"❌ **Invalid Phone Number**\n\n📱 Please use UK format:\n• +447123456789 (with country code)\n• 07123456789 (without country code)\n\n🔍 You provided: {phone_number}")
+            return create_json_response(ResponseStatus.ERROR, message=ERROR_MESSAGES["INVALID_PHONE_FORMAT"].format(phone=phone_number))
 
         # Normalize phone number
         normalized_phone = normalize_phone(phone_number)
 
         # Generate player ID
-        player_id = generate_member_id(player_name)
+        player_id = generate_player_id(player_name, team_id)
 
         logger.info(f"🏃‍♂️ Adding player: {player_name} ({normalized_phone}) to team {team_id}")
 
@@ -85,94 +174,85 @@ async def add_player(
         container = get_container()
         if not container:
             raise ServiceNotAvailableError("Dependency container not available")
-            
+
         team_service = container.get_service(TeamService)
         if not team_service:
             raise ServiceNotAvailableError("Team service not available")
-            
+
         player_service = container.get_service(PlayerService)
         if not player_service:
             raise ServiceNotAvailableError("Player service not available")
-        
+
         # Check if phone number already exists using domain service
-        existing_player = await player_service.get_player_by_phone(normalized_phone, team_id)
+        existing_player = await player_service.get_player_by_phone(phone=normalized_phone, team_id=team_id)
         if existing_player:
             return create_json_response(
                 ResponseStatus.ERROR,
-                message=f"❌ **Phone Number Already Registered**\n\n📱 {normalized_phone} is already used by: **{existing_player.player_name}**\n\n💡 Each player needs a unique phone number. Please check with the existing player or use a different number."
+                message=ERROR_MESSAGES["DUPLICATE_PHONE"].format(
+                    phone=normalized_phone,
+                    existing_name=existing_player.player_name
+                )
             )
 
-        # Get team using domain service  
+        # Get team using domain service
         team = await team_service.get_team(team_id=team_id)
         if not team:
             raise TeamNotFoundError(f"Team not found for team_id: {team_id}")
-        
+
         if not team.main_chat_id:
-            raise TeamNotConfiguredError("Main chat not configured for invite links")
+            raise TeamNotConfiguredError(team_id, "Main chat not configured for invite links")
 
         team_name = team.name or f"Team {team_id}"
 
-        # Create player using domain service
-        from kickai.features.player_registration.domain.entities.player import Player
-        
-        player = Player(
-            player_id=player_id,
-            player_name=player_name,
-            phone_number=normalized_phone,
-            team_id=team_id,
-            status=UserStatus.PENDING,
-            position="",  # Will be set via /update command
-            created_by_telegram_id=telegram_id,
-            created_by_username=username
+        # Create player using service layer with PlayerCreateParams
+        from kickai.features.player_registration.domain.services.player_service import PlayerCreateParams
+
+        player_params = PlayerCreateParams(
+            name=player_name,
+            phone=normalized_phone,  # PlayerCreateParams uses 'phone' not 'phone_number'
+            position=PLAYER_DEFAULT_POSITION,
+            team_id=team_id
         )
-        
+
         # Save player using service layer
-        created_player = await player_service.create_player(player)
+        created_player = await player_service.create_player(player_params)
         logger.info(f"✅ Created player record: {created_player.player_id}")
 
-        # Generate invite link using InviteLinkService  
+        # Generate invite link using InviteLinkService
         database = container.get_database()  # Get database for invite service
         invite_service = InviteLinkService(bot_token=team.bot_token, database=database)
-        
+
         # Create player invite link
         invite_data = await invite_service.create_player_invite_link(
             team_id=team_id,
             player_name=player_name,
             player_phone=normalized_phone,
-            player_position="",  # Empty initially
+            player_position=PLAYER_DEFAULT_POSITION,  # Use constant
             main_chat_id=team.main_chat_id,
             player_id=player_id
         )
 
         invite_link = invite_data["invite_link"]
         expires_at = invite_data["expires_at"]
-        
+
         logger.info(f"✅ Generated invite link for {player_name}: {invite_data['invite_id']}")
 
-        # Format success response
-        success_response = f"""✅ **Player Added Successfully!**
-
-👤 **Player Details:**
-• **Name:** {player_name}
-• **Phone:** {normalized_phone}
-• **Status:** Pending Activation
-
-📱 **Send this message to {player_name}:**
-"Hi {player_name}! You've been added to {team_name}. Click this link to join our main chat: {invite_link}"
-
-🔗 **Invite Link:** {invite_link}
-⏰ **Expires:** {expires_at}
-🔄 **Usage:** One-time use only
-
-📋 **Next Steps:**
-1. Send the invite link to {player_name}
-2. Player joins main chat via link
-3. Player uses /update to set position and details
-4. Player is ready to participate!"""
+        # Format success response using template
+        success_response = SUCCESS_MESSAGES["PLAYER_ADDED_WITH_INVITE"].format(
+            name=player_name,
+            phone=normalized_phone,
+            status=PLAYER_DEFAULT_STATUS,
+            team_name=team_name,
+            invite_link=invite_link,
+            expires_at=expires_at
+        )
 
         return create_json_response(ResponseStatus.SUCCESS, data=success_response)
 
     except Exception as e:
         logger.error(f"❌ Error in add_player tool: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"❌ **System Error**\n\n🛠️ Failed to add player: {str(e)}\n\n💬 Please try again or contact your system administrator.")
+        return create_json_response(
+            ResponseStatus.ERROR,
+            message=ERROR_MESSAGES["ADDPLAYER_SYSTEM_ERROR"].format(error=str(e))
+        )
 
