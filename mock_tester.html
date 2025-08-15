@@ -517,6 +517,69 @@
             border: 2px solid var(--lfc-light-gray);
         }
         
+        /* Invite Link Notification */
+        .invite-notification {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 9999;
+            background: linear-gradient(135deg, var(--lfc-red) 0%, var(--lfc-dark-red) 100%);
+            color: var(--lfc-white);
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(200, 16, 46, 0.4);
+            animation: slideDown 0.5s ease-out;
+            transition: opacity 0.3s ease;
+        }
+        
+        .invite-content {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        .invite-content h3 {
+            margin: 0 0 12px 0;
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--lfc-white);
+        }
+        
+        .invite-content p {
+            margin: 8px 0;
+            font-size: 16px;
+            opacity: 0.95;
+        }
+        
+        .invite-dismiss {
+            background: var(--lfc-white);
+            color: var(--lfc-red);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .invite-dismiss:hover {
+            background: var(--lfc-gold);
+            color: var(--lfc-dark);
+            transform: translateY(-2px);
+        }
+        
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
         .quick-actions h4 {
             color: var(--lfc-red);
             margin-bottom: 12px;
@@ -705,6 +768,10 @@
         async function init() {
             await loadUsers();
             await loadChats();
+            
+            // Handle invite link parameters if present
+            handleInviteLink();
+            
             connectWebSocket();
             updateSystemInfo();
         }
@@ -1134,11 +1201,132 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
         
+        // Handle invite link parameters from URL
+        function handleInviteLink() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const inviteId = urlParams.get('invite');
+            const inviteType = urlParams.get('type');
+            const chatId = urlParams.get('chat');
+            const teamId = urlParams.get('team');
+            const action = urlParams.get('action');
+            
+            if (inviteId && action === 'join') {
+                console.log('🔗 Processing invite link:', { inviteId, inviteType, chatId, teamId });
+                
+                // Show invite notification
+                showInviteNotification(inviteType, teamId, chatId);
+                
+                // Auto-select the target chat
+                if (chatId) {
+                    setTimeout(() => {
+                        autoSelectChat(chatId, inviteType);
+                    }, 1000); // Give chats time to load
+                }
+                
+                // Clear URL parameters to avoid re-processing on refresh
+                if (window.history && window.history.replaceState) {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            }
+        }
+        
+        // Show invite link notification
+        function showInviteNotification(inviteType, teamId, chatId) {
+            const notificationHtml = `
+                <div class="invite-notification" id="inviteNotification">
+                    <div class="invite-content">
+                        <h3>🎉 Welcome to ${teamId}!</h3>
+                        <p>You've been invited to join as a ${inviteType === 'player' ? 'Player' : 'Team Member'}.</p>
+                        <p>You'll be automatically connected to the ${inviteType === 'player' ? 'Main Chat' : 'Leadership Chat'}.</p>
+                        <button onclick="dismissInviteNotification()" class="invite-dismiss">Got it!</button>
+                    </div>
+                </div>
+            `;
+            
+            // Insert notification at top of body
+            const notification = document.createElement('div');
+            notification.innerHTML = notificationHtml;
+            document.body.insertBefore(notification.firstElementChild, document.body.firstChild);
+            
+            // Auto-dismiss after 10 seconds
+            setTimeout(() => {
+                dismissInviteNotification();
+            }, 10000);
+        }
+        
+        // Auto-select chat based on invite parameters
+        function autoSelectChat(chatId, inviteType) {
+            const chatSelector = document.getElementById('chatSelector');
+            if (chatSelector) {
+                // Look for the chat by ID
+                const targetOption = Array.from(chatSelector.options).find(option => option.value === chatId);
+                if (targetOption) {
+                    chatSelector.value = chatId;
+                    currentChat = { id: chatId };
+                    
+                    // Load messages for this chat
+                    loadMessagesForChat(chatId);
+                    
+                    // Update UI to show the selected chat
+                    updateChatDisplay(inviteType);
+                    
+                    console.log(`✅ Auto-selected ${inviteType === 'player' ? 'Main' : 'Leadership'} chat (ID: ${chatId})`);
+                } else {
+                    console.warn(`Chat with ID ${chatId} not found in selector options`);
+                }
+            }
+        }
+        
+        // Update chat display after auto-selection
+        function updateChatDisplay(inviteType) {
+            const chatTitle = document.getElementById('currentChatTitle');
+            if (chatTitle) {
+                const chatTypeText = inviteType === 'player' ? 'Main Chat' : 'Leadership Chat';
+                chatTitle.textContent = `🎯 Joined ${chatTypeText} via Invite Link`;
+            }
+        }
+        
+        // Load messages for a specific chat
+        async function loadMessagesForChat(chatId) {
+            try {
+                const response = await fetch(`${API_BASE}/chats/${chatId}/messages`);
+                if (response.ok) {
+                    const messages = await response.json();
+                    chatHistory = messages;
+                    
+                    // Render messages
+                    const chatMessages = document.getElementById('chatMessages');
+                    chatMessages.innerHTML = '';
+                    messages.forEach(msg => {
+                        if (msg.from && msg.from.id === BOT_USER_ID) {
+                            addBotMessageToChat(msg);
+                        } else {
+                            addUserMessageToChat(msg);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading chat messages:', error);
+            }
+        }
+        
+        // Dismiss invite notification
+        function dismissInviteNotification() {
+            const notification = document.getElementById('inviteNotification');
+            if (notification) {
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }
+        }
+        
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
+
 
 
 

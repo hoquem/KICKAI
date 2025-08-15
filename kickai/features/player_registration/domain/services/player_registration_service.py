@@ -12,7 +12,7 @@ from kickai.features.player_registration.domain.entities.player import Player
 from kickai.features.player_registration.domain.repositories.player_repository_interface import (
     PlayerRepositoryInterface,
 )
-from kickai.utils.id_generator import generate_member_id
+from kickai.utils.id_generator import generate_player_id
 
 
 class PlayerRegistrationService:
@@ -35,8 +35,8 @@ class PlayerRegistrationService:
         existing_players = await self.player_repository.get_all_players(team_id)
         existing_ids = {player.player_id for player in existing_players if player.player_id}
 
-        # Generate simple member ID
-        player_id = generate_member_id(name, existing_ids)
+        # Generate simple player ID
+        player_id = generate_player_id(name, team_id, existing_ids)
 
         # Create new player
         player = Player(

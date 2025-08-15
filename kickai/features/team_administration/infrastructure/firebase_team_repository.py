@@ -326,6 +326,10 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         settings = doc.get("settings", {})
 
         # Create team entity - bot configuration is now in explicit fields
+        # Check settings fallback for backward compatibility
+        main_chat_id = doc.get("main_chat_id") or settings.get("main_chat_id")
+        leadership_chat_id = doc.get("leadership_chat_id") or settings.get("leadership_chat_id")
+        
         team = Team(
             id=doc.get("id"),
             name=doc.get("name"),
@@ -339,8 +343,8 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             fa_fixtures_url=doc.get("fa_fixtures_url"),
             bot_id=doc.get("bot_id"),
             bot_token=doc.get("bot_token"),
-            main_chat_id=doc.get("main_chat_id"),
-            leadership_chat_id=doc.get("leadership_chat_id"),
+            main_chat_id=main_chat_id,
+            leadership_chat_id=leadership_chat_id,
         )
 
         return team

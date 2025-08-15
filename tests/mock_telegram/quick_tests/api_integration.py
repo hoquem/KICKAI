@@ -485,32 +485,18 @@ class RealBotIntegration:
             }
     
     def process_mock_message_sync(self, message_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Synchronous wrapper for async message processing"""
-        import asyncio
+        """DEPRECATED: Sync wrapper removed - violates CrewAI async architecture.
         
-        try:
-            # Get or create event loop
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-            
-            # Run async method
-            if loop.is_running():
-                # If loop is already running, create a task
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, self.process_mock_message(message_data))
-                    return future.result(timeout=30)
-            else:
-                return loop.run_until_complete(self.process_mock_message(message_data))
-                
-        except Exception as e:
-            logger.error(f"❌ Error in sync wrapper: {e}")
-            return {
-                "message": f"Sync wrapper error: {str(e)}",
-                "success": False
+        This method causes asyncio.run() event loop conflicts. 
+        Use process_mock_message() async method directly.
+        """
+        logger.error("❌ process_mock_message_sync called - this method is deprecated")
+        logger.error("🔧 Use process_mock_message() async method directly instead")
+        
+        return {
+            "message": "Sync wrapper is deprecated - use async patterns",
+            "success": False,
+            "error": "sync_wrapper_deprecated"
             }
 
 

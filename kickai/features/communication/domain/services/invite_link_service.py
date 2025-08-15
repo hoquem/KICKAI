@@ -214,10 +214,6 @@ class InviteLinkService:
             Dict containing invite link details
         """
         try:
-            # Validate bot token is available
-            if not self.bot_token:
-                raise ValueError("Bot token not available for creating invite links")
-
             # Validate chat ID
             if not main_chat_id or not main_chat_id.strip():
                 raise ValueError("Main chat ID is required for creating invite links")
@@ -227,16 +223,20 @@ class InviteLinkService:
 
             # Generate player ID if not provided
             if not player_id:
-                from kickai.utils.id_generator import generate_member_id
+                from kickai.utils.id_generator import generate_player_id
 
-                # Generate simple member ID
-                player_id = generate_member_id(player_name)
+                # Generate simple player ID
+                player_id = generate_player_id(player_name, team_id)
 
-            # Create Telegram invite link (or mock invite link)
+            # Create invite link - prioritize mock environment detection
             if self._detect_mock_environment():
+                # Mock environment - create mock invite link (no bot token required)
                 invite_link = self._create_mock_invite_link(invite_id, "player", main_chat_id, team_id)
                 logger.info(f"🧪 Created mock player invite link: {invite_link}")
             else:
+                # Production environment - validate bot token and create real Telegram link
+                if not self.bot_token:
+                    raise ValueError("Bot token not available for creating invite links")
                 invite_link = await self._create_telegram_invite_link(main_chat_id, invite_id)
 
             # Prepare player data for secure embedding
@@ -314,10 +314,6 @@ class InviteLinkService:
             Dict containing invite link details
         """
         try:
-            # Validate bot token is available
-            if not self.bot_token:
-                raise ValueError("Bot token not available for creating invite links")
-
             # Validate chat ID
             if not leadership_chat_id or not leadership_chat_id.strip():
                 raise ValueError("Leadership chat ID is required for creating invite links")
@@ -325,11 +321,15 @@ class InviteLinkService:
             # Generate unique invite link ID
             invite_id = str(uuid.uuid4())
 
-            # Create Telegram invite link (or mock invite link)
+            # Create invite link - prioritize mock environment detection
             if self._detect_mock_environment():
+                # Mock environment - create mock invite link (no bot token required)
                 invite_link = self._create_mock_invite_link(invite_id, "team_member", leadership_chat_id, team_id)
                 logger.info(f"🧪 Created mock team member invite link: {invite_link}")
             else:
+                # Production environment - validate bot token and create real Telegram link
+                if not self.bot_token:
+                    raise ValueError("Bot token not available for creating invite links")
                 invite_link = await self._create_telegram_invite_link(leadership_chat_id, invite_id)
 
             # Prepare member data for secure embedding
@@ -531,7 +531,7 @@ class InviteLinkService:
         Args:
             invite_id: Unique invite ID
             invite_type: Type of invite ("player" or "team_member")
-            chat_id: Chat ID for the invite
+            chat_id: Chat ID for the invite (will be mapped to mock chat IDs)
             team_id: Team ID
 
         Returns:
@@ -539,11 +539,37 @@ class InviteLinkService:
         """
         mock_base_url = os.getenv("MOCK_TELEGRAM_BASE_URL", "http://localhost:8001")
 
-        # Create mock invite link in the specified format
-        mock_link = f"{mock_base_url}/?invite={invite_id}&type={invite_type}&chat={chat_id}&team={team_id}"
+        # Map real chat IDs to mock chat IDs for consistency with MockTelegramBotService
+        mock_chat_id = self._map_to_mock_chat_id(chat_id, invite_type)
+        
+        # Create comprehensive mock invite link with all necessary parameters
+        mock_link = f"{mock_base_url}/?invite={invite_id}&type={invite_type}&chat={mock_chat_id}&team={team_id}&action=join"
 
-        # Store in database with mock flag
+        logger.info(f"🧪 Mock invite link created: {invite_type} invite for team {team_id} -> chat {mock_chat_id}")
         return mock_link
+
+    def _map_to_mock_chat_id(self, chat_id: str, invite_type: str) -> str:
+        """
+        Map real chat IDs to mock chat IDs used by MockTelegramBotService.
+        
+        Args:
+            chat_id: Real chat ID from team configuration
+            invite_type: Type of invite ("player" or "team_member")
+            
+        Returns:
+            Mock chat ID compatible with mock UI
+        """
+        # Default mock chat IDs from MockTelegramBotService
+        if invite_type == "player":
+            # Players join main chat
+            return "2001"  # Mock main chat ID
+        elif invite_type == "team_member":
+            # Team members join leadership chat
+            return "2002"  # Mock leadership chat ID
+        else:
+            # Fallback to main chat
+            logger.warning(f"Unknown invite type: {invite_type}, defaulting to main chat")
+            return "2001"
 
     async def _create_telegram_invite_link(self, chat_id: str, invite_id: str) -> str:
         """
@@ -660,37 +686,3 @@ class InviteLinkService:
             logger.error(f"❌ Error cleaning up expired links: {e}")
             return 0
 
-    # Synchronous methods for CrewAI tools
-    def create_player_invite_link_sync(
-        self,
-        team_id: str,
-        player_name: str,
-        player_phone: str,
-        player_position: str,
-        main_chat_id: str,
-        player_id: str = None,
-    ) -> Dict[str, Any]:
-        """Synchronous version of create_player_invite_link for CrewAI tools."""
-        try:
-            # Import here to avoid circular imports
-            import asyncio
-
-            # Check if we're already in an event loop
-            try:
-                loop = asyncio.get_running_loop()
-                # We're in an event loop, create a task
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, self.create_player_invite_link(
-                        team_id, player_name, player_phone, player_position, main_chat_id, player_id
-                    ))
-                    return future.result()
-            except RuntimeError:
-                # No event loop running, we can use asyncio.run
-                return asyncio.run(self.create_player_invite_link(
-                    team_id, player_name, player_phone, player_position, main_chat_id, player_id
-                ))
-
-        except Exception as e:
-            logger.error(f"❌ Failed to create player invite link: {e}")
-            return {"error": f"Failed to create invite link: {e!s}"}

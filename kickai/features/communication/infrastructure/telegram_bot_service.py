@@ -1,22 +1,55 @@
+# Standard library imports
 from typing import Set, Union
+
+# Third-party imports
 from loguru import logger
 from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
+# Local imports
 from kickai.agents.agentic_message_router import AgenticMessageRouter
 from kickai.core.enums import ChatType
 from kickai.features.communication.domain.interfaces.telegram_bot_service_interface import (
     TelegramBotServiceInterface,
 )
 
+# Constants
+POLL_INTERVAL = 1.0
+POLL_TIMEOUT = 30
+BOOTSTRAP_RETRIES = 5
+TOKEN_DISPLAY_LENGTH = 10
+MESSAGE_PREVIEW_LENGTH = 100
+
 
 class TelegramBotService(TelegramBotServiceInterface):
+    """
+    Real Telegram bot service implementation for production use.
+    
+    This service handles all Telegram bot interactions through the agentic system.
+    All user messages are routed through CrewAI agents for processing, ensuring
+    consistent behavior and proper access control.
+    
+    Attributes:
+        token: Telegram bot token for API authentication
+        team_id: Team identifier for multi-team support
+        main_chat_id: Chat ID for the main team chat
+        leadership_chat_id: Chat ID for the leadership chat
+        crewai_system: CrewAI system for agent orchestration
+        agentic_router: Router for message processing
+        app: Telegram application instance
+        _running: Bot running state
+        
+    Raises:
+        ValueError: When required parameters are missing or invalid
+        TypeError: When parameters have incorrect types
+        RuntimeError: When system initialization fails
+    """
     def __init__(
         self,
         token: str,
         team_id: str,
-        main_chat_id: str = None,
-        leadership_chat_id: str = None,
+        main_chat_id: str,
+        leadership_chat_id: str,
         crewai_system=None,
     ):
         self.token = token
@@ -25,86 +58,72 @@ class TelegramBotService(TelegramBotServiceInterface):
         self.leadership_chat_id = leadership_chat_id
         self.crewai_system = crewai_system
 
+        # Validate all required parameters
         if not self.token:
             raise ValueError("TelegramBotService: token must be provided explicitly (not from env)")
+        
+        if not self.team_id:
+            raise ValueError("TelegramBotService: team_id must be provided")
+        
+        if not self.main_chat_id:
+            raise ValueError("TelegramBotService: main_chat_id must be provided")
+        
+        if not self.leadership_chat_id:
+            raise ValueError("TelegramBotService: leadership_chat_id must be provided")
+        
+        # Validate parameter types
+        if not isinstance(self.token, str):
+            raise TypeError("TelegramBotService: token must be a string")
+        
+        if not isinstance(self.team_id, str):
+            raise TypeError("TelegramBotService: team_id must be a string")
+        
+        if not isinstance(self.main_chat_id, str):
+            raise TypeError("TelegramBotService: main_chat_id must be a string")
+        
+        if not isinstance(self.leadership_chat_id, str):
+            raise TypeError("TelegramBotService: leadership_chat_id must be a string")
+        
+        # Validate chat IDs are different
+        if self.main_chat_id == self.leadership_chat_id:
+            raise ValueError("TelegramBotService: main_chat_id and leadership_chat_id must be different")
 
         # Initialize the agentic message router
         # Initialize the real AgenticMessageRouter with lazy loading
         self.agentic_router = AgenticMessageRouter(team_id=team_id, crewai_system=crewai_system)
-        self.agentic_router.team_id = self.team_id  # Add team_id to router
-        if main_chat_id and leadership_chat_id:
-            self.agentic_router.set_chat_ids(main_chat_id, leadership_chat_id)
+        
+        # Set chat IDs for proper chat type determination
+        self.agentic_router.set_chat_ids(main_chat_id, leadership_chat_id)
 
         self.app = Application.builder().token(self.token).build()
         self._running = False
         self._setup_handlers()
 
-    def _setup_handlers(self):
-        """Set up message handlers for the Telegram bot using command registry."""
+    def _setup_handlers(self) -> None:
+        """
+        Set up message handlers for the Telegram bot using command registry.
+        
+        Configures command handlers, message handlers, and contact handlers
+        for the bot application. All handlers route through the agentic system.
+        
+        Raises:
+            RuntimeError: When command registry is not accessible or handler setup fails
+        """
         try:
-            from kickai.core.command_registry_initializer import get_initialized_command_registry
-
-            # Get the properly initialized command registry
-            # Handle context isolation by ensuring registry is accessible
-            try:
-                registry = get_initialized_command_registry()
-                all_commands = registry.list_all_commands()
-                logger.info(f"✅ Command registry initialized with {len(all_commands)} commands")
-            except RuntimeError as e:
-                if "Command registry not initialized" in str(e):
-                    logger.critical(
-                        "💥 CRITICAL SYSTEM ERROR: Command registry not accessible in TelegramBotService - this is a major system failure"
-                    )
-                    logger.critical(
-                        "🚨 The system cannot function without the command registry. This indicates a serious initialization failure."
-                    )
-                    logger.critical(
-                        "🛑 Failing fast to prevent unsafe bot operation without command validation"
-                    )
-                    raise RuntimeError(
-                        f"CRITICAL SYSTEM ERROR: Command registry not accessible in TelegramBotService. "
-                        f"This is a major system failure that prevents safe bot operation. "
-                        f"Original error: {e}"
-                    )
-                else:
-                    raise
-
-            # Set up command handlers from registry with chat-type awareness
-            command_handlers = []
-
-            # ALL commands use agentic routing - no dedicated handlers
-            # This ensures single source of truth and consistent processing
-            for cmd_metadata in all_commands:
-                # Use the generic agentic handler for all commands
-                def create_handler(cmd_name):
-                    return lambda update, context: self._handle_registered_command(
-                        update, context, cmd_name
-                    )
-
-                handler = create_handler(cmd_metadata.name)
-                command_handlers.append(CommandHandler(cmd_metadata.name.lstrip("/"), handler))
-                logger.info(f"✅ Registered agentic command handler: {cmd_metadata.name}")
-
-            # Add message handler for natural language processing
-            message_handler = MessageHandler(
-                filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message
+            # Get command registry
+            registry = self._get_command_registry()
+            
+            # Set up handlers
+            command_handlers = self._create_command_handlers(registry)
+            message_handlers = self._create_message_handlers()
+            
+            # Add all handlers
+            self.app.add_handlers(command_handlers + message_handlers)
+            
+            logger.debug(
+                f"✅ Set up {len(command_handlers)} command handlers and message handlers"
             )
-
-            # Add contact handler for phone number sharing
-            contact_handler = MessageHandler(filters.CONTACT, self._handle_contact_share)
-
-            # Add debug handler to log all updates
-            debug_handler = MessageHandler(filters.ALL, self._debug_handler)
-
-            # Add all handlers to the application
-            self.app.add_handlers(
-                command_handlers + [message_handler, contact_handler, debug_handler]
-            )
-
-            logger.info(
-                f"✅ Set up {len(command_handlers)} agentic command handlers and 1 message handler"
-            )
-
+            
         except Exception as e:
             logger.critical(f"💥 CRITICAL SYSTEM ERROR: Failed to set up handlers: {e}")
             logger.critical("🚨 The bot cannot function without proper handler setup")
@@ -115,8 +134,96 @@ class TelegramBotService(TelegramBotServiceInterface):
                 f"Original error: {e}"
             )
 
-    def _setup_fallback_handlers(self):
-        """Set up fallback handlers when command registry fails."""
+    def _get_command_registry(self):
+        """
+        Get the initialized command registry.
+        
+        Returns:
+            Command registry instance
+            
+        Raises:
+            RuntimeError: When command registry is not accessible
+        """
+        from kickai.core.command_registry_initializer import get_initialized_command_registry
+        
+        try:
+            registry = get_initialized_command_registry()
+            all_commands = registry.list_all_commands()
+            logger.info(f"✅ Command registry initialized with {len(all_commands)} commands")
+            return registry
+        except RuntimeError as e:
+            if "Command registry not initialized" in str(e):
+                logger.critical(
+                    "💥 CRITICAL SYSTEM ERROR: Command registry not accessible in TelegramBotService - this is a major system failure"
+                )
+                logger.critical(
+                    "🚨 The system cannot function without the command registry. This indicates a serious initialization failure."
+                )
+                logger.critical(
+                    "🛑 Failing fast to prevent unsafe bot operation without command validation"
+                )
+                raise RuntimeError(
+                    f"CRITICAL SYSTEM ERROR: Command registry not accessible in TelegramBotService. "
+                    f"This is a major system failure that prevents safe bot operation. "
+                    f"Original error: {e}"
+                )
+            else:
+                raise
+
+    def _create_command_handlers(self, registry):
+        """
+        Create command handlers from registry.
+        
+        Args:
+            registry: Command registry instance
+            
+        Returns:
+            List of command handlers
+        """
+        command_handlers = []
+        
+        # ALL commands use agentic routing - no dedicated handlers
+        # This ensures single source of truth and consistent processing
+        for cmd_metadata in registry.list_all_commands():
+            # Use the generic agentic handler for all commands
+            def create_handler(cmd_name):
+                return lambda update, context: self._handle_registered_command(
+                    update, context, cmd_name
+                )
+
+            handler = create_handler(cmd_metadata.name)
+            command_handlers.append(CommandHandler(cmd_metadata.name.lstrip("/"), handler))
+            logger.debug(f"✅ Registered agentic command handler: {cmd_metadata.name}")
+        
+        return command_handlers
+
+    def _create_message_handlers(self):
+        """
+        Create message handlers for natural language and contact sharing.
+        
+        Returns:
+            List of message handlers
+        """
+        # Add message handler for natural language processing
+        message_handler = MessageHandler(
+            filters.TEXT & ~filters.COMMAND, self._handle_natural_language_message
+        )
+
+        # Add contact handler for phone number sharing
+        contact_handler = MessageHandler(filters.CONTACT, self._handle_contact_share)
+
+        # Add debug handler to log all updates
+        debug_handler = MessageHandler(filters.ALL, self._debug_handler)
+        
+        return [message_handler, contact_handler, debug_handler]
+
+    def _setup_fallback_handlers(self) -> None:
+        """
+        Set up fallback handlers when command registry fails.
+        
+        Provides minimal functionality when the command registry is not available.
+        Only handles natural language messages and contact sharing.
+        """
         try:
             # All messages now use agentic routing - minimal fallback
             handlers = [
@@ -127,7 +234,7 @@ class TelegramBotService(TelegramBotServiceInterface):
             ]
 
             self.app.add_handlers(handlers)
-            logger.info(f"✅ Set up {len(handlers)} fallback handlers")
+            logger.debug(f"✅ Set up {len(handlers)} fallback handlers")
 
         except Exception as e:
             logger.error(f"❌ Error setting up fallback handlers: {e}")
@@ -190,7 +297,15 @@ class TelegramBotService(TelegramBotServiceInterface):
             )
 
     def _determine_chat_type(self, chat_id: str) -> ChatType:
-        """Determine the chat type based on chat ID."""
+        """
+        Determine the chat type based on chat ID.
+        
+        Args:
+            chat_id: The chat ID to determine the type for
+            
+        Returns:
+            ChatType: The type of chat (MAIN, LEADERSHIP, or PRIVATE)
+        """
         if chat_id == self.main_chat_id:
             return ChatType.MAIN
         elif chat_id == self.leadership_chat_id:
@@ -239,8 +354,8 @@ class TelegramBotService(TelegramBotServiceInterface):
             formatter = ResponseFormatter()
             formatted_text = formatter.format_for_telegram(message_text)
             
-            logger.debug(f"🔍 Original message: {message_text[:100]}...")
-            logger.debug(f"🔍 Formatted message: {formatted_text[:100]}...")
+            logger.debug(f"🔍 Original message: {message_text[:MESSAGE_PREVIEW_LENGTH]}...")
+            logger.debug(f"🔍 Formatted message: {formatted_text[:MESSAGE_PREVIEW_LENGTH]}...")
 
             # Check if we need to send contact sharing button
             if hasattr(response, "needs_contact_button") and response.needs_contact_button:
@@ -272,23 +387,23 @@ class TelegramBotService(TelegramBotServiceInterface):
             await self.app.start()
 
             # Add debug logging for polling setup
-            logger.info(f"🔍 Bot token: {self.token[:10]}...")
+            logger.info(f"🔍 Bot token: {self.token[:TOKEN_DISPLAY_LENGTH]}...")
             logger.info(f"🔍 Main chat ID: {self.main_chat_id}")
             logger.info(f"🔍 Leadership chat ID: {self.leadership_chat_id}")
 
             # Start polling with basic parameters
             await self.app.updater.start_polling(
-                poll_interval=1.0,  # Poll every second
-                timeout=30,  # 30 second timeout
-                bootstrap_retries=5,  # Retry 5 times on startup
+                poll_interval=POLL_INTERVAL,
+                timeout=POLL_TIMEOUT,
+                bootstrap_retries=BOOTSTRAP_RETRIES,
             )
             self._running = True
             logger.info("Telegram bot polling started.")
 
             # Test bot connection
             try:
-                me = await self.app.bot.get_me()
-                logger.info(f"✅ Bot connected successfully: @{me.username} (ID: {me.id})")
+                bot_info = await self.app.bot.get_me()
+                logger.info(f"✅ Bot connected successfully: @{bot_info.username} (ID: {bot_info.id})")
             except Exception as e:
                 logger.error(f"❌ Bot connection test failed: {e}")
 
@@ -310,49 +425,35 @@ class TelegramBotService(TelegramBotServiceInterface):
                     f"🔍 DEBUG: Chat ID: {update.effective_chat.id}, User ID: {update.effective_user.id if update.effective_user else 'None'}"
                 )
                 if update.effective_message.text:
-                    logger.info(f"🔍 DEBUG: Text: {update.effective_message.text[:100]}...")
+                    logger.info(f"🔍 DEBUG: Text: {update.effective_message.text[:MESSAGE_PREVIEW_LENGTH]}...")
         except Exception as e:
             logger.error(f"❌ Error in debug handler: {e}")
 
     async def send_message(self, chat_id: Union[int, str], text: str, **kwargs):
-        """Send a message to a specific chat in plain text."""
-        try:
-            # Sanitize text to ensure plain text output
-            sanitized_text = self._sanitize_for_plain_text(text)
-            logger.info(f"Sending plain text message to chat_id={chat_id}: {sanitized_text}")
+        """
+        Send a message to a specific chat in plain text.
+        
+        Args:
+            chat_id: The chat ID to send the message to
+            text: The message text (already formatted as plain text by ResponseFormatter)
+            **kwargs: Additional arguments for the Telegram API
             
-            # Explicitly send as plain text (no parse_mode)
+        Raises:
+            Exception: When message sending fails
+        """
+        try:
+            logger.info(f"Sending plain text message to chat_id={chat_id}: {text}")
+            
+            # Send as plain text (no parse_mode)
             await self.app.bot.send_message(
                 chat_id=chat_id, 
-                text=sanitized_text, 
+                text=text, 
                 parse_mode=None,  # Explicitly set to None for plain text
                 **kwargs
             )
         except Exception as e:
             logger.error(f"❌ Error sending message: {e}")
             raise
-
-    def _sanitize_for_plain_text(self, text: str) -> str:
-        """Remove any formatting characters to ensure plain text output."""
-        if not text:
-            return text
-            
-        # Remove common markdown characters that might cause issues
-        text = text.replace('*', '').replace('_', '').replace('`', '')
-        text = text.replace('**', '').replace('__', '').replace('~~', '')
-        text = text.replace('#', '').replace('##', '').replace('###', '')
-        
-        # Remove HTML-like tags
-        import re
-        text = re.sub(r'<[^>]+>', '', text)
-        
-        # Remove HTML entities
-        text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
-        
-        # Clean up extra whitespace
-        text = re.sub(r'\s+', ' ', text).strip()
-        
-        return text
 
     async def send_contact_share_button(self, chat_id: Union[int, str], text: str):
         """Send a message with a contact sharing button."""
@@ -368,10 +469,7 @@ class TelegramBotService(TelegramBotServiceInterface):
             # Fallback to regular message
             await self.send_message(chat_id, text)
 
-    def _is_agent_formatted_message(self, text: str) -> bool:
-        """Check if message is already properly formatted by an agent."""
-        # With plain text, all messages are treated the same
-        return True
+
 
     async def stop(self) -> None:
         """Stop the bot."""

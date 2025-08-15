@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from kickai.core.enums import CommandType, PermissionLevel
 
@@ -796,7 +796,7 @@ def command(
     command_type: CommandType = CommandType.SLASH_COMMAND,
     permission_level: PermissionLevel = PermissionLevel.PUBLIC,
     feature: str = "unknown",
-    chat_type: Optional[str] = None,
+    chat_type: Optional[Union[str, 'ChatType']] = None,
     **kwargs,
 ):
     """
@@ -815,6 +815,11 @@ def command(
     def decorator(func: Callable) -> Callable:
         # Always use the global registry during import
         registry = get_command_registry()
+        
+        # Convert enum chat_type to string if needed
+        chat_type_str = chat_type
+        if chat_type is not None and hasattr(chat_type, 'value'):
+            chat_type_str = chat_type.value
 
         registry.register_command(
             name=name,
@@ -823,7 +828,7 @@ def command(
             command_type=command_type,
             permission_level=permission_level,
             feature=feature,
-            chat_type=chat_type,
+            chat_type=chat_type_str,
             **kwargs,
         )
         # Mark function as registered to avoid duplicate discovery

@@ -1,0 +1,103 @@
+# Player Management Configuration
+# This file contains configurable settings for player registration and management
+
+# Player Registration Settings
+player_registration:
+  # Default status for new players
+  default_status: "PENDING"
+  
+  # Default position (empty string, will be set via /update)
+  default_position: ""
+  
+  # Name validation
+  name:
+    min_length: 2
+    max_length: 100
+  
+  # Phone number validation
+  phone:
+    min_digits: 10
+    max_digits: 15
+    valid_prefixes:
+      - "+44"
+      - "07"
+      - "44"
+  
+  # Invite link settings
+  invite_link:
+    expiration_days: 7
+    one_time_use: true
+
+# Error Messages (templates with placeholders)
+error_messages:
+  missing_arguments: "❌ **Missing Arguments**\n\nUsage: `/addplayer <player_name> <phone_number>`"
+  invalid_format: "❌ **Invalid Format**\n\nI need both a player name and phone number."
+  name_too_short: "❌ **Name too short**\n\n💡 Player name must be at least {min_length} characters long."
+  invalid_phone: "❌ **Invalid phone number**\n\n📱 Please use UK format:\n• +447123456789\n• 07123456789\n\n🔍 You provided: {phone}"
+  duplicate_phone: "❌ **Phone Number Already Registered**\n\n📱 {phone} is already used by: **{existing_name}**"
+  permission_required: "❌ **Permission Required**\n\n🔒 Adding players is a leadership function."
+  system_error: "❌ **System Error**\n\n🛠️ Failed to add player: {error}"
+
+# Success Messages (templates with placeholders)
+success_messages:
+  player_added_with_invite: |
+    ✅ **Player Added Successfully!**
+
+    👤 **Player Details:**
+    • **Name:** {name}
+    • **Phone:** {phone}
+    • **Status:** {status}
+
+    📱 **Send this message to {name}:**
+    "Hi {name}! You've been added to {team_name}. Click this link to join our main chat: {invite_link}"
+
+    🔗 **Invite Link:** {invite_link}
+    ⏰ **Expires:** {expires_at}
+    🔄 **Usage:** One-time use only
+
+    📋 **Next Steps:**
+    1. Send the invite link to {name}
+    2. Player joins main chat via link
+    3. Player uses /update to set position and details
+    4. Player is ready to participate!
+
+# Validation Rules
+validation:
+  # Phone number patterns
+  phone_patterns:
+    - "^\\+44[0-9]{10}$"  # +447123456789
+    - "^07[0-9]{9}$"      # 07123456789
+    - "^44[0-9]{10}$"     # 447123456789
+  
+  # Name patterns
+  name_patterns:
+    - "^[a-zA-Z\\s'-]+$"  # Letters, spaces, hyphens, apostrophes
+  
+  # Team ID patterns
+  team_id_patterns:
+    - "^[A-Z0-9]{2,10}$"  # 2-10 alphanumeric characters
+
+# Performance Settings
+performance:
+  # Response time limits (seconds)
+  max_response_time: 5.0
+  
+  # Database operation timeouts (seconds)
+  db_timeout: 10.0
+  
+  # External API timeouts (seconds)
+  api_timeout: 15.0
+
+# Security Settings
+security:
+  # Leadership chat requirement
+  require_leadership_chat: true
+  
+  # Duplicate phone prevention
+  prevent_duplicate_phones: true
+  
+  # Input sanitization
+  sanitize_inputs: true
+  
+  # Rate limiting (requests per minute)
+  rate_limit: 10

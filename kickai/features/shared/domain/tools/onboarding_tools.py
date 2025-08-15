@@ -21,6 +21,7 @@ from kickai.utils.constants import (
     VALID_PLAYER_POSITIONS,
     VALID_TEAM_MEMBER_ROLES,
 )
+from kickai.core.enums import ResponseStatus
 from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.validation_utils import normalize_phone, sanitize_input
 from kickai.utils.tool_helpers import create_json_response
@@ -45,7 +46,7 @@ class ValidationInput(BaseModel):
 
 
 @tool("team_member_guidance", result_as_answer=True)
-def team_member_guidance(user_id: str, team_id: str, chat_type: str = None) -> str:
+async def team_member_guidance(user_id: str, team_id: str, chat_type: str = None) -> str:
     """
     Provide team member registration guidance to a user.
 
@@ -89,11 +90,11 @@ Just say "I want to register as a team member" and I'll guide you through step b
         """
 
         logger.info(f"Team member guidance provided to user {user_id}")
-        return create_json_response("success", data=guidance.strip())
+        return create_json_response(ResponseStatus.SUCCESS, data=guidance.strip())
 
     except Exception as e:
         logger.error(f"❌ Failed to provide team member guidance: {e}")
-        return create_json_response("error", message=f"Failed to provide team member guidance: {e!s}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Failed to provide team member guidance: {e!s}")
 
     # Registration tools removed - /register command has been removed from the system
     # @tool("validate_registration_data")
@@ -148,15 +149,15 @@ Just say "I want to register as a team member" and I'll guide you through step b
             errors.append("❌ Entity type must be 'player' or 'team_member'")
 
         if errors:
-            return create_json_response("error", message="\n".join(errors))
+            return create_json_response(ResponseStatus.ERROR, message="\n".join(errors))
 
         # All validation passed
         entity_display = "player" if entity_type.lower() == "player" else "team member"
-        return create_json_response("success", data=f"All data validated successfully for {entity_display} registration!")
+        return create_json_response(ResponseStatus.SUCCESS, data=f"All data validated successfully for {entity_display} registration!")
 
     except Exception as e:
         logger.error(f"❌ Validation error: {e}")
-        return create_json_response("error", message=f"Validation failed: {e!s}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Validation failed: {e!s}")
 
     # Registration tools removed - /register command has been removed from the system
     # @tool("register_team_member_onboarding")
@@ -199,7 +200,7 @@ Just say "I want to register as a team member" and I'll guide you through step b
 
         if not registration_service:
             logger.error("❌ No registration service available")
-            return create_json_response("error", message=f"Registration service not available. Please try again later.")
+            return create_json_response(ResponseStatus.ERROR, message=f"Registration service not available. Please try again later.")
 
         # Register using player service (temporary solution)
         member = registration_service.register_player(name, phone, role, team_id)
@@ -227,14 +228,14 @@ Type /help to see available commands or ask me anything!
 
 Welcome to the team! 🤝
             """
-            return create_json_response("success", data=success_msg.strip())
+            return create_json_response(ResponseStatus.SUCCESS, data=success_msg.strip())
         else:
             logger.error(f"❌ Failed to register team member: {name}")
-            return create_json_response("error", message=f"Registration failed for {name}. Please check the information and try again.")
+            return create_json_response(ResponseStatus.ERROR, message=f"Registration failed for {name}. Please check the information and try again.")
 
     except Exception as e:
         logger.error(f"❌ Team member registration error: {e}")
-        return create_json_response("error", message=f"Registration failed: {e!s}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Registration failed: {e!s}")
 
     # Context detection helpers
     # Registration tools removed - /register command has been removed from the system
@@ -295,20 +296,20 @@ Welcome to the team! 🤝
 
         if team_member_score > player_score:
             confidence = "high" if team_member_score >= 2 else "medium"
-            return create_json_response("success", data={
+            return create_json_response(ResponseStatus.SUCCESS, data={
                 "entity_type": "team_member",
                 "confidence": confidence,
                 "message": "Team member registration detected"
             })
         elif player_score > team_member_score:
             confidence = "high" if player_score >= 2 else "medium"
-            return create_json_response("success", data={
+            return create_json_response(ResponseStatus.SUCCESS, data={
                 "entity_type": "player",
                 "confidence": confidence,
                 "message": "Player registration detected"
             })
         else:
-            return create_json_response("success", data={
+            return create_json_response(ResponseStatus.SUCCESS, data={
                 "entity_type": "ambiguous",
                 "confidence": "low",
                 "message": "Cannot determine registration type - clarification needed"
@@ -316,4 +317,4 @@ Welcome to the team! 🤝
 
     except Exception as e:
         logger.error(f"❌ Context detection error: {e}")
-        return create_json_response("error", message="Context detection failed")
+        return create_json_response(ResponseStatus.ERROR, message="Context detection failed")

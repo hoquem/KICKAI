@@ -4,18 +4,27 @@ Async Utilities for KICKAI
 This module provides common async patterns and utilities for I/O-bound operations.
 """
 
+# Standard library imports
 import asyncio
 import time
-from collections.abc import Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine
+from concurrent.futures import Future
 from contextlib import asynccontextmanager
 from functools import wraps
-from typing import Any, List, Optional, Tuple, TypeVar
+from typing import Any, TypeVar
 
+# Third-party imports
 from loguru import logger
 
-logger = logger
+# Constants
+DEFAULT_CONCURRENCY_LIMIT = 10
+DEFAULT_BATCH_SIZE = 100
+DEFAULT_RETRY_ATTEMPTS = 3
+DEFAULT_RETRY_DELAY = 1.0
+DEFAULT_BACKOFF_FACTOR = 2.0
 
-T = TypeVar("T", dict, list)
+# Type variables
+ResultType = TypeVar("ResultType", dict, list)
 
 
 class AsyncRetryError(Exception):
@@ -24,10 +33,49 @@ class AsyncRetryError(Exception):
     pass
 
 
+def run_async(coro: Awaitable[ResultType]) -> ResultType:
+    """
+    Runs an awaitable coroutine from a synchronous context, automatically
+    handling the asyncio event loop.
+
+    This function is designed to be a robust bridge between synchronous and
+    asynchronous code. It checks if an event loop is already running in the
+    current thread.
+
+    - If a loop is running (e.g., inside a FastAPI or Discord bot), it
+    schedules the coroutine to run on that loop using
+    `asyncio.run_coroutine_threadsafe` and waits for the result. This is
+    the recommended, thread-safe way to interact with a running loop
+    from another thread or a synchronous function.
+
+    - If no loop is running, it creates a new one using `asyncio.run()`,
+    which is the standard way to run an async task from a fresh sync context.
+
+    Args:
+        coro: The awaitable coroutine to execute (e.g., `my_async_func()`).
+
+    Returns:
+    The result of the awaited coroutine.
+    """
+    try:
+        # Check if there is a running event loop in the current thread
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # If no loop is running, create a new one and run the coroutine
+        return asyncio.run(coro)
+    else:
+        # If a loop is running, schedule the coroutine on it thread-safely
+        # and wait for the result.
+        future: Future[ResultType] = asyncio.run_coroutine_threadsafe(coro, loop)
+        # .result() will block until the future is complete and return the value
+        # or raise the exception from the coroutine.
+        return future.result()
+
+
 def async_retry(
-    max_attempts: int = 3,
-    delay: float = 1.0,
-    backoff_factor: float = 2.0,
+    max_attempts: int = DEFAULT_RETRY_ATTEMPTS,
+    delay: float = DEFAULT_RETRY_DELAY,
+    backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
     exceptions: tuple = (Exception,),
 ):
     """
@@ -41,10 +89,10 @@ def async_retry(
     """
 
     def decorator(
-        func: Callable[..., Coroutine[Any, Any, T]],
-    ) -> Callable[..., Coroutine[Any, Any, T]]:
+        func: Callable[..., Coroutine[Any, Any, ResultType]],
+    ) -> Callable[..., Coroutine[Any, Any, ResultType]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> T:
+        async def wrapper(*args, **kwargs) -> ResultType:
             last_exception = None
             current_delay = delay
 
@@ -81,10 +129,10 @@ def async_timeout(timeout_seconds: float):
     """
 
     def decorator(
-        func: Callable[..., Coroutine[Any, Any, T]],
-    ) -> Callable[..., Coroutine[Any, Any, T]]:
+        func: Callable[..., Coroutine[Any, Any, ResultType]],
+    ) -> Callable[..., Coroutine[Any, Any, ResultType]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> T:
+        async def wrapper(*args, **kwargs) -> ResultType:
             try:
                 return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout_seconds)
             except TimeoutError:
@@ -118,7 +166,7 @@ async def async_operation_context(operation_name: str, **context):
         raise
 
 
-async def run_in_executor(func: Callable[..., T], *args, **kwargs) -> T:
+async def run_in_executor(func: Callable[..., ResultType], *args, **kwargs) -> ResultType:
     """
     Run a synchronous function in a thread pool executor.
 
@@ -135,8 +183,9 @@ async def run_in_executor(func: Callable[..., T], *args, **kwargs) -> T:
 
 
 async def gather_with_concurrency_limit(
-    coroutines: List[Coroutine[Any, Any, T]], max_concurrent: int = 10
-) -> List[T]:
+    coroutines: list[Coroutine[Any, Any, ResultType]],
+    max_concurrent: int = DEFAULT_CONCURRENCY_LIMIT,
+) -> list[ResultType]:
     """
     Execute coroutines with a concurrency limit using semaphore.
 
@@ -149,7 +198,7 @@ async def gather_with_concurrency_limit(
     """
     semaphore = asyncio.Semaphore(max_concurrent)
 
-    async def limited_coroutine(coro: Coroutine[Any, Any, T]) -> T:
+    async def limited_coroutine(coro: Coroutine[Any, Any, ResultType]) -> ResultType:
         async with semaphore:
             return await coro
 
@@ -158,11 +207,11 @@ async def gather_with_concurrency_limit(
 
 
 async def execute_with_fallback(
-    primary_func: Callable[..., Coroutine[Any, Any, T]],
-    fallback_func: Callable[..., Coroutine[Any, Any, T]],
+    primary_func: Callable[..., Coroutine[Any, Any, ResultType]],
+    fallback_func: Callable[..., Coroutine[Any, Any, ResultType]],
     *args,
     **kwargs,
-) -> T:
+) -> ResultType:
     """
     Execute a primary function with a fallback if it fails.
 
@@ -189,13 +238,17 @@ async def execute_with_fallback(
 class AsyncBatchProcessor:
     """Utility class for processing items in batches asynchronously."""
 
-    def __init__(self, batch_size: int = 100, max_concurrent: int = 10):
+    def __init__(
+        self, batch_size: int = DEFAULT_BATCH_SIZE, max_concurrent: int = DEFAULT_CONCURRENCY_LIMIT
+    ):
         self.batch_size = batch_size
         self.max_concurrent = max_concurrent
 
     async def process_batches(
-        self, items: List[Any], processor_func: Callable[[List[Any]], Coroutine[Any, Any, List[T]]]
-    ) -> List[T]:
+        self,
+        items: list[Any],
+        processor_func: Callable[[list[Any]], Coroutine[Any, Any, list[ResultType]]],
+    ) -> list[ResultType]:
         """
         Process items in batches asynchronously.
 
@@ -255,7 +308,7 @@ class AsyncRateLimiter:
         pass
 
 
-def create_async_context_manager(func: Callable[..., Coroutine[Any, Any, T]]):
+def create_async_context_manager(func: Callable[..., Coroutine[Any, Any, ResultType]]):
     """
     Create an async context manager from an async function.
 
@@ -282,8 +335,11 @@ def create_async_context_manager(func: Callable[..., Coroutine[Any, Any, T]]):
 
 
 async def safe_async_call(
-    func: Callable[..., Coroutine[Any, Any, T]], *args, default_value: Optional[T] = None, **kwargs
-) -> Optional[T]:
+    func: Callable[..., Coroutine[Any, Any, ResultType]],
+    *args,
+    default_value: ResultType | None = None,
+    **kwargs,
+) -> ResultType | None:
     """
     Safely call an async function with error handling.
 
@@ -304,8 +360,10 @@ async def safe_async_call(
 
 
 async def async_map(
-    func: Callable[[Any], Coroutine[Any, Any, T]], items: List[Any], max_concurrent: int = 10
-) -> List[T]:
+    func: Callable[[Any], Coroutine[Any, Any, ResultType]],
+    items: list[Any],
+    max_concurrent: int = DEFAULT_CONCURRENCY_LIMIT,
+) -> list[ResultType]:
     """
     Apply an async function to each item in a list with concurrency control.
 
@@ -322,8 +380,10 @@ async def async_map(
 
 
 async def async_filter(
-    func: Callable[[Any], Coroutine[Any, Any, bool]], items: List[Any], max_concurrent: int = 10
-) -> List[Any]:
+    func: Callable[[Any], Coroutine[Any, Any, bool]],
+    items: list[Any],
+    max_concurrent: int = DEFAULT_CONCURRENCY_LIMIT,
+) -> list[Any]:
     """
     Filter items using an async predicate function.
 
@@ -337,3 +397,104 @@ async def async_filter(
     """
     results = await async_map(func, items, max_concurrent)
     return [item for item, keep in zip(items, results, strict=False) if keep]
+
+
+# Sync-Async Bridge Utilities for CrewAI Tools
+
+
+def run_async_in_sync(coro: Coroutine[Any, Any, ResultType]) -> ResultType:
+    """
+    Run async functions from sync context using nest-asyncio.
+    Fails fast if nest-asyncio is not available.
+
+    This utility handles event loop detection and uses nest-asyncio for nested
+    event loop scenarios. It follows a fail-fast approach - either works with
+    nest-asyncio or fails with a clear error message.
+
+    Args:
+        coro: The coroutine to execute
+
+    Returns:
+        The result of the async operation
+
+    Raises:
+        RuntimeError: If nest-asyncio is required but not available
+        Any exception raised by the coroutine
+
+    Example:
+        @tool("my_tool", result_as_answer=True)
+        def my_tool(...) -> str:
+            async def _async_logic():
+                result = await database.query_documents(...)
+                return result
+
+            return run_async_in_sync(_async_logic())
+    """
+    try:
+        # Check if we're in an existing event loop
+        asyncio.get_running_loop()
+
+        # Require nest-asyncio for event loop nesting - fail fast if not available
+        _ensure_nest_asyncio_available()
+        return asyncio.run(coro)  # Now safe with nest-asyncio
+
+    except RuntimeError as e:
+        # Check if this is our nest-asyncio error or a "no event loop" error
+        if "nest-asyncio is required" in str(e):
+            raise  # Re-raise our specific error
+        # No event loop running - safe to use asyncio.run()
+        logger.debug("No event loop running, using asyncio.run()")
+        return asyncio.run(coro)
+    except Exception as e:
+        logger.error(f"Error in sync-async bridge: {e}")
+        raise
+
+
+def _ensure_nest_asyncio_available() -> None:
+    """
+    Ensure nest-asyncio is available and applied.
+
+    Raises:
+        RuntimeError: If nest-asyncio is not available
+    """
+    try:
+        import nest_asyncio
+
+        if not hasattr(asyncio, "_nest_patched"):
+            nest_asyncio.apply()
+            asyncio._nest_patched = True  # Avoid multiple applications
+    except ImportError:
+        raise RuntimeError(
+            "nest-asyncio is required to run async code within CrewAI. "
+            "Install with: pip install nest-asyncio"
+        ) from None
+
+
+def async_tool_wrapper(func: Callable[..., Coroutine[Any, Any, str]]) -> Callable[..., str]:
+    """
+    Decorator to convert async tool functions to sync for CrewAI compatibility.
+
+    This decorator wraps async tool functions to make them compatible with CrewAI's
+    synchronous tool execution model while preserving async operations internally.
+
+    Args:
+        func: The async tool function to wrap
+
+    Returns:
+        A synchronous wrapper function
+
+    Example:
+        @tool("my_tool", result_as_answer=True)
+        @async_tool_wrapper
+        async def my_async_tool(...) -> str:
+            result = await database.query_documents(...)
+            return result
+    """
+
+    @wraps(func)
+    def sync_wrapper(*args, **kwargs) -> str:
+        """Synchronous wrapper for async tool function."""
+        coro = func(*args, **kwargs)
+        return run_async_in_sync(coro)
+
+    return sync_wrapper

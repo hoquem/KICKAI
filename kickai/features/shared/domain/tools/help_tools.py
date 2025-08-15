@@ -7,28 +7,20 @@ native parameter passing mechanism. Tools receive parameters directly via
 function signatures following CrewAI best practices.
 """
 
-import os
-from typing import Dict, List
-
 from loguru import logger
 
-# Import constants and enums properly
-from kickai.core.enums import ChatType as ChatTypeEnum, PermissionLevel
 import kickai.core.constants as constants_module
+from kickai.core.enums import ChatType as ChatTypeEnum
 from kickai.utils.crewai_tool_decorator import tool
-from kickai.utils.tool_helpers import (
-    create_json_response,
-    extract_single_value,
-    format_tool_error,
-    validate_required_input,
-)
+from kickai.core.enums import ResponseStatus
+from kickai.utils.tool_helpers import create_json_response, validate_required_input
 from kickai.utils.tool_validation import create_tool_response
 
 
-@tool("FINAL_HELP_RESPONSE", result_as_answer=True)
-def final_help_response(
+@tool("help_response", result_as_answer=True)
+async def help_response(
     telegram_id: int,
-    team_id: str, 
+    team_id: str,
     username: str,
     chat_type: str
 ) -> str:
@@ -41,7 +33,7 @@ def final_help_response(
 
     Args:
         telegram_id: User's Telegram ID
-        team_id: Team ID 
+        team_id: Team ID
         username: User's username
         chat_type: Chat type (main/leadership)
 
@@ -51,56 +43,86 @@ def final_help_response(
     try:
         # Validate required parameters
         if not all([chat_type, telegram_id, team_id, username]):
-            return create_json_response("error", message="Missing required parameters for help generation")
+            return create_json_response(ResponseStatus.ERROR, message="Missing required parameters for help generation")
 
         logger.info(
             f"🔧 [TOOL DEBUG] Generating help for chat_type: {chat_type}, user: {telegram_id}, team: {team_id}, username: {username}"
         )
 
-        # Normalize chat type to enum
-        chat_type_enum = constants_module.normalize_chat_type(chat_type)
+        # Normalize chat type
+        chat_type_enum = _normalize_chat_type(chat_type)
 
-        # Get commands from the command registry instead of constants
-        try:
-            from kickai.core.command_registry_initializer import get_initialized_command_registry
+        # Get commands from registry
+        commands = _get_commands_for_chat_type(chat_type_enum)
 
-            registry = get_initialized_command_registry()
+        # Format the help message
+        help_message = _format_help_message(chat_type_enum, commands, username)
 
-            # Get commands available for this chat type from the registry
-            commands = []
-            for cmd_name, cmd_metadata in registry._commands.items():
-                # Check if command is available for this chat type
-                if hasattr(cmd_metadata, "chat_type") and cmd_metadata.chat_type == chat_type_enum:
-                    commands.append(cmd_metadata)
-                elif hasattr(cmd_metadata, "feature"):
-                    # Fallback: check if command should be available based on feature
-                    if cmd_metadata.feature in ["shared"]:
-                        commands.append(cmd_metadata)
-
-            logger.info(
-                f"🔧 [TOOL DEBUG] Found {len(commands)} commands for {chat_type_enum.value}"
-            )
-
-            # Format the help message
-            help_message = _format_help_message(chat_type_enum, commands, username)
-
-            logger.info(f"✅ [TOOL DEBUG] Generated help message for {username}")
-            return create_json_response("success", data=help_message)
-
-        except Exception as e:
-            logger.error(f"❌ [TOOL DEBUG] Error getting command registry: {e}")
-            return create_json_response("error", message=f"Failed to retrieve command information: {e}")
+        logger.info(f"✅ [TOOL DEBUG] Generated help message for {username}")
+        return create_json_response(ResponseStatus.SUCCESS, data=help_message)
 
     except Exception as e:
-        logger.error(f"❌ [TOOL DEBUG] Error in FINAL_HELP_RESPONSE: {e}")
-        return create_json_response("error", message=f"Failed to generate help response: {e}")
+        logger.error(f"❌ [TOOL DEBUG] Error in help_response: {e}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Failed to generate help response: {e}")
+
+
+def _normalize_chat_type(chat_type: str) -> ChatTypeEnum:
+    """Normalize chat type string to enum with proper error handling."""
+    try:
+        # Ensure chat_type is a string
+        chat_type_str = str(chat_type) if chat_type is not None else "main"
+        chat_type_enum = constants_module.normalize_chat_type(chat_type_str)
+
+        # Validate that we got an enum
+        if not hasattr(chat_type_enum, 'value'):
+            logger.warning(f"⚠️ normalize_chat_type returned invalid type: {type(chat_type_enum)}, value: {chat_type_enum}")
+            return ChatTypeEnum.MAIN  # Default fallback
+
+        logger.debug(f"🔧 [TOOL DEBUG] Normalized chat_type: {chat_type_str} -> {chat_type_enum}")
+        return chat_type_enum
+
+    except Exception as e:
+        logger.error(f"❌ Error normalizing chat_type '{chat_type}': {e}")
+        return ChatTypeEnum.MAIN  # Default fallback
+
+
+def _get_commands_for_chat_type(chat_type_enum: ChatTypeEnum) -> list:
+    """Get commands available for the specified chat type."""
+    from kickai.core.command_registry_initializer import get_initialized_command_registry
+
+    registry = get_initialized_command_registry()
+
+    # Get commands available for this chat type from the registry
+    commands = []
+    for cmd_metadata in registry._commands.values():
+        # Check if command is available for this chat type
+        if hasattr(cmd_metadata, "chat_type") and cmd_metadata.chat_type == chat_type_enum.value:
+            commands.append(cmd_metadata)
+        elif hasattr(cmd_metadata, "feature"):
+            # Fallback: check if command should be available based on feature
+            if cmd_metadata.feature in ["shared"]:
+                commands.append(cmd_metadata)
+
+    logger.info(f"🔧 [TOOL DEBUG] Found {len(commands)} commands for {chat_type_enum.value}")
+    return commands
 
 
 def _format_help_message(chat_type: ChatTypeEnum, commands: list, username: str) -> str:
     """Format the help message with commands organized by category."""
     try:
-        # Get chat type display name
-        chat_display_name = constants_module.get_chat_type_display_name(chat_type)
+        # Get chat type display name safely
+        try:
+            chat_display_name = constants_module.get_chat_type_display_name(chat_type)
+        except AttributeError as e:
+            # Debug information to understand the issue
+            logger.warning(f"⚠️ AttributeError in get_chat_type_display_name: {e}, chat_type={chat_type}, type={type(chat_type)}")
+            # Fallback if chat_type is not a proper enum or has issues
+            if hasattr(chat_type, 'value'):
+                chat_display_name = chat_type.value.title()
+            elif isinstance(chat_type, str):
+                chat_display_name = chat_type.title()
+            else:
+                chat_display_name = str(chat_type).title()
 
         # Start building the message
         message_parts = [
@@ -139,7 +161,7 @@ def _format_help_message(chat_type: ChatTypeEnum, commands: list, username: str)
         return f"❌ Error formatting help message: {e!s}"
 
 
-def _group_commands_by_category(commands: list) -> Dict[str, list]:
+def _group_commands_by_category(commands: list) -> dict[str, list]:
     """Group commands by their feature/category."""
     categories = {
         "Player Commands": [],
@@ -174,7 +196,7 @@ def _group_commands_by_category(commands: list) -> Dict[str, list]:
     return {k: v for k, v in categories.items() if v}
 
 @tool("get_available_commands", result_as_answer=True)
-def get_available_commands(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
+async def get_available_commands(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get all available commands for the current chat type.
 
@@ -190,7 +212,7 @@ def get_available_commands(telegram_id: int, team_id: str, username: str, chat_t
     """
     try:
         # Normalize chat type
-        chat_type_enum = constants_module.normalize_chat_type(chat_type)
+        chat_type_enum = _normalize_chat_type(chat_type)
 
         from kickai.core.command_registry_initializer import get_initialized_command_registry
         registry = get_initialized_command_registry()
@@ -220,7 +242,7 @@ def get_available_commands(telegram_id: int, team_id: str, username: str, chat_t
             permission_level = getattr(cmd, 'permission_level', 'unknown')
             if hasattr(permission_level, 'value'):
                 permission_level = permission_level.value
-            
+
             command_info = {
                 "name": cmd.name,
                 "description": cmd.description,
@@ -251,7 +273,7 @@ def get_available_commands(telegram_id: int, team_id: str, username: str, chat_t
 
 
 @tool("get_command_help", result_as_answer=True)
-def get_command_help(telegram_id: int, team_id: str, username: str, chat_type: str, command_name: str) -> str:
+async def get_command_help(telegram_id: int, team_id: str, username: str, chat_type: str, command_name: str) -> str:
     """
     Get detailed help for a specific command.
 
@@ -269,23 +291,33 @@ def get_command_help(telegram_id: int, team_id: str, username: str, chat_type: s
         # Validate command name input
         validation_error = validate_required_input(command_name, "Command Name")
         if validation_error:
-            return create_json_response("error", message=validation_error.replace("❌ Error: ", ""))
+            return create_json_response(ResponseStatus.ERROR, message=validation_error.replace("❌ Error: ", ""))
 
         # Normalize command name
         if not command_name.startswith("/"):
             command_name = f"/{command_name}"
 
         # Normalize chat type
-        chat_type_enum = constants_module.normalize_chat_type(chat_type)
+        chat_type_enum = _normalize_chat_type(chat_type)
 
         from kickai.core.command_registry_initializer import get_initialized_command_registry
         registry = get_initialized_command_registry()
         command = registry.get_command(command_name)
 
         if not command:
-            return create_json_response("error", message=f"Command {command_name} not found or not available in {chat_type} chat.")
+            return create_json_response(ResponseStatus.ERROR, message=f"Command {command_name} not found or not available in {chat_type_enum.value} chat.")
 
         # Format detailed help
+        # Handle permission level safely
+        permission_level = getattr(command, 'permission_level', 'unknown')
+        if hasattr(permission_level, 'value'):
+            permission_level = permission_level.value
+
+        # Handle chat types safely - CommandMetadata has chat_type (string), not chat_types (list of enums)
+        available_in = "All chats"
+        if hasattr(command, 'chat_type') and command.chat_type:
+            available_in = command.chat_type.title()
+
         help_text = f"""
 📋 COMMAND HELP: {command_name.upper()}
 
@@ -293,9 +325,9 @@ def get_command_help(telegram_id: int, team_id: str, username: str, chat_type: s
 
 🎯 Usage: {command.examples[0] if command.examples else command_name}
 
-📋 Permission Level: {command.permission_level.value}
+📋 Permission Level: {permission_level}
 
-📋 Available In: {', '.join([ct.value for ct in command.chat_types])}
+📋 Available In: {available_in}
 
 💡 Examples:
 """
@@ -305,15 +337,15 @@ def get_command_help(telegram_id: int, team_id: str, username: str, chat_type: s
         else:
             help_text += "• No specific examples available\n"
 
-        return create_json_response("success", data=help_text)
+        return create_json_response(ResponseStatus.SUCCESS, data=help_text)
 
     except Exception as e:
         logger.error(f"Error getting command help: {e}")
-        return create_json_response("error", message=f"Failed to get command help: {e}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get command help: {e}")
 
 
 @tool("get_welcome_message", result_as_answer=True)
-def get_welcome_message(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
+async def get_welcome_message(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Generate a welcome message for users.
 
@@ -328,7 +360,7 @@ def get_welcome_message(telegram_id: int, team_id: str, username: str, chat_type
     """
     try:
         # Normalize chat type
-        chat_type_enum = constants_module.normalize_chat_type(chat_type)
+        chat_type_enum = _normalize_chat_type(chat_type)
 
         # Generate welcome message based on chat type
         if chat_type_enum == ChatTypeEnum.MAIN:
@@ -414,8 +446,8 @@ Welcome to the leadership team! Let's lead this team to success! 🏆⚽
 Welcome to the KICKAI family! We're here to support your football journey! ⚽💪
             """
 
-        return create_json_response("success", data=welcome_message.strip())
+        return create_json_response(ResponseStatus.SUCCESS, data=welcome_message.strip())
 
     except Exception as e:
         logger.error(f"Error generating welcome message: {e}", exc_info=True)
-        return create_json_response("error", message=f"Failed to generate welcome message: {e}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Failed to generate welcome message: {e}")

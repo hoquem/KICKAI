@@ -9,25 +9,36 @@ standardizing error messages across all tools.
 import json
 from typing import Any, Dict, List, Optional, Union
 
+from loguru import logger
+from kickai.core.enums import ResponseStatus
 
-def create_json_response(status: str, data: Any = None, message: str = None) -> str:
+
+class ContextKeys:
+    """Constants for context keys used in tool parsing."""
+    
+    SECURITY_CONTEXT = "security_context"
+    EXECUTION_CONTEXT = "execution_context"
+    CONTEXT_DELIMITER = "Context:"
+
+
+def create_json_response(status: ResponseStatus, data: Any = None, message: str = None) -> str:
     """
     Create a standardized JSON response for tools.
     
     Args:
-        status: Either "success" or "error"
+        status: ResponseStatus enum value (SUCCESS or ERROR)
         data: The data to include in the response (for success responses)
         message: Error message (for error responses)
         
     Returns:
         JSON string with standardized format
     """
-    if status == "success":
-        response = {"status": "success", "data": data}
-    elif status == "error":
-        response = {"status": "error", "message": message}
+    if status == ResponseStatus.SUCCESS:
+        response = {"status": status.value, "data": data}
+    elif status == ResponseStatus.ERROR:
+        response = {"status": status.value, "message": message}
     else:
-        raise ValueError("Status must be either 'success' or 'error'")
+        raise ValueError(f"Status must be either {ResponseStatus.SUCCESS} or {ResponseStatus.ERROR}")
         
     return json.dumps(response, ensure_ascii=False)
 
@@ -99,14 +110,14 @@ def extract_single_value(input_value: Any, key: str) -> str:
             return str(input_value[key])
 
         # Search in security_context (common pattern in CrewAI)
-        if "security_context" in input_value:
-            security_ctx = input_value["security_context"]
+        if ContextKeys.SECURITY_CONTEXT in input_value:
+            security_ctx = input_value[ContextKeys.SECURITY_CONTEXT]
             if isinstance(security_ctx, dict) and key in security_ctx:
                 return str(security_ctx[key])
 
         # Search in execution_context (another common pattern)
-        if "execution_context" in input_value:
-            exec_ctx = input_value["execution_context"]
+        if ContextKeys.EXECUTION_CONTEXT in input_value:
+            exec_ctx = input_value[ContextKeys.EXECUTION_CONTEXT]
             if isinstance(exec_ctx, dict) and key in exec_ctx:
                 return str(exec_ctx[key])
 
@@ -150,20 +161,29 @@ def format_tool_success(message: str, success_type: str = "Success") -> str:
     return f"✅ {success_type}: {message}"
 
 
-def validate_required_input(value: str, field_name: str) -> str:
+def validate_required_input(value: Union[str, int, Any], field_name: str) -> str:
     """
     Validate that a required input field is not empty.
+    Handles strings, integers, and other types naturally.
 
     Args:
-        value: The input value to validate
+        value: The input value to validate (string, int, or other types)
         field_name: The name of the field for error messages
 
     Returns:
         Error message if validation fails, empty string if valid
     """
-    if not value or not value.strip():
-        return format_tool_error(f"{field_name} is required")
-    return ""
+    # Handle integers directly
+    if isinstance(value, int):
+        return "" if value != 0 else format_tool_error(f"{field_name} is required")
+    
+    # Handle strings 
+    if isinstance(value, str):
+        return "" if value and value.strip() else format_tool_error(f"{field_name} is required")
+    
+    # Handle other types by converting to string
+    str_value = str(value) if value is not None else ""
+    return "" if str_value.strip() else format_tool_error(f"{field_name} is required")
 
 
 def extract_context_from_task_description(task_description: str) -> Dict[str, str]:
@@ -180,8 +200,8 @@ def extract_context_from_task_description(task_description: str) -> Dict[str, st
 
     try:
         # Look for context section in task description
-        if "Context:" in task_description:
-            context_section = task_description.split("Context:")[1].strip()
+        if ContextKeys.CONTEXT_DELIMITER in task_description:
+            context_section = task_description.split(ContextKeys.CONTEXT_DELIMITER)[1].strip()
 
             # Parse key-value pairs
             for item in context_section.split(","):
@@ -190,9 +210,9 @@ def extract_context_from_task_description(task_description: str) -> Dict[str, st
                     key, value = item.split(":", 1)
                     context[key.strip()] = value.strip()
 
-    except Exception:
-        # Use logger from loguru if available, otherwise skip logging
-        pass
+    except (AttributeError, ValueError, KeyError, IndexError) as e:
+        # Log specific parsing errors but don't fail the entire operation
+        logger.warning(f"Failed to parse context from task description: {e}")
 
     return context
 

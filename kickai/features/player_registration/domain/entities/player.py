@@ -87,6 +87,7 @@ class Player:
         self._validate()
         self._set_defaults()
 
+
     def _validate(self):
         """Validate player data."""
         if not self.team_id:
@@ -194,7 +195,7 @@ class Player:
     @classmethod
     def from_dict(cls, data: dict) -> "Player":
         """Create from dictionary."""
-        # Ensure telegram_id is integer if provided
+        # Only handle telegram_id - NO OTHER OPTIONS
         telegram_id = data.get("telegram_id")
         if telegram_id is not None:
             telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
@@ -228,7 +229,7 @@ class Player:
 
         # Set attributes directly
         player.team_id = data.get("team_id", "")
-        # Ensure telegram_id is integer if provided
+        # Only handle telegram_id - NO OTHER OPTIONS
         telegram_id = data.get("telegram_id")
         if telegram_id is not None:
             telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id

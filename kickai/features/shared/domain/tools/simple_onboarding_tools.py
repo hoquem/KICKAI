@@ -7,12 +7,13 @@ decorator-based tools fail to load due to dependency issues.
 """
 
 
+from kickai.core.enums import ResponseStatus
 from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import create_json_response
 
 
 @tool("registration_guidance", result_as_answer=True)
-def registration_guidance(telegram_id: int, team_id: str, username: str, chat_type: str, user_id: str) -> str:
+async def registration_guidance(telegram_id: int, team_id: str, username: str, chat_type: str, user_id: str) -> str:
 
     """
     Provide comprehensive registration guidance to a user.
@@ -74,10 +75,10 @@ Just tell me which type of registration you want:
 ℹ️ **Questions?** I'm here to help throughout the process!
         """
 
-        return create_json_response("success", data=guidance.strip())
+        return create_json_response(ResponseStatus.SUCCESS, data=guidance.strip())
 
     except Exception as e:
-        return create_json_response("error", message=f"Failed to provide registration guidance: {e!s}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Failed to provide registration guidance: {e!s}")
 
 
 # Tool metadata for manual registration

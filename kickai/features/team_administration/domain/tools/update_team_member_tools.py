@@ -15,6 +15,7 @@ from kickai.core.constants import get_team_members_collection
 from kickai.core.dependency_container import get_container
 from kickai.database.firebase_client import FirebaseClient
 from kickai.utils.crewai_tool_decorator import tool
+from kickai.core.enums import ResponseStatus
 from kickai.utils.tool_helpers import create_json_response
 from typing import List, Optional
 
@@ -171,7 +172,7 @@ class TeamMemberUpdateValidator:
 
 
 @tool("update_team_member_information", result_as_answer=True)
-def update_team_member_information(
+async def update_team_member_information(
     user_id: str, team_id: str, field: str, value: str, username: str = "Unknown"
 ) -> str:
     """
@@ -194,7 +195,7 @@ def update_team_member_information(
 
         # Validate inputs
         if not user_id or not team_id or not field or not value:
-            return create_json_response("error", message="Update Failed: Missing required parameters (user_id, team_id, field, value)")
+            return create_json_response(ResponseStatus.ERROR, message="Update Failed: Missing required parameters (user_id, team_id, field, value)")
 
         # Initialize Firebase service
         container = get_container()
@@ -203,11 +204,11 @@ def update_team_member_information(
 
         # Check if team member exists
         logger.info(f"🔍 Checking if team member exists: user_id={user_id}")
-        members = firebase_service.query_documents(collection_name, [("user_id", "==", user_id)])
+        members = await firebase_service.query_documents(collection_name, [("user_id", "==", user_id)])
 
         if not members:
             logger.warning(f"❌ Team member not found: user_id={user_id}")
-            return create_json_response("error", message="Update Failed: You are not registered as a team member. Ask leadership to add you.")
+            return create_json_response(ResponseStatus.ERROR, message="Update Failed: You are not registered as a team member. Ask leadership to add you.")
 
         member = members[0]
         member_id = member.get("id", "unknown")
@@ -228,7 +229,7 @@ def update_team_member_information(
 
         # Check for duplicate phone numbers (if updating phone)
         if field.lower() == "phone":
-            existing_members = firebase_service.query_documents(
+            existing_members = await firebase_service.query_documents(
                 collection_name, [("phone", "==", validated_value)]
             )
 
@@ -240,7 +241,7 @@ def update_team_member_information(
                 logger.warning(
                     f"Duplicate phone number: {validated_value} already used by {duplicate_name}"
                 )
-                return create_json_response("error", message=f"Update Failed: Phone number {validated_value} is already registered to another team member ({duplicate_name})")
+                return create_json_response(ResponseStatus.ERROR, message=f"Update Failed: Phone number {validated_value} is already registered to another team member ({duplicate_name})")
 
         # Prepare update data
         current_time = datetime.now().isoformat()
@@ -265,11 +266,11 @@ def update_team_member_information(
             }
 
             # Store approval request
-            firebase_service.create_document(f"kickai_{team_id}_approval_requests", approval_data)
+            await firebase_service.create_document(f"kickai_{team_id}_approval_requests", approval_data)
 
             logger.info(f"Approval request created for {field} update")
 
-            return create_json_response("success", data={
+            return create_json_response(ResponseStatus.SUCCESS, data={
                 'message': 'Role Change Request Submitted',
                 'status': 'pending_approval',
                 'field': field,
@@ -292,7 +293,7 @@ def update_team_member_information(
             }
 
             # Update team member record
-            firebase_service.update_document(collection_name, member_id, update_data)
+            await firebase_service.update_document(collection_name, member_id, update_data)
 
             logger.info(
                 f"✅ Team member information updated successfully: {field} = {validated_value}"
@@ -317,7 +318,7 @@ def update_team_member_information(
         }
 
         try:
-            firebase_service.create_document(f"kickai_{team_id}_audit_logs", audit_data)
+            await firebase_service.create_document(f"kickai_{team_id}_audit_logs", audit_data)
             logger.info("✅ Audit log created for team member update")
         except Exception as e:
             logger.warning(f"⚠️ Failed to create audit log: {e}")
@@ -326,7 +327,7 @@ def update_team_member_information(
         if not requires_approval:
             field_description = validator.UPDATABLE_FIELDS.get(field, field)
 
-            return create_json_response("success", data={
+            return create_json_response(ResponseStatus.SUCCESS, data={
                 'message': 'Information Updated Successfully!',
                 'member_name': member_name,
                 'field': field,
@@ -340,15 +341,15 @@ def update_team_member_information(
 
     except TeamMemberUpdateValidationError as e:
         logger.warning(f"Validation error: {e}")
-        return create_json_response("error", message=f"Update Failed: {e!s}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Update Failed: {e!s}")
 
     except Exception as e:
         logger.error(f"Error updating team member information: {e}", exc_info=True)
-        return create_json_response("error", message="Update Failed: An unexpected error occurred. Please try again or contact support.")
+        return create_json_response(ResponseStatus.ERROR, message="Update Failed: An unexpected error occurred. Please try again or contact support.")
 
 
 @tool("get_team_member_updatable_fields", result_as_answer=True)
-def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
+async def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
     """
     Get list of fields that a team member can update with examples and validation rules.
 
@@ -367,7 +368,7 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
         firebase_service = container.get_service(FirebaseClient)
         collection_name = get_team_members_collection(team_id)
 
-        members = firebase_service.query_documents(collection_name, [("user_id", "==", user_id)])
+        members = await firebase_service.query_documents(collection_name, [("user_id", "==", user_id)])
 
         if not members:
             return """❌ Update Not Available
@@ -426,7 +427,7 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
 
 
 @tool("validate_team_member_update_request", result_as_answer=True)
-def validate_team_member_update_request(user_id: str, team_id: str, field: str, value: str) -> str:
+async def validate_team_member_update_request(user_id: str, team_id: str, field: str, value: str) -> str:
     """
     Validate a team member update request without actually performing the update.
 
@@ -447,7 +448,7 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
         firebase_service = container.get_service(FirebaseClient)
         collection_name = get_team_members_collection(team_id)
 
-        members = firebase_service.query_documents(collection_name, [("user_id", "==", user_id)])
+        members = await firebase_service.query_documents(collection_name, [("user_id", "==", user_id)])
 
         if not members:
             return "❌ Validation Failed: You are not registered as a team member"
@@ -460,7 +461,7 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
 
         # Check for duplicates if phone
         if field.lower() == "phone":
-            existing_members = firebase_service.query_documents(
+            existing_members = await firebase_service.query_documents(
                 collection_name, [("phone", "==", validated_value)]
             )
 
@@ -489,7 +490,7 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
 
 
 @tool("get_pending_team_member_approval_requests", result_as_answer=True)
-def get_pending_team_member_approval_requests(team_id: str, user_id: str = None) -> str:
+async def get_pending_team_member_approval_requests(team_id: str, user_id: str = None) -> str:
     """
     Get pending approval requests for team member updates.
 
@@ -512,7 +513,7 @@ def get_pending_team_member_approval_requests(team_id: str, user_id: str = None)
             filters.append(("user_id", "==", user_id))
 
         # Get pending requests
-        requests = firebase_service.query_documents(f"kickai_{team_id}_approval_requests", filters)
+        requests = await firebase_service.query_documents(f"kickai_{team_id}_approval_requests", filters)
 
         if not requests:
             if user_id:

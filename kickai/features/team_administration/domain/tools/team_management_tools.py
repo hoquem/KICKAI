@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from kickai.core.dependency_container import get_container
 from kickai.features.team_administration.domain.services.team_service import TeamService
 from kickai.utils.crewai_tool_decorator import tool
+from kickai.core.enums import ResponseStatus
 from kickai.utils.tool_helpers import create_json_response
 from typing import Optional
 
@@ -26,7 +27,7 @@ class CreateTeamInput(BaseModel):
 
 
 @tool("create_team", result_as_answer=True)
-def create_team(team_name: str, team_id: str, admin_user_id: Optional[str] = None) -> str:
+async def create_team(team_name: str, team_id: str, admin_user_id: Optional[str] = None) -> str:
     """Create a new team.
     
     Creates a new team entity in the system with the specified
@@ -56,14 +57,14 @@ def create_team(team_name: str, team_id: str, admin_user_id: Optional[str] = Non
 
         if not team_service:
             logger.error("TeamService not available")
-            return create_json_response("error", message="Team service not available")
+            return create_json_response(ResponseStatus.ERROR, message="Team service not available")
 
-        # Create the team
-        team = team_service.create_team(team_name, team_id, admin_user_id)
+        # Create the team (async)
+        team = await team_service.create_team(team_name, team_id, admin_user_id)
 
         if team:
             logger.info(f"Team created: {team_name} (ID: {team_id})")
-            return create_json_response("success", data={
+            return create_json_response(ResponseStatus.SUCCESS, data={
                 'message': f'Team created successfully: {team_name} (ID: {team_id})',
                 'team_name': team_name,
                 'team_id': team_id,
@@ -71,8 +72,8 @@ def create_team(team_name: str, team_id: str, admin_user_id: Optional[str] = Non
             })
         else:
             logger.error(f"Failed to create team: {team_name}")
-            return create_json_response("error", message=f"Failed to create team: {team_name}")
+            return create_json_response(ResponseStatus.ERROR, message=f"Failed to create team: {team_name}")
 
     except Exception as e:
         logger.error(f"Failed to create team: {e}")
-        return create_json_response("error", message=f"Failed to create team: {e!s}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Failed to create team: {e!s}")

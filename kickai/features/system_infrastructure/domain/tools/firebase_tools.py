@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from kickai.core.dependency_container import get_container
 from kickai.database.firebase_client import FirebaseClient
 from kickai.utils.crewai_tool_decorator import tool
+from kickai.core.enums import ResponseStatus
 from kickai.utils.tool_helpers import create_json_response
 from typing import Optional
 
@@ -26,7 +27,7 @@ class GetFirebaseDocumentInput(BaseModel):
 
 
 @tool("get_firebase_document", result_as_answer=True)
-def get_firebase_document(collection: str, document_id: str, team_id: Optional[str] = None) -> str:
+async def get_firebase_document(collection: str, document_id: str, team_id: Optional[str] = None) -> str:
     """
     Get a document from Firebase/Firestore. Requires: collection, document_id
 
@@ -44,18 +45,18 @@ def get_firebase_document(collection: str, document_id: str, team_id: Optional[s
 
         if not firebase_client:
             logger.error("❌ FirebaseClient not available")
-            return create_json_response("error", message=f"Firebase client not available")
+            return create_json_response(ResponseStatus.ERROR, message=f"Firebase client not available")
 
         # Get the document
-        document = firebase_client.get_document(collection, document_id)
+        document = await firebase_client.get_document(collection, document_id)
 
         if document:
             logger.info(f"✅ Retrieved document {document_id} from collection {collection}")
-            return create_json_response("success", data=f"Document retrieved: {document}")
+            return create_json_response(ResponseStatus.SUCCESS, data=f"Document retrieved: {document}")
         else:
             logger.warning(f"⚠️ Document {document_id} not found in collection {collection}")
-            return create_json_response("error", message=f"Document {document_id} not found in collection {collection}")
+            return create_json_response(ResponseStatus.ERROR, message=f"Document {document_id} not found in collection {collection}")
 
     except Exception as e:
         logger.error(f"❌ Failed to get Firebase document: {e}")
-        return create_json_response("error", message=f"Failed to get Firebase document: {e!s}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get Firebase document: {e!s}")
