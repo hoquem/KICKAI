@@ -244,78 +244,8 @@ class LLMIntentRecognizer:
             )
 
 
-# Backward compatibility functions
-def extract_intent(message: str, context: str = "") -> Dict[str, Any]:
-    """
-    Backward compatibility function - now uses LLM-based recognition.
-    
-    Args:
-        message: The input message to analyze
-        context: Additional context about the conversation
-
-    Returns:
-        Dictionary containing 'intent' and 'entities' keys
-    """
-    logger.warning("⚠️ Using deprecated extract_intent function. Use LLMIntentRecognizer instead.")
-    
-    # Create a temporary recognizer for backward compatibility
-    recognizer = LLMIntentRecognizer()
-    
-    # Convert context string to dict if needed
-    context_dict = {}
-    if context:
-        context_dict = {"context": context}
-    
-    # This is a sync wrapper around async - not ideal but maintains compatibility
-    import asyncio
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # If we're in an async context, we can't run sync
-            logger.error("❌ Cannot use sync extract_intent in async context")
-            return {"intent": "unknown", "entities": {}, "confidence": 0.0}
-        else:
-            result = loop.run_until_complete(recognizer.extract_intent(message, context_dict))
-    except RuntimeError:
-        # No event loop - create one
-        result = asyncio.run(recognizer.extract_intent(message, context_dict))
-    
-    return {
-        "intent": result.intent,
-        "entities": result.entities,
-        "confidence": result.confidence
-    }
-
-
-def extract_entities(message: str, intent: str) -> Dict[str, Any]:
-    """
-    Backward compatibility function - now uses LLM-based extraction.
-    """
-    logger.warning("⚠️ Using deprecated extract_entities function. Use LLMIntentRecognizer instead.")
-    
-    # Create a temporary recognizer
-    recognizer = LLMIntentRecognizer()
-    
-    # This is a sync wrapper around async - not ideal but maintains compatibility
-    import asyncio
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            logger.error("❌ Cannot use sync extract_entities in async context")
-            return {}
-        else:
-            result = loop.run_until_complete(recognizer.extract_intent(message, {"intent": intent}))
-    except RuntimeError:
-        result = asyncio.run(recognizer.extract_intent(message, {"intent": intent}))
-    
-    return result.entities
-
-
-def extract_intent_sync(message: str, context: str = "") -> Dict[str, Any]:
-    """
-    Synchronous version of extract_intent for backward compatibility.
-    """
-    return extract_intent(message, context)
+# Clean async-only implementation - no backward compatibility
+# Use LLMIntentRecognizer class directly for all intent recognition needs
 
 
 class LLMIntent:

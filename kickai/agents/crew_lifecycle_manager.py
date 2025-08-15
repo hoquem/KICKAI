@@ -7,13 +7,19 @@ including resource monitoring, health checks, and lifecycle management.
 """
 
 import asyncio
+from asyncio import Task
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, List, Optional, Set
+from typing import Any
 
 from loguru import logger
+
+# Constants
+MONITORING_INTERVAL_SECONDS = 300  # 5 minutes
+IDLE_THRESHOLD_MINUTES = 30
+RETRY_DELAY_SECONDS = 60
 
 # Lazy import to avoid circular dependencies
 # from kickai.agents.crew_agents import TeamManagementSystem
@@ -57,12 +63,12 @@ class CrewLifecycleManager:
         self._crew_status: dict[str, CrewStatus] = {}
         self._crew_metrics: dict[str, CrewMetrics] = {}
         self._crew_locks: dict[str, asyncio.Lock] = {}
-        self._monitoring_task: asyncio.Optional[Task] = None
+        self._monitoring_task: Task | None = None
         self._shutdown_event = asyncio.Event()
 
         logger.info("🚀 CrewLifecycleManager initialized")
 
-    async def get_or_create_crew(self, team_id: str) -> "TeamManagementSystem":
+    async def get_or_create_crew(self, team_id: str) -> Any:
         """
         Get an existing crew or create a new one for the team.
 
@@ -86,7 +92,7 @@ class CrewLifecycleManager:
         logger.info(f"🆕 Creating new crew for team {team_id}")
         return await self._create_crew(team_id)
 
-    async def _create_crew(self, team_id: str) -> "TeamManagementSystem":
+    async def _create_crew(self, team_id: str) -> Any:
         """Create a new crew for the specified team."""
         try:
             # Set status to initializing
@@ -153,76 +159,90 @@ class CrewLifecycleManager:
             metrics.total_requests += 1
             metrics.last_activity = datetime.now()
 
-            # Execute task with simple CrewAI native approach
+            # Execute task with timeout
+            result = await self._execute_task_with_timeout(crew, team_id, task_description, execution_context)
 
-            try:
-                # Add timeout to prevent infinite loops
-                from kickai.core.constants.agent_constants import AgentConstants
-                timeout_seconds = AgentConstants.CREW_MAX_EXECUTION_TIME
+            # Update success metrics
+            metrics.successful_requests += 1
 
-                result = await asyncio.wait_for(
-                    crew.execute_task(task_description, execution_context),
-                    timeout=timeout_seconds
-                )
-
-                # Check if result is empty or indicates failure
-                if not result or result.strip() == "":
-                    logger.warning(f"⚠️ Empty result from crew for team {team_id}, providing fallback response")
-                    result = self._get_fallback_response(task_description, execution_context)
-
-                # Update success metrics
-                metrics.successful_requests += 1
-
-            except TimeoutError:
-                logger.error(f"⏰ Timeout after {timeout_seconds}s for team {team_id}")
-                result = self._get_timeout_response(task_description, execution_context, timeout_seconds)
-
-            except Exception as crew_error:
-                logger.error(f"❌ Crew execution failed for team {team_id}: {crew_error}")
-
-                # Check if it's a max iterations error
-                if "Maximum iterations reached" in str(crew_error) or "max_iter" in str(crew_error).lower():
-                    logger.warning(f"⚠️ Max iterations reached for team {team_id}, providing iteration limit response")
-                    result = self._get_max_iterations_response(task_description, execution_context)
-                else:
-                    # For other errors, provide a generic error response
-                    logger.error(f"❌ Unexpected crew error for team {team_id}: {crew_error}")
-                    result = self._get_error_response(task_description, execution_context, str(crew_error))
-
-            # Calculate response time
+            # Calculate and update response time
             response_time = (datetime.now() - start_time).total_seconds()
-            metrics.average_response_time = (
-                metrics.average_response_time * (metrics.total_requests - 1) + response_time
-            ) / metrics.total_requests
+            self._update_response_time_metrics(metrics, response_time)
 
             # Update agent health
-            try:
-                health_status = crew.health_check()
-                metrics.agent_health = health_status.get("agents", {})
-                metrics.memory_usage = {
-                    "conversation_count": len(crew.team_memory._conversation_history),
-                    "user_count": len(crew.team_memory._telegram_memories),
-
-                }
-            except Exception as health_error:
-                logger.warning(f"⚠️ Health check failed for team {team_id}: {health_error}")
-                metrics.agent_health = {"error": True}
-                metrics.memory_usage = {"error": str(health_error)}
+            self._update_agent_health_metrics(crew, team_id, metrics)
 
             logger.info(f"✅ Task executed successfully for team {team_id} in {response_time:.2f}s")
             return result
 
         except Exception as e:
             # Update failure metrics
-            if team_id in self._crew_metrics:
-                metrics = self._crew_metrics[team_id]
-                metrics.failed_requests += 1
-                metrics.last_activity = datetime.now()
-
+            self._update_failure_metrics(team_id)
             logger.error(f"❌ Task execution failed for team {team_id}: {e}")
 
             # Always return a response, even on complete failure
             return self._get_critical_error_response(task_description, execution_context, str(e))
+
+    async def _execute_task_with_timeout(self, crew: Any, team_id: str, task_description: str, execution_context: dict[str, Any]) -> str:
+        """Execute task with timeout handling."""
+        from kickai.core.constants.agent_constants import AgentConstants
+        timeout_seconds = AgentConstants.CREW_MAX_EXECUTION_TIME
+
+        try:
+            result = await asyncio.wait_for(
+                crew.execute_task(task_description, execution_context),
+                timeout=timeout_seconds
+            )
+
+            # Check if result is empty or indicates failure
+            if not result or result.strip() == "":
+                logger.warning(f"⚠️ Empty result from crew for team {team_id}, providing fallback response")
+                return self._get_fallback_response(task_description, execution_context)
+
+            return result
+
+        except TimeoutError:
+            logger.error(f"⏰ Timeout after {timeout_seconds}s for team {team_id}")
+            return self._get_timeout_response(task_description, execution_context, timeout_seconds)
+
+        except Exception as crew_error:
+            logger.error(f"❌ Crew execution failed for team {team_id}: {crew_error}")
+
+            # Check if it's a max iterations error
+            if "Maximum iterations reached" in str(crew_error) or "max_iter" in str(crew_error).lower():
+                logger.warning(f"⚠️ Max iterations reached for team {team_id}, providing iteration limit response")
+                return self._get_max_iterations_response(task_description, execution_context)
+            else:
+                # For other errors, provide a generic error response
+                logger.error(f"❌ Unexpected crew error for team {team_id}: {crew_error}")
+                return self._get_error_response(task_description, execution_context, str(crew_error))
+
+    def _update_response_time_metrics(self, metrics: CrewMetrics, response_time: float) -> None:
+        """Update response time metrics."""
+        metrics.average_response_time = (
+            metrics.average_response_time * (metrics.total_requests - 1) + response_time
+        ) / metrics.total_requests
+
+    def _update_agent_health_metrics(self, crew: Any, team_id: str, metrics: CrewMetrics) -> None:
+        """Update agent health metrics."""
+        try:
+            health_status = crew.health_check()
+            metrics.agent_health = health_status.get("agents", {})
+            metrics.memory_usage = {
+                "conversation_count": len(crew.team_memory._conversation_history),
+                "user_count": len(crew.team_memory._telegram_memories),
+            }
+        except Exception as health_error:
+            logger.warning(f"⚠️ Health check failed for team {team_id}: {health_error}")
+            metrics.agent_health = {"error": True}
+            metrics.memory_usage = {"error": str(health_error)}
+
+    def _update_failure_metrics(self, team_id: str) -> None:
+        """Update failure metrics."""
+        if team_id in self._crew_metrics:
+            metrics = self._crew_metrics[team_id]
+            metrics.failed_requests += 1
+            metrics.last_activity = datetime.now()
 
     def _get_fallback_response(self, task_description: str, execution_context: dict[str, Any]) -> str:
         """Generate a fallback response when crew returns empty result."""
@@ -336,7 +356,6 @@ If you need immediate assistance, please contact your team administrator."""
         """Shutdown a crew for the specified team."""
         try:
             if team_id in self._crews:
-                crew = self._crews[team_id]
                 # Note: TeamManagementSystem doesn't have explicit shutdown method
                 # but we can clean up references
                 del self._crews[team_id]
@@ -352,11 +371,11 @@ If you need immediate assistance, please contact your team administrator."""
         except Exception as e:
             logger.error(f"❌ Error shutting down crew for team {team_id}: {e}")
 
-    async def get_crew_status(self, team_id: str) -> Optional[CrewStatus]:
+    async def get_crew_status(self, team_id: str) -> CrewStatus | None:
         """Get the status of a crew for the specified team."""
         return self._crew_status.get(team_id)
 
-    async def get_crew_metrics(self, team_id: str) -> Optional[CrewMetrics]:
+    async def get_crew_metrics(self, team_id: str) -> CrewMetrics | None:
         """Get metrics for a crew for the specified team."""
         return self._crew_metrics.get(team_id)
 
@@ -425,18 +444,18 @@ If you need immediate assistance, please contact your team administrator."""
                 # Check for idle crews (no activity for 30 minutes)
                 await self._check_idle_crews()
 
-                # Wait 5 minutes before next check
-                await asyncio.sleep(300)
+                # Wait before next check
+                await asyncio.sleep(MONITORING_INTERVAL_SECONDS)
 
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"❌ Error in monitoring loop: {e}")
-                await asyncio.sleep(60)  # Wait 1 minute before retrying
+                await asyncio.sleep(RETRY_DELAY_SECONDS)  # Wait before retrying
 
     async def _check_idle_crews(self):
         """Check for idle crews and mark them appropriately."""
-        idle_threshold = datetime.now() - timedelta(minutes=30)
+        idle_threshold = datetime.now() - timedelta(minutes=IDLE_THRESHOLD_MINUTES)
 
         for team_id, metrics in self._crew_metrics.items():
             if metrics.last_activity < idle_threshold:
@@ -483,7 +502,7 @@ If you need immediate assistance, please contact your team administrator."""
 
 
 # Global instance for easy access
-_crew_lifecycle_manager: Optional[CrewLifecycleManager] = None
+_crew_lifecycle_manager: CrewLifecycleManager | None = None
 
 
 def get_crew_lifecycle_manager() -> CrewLifecycleManager:

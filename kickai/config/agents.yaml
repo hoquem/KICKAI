@@ -61,25 +61,59 @@ agents:
       - Manage communications (messages, announcements, polls)
       - Provide immediate responses for common queries
 
-      ### Tool Routing
+      ### Tool Routing - Context-Aware Selection
       - **User Status**: `get_my_status(telegram_id, team_id, chat_type)` - Get current user's status
-      - **Player Lists**: `get_active_players(telegram_id, team_id, chat_type)` - List active players (main chat)
-      - **Team Lists**: `list_team_members_and_players(telegram_id, team_id, chat_type)` - List all members (leadership chat)
       - **System Info**: `ping()` - System health check, `version()` - System version
       - **Communications**: `send_message()`, `send_announcement()`, `send_poll()`
       - **Help**: `get_available_commands()` - Get available commands for context
 
+      ### Intelligent List Commands - Context-Aware Tool Selection
+      **For /list commands, use CONTEXTUAL INTELLIGENCE:**
+      
+      **MAIN CHAT Context (`chat_type="main"` or `chat_type="main_chat"`):**
+      - **Purpose**: Players need focused view for match planning
+      - **Tool**: `get_active_players(telegram_id, team_id, chat_type)`
+      - **Rationale**: Shows only active players available for selection
+      
+      **LEADERSHIP CHAT Context (`chat_type="leadership"` or `chat_type="leadership_chat"`):**
+      - **Purpose**: Leaders need comprehensive team oversight
+      - **Tool**: `list_team_members_and_players(telegram_id, team_id, chat_type)`
+      - **Rationale**: Shows complete team roster with roles and status for administrative decisions
+      
+      **PRIVATE CHAT Context (`chat_type="private"`):**
+      - **Purpose**: Personal context with relevant player information
+      - **Tool**: `get_active_players(telegram_id, team_id, chat_type)`
+      - **Rationale**: Active players relevant for personal planning
+
+      ### Context-Aware Decision Logic
+      **When processing /list commands:**
+      1.  **Analyze chat_type parameter** - This is your primary decision factor
+      2.  **Apply contextual reasoning**:
+         - Main chat = Focus on match readiness → `get_active_players`
+         - Leadership chat = Full team management → `list_team_members_and_players`
+         - Private chat = Personal relevance → `get_active_players`
+      3.  **Execute selected tool** with context parameters
+      4.  **Return unmodified tool output**
+
       ### Workflow
       1.  Analyze the user's command and intent
-      2.  Consult the `Tool Routing` to select the correct tool
-      3.  Execute the tool with the appropriate parameters
-      4.  Return the raw, unmodified output from the tool directly to the user
+      2.  **IF** command is `/list` or list-related → Apply Context-Aware Decision Logic above
+      3.  **ELSE** → Consult standard Tool Routing to select correct tool
+      4.  Execute the selected tool with appropriate parameters
+      5.  Return the raw, unmodified output from the tool directly to the user
 
-      ### Examples
+      ### Context-Aware Examples
       - **User Input**: `/list`
-      - **Context**: Main chat
+      - **Context**: Main chat (`chat_type="main"`)
+      - **Reasoning**: Players need focused active players for match planning
       - **Action**: Call `get_active_players(telegram_id, team_id, "main")`
-      - **Output**: Return exact tool output
+      - **Output**: Return active players list
+
+      - **User Input**: `/list`
+      - **Context**: Leadership chat (`chat_type="leadership"`)
+      - **Reasoning**: Leaders need comprehensive team view for administration
+      - **Action**: Call `list_team_members_and_players(telegram_id, team_id, "leadership")`
+      - **Output**: Return complete team roster with roles
 
       - **User Input**: "What's my status?"
       - **Action**: Call `get_my_status(telegram_id, team_id, chat_type)`
@@ -120,7 +154,7 @@ agents:
       - Provide fallback support for complex queries
 
       ### Tool Routing
-      - **General Help**: `FINAL_HELP_RESPONSE(chat_type, telegram_id, team_id, username)` - Primary comprehensive help
+      - **General Help**: `help_response(chat_type, telegram_id, team_id, username)` - Primary comprehensive help
       - **Command Lists**: `get_available_commands()` - Context-specific command lists
       - **Specific Commands**: `get_command_help(command_name)` - Detailed command explanations
       - **New Users**: `get_welcome_message(chat_type, team_id)` - Onboarding messages
@@ -133,7 +167,7 @@ agents:
 
       ### Examples
       - **User Input**: "/help"
-      - **Action**: Call `FINAL_HELP_RESPONSE(chat_type, telegram_id, team_id, username)`
+      - **Action**: Call `help_response(chat_type, telegram_id, team_id, username)`
       - **Output**: Return comprehensive help for user's context
 
       - **User Input**: "How do I add a player?"
@@ -141,7 +175,7 @@ agents:
       - **Output**: Return detailed command explanation
 
     tools:
-      - FINAL_HELP_RESPONSE
+      - help_response
       - get_available_commands  
       - get_command_help
       - get_welcome_message

@@ -344,3 +344,10 @@ class RegistryType(Enum):
     SERVICE = "service"
     AGENT = "agent"
     TASK = "task"
+
+
+class ResponseStatus(str, Enum):
+    """Response status values for tool responses."""
+
+    SUCCESS = "success"
+    ERROR = "error"

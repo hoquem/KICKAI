@@ -319,6 +319,18 @@ class AgenticMessageRouter:
         from kickai.core.command_registry_initializer import get_initialized_command_registry
         
         registry = get_initialized_command_registry()
+        
+        # Handle case where chat_type might be a string instead of enum
+        if isinstance(chat_type, str):
+            logger.warning(f"⚠️ chat_type passed as string '{chat_type}', converting to enum")
+            try:
+                from kickai.core.constants import normalize_chat_type
+                chat_type = normalize_chat_type(chat_type)
+            except Exception as e:
+                logger.error(f"❌ Failed to normalize chat_type '{chat_type}': {e}")
+                # Default to main chat type
+                chat_type = ChatType.MAIN
+        
         chat_type_str = chat_type.value
         available_command = registry.get_command_for_chat(command, chat_type_str)
 
@@ -409,6 +421,17 @@ class AgenticMessageRouter:
     async def _handle_unrecognized_command(self, command_name: str, chat_type: ChatType, username: str) -> AgentResponse:
         """Handle unrecognized commands with helpful information."""
         try:
+            # Handle case where chat_type might be a string instead of enum
+            if isinstance(chat_type, str):
+                logger.warning(f"⚠️ chat_type passed as string '{chat_type}', converting to enum")
+                try:
+                    from kickai.core.constants import normalize_chat_type
+                    chat_type = normalize_chat_type(chat_type)
+                except Exception as e:
+                    logger.error(f"❌ Failed to normalize chat_type '{chat_type}': {e}")
+                    # Default to main chat type
+                    chat_type = ChatType.MAIN
+            
             logger.info(f"ℹ️ Handling unrecognized command: {command_name} in {chat_type.value} chat")
             
             # Get available commands for this chat type
@@ -1319,13 +1342,13 @@ Use /help to see available commands or ask me questions!"""
             logger.error(f"Error checking reminders for user {telegram_id}: {e}")
 
     def _get_unrecognized_command_message(self, command: str, chat_type: ChatType) -> str:
-        """Return dynamic help from FINAL_HELP_RESPONSE tool instead of hardcoded lists."""
+        """Return dynamic help from help_response tool instead of hardcoded lists."""
         try:
-            from kickai.features.shared.domain.tools.help_tools import final_help_response
+            from kickai.features.shared.domain.tools.help_tools import help_response
             # Use dynamic help tailored to chat context; preserve emojis and formatting
             # Convert telegram_id to string for the help tool (which expects string)
             telegram_id_str = str(self._last_telegram_id) if hasattr(self, "_last_telegram_id") and self._last_telegram_id else "0"
-            return final_help_response(
+            return help_response(
                 chat_type=chat_type.value,
                 telegram_id=telegram_id_str,
                 team_id=str(self.team_id),

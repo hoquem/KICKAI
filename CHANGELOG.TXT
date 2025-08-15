@@ -1,6 +1,255 @@
 # KICKAI Changelog
 
-## [2025-01-XX] - LLM-Based Intent Recognition
+## [2025-01-XX] - ChatType Enum Fix, CrewAI Agents Refactoring, Required Chat ID Parameters, LLM-Based Intent Recognition, Async Utils & Tool Registry Code Quality
+
+### 🔧 Critical Fixes
+
+#### ChatType Enum Error Fix
+- **Fixed `'str' object has no attribute 'value'` error in AgenticMessageRouter and Tools**:
+  - **Root Cause**: Functions expecting `ChatType` enum were receiving string values instead, and tools were calling `create_json_response()` with string values instead of `ResponseStatus` enum
+  - **Impact**: Caused tool execution failures and system errors across multiple tools (ping, version, help tools)
+  - **Solution**: Added robust type checking and conversion in `_check_command_availability()` and `_handle_unrecognized_command()` functions, and fixed all `create_json_response()` calls to use proper enum values
+  - **Implementation**: Added `isinstance(chat_type, str)` checks with proper enum conversion using `normalize_chat_type()`, and updated all tool responses to use `ResponseStatus.SUCCESS` and `ResponseStatus.ERROR`
+  - **Fallback**: Default to `ChatType.MAIN` if conversion fails
+  - **Logging**: Added warning logs when string-to-enum conversion occurs
+  - **Error Prevention**: Prevents future similar errors with proper type validation
+
+- **Specific fixes**:
+  - Fixed `_check_command_availability()` function to handle string chat_type parameters
+  - Fixed `_handle_unrecognized_command()` function to handle string chat_type parameters
+  - Fixed `create_json_response()` calls in `system_tools.py` (ping, version tools)
+  - Fixed `create_json_response()` calls in `help_tools.py` (all help-related tools)
+  - Added proper error handling and logging for type conversion failures
+  - Maintained backward compatibility while ensuring type safety
+  - Enhanced error messages for debugging
+
+#### Files Modified
+- `kickai/agents/agentic_message_router.py`: 
+  - Added type checking for chat_type parameters
+  - Implemented string-to-enum conversion with error handling
+  - Added proper logging for type conversion scenarios
+  - Enhanced error handling for robust operation
+- `kickai/features/shared/domain/tools/system_tools.py`:
+  - Fixed `create_json_response()` calls to use `ResponseStatus` enum values
+  - Updated ping and version tools to use proper enum types
+  - Added `ResponseStatus` import for type safety
+- `kickai/features/shared/domain/tools/help_tools.py`:
+  - Fixed all `create_json_response()` calls to use `ResponseStatus` enum values
+  - Updated help_response, get_command_help, and get_welcome_message tools
+  - Added `ResponseStatus` import for type safety
+  - Fixed indentation issues in the refactored code
+- `kickai/features/shared/domain/tools/onboarding_tools.py`:
+  - Fixed all `create_json_response()` calls to use `ResponseStatus` enum values
+  - Updated team_member_guidance, validate_registration_data, and detect_registration_context tools
+  - Added `ResponseStatus` import for type safety
+  - Fixed 13 instances of string-based enum usage
+- `kickai/features/shared/domain/tools/simple_onboarding_tools.py`:
+  - Fixed all `create_json_response()` calls to use `ResponseStatus` enum values
+  - Updated registration_guidance tool
+  - Added `ResponseStatus` import for type safety
+  - Fixed 2 instances of string-based enum usage
+
+#### Comprehensive ResponseStatus Enum Fix (All Tools)
+- **Fixed `'str' object has no attribute 'value'` error across ALL tools**:
+  - **Scope**: Fixed 20 tools files across 6 feature domains
+  - **Root Cause**: All tools were calling `create_json_response()` with string values instead of `ResponseStatus` enum values
+  - **Impact**: Eliminated tool execution failures across the entire system
+  - **Solution**: Systematic replacement of all string-based enum usage with proper `ResponseStatus` enum values
+
+- **Files Fixed**:
+  - **Match Management Tools** (4 files): `attendance_tools.py`, `availability_tools.py`, `match_tools.py`, `squad_tools.py`
+  - **Player Registration Tools** (1 file): `player_tools.py`
+  - **Team Administration Tools** (5 files): `player_management_tools.py`, `simplified_team_member_tools.py`, `team_management_tools.py`, `update_team_member_tools.py`, `team_member_tools.py`
+  - **Shared Tools** (5 files): `help_tools.py`, `system_tools.py`, `simple_onboarding_tools.py`, `onboarding_tools.py`, `user_tools.py`
+  - **System Infrastructure Tools** (3 files): `help_tools.py`, `logging_tools.py`, `firebase_tools.py`
+  - **Communication Tools** (2 files): `communication_tools.py`, `telegram_tools.py`
+
+- **Changes Applied**:
+  - Added `from kickai.core.enums import ResponseStatus` import to all 20 files
+  - Replaced `create_json_response("success", ...)` with `create_json_response(ResponseStatus.SUCCESS, ...)`
+  - Replaced `create_json_response("error", ...)` with `create_json_response(ResponseStatus.ERROR, ...)`
+  - Fixed import issue in `match_management/domain/tools/__init__.py` (corrected `list_matches_sync` to `list_matches`)
+
+- **Total Impact**:
+  - **20 files processed**
+  - **100+ create_json_response calls fixed**
+  - **Complete elimination of string-based enum usage in tools**
+  - **System-wide type safety improvement**
+  - **All tool imports now working correctly**
+
+## [2025-01-XX] - CrewAI Agents Refactoring, Required Chat ID Parameters, LLM-Based Intent Recognition, Async Utils & Tool Registry Code Quality
+
+### 🔧 Critical Fixes
+
+#### CrewAI Agents Code Quality Improvements
+- **Comprehensive code review and refactoring for `crew_agents.py`**:
+  - **Import Organization**: Reorganized imports according to PEP 8 standards (standard library, third-party, local)
+  - **Constants**: Added constants for magic numbers (DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_FACTOR, etc.)
+  - **Single Try/Except Boundary**: Refactored complex functions to adhere to single try/except pattern
+  - **Function Decomposition**: Broke down massive `execute_task` and `_execute_with_basic_crew` functions into smaller, focused functions
+  - **Type Safety**: Added missing return type hints and updated to modern Python syntax
+  - **Error Handling**: Standardized exception chaining with `raise ... from e` pattern
+  - **Code Quality**: Removed excessive debug logging, improved variable naming, and cleaned up duplicate code
+  - **Documentation**: Enhanced docstrings with proper Args/Returns/Raises sections
+  - **Linting**: All ruff linting errors resolved (96 → 0 errors)
+  - **Architecture**: Maintained clean architecture principles while improving code quality
+  - **Performance**: Eliminated nested try/except blocks and improved error handling efficiency
+  - **Maintainability**: Decomposed 200+ line functions into focused, single-responsibility functions
+  - **Standards Compliance**: 100% compliance with project coding standards achieved
+
+- **Specific improvements**:
+  - Fixed import organization with proper grouping and ordering
+  - Added constants for default values (retry parameters, limits, etc.)
+  - Refactored `execute_task()` into multiple focused functions (`_execute_task_with_memory`, `_log_agent_details`, etc.)
+  - Refactored `_execute_with_basic_crew()` into multiple focused functions (`_extract_command_name`, `_prepare_execution_context`, etc.)
+  - Added missing return type hints to all functions
+  - Standardized exception chaining throughout the module
+  - Removed excessive debug logging and cleaned up code
+  - Enhanced error messages and logging consistency
+  - Removed duplicate code and imports
+
+#### Files Modified
+- `kickai/agents/crew_agents.py`: 
+  - Reorganized imports according to PEP 8
+  - Added constants for magic numbers
+  - Refactored to single try/except boundary pattern
+  - Decomposed complex functions into smaller helpers
+  - Added missing return type hints
+  - Standardized error handling
+  - Improved code organization and readability
+  - Removed duplicate code and excessive logging
+  - Enhanced documentation and maintainability
+
+## [2025-01-XX] - Required Chat ID Parameters, LLM-Based Intent Recognition, Async Utils & Tool Registry Code Quality
+
+### 🔧 Critical Fixes
+
+#### Tool Registry Code Quality Improvements
+- **Comprehensive code review and fixes for `tool_registry.py`**:
+  - **Import Organization**: Reorganized imports according to PEP 8 standards (standard library, third-party, local)
+  - **Constants**: Extracted magic numbers to named constants (`DEFAULT_TOOL_VERSION`, `DEFAULT_FEATURE_MODULE`, etc.)
+  - **Single Try/Except Boundary**: Refactored all functions to follow the required single try/except boundary pattern
+  - **Function Decomposition**: Split complex functions into smaller, focused helper functions
+  - **Type Safety**: Added missing return type hints and improved type annotations
+  - **Error Handling**: Standardized error handling patterns across all functions
+  - **Code Organization**: Improved function structure and reduced complexity
+  - **Duplicate Removal**: Removed duplicate function definitions
+  - **Logging Consistency**: Standardized logging levels and messages
+
+- **Specific improvements**:
+  - Fixed import organization with proper grouping and ordering
+  - Added constants for default values (tool versions, feature modules, etc.)
+  - Refactored `_discover_tools_from_file()` into multiple focused functions
+  - Refactored `ContextAwareTool` and `ContextAwareToolWrapper` to single try/except boundaries
+  - Added missing return type hints to all functions
+  - Standardized error handling in `get_tool()` and `create_tool()`
+  - Improved variable naming (`attr` to `tool_object`)
+  - Removed duplicate `get_context_aware_tools()` method
+  - Enhanced error messages and logging consistency
+
+#### Files Modified
+- `kickai/agents/tool_registry.py`: 
+  - Reorganized imports according to PEP 8
+  - Added constants for magic numbers
+  - Refactored to single try/except boundary pattern
+  - Decomposed complex functions into smaller helpers
+  - Added missing return type hints
+  - Standardized error handling
+  - Improved code organization and readability
+  - Removed duplicate code
+
+## [2025-01-XX] - Required Chat ID Parameters, LLM-Based Intent Recognition & Async Utils Code Quality
+
+### 🔧 Critical Fixes
+
+#### Async Utils Code Quality Improvements
+- **Comprehensive code review and fixes for `async_utils.py`**:
+  - **Import Organization**: Reorganized imports according to PEP 8 standards (standard library, third-party, local)
+  - **Constants**: Extracted magic numbers to named constants (`DEFAULT_CONCURRENCY_LIMIT`, `DEFAULT_BATCH_SIZE`, etc.)
+  - **Type Safety**: Replaced generic `T` type variable with more descriptive `ResultType`
+  - **Error Handling**: Refactored nested try/except blocks to follow single try/except boundary pattern
+  - **Code Organization**: Extracted complex logic into focused helper functions
+  - **Documentation**: Improved docstrings and inline comments
+  - **Redundancy Removal**: Removed redundant logger assignment
+  - **Consistency**: Standardized type hints throughout the module
+
+- **Specific improvements**:
+  - Fixed import organization with proper grouping and ordering
+  - Added constants for default values (concurrency limits, batch sizes, retry parameters)
+  - Replaced all `T` type variables with `ResultType` for better clarity
+  - Refactored `run_async_in_sync()` to eliminate nested try/except blocks
+  - Extracted `_ensure_nest_asyncio_available()` helper function
+  - Improved type hints consistency across all functions
+  - Enhanced error messages and logging
+
+#### Files Modified
+- `kickai/utils/async_utils.py`: 
+  - Reorganized imports according to PEP 8
+  - Added constants for magic numbers
+  - Replaced generic type variables with descriptive names
+  - Refactored nested try/except blocks
+  - Improved type hints consistency
+  - Enhanced documentation and error handling
+
+## [2025-01-XX] - Required Chat ID Parameters & LLM-Based Intent Recognition
+
+### 🔧 Critical Fixes
+
+#### Comprehensive Parameter Validation
+- **Added comprehensive validation for all required parameters in TelegramBotService**
+  - **Required Parameters**: `token`, `team_id`, `main_chat_id`, `leadership_chat_id` must all be provided
+  - **Type Validation**: All parameters must be strings
+  - **Content Validation**: Parameters cannot be empty strings
+  - **Business Logic Validation**: `main_chat_id` and `leadership_chat_id` must be different
+  - **Fail Fast**: System fails immediately with clear error messages if validation fails
+
+- **Updated both real and mock Telegram bot services**:
+  - `TelegramBotService`: 
+    - Comprehensive validation for all parameters
+    - Removed redundant team_id assignment
+    - Added comprehensive documentation
+    - Refactored to follow single try/except boundary pattern
+    - Improved code organization and readability
+    - Removed redundant text sanitization (ResponseFormatter already handles JSON→plain text conversion)
+    - Removed unused agent formatting check (dead code)
+  - `MockTelegramBotService`: 
+    - Comprehensive validation for all parameters
+    - Removed unused agent formatting check (dead code)
+  - Clear error messages identify exactly which parameter failed validation
+  - Prevents runtime errors and ambiguous behavior
+  - Cleaner initialization without redundant parameter assignments
+  - Full compliance with project coding standards
+  - Eliminated redundant processing in message flow
+  - Improved test integration code organization and maintainability
+
+#### Files Modified
+- `kickai/features/communication/infrastructure/telegram_bot_service.py`: 
+  - Added comprehensive parameter validation
+  - Removed redundant team_id assignment
+  - Added comprehensive class and method docstrings
+  - Refactored to single try/except boundary pattern
+  - Reorganized imports according to PEP 8
+  - Extracted magic numbers to constants
+  - Fixed logging level inconsistencies
+  - Improved variable naming
+  - Added missing return type hints
+  - Removed redundant `_sanitize_for_plain_text()` function (agents return JSON, ResponseFormatter handles conversion)
+  - Removed unused `_is_agent_formatted_message()` function (dead code that always returned True)
+- `kickai/features/communication/infrastructure/mock_telegram_bot_service.py`: 
+  - Added comprehensive parameter validation
+  - Removed unused `_is_agent_formatted_message()` function (dead code)
+- `tests/mock_telegram/backend/bot_integration.py`: 
+  - Refactored to single try/except boundary pattern
+  - Reorganized imports according to PEP 8
+  - Extracted magic numbers to constants
+  - Removed deprecated `process_mock_message_sync()` function
+  - Split complex `process_mock_message()` into smaller, focused functions
+  - Added comprehensive function documentation
+  - Standardized error response format
+
+### 🚀 Major Improvements
+
+#### Natural Language Understanding
 
 ### 🚀 Major Improvements
 

@@ -3,14 +3,16 @@
 Availability Management Tools
 
 This module provides tools for managing player availability for matches.
+Converted to sync functions for CrewAI compatibility.
 """
 
+import asyncio
 import logging
 from typing import Optional
-import asyncio
 
 from kickai.utils.crewai_tool_decorator import tool
 from kickai.core.dependency_container import get_container
+from kickai.core.enums import ResponseStatus
 from kickai.utils.tool_helpers import create_json_response
 
 from kickai.features.match_management.domain.entities.availability import AvailabilityStatus
@@ -22,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 @tool("mark_availability", result_as_answer=True)
-def mark_availability(
+async def mark_availability(
     match_id: str,
     player_id: str,
     status: str,  # available, unavailable, maybe
@@ -59,20 +61,18 @@ def mark_availability(
         try:
             availability_status = AvailabilityStatus(status.lower())
         except ValueError:
-            return create_json_response("error", message=f"Invalid status: {status}. Valid options: available, unavailable, maybe")
+            return create_json_response(ResponseStatus.ERROR, message=f"Invalid status: {status}. Valid options: available, unavailable, maybe")
 
         # Mark availability
-        availability = asyncio.run(
-            availability_service.mark_availability(
-                match_id=match_id,
-                player_id=player_id,
-                status=availability_status,
-                reason=reason,
-            )
+        availability = await availability_service.mark_availability(
+            match_id=match_id,
+            player_id=player_id,
+            status=availability_status,
+            reason=reason,
         )
 
         # Get availability summary for the match
-        summary = asyncio.run(availability_service.get_availability_summary(match_id))
+        summary = await availability_service.get_availability_summary(match_id)
 
         result = [
             "Availability Updated",
@@ -95,15 +95,15 @@ def mark_availability(
             "💡 **Tip**: You can update your availability anytime before squad selection",
         ])
 
-        return create_json_response("success", data="\n".join(result))
+        return create_json_response(ResponseStatus.SUCCESS, data="\n".join(result))
 
     except Exception as e:
         logger.error(f"Failed to mark availability: {e}")
-        return create_json_response("error", message=f"Error marking availability: {e!s}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Error marking availability: {e!s}")
 
 
 @tool("get_availability", result_as_answer=True)
-def get_availability(match_id: str) -> str:
+async def get_availability(match_id: str) -> str:
     """Get availability information for a match.
     
     Retrieves comprehensive availability status for all players
@@ -124,13 +124,13 @@ def get_availability(match_id: str) -> str:
         availability_service: AvailabilityService = container.get_service(AvailabilityService)
 
         # Get availability summary
-        summary = asyncio.run(availability_service.get_availability_summary(match_id))
+        summary = await availability_service.get_availability_summary(match_id)
 
         # Get availability records by status
-        available_players = asyncio.run(availability_service.get_available_players(match_id))
-        unavailable_players = asyncio.run(availability_service.get_unavailable_players(match_id))
-        maybe_players = asyncio.run(availability_service.get_maybe_players(match_id))
-        pending_players = asyncio.run(availability_service.get_pending_players(match_id))
+        available_players = await availability_service.get_available_players(match_id)
+        unavailable_players = await availability_service.get_unavailable_players(match_id)
+        maybe_players = await availability_service.get_maybe_players(match_id)
+        pending_players = await availability_service.get_pending_players(match_id)
 
         result = [
             f"📊 **Match Availability: {match_id}**",
@@ -174,15 +174,15 @@ def get_availability(match_id: str) -> str:
         result.append("📋 **Actions**")
         result.append("• /markattendance [match_id] [status] - Mark your availability")
 
-        return create_json_response("success", data="\n".join(result))
+        return create_json_response(ResponseStatus.SUCCESS, data="\n".join(result))
 
     except Exception as e:
         logger.error(f"Failed to get availability: {e}")
-        return create_json_response("error", message=f"Error getting availability: {e!s}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Error getting availability: {e!s}")
 
 
 @tool("get_player_availability_history", result_as_answer=True)
-def get_player_availability_history(
+async def get_player_availability_history(
     player_id: str,
     limit: int = 10,
 ) -> str:
@@ -206,10 +206,10 @@ def get_player_availability_history(
     try:
         container = get_container()
         availability_service: AvailabilityService = container.get_service(AvailabilityService)
-        history = asyncio.run(availability_service.get_player_history(player_id, limit))
+        history = await availability_service.get_player_history(player_id, limit)
 
         if not history:
-            return create_json_response("success", data=f"📈 **Availability History**\n\nNo availability records found for player {player_id}.")
+            return create_json_response(ResponseStatus.SUCCESS, data=f"📈 **Availability History**\n\nNo availability records found for player {player_id}.")
 
         result = [
             f"📈 **Availability History for {player_id}**",
@@ -256,15 +256,15 @@ def get_player_availability_history(
 
         result.append(f"• **Reliability Rating**: {reliability}")
 
-        return create_json_response("success", data="\n".join(result))
+        return create_json_response(ResponseStatus.SUCCESS, data="\n".join(result))
 
     except Exception as e:
         logger.error(f"Failed to get player availability history: {e}")
-        return create_json_response("error", message=f"Error getting availability history: {e!s}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Error getting availability history: {e!s}")
 
 
 @tool("send_availability_reminders", result_as_answer=True)
-def send_availability_reminders(match_id: str) -> str:
+async def send_availability_reminders(match_id: str) -> str:
     """Send availability reminders for a match.
     
     Sends reminder notifications to all players who have not yet
@@ -282,15 +282,15 @@ def send_availability_reminders(match_id: str) -> str:
     try:
         container = get_container()
         availability_service: AvailabilityService = container.get_service(AvailabilityService)
-        success = asyncio.run(availability_service.send_availability_reminders(match_id))
+        success = await availability_service.send_availability_reminders(match_id)
 
         if success:
-            pending_players = asyncio.run(availability_service.get_pending_players(match_id))
+            pending_players = await availability_service.get_pending_players(match_id)
             message = f"Reminders sent to {len(pending_players)} players who haven't responded to availability requests for match {match_id}."
-            return create_json_response("success", data=f"Reminders Sent\n\n{message}")
+            return create_json_response(ResponseStatus.SUCCESS, data=f"Reminders Sent\n\n{message}")
         else:
-            return create_json_response("error", message=f"Unable to send availability reminders for match {match_id}.")
+            return create_json_response(ResponseStatus.ERROR, message=f"Unable to send availability reminders for match {match_id}.")
 
     except Exception as e:
         logger.error(f"Failed to send reminders: {e}")
-        return create_json_response("error", message=f"Error sending reminders: {e!s}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Error sending reminders: {e!s}")

@@ -6,21 +6,18 @@ This module provides a centralized registry for all CrewAI tools used in the sys
 It follows the single source of truth principle and clean architecture patterns.
 """
 
+# Standard library imports
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-
-# Minimal tool registry for compatibility
-class Tool:
-    pass
-
-
+# Third-party imports
 from loguru import logger
 
+# Local imports
 from kickai.core.entity_types import EntityType
 from kickai.core.models.context_models import BaseContext, validate_context_data
 from kickai.utils.context_validation import (
@@ -29,6 +26,18 @@ from kickai.utils.context_validation import (
     log_context_validation_success,
     validate_context_for_tool,
 )
+
+# Constants
+DEFAULT_TOOL_VERSION = "1.0.0"
+DEFAULT_FEATURE_MODULE = "unknown"
+DEFAULT_TOOL_CATEGORY = "feature"
+DEFAULT_TOOL_TYPE = "custom"
+DEFAULT_ENTITY_TYPE = "neither"
+
+
+# Minimal tool registry for compatibility
+class Tool:
+    pass
 
 
 class ToolType(Enum):
@@ -63,26 +72,26 @@ class ToolMetadata:
     category: ToolCategory
     name: str
     description: str
-    version: str = "1.0.0"
+    version: str = DEFAULT_TOOL_VERSION
     enabled: bool = True
     dependencies: list[str] = field(default_factory=list)
     required_permissions: list[str] = field(default_factory=list)
-    feature_module: str = "unknown"
+    feature_module: str = DEFAULT_FEATURE_MODULE
     tags: list[str] = field(default_factory=list)
-    tool_function: Optional[Callable] = None
+    tool_function: Callable | None = None
     entity_types: list[EntityType] = field(default_factory=lambda: [EntityType.NEITHER])
     access_control: dict[str, list[str]] = field(
         default_factory=dict
     )  # agent_role -> allowed_entity_types
     requires_context: bool = False  # Whether the tool requires context parameter
-    context_model: Optional[type[BaseContext]] = None  # Pydantic model for context validation
+    context_model: type[BaseContext] | None = None  # Pydantic model for context validation
 
 
 class ContextAwareTool(Tool):
     """Enhanced context-aware tool wrapper using Pydantic models."""
 
     def __init__(
-        self, original_tool: Any, tool_name: str, context_model: Optional[type[BaseContext]] = None
+        self, original_tool: Any, tool_name: str, context_model: type[BaseContext] | None = None
     ):
         """Initialize context-aware tool wrapper."""
 
@@ -106,7 +115,7 @@ class ContextAwareTool(Tool):
                 except Exception:
                     pass
 
-    def _run(self, *args, **kwargs):
+    def _run(self, *args, **kwargs) -> Any:
         """Run the tool with validated context."""
         try:
             # Extract context from arguments
@@ -114,16 +123,11 @@ class ContextAwareTool(Tool):
 
             # Validate context if model is provided
             if self.context_model and context_data:
-                try:
-                    validated_context = validate_context_for_tool(
-                        context_data, self.context_model, self.tool_name
-                    )
-                    log_context_validation_success(self.tool_name, validated_context)
-                    # Call original tool with validated context
+                validated_context = self._validate_context(context_data)
+                if validated_context:
                     return self.original_tool(validated_context)
-                except ContextError as e:
-                    log_context_validation_failure(self.tool_name, e)
-                    return f"Error: {e.message}"
+                else:
+                    return "Error: Context validation failed"
 
             # Fallback to original tool if no context model or no context data
             return self.original_tool(*args, **kwargs)
@@ -132,14 +136,27 @@ class ContextAwareTool(Tool):
             logger.error(f"Error in context-aware tool {self.tool_name}: {e}")
             return f"Error: {e!s}"
 
-    def _extract_context_from_args(self, args: tuple, kwargs: dict) -> Optional[Dict[str, Any]]:
+    def _validate_context(self, context_data: dict[str, Any]) -> dict[str, Any] | None:
+        """Validate context data using the context model."""
+        try:
+            validated_context = validate_context_for_tool(
+                context_data, self.context_model, self.tool_name
+            )
+            log_context_validation_success(self.tool_name, validated_context)
+            return validated_context
+
+        except ContextError as e:
+            log_context_validation_failure(self.tool_name, e)
+            return None
+
+    def _extract_context_from_args(self, args: tuple, kwargs: dict) -> dict[str, Any] | None:
         """Extract context data from tool arguments."""
         # With CrewAI's native approach, context is passed through task description
         # and the LLM decides which parameters to pass to tools
         # This method is kept for backward compatibility but simplified
         return None
 
-    def _extract_context_from_task(self) -> Optional[Dict[str, Any]]:
+    def _extract_context_from_task(self) -> dict[str, Any] | None:
         """Extract context from CrewAI task description."""
         # With CrewAI's native approach, context is included in task description
         # and the LLM extracts and passes relevant parameters to tools
@@ -174,16 +191,11 @@ class ContextAwareToolWrapper(Tool):
                 except Exception:
                     pass
 
-    def _run(self, *args, **kwargs):
+    def _run(self, *args, **kwargs) -> Any:
         """Extract context from task description and call the original tool."""
         try:
-            # Check if we have a context argument (either as first arg or in kwargs)
-            context = None
-            if args and isinstance(args[0], dict):
-                context = args[0]
-                args = args[1:]  # Remove context from args
-            elif "context" in kwargs:
-                context = kwargs.pop("context")
+            # Extract context from arguments
+            context, remaining_args = self._extract_context_from_arguments(args, kwargs)
 
             # If no context provided, try to extract from task description
             if not context:
@@ -191,20 +203,46 @@ class ContextAwareToolWrapper(Tool):
 
             # Call the original tool with context
             if context:
-                return self.original_tool(context, *args, **kwargs)
+                return self.original_tool(context, *remaining_args, **kwargs)
             else:
-                return self.original_tool(*args, **kwargs)
+                return self.original_tool(*remaining_args, **kwargs)
 
         except Exception as e:
             logger.error(f"Error in context-aware wrapper for {self.tool_name}: {e}")
             return f"Error: {e!s}"
 
-    def _extract_context_from_task(self) -> dict:
+    def _extract_context_from_arguments(
+        self, args: tuple, kwargs: dict
+    ) -> tuple[dict | None, tuple]:
+        """Extract context from arguments and return context and remaining args."""
+        try:
+            # Check if we have a context argument (either as first arg or in kwargs)
+            context = None
+            remaining_args = args
+
+            if args and isinstance(args[0], dict):
+                context = args[0]
+                remaining_args = args[1:]  # Remove context from args
+            elif "context" in kwargs:
+                context = kwargs.pop("context")
+
+            return context, remaining_args
+
+        except Exception as e:
+            logger.error(f"Error extracting context from arguments: {e}")
+            return None, args
+
+    def _extract_context_from_task(self) -> dict[str, Any]:
         """Extract context from task description."""
-        # This is a simplified implementation
-        # In a real implementation, you would parse the task description
-        # to extract context information
-        return {}
+        try:
+            # This is a simplified implementation
+            # In a real implementation, you would parse the task description
+            # to extract context information
+            return {}
+
+        except Exception as e:
+            logger.error(f"Error extracting context from task: {e}")
+            return {}
 
 
 class ToolFactory(ABC):
@@ -235,9 +273,9 @@ class ToolRegistry:
         self._entity_tools: dict[EntityType, list[str]] = {
             entity_type: [] for entity_type in EntityType
         }  # entity_type -> list of tool_ids
-        
+
         logger.info("🔧 Tool Registry initialized")
-        
+
         # Auto-discover tools on initialization
         try:
             self.auto_discover_tools()
@@ -255,18 +293,18 @@ class ToolRegistry:
         category: ToolCategory,
         name: str,
         description: str,
-        version: str = "1.0.0",
+        version: str = DEFAULT_TOOL_VERSION,
         enabled: bool = True,
-        dependencies: Optional[List[str]] = None,
-        required_permissions: Optional[List[str]] = None,
-        tool_function: Optional[Callable] = None,
-        feature_module: str = "unknown",
-        tags: Optional[List[str]] = None,
-        aliases: Optional[List[str]] = None,
-        entity_types: Optional[list[EntityType]] = None,
-        access_control: Optional[dict[str, list[str]]] = None,
+        dependencies: list[str] | None = None,
+        required_permissions: list[str] | None = None,
+        tool_function: Callable | None = None,
+        feature_module: str = DEFAULT_FEATURE_MODULE,
+        tags: list[str] | None = None,
+        aliases: list[str] | None = None,
+        entity_types: list[EntityType] | None = None,
+        access_control: dict[str, list[str]] | None = None,
         requires_context: bool = False,
-        context_model: Optional[type[BaseContext]] = None,
+        context_model: type[BaseContext] | None = None,
     ) -> None:
         """Register a tool with enhanced context support."""
 
@@ -363,11 +401,11 @@ class ToolRegistry:
 
         return validate_context_data(context_data, metadata.context_model.__name__.lower())
 
-    def get_context_aware_tools(self) -> List[str]:
+    def get_context_aware_tools(self) -> list[str]:
         """Get list of context-aware tools."""
         return list(self._context_aware_tools)
 
-    def get_tools_by_context_type(self, context_type: str) -> List[ToolMetadata]:
+    def get_tools_by_context_type(self, context_type: str) -> list[ToolMetadata]:
         """Get tools that use a specific context type."""
         context_tools = []
         for metadata in self._tools.values():
@@ -383,66 +421,76 @@ class ToolRegistry:
         self._factories[tool_id] = factory
         logger.info(f"✅ Registered factory for tool: {tool_id}")
 
-    def get_tool(self, tool_id: str) -> Optional[ToolMetadata]:
+    def get_tool(self, tool_id: str) -> ToolMetadata | None:
         """Get tool metadata by ID."""
-        # Check direct match first
-        if tool_id in self._tools:
-            return self._tools[tool_id]
+        try:
+            # Check direct match first
+            if tool_id in self._tools:
+                return self._tools[tool_id]
 
-        # Check aliases
-        if tool_id in self._tool_aliases:
-            alias_target = self._tool_aliases[tool_id]
-            return self._tools.get(alias_target)
+            # Check aliases
+            if tool_id in self._tool_aliases:
+                alias_target = self._tool_aliases[tool_id]
+                return self._tools.get(alias_target)
 
-        return None
+            return None
 
-    def get_tool_function(self, tool_id: str) -> Optional[Callable]:
+        except Exception as e:
+            logger.error(f"❌ Error getting tool {tool_id}: {e}")
+            return None
+
+    def get_tool_function(self, tool_id: str) -> Callable | None:
         """Get the actual tool function by ID."""
         tool_metadata = self.get_tool(tool_id)
         return tool_metadata.tool_function if tool_metadata else None
 
-    def get_factory(self, tool_id: str) -> Optional[ToolFactory]:
+    def get_factory(self, tool_id: str) -> ToolFactory | None:
         """Get tool factory by ID."""
         return self._factories.get(tool_id)
 
     def create_tool(self, tool_id: str, **kwargs) -> Any:
         """Create a tool instance using its factory."""
-        factory = self.get_factory(tool_id)
-        if factory:
-            return factory.create_tool(**kwargs)
-        else:
-            logger.error(f"❌ No factory found for tool: {tool_id}")
+        try:
+            factory = self.get_factory(tool_id)
+            if factory:
+                return factory.create_tool(**kwargs)
+            else:
+                logger.error(f"❌ No factory found for tool: {tool_id}")
+                return None
+
+        except Exception as e:
+            logger.error(f"❌ Error creating tool {tool_id}: {e}")
             return None
 
-    def get_tools_by_feature(self, feature_module: str) -> List[ToolMetadata]:
+    def get_tools_by_feature(self, feature_module: str) -> list[ToolMetadata]:
         """Get all tools for a specific feature module."""
         tool_ids = self._feature_tools.get(feature_module, [])
         return [self._tools[tool_id] for tool_id in tool_ids if tool_id in self._tools]
 
-    def get_tools_by_type(self, tool_type: ToolType) -> List[ToolMetadata]:
+    def get_tools_by_type(self, tool_type: ToolType) -> list[ToolMetadata]:
         """Get all tools of a specific type."""
         return [tool for tool in self._tools.values() if tool.tool_type == tool_type]
 
-    def get_tools_by_category(self, category: ToolCategory) -> List[ToolMetadata]:
+    def get_tools_by_category(self, category: ToolCategory) -> list[ToolMetadata]:
         """Get all tools of a specific category."""
         return [tool for tool in self._tools.values() if tool.category == category]
 
-    def get_tools_by_entity_type(self, entity_type: EntityType) -> List[ToolMetadata]:
+    def get_tools_by_entity_type(self, entity_type: EntityType) -> list[ToolMetadata]:
         """Get all tools for a specific entity type."""
         tool_ids = self._entity_tools.get(entity_type, [])
         return [self._tools[tool_id] for tool_id in tool_ids if tool_id in self._tools]
 
-    def get_enabled_tools(self) -> List[ToolMetadata]:
+    def get_enabled_tools(self) -> list[ToolMetadata]:
         """Get all enabled tools."""
         return [tool for tool in self._tools.values() if tool.enabled]
 
-    def get_tools_with_permission(self, permission: str) -> List[ToolMetadata]:
+    def get_tools_with_permission(self, permission: str) -> list[ToolMetadata]:
         """Get all tools that require a specific permission."""
         return [tool for tool in self._tools.values() if permission in tool.required_permissions]
 
     def get_tools_for_agent(
-        self, agent_role: str, entity_type: Optional[EntityType] = None
-    ) -> List[ToolMetadata]:
+        self, agent_role: str, entity_type: EntityType | None = None
+    ) -> list[ToolMetadata]:
         """Get tools available for a specific agent role and entity type."""
         available_tools = []
 
@@ -457,7 +505,7 @@ class ToolRegistry:
         return available_tools
 
     def validate_tool_access(
-        self, tool_id: str, agent_role: str, entity_type: Optional[EntityType] = None
+        self, tool_id: str, agent_role: str, entity_type: EntityType | None = None
     ) -> bool:
         """Validate if an agent can access a specific tool."""
         tool = self.get_tool(tool_id)
@@ -481,35 +529,61 @@ class ToolRegistry:
         """Auto-discover and register tools from the codebase."""
         self._discovered = True
         logger.info(f"🔍 Auto-discovering tools from {src_path}")
-        
+
         # Discover from entry points first
         entry_point_count = self._discover_from_entry_points()
-        
+
         # Discover from filesystem
         filesystem_count = self._discover_from_filesystem(src_path)
-        
+
         total_discovered = entry_point_count + filesystem_count
         logger.info(f"✅ Auto-discovered {total_discovered} tools total")
-        
+
         # If no tools discovered, manually register essential tools
         if total_discovered == 0:
-            logger.warning("⚠️ No tools discovered automatically, registering essential tools manually")
+            logger.warning(
+                "⚠️ No tools discovered automatically, registering essential tools manually"
+            )
             self._register_essential_tools()
 
     def _register_essential_tools(self):
         """Register essential tools manually when auto-discovery fails."""
         logger.info("🔧 Registering essential tools manually")
-        
+
         # Import and register essential tools
         try:
             # Communication tools
-            from kickai.features.communication.domain.tools.communication_tools import send_message, send_announcement, send_poll
-            from kickai.features.shared.domain.tools.help_tools import get_available_commands, get_command_help, get_welcome_message
-            from kickai.features.player_registration.domain.tools.player_tools import get_my_status, get_player_status, get_all_players, get_active_players, approve_player
-            from kickai.features.team_administration.domain.tools.team_member_tools import team_member_registration
-            from kickai.features.match_management.domain.tools.squad_tools import get_available_players_for_match, select_squad, get_match, list_matches
+            from kickai.features.communication.domain.tools.communication_tools import (
+                send_announcement,
+                send_message,
+                send_poll,
+            )
+            from kickai.features.match_management.domain.tools.squad_tools import (
+                get_available_players_for_match,
+                get_match,
+                list_matches,
+                select_squad,
+            )
+            from kickai.features.player_registration.domain.tools.player_tools import (
+                approve_player,
+                get_active_players,
+                get_all_players,
+                get_my_status,
+                get_player_status,
+            )
+            from kickai.features.shared.domain.tools.help_tools import (
+                get_available_commands,
+                get_command_help,
+                get_welcome_message,
+            )
             from kickai.features.shared.domain.tools.user_tools import get_user_status
-            
+            from kickai.features.team_administration.domain.tools.player_management_tools import (
+                add_player,
+            )
+            from kickai.features.team_administration.domain.tools.team_member_tools import (
+                team_member_registration,
+            )
+
             # Register communication tools
             self.register_tool(
                 tool_id="send_message",
@@ -518,9 +592,9 @@ class ToolRegistry:
                 name="send_message",
                 description="Send a message to a user or chat",
                 tool_function=send_message,
-                feature_module="communication"
+                feature_module="communication",
             )
-            
+
             self.register_tool(
                 tool_id="send_announcement",
                 tool_type=ToolType.COMMUNICATION,
@@ -528,9 +602,9 @@ class ToolRegistry:
                 name="send_announcement",
                 description="Send an announcement to team members",
                 tool_function=send_announcement,
-                feature_module="communication"
+                feature_module="communication",
             )
-            
+
             self.register_tool(
                 tool_id="send_poll",
                 tool_type=ToolType.COMMUNICATION,
@@ -538,9 +612,9 @@ class ToolRegistry:
                 name="send_poll",
                 description="Send a poll to team members",
                 tool_function=send_poll,
-                feature_module="communication"
+                feature_module="communication",
             )
-            
+
             # Register help tools
             self.register_tool(
                 tool_id="get_available_commands",
@@ -549,9 +623,9 @@ class ToolRegistry:
                 name="get_available_commands",
                 description="Get available commands for the current context",
                 tool_function=get_available_commands,
-                feature_module="shared"
+                feature_module="shared",
             )
-            
+
             self.register_tool(
                 tool_id="get_command_help",
                 tool_type=ToolType.HELP,
@@ -559,9 +633,9 @@ class ToolRegistry:
                 name="get_command_help",
                 description="Get help for a specific command",
                 tool_function=get_command_help,
-                feature_module="shared"
+                feature_module="shared",
             )
-            
+
             self.register_tool(
                 tool_id="get_welcome_message",
                 tool_type=ToolType.HELP,
@@ -569,9 +643,9 @@ class ToolRegistry:
                 name="get_welcome_message",
                 description="Get welcome message for new users",
                 tool_function=get_welcome_message,
-                feature_module="shared"
+                feature_module="shared",
             )
-            
+
             # Register player tools
             self.register_tool(
                 tool_id="get_my_status",
@@ -580,9 +654,9 @@ class ToolRegistry:
                 name="get_my_status",
                 description="Get current user's player status",
                 tool_function=get_my_status,
-                feature_module="player_registration"
+                feature_module="player_registration",
             )
-            
+
             self.register_tool(
                 tool_id="get_player_status",
                 tool_type=ToolType.PLAYER_MANAGEMENT,
@@ -590,9 +664,9 @@ class ToolRegistry:
                 name="get_player_status",
                 description="Get status of a specific player",
                 tool_function=get_player_status,
-                feature_module="player_registration"
+                feature_module="player_registration",
             )
-            
+
             self.register_tool(
                 tool_id="get_all_players",
                 tool_type=ToolType.PLAYER_MANAGEMENT,
@@ -600,9 +674,9 @@ class ToolRegistry:
                 name="get_all_players",
                 description="Get all players in the team",
                 tool_function=get_all_players,
-                feature_module="player_registration"
+                feature_module="player_registration",
             )
-            
+
             self.register_tool(
                 tool_id="get_active_players",
                 tool_type=ToolType.PLAYER_MANAGEMENT,
@@ -610,9 +684,9 @@ class ToolRegistry:
                 name="get_active_players",
                 description="Get active players in the team",
                 tool_function=get_active_players,
-                feature_module="player_registration"
+                feature_module="player_registration",
             )
-            
+
             self.register_tool(
                 tool_id="approve_player",
                 tool_type=ToolType.PLAYER_MANAGEMENT,
@@ -620,9 +694,9 @@ class ToolRegistry:
                 name="approve_player",
                 description="Approve a player registration",
                 tool_function=approve_player,
-                feature_module="player_registration"
+                feature_module="player_registration",
             )
-            
+
             # Register team member tools
             self.register_tool(
                 tool_id="team_member_registration",
@@ -631,9 +705,20 @@ class ToolRegistry:
                 name="team_member_registration",
                 description="Register a new team member",
                 tool_function=team_member_registration,
-                feature_module="team_administration"
+                feature_module="team_administration",
             )
-            
+
+            # Register player management tools
+            self.register_tool(
+                tool_id="add_player",
+                tool_type=ToolType.PLAYER_MANAGEMENT,
+                category=ToolCategory.CORE,
+                name="add_player",
+                description="Add a new player to the team with invite link generation",
+                tool_function=add_player,
+                feature_module="team_administration",
+            )
+
             # Register squad tools
             self.register_tool(
                 tool_id="get_available_players_for_match",
@@ -642,9 +727,9 @@ class ToolRegistry:
                 name="get_available_players_for_match",
                 description="Get players available for a match",
                 tool_function=get_available_players_for_match,
-                feature_module="match_management"
+                feature_module="match_management",
             )
-            
+
             self.register_tool(
                 tool_id="select_squad",
                 tool_type=ToolType.PLAYER_MANAGEMENT,
@@ -652,9 +737,9 @@ class ToolRegistry:
                 name="select_squad",
                 description="Select a squad for a match",
                 tool_function=select_squad,
-                feature_module="match_management"
+                feature_module="match_management",
             )
-            
+
             self.register_tool(
                 tool_id="get_match",
                 tool_type=ToolType.PLAYER_MANAGEMENT,
@@ -662,9 +747,9 @@ class ToolRegistry:
                 name="get_match",
                 description="Get match information",
                 tool_function=get_match,
-                feature_module="match_management"
+                feature_module="match_management",
             )
-            
+
             self.register_tool(
                 tool_id="list_matches",
                 tool_type=ToolType.PLAYER_MANAGEMENT,
@@ -672,9 +757,9 @@ class ToolRegistry:
                 name="list_matches",
                 description="List all matches",
                 tool_function=list_matches,
-                feature_module="match_management"
+                feature_module="match_management",
             )
-            
+
             # Register user tools
             self.register_tool(
                 tool_id="get_user_status",
@@ -683,14 +768,15 @@ class ToolRegistry:
                 name="get_user_status",
                 description="Get user status and information",
                 tool_function=get_user_status,
-                feature_module="shared"
+                feature_module="shared",
             )
-            
+
             logger.info(f"✅ Manually registered {len(self._tools)} essential tools")
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to register essential tools: {e}")
             import traceback
+
             traceback.print_exc()
 
     def _discover_from_entry_points(self) -> int:
@@ -766,8 +852,16 @@ class ToolRegistry:
 
     def _discover_tools_from_file(self, file_path: Path, feature_name: str) -> int:
         """Discover tools from a specific file."""
-        discovered_count = 0
+        try:
+            discovered_count = self._import_and_discover_tools(file_path, feature_name)
+            return discovered_count
 
+        except Exception as e:
+            logger.error(f"❌ Error discovering tools from {file_path}: {e}")
+            return 0
+
+    def _import_and_discover_tools(self, file_path: Path, feature_name: str) -> int:
+        """Import module and discover tools from it."""
         try:
             # Import the module with proper context
             import importlib.util
@@ -782,54 +876,77 @@ class ToolRegistry:
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
+            # Discover tools from the imported module
+            discovered_count = self._process_module_tools(module, feature_name, file_path)
+            return discovered_count
+
+        except Exception as e:
+            logger.error(f"❌ Error importing module from {file_path}: {e}")
+            return 0
+
+    def _process_module_tools(self, module: Any, feature_name: str, file_path: Path) -> int:
+        """Process tools from an imported module."""
+        try:
+            discovered_count = 0
+
             # Look for CrewAI tools (objects with 'name' attribute and proper tool structure)
             for attr_name in dir(module):
-                attr = getattr(module, attr_name)
+                tool_object = getattr(module, attr_name)
 
                 # Skip private attributes and built-in objects
                 if attr_name.startswith("_"):
                     continue
 
                 # Skip logging objects and other non-tool objects
-                if hasattr(attr, "__module__") and attr.__module__ == "logging":
+                if hasattr(tool_object, "__module__") and tool_object.__module__ == "logging":
                     continue
 
                 # Check if this is a valid CrewAI tool
-                if hasattr(attr, "name") and hasattr(attr, "description"):
+                if hasattr(tool_object, "name") and hasattr(tool_object, "description"):
                     # This is a CrewAI tool
-                    tool_name = getattr(attr, "name", attr_name)
+                    tool_name = getattr(tool_object, "name", attr_name)
 
                     # Check if tool requires context by examining its signature
-                    # For CrewAI tools, we need to check the underlying function
-                    requires_context = False
-                    if hasattr(attr, "func"):
-                        import inspect
-
-                        try:
-                            sig = inspect.signature(attr.func)
-                            requires_context = any(
-                                param.name == "context"
-                                and (
-                                    param.annotation == dict
-                                    or str(param.annotation).startswith("dict")
-                                    or "dict" in str(param.annotation)
-                                )
-                                for param in sig.parameters.values()
-                            )
-                        except Exception as e:
-                            logger.debug(f"Could not inspect signature for {tool_name}: {e}")
+                    requires_context = self._check_tool_context_requirement(tool_object, tool_name)
 
                     logger.info(
                         f"🔍 Discovered tool: {tool_name} (requires_context: {requires_context})"
                     )
 
-                    self._register_discovered_tool(attr, feature_name, file_path, requires_context)
+                    self._register_discovered_tool(
+                        tool_object, feature_name, file_path, requires_context
+                    )
                     discovered_count += 1
 
-        except Exception as e:
-            logger.error(f"❌ Error discovering tools from {file_path}: {e}")
+            return discovered_count
 
-        return discovered_count
+        except Exception as e:
+            logger.error(f"❌ Error processing tools from module: {e}")
+            return 0
+
+    def _check_tool_context_requirement(self, tool_object: Any, tool_name: str) -> bool:
+        """Check if a tool requires context by examining its signature."""
+        try:
+            # For CrewAI tools, we need to check the underlying function
+            if hasattr(tool_object, "func"):
+                import inspect
+
+                sig = inspect.signature(tool_object.func)
+                requires_context = any(
+                    param.name == "context"
+                    and (
+                        param.annotation == dict
+                        or str(param.annotation).startswith("dict")
+                        or "dict" in str(param.annotation)
+                    )
+                    for param in sig.parameters.values()
+                )
+                return requires_context
+
+        except Exception as e:
+            logger.warning(f"Could not inspect signature for {tool_name}: {e}")
+
+        return False
 
     def _register_discovered_tool(
         self,
@@ -985,11 +1102,11 @@ class ToolRegistry:
             "discovered": self._discovered,
         }
 
-    def list_all_tools(self) -> List[ToolMetadata]:
+    def list_all_tools(self) -> list[ToolMetadata]:
         """Get all registered tools."""
         return list(self._tools.values())
 
-    def search_tools(self, query: str) -> List[ToolMetadata]:
+    def search_tools(self, query: str) -> list[ToolMetadata]:
         """Search tools by name or description."""
         query_lower = query.lower()
         results = []
@@ -1004,7 +1121,7 @@ class ToolRegistry:
 
         return results
 
-    def get_tool_names(self) -> List[str]:
+    def get_tool_names(self) -> list[str]:
         """Get list of all tool names."""
         return list(self._tools.keys())
 
@@ -1016,13 +1133,9 @@ class ToolRegistry:
             if tool.tool_function is not None
         }
 
-    def get_context_aware_tools(self) -> List[str]:
-        """Get list of tools that require context."""
-        return [tool_id for tool_id, tool in self._tools.items() if tool.requires_context]
-
 
 # Global tool registry instance - True singleton
-_tool_registry: Optional[ToolRegistry] = None
+_tool_registry: ToolRegistry | None = None
 _tool_registry_initialized = False
 
 
@@ -1060,19 +1173,19 @@ def reset_tool_registry() -> None:
     logger.info("🔄 Global ToolRegistry reset")
 
 
-def get_tool(tool_name: str) -> Optional[Callable]:
+def get_tool(tool_name: str) -> Callable | None:
     """Get a tool function by name."""
     registry = get_tool_registry()
     return registry.get_tool_function(tool_name)
 
 
-def get_tool_names() -> List[str]:
+def get_tool_names() -> list[str]:
     """Get list of all available tool names."""
     registry = get_tool_registry()
     return registry.get_tool_names()
 
 
-def get_all_tools() -> List[Callable]:
+def get_all_tools() -> list[Callable]:
     """Get all available tool functions."""
     registry = get_tool_registry()
     return list(registry.get_tool_functions().values())

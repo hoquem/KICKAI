@@ -50,9 +50,9 @@ class DependencyContainer:
 
             logger.info("🔧 Using Mock DataStore for development/testing")
             self._database = MockDataStore()
-
-            # Initialize mock data store with default configurations
-            self._initialize_mock_data()
+            
+            # Mock data will be created on-demand by MockDataStore when accessed
+            logger.info("✅ Mock data store ready (on-demand initialization)")
         else:
             # Use real Firebase client
             from kickai.core.logging_config import logger
@@ -63,47 +63,7 @@ class DependencyContainer:
 
         self._services[DataStoreInterface] = self._database
 
-    def _initialize_mock_data(self):
-        """Initialize mock data store with default configurations."""
-        try:
-            import asyncio
-            from datetime import datetime
-
-            from kickai.core.logging_config import logger
-            from kickai.features.team_administration.domain.entities.team import Team, TeamStatus
-
-            async def create_mock_team():
-                # Create a mock team with bot configuration
-                mock_team = Team(
-                    id="KAI",
-                    name="KickAI Testing",
-                    status=TeamStatus.ACTIVE,
-                    description="Test team for KICKAI bot",
-                    created_by="system",
-                    created_at=datetime.now(),
-                    settings={
-                        "bot_token": "mock-bot-token-for-qa-testing",
-                        "main_chat_id": "-1001234567890",
-                        "leadership_chat_id": "-1001234567891",
-                        "bot_username": "kickai_testing_bot",
-                    },
-                    bot_id="KAI",
-                    bot_token="mock-bot-token-for-qa-testing",
-                    main_chat_id="-1001234567890",
-                    leadership_chat_id="-1001234567891",
-                )
-
-                await self._database.create_team(mock_team)
-                logger.info("✅ Mock team configuration created in data store")
-
-            # Run the async function
-            asyncio.run(create_mock_team())
-
-        except Exception as e:
-            from kickai.core.logging_config import logger
-
-            logger.warning(f"⚠️ Failed to initialize mock data: {e}")
-            # Continue without mock data - not critical for startup
+# Removed _initialize_mock_data() - was redundant after removing asyncio.run()
 
     def verify_services_ready(self) -> bool:
         """Verify that all required services are registered and ready."""

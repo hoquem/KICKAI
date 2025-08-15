@@ -65,10 +65,10 @@ tasks:
   # HELP ASSISTANT AGENT TASKS
   - name: provide_comprehensive_help
     description: >
-      Provide comprehensive help using FINAL_HELP_RESPONSE tool.
+      Provide comprehensive help using help_response tool.
       
       Use structured description with embedded context:
-      - For /help requests, ALWAYS use FINAL_HELP_RESPONSE tool first
+      - For /help requests, ALWAYS use help_response tool first
       - Pass telegram_id, team_id, username, chat_type directly to tools (STANDARDIZED ORDER)
       - Use get_available_commands for context-specific command lists
       - Use get_command_help for detailed command explanations

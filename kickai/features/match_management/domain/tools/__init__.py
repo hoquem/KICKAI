@@ -13,7 +13,7 @@ from .availability_tools import (
 from .match_tools import (
     create_match,
     get_match_details,
-    list_matches_sync,
+    list_matches,
     record_match_result,
     select_squad_tool,
 )
@@ -21,7 +21,7 @@ from .match_tools import (
 __all__ = [
     # Match tools
     "create_match",
-    "list_matches_sync",
+    "list_matches",
     "get_match_details",
     "select_squad_tool",
     "record_match_result",

@@ -5,15 +5,22 @@ This module provides integration between the mock Telegram service
 and the real KICKAI CrewAI system using Groq LLM.
 """
 
+# Standard library imports
 import logging
 from datetime import datetime
 from typing import Dict, Any, Optional
+
+# Constants
+MOCK_MAIN_CHAT_ID = "2001"
+MOCK_LEADERSHIP_CHAT_ID = "2002"
+DEFAULT_TEAM_ID = "KTI"
+TEAM_LIMIT = 1
 
 logger = logging.getLogger(__name__)
 
 # Import real bot integration components
 try:
-    # Import centralized types
+    # Local imports
     from kickai.core.types import AgentResponse, TelegramMessage
     from kickai.agents.agentic_message_router import AgenticMessageRouter
     from kickai.core.enums import ChatType
@@ -72,123 +79,170 @@ async def process_mock_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Bot response data from real CrewAI agents
     """
-    if not BOT_INTEGRATION_AVAILABLE:
-        # Provide fallback response when bot integration is not available
-        text = message_data.get("text", "")
-        user_id = message_data.get("from", {}).get("id", "unknown")
-        
-        logger.warning(f"🤖 Bot integration not available - providing fallback response for: {text}")
-        
-        # Simple fallback responses
-        if text.lower().startswith("/help"):
-            return {
-                "success": True,
-                "message": "🤖 **KICKAI Bot Help**\n\nAvailable commands:\n• /help - Show this help message\n• /myinfo - Show your information\n• /list - List players/members\n• /status [phone] - Check status\n\nBot integration is currently in development mode.",
-                "agent_type": "help_assistant",
-                "confidence": 1.0
-            }
-        elif text.lower().startswith("/myinfo"):
-            return {
-                "success": True,
-                "message": f"🤖 **Your Information**\n\nUser ID: {user_id}\nStatus: Active\nRole: Test User\n\nBot integration is currently in development mode.",
-                "agent_type": "message_processor",
-                "confidence": 1.0
-            }
-        else:
-            return {
-                "success": True,
-                "message": f"🤖 **Bot Response**\n\nYou said: {text}\n\nBot integration is currently in development mode. This is a fallback response.",
-                "agent_type": "message_processor",
-                "confidence": 1.0
-            }
-    
     try:
-        # Ensure dependency container is initialized first
-        from kickai.core.dependency_container import initialize_container, get_container
+        # Handle case when bot integration is not available
+        if not BOT_INTEGRATION_AVAILABLE:
+            return _create_fallback_response(message_data)
         
-        try:
-            # Try to get existing container
-            container = get_container()
-            if not container._initialized:
-                logger.info("🔧 Initializing dependency container...")
-                initialize_container()
-        except Exception:
-            logger.info("🔧 Creating new dependency container...")
-            initialize_container()
+        # Initialize dependencies
+        await _ensure_dependencies_initialized()
         
-        # Extract message information
-        text = message_data.get("text", "")
-        user_id = message_data.get("from", {}).get("id")
-        chat_id = message_data.get("chat", {}).get("id")
-        chat_context = message_data.get("chat_context", "main")
-        username = message_data.get("from", {}).get("username", f"user_{user_id}")
-        
-        logger.info(f"🤖 Groq LLM processing: {text} from user {user_id} ({username}) in {chat_context} chat")
-        
-        # Convert to TelegramMessage format for real agent processing
+        # Process message through real system
         telegram_message = await _create_telegram_message(message_data)
-        
-        # Get team ID dynamically from available teams in Firestore
         team_id = await _get_available_team_id()
-        
-        # Create real AgenticMessageRouter with Groq LLM
-        logger.info(f"🔧 Creating AgenticMessageRouter with team_id={team_id}")
-        logger.info(f"🔧 AgenticMessageRouter class: {AgenticMessageRouter}")
-        logger.info(f"🔧 AgenticMessageRouter __init__: {AgenticMessageRouter.__init__}")
-        
-        try:
-            router = AgenticMessageRouter(team_id)
-            # Set chat IDs for proper chat type determination
-            router.set_chat_ids(main_chat_id="2001", leadership_chat_id="2002")
-            logger.info("✅ AgenticMessageRouter created successfully")
-        except Exception as e:
-            logger.error(f"❌ Failed to create AgenticMessageRouter: {e}")
-            raise
-        
-        logger.info(f"🔧 Agent selected: AgenticMessageRouter for team {team_id}")
-        
-        # Route through real CrewAI agents with Groq LLM
+        router = await _create_router(team_id)
         response = await router.route_message(telegram_message)
         
-        logger.info(f"🛠️ Tools used: {getattr(response, 'tools_used', 'unknown')}")
-        logger.info(f"📊 Token usage: {getattr(response, 'token_count', 'unknown')}")
-        
-        # Extract response content
-        if hasattr(response, 'content'):
-            response_text = response.content
-        elif hasattr(response, 'message'):
-            response_text = response.message
-        else:
-            response_text = str(response)
-        
-        # Format JSON responses for human readability (same as real telegram service)
-        try:
-            from kickai.features.communication.domain.services.response_formatter import ResponseFormatter
-            formatter = ResponseFormatter()
-            formatted_text = formatter.format_for_telegram(response_text)
-            logger.info(f"🔄 Applied ResponseFormatter: {len(response_text)} chars -> {len(formatted_text)} chars")
-        except Exception as formatter_error:
-            logger.warning(f"⚠️ ResponseFormatter failed, using original: {formatter_error}")
-            formatted_text = response_text
-        
-        return {
-            "success": True,
-            "message": formatted_text,
-            "agent_type": getattr(response, 'agent_type', 'unknown'),
-            "confidence": getattr(response, 'confidence', 1.0),
-            "tools_used": getattr(response, 'tools_used', []),
-            "token_count": getattr(response, 'token_count', 0)
-        }
+        # Format and return response
+        formatted_text = await _format_response(response)
+        return _create_success_response(formatted_text, response)
         
     except Exception as e:
-        logger.error(f"❌ Error processing message: {e}")
+        logger.error(f"❌ Error in process_mock_message: {e}")
+        return _create_error_response(str(e))
+
+
+async def _create_fallback_response(message_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Create fallback response when bot integration is not available.
+    
+    Args:
+        message_data: Message data from mock service
+        
+    Returns:
+        Fallback response data
+    """
+    text = message_data.get("text", "")
+    user_id = message_data.get("from", {}).get("id", "unknown")
+    
+    logger.warning(f"🤖 Bot integration not available - providing fallback response for: {text}")
+    
+    # Simple fallback responses
+    if text.lower().startswith("/help"):
         return {
-            "success": False,
-            "message": f"❌ Error processing message: {str(e)}",
-            "error": str(e),
-            "agent_type": "error_handler",
-            "confidence": 0.0
+            "success": True,
+            "message": "🤖 **KICKAI Bot Help**\n\nAvailable commands:\n• /help - Show this help message\n• /myinfo - Show your information\n• /list - List players/members\n• /status [phone] - Check status\n\nBot integration is currently in development mode.",
+            "agent_type": "help_assistant",
+            "confidence": 1.0
         }
+    elif text.lower().startswith("/myinfo"):
+        return {
+            "success": True,
+            "message": f"🤖 **Your Information**\n\nUser ID: {user_id}\nStatus: Active\nRole: Test User\n\nBot integration is currently in development mode.",
+            "agent_type": "message_processor",
+            "confidence": 1.0
+        }
+    else:
+        return {
+            "success": True,
+            "message": f"🤖 **Bot Response**\n\nYou said: {text}\n\nBot integration is currently in development mode. This is a fallback response.",
+            "agent_type": "message_processor",
+            "confidence": 1.0
+        }
+
+
+async def _ensure_dependencies_initialized() -> None:
+    """
+    Ensure dependency container is initialized.
+    
+    Raises:
+        Exception: When initialization fails
+    """
+    from kickai.core.dependency_container import initialize_container, get_container
+    
+    # Try to get existing container
+    container = get_container()
+    if not container._initialized:
+        logger.info("🔧 Initializing dependency container...")
+        initialize_container()
+
+
+async def _create_router(team_id: str) -> AgenticMessageRouter:
+    """
+    Create and configure AgenticMessageRouter.
+    
+    Args:
+        team_id: Team ID for the router
+        
+    Returns:
+        Configured AgenticMessageRouter instance
+        
+    Raises:
+        Exception: When router creation fails
+    """
+    logger.info(f"🔧 Creating AgenticMessageRouter with team_id={team_id}")
+    
+    router = AgenticMessageRouter(team_id)
+    router.set_chat_ids(main_chat_id=MOCK_MAIN_CHAT_ID, leadership_chat_id=MOCK_LEADERSHIP_CHAT_ID)
+    logger.info("✅ AgenticMessageRouter created successfully")
+    
+    return router
+
+
+async def _format_response(response: Any) -> str:
+    """
+    Format response using ResponseFormatter.
+    
+    Args:
+        response: Response from agent
+        
+    Returns:
+        Formatted text
+    """
+    # Extract response content
+    if hasattr(response, 'content'):
+        response_text = response.content
+    elif hasattr(response, 'message'):
+        response_text = response.message
+    else:
+        response_text = str(response)
+    
+    # Format JSON responses for human readability
+    from kickai.features.communication.domain.services.response_formatter import ResponseFormatter
+    formatter = ResponseFormatter()
+    formatted_text = formatter.format_for_telegram(response_text)
+    logger.info(f"🔄 Applied ResponseFormatter: {len(response_text)} chars -> {len(formatted_text)} chars")
+    return formatted_text
+
+
+def _create_success_response(formatted_text: str, response: Any) -> Dict[str, Any]:
+    """
+    Create success response.
+    
+    Args:
+        formatted_text: Formatted response text
+        response: Original response object
+        
+    Returns:
+        Success response data
+    """
+    return {
+        "success": True,
+        "message": formatted_text,
+        "agent_type": getattr(response, 'agent_type', 'unknown'),
+        "confidence": getattr(response, 'confidence', 1.0),
+        "tools_used": getattr(response, 'tools_used', []),
+        "token_count": getattr(response, 'token_count', 0)
+    }
+
+
+def _create_error_response(error_message: str) -> Dict[str, Any]:
+    """
+    Create error response.
+    
+    Args:
+        error_message: Error message
+        
+    Returns:
+        Error response data
+    """
+    return {
+        "success": False,
+        "message": f"❌ Error processing message: {error_message}",
+        "error": error_message,
+        "agent_type": "error_handler",
+        "confidence": 0.0
+    }
 
 
 async def _get_available_team_id() -> str:
@@ -201,7 +255,7 @@ async def _get_available_team_id() -> str:
         
         # Get the first available team from kickai_teams collection
         teams_ref = db.collection('kickai_teams')
-        teams = teams_ref.limit(1).stream()
+        teams = teams_ref.limit(TEAM_LIMIT).stream()
         
         for team in teams:
             team_id = team.id
@@ -209,12 +263,12 @@ async def _get_available_team_id() -> str:
             return team_id
         
         # Fallback to KTI if no teams found
-        logger.warning("⚠️ No teams found in Firestore, using fallback team_id: KTI")
-        return "KTI"
+        logger.warning(f"⚠️ No teams found in Firestore, using fallback team_id: {DEFAULT_TEAM_ID}")
+        return DEFAULT_TEAM_ID
         
     except Exception as e:
-        logger.warning(f"⚠️ Failed to get team_id from Firestore: {e}, using fallback: KTI")
-        return "KTI"
+        logger.warning(f"⚠️ Failed to get team_id from Firestore: {e}, using fallback: {DEFAULT_TEAM_ID}")
+        return DEFAULT_TEAM_ID
 
 
 async def _create_telegram_message(message_data: Dict[str, Any]) -> TelegramMessage:
@@ -253,23 +307,7 @@ async def _create_telegram_message(message_data: Dict[str, Any]) -> TelegramMess
 # Fallback response removed - all errors should propagate properly
 
 
-def process_mock_message_sync(message_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Synchronous wrapper for async message processing."""
-    import asyncio
-    
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # If we're already in an async context, create a new task
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, process_mock_message(message_data))
-                return future.result()
-        else:
-            return asyncio.run(process_mock_message(message_data))
-    except Exception as e:
-        logger.error(f"❌ Error in sync message processing: {e}")
-        raise
+
 
 
 async def check_bot_integration_health() -> Dict[str, Any]:

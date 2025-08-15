@@ -7,7 +7,6 @@ for the new /addmember command that only requires name and phone number.
 Converted to sync functions for CrewAI compatibility.
 """
 
-import asyncio
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
@@ -40,7 +39,7 @@ from kickai.utils.validation_utils import (
 
 
 @tool("add_team_member_simplified", result_as_answer=True)
-def add_team_member_simplified(
+async def add_team_member_simplified(
     team_id: str, user_id: str, name: str, phone: str, role: str = None
 ) -> str:
     """
@@ -60,18 +59,18 @@ def add_team_member_simplified(
         # Validate inputs using utility functions
         validation_error = validate_required_input(team_id, "Team ID")
         if validation_error:
-            return create_json_response("error", message=validation_error.replace("❌ ", ""))
+            return create_json_response(ResponseStatus.ERROR, message=validation_error.replace("❌ ", ""))
 
         validation_error = validate_required_input(user_id, "User ID")
         if validation_error:
-            return create_json_response("error", message=validation_error.replace("❌ ", ""))
+            return create_json_response(ResponseStatus.ERROR, message=validation_error.replace("❌ ", ""))
 
         # Simplified validation - only name and phone required
         if not name or not name.strip():
-            return create_json_response("error", message=ERROR_MESSAGES["NAME_REQUIRED"])
+            return create_json_response(ResponseStatus.ERROR, message=ERROR_MESSAGES["NAME_REQUIRED"])
 
         if not phone or not phone.strip():
-            return create_json_response("error", message=ERROR_MESSAGES["PHONE_REQUIRED"])
+            return create_json_response(ResponseStatus.ERROR, message=ERROR_MESSAGES["PHONE_REQUIRED"])
 
         # Sanitize inputs
         name = sanitize_input(name, max_length=MAX_NAME_LENGTH)
@@ -88,13 +87,13 @@ def add_team_member_simplified(
         # Get team repository for the service
         team_repository = container.get_service(TeamRepositoryInterface)
         if not team_repository:
-            return create_json_response("error", message="TeamRepositoryInterface is not available")
+            return create_json_response(ResponseStatus.ERROR, message="TeamRepositoryInterface is not available")
 
         # Create simplified team member service
         team_member_service = SimplifiedTeamMemberService(team_repository)
 
-        # Add team member with simplified ID generation (sync call via asyncio.run)
-        success, message = asyncio.run(team_member_service.add_team_member(name, phone, role, team_id))
+        # Add team member with simplified ID generation
+        success, message = await team_member_service.add_team_member(name, phone, role, team_id)
 
         if success:
             # Extract member ID from message
@@ -103,10 +102,10 @@ def add_team_member_simplified(
             member_id_match = re.search(r"ID: (\w+)", message)
             member_id = member_id_match.group(1) if member_id_match else "Unknown"
 
-            # Create invite link (sync call via asyncio.run)
-            invite_result = asyncio.run(team_member_service.create_team_member_invite_link(
+            # Create invite link
+            invite_result = await team_member_service.create_team_member_invite_link(
                 name, phone, role, team_id
-            ))
+            )
 
             member_data = {
                 'name': name,
@@ -129,15 +128,15 @@ def add_team_member_simplified(
                     "One-time use only",
                     "Automatically tracked in system"
                 ]
-                return create_json_response("success", data=member_data)
+                return create_json_response(ResponseStatus.SUCCESS, data=member_data)
             else:
                 member_data['invite_link'] = None
                 member_data['invite_success'] = False
                 member_data['invite_error'] = invite_result.get("error", "Unknown error")
-                return create_json_response("success", data=member_data)
+                return create_json_response(ResponseStatus.SUCCESS, data=member_data)
         else:
-            return create_json_response("error", message=f"Failed to add team member: {message}")
+            return create_json_response(ResponseStatus.ERROR, message=f"Failed to add team member: {message}")
 
     except Exception as e:
         logger.error(f"❌ Error in add_team_member_simplified tool: {e}")
-        return create_json_response("error", message="Failed to add team member")
+        return create_json_response(ResponseStatus.ERROR, message="Failed to add team member")

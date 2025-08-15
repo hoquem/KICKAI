@@ -45,7 +45,7 @@ class GetMatchInput(BaseModel):
 
 
 @tool("get_available_players_for_match", result_as_answer=True)
-def get_available_players_for_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
+async def get_available_players_for_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
     """Get list of available players for a specific match.
     
     Retrieves players who have marked themselves as available
@@ -85,7 +85,7 @@ def get_available_players_for_match(team_id: str, telegram_id: Union[str, int], 
             try:
                 telegram_id_int = int(telegram_id)
             except ValueError:
-                return create_json_response("error", message=f"Invalid telegram_id format: {telegram_id}")
+                return create_json_response(ResponseStatus.ERROR, message=f"Invalid telegram_id format: {telegram_id}")
         else:
             telegram_id_int = int(telegram_id)
         match_id = sanitize_input(match_id, max_length=50)
@@ -95,12 +95,20 @@ def get_available_players_for_match(team_id: str, telegram_id: Union[str, int], 
         match_service = container.get_service("MatchService")
 
         if not match_service:
-            return create_json_response("error", message="Match service not available")
+            return create_json_response(ResponseStatus.ERROR, message="Match service not available")
 
         # Get available players for match
-        success, message = match_service.get_available_players_for_match_sync(
-            team_id=team_id, match_id=match_id
-        )
+        try:
+            if hasattr(match_service, 'get_available_players_for_match'):
+                available_players = await match_service.get_available_players_for_match(team_id=team_id, match_id=match_id)
+                success = True
+                message = f"Available players retrieved: {len(available_players) if available_players else 0} players"
+            else:
+                success = False
+                message = "Available players functionality not implemented yet"
+        except Exception as e:
+            success = False
+            message = f"Error getting available players: {str(e)}"
 
         if success:
             data = f"""👥 Available Players for Match
@@ -108,17 +116,17 @@ def get_available_players_for_match(team_id: str, telegram_id: Union[str, int], 
 {message}
 
 💡 Use /squad [match_id] to select the squad for this match"""
-            return create_json_response("success", data=data)
+            return create_json_response(ResponseStatus.SUCCESS, data=data)
         else:
-            return create_json_response("error", message=f"Failed to get available players: {message}")
+            return create_json_response(ResponseStatus.ERROR, message=f"Failed to get available players: {message}")
 
     except Exception as e:
         logger.error(f"Failed to get available players for match: {e}", exc_info=True)
-        return create_json_response("error", message=f"Failed to get available players for match: {e}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get available players for match: {e}")
 
 
 @tool("select_squad", result_as_answer=True)
-def select_squad(
+async def select_squad(
     team_id: str, telegram_id: Union[str, int], match_id: str, squad_size: Optional[int] = None
 ) -> str:
     """Select optimal squad for a match.
@@ -167,12 +175,20 @@ def select_squad(
         squad_service = container.get_service("SquadService")
 
         if not squad_service:
-            return create_json_response("error", message="Squad service not available")
+            return create_json_response(ResponseStatus.ERROR, message="Squad service not available")
 
         # Select squad
-        success, message = squad_service.select_squad_sync(
-            team_id=team_id, match_id=match_id, squad_size=squad_size
-        )
+        try:
+            if hasattr(squad_service, 'select_squad'):
+                result = await squad_service.select_squad(team_id=team_id, match_id=match_id, squad_size=squad_size)
+                success = True
+                message = f"Squad selected successfully with {squad_size or 'default'} size"
+            else:
+                success = False
+                message = "Squad selection functionality not implemented yet"
+        except Exception as e:
+            success = False
+            message = f"Error selecting squad: {str(e)}"
 
         if success:
             data = f"""⚽ Squad Selected Successfully!
@@ -180,17 +196,17 @@ def select_squad(
 {message}
 
 💡 Use /squad [match_id] to view or modify the squad selection"""
-            return create_json_response("success", data=data)
+            return create_json_response(ResponseStatus.SUCCESS, data=data)
         else:
-            return create_json_response("error", message=f"Failed to select squad: {message}")
+            return create_json_response(ResponseStatus.ERROR, message=f"Failed to select squad: {message}")
 
     except Exception as e:
         logger.error(f"Failed to select squad: {e}", exc_info=True)
-        return create_json_response("error", message=f"Failed to select squad: {e}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Failed to select squad: {e}")
 
 
 @tool("get_match", result_as_answer=True)
-def get_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
+async def get_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
     """Get match details and information.
     
     Retrieves comprehensive information about a specific match
@@ -230,12 +246,16 @@ def get_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
         match_service = container.get_service("MatchService")
 
         if not match_service:
-            return create_json_response("error", message="Match service not available")
+            return create_json_response(ResponseStatus.ERROR, message="Match service not available")
 
         # Get match details
-        success, message = match_service.get_match_sync(
-            team_id=team_id, match_id=match_id
-        )
+        match = await match_service.get_match(match_id)
+        if match:
+            success = True
+            message = f"Match found: {match.opponent} on {match.match_date}"
+        else:
+            success = False
+            message = f"Match {match_id} not found"
 
         if success:
             data = f"""🏆 Match Details
@@ -243,17 +263,17 @@ def get_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
 {message}
 
 💡 Use /match [match_id] to view detailed match information"""
-            return create_json_response("success", data=data)
+            return create_json_response(ResponseStatus.SUCCESS, data=data)
         else:
-            return create_json_response("error", message=f"Failed to get match details: {message}")
+            return create_json_response(ResponseStatus.ERROR, message=f"Failed to get match details: {message}")
 
     except Exception as e:
         logger.error(f"Failed to get match: {e}", exc_info=True)
-        return create_json_response("error", message=f"Failed to get match: {e}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get match: {e}")
 
 
 @tool("get_all_players", result_as_answer=True)
-def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
+async def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
     """Get all players in the team for squad selection reference.
     
     Retrieves complete roster of all team players with their status,
@@ -287,7 +307,7 @@ def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
             try:
                 telegram_id_int = int(telegram_id)
             except ValueError:
-                return create_json_response("error", message=f"Invalid telegram_id format: {telegram_id}")
+                return create_json_response(ResponseStatus.ERROR, message=f"Invalid telegram_id format: {telegram_id}")
         else:
             telegram_id_int = int(telegram_id)
 
@@ -296,13 +316,13 @@ def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
         player_service = container.get_service("PlayerService")
 
         if not player_service:
-            return create_json_response("error", message="Player service not available")
+            return create_json_response(ResponseStatus.ERROR, message="Player service not available")
 
         # Get all players
-        players = player_service.get_all_players_sync(team_id=team_id)
+        players = await player_service.get_all_players(team_id=team_id)
 
         if not players:
-            return create_json_response("success", data="📋 No players found in the team.")
+            return create_json_response(ResponseStatus.SUCCESS, data="📋 No players found in the team.")
 
         # Format response
         result = "👥 All Team Players\n\n"
@@ -316,8 +336,8 @@ def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
             result += f"   • Phone: {player.phone_number or 'Not provided'}\n\n"
 
         result += "💡 Use /players to view all team players for squad selection"
-        return create_json_response("success", data=result)
+        return create_json_response(ResponseStatus.SUCCESS, data=result)
 
     except Exception as e:
         logger.error(f"Failed to get all players: {e}", exc_info=True)
-        return create_json_response("error", message=f"Failed to get all players: {e}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get all players: {e}")

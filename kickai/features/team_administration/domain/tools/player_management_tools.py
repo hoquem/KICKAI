@@ -6,12 +6,15 @@ This module provides tools for player management by team administrators,
 including adding new players with invite link generation.
 """
 
-import asyncio
 from datetime import datetime
 from loguru import logger
 
 from kickai.core.dependency_container import get_container
-from kickai.core.exceptions import ServiceNotAvailableError
+from kickai.core.enums import ChatType, ResponseStatus, UserStatus
+from kickai.core.exceptions import ServiceNotAvailableError, TeamNotFoundError, TeamNotConfiguredError
+from kickai.features.team_administration.domain.services.team_service import TeamService
+from kickai.features.player_registration.domain.services.player_service import PlayerService
+from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
 from kickai.utils.constants import ERROR_MESSAGES, MAX_NAME_LENGTH, MAX_PHONE_LENGTH, MAX_TEAM_ID_LENGTH
 from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import format_tool_error, validate_required_input, create_json_response
@@ -20,7 +23,7 @@ from kickai.utils.id_generator import generate_member_id
 
 
 @tool("add_player", result_as_answer=True)
-def add_player(
+async def add_player(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -55,11 +58,11 @@ def add_player(
         
         validation_errors = [error for error in validations if error]
         if validation_errors:
-            return create_json_response("error", message=f"❌ **Missing Information**\n\n💡 I need complete details to add a player:\n{'; '.join(validation_errors)}")
+            return create_json_response(ResponseStatus.ERROR, message=f"❌ **Missing Information**\n\n💡 I need complete details to add a player:\n{'; '.join(validation_errors)}")
 
         # Validate chat type is leadership
-        if chat_type.lower() != "leadership":
-            return create_json_response("error", message="❌ **Permission Required**\n\n🔒 Adding players is a leadership function. Please use this command in the leadership chat.")
+        if chat_type.lower() != ChatType.LEADERSHIP.value:
+            return create_json_response(ResponseStatus.ERROR, message="❌ **Permission Required**\n\n🔒 Adding players is a leadership function. Please use this command in the leadership chat.")
 
         # Sanitize inputs
         player_name = sanitize_input(player_name, MAX_NAME_LENGTH)
@@ -68,7 +71,7 @@ def add_player(
 
         # Validate phone number format
         if not is_valid_phone(phone_number):
-            return create_json_response("error", message=f"❌ **Invalid Phone Number**\n\n📱 Please use UK format:\n• +447123456789 (with country code)\n• 07123456789 (without country code)\n\n🔍 You provided: {phone_number}")
+            return create_json_response(ResponseStatus.ERROR, message=f"❌ **Invalid Phone Number**\n\n📱 Please use UK format:\n• +447123456789 (with country code)\n• 07123456789 (without country code)\n\n🔍 You provided: {phone_number}")
 
         # Normalize phone number
         normalized_phone = normalize_phone(phone_number)
@@ -78,114 +81,66 @@ def add_player(
 
         logger.info(f"🏃‍♂️ Adding player: {player_name} ({normalized_phone}) to team {team_id}")
 
-        # Run async operations
-        return asyncio.run(_add_player_async(
+        # Get services from container
+        container = get_container()
+        if not container:
+            raise ServiceNotAvailableError("Dependency container not available")
+            
+        team_service = container.get_service(TeamService)
+        if not team_service:
+            raise ServiceNotAvailableError("Team service not available")
+            
+        player_service = container.get_service(PlayerService)
+        if not player_service:
+            raise ServiceNotAvailableError("Player service not available")
+        
+        # Check if phone number already exists using domain service
+        existing_player = await player_service.get_player_by_phone(normalized_phone, team_id)
+        if existing_player:
+            return create_json_response(
+                ResponseStatus.ERROR,
+                message=f"❌ **Phone Number Already Registered**\n\n📱 {normalized_phone} is already used by: **{existing_player.player_name}**\n\n💡 Each player needs a unique phone number. Please check with the existing player or use a different number."
+            )
+
+        # Get team using domain service  
+        team = await team_service.get_team(team_id=team_id)
+        if not team:
+            raise TeamNotFoundError(f"Team not found for team_id: {team_id}")
+        
+        if not team.main_chat_id:
+            raise TeamNotConfiguredError("Main chat not configured for invite links")
+
+        team_name = team.name or f"Team {team_id}"
+
+        # Create player using domain service
+        from kickai.features.player_registration.domain.entities.player import Player
+        
+        player = Player(
             player_id=player_id,
             player_name=player_name,
             phone_number=normalized_phone,
             team_id=team_id,
-            admin_telegram_id=telegram_id,
-            admin_username=username
-        ))
-
-    except Exception as e:
-        logger.error(f"❌ Error in add_player tool: {e}")
-        return create_json_response("error", message=f"❌ **System Error**\n\n🛠️ Failed to add player: {str(e)}\n\n💬 Please try again or contact your system administrator.")
-
-
-async def _add_player_async(
-    player_id: str,
-    player_name: str,
-    phone_number: str,
-    team_id: str,
-    admin_telegram_id: int,
-    admin_username: str
-) -> str:
-    """
-    Async implementation of add player functionality.
-    
-    Args:
-        player_id: Generated player ID
-        player_name: Player's full name
-        phone_number: Normalized phone number
-        team_id: Team ID
-        admin_telegram_id: Admin's telegram ID
-        admin_username: Admin's username
-        
-    Returns:
-        Formatted response with invite link and instructions
-    """
-    try:
-        # Get services from container
-        container = get_container()
-        database = container.get_database()
-        
-        # Check if phone number already exists
-        existing_players = await database.query_documents(
-            "kickai_players",
-            [
-                {"field": "phone_number", "operator": "==", "value": phone_number},
-                {"field": "team_id", "operator": "==", "value": team_id}
-            ]
+            status=UserStatus.PENDING,
+            position="",  # Will be set via /update command
+            created_by_telegram_id=telegram_id,
+            created_by_username=username
         )
         
-        if existing_players:
-            existing_player = existing_players[0]
-            return create_json_response(
-                "error",
-                message=f"❌ **Phone Number Already Registered**\n\n📱 {phone_number} is already used by: **{existing_player.get('player_name', 'Unknown')}**\n\n💡 Each player needs a unique phone number. Please check with the existing player or use a different number."
-            )
+        # Save player using service layer
+        created_player = await player_service.create_player(player)
+        logger.info(f"✅ Created player record: {created_player.player_id}")
 
-        # Get team configuration for main chat ID
-        team_config = await database.get_document("kickai_teams", team_id)
-        if not team_config:
-            return create_json_response(
-                "error",
-                message="❌ **Team Setup Issue**\n\n🔧 Team configuration not found. This shouldn't happen!\n\n💬 Please contact your system administrator to resolve this issue."
-            )
-        
-        main_chat_id = team_config.get("main_chat_id")
-        if not main_chat_id:
-            return create_json_response(
-                "error",
-                message="❌ **Main Chat Not Configured**\n\n📱 Your team's main chat isn't set up yet.\n\n💬 Please contact your system administrator to configure the main chat for invite links."
-            )
-
-        team_name = team_config.get("team_name", f"Team {team_id}")
-
-        # Create player record
-        player_data = {
-            "player_id": player_id,
-            "player_name": player_name,
-            "phone_number": phone_number,
-            "team_id": team_id,
-            "status": "pending_activation",
-            "position": "",  # Will be set via /update command
-            "created_at": datetime.now().isoformat(),
-            "created_by": admin_telegram_id,
-            "created_by_username": admin_username,
-            "activated_at": None,
-            "telegram_id": None  # Will be set when player joins via invite
-        }
-
-        # Save player record
-        await database.set_document("kickai_players", player_id, player_data)
-        logger.info(f"✅ Created player record: {player_id}")
-
-        # Generate invite link using InviteLinkService
-        from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
-        
-        # Get bot token from team config or environment
-        bot_token = team_config.get("bot_token")
-        invite_service = InviteLinkService(bot_token=bot_token, database=database)
+        # Generate invite link using InviteLinkService  
+        database = container.get_database()  # Get database for invite service
+        invite_service = InviteLinkService(bot_token=team.bot_token, database=database)
         
         # Create player invite link
         invite_data = await invite_service.create_player_invite_link(
             team_id=team_id,
             player_name=player_name,
-            player_phone=phone_number,
+            player_phone=normalized_phone,
             player_position="",  # Empty initially
-            main_chat_id=main_chat_id,
+            main_chat_id=team.main_chat_id,
             player_id=player_id
         )
 
@@ -199,7 +154,7 @@ async def _add_player_async(
 
 👤 **Player Details:**
 • **Name:** {player_name}
-• **Phone:** {phone_number}
+• **Phone:** {normalized_phone}
 • **Status:** Pending Activation
 
 📱 **Send this message to {player_name}:**
@@ -215,23 +170,9 @@ async def _add_player_async(
 3. Player uses /update to set position and details
 4. Player is ready to participate!"""
 
-        return create_json_response("success", data=success_response)
+        return create_json_response(ResponseStatus.SUCCESS, data=success_response)
 
-    except ImportError as e:
-        logger.error(f"❌ Import error in add_player: {e}")
-        return create_json_response(
-            "error",
-            message="❌ **System Component Unavailable**\n\n🔗 Invite link generation is temporarily unavailable.\n\n⏱️ Please try again in a moment, or contact your system administrator if the issue persists."
-        )
-    except ServiceNotAvailableError as e:
-        logger.error(f"❌ Service not available in add_player: {e}")
-        return create_json_response(
-            "error",
-            message="❌ **Service Temporarily Unavailable**\n\n⏱️ A required service is currently unavailable.\n\n🔄 Please try again in a few moments."
-        )
     except Exception as e:
-        logger.error(f"❌ Error in _add_player_async: {e}")
-        return create_json_response(
-            "error",
-            message=f"❌ **System Error**\n\n🛠️ Something went wrong while adding the player.\n\n📝 Error details: {str(e)}\n\n💬 Please try again or contact your system administrator."
-        )
+        logger.error(f"❌ Error in add_player tool: {e}")
+        return create_json_response(ResponseStatus.ERROR, message=f"❌ **System Error**\n\n🛠️ Failed to add player: {str(e)}\n\n💬 Please try again or contact your system administrator.")
+
