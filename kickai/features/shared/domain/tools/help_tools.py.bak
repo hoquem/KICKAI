@@ -11,7 +11,7 @@ from loguru import logger
 
 import kickai.core.constants as constants_module
 from kickai.core.enums import ChatType as ChatTypeEnum
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.core.enums import ResponseStatus
 from kickai.utils.tool_helpers import create_json_response, validate_required_input
 from kickai.utils.tool_validation import create_tool_response

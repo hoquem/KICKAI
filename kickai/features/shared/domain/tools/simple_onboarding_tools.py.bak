@@ -8,7 +8,7 @@ decorator-based tools fail to load due to dependency issues.
 
 
 from kickai.core.enums import ResponseStatus
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import create_json_response
 
 

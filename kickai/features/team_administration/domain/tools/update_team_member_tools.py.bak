@@ -14,7 +14,7 @@ from loguru import logger
 from kickai.core.constants import get_team_members_collection
 from kickai.core.dependency_container import get_container
 from kickai.database.firebase_client import FirebaseClient
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.core.enums import ResponseStatus
 from kickai.utils.tool_helpers import create_json_response
 from typing import List, Optional

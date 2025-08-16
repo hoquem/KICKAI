@@ -22,7 +22,7 @@ from kickai.utils.constants import (
     VALID_TEAM_MEMBER_ROLES,
 )
 from kickai.core.enums import ResponseStatus
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.validation_utils import normalize_phone, sanitize_input
 from kickai.utils.tool_helpers import create_json_response
 

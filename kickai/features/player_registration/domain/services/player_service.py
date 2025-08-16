@@ -9,7 +9,7 @@ This module provides player management functionality.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 # Local application
 from kickai.features.team_administration.domain.services.team_service import TeamService
@@ -99,6 +99,7 @@ class PlayerCreateParams:
     position: str = DEFAULT_PLAYER_POSITION
     team_id: str = ""
     created_by: str = DEFAULT_CREATED_BY
+    player_id: Optional[str] = None  # Optional player_id to avoid regeneration
 
 
 class PlayerService:
@@ -113,14 +114,20 @@ class PlayerService:
         # Validate input parameters
         self._validate_player_input(params.name, params.phone, params.position, params.team_id)
 
-        # Generate simple player ID
-        from kickai.utils.id_generator import generate_player_id
+        # Use provided player_id or generate a new one
+        if params.player_id:
+            player_id = params.player_id
+            logger.info(f"Using provided player_id: {player_id}")
+        else:
+            # Generate simple player ID
+            from kickai.utils.id_generator import generate_player_id
 
-        # Get existing player IDs for collision detection
-        existing_players = await self.player_repository.get_all_players(params.team_id)
-        existing_ids = {player.player_id for player in existing_players if player.player_id}
+            # Get existing player IDs for collision detection
+            existing_players = await self.player_repository.get_all_players(params.team_id)
+            existing_ids = {player.player_id for player in existing_players if player.player_id}
 
-        player_id = generate_player_id(params.name, params.team_id, existing_ids)
+            player_id = generate_player_id(params.name, params.team_id, existing_ids)
+            logger.info(f"Generated new player_id: {player_id}")
 
         player = Player(
             team_id=params.team_id,

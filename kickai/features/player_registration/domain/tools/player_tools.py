@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from typing import List, Optional, Union, Dict, Any
 
 from kickai.core.dependency_container import get_container
+from kickai.core.enums import ResponseStatus
 from kickai.core.exceptions import ServiceNotAvailableError
 from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
 from kickai.features.player_registration.domain.services.player_service import PlayerService
@@ -27,7 +28,7 @@ from kickai.utils.constants import (
     MAX_TEAM_ID_LENGTH,
     MAX_USER_ID_LENGTH,
 )
-from kickai.utils.crewai_tool_decorator import tool
+from crewai.tools import tool
 from kickai.utils.tool_helpers import (
     create_json_response,
     extract_single_value,

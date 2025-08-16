@@ -12,7 +12,7 @@ from typing import Optional
 
 from kickai.core.dependency_container import get_container
 from kickai.core.exceptions import ServiceNotAvailableError
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
     create_json_response,
     extract_single_value,

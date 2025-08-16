@@ -13,7 +13,7 @@ from datetime import datetime, time
 
 from kickai.core.dependency_container import get_container
 from kickai.core.exceptions import ServiceNotAvailableError
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
     extract_single_value,
     format_tool_error,

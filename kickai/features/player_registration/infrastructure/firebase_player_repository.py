@@ -26,7 +26,7 @@ ERROR_MESSAGES = {
     "DELETE_PLAYER_FAILED": "Failed to delete player {} from team {}: {}",
     "GET_PLAYERS_BY_STATUS_FAILED": "Failed to get players by status {} for team {}: {}",
     "PLAYER_NOT_FOUND_DELETION": "Player {} not found in team {} for deletion",
-    "PLAYER_MISSING_ID_OR_PHONE": "Player must have either player_id or phone_number",
+    "PLAYER_MISSING_ID": "Player must have player_id",
 }
 
 SUCCESS_MESSAGES = {
@@ -84,14 +84,7 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
         if player.player_id and player.player_id.strip():
             return player.player_id.strip()
         
-        # Fallback to phone number only if player_id is not available
-        if player.phone_number and player.phone_number.strip():
-            # Clean phone number for use as document ID
-            phone_clean = player.phone_number.replace("+", "").replace(" ", "").replace("-", "")
-            return f"player_{phone_clean}"
-        
-        # Neither player_id nor phone_number available
-        raise ValueError(ERROR_MESSAGES["PLAYER_MISSING_ID_OR_PHONE"])
+        raise ValueError(ERROR_MESSAGES["PLAYER_MISSING_ID"])
 
     def _prepare_player_data(self, player: Player) -> dict:
         """Prepare player data for database operations."""

@@ -10,7 +10,7 @@ import asyncio
 import logging
 from typing import Optional
 
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.core.dependency_container import get_container
 from kickai.core.enums import ResponseStatus
 from kickai.utils.tool_helpers import create_json_response

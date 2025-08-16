@@ -88,9 +88,6 @@ class AsyncToolRegistry:
 
             logger.debug(f"✅ Registered async tool: {tool_name}")
 
-        except ValueError as e:
-            # Re-raise validation errors for sync tools
-            raise e
         except Exception as e:
             # Get tool name for error logging
             tool_name = 'unknown'
@@ -379,53 +376,77 @@ Instructions: Use available tools to respond to the user's request.
 
     @staticmethod
     def _generate_context_aware_guidance(chat_type: str, agent_tool_names: list[str]) -> str:
-        """Generate context-aware tool selection guidance based on chat type and available tools."""
+        """Generate context-aware tool selection guidance with command intent recognition."""
         try:
             # Normalize chat type for consistent comparison
             chat_type_lower = chat_type.lower()
             
             guidance_parts = []
             
-            # Check if agent has both list tools available
+            # Check available tools for intent-based guidance
+            has_get_my_status = 'get_my_status' in agent_tool_names
             has_active_players = 'get_active_players' in agent_tool_names
             has_list_all = 'list_team_members_and_players' in agent_tool_names
+            has_player_status = 'get_player_status' in agent_tool_names
             
+            # Add command intent recognition guidance
+            guidance_parts.extend([
+                "🎯 COMMAND INTENT RECOGNITION (PRIORITIZE THIS):",
+                "",
+                "📋 PERSONAL INFO COMMANDS → Use personal status tools:",
+            ])
+            
+            if has_get_my_status:
+                guidance_parts.extend([
+                    "• /myinfo, /info, /status (no parameters) → Use 'get_my_status'",
+                    "  Intent: User wants their own status/information",
+                    "  Tool: get_my_status provides personal player status"
+                ])
+            
+            if has_player_status:
+                guidance_parts.extend([
+                    "• /status [name/phone] → Use 'get_player_status'", 
+                    "  Intent: User wants specific player information",
+                    "  Tool: get_player_status for individual player queries"
+                ])
+            
+            guidance_parts.extend([
+                "",
+                "📝 LIST COMMANDS → Use appropriate list tools:",
+            ])
+            
+            # Only show list guidance when agent has list tools AND this is for list commands
             if has_active_players and has_list_all:
-                guidance_parts.append("🎯 LIST COMMANDS - INTELLIGENT SELECTION:")
-                
                 if chat_type_lower in ['main', 'main_chat']:
                     guidance_parts.extend([
-                        "• MAIN CHAT detected → Use 'get_active_players'",
-                        "  Rationale: Players need focused view for match planning",
-                        "  Shows: Only active players available for selection"
+                        "• /list, /players, list requests in MAIN → Use 'get_active_players'",
+                        "  Intent: User wants to see available players for match planning",
+                        "  Rationale: Main chat focuses on active players for selection"
                     ])
                 elif chat_type_lower in ['leadership', 'leadership_chat']:
                     guidance_parts.extend([
-                        "• LEADERSHIP CHAT detected → Use 'list_team_members_and_players'",
-                        "  Rationale: Leaders need comprehensive team oversight",
-                        "  Shows: Complete team roster with roles and status for admin decisions"
-                    ])
-                elif chat_type_lower in ['private']:
-                    guidance_parts.extend([
-                        "• PRIVATE CHAT detected → Use 'get_active_players'",
-                        "  Rationale: Personal context with relevant player information",
-                        "  Shows: Active players relevant for personal planning"
+                        "• /list, /members, list requests in LEADERSHIP → Use 'list_team_members_and_players'",
+                        "  Intent: User wants comprehensive team overview",
+                        "  Rationale: Leadership needs full team roster with roles and status"
                     ])
                 else:
                     guidance_parts.extend([
-                        f"• UNKNOWN CHAT TYPE ({chat_type}) → Default to 'get_active_players'",
-                        "  Fallback: Use active players for safety"
+                        "• /list, list requests → Use 'get_active_players'",
+                        "  Intent: General list request",
+                        "  Rationale: Default to active players for safety"
                     ])
-                
-                guidance_parts.append("")  # Add spacing
             
-            # Add general context-aware tool selection principles
             guidance_parts.extend([
-                "🧠 CONTEXT-AWARE PRINCIPLES:",
+                "",
+                "🧠 TOOL SELECTION PRIORITY:",
+                "1. FIRST: Identify command INTENT (personal vs list vs management)",
+                "2. SECOND: Consider chat context for list commands only", 
+                "3. THIRD: Select most specific tool for the user's actual need",
+                "",
+                "⚠️ CRITICAL: /myinfo is ALWAYS personal info → ALWAYS use get_my_status",
                 f"• Current context: {chat_type} chat",
-                "• Match tool capabilities to user needs",
-                "• Consider user's role and permissions",
-                "• Main chat = Player focus, Leadership chat = Admin focus"
+                "• Match tool capabilities to user's actual intent",
+                "• Personal commands take precedence over context rules"
             ])
             
             return "\n".join(guidance_parts)
