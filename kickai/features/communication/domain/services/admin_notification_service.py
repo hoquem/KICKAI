@@ -127,22 +127,22 @@ class AdminNotificationService:
             timestamp = notification["timestamp"]
 
             # Format the error message
-            message = f"""🚨 **CRITICAL SYSTEM ERROR**
+            message = f"""🚨 CRITICAL SYSTEM ERROR
 
-❌ **Error Type:** {error_type}
-📝 **Error Message:** {error_message}
-⏰ **Timestamp:** {timestamp}
-🏷️ **Team ID:** {self.team_id}
+❌ Error Type: {error_type}
+📝 Error Message: {error_message}
+⏰ Timestamp: {timestamp}
+🏷️ Team ID: {self.team_id}
 
-🔍 **Context:**
+🔍 Context:
 """
 
             # Add context information
             for key, value in context.items():
-                message += f"• **{key}:** {value}\n"
+                message += f"• {key}: {value}\n"
 
             message += """
-⚠️ **Action Required:**
+⚠️ Action Required:
 • Review system logs for detailed information
 • Check system health and performance
 • Contact system administrator if needed
@@ -182,18 +182,18 @@ This is an automated alert from the KICKAI system."""
             # Format the alert message
             message = f"""{severity_emoji} **SYSTEM ALERT**
 
-📋 **Alert Type:** {alert_type}
-📝 **Message:** {message_text}
-🔴 **Severity:** {severity.upper()}
-⏰ **Timestamp:** {timestamp}
-🏷️ **Team ID:** {self.team_id}
+📋 Alert Type: {alert_type}
+📝 Message: {message_text}
+🔴 Severity: {severity.upper()}
+⏰ Timestamp: {timestamp}
+🏷 Team ID: {self.team_id}
 
-🔍 **Context:**
+🔍 Context:
 """
 
             # Add context information
             for key, value in context.items():
-                message += f"• **{key}:** {value}\n"
+                message += f"• {key}: {value}\n"
 
             message += """
 This is an automated alert from the KICKAI system."""

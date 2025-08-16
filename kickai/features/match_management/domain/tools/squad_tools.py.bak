@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from typing import List, Optional, Union
 
 from kickai.core.dependency_container import get_container
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
     format_tool_error,
     sanitize_input,

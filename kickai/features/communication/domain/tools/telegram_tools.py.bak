@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from kickai.core.dependency_container import get_container
 from kickai.features.communication.infrastructure.telegram_bot_service import TelegramBotService
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.core.enums import ResponseStatus
 from kickai.utils.tool_helpers import create_json_response
 from typing import Optional

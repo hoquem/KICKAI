@@ -27,7 +27,7 @@ from kickai.utils.constants import (
     PLAYER_MAX_NAME_LENGTH,
     SUCCESS_MESSAGES,
 )
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.id_generator import generate_player_id
 from kickai.utils.tool_helpers import create_json_response, validate_required_input
 from kickai.utils.validation_utils import is_valid_phone, normalize_phone, sanitize_input
@@ -190,7 +190,7 @@ async def add_player(
                 ResponseStatus.ERROR,
                 message=ERROR_MESSAGES["DUPLICATE_PHONE"].format(
                     phone=normalized_phone,
-                    existing_name=existing_player.name
+                    existing_name=existing_player.player_name
                 )
             )
 
@@ -211,8 +211,7 @@ async def add_player(
             name=player_name,
             phone=normalized_phone,  # PlayerCreateParams uses 'phone' not 'phone_number'
             position=PLAYER_DEFAULT_POSITION,
-            team_id=team_id,
-            player_id=player_id  # Pass the generated player_id to ensure consistency
+            team_id=team_id
         )
 
         # Save player using service layer
@@ -223,14 +222,14 @@ async def add_player(
         database = container.get_database()  # Get database for invite service
         invite_service = InviteLinkService(bot_token=team.bot_token, database=database)
 
-        # Create player invite link using the actual player_id from the created player
+        # Create player invite link
         invite_data = await invite_service.create_player_invite_link(
             team_id=team_id,
             player_name=player_name,
             player_phone=normalized_phone,
             player_position=PLAYER_DEFAULT_POSITION,  # Use constant
             main_chat_id=team.main_chat_id,
-            player_id=created_player.player_id  # Use actual player_id from database
+            player_id=player_id
         )
 
         invite_link = invite_data["invite_link"]

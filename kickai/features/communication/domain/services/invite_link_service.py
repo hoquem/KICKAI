@@ -156,6 +156,15 @@ class InviteLinkService:
         import base64
 
         try:
+            # Handle case where invite_data is already a dict (should not happen, but defensive)
+            if isinstance(invite_data, dict):
+                logger.warning(f"❌ Expected string for secure invite data, got dict: {type(invite_data)}")
+                return None
+            
+            if not isinstance(invite_data, str):
+                logger.warning(f"❌ Expected string for secure invite data, got: {type(invite_data)}")
+                return None
+            
             # Decode from base64
             decoded_bytes = base64.urlsafe_b64decode(invite_data.encode("utf-8"))
             combined_data = decoded_bytes.decode("utf-8")

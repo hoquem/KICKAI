@@ -26,7 +26,7 @@ from kickai.utils.constants import (
     MAX_TEAM_ID_LENGTH,
     MAX_USER_ID_LENGTH,
 )
-from crewai.tools import tool
+from kickai.utils.crewai_tool_decorator import tool
 from kickai.utils.tool_helpers import (
     create_json_response,
     format_tool_error,
