@@ -1,5 +1,5 @@
-# KICKAI Tasks Configuration - Updated for 5-Agent CrewAI Native Implementation
-# This file defines task templates aligned with the current 5-agent system
+# KICKAI Tasks Configuration - Updated for 6-Agent CrewAI Native Implementation
+# This file defines task templates aligned with the current 6-agent system
 
 # NOTE: With CrewAI native implementation, tasks are now created dynamically 
 # with structured descriptions. These templates serve as reference patterns.
@@ -28,7 +28,7 @@ task_templates:
     - Structure with clear headers and bullet points
     - Include next steps when relevant
 
-# Task categories aligned with 5-agent system
+# Task categories aligned with 6-agent system
 tasks:
 
   # MESSAGE PROCESSOR AGENT TASKS
@@ -179,7 +179,7 @@ tasks:
     agent: squad_selector
 
 # Legacy task mapping for backwards compatibility
-# Maps old agent names to new 5-agent system
+# Maps old agent names to new 6-agent system
 legacy_agent_mapping:
   intelligent_system: message_processor
   availability_manager: squad_selector

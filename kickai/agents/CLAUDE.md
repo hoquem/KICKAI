@@ -1,23 +1,24 @@
 # CLAUDE.md - KICKAI Agents Directory
 
-This file provides guidance for working with the KICKAI agents system, which implements a **5-agent CrewAI architecture** with centralized message routing and tool management.
+This file provides guidance for working with the KICKAI agents system, which implements a **6-agent CrewAI architecture** with centralized message routing and tool management.
 
 ## Architecture Overview
 
-### 5-Agent CrewAI System
-The system uses **5 essential agents** (simplified from 11 for optimal performance):
+### 6-Agent CrewAI System
+The system uses **6 essential agents** (simplified from 11 for optimal performance):
 
 1. **MessageProcessorAgent** - Primary interface and command routing
 2. **HelpAssistantAgent** - Help system and guidance  
 3. **PlayerCoordinatorAgent** - Player management and onboarding
 4. **TeamAdministrationAgent** - Team member management
 5. **SquadSelectorAgent** - Squad selection and availability management
+6. **NLPProcessorAgent** - Natural language processing and understanding
 
 ### Core Components
 
 ```
 kickai/agents/
-├── crew_agents.py                    # 5-agent system definition
+├── crew_agents.py                    # 6-agent system definition
 ├── agentic_message_router.py        # Central message routing (CRITICAL)
 ├── configurable_agent.py           # Agent base class with CrewAI integration
 ├── tool_registry.py                # Centralized tool management
@@ -72,14 +73,14 @@ agent = Agent(
 ## Key Files Deep Dive
 
 ### 1. crew_agents.py - Core Agent System
-**Purpose**: Defines the 5-agent CrewAI system with proper initialization and lifecycle management.
+**Purpose**: Defines the 6-agent CrewAI system with proper initialization and lifecycle management.
 
 **Key Classes**:
 - `TeamManagementSystem` - Main system orchestrator
 - `ConfigurationError` - Agent configuration exceptions
 
 **Critical Functions**:
-- `initialize_agents()` - Sets up all 5 agents with tools
+- `initialize_agents()` - Sets up all 6 agents with tools
 - `get_agent_by_role()` - Retrieves specific agent by role
 - `cleanup_resources()` - Proper resource cleanup
 
@@ -89,7 +90,7 @@ from kickai.agents.crew_agents import TeamManagementSystem
 
 # Initialize system
 system = TeamManagementSystem(team_id="KTI")
-agents = system.agents  # Returns dict of 5 agents
+agents = system.agents  # Returns dict of 6 agents
 
 # Get specific agent
 help_agent = system.get_agent_by_role(AgentRole.HELP_ASSISTANT)
@@ -453,7 +454,7 @@ PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py
 ## Performance Optimizations
 
 ### Agent Efficiency
-- **Reduced complexity**: 11 → 5 agents (55% reduction)
+- **Reduced complexity**: 11 → 6 agents (45% reduction)
 - **Token optimization**: Minimal prompt design
 - **Memory management**: Automatic cleanup and LRU caching
 - **Rate limiting**: Prevents API overload

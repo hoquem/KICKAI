@@ -67,15 +67,21 @@ def function_name(param1: str, param2: int) -> str:
 
 ```python
 @tool("tool_name", result_as_answer=True)
-def tool_function(telegram_id: int, team_id: str, username: str, chat_type: str, **kwargs) -> str:
+async def tool_function(
+    telegram_id: int, 
+    team_id: str, 
+    username: str, 
+    chat_type: str, 
+    **kwargs
+) -> str:
     """
     Tool description following docstring standards.
     
     Args:
-        telegram_id: Telegram ID of the requesting user
-        team_id: Team ID (required) - available from context
-        username: Username of the requesting user
-        chat_type: Chat type context
+        telegram_id (int): Telegram ID of the requesting user
+        team_id (str): Team ID (required) - available from context
+        username (str): Username of the requesting user
+        chat_type (str): Chat type context
         **kwargs: Additional tool-specific parameters
         
     Returns:
@@ -83,11 +89,12 @@ def tool_function(telegram_id: int, team_id: str, username: str, chat_type: str,
     """
     try:
         # 1. Input validation
-        team_id = validate_team_id(team_id)
-        telegram_id_int = validate_telegram_id(telegram_id)
+        validation_error = validate_required_input(team_id, "Team ID")
+        if validation_error:
+            return create_json_response(ResponseStatus.ERROR, message=validation_error)
         
         # 2. Log tool execution
-        inputs = {'team_id': team_id, 'telegram_id': telegram_id_int}
+        inputs = {'team_id': team_id, 'telegram_id': telegram_id}
         log_tool_execution("tool_name", inputs, True)
         
         # 3. Get services from container
@@ -95,24 +102,94 @@ def tool_function(telegram_id: int, team_id: str, username: str, chat_type: str,
         service = container.get_service(ServiceClass)
         
         if not service:
-            return create_json_response("error", message="Service is not available")
+            return create_json_response(ResponseStatus.ERROR, message="Service is not available")
         
         # 4. Business logic
-        result = service.perform_operation(parameters)
+        result = await service.method_name(telegram_id, team_id, **kwargs)
         
-        # 5. Create response
-        return create_tool_response(
-            success=True,
-            message="Operation completed successfully",
-            data=result
-        )
+        # 5. Return success response
+        return create_json_response(ResponseStatus.SUCCESS, data=result)
         
     except Exception as e:
-        logger.error(f"❌ Error in tool_function: {e}")
-        return create_json_response("error", message="Failed to perform operation")
+        logger.error(f"❌ Error in tool_name: {e}")
+        return create_json_response(ResponseStatus.ERROR, message="Tool execution failed")
 ```
 
+### **Tool Implementation Standards**
+
+**MANDATORY**: All tools must follow these standards:
+
+```python
+@tool("tool_name", result_as_answer=True)
+async def tool_name(
+    param1: str, 
+    param2: int, 
+    param3: bool
+) -> str:
+    """
+    Tool description with comprehensive documentation.
+    
+    Args:
+        param1 (str): Description of parameter 1
+        param2 (int): Description of parameter 2
+        param3 (bool): Description of parameter 3
+        
+    Returns:
+        JSON string with success/error status and formatted message
+    """
+    try:
+        # Input validation
+        validation_error = validate_required_input(param1, "Parameter 1")
+        if validation_error:
+            return create_json_response(ResponseStatus.ERROR, message=validation_error)
+        
+        # Business logic here
+        result = await some_service_method(param1, param2, param3)
+        
+        return create_json_response(ResponseStatus.SUCCESS, data=result)
+        
+    except Exception as e:
+        logger.error(f"❌ Error in tool_name: {e}")
+        return create_json_response(ResponseStatus.ERROR, message="Tool execution failed")
+```
+
+**Key Requirements:**
+- **✅ ALWAYS**: Use `@tool` decorator from `crewai.tools`
+- **✅ ALWAYS**: Use `async def` for all tool functions
+- **✅ ALWAYS**: Use direct parameter passing with type hints
+- **✅ ALWAYS**: Tools are simple, independent functions
+- **❌ NEVER**: Dictionary-based parameter passing
+- **❌ NEVER**: Backward compatibility code in tools
+- **❌ NEVER**: Tools calling other tools or services directly
+
 ## 🔧 Tool Development Standards
+
+**📋 For complete development standards including tool implementation, service patterns, and coding standards, see [.cursor/rules/04_development_standards.md](../.cursor/rules/04_development_standards.md)**
+
+### **Service Layer Architecture**
+
+**CRITICAL**: Services must use domain models and repository interfaces, never direct database calls:
+
+- **❌ NEVER**: Services calling database directly (Firebase, Firestore, etc.)
+- **❌ NEVER**: Services using raw database clients or SDKs
+- **✅ ALWAYS**: Services use domain models (Player, Team, Match, etc.)
+- **✅ ALWAYS**: Services use repository interfaces (PlayerRepositoryInterface, etc.)
+- **✅ ALWAYS**: Services work with domain entities, not raw data
+- **✅ ALWAYS**: Database operations handled by repository implementations
+
+**📋 For complete service layer standards, see [.cursor/rules/04_development_standards.md](../.cursor/rules/04_development_standards.md)**
+
+### **Domain Model Usage**
+
+**MANDATORY**: All business logic must work with domain models:
+
+**📋 For complete domain model usage standards, see [.cursor/rules/04_development_standards.md](../.cursor/rules/04_development_standards.md)**
+
+### **Repository Pattern**
+
+**MANDATORY**: Use repository interfaces for all data access:
+
+**📋 For complete repository pattern standards, see [.cursor/rules/04_development_standards.md](../.cursor/rules/04_development_standards.md)**
 
 ### **Required Tool Decorator**
 ```python

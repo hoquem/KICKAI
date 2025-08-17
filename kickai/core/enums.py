@@ -12,7 +12,7 @@ from enum import Enum
 class AgentRole(str, Enum):
     """Agent roles in the enhanced 6-Agent CrewAI system with NLP support."""
 
-    # Essential 5-Agent System
+    # Essential 6-Agent System
     MESSAGE_PROCESSOR = "message_processor"        # Primary interface and routing
     HELP_ASSISTANT = "help_assistant"              # Help system and guidance
     PLAYER_COORDINATOR = "player_coordinator"      # Player management and onboarding
@@ -23,11 +23,8 @@ class AgentRole(str, Enum):
     NLP_PROCESSOR = "nlp_processor"                # Natural language processing and understanding
 
 
-class UserRole(str, Enum):
-    """User roles in the system."""
-
-    # Player roles
-    PLAYER = "player"
+class MemberRole(str, Enum):
+    """Team member roles in the system."""
 
     # Team member roles
     TEAM_MEMBER = "team_member"
@@ -48,6 +45,15 @@ class UserStatus(str, Enum):
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
     PENDING = "pending"
+
+
+class MemberStatus(str, Enum):
+    """Team member status values."""
+
+    PENDING = "pending"     # Newly added, awaiting activation via invite link
+    ACTIVE = "active"       # Active team member with full access
+    INACTIVE = "inactive"   # Temporarily inactive team member
+    SUSPENDED = "suspended" # Suspended team member
 
 
 class ChatType(str, Enum):

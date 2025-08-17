@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-# Removed entity_specific_agents dependency for simplified 5-agent architecture
+# Removed entity_specific_agents dependency for simplified 6-agent architecture
 from typing import Optional
 from kickai.config.agents import get_agent_config
 from kickai.core.enums import AgentRole
@@ -37,7 +37,7 @@ class AgentToolsManager:
     def __init__(self, tool_registry):
         self._tool_registry = tool_registry
         # Simplified initialization without entity-specific validation
-        logger.info("🔧 AgentToolsManager initialized for 5-agent architecture")
+        logger.info("🔧 AgentToolsManager initialized for 6-agent architecture")
 
     @log_errors
     def get_tools_for_role(

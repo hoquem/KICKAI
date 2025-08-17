@@ -170,11 +170,11 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         """Create a new team member."""
         # TeamMember entity uses telegram_id as the primary identifier
         # Generate member_id if not already set
-        if not team_member.member_id and team_member.telegram_id:
-            from kickai.utils.id_generator import generate_member_id
+        if not team_member.member_id:
+            from kickai.utils.simple_id_generator import generate_simple_team_member_id
             existing_members = await self.get_team_members(team_member.team_id)
             existing_ids = {member.member_id for member in existing_members if member.member_id}
-            team_member.member_id = generate_member_id(team_member.name or f"User{team_member.telegram_id}", existing_ids)
+            team_member.member_id = generate_simple_team_member_id(team_member.name or f"User{team_member.telegram_id}", team_member.team_id, existing_ids)
 
         team_member_data = team_member.to_dict()
 
@@ -259,6 +259,49 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
             logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error getting team member by phone: {e}")
+            return None
+
+    async def get_team_member_by_id(self, member_id: str, team_id: str = None) -> Optional[TeamMember]:
+        """Get a team member by their member ID.
+        
+        Args:
+            member_id: The member ID to search for
+            team_id: Optional team ID to narrow the search. If not provided, searches all teams.
+        """
+        try:
+            # If team_id is provided, search within that team's collection first
+            if team_id:
+                try:
+                    doc = await self.database.get_document(
+                        collection=get_team_members_collection(team_id),
+                        document_id=member_id
+                    )
+                    if doc:
+                        return self._doc_to_team_member(doc)
+                except Exception:
+                    pass  # Continue to broader search
+            
+            # If not found in specific team or no team_id provided, search all teams
+            # Get list of all teams to search their member collections
+            teams = await self.get_all_teams()
+            
+            for team in teams:
+                try:
+                    doc = await self.database.get_document(
+                        collection=get_team_members_collection(team.id),
+                        document_id=member_id
+                    )
+                    if doc:
+                        return self._doc_to_team_member(doc)
+                except Exception:
+                    continue  # Try next team
+            
+            return None
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"❌ [REPO] Error getting team member by ID {member_id}: {e}")
             return None
 
     async def get_team_members_by_status(

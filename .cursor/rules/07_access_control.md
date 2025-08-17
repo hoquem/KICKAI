@@ -49,7 +49,7 @@ class PermissionService:
         Main permission checking method used by all commands.
         """
         # Get user permissions
-        user_perms = await self.get_user_permissions(context.user_id, context.team_id)
+        user_perms = await self.get_user_permissions(context.telegram_id, context.team_id)
 
         # Check permission level
         if permission_level == PermissionLevel.PUBLIC:

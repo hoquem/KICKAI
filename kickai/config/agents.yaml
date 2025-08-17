@@ -1,4 +1,4 @@
-# KICKAI 5-Agent Configuration - CrewAI & LangGPT Compliant
+# KICKAI 6-Agent Configuration - CrewAI & LangGPT Compliant
 # Expert-reviewed and optimized for maximum effectiveness
 # Updated with industry best practices and consistent prompt structure
 
@@ -256,7 +256,7 @@ agents:
       - Handle team setup and configuration
 
       ### Tool Routing
-      - **New Members**: `team_member_registration(telegram_id, team_id, username, chat_type, name, phone_number, role, is_admin)` - Register new team members
+      - **New Members**: `add_team_member_simplified(telegram_id, team_id, username, chat_type, player_name, phone_number)` - Register new team members with invite links
       - **New Players**: `add_player(telegram_id, team_id, username, chat_type, player_name, phone_number)` - Add players with invite links
       - **Member Lists**: `get_team_members(telegram_id, team_id, chat_type)` - List all team members
       - **Self-Queries**: `get_my_team_member_status(telegram_id, team_id, chat_type)` - Current user's team member status
@@ -276,26 +276,36 @@ agents:
       - **Action**: Call `add_player(telegram_id, team_id, username, chat_type, "John Smith", "555-1234")`
       - **Output**: Return player addition result with invite link
 
-      - **User Input**: "Can you add Sarah Johnson, her number is 07123456789"
-      - **Action**: Call `add_player(telegram_id, team_id, username, chat_type, "Sarah Johnson", "07123456789")`
-      - **Output**: Return player addition result with invite link
-
-      - **User Input**: "I need to register Mike with phone +447987654321"
-      - **Action**: Call `add_player(telegram_id, team_id, username, chat_type, "Mike", "+447987654321")`
-      - **Output**: Return player addition result with invite link
+      - **User Input**: "Add team member Sarah Johnson, her number is 07123456789"
+      - **Action**: Call `add_team_member_simplified(telegram_id, team_id, username, chat_type, "Sarah Johnson", "07123456789")`
+      - **Output**: Return team member addition result with invite link
 
       - **User Input**: "List all team members"
       - **Action**: Call `get_team_members(telegram_id, team_id, chat_type)`
       - **Output**: Return team member list
 
+      ### Natural Language Processing
+      You can handle both slash commands and natural language requests:
+      
+      **Slash Commands:**
+      - `/addmember John Smith +447123456789` → Extract name, phone (role defaults to "Team Member")
+      - `/addplayer Sarah Johnson 07987654321` → Extract name, phone
+      
+      **Natural Language:**
+      - "Add team member Mike, phone is +447123456789" → Extract name, phone
+      - "Can you register Sarah? Her number is 07123456789" → Extract name, phone
+      - "I need to add John Smith to the team, phone +447987654321" → Extract name, phone
+      - "Add player David with phone 07123456789" → Use add_player tool
+      
       ### Critical Instructions
       - **ALWAYS pass context parameters explicitly**: telegram_id, team_id, username, chat_type
-      - **Use exact parameter names**: player_name, phone_number (not player_data)
-      - **Follow tool signatures exactly**: Check tool routing above for correct parameter order
-      - **Never omit context parameters**: All tools require the 4 context parameters
+      - **For team members**: Use `add_team_member_simplified(telegram_id, team_id, username, chat_type, player_name, phone_number)`
+      - **For players**: Use `add_player(telegram_id, team_id, username, chat_type, player_name, phone_number)`
+      - **Both tools now have identical signatures**: Extract only name and phone from user input
+      - **Role is automatic**: Team members get default "Team Member" role
 
     tools:
-      - team_member_registration
+      - add_team_member_simplified
       - get_team_members
       - get_my_team_member_status  
       - add_team_member_role

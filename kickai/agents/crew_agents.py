@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Simplified CrewAI Football Team Management System - 5-Agent Architecture
+Simplified CrewAI Football Team Management System - 6-Agent Architecture
 
 This module provides a simplified, production-ready implementation of the
-CrewAI-based football team management system with 5 essential agents.
+CrewAI-based football team management system with 6 essential agents.
 
-ESSENTIAL 5-AGENT SYSTEM:
+ESSENTIAL 6-AGENT SYSTEM:
 1. MESSAGE_PROCESSOR - Primary interface and routing
 2. HELP_ASSISTANT - Help system and guidance
 3. PLAYER_COORDINATOR - Player management and onboarding
 4. TEAM_ADMINISTRATOR - Team member management
 5. SQUAD_SELECTOR - Squad selection and match management
+6. NLP_PROCESSOR - Natural language processing and understanding
 """
 
 import logging
@@ -24,7 +25,7 @@ from loguru import logger
 from kickai.agents.async_tool_metadata import AsyncContextInjector, get_async_tool_registry
 from kickai.agents.configurable_agent import ConfigurableAgent
 
-# Removed entity_specific_agents for simplified 5-agent architecture
+# Removed entity_specific_agents for simplified 6-agent architecture
 # Remove SimpleLLMFactory import - replaced with CrewAI native config
 # from kickai.utils.llm_factory_simple import SimpleLLMFactory
 from kickai.agents.tool_registry import initialize_tool_registry
@@ -149,7 +150,7 @@ class TeamManagementSystem:
             logger.info("✅ Tool registry initialized and ready")
 
             # Simplified initialization without entity manager
-            logger.info("✅ Tool registry initialized for 5-agent architecture")
+            logger.info("✅ Tool registry initialized for 6-agent architecture")
         except Exception as e:
             logger.error(f"❌ Failed to initialize tool registry: {e}")
             raise ConfigurationError(f"Failed to initialize tool registry: {e!s}") from e
@@ -301,7 +302,7 @@ class TeamManagementSystem:
 
     def get_entity_validation_summary(self) -> dict[str, Any]:
         """Get a summary of entity validation capabilities."""
-        # Entity manager was removed in 5-agent simplification
+        # Entity manager was removed in 6-agent simplification
         return {
             "entity_manager_available": False,
             "agent_entity_mappings": {
@@ -309,7 +310,7 @@ class TeamManagementSystem:
                 for role in self.agents.keys()
             },
             "validation_rules": {
-                "note": "Entity validation simplified in 5-agent architecture",
+                "note": "Entity validation simplified in 6-agent architecture",
                 "validation_via": "Agent configuration and tool routing"
             },
         }

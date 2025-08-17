@@ -5,12 +5,6 @@ We will leverage agents for what they do best and fall back on deterministic cod
 - **Agentic Tasks**: Use `CrewAI` agents for tasks requiring reasoning, context, or creativity.
   - Natural Language Understanding (NLU).
   - Generating match summaries or tactical suggestions.
-  - Scouting players based on descriptive text.
-
-- **Deterministic Tasks**: Use standard Python code for simple, reliable operations.
-  - CRUD operations (e.g., adding a player by name).
-  - Listing team members or upcoming fixtures.
-  - Checking a player's status.
 
 - **Intent Recognition Agent**: A dedicated CrewAI agent, the "Message Processor," will be the primary interface for natural language. Its job is to receive raw text from the user and route it to the appropriate specialized agent based on intent and context.
 
@@ -18,10 +12,11 @@ We will leverage agents for what they do best and fall back on deterministic cod
 
 This section defines the core design patterns for the CrewAI-based agentic system.
 
-- **5-Agent CrewAI System**: The system is structured as a crew of 5 specialized agents organized into logical layers:
+- **6-Agent CrewAI System**: The system is structured as a crew of 6 specialized agents organized into logical layers:
     - **Primary Interface Layer** (`MESSAGE_PROCESSOR`): Handles initial user interaction and routing.
     - **Operational Layer** (`PLAYER_COORDINATOR`, `TEAM_ADMINISTRATOR`, `SQUAD_SELECTOR`): Manages day-to-day team operations.
     - **Support Layer** (`HELP_ASSISTANT`): Provides help and guidance functionality.
+    - **NLP Enhancement Layer** (`NLP_PROCESSOR`): Provides natural language processing and understanding.
 
 - **CrewAI Idiomatic Usage**: All implementations must strictly adhere to CrewAI's native features and design patterns. Avoid custom workarounds for functionalities already supported by the framework (e.g., context passing, memory management, delegation).
 
@@ -35,7 +30,7 @@ This section defines the core design patterns for the CrewAI-based agentic syste
 - **Context-Aware Routing & Agent Selection**:
     - The **AgenticMessageRouter** serves as the entry point for all user requests.
     - Agent selection is based on chat type (main chat vs leadership chat) and command intent.
-    - Commands behave differently based on context (e.g., `/list` shows active players in main chat, all players in leadership chat).
+    - Commands behave differently based on context (e.g., `/list` shows active players in main chat, all players and members in leadership chat).
 
 - **Defined Communication Patterns**: Agent interactions follow established patterns:
     - **Direct Routing**: Messages are routed directly to the appropriate agent based on context.
@@ -92,6 +87,16 @@ This section defines the core design patterns for the CrewAI-based agentic syste
   - User onboarding support
   - Welcome message generation
 
+#### **NLP_PROCESSOR** (Natural Language Processing)
+- **Goal**: Provide advanced natural language understanding and processing
+- **Tools**: `advanced_intent_recognition`, `entity_extraction_tool`, `conversation_context_tool`, `semantic_similarity_tool`, `routing_recommendation_tool`
+- **Responsibilities**:
+  - Advanced intent recognition with conversation awareness
+  - Entity extraction for football-specific terms and concepts
+  - Conversation context management for multi-turn interactions
+  - Semantic similarity matching for command suggestions
+  - Intelligent routing recommendations based on intent analysis
+
 ### Memory Mapping by Agent Role
 
 Each agent has access to specific memory systems optimized for their role:
@@ -101,6 +106,7 @@ Each agent has access to specific memory systems optimized for their role:
 - **SQUAD_SELECTOR**: Player memory for squad selection decisions
 - **MESSAGE_PROCESSOR**: Short-term session memory for conversation context
 - **HELP_ASSISTANT**: Short-term session memory for help interactions
+- **NLP_PROCESSOR**: Conversation memory for multi-turn context and intent tracking
 
 ### Delegation Capabilities
 
@@ -110,6 +116,7 @@ Agents can delegate tasks to each other using CrewAI's built-in delegation tools
 - **MESSAGE_PROCESSOR** → **TEAM_ADMINISTRATOR**: Team management requests
 - **SQUAD_SELECTOR** → **TEAM_ADMINISTRATOR**: Team member availability queries
 - **Any Agent** → **HELP_ASSISTANT**: Help and guidance requests
+- **Any Agent** → **NLP_PROCESSOR**: Natural language understanding and intent analysis
 
 ### Context-Aware Routing
 
@@ -122,24 +129,31 @@ The system implements intelligent routing based on chat context and permission l
 
 ### Tool Independence
 
-**CRITICAL**: Tools must be completely independent functions and receive all necessary context via `Task.config`:
+**CRITICAL**: Tools must be completely independent functions following CrewAI best practices:
 
 - **❌ NEVER**: Tools calling other tools or services directly (delegate via CrewAI tasks instead).
-- **✅ ALWAYS**: Tools are simple, independent functions.
-- **✅ ALWAYS**: Parameters passed directly via `Task.config`.
+- **✅ ALWAYS**: Tools are simple, independent async functions.
+- **✅ ALWAYS**: Use direct parameter passing with type hints.
 - **✅ ALWAYS**: Tools return simple string responses.
+- **✅ ALWAYS**: Use `@tool` decorator from `crewai.tools`.
 
-### Native CrewAI Features
+**📋 For complete tool implementation standards, see [04_development_standards.md](04_development_standards.md)**
 
-**MANDATORY**: Use only CrewAI's native features and avoid re-implementing core functionalities:
+### Service Layer Standards
 
-- **✅ REQUIRED**: `@tool` decorator from `crewai.tools`.
-- **✅ REQUIRED**: `Agent` class from `crewai`.
-- **✅ REQUIRED**: `Task` class with `config` parameter for context.
+**CRITICAL**: Services must use domain models and repository interfaces, never direct database calls:
 
-- **✅ REQUIRED**: CrewAI's built-in memory management (EntityMemory, ShortTermMemory, LongTermMemory).
-- **✅ REQUIRED**: CrewAI's delegation tools for inter-agent communication.
+- **❌ NEVER**: Services calling database directly (Firebase, Firestore, etc.)
+- **❌ NEVER**: Services using raw database clients or SDKs
+- **✅ ALWAYS**: Services use domain models (Player, Team, Match, etc.)
+- **✅ ALWAYS**: Services use repository interfaces (PlayerRepositoryInterface, etc.)
+- **✅ ALWAYS**: Services work with domain entities, not raw data
+- **✅ ALWAYS**: Database operations handled by repository implementations
 
-- **❌ FORBIDDEN**: Custom tool wrappers or parameter passing mechanisms that bypass `Task.config`.
-- **❌ FORBIDDEN**: Custom agent orchestration logic outside of CrewAI's `Crew` class.
-- **❌ FORBIDDEN**: Re-implementing memory management if CrewAI's native features suffice.
+**📋 For complete service layer standards, see [04_development_standards.md](04_development_standards.md)**
+
+### Domain Model Usage
+
+**MANDATORY**: All business logic must work with domain models:
+
+**📋 For complete domain model usage standards, see [04_development_standards.md](04_development_standards.md)**

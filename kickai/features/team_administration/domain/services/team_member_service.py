@@ -42,10 +42,15 @@ class TeamMemberService:
             self.logger.error(f"❌ Failed to create team member: {e}")
             raise
 
-    async def get_team_member_by_id(self, member_id: str) -> Optional[TeamMember]:
-        """Get a team member by ID."""
+    async def get_team_member_by_id(self, member_id: str, team_id: str = None) -> Optional[TeamMember]:
+        """Get a team member by ID.
+        
+        Args:
+            member_id: The member ID to search for
+            team_id: Optional team ID to narrow the search for better performance
+        """
         try:
-            return await self.team_repository.get_team_member_by_id(member_id)
+            return await self.team_repository.get_team_member_by_id(member_id, team_id)
         except Exception as e:
             self.logger.error(f"❌ Failed to get team member by ID {member_id}: {e}")
             return None
@@ -56,6 +61,14 @@ class TeamMemberService:
             return await self.team_repository.get_team_member_by_telegram_id(team_id, telegram_id)
         except Exception as e:
             self.logger.error(f"❌ Failed to get team member by Telegram ID {telegram_id}: {e}")
+            return None
+
+    async def get_team_member_by_phone(self, phone: str, team_id: str) -> Optional[TeamMember]:
+        """Get a team member by phone number and team."""
+        try:
+            return await self.team_repository.get_team_member_by_phone(phone, team_id)
+        except Exception as e:
+            self.logger.error(f"❌ Failed to get team member by phone {phone}: {e}")
             return None
 
     async def get_team_members_by_team(self, team_id: str) -> List[TeamMember]:

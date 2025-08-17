@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, Set
 
+from kickai.core.enums import MemberStatus
+
 
 @dataclass
 class TeamMember:
@@ -25,7 +27,7 @@ class TeamMember:
     # Administrative role information
     role: str = "Team Member"  # e.g., "Club Administrator", "Team Manager", "Coach"
     is_admin: bool = False
-    status: str = "active"  # active, inactive, suspended
+    status: MemberStatus = MemberStatus.ACTIVE  # Use enum for type safety
 
     # Contact information
     phone_number: Optional[str] = None
@@ -42,6 +44,8 @@ class TeamMember:
 
     def __post_init__(self):
         """Validate and set defaults after initialization."""
+        # Parse status first to ensure it's an enum before validation
+        self.status = self._parse_status(self.status)
         self._validate()
         self._set_defaults()
 
@@ -57,10 +61,9 @@ class TeamMember:
         if not self.role:
             raise ValueError("Role cannot be empty")
 
-        # Validate status
-        valid_statuses = ["active", "inactive", "suspended"]
-        if self.status not in valid_statuses:
-            raise ValueError(f"Invalid status: {self.status}. Must be one of {valid_statuses}")
+        # Validate status - now uses enum for type safety
+        if not isinstance(self.status, MemberStatus):
+            raise ValueError(f"Invalid status type: {type(self.status)}. Must be MemberStatus enum")
 
         # Validate member_id format if provided
         if self.member_id and not self.member_id.startswith("M"):
@@ -129,7 +132,7 @@ class TeamMember:
             "username": self.username,
             "role": self.role,
             "is_admin": self.is_admin,
-            "status": self.status,
+            "status": self.status.value if isinstance(self.status, MemberStatus) else self.status,
             "phone_number": self.phone_number,
             "email": self.email,
             "emergency_contact": self.emergency_contact,
@@ -156,7 +159,7 @@ class TeamMember:
             username=data.get("username"),
             role=data.get("role", "Team Member"),
             is_admin=data.get("is_admin", False),
-            status=data.get("status", "active"),
+            status=cls._parse_status(data.get("status", MemberStatus.ACTIVE.value)),
             phone_number=data.get("phone_number"),
             email=data.get("email"),
             emergency_contact=data.get("emergency_contact"),
@@ -184,6 +187,28 @@ class TeamMember:
                 return None
         
         return None
+
+    @staticmethod
+    def _parse_status(status_value) -> MemberStatus:
+        """Parse status value handling both string and enum objects."""
+        if status_value is None:
+            return MemberStatus.ACTIVE
+            
+        # If it's already a MemberStatus enum, return it
+        if isinstance(status_value, MemberStatus):
+            return status_value
+            
+        # If it's a string, convert to enum
+        if isinstance(status_value, str):
+            try:
+                # Try to create enum from string value
+                return MemberStatus(status_value)
+            except ValueError:
+                # If invalid status string, default to active
+                return MemberStatus.ACTIVE
+        
+        # For any other type, default to active
+        return MemberStatus.ACTIVE
 
     def is_administrative_role(self) -> bool:
         """Check if this is an administrative role."""
@@ -226,22 +251,27 @@ class TeamMember:
 
         self.updated_at = datetime.utcnow()
 
+    def set_pending(self):
+        """Set the team member to pending status."""
+        self.status = MemberStatus.PENDING
+        self.updated_at = datetime.utcnow()
+
     def activate(self):
         """Activate the team member."""
-        self.status = "active"
+        self.status = MemberStatus.ACTIVE
         self.updated_at = datetime.utcnow()
 
     def deactivate(self):
         """Deactivate the team member."""
-        self.status = "inactive"
+        self.status = MemberStatus.INACTIVE
         self.updated_at = datetime.utcnow()
 
     def suspend(self):
         """Suspend the team member."""
-        self.status = "suspended"
+        self.status = MemberStatus.SUSPENDED
         self.updated_at = datetime.utcnow()
 
     @property
     def is_active(self) -> bool:
         """Check if the team member is active."""
-        return self.status == "active"
+        return self.status == MemberStatus.ACTIVE

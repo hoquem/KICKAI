@@ -1,0 +1,984 @@
+SERVICE REFACTORING PLAN
+========================
+
+OVERVIEW
+--------
+This plan outlines the step-by-step approach to completely refactor all service implementations to achieve a clean, maintainable codebase. The goal is to eliminate all architectural violations and create a pure clean architecture implementation with proper separation of concerns, domain models, and repository patterns.
+
+CLEAN CODE PHILOSOPHY
+---------------------
+
+What We're Removing (Aggressive Cleanup)
+- All direct Firebase client imports in domain services
+- All direct DataStoreInterface usage in domain services
+- All direct database calls bypassing repository patterns
+- All tight coupling between domain and infrastructure layers
+- All backward compatibility shims and workarounds
+- All technical debt related to mixed architectural patterns
+- All old implementations - we're not keeping backups
+- All mixed architectural approaches - pure clean architecture only
+
+What We're Building (Pure Clean Architecture)
+- Pure domain services that only use repository interfaces
+- Clean repository implementations that handle all data access
+- Proper domain models for all data transfer
+- Clear separation between domain, application, and infrastructure layers
+- Consistent architectural patterns across all services
+- Testable, maintainable, and scalable code structure
+- Zero direct infrastructure dependencies in domain layer
+- 100% clean architecture compliance
+
+Benefits of Clean Architecture
+- Maintainability: Clear separation of concerns makes code easier to understand and modify
+- Testability: Mock repositories make unit testing simple and reliable
+- Scalability: Repository pattern allows easy switching between data sources
+- Flexibility: Domain logic is independent of infrastructure concerns
+- Quality: Reduced coupling leads to fewer bugs and easier debugging
+- Consistency: Single architectural pattern across entire codebase
+- Future-Proof: Easy to extend and modify without breaking existing code
+
+IMPLEMENTATION APPROACH
+----------------------
+
+Clean Slate Strategy
+We're taking a clean slate approach - no backward compatibility, no gradual migration, no keeping old implementations. This means:
+
+1. Complete Removal: Delete all direct database access code from domain services
+2. Pure Implementation: Create new repository interfaces and implementations from scratch
+3. No Hybrid Code: No mixing of old and new patterns
+4. Full Refactoring: Update all dependent code to use new patterns
+5. Comprehensive Testing: Write new tests for all refactored components
+
+Code Quality Standards
+- Zero Direct Dependencies: Domain services must have zero direct infrastructure imports
+- Pure Domain Logic: All business logic must be in domain services using domain models
+- Repository Abstraction: All data access must go through repository interfaces
+- Clean Interfaces: All interfaces must be well-defined with clear contracts
+- Comprehensive Testing: All new code must have 100% test coverage
+
+PHASE 1: HIGH PRIORITY FIXES (Week 1)
+=====================================
+
+1.1 Fix PlayerService Single Violation
+-------------------------------------
+Issue: Direct database call in get_player_by_telegram_id method
+
+Steps:
+1. Add method to PlayerRepositoryInterface
+   File: kickai/features/player_registration/domain/repositories/player_repository_interface.py
+   @abstractmethod
+   async def get_player_by_telegram_id(self, telegram_id: str | int, team_id: str) -> Player | None:
+       """Get a player by Telegram ID."""
+       pass
+
+2. Implement in FirebasePlayerRepository
+   File: kickai/features/player_registration/infrastructure/firebase_player_repository.py
+   async def get_player_by_telegram_id(self, telegram_id: str | int, team_id: str) -> Player | None:
+       """Get a player by Telegram ID."""
+       try:
+           collection_name = get_team_players_collection(team_id)
+           
+           # Normalize telegram_id for query
+           from kickai.utils.telegram_id_converter import normalize_telegram_id_for_query
+           normalized_telegram_id = normalize_telegram_id_for_query(telegram_id)
+           
+           if normalized_telegram_id is None:
+               return None
+           
+           docs = await self.database.query_documents(
+               collection=collection_name,
+               filters=[
+                   {"field": "telegram_id", "operator": "==", "value": normalized_telegram_id},
+                   {"field": "team_id", "operator": "==", "value": team_id},
+               ],
+           )
+           
+           if docs:
+               return self._doc_to_player(docs[0])
+           return None
+           
+       except Exception as e:
+           logger.error(f"Failed to get player by telegram_id {telegram_id}: {e}")
+           return None
+
+3. Clean up PlayerService - Remove direct database access
+   File: kickai/features/player_registration/domain/services/player_service.py
+   REMOVE these lines:
+   from kickai.core.dependency_container import get_container
+   container = get_container()
+   database = container.get_database()
+   player_data = await database.get_player_by_telegram_id(telegram_id, team_id)
+   
+   REPLACE with clean repository usage:
+   async def get_player_by_telegram_id(self, telegram_id: str | int, team_id: str) -> Player | None:
+       """Get a player by Telegram ID."""
+       return await self.player_repository.get_player_by_telegram_id(telegram_id, team_id)
+
+Estimated Time: 2-3 hours
+Dependencies: None
+Risk: Low
+Clean Code Impact: Removes direct database dependency from domain service
+
+1.2 Create InviteLinkRepository Pattern
+--------------------------------------
+Issue: InviteLinkService directly uses DataStoreInterface
+
+Steps:
+1. Create InviteLinkRepositoryInterface
+   File: kickai/features/communication/domain/repositories/invite_link_repository_interface.py
+   from abc import ABC, abstractmethod
+   from typing import Dict, List, Optional, Any
+   from datetime import datetime
+   
+   class InviteLinkRepositoryInterface(ABC):
+       @abstractmethod
+       async def create_invite_link(self, invite_data: Dict[str, Any], invite_id: str) -> str:
+           """Create a new invite link."""
+           pass
+       
+       @abstractmethod
+       async def get_invite_link(self, invite_id: str) -> Optional[Dict[str, Any]]:
+           """Get an invite link by ID."""
+           pass
+       
+       @abstractmethod
+       async def update_invite_link(self, invite_id: str, updates: Dict[str, Any]) -> bool:
+           """Update an invite link."""
+           pass
+       
+       @abstractmethod
+       async def get_active_invite_links(self, team_id: str) -> List[Dict[str, Any]]:
+           """Get all active invite links for a team."""
+           pass
+       
+       @abstractmethod
+       async def get_expired_invite_links(self) -> List[Dict[str, Any]]:
+           """Get all expired invite links."""
+           pass
+
+2. Create FirebaseInviteLinkRepository
+   File: kickai/features/communication/infrastructure/firebase_invite_link_repository.py
+   from typing import Dict, List, Optional, Any
+   import logging
+   
+   from kickai.database.interfaces import DataStoreInterface
+   from kickai.features.communication.domain.repositories.invite_link_repository_interface import (
+       InviteLinkRepositoryInterface,
+   )
+   
+   logger = logging.getLogger(__name__)
+   
+   class FirebaseInviteLinkRepository(InviteLinkRepositoryInterface):
+       def __init__(self, database: DataStoreInterface):
+           self.database = database
+           self.collection_name = "kickai_invite_links"
+       
+       async def create_invite_link(self, invite_data: Dict[str, Any], invite_id: str) -> str:
+           """Create a new invite link."""
+           try:
+               await self.database.create_document(
+                   self.collection_name, invite_data, invite_id
+               )
+               logger.info(f"Created invite link: {invite_id}")
+               return invite_id
+           except Exception as e:
+               logger.error(f"Failed to create invite link {invite_id}: {e}")
+               raise
+       
+       async def get_invite_link(self, invite_id: str) -> Optional[Dict[str, Any]]:
+           """Get an invite link by ID."""
+           try:
+               return await self.database.get_document(self.collection_name, invite_id)
+           except Exception as e:
+               logger.error(f"Failed to get invite link {invite_id}: {e}")
+               return None
+       
+       async def update_invite_link(self, invite_id: str, updates: Dict[str, Any]) -> bool:
+           """Update an invite link."""
+           try:
+               await self.database.update_document(
+                   self.collection_name, invite_id, updates
+               )
+               logger.info(f"Updated invite link: {invite_id}")
+               return True
+           except Exception as e:
+               logger.error(f"Failed to update invite link {invite_id}: {e}")
+               return False
+       
+       async def get_active_invite_links(self, team_id: str) -> List[Dict[str, Any]]:
+           """Get all active invite links for a team."""
+           try:
+               filters = [
+                   {"field": "team_id", "operator": "==", "value": team_id},
+                   {"field": "status", "operator": "==", "value": "active"},
+               ]
+               return await self.database.query_documents(self.collection_name, filters)
+           except Exception as e:
+               logger.error(f"Failed to get active invite links for team {team_id}: {e}")
+               return []
+       
+       async def get_expired_invite_links(self) -> List[Dict[str, Any]]:
+           """Get all expired invite links."""
+           try:
+               from datetime import datetime
+               filters = [
+                   {"field": "expires_at", "operator": "<", "value": datetime.now().isoformat()},
+                   {"field": "status", "operator": "==", "value": "active"},
+               ]
+               return await self.database.query_documents(self.collection_name, filters)
+           except Exception as e:
+               logger.error(f"Failed to get expired invite links: {e}")
+               return []
+
+3. Completely Refactor InviteLinkService - Remove All Direct Database Access
+   File: kickai/features/communication/domain/services/invite_link_service.py
+   REMOVE these imports:
+   from kickai.database.interfaces import DataStoreInterface
+   
+   ADD clean repository import:
+   from kickai.features.communication.domain.repositories.invite_link_repository_interface import (
+       InviteLinkRepositoryInterface,
+   )
+   
+   class InviteLinkService:
+       def __init__(self, bot_token: str = None, invite_repository: InviteLinkRepositoryInterface = None):
+           self.invite_repository = invite_repository
+           self.bot_token = bot_token
+           REMOVE: self.database = database
+           REMOVE: self.collection_name = "kickai_invite_links"
+       
+       async def create_player_invite_link(self, ...):
+           # existing logic
+           
+           REMOVE: await self.database.create_document(self.collection_name, invite_data, invite_id)
+           REPLACE with clean repository usage:
+           await self.invite_repository.create_invite_link(invite_data, invite_id)
+           
+           # rest of method
+       
+       async def validate_and_use_invite_link(self, ...):
+           # existing logic
+           
+           REMOVE: invite_data = await self.database.get_document(self.collection_name, invite_id)
+           REPLACE with clean repository usage:
+           invite_data = await self.invite_repository.get_invite_link(invite_id)
+           
+           # rest of method
+       
+       async def revoke_invite_link(self, invite_id: str) -> bool:
+           REMOVE: await self.database.update_document(...)
+           REPLACE with clean repository usage:
+           return await self.invite_repository.update_invite_link(invite_id, {"status": "revoked"})
+       
+       async def get_active_invite_links(self, team_id: str) -> list:
+           REMOVE: return await self.database.query_documents(self.collection_name, filters)
+           REPLACE with clean repository usage:
+           return await self.invite_repository.get_active_invite_links(team_id)
+       
+       async def cleanup_expired_links(self) -> int:
+           REMOVE: expired_links = await self.database.query_documents(...)
+           REPLACE with clean repository usage:
+           expired_links = await self.invite_repository.get_expired_invite_links()
+           # rest of method
+
+Estimated Time: 6-8 hours
+Dependencies: None
+Risk: Medium
+Clean Code Impact: Completely removes DataStoreInterface dependency, creates pure domain service
+
+1.3 Create ChatRoleRepository Pattern
+------------------------------------
+Issue: ChatRoleAssignmentService directly uses FirebaseClient
+
+Steps:
+1. Create ChatRoleRepositoryInterface
+   File: kickai/features/team_administration/domain/repositories/chat_role_repository_interface.py
+   from abc import ABC, abstractmethod
+   from typing import Dict, List, Optional, Any
+   from datetime import datetime
+   
+   class ChatRoleRepositoryInterface(ABC):
+       @abstractmethod
+       async def get_team_members(self, team_id: str) -> List[Dict[str, Any]]:
+           """Get all team members."""
+           pass
+       
+       @abstractmethod
+       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> Optional[Dict[str, Any]]:
+           """Get team member by Telegram ID."""
+           pass
+       
+       @abstractmethod
+       async def create_team_member(self, team_member_data: Dict[str, Any]) -> str:
+           """Create a new team member."""
+           pass
+       
+       @abstractmethod
+       async def update_team_member(self, team_member_data: Dict[str, Any]) -> bool:
+           """Update a team member."""
+           pass
+
+2. Create FirebaseChatRoleRepository
+   File: kickai/features/team_administration/infrastructure/firebase_chat_role_repository.py
+   from typing import Dict, List, Optional, Any
+   import logging
+   
+   from kickai.database.interfaces import DataStoreInterface
+   from kickai.core.firestore_constants import get_team_members_collection
+   from kickai.features.team_administration.domain.repositories.chat_role_repository_interface import (
+       ChatRoleRepositoryInterface,
+   )
+   
+   logger = logging.getLogger(__name__)
+   
+   class FirebaseChatRoleRepository(ChatRoleRepositoryInterface):
+       def __init__(self, database: DataStoreInterface):
+           self.database = database
+       
+       async def get_team_members(self, team_id: str) -> List[Dict[str, Any]]:
+           """Get all team members."""
+           try:
+               collection_name = get_team_members_collection(team_id)
+               return await self.database.query_documents(
+                   collection_name,
+                   filters=[{"field": "team_id", "operator": "==", "value": team_id}],
+               )
+           except Exception as e:
+               logger.error(f"Failed to get team members for team {team_id}: {e}")
+               return []
+       
+       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> Optional[Dict[str, Any]]:
+           """Get team member by Telegram ID."""
+           try:
+               collection_name = get_team_members_collection(team_id)
+               from kickai.utils.telegram_id_converter import normalize_telegram_id_for_query
+               normalized_telegram_id = normalize_telegram_id_for_query(telegram_id)
+               
+               if normalized_telegram_id is None:
+                   return None
+               
+               docs = await self.database.query_documents(
+                   collection_name,
+                   filters=[
+                       {"field": "team_id", "operator": "==", "value": team_id},
+                       {"field": "telegram_id", "operator": "==", "value": normalized_telegram_id},
+                   ],
+               )
+               
+               return docs[0] if docs else None
+           except Exception as e:
+               logger.error(f"Failed to get team member by telegram_id {telegram_id}: {e}")
+               return None
+       
+       async def create_team_member(self, team_member_data: Dict[str, Any]) -> str:
+           """Create a new team member."""
+           try:
+               team_id = team_member_data["team_id"]
+               member_id = team_member_data.get("member_id")
+               collection_name = get_team_members_collection(team_id)
+               
+               doc_id = await self.database.create_document(
+                   collection_name, team_member_data, member_id
+               )
+               logger.info(f"Created team member: {doc_id}")
+               return doc_id
+           except Exception as e:
+               logger.error(f"Failed to create team member: {e}")
+               raise
+       
+       async def update_team_member(self, team_member_data: Dict[str, Any]) -> bool:
+           """Update a team member."""
+           try:
+               team_id = team_member_data["team_id"]
+               member_id = team_member_data["member_id"]
+               collection_name = get_team_members_collection(team_id)
+               
+               await self.database.update_document(
+                   collection_name, member_id, team_member_data
+               )
+               logger.info(f"Updated team member: {member_id}")
+               return True
+           except Exception as e:
+               logger.error(f"Failed to update team member: {e}")
+               return False
+
+3. Refactor ChatRoleAssignmentService
+   File: kickai/features/team_administration/domain/services/chat_role_assignment_service.py
+   from kickai.features.team_administration.domain.repositories.chat_role_repository_interface import (
+       ChatRoleRepositoryInterface,
+   )
+   
+   class ChatRoleAssignmentService:
+       def __init__(self, chat_role_repository: ChatRoleRepositoryInterface):
+           self.chat_role_repository = chat_role_repository
+           # rest of initialization
+       
+       async def add_user_to_chat(self, team_id: str, user_id: str, chat_type: str, username: Optional[str] = None):
+           # existing logic
+           
+           Use repository instead of direct Firebase calls:
+           existing_members = await self.chat_role_repository.get_team_members(team_id)
+           
+           # rest of method
+
+Estimated Time: 8-10 hours
+Dependencies: None
+Risk: Medium
+
+PHASE 2: MEDIUM PRIORITY FIXES (Week 2)
+=======================================
+
+2.1 Create PermissionRepository Pattern
+--------------------------------------
+Issue: PermissionService directly uses FirebaseClient
+
+Steps:
+1. Create PermissionRepositoryInterface
+   File: kickai/features/system_infrastructure/domain/repositories/permission_repository_interface.py
+   from abc import ABC, abstractmethod
+   from typing import Dict, List, Optional, Any
+   
+   class PermissionRepositoryInterface(ABC):
+       @abstractmethod
+       async def get_user_permissions(self, user_id: str, team_id: str) -> Dict[str, Any]:
+           """Get user permissions information."""
+           pass
+       
+       @abstractmethod
+       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> Optional[Dict[str, Any]]:
+           """Get team member by Telegram ID."""
+           pass
+       
+       @abstractmethod
+       async def is_first_user(self, team_id: str) -> bool:
+           """Check if this would be the first user in the team."""
+           pass
+
+2. Create FirebasePermissionRepository
+   File: kickai/features/system_infrastructure/infrastructure/firebase_permission_repository.py
+   from typing import Dict, List, Optional, Any
+   import logging
+   
+   from kickai.database.interfaces import DataStoreInterface
+   from kickai.core.firestore_constants import get_team_members_collection
+   from kickai.features.system_infrastructure.domain.repositories.permission_repository_interface import (
+       PermissionRepositoryInterface,
+   )
+   
+   logger = logging.getLogger(__name__)
+   
+   class FirebasePermissionRepository(PermissionRepositoryInterface):
+       def __init__(self, database: DataStoreInterface):
+           self.database = database
+       
+       async def get_user_permissions(self, user_id: str, team_id: str) -> Dict[str, Any]:
+           """Get user permissions information."""
+           try:
+               team_member = await self.get_team_member_by_telegram_id(team_id, user_id)
+               if team_member:
+                   return {
+                       "user_id": user_id,
+                       "team_id": team_id,
+                       "roles": team_member.get("roles", []),
+                       "chat_access": team_member.get("chat_access", {}),
+                       "is_admin": "admin" in team_member.get("roles", []),
+                       "is_player": "player" in team_member.get("roles", []),
+                       "is_team_member": "team_member" in team_member.get("roles", []),
+                       "is_first_user": await self.is_first_user(team_id),
+                   }
+               else:
+                   return {
+                       "user_id": user_id,
+                       "team_id": team_id,
+                       "roles": [],
+                       "chat_access": {},
+                       "is_admin": False,
+                       "is_player": False,
+                       "is_team_member": False,
+                       "is_first_user": False,
+                   }
+           except Exception as e:
+               logger.error(f"Failed to get user permissions for {user_id}: {e}")
+               return self._get_default_permissions(user_id, team_id)
+       
+       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> Optional[Dict[str, Any]]:
+           """Get team member by Telegram ID."""
+           try:
+               collection_name = get_team_members_collection(team_id)
+               from kickai.utils.telegram_id_converter import normalize_telegram_id_for_query
+               normalized_telegram_id = normalize_telegram_id_for_query(telegram_id)
+               
+               if normalized_telegram_id is None:
+                   return None
+               
+               docs = await self.database.query_documents(
+                   collection_name,
+                   filters=[
+                       {"field": "team_id", "operator": "==", "value": team_id},
+                       {"field": "telegram_id", "operator": "==", "value": normalized_telegram_id},
+                   ],
+               )
+               
+               return docs[0] if docs else None
+           except Exception as e:
+               logger.error(f"Failed to get team member by telegram_id {telegram_id}: {e}")
+               return None
+       
+       async def is_first_user(self, team_id: str) -> bool:
+           """Check if this would be the first user in the team."""
+           try:
+               collection_name = get_team_members_collection(team_id)
+               docs = await self.database.query_documents(
+                   collection_name,
+                   filters=[{"field": "team_id", "operator": "==", "value": team_id}],
+               )
+               return len(docs) == 0
+           except Exception as e:
+               logger.error(f"Failed to check if first user for team {team_id}: {e}")
+               return False
+       
+       def _get_default_permissions(self, user_id: str, team_id: str) -> Dict[str, Any]:
+           """Get default permissions for error cases."""
+           return {
+               "user_id": user_id,
+               "team_id": team_id,
+               "roles": [],
+               "chat_access": {},
+               "is_admin": False,
+               "is_player": False,
+               "is_team_member": False,
+               "is_first_user": False,
+           }
+
+3. Refactor PermissionService
+   File: kickai/features/system_infrastructure/domain/services/permission_service.py
+   from kickai.features.system_infrastructure.domain.repositories.permission_repository_interface import (
+       PermissionRepositoryInterface,
+   )
+   
+   class PermissionService:
+       def __init__(self, permission_repository: PermissionRepositoryInterface = None):
+           self.permission_repository = permission_repository
+           # rest of initialization
+       
+       async def get_user_permissions(self, user_id: str, team_id: str) -> UserPermissions:
+           """Get comprehensive user permissions information."""
+           try:
+               perms_data = await self.permission_repository.get_user_permissions(user_id, team_id)
+               return UserPermissions(**perms_data)
+           except Exception as e:
+               logger.error(f"Error getting user permissions for {user_id}: {e}")
+               return self._get_default_user_permissions(user_id, team_id)
+
+Estimated Time: 6-8 hours
+Dependencies: None
+Risk: Medium
+
+2.2 Create ActivationRepository Pattern
+--------------------------------------
+Issue: PlayerAutoActivationService directly uses DataStoreInterface
+
+Steps:
+1. Create ActivationRepositoryInterface
+   File: kickai/features/player_registration/domain/repositories/activation_repository_interface.py
+   from abc import ABC, abstractmethod
+   from typing import Dict, Any
+   from datetime import datetime
+   
+   class ActivationRepositoryInterface(ABC):
+       @abstractmethod
+       async def log_activation_event(self, event_data: Dict[str, Any], event_id: str) -> bool:
+           """Log activation event for audit trail."""
+           pass
+
+2. Create FirebaseActivationRepository
+   File: kickai/features/player_registration/infrastructure/firebase_activation_repository.py
+   from typing import Dict, Any
+   import logging
+   
+   from kickai.database.interfaces import DataStoreInterface
+   from kickai.features.player_registration.domain.repositories.activation_repository_interface import (
+       ActivationRepositoryInterface,
+   )
+   
+   logger = logging.getLogger(__name__)
+   
+   class FirebaseActivationRepository(ActivationRepositoryInterface):
+       def __init__(self, database: DataStoreInterface):
+           self.database = database
+           self.collection_name = "kickai_activation_logs"
+       
+       async def log_activation_event(self, event_data: Dict[str, Any], event_id: str) -> bool:
+           """Log activation event for audit trail."""
+           try:
+               await self.database.create_document(
+                   self.collection_name, event_data, event_id
+               )
+               logger.info(f"Logged activation event: {event_id}")
+               return True
+           except Exception as e:
+               logger.error(f"Failed to log activation event {event_id}: {e}")
+               return False
+
+3. Refactor PlayerAutoActivationService
+   File: kickai/features/player_registration/domain/services/player_auto_activation_service.py
+   from kickai.features.player_registration.domain.repositories.activation_repository_interface import (
+       ActivationRepositoryInterface,
+   )
+   
+   class PlayerAutoActivationService:
+       def __init__(self, activation_repository: ActivationRepositoryInterface, team_id: str):
+           self.activation_repository = activation_repository
+           self.team_id = team_id
+           # rest of initialization
+       
+       async def _log_activation_event(self, activation_result: ActivationResult, invite_data: Dict[str, Any]) -> None:
+           """Log successful activation event for audit trail."""
+           try:
+               event_data = {
+                   "event_type": "player_auto_activation",
+                   "player_id": activation_result.player_id,
+                   "player_name": activation_result.player_name,
+                   "team_id": self.team_id,
+                   "invite_id": invite_data.get("invite_id"),
+                   "was_activated": activation_result.was_activated,
+                   "timestamp": datetime.utcnow().isoformat(),
+                   "success": activation_result.success
+               }
+               
+               event_id = f"activation_{activation_result.player_id}_{int(datetime.utcnow().timestamp())}"
+               await self.activation_repository.log_activation_event(event_data, event_id)
+               
+               logger.info(f"Logged activation event for player: {activation_result.player_name}")
+               
+           except Exception as e:
+               logger.warning(f"Failed to log activation event: {e}")
+
+Estimated Time: 4-6 hours
+Dependencies: None
+Risk: Low
+
+2.3 Refactor PlayerLinkingService
+--------------------------------
+Issue: Direct database calls bypassing repository pattern
+
+Steps:
+1. Add methods to PlayerRepositoryInterface
+   File: kickai/features/player_registration/domain/repositories/player_repository_interface.py
+   @abstractmethod
+   async def update_player_telegram_info(self, player_id: str, team_id: str, telegram_id: str, username: str = None) -> bool:
+       """Update player with Telegram information."""
+       pass
+
+2. Implement in FirebasePlayerRepository
+   File: kickai/features/player_registration/infrastructure/firebase_player_repository.py
+   async def update_player_telegram_info(self, player_id: str, team_id: str, telegram_id: str, username: str = None) -> bool:
+       """Update player with Telegram information."""
+       try:
+           collection_name = get_team_players_collection(team_id)
+           
+           update_data = {
+               "telegram_id": telegram_id,
+               "updated_at": datetime.now().isoformat()
+           }
+           
+           if username:
+               update_data["username"] = username
+           
+           await self.database.update_document(
+               collection=collection_name,
+               document_id=player_id,
+               data=update_data
+           )
+           
+           logger.info(f"Updated player {player_id} with telegram info")
+           return True
+           
+       except Exception as e:
+           logger.error(f"Failed to update player {player_id} with telegram info: {e}")
+           return False
+
+3. Refactor PlayerLinkingService
+   File: kickai/features/player_registration/domain/services/player_linking_service.py
+   class PlayerLinkingService:
+       def __init__(self, team_id: str):
+           self.team_id = team_id
+           self.container = get_container()
+       
+       async def _update_player_telegram_info(self, player_id: str, telegram_id: str, username: str = None) -> Optional[Player]:
+           """Update player record with Telegram information."""
+           try:
+               # Get player service from container
+               from kickai.features.player_registration.domain.services.player_service import PlayerService
+               player_service = self.container.get_service(PlayerService)
+               
+               if not player_service:
+                   logger.error("Player service not available")
+                   return None
+               
+               # Update player using service
+               updated_player = await player_service.update_player(
+                   player_id=player_id,
+                   team_id=self.team_id,
+                   telegram_id=telegram_id,
+                   username=username,
+                   updated_at=datetime.now()
+               )
+               
+               return updated_player
+               
+           except Exception as e:
+               logger.error(f"Error updating player telegram info: {e}")
+               return None
+
+Estimated Time: 4-6 hours
+Dependencies: None
+Risk: Low
+
+2.4 Refactor PlayerLookupService
+-------------------------------
+Issue: Direct DataStoreInterface usage
+
+Steps:
+1. Add methods to PlayerRepositoryInterface
+   File: kickai/features/player_registration/domain/repositories/player_repository_interface.py
+   @abstractmethod
+   async def get_player_team_id(self, player_id: str) -> Optional[str]:
+       """Get team ID for a player."""
+       pass
+   
+   @abstractmethod
+   async def player_exists(self, player_id: str) -> bool:
+       """Check if a player exists."""
+       pass
+
+2. Implement in FirebasePlayerRepository
+   File: kickai/features/player_registration/infrastructure/firebase_player_repository.py
+   async def get_player_team_id(self, player_id: str) -> Optional[str]:
+       """Get team ID for a player."""
+       try:
+           # Search across all team collections
+           # This is a simplified approach - in production, you might want a global players collection
+           teams = await self.database.query_documents("kickai_teams")
+           
+           for team in teams:
+               team_id = team.get("id")
+               if not team_id:
+                   continue
+               
+               collection_name = get_team_players_collection(team_id)
+               player_data = await self.database.get_document(collection_name, player_id)
+               
+               if player_data:
+                   return team_id
+           
+           return None
+           
+       except Exception as e:
+           logger.error(f"Failed to get team ID for player {player_id}: {e}")
+           return None
+   
+   async def player_exists(self, player_id: str) -> bool:
+       """Check if a player exists."""
+       try:
+           team_id = await self.get_player_team_id(player_id)
+           if team_id:
+               collection_name = get_team_players_collection(team_id)
+               player_data = await self.database.get_document(collection_name, player_id)
+               return player_data is not None
+           return False
+           
+       except Exception as e:
+           logger.error(f"Failed to check if player {player_id} exists: {e}")
+           return False
+
+3. Refactor PlayerLookupService
+   File: kickai/features/player_registration/domain/services/player_lookup_service.py
+   from kickai.features.player_registration.domain.repositories.player_repository_interface import (
+       PlayerRepositoryInterface,
+   )
+   
+   class PlayerLookupService:
+       def __init__(self, player_repository: PlayerRepositoryInterface):
+           self.player_repository = player_repository
+       
+       async def get_player_team_id(self, player_id: str) -> Optional[str]:
+           """Get team ID for a player."""
+           return await self.player_repository.get_player_team_id(player_id)
+       
+       async def player_exists(self, player_id: str) -> bool:
+           """Check if a player exists."""
+           return await self.player_repository.player_exists(player_id)
+
+Estimated Time: 4-6 hours
+Dependencies: None
+Risk: Low
+
+PHASE 3: INTEGRATION AND TESTING (Week 3)
+=========================================
+
+3.1 Update Dependency Injection
+------------------------------
+Steps:
+1. Update Service Factory
+   File: kickai/core/factories/service_factory.py
+   class ServiceFactory:
+       @staticmethod
+       def create_invite_link_service(database: DataStoreInterface) -> InviteLinkService:
+           invite_repository = FirebaseInviteLinkRepository(database)
+           return InviteLinkService(invite_repository=invite_repository)
+       
+       @staticmethod
+       def create_chat_role_assignment_service(database: DataStoreInterface) -> ChatRoleAssignmentService:
+           chat_role_repository = FirebaseChatRoleRepository(database)
+           return ChatRoleAssignmentService(chat_role_repository=chat_role_repository)
+       
+       @staticmethod
+       def create_permission_service(database: DataStoreInterface) -> PermissionService:
+           permission_repository = FirebasePermissionRepository(database)
+           return PermissionService(permission_repository=permission_repository)
+       
+       @staticmethod
+       def create_player_auto_activation_service(database: DataStoreInterface, team_id: str) -> PlayerAutoActivationService:
+           activation_repository = FirebaseActivationRepository(database)
+           return PlayerAutoActivationService(activation_repository=activation_repository, team_id=team_id)
+       
+       @staticmethod
+       def create_player_lookup_service(database: DataStoreInterface) -> PlayerLookupService:
+           player_repository = FirebasePlayerRepository(database)
+           return PlayerLookupService(player_repository=player_repository)
+
+2. Update Dependency Container
+   File: kickai/core/di/modern_container.py
+   class ModernContainer:
+       def register_services(self):
+           # existing registrations
+           
+           # Register new repository implementations
+           self.register_singleton(InviteLinkRepositoryInterface, FirebaseInviteLinkRepository)
+           self.register_singleton(ChatRoleRepositoryInterface, FirebaseChatRoleRepository)
+           self.register_singleton(PermissionRepositoryInterface, FirebasePermissionRepository)
+           self.register_singleton(ActivationRepositoryInterface, FirebaseActivationRepository)
+           
+           # Register updated services
+           self.register_singleton(InviteLinkService, lambda: ServiceFactory.create_invite_link_service(self.get_database()))
+           self.register_singleton(ChatRoleAssignmentService, lambda: ServiceFactory.create_chat_role_assignment_service(self.get_database()))
+           self.register_singleton(PermissionService, lambda: ServiceFactory.create_permission_service(self.get_database()))
+
+Estimated Time: 4-6 hours
+Dependencies: All Phase 1 and 2 refactoring complete
+Risk: Medium
+
+3.2 Update Tests
+---------------
+Steps:
+1. Create Mock Repositories for Testing
+   File: tests/unit/features/communication/test_invite_link_service.py
+   class MockInviteLinkRepository(InviteLinkRepositoryInterface):
+       def __init__(self):
+           self.invite_links = {}
+       
+       async def create_invite_link(self, invite_data: Dict[str, Any], invite_id: str) -> str:
+           self.invite_links[invite_id] = invite_data
+           return invite_id
+       
+       async def get_invite_link(self, invite_id: str) -> Optional[Dict[str, Any]]:
+           return self.invite_links.get(invite_id)
+       
+       # implement other methods
+
+2. Update Existing Tests
+   - Update all tests to use mock repositories instead of direct database calls
+   - Ensure all service tests use dependency injection
+   - Add integration tests for repository implementations
+
+Estimated Time: 8-10 hours
+Dependencies: All refactoring complete
+Risk: Low
+
+3.3 Documentation Updates
+------------------------
+Steps:
+1. Update Architecture Documentation
+   - Document new repository patterns
+   - Update service dependency diagrams
+   - Add examples of proper service implementation
+
+2. Update API Documentation
+   - Document new repository interfaces
+   - Update service method signatures
+   - Add migration guides for existing code
+
+Estimated Time: 4-6 hours
+Dependencies: All refactoring complete
+Risk: Low
+
+IMPLEMENTATION TIMELINE
+======================
+
+Week 1: High Priority Fixes
+- Day 1-2: Fix PlayerService violation
+- Day 3-5: Create InviteLinkRepository pattern
+- Day 6-7: Create ChatRoleRepository pattern
+
+Week 2: Medium Priority Fixes
+- Day 1-3: Create PermissionRepository pattern
+- Day 4-5: Create ActivationRepository pattern
+- Day 6-7: Refactor PlayerLinkingService and PlayerLookupService
+
+Week 3: Integration and Testing
+- Day 1-3: Update dependency injection and container
+- Day 4-6: Update tests and create mock repositories
+- Day 7: Documentation updates
+
+RISK MITIGATION
+==============
+
+Technical Risks
+1. Breaking Changes: We're embracing breaking changes to achieve clean architecture
+2. Performance Impact: Repository pattern may add minimal overhead but improves maintainability
+3. Testing Complexity: Mock repositories simplify testing and improve test reliability
+
+Mitigation Strategies
+1. Clean Slate Approach: Remove old implementations completely, no backward compatibility
+2. Comprehensive Testing: Update all tests to ensure functionality is preserved
+3. Code Review: All changes should be reviewed by team members
+4. Documentation: Update all documentation to reflect new clean architecture
+
+SUCCESS CRITERIA
+===============
+
+Functional Requirements
+- All services use repository pattern instead of direct database access
+- All services use domain models for data transfer
+- No direct Firebase client imports in domain services
+- All tests pass with new implementations
+
+Non-Functional Requirements
+- Maintain or improve performance
+- Achieve 100% clean architecture compliance
+- Improve code maintainability and readability
+- Reduce coupling between domain and infrastructure layers
+- Remove all technical debt related to direct database access
+
+POST-IMPLEMENTATION VALIDATION
+=============================
+
+Code Quality Checks
+1. Static Analysis: Run linting and type checking
+2. Architecture Validation: Verify no direct database imports in domain services
+3. Test Coverage: Ensure all new code has adequate test coverage
+
+Performance Validation
+1. Benchmark Tests: Compare performance before and after changes
+2. Load Testing: Verify system performance under load
+3. Memory Usage: Monitor memory usage patterns
+
+Integration Validation
+1. End-to-End Tests: Run comprehensive E2E test suite
+2. Manual Testing: Test all user workflows
+3. Deployment Testing: Verify deployment process works correctly
+
+CONCLUSION
+==========
+This refactoring plan provides a complete transformation of the codebase to achieve pure clean architecture. By removing backward compatibility constraints, we can create a truly clean, maintainable, and well-structured codebase. The phased approach allows for systematic elimination of all architectural violations while building a solid foundation for future development. The estimated total effort is 60-80 hours over 3 weeks, resulting in a codebase that follows clean architecture principles 100%.

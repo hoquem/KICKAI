@@ -61,7 +61,7 @@ This index provides a comprehensive guide to all KICKAI documentation, with **st
 
 ### **🔐 Security & Permissions**
 - **[CENTRALIZED_PERMISSION_SYSTEM.md](CENTRALIZED_PERMISSION_SYSTEM.md)** - Permission system
-- **[USER_ID_LINKING_RULES.md](USER_ID_LINKING_RULES.md)** - User linking rules
+- **[ID_LINKING_RULES.md](ID_LINKING_RULES.md)** - ID linking rules
 
 ### **📱 Communication**
 - **[MESSAGE_FORMATTING_FRAMEWORK.md](MESSAGE_FORMATTING_FRAMEWORK.md)** - Message formatting
@@ -120,7 +120,7 @@ agent = Agent(
 task = Task(
     description="Process user request",
     agent=agent,
-    config={'team_id': 'TEST', 'user_id': '12345'}  # ✅ Use config for context
+    config={'team_id': 'TEST', 'telegram_id': '12345'}  # ✅ Use config for context
 )
 
 # Native Crew Orchestration
@@ -129,9 +129,9 @@ result = crew.kickoff()
 
 # Native Tool
 @tool("get_my_status")
-async def get_my_status(team_id: str, user_id: str) -> str:
+async def get_my_status(team_id: str, telegram_id: str) -> str:
     """Get user status using parameters from context."""
-    return f"Status for {user_id} in team {team_id}"
+    return f"Status for {telegram_id} in team {team_id}"
 ```
 
 ### **❌ Forbidden Patterns**

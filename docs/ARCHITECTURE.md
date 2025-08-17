@@ -11,15 +11,13 @@ KICKAI is an AI-powered football team management system built with **12-agent Cr
 
 ## 🏗️ Core Architecture Principles
 
-### 1. **12-Agent CrewAI System**
+### 1. **6-Agent CrewAI System**
 - **MESSAGE_PROCESSOR**: Central orchestrator for task decomposition and routing
-- **MESSAGE_PROCESSOR**: Primary interface for user interactions and routing
-- **PLAYER_COORDINATOR**: Player registration, status, and management
-- **TEAM_MANAGER**: Team administration and member management
-- **SQUAD_SELECTOR**: Match squad selection and availability
 - **HELP_ASSISTANT**: Help system and command guidance
+- **PLAYER_COORDINATOR**: Player registration, status, and management
 - **TEAM_ADMINISTRATOR**: Team administration and member management
 - **SQUAD_SELECTOR**: Squad selection and match management
+- **NLPProcessorAgent**: Natural language processing and understanding
 
 ### 2. **True Agentic-First Design**
 - **CrewAI Agents**: ALL user interactions processed through specialized AI agents
@@ -38,7 +36,7 @@ KICKAI is an AI-powered football team management system built with **12-agent Cr
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Application Layer                         │
-│  (Agentic Message Router, 5-Agent CrewAI System)           │
+│  (Agentic Message Router, 6-Agent CrewAI System)           │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -98,7 +96,7 @@ agent = Agent(
 task = Task(
     description="Process user request",
     agent=agent,
-    config={'team_id': 'TEST', 'user_id': '12345'}  # ✅ Use config for context
+    config={'team_id': 'TEST', 'telegram_id': '12345'}  # ✅ Use config for context
 )
 
 # ✅ Native Crew orchestration
@@ -163,9 +161,9 @@ By consistently applying these principles, KICKAI aims to maximize the benefits 
 ```
 KICKAI/
 ├── kickai/                        # Main source code (package structure)
-│   ├── agents/                    # AI Agent System (12 agents)
+│   ├── agents/                    # AI Agent System (6 agents)
 │   │   ├── agentic_message_router.py # Message routing (24KB, 599 lines)
-│   │   ├── crew_agents.py         # 12-agent CrewAI definitions (20KB, 488 lines)
+│   │   ├── crew_agents.py         # 6-agent CrewAI definitions (20KB, 488 lines)
 │   │   ├── configurable_agent.py  # Configurable agent base class (19KB, 461 lines)
 │   │   ├── simplified_orchestration.py # Task orchestration (24KB, 570 lines)
 │   │   ├── behavioral_mixins.py   # Agent behavior mixins (37KB, 1141 lines)
@@ -293,7 +291,7 @@ KICKAI/
 ## 🔧 Implementation Status
 
 ### **✅ Fully Implemented**
-- **5-Agent CrewAI System**: All agents defined and configured
+- **6-Agent CrewAI System**: All agents defined and configured
 - **Command Registry**: Unified command discovery and metadata
 - **Feature-First Architecture**: All features properly modularized
 - **Clean Architecture**: Proper layer separation maintained

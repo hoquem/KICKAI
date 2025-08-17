@@ -45,7 +45,7 @@ class MessageType(str, Enum):
     LOCATION = "location"
 
 
-class UserRole(str, Enum):
+class MemberRole(str, Enum):
     """User roles for testing different scenarios"""
     PLAYER = "player"
     TEAM_MEMBER = "team_member"
@@ -68,7 +68,7 @@ class MockUser:
     username: str
     first_name: str
     last_name: Optional[str] = None
-    role: UserRole = UserRole.PLAYER
+    role: MemberRole = MemberRole.PLAYER
     phone_number: Optional[str] = None
     is_bot: bool = False
     created_at: datetime = None
@@ -169,7 +169,7 @@ class CreateUserRequest(BaseModel):
     username: str = Field(..., min_length=1, max_length=32, description="Username")
     first_name: str = Field(..., min_length=1, max_length=64, description="First name")
     last_name: Optional[str] = Field(None, max_length=64, description="Last name")
-    role: UserRole = UserRole.PLAYER
+    role: MemberRole = MemberRole.PLAYER
     phone_number: Optional[str] = Field(None, pattern=r'^\+?[1-9]\d{1,14}$', description="Phone number")
     
     @validator('username')
@@ -231,7 +231,7 @@ class MockTelegramService:
                 username="coach_wilson",
                 first_name="Coach",
                 last_name="Wilson",
-                role=UserRole.LEADERSHIP,
+                role=MemberRole.LEADERSHIP,
                 phone_number="+1234567890"
             ),
             MockUser(
@@ -239,7 +239,7 @@ class MockTelegramService:
                 username="player_john",
                 first_name="John",
                 last_name="Doe",
-                role=UserRole.PLAYER,
+                role=MemberRole.PLAYER,
                 phone_number="+1234567891"
             ),
             MockUser(
@@ -247,7 +247,7 @@ class MockTelegramService:
                 username="admin_sarah",
                 first_name="Sarah",
                 last_name="Admin",
-                role=UserRole.ADMIN,
+                role=MemberRole.ADMIN,
                 phone_number="+1234567892"
             ),
             MockUser(
@@ -255,7 +255,7 @@ class MockTelegramService:
                 username="member_mike",
                 first_name="Mike",
                 last_name="Member",
-                role=UserRole.TEAM_MEMBER,
+                role=MemberRole.TEAM_MEMBER,
                 phone_number="+1234567893"
             )
         ]
@@ -301,7 +301,7 @@ class MockTelegramService:
                                     id=telegram_id,
                                     username=player_data.get('username', f"player_{telegram_id}"),
                                     first_name=player_data.get('name', 'Unknown Player'),
-                                    role=UserRole.PLAYER,
+                                    role=MemberRole.PLAYER,
                                     phone_number=player_data.get('phone'),  # Fixed: use 'phone' instead of 'phone_number'
                                     status=player_data.get('status', 'pending')  # Include status from Firestore
                                 )
@@ -339,11 +339,11 @@ class MockTelegramService:
                                     # Map member role to mock role
                                     member_role = member_data.get('role', 'team_member').lower()
                                     if member_role in ['manager', 'coach', 'captain']:
-                                        role = UserRole.LEADERSHIP
+                                        role = MemberRole.LEADERSHIP
                                     elif member_role == 'admin':
-                                        role = UserRole.ADMIN
+                                        role = MemberRole.ADMIN
                                     else:
-                                        role = UserRole.TEAM_MEMBER
+                                        role = MemberRole.TEAM_MEMBER
                                     
                                     user = MockUser(
                                         id=telegram_id,
@@ -459,7 +459,7 @@ class MockTelegramService:
                                         id=telegram_id,
                                         username=player_data.get('username', f"player_{telegram_id}"),
                                         first_name=player_data.get('name', 'Unknown Player'),
-                                        role=UserRole.PLAYER,
+                                        role=MemberRole.PLAYER,
                                         phone_number=player_data.get('phone_number') or player_data.get('phone'),
                                         status=player_data.get('status', 'pending')  # Include status from Firestore
                                     )
@@ -499,11 +499,11 @@ class MockTelegramService:
                                     # Map member role to mock role
                                     member_role = member_data.get('role', 'team_member').lower()
                                     if member_role in ['manager', 'coach', 'captain']:
-                                        role = UserRole.LEADERSHIP
+                                        role = MemberRole.LEADERSHIP
                                     elif member_role == 'admin':
-                                        role = UserRole.ADMIN
+                                        role = MemberRole.ADMIN
                                     else:
-                                        role = UserRole.TEAM_MEMBER
+                                        role = MemberRole.TEAM_MEMBER
                                     
                                     user = MockUser(
                                         id=telegram_id,
@@ -560,7 +560,7 @@ class MockTelegramService:
                     accessible_chats.append(chat)
                 
                 # Leadership chat - only for team members, admins, and leadership
-                elif chat.is_leadership_chat and user.role in [UserRole.TEAM_MEMBER, UserRole.ADMIN, UserRole.LEADERSHIP]:
+                elif chat.is_leadership_chat and user.role in [MemberRole.TEAM_MEMBER, MemberRole.ADMIN, MemberRole.LEADERSHIP]:
                     accessible_chats.append(chat)
         
         return accessible_chats
@@ -583,7 +583,7 @@ class MockTelegramService:
         
         # Leadership chat - only for team members, admins, and leadership
         if chat.is_leadership_chat:
-            return user.role in [UserRole.TEAM_MEMBER, UserRole.ADMIN, UserRole.LEADERSHIP]
+            return user.role in [MemberRole.TEAM_MEMBER, MemberRole.ADMIN, MemberRole.LEADERSHIP]
         
         return False
     
@@ -687,23 +687,45 @@ class MockTelegramService:
             
             invite_data = invite_doc.to_dict()
             
-            # Get player/member info directly from invite data (KICKAI stores it separately)
-            player_info = {
-                'player_name': invite_data.get('player_name'),
-                'player_phone': invite_data.get('player_phone'),
-                'player_id': invite_data.get('player_id')
-            }
+            # Extract user info based on invite type
+            if request.invite_type == 'player':
+                # Player invite - look for player_* fields
+                user_info = {
+                    'name': invite_data.get('player_name'),
+                    'phone': invite_data.get('player_phone'),
+                    'id': invite_data.get('player_id'),
+                    'role': MemberRole.PLAYER
+                }
+            elif request.invite_type == 'team_member':
+                # Team member invite - look for member_* fields
+                user_info = {
+                    'name': invite_data.get('member_name'),
+                    'phone': invite_data.get('member_phone'),
+                    'id': invite_data.get('member_id'),
+                    'role': MemberRole.TEAM_MEMBER  # Default, will be overridden below
+                }
+                
+                # Map the member role from invite data to MemberRole enum
+                member_role_str = invite_data.get('member_role', 'team_member')
+                try:
+                    user_info['role'] = MemberRole(member_role_str)
+                except ValueError:
+                    # Fallback to TEAM_MEMBER if invalid role
+                    user_info['role'] = MemberRole.TEAM_MEMBER
+            else:
+                raise HTTPException(status_code=400, detail=f"Unknown invite type: {request.invite_type}")
             
-            if not player_info['player_name']:
-                raise HTTPException(status_code=400, detail="Missing player information in invite")
+            if not user_info['name']:
+                invite_type_display = "player" if request.invite_type == 'player' else "team member"
+                raise HTTPException(status_code=400, detail=f"Missing {invite_type_display} information in invite")
             
             # Generate new telegram_id
             with self._lock:
                 new_telegram_id = max(self.users.keys()) + 1 if self.users else 1001
                 
-                # Create username from player name
-                player_name = player_info.get('player_name', 'Unknown')
-                base_username = player_name.lower().replace(' ', '_').replace('-', '_')
+                # Create username from user name
+                user_name = user_info.get('name', 'Unknown')
+                base_username = user_name.lower().replace(' ', '_').replace('-', '_')
                 # Ensure username is unique
                 username = base_username
                 counter = 1
@@ -711,17 +733,14 @@ class MockTelegramService:
                     username = f"{base_username}_{counter}"
                     counter += 1
                 
-                # Determine role based on invite type
-                role = UserRole.PLAYER if request.invite_type == 'player' else UserRole.TEAM_MEMBER
-                
                 # Create new user
                 user = MockUser(
                     id=new_telegram_id,
                     username=username,
-                    first_name=player_name.split()[0] if player_name else 'Unknown',
-                    last_name=' '.join(player_name.split()[1:]) if len(player_name.split()) > 1 else None,
-                    role=role,
-                    phone_number=player_info.get('player_phone'),
+                    first_name=user_name.split()[0] if user_name else 'Unknown',
+                    last_name=' '.join(user_name.split()[1:]) if len(user_name.split()) > 1 else None,
+                    role=user_info['role'],
+                    phone_number=user_info.get('phone'),
                     status='pending'
                 )
                 
@@ -744,12 +763,23 @@ class MockTelegramService:
                     "invite_type": request.invite_type,
                     "secure_data": invite_data.get("secure_data"),  # Base64-encoded secure data from Firestore
                     "invite_link": f"mock://invite/{request.invite_id}",
-                    "player_name": player_info.get('player_name'),
-                    "player_phone": player_info.get('player_phone'),
-                    "player_id": player_info.get('player_id')
                 }
                 
-                logger.info(f"🔗 Created invitation context for auto-activation: {player_info.get('player_name')}")
+                # Add type-specific fields to invite context
+                if request.invite_type == 'player':
+                    invite_context.update({
+                        "player_name": user_info.get('name'),
+                        "player_phone": user_info.get('phone'),
+                        "player_id": user_info.get('id')
+                    })
+                elif request.invite_type == 'team_member':
+                    invite_context.update({
+                        "member_name": user_info.get('name'),
+                        "member_phone": user_info.get('phone'),
+                        "member_id": user_info.get('id')
+                    })
+                
+                logger.info(f"🔗 Created invitation context for auto-activation: {user_info.get('name')}")
                 
                 # Simulate join event with invitation context for auto-activation
                 await self.simulate_new_chat_member(new_telegram_id, int(request.chat_id), invite_context)
@@ -759,7 +789,7 @@ class MockTelegramService:
                     "username": username,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
-                    "role": role.value,
+                    "role": user_info['role'].value,
                     "phone_number": user.phone_number,
                     "status": "joined",
                     "chat_id": request.chat_id,

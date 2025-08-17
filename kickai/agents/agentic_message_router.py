@@ -343,7 +343,7 @@ class AgenticMessageRouter:
 
         self.team_id = team_id.strip()
         self.crewai_system = crewai_system
-        # Simplified for 5-agent architecture - removed user_flow_agent and helper_agent
+        # Simplified for 6-agent architecture - removed user_flow_agent and helper_agent
         # Lazy initialization to avoid circular dependencies
         self._crew_lifecycle_manager = None
 
@@ -1695,38 +1695,71 @@ class AgenticMessageRouter:
                 # Extract invite context for auto-activation
                 invite_context = self._extract_invite_context_for_activation(message.raw_update)
 
-                # Use PlayerAutoActivationService for intelligent processing
+                # Determine which auto-activation service to use based on invite type
                 from kickai.core.dependency_container import get_container
-                from kickai.features.player_registration.domain.services.player_auto_activation_service import (
-                    PlayerAutoActivationService,
-                )
-
                 container = get_container()
                 database = container.get_database()
 
-                # Initialize auto-activation service
-                activation_service = PlayerAutoActivationService(database, self.team_id)
-
-                # Process new chat member with auto-activation
-                activation_result = await activation_service.process_new_chat_member(
-                    telegram_id=telegram_id,
-                    username=username,
-                    chat_type=message.chat_type.value,
-                    invite_context=invite_context,
-                )
+                # Check invite type to use correct service
+                invite_type = invite_context.get("invite_type", "player") if invite_context else "player"
+                
+                if invite_type == "team_member":
+                    # Use TeamMemberAutoActivationService for team member invites
+                    from kickai.features.team_administration.domain.services.team_member_auto_activation_service import (
+                        TeamMemberAutoActivationService,
+                    )
+                    
+                    logger.info(f"🏢 Using TeamMemberAutoActivationService for team member invite: {username}")
+                    activation_service = TeamMemberAutoActivationService(database, self.team_id)
+                    
+                    # Process new leadership chat member with auto-activation
+                    activation_result = await activation_service.process_new_leadership_chat_member(
+                        telegram_id=telegram_id,
+                        username=username,
+                        invite_context=invite_context,
+                    )
+                else:
+                    # Use PlayerAutoActivationService for player invites
+                    from kickai.features.player_registration.domain.services.player_auto_activation_service import (
+                        PlayerAutoActivationService,
+                    )
+                    
+                    logger.info(f"⚽ Using PlayerAutoActivationService for player invite: {username}")
+                    activation_service = PlayerAutoActivationService(database, self.team_id)
+                    
+                    # Process new chat member with auto-activation
+                    activation_result = await activation_service.process_new_chat_member(
+                        telegram_id=telegram_id,
+                        username=username,
+                        chat_type=message.chat_type.value,
+                        invite_context=invite_context,
+                    )
 
                 # Return appropriate response based on activation result
                 if activation_result.success:
-                    logger.info(
-                        LOG_MESSAGES["AUTO_ACTIVATION_SUCCESS"].format(
-                            username=username, player_name=activation_result.player_name
+                    # Handle different activation result types
+                    if invite_type == "team_member":
+                        # Team member activation result has member_name
+                        logger.info(
+                            LOG_MESSAGES["AUTO_ACTIVATION_SUCCESS"].format(
+                                username=username, player_name=activation_result.member_name
+                            )
                         )
-                    )
+                        
+                        # Use the pre-formatted message from team member service
+                        welcome_message = activation_result.message
+                    else:
+                        # Player activation result has player_name
+                        logger.info(
+                            LOG_MESSAGES["AUTO_ACTIVATION_SUCCESS"].format(
+                                username=username, player_name=activation_result.player_name
+                            )
+                        )
 
-                    # Enhanced welcome message for activated players
-                    welcome_message = await self._create_enhanced_welcome_message(
-                        activation_result, message.chat_type
-                    )
+                        # Enhanced welcome message for activated players
+                        welcome_message = await self._create_enhanced_welcome_message(
+                            activation_result, message.chat_type
+                        )
 
                     return AgentResponse(success=True, message=welcome_message, error=None)
                 else:
@@ -1975,19 +2008,51 @@ class AgenticMessageRouter:
         username: str,
         invite_data: dict,
     ) -> AgentResponse:
-        """Process team member invite link and link the user."""
+        """Process team member invite link and activate the user."""
         try:
-            # TODO: Implement team member linking service
-            # For now, provide a basic welcome message
             logger.info(
                 LOG_MESSAGES["TEAM_MEMBER_INVITE_PROCESSING"].format(member_name=member_name)
             )
 
-            return AgentResponse(
-                success=True,
-                message=SUCCESS_MESSAGES["TEAM_MEMBER_WELCOME"].format(member_name=member_name),
-                error=None,
+            # Initialize team member auto-activation service
+            from kickai.features.team_administration.domain.services.team_member_auto_activation_service import TeamMemberAutoActivationService
+            from kickai.core.dependency_container import get_container
+            
+            container = get_container()
+            database = container.get_database()
+            
+            activation_service = TeamMemberAutoActivationService(database, self.team_id)
+            
+            # Create invite context from the invite data
+            invite_context = {
+                "invite_link": invite_data.get("invite_link"),
+                "secure_data": invite_data.get("secure_data"),
+                "member_name": member_name,
+                "member_phone": member_phone,
+                "member_id": invite_data.get("member_id"),
+            }
+            
+            # Process the team member activation
+            activation_result = await activation_service.process_new_leadership_chat_member(
+                telegram_id=telegram_id,
+                username=username,
+                invite_context=invite_context
             )
+            
+            if activation_result.success:
+                logger.info(f"✅ Team member {member_name} successfully activated")
+                return AgentResponse(
+                    success=True,
+                    message=activation_result.message,
+                    error=None,
+                )
+            else:
+                logger.warning(f"⚠️ Team member {member_name} activation failed: {activation_result.error}")
+                return AgentResponse(
+                    success=False,
+                    message=activation_result.message,
+                    error=activation_result.error,
+                )
 
         except Exception as e:
             logger.error(f"❌ Error in _process_team_member_invite_link: {e}")
