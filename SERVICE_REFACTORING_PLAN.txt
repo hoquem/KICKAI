@@ -304,7 +304,7 @@ Steps:
            pass
        
        @abstractmethod
-       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> Optional[Dict[str, Any]]:
+       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: int) -> Optional[Dict[str, Any]]:
            """Get team member by Telegram ID."""
            pass
        
@@ -347,7 +347,7 @@ Steps:
                logger.error(f"Failed to get team members for team {team_id}: {e}")
                return []
        
-       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> Optional[Dict[str, Any]]:
+       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: int) -> Optional[Dict[str, Any]]:
            """Get team member by Telegram ID."""
            try:
                collection_name = get_team_members_collection(team_id)
@@ -413,7 +413,7 @@ Steps:
            self.chat_role_repository = chat_role_repository
            # rest of initialization
        
-       async def add_user_to_chat(self, team_id: str, user_id: str, chat_type: str, username: Optional[str] = None):
+       async def add_user_to_chat(self, team_id: str, telegram_id: int, chat_type: str, username: Optional[str] = None):
            # existing logic
            
            Use repository instead of direct Firebase calls:
@@ -440,12 +440,12 @@ Steps:
    
    class PermissionRepositoryInterface(ABC):
        @abstractmethod
-       async def get_user_permissions(self, user_id: str, team_id: str) -> Dict[str, Any]:
+       async def get_user_permissions(self, telegram_id: int, team_id: str) -> Dict[str, Any]:
            """Get user permissions information."""
            pass
        
        @abstractmethod
-       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> Optional[Dict[str, Any]]:
+       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: int) -> Optional[Dict[str, Any]]:
            """Get team member by Telegram ID."""
            pass
        
@@ -471,13 +471,13 @@ Steps:
        def __init__(self, database: DataStoreInterface):
            self.database = database
        
-       async def get_user_permissions(self, user_id: str, team_id: str) -> Dict[str, Any]:
+       async def get_user_permissions(self, telegram_id: int, team_id: str) -> Dict[str, Any]:
            """Get user permissions information."""
            try:
-               team_member = await self.get_team_member_by_telegram_id(team_id, user_id)
+               team_member = await self.get_team_member_by_telegram_id(team_id, telegram_id)
                if team_member:
                    return {
-                       "user_id": user_id,
+                       "telegram_id": telegram_id,
                        "team_id": team_id,
                        "roles": team_member.get("roles", []),
                        "chat_access": team_member.get("chat_access", {}),
@@ -488,7 +488,7 @@ Steps:
                    }
                else:
                    return {
-                       "user_id": user_id,
+                       "telegram_id": telegram_id,
                        "team_id": team_id,
                        "roles": [],
                        "chat_access": {},
@@ -498,10 +498,10 @@ Steps:
                        "is_first_user": False,
                    }
            except Exception as e:
-               logger.error(f"Failed to get user permissions for {user_id}: {e}")
-               return self._get_default_permissions(user_id, team_id)
+               logger.error(f"Failed to get user permissions for {telegram_id}: {e}")
+               return self._get_default_permissions(telegram_id, team_id)
        
-       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: str) -> Optional[Dict[str, Any]]:
+       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: int) -> Optional[Dict[str, Any]]:
            """Get team member by Telegram ID."""
            try:
                collection_name = get_team_members_collection(team_id)
@@ -537,10 +537,10 @@ Steps:
                logger.error(f"Failed to check if first user for team {team_id}: {e}")
                return False
        
-       def _get_default_permissions(self, user_id: str, team_id: str) -> Dict[str, Any]:
+       def _get_default_permissions(self, telegram_id: int, team_id: str) -> Dict[str, Any]:
            """Get default permissions for error cases."""
            return {
-               "user_id": user_id,
+               "telegram_id": telegram_id,
                "team_id": team_id,
                "roles": [],
                "chat_access": {},
@@ -561,14 +561,14 @@ Steps:
            self.permission_repository = permission_repository
            # rest of initialization
        
-       async def get_user_permissions(self, user_id: str, team_id: str) -> UserPermissions:
+       async def get_user_permissions(self, telegram_id: int, team_id: str) -> UserPermissions:
            """Get comprehensive user permissions information."""
            try:
-               perms_data = await self.permission_repository.get_user_permissions(user_id, team_id)
+               perms_data = await self.permission_repository.get_user_permissions(telegram_id, team_id)
                return UserPermissions(**perms_data)
            except Exception as e:
-               logger.error(f"Error getting user permissions for {user_id}: {e}")
-               return self._get_default_user_permissions(user_id, team_id)
+               logger.error(f"Error getting user permissions for {telegram_id}: {e}")
+               return self._get_default_user_permissions(telegram_id, team_id)
 
 Estimated Time: 6-8 hours
 Dependencies: None
@@ -666,13 +666,13 @@ Steps:
 1. Add methods to PlayerRepositoryInterface
    File: kickai/features/player_registration/domain/repositories/player_repository_interface.py
    @abstractmethod
-   async def update_player_telegram_info(self, player_id: str, team_id: str, telegram_id: str, username: str = None) -> bool:
+   async def update_player_telegram_info(self, player_id: str, team_id: str, telegram_id: int, username: str = None) -> bool:
        """Update player with Telegram information."""
        pass
 
 2. Implement in FirebasePlayerRepository
    File: kickai/features/player_registration/infrastructure/firebase_player_repository.py
-   async def update_player_telegram_info(self, player_id: str, team_id: str, telegram_id: str, username: str = None) -> bool:
+   async def update_player_telegram_info(self, player_id: str, team_id: str, telegram_id: int, username: str = None) -> bool:
        """Update player with Telegram information."""
        try:
            collection_name = get_team_players_collection(team_id)
@@ -705,7 +705,7 @@ Steps:
            self.team_id = team_id
            self.container = get_container()
        
-       async def _update_player_telegram_info(self, player_id: str, telegram_id: str, username: str = None) -> Optional[Player]:
+       async def _update_player_telegram_info(self, player_id: str, telegram_id: int, username: str = None) -> Optional[Player]:
            """Update player record with Telegram information."""
            try:
                # Get player service from container
