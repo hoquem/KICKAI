@@ -89,14 +89,14 @@ class PlayerRegistrationScenario(BaseScenario):
             if leadership_telegram_id not in self.mock_service.users:
                 logger.info(f"📝 Creating mock representation of REAL leadership user: {leadership_user['first_name']}")
                 # Create mock representation of real leadership user
-                from ...backend.mock_telegram_service import CreateUserRequest, UserRole
+                from ...backend.mock_telegram_service import CreateUserRequest, MemberRole
                 
                 create_request = CreateUserRequest(
                     user_id=leadership_telegram_id,  # Use real telegram ID
                     username=leadership_user["username"],
                     first_name=leadership_user["first_name"],
                     last_name=leadership_user.get("last_name", ""),
-                    role=UserRole.LEADERSHIP,
+                    role=MemberRole.LEADERSHIP,
                     phone_number=leadership_user.get("phone_number")
                 )
                 

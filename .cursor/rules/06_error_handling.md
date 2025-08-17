@@ -186,7 +186,7 @@ validate_team_id(team_id)
 from kickai.utils.tool_context_helpers import validate_context_requirements
 
 # Validate required context
-validate_context_requirements(["team_id", "user_id"])
+validate_context_requirements(["team_id", "telegram_id"])
 ```
 
 ---
@@ -198,7 +198,7 @@ validate_context_requirements(["team_id", "user_id"])
 from kickai.utils.tool_validation import tool_error_handler
 
 @tool_error_handler
-def some_tool(team_id: str, user_id: str) -> dict:
+def some_tool(team_id: str, telegram_id: str) -> dict:
     # Tool implementation with automatic error handling
     pass
 ```

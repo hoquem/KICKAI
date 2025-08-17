@@ -131,7 +131,7 @@ class PermissionService:
         context: PermissionContext
     ) -> bool:
         """Main permission checking method used by all commands."""
-        user_perms = await self.get_user_permissions(context.user_id, context.team_id)
+        user_perms = await self.get_user_permissions(context.telegram_id, context.team_id)
 
         if permission_level == PermissionLevel.PUBLIC:
             return True

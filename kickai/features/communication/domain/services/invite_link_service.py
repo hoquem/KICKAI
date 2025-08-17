@@ -304,6 +304,7 @@ class InviteLinkService:
     async def create_team_member_invite_link(
         self,
         team_id: str,
+        member_id: str,
         member_name: str,
         member_phone: str,
         member_role: str,
@@ -314,6 +315,7 @@ class InviteLinkService:
 
         Args:
             team_id: Team ID
+            member_id: Team member's ID (M01AB format)
             member_name: Team member's name
             member_phone: Team member's phone number
             member_role: Team member's role
@@ -343,7 +345,7 @@ class InviteLinkService:
 
             # Prepare member data for secure embedding
             member_data = {
-                "member_id": f"member_{team_id}_{member_phone}",
+                "member_id": member_id,  # Use real member_id (M01AB format)
                 "member_name": member_name,
                 "member_phone": member_phone,
                 "member_role": member_role,

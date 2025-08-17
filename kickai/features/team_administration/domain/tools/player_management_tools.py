@@ -186,13 +186,44 @@ async def add_player(
         # Check if phone number already exists using domain service
         existing_player = await player_service.get_player_by_phone(phone=normalized_phone, team_id=team_id)
         if existing_player:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message=ERROR_MESSAGES["DUPLICATE_PHONE"].format(
-                    phone=normalized_phone,
-                    existing_name=existing_player.name
-                )
+            # Generate new invite link for existing player
+            logger.info(f"🔄 Player {existing_player.name} already exists, generating new invite link")
+            
+            # Use existing player data
+            player_name = existing_player.name
+            player_phone = existing_player.phone
+            player_id = existing_player.player_id
+            
+            # Generate invite link using InviteLinkService
+            database = container.get_database()
+            invite_service = InviteLinkService(bot_token=team.bot_token, database=database)
+
+            # Create player invite link for existing player
+            invite_data = await invite_service.create_player_invite_link(
+                team_id=team_id,
+                player_name=player_name,
+                player_phone=player_phone,
+                player_position=PLAYER_DEFAULT_POSITION,
+                main_chat_id=team.main_chat_id,
+                player_id=player_id
             )
+
+            invite_link = invite_data["invite_link"]
+            expires_at = invite_data["expires_at"]
+
+            logger.info(f"✅ Generated new invite link for existing player {player_name}: {invite_data['invite_id']}")
+
+            # Format success response using template
+            success_response = SUCCESS_MESSAGES["PLAYER_ADDED_WITH_INVITE"].format(
+                name=player_name,
+                phone=player_phone,
+                status=existing_player.status,
+                team_name=team_name,
+                invite_link=invite_link,
+                expires_at=expires_at
+            )
+
+            return create_json_response(ResponseStatus.SUCCESS, data=success_response)
 
         # Get team using domain service
         team = await team_service.get_team(team_id=team_id)
@@ -202,7 +233,15 @@ async def add_player(
         if not team.main_chat_id:
             raise TeamNotConfiguredError(team_id, "Main chat not configured for invite links")
 
-        team_name = team.name or f"Team {team_id}"
+        # Determine team name with robust fallback logic
+        if team.name and team.name.strip():
+            team_name = team.name.strip()
+        elif team_id and team_id.strip():
+            team_name = team_id.strip()
+        else:
+            raise MissingRequiredFieldError("Team ID or team information")
+        
+        logger.debug(f"🏷️ Using team name for player invite: '{team_name}' (from {'team.name' if team.name else 'team_id fallback'})")
 
         # Create player using service layer with PlayerCreateParams
         from kickai.features.player_registration.domain.services.player_service import PlayerCreateParams

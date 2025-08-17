@@ -45,8 +45,8 @@ VALID_POSITIONS = {
     "wing",
 }
 
-# Import phonenumbers library for proper phone validation
-import phonenumbers
+# Import phone utilities for proper phone validation
+from kickai.utils.phone_utils import is_valid_phone as phone_utils_is_valid, normalize_phone as phone_utils_normalize
 
 
 def validate_player_input(name: str, phone: str, position: str, team_id: str) -> List[str]:
@@ -101,7 +101,7 @@ def validate_player_input(name: str, phone: str, position: str, team_id: str) ->
 
 def is_valid_phone(phone: str) -> bool:
     """
-    Validate phone number format using Google's libphonenumber.
+    Validate phone number format using phone_utils.
 
     Args:
         phone: Phone number to validate
@@ -109,24 +109,12 @@ def is_valid_phone(phone: str) -> bool:
     Returns:
         True if valid, False otherwise
     """
-    if not phone or not phone.strip():
-        return False
-
-    try:
-        # Parse the phone number (default to GB for UK numbers)
-        number = phonenumbers.parse(phone.strip(), "GB")
-
-        # Check if it's a valid number
-        return phonenumbers.is_valid_number(number)
-    except phonenumbers.NumberParseException:
-        return False
-    except Exception:
-        return False
+    return phone_utils_is_valid(phone)
 
 
 def normalize_phone(phone: str) -> str:
     """
-    Normalize phone number to E.164 format using Google's libphonenumber.
+    Normalize phone number to E.164 format using phone_utils.
 
     Args:
         phone: Phone number to normalize
@@ -136,21 +124,9 @@ def normalize_phone(phone: str) -> str:
     """
     if not phone or not phone.strip():
         return phone
-
-    try:
-        # Parse the phone number (default to GB for UK numbers)
-        number = phonenumbers.parse(phone.strip(), "GB")
-
-        # Check if it's a valid number
-        if not phonenumbers.is_valid_number(number):
-            return phone  # Return original if invalid
-
-        # Format to E.164 (international format with +)
-        return phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.E164)
-    except phonenumbers.NumberParseException:
-        return phone  # Return original if parsing fails
-    except Exception:
-        return phone  # Return original if any other error
+    
+    normalized = phone_utils_normalize(phone)
+    return normalized if normalized else phone  # Return original if normalization fails
 
 
 def validate_team_member_input(name: str, phone: str, role: str, team_id: str) -> List[str]:

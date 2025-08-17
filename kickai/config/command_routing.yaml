@@ -3,7 +3,7 @@
 
 # Version and metadata
 version: "1.0.0"
-description: "Dynamic command routing configuration for KICKAI 5-agent system"
+description: "Dynamic command routing configuration for KICKAI 6-agent system"
 last_updated: "2025-01-13"
 
 # Default routing behavior
@@ -168,7 +168,7 @@ error_handling:
 # Performance optimization - caching removed for simplicity
 optimization:
   load_balancing:
-    enabled: false  # Disabled for current 5-agent system
+    enabled: false  # Disabled for current 6-agent system
     
   metrics:
     track_routing_decisions: true

@@ -2,7 +2,7 @@
 
 ## Overview
 
-KICKAI follows a **Clean Architecture** pattern with **Domain-Driven Design** principles, implemented as a **feature-based modular system** with **13-agent CrewAI orchestration**. The system is designed for scalability, maintainability, and extensibility with a comprehensive **service discovery system** for dynamic service management.
+KICKAI follows a **Clean Architecture** pattern with **Domain-Driven Design** principles, implemented as a **feature-based modular system** with **6-agent CrewAI orchestration**. The system is designed for scalability, maintainability, and extensibility with a comprehensive **service discovery system** for dynamic service management.
 
 ## 🏗️ **Current Architecture Status**
 
@@ -14,7 +14,7 @@ KICKAI follows a **Clean Architecture** pattern with **Domain-Driven Design** pr
 - **Attendance Management**: Full attendance tracking and reporting system
 - **Payment Management**: Complete payment creation and tracking system
 - **Communication**: Full team messaging and announcement system
-- **Agent System**: 13-agent CrewAI orchestration working correctly
+- **Agent System**: 6-agent CrewAI orchestration working correctly
 - **Comprehensive Test Suite**: **NEW** - Unit, integration, and E2E tests with service discovery testing
 
 ### 🚧 **Partially Implemented Components**
@@ -182,9 +182,9 @@ kickai/features/{feature_name}/infrastructure/
 
 ## Agent Architecture
 
-### 13-Agent CrewAI System
+### 6-Agent CrewAI System
 
-The system uses 13 specialized agents organized in logical layers for intelligent task processing:
+The system uses 6 specialized agents organized in logical layers for intelligent task processing:
 
 #### Primary Interface Layer
 
@@ -211,6 +211,10 @@ The system uses 13 specialized agents organized in logical layers for intelligen
 **5. HELP_ASSISTANT**
 - **Primary Role**: Help system and command guidance
 - **Tools**: Help generation, command documentation, user guidance
+
+**6. NLP_PROCESSOR**
+- **Primary Role**: Natural language processing and understanding
+- **Tools**: Intent recognition, entity extraction, conversation context, semantic similarity
 
 **📋 For complete command-to-agent mapping, see [11_unified_command_system.md](11_unified_command_system.md)**
 

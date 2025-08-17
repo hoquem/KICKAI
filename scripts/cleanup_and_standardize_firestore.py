@@ -23,8 +23,7 @@ load_dotenv('.env.test')
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from kickai.database.firebase_client import get_firebase_client
-from kickai.utils.user_id_generator import generate_user_id
-from kickai.core.enums import PlayerPosition, TeamStatus
+from kickai.core.enums import PlayerPosition, TeamStatus, MemberStatus
 from kickai.features.player_registration.domain.entities.player import Player
 from kickai.features.team_administration.domain.entities.team_member import TeamMember
 from kickai.features.team_administration.domain.entities.team import Team
@@ -114,11 +113,9 @@ class FirestoreDataManager:
             if position in position_mapping:
                 updates['position'] = position_mapping[position]
         
-        # Ensure required fields exist
-        if 'user_id' not in player_data or not player_data['user_id']:
-            telegram_id = player_data.get('telegram_id')
-            if telegram_id:
-                updates['user_id'] = generate_user_id(str(telegram_id))
+        # Ensure player_id field is consistent
+        if player_id != player_data.get('player_id'):
+            updates['player_id'] = player_id
         
         # Ensure player_id field exists
         if 'player_id' not in player_data:
@@ -152,7 +149,7 @@ class FirestoreDataManager:
     
     async def _standardize_team_member_data(self, team_id: str, member_data: Dict[str, Any]):
         """Standardize team member data structure."""
-        member_id = member_data.get('id') or member_data.get('member_id') or member_data.get('user_id')
+        member_id = member_data.get('id') or member_data.get('member_id')
         if not member_id:
             self.logger.warning(f"Team member missing ID: {member_data}")
             return
@@ -160,11 +157,13 @@ class FirestoreDataManager:
         # Standardize field names and values
         updates = {}
         
-        # Ensure user_id field exists
-        if 'user_id' not in member_data or not member_data['user_id']:
-            telegram_id = member_data.get('telegram_id')
-            if telegram_id:
-                updates['user_id'] = generate_user_id(str(telegram_id))
+        # Ensure member_id field exists  
+        if 'member_id' not in member_data or not member_data['member_id']:
+            # Generate member_id if missing
+            if not member_id:
+                # Use a simple format for missing member IDs
+                telegram_id = member_data.get('telegram_id', '999')
+                updates['member_id'] = f"M{str(telegram_id)[-3:].zfill(3)}"
         
         # Standardize role field
         role = member_data.get('role')
@@ -189,10 +188,16 @@ class FirestoreDataManager:
             role = member_data.get('role', '')
             updates['is_admin'] = role in ['club_administrator', 'team_manager', 'coach']
         
-        # Standardize status
+        # Standardize status using enum validation
         status = member_data.get('status')
-        if status and status not in ['active', 'inactive', 'suspended']:
-            updates['status'] = 'active'  # Default to active
+        if status:
+            # Check if status is valid according to MemberStatus enum
+            valid_statuses = [s.value for s in MemberStatus]
+            if status not in valid_statuses:
+                updates['status'] = MemberStatus.ACTIVE.value  # Default to active enum value
+        else:
+            # If no status provided, default to active
+            updates['status'] = MemberStatus.ACTIVE.value
         
         # Add missing timestamps
         if 'created_at' not in member_data:
@@ -280,31 +285,31 @@ class FirestoreDataManager:
         # Test Team Members
         test_members = [
             {
-                'user_id': 'user_10001',
+                'member_id': 'M001',
                 'name': 'Coach Mike Thompson',
                 'role': 'coach',
                 'phone_number': '+447700900101',
                 'telegram_id': '20001',
                 'is_admin': True,
-                'status': 'active'
+                'status': MemberStatus.ACTIVE.value
             },
             {
-                'user_id': 'user_10002',
+                'member_id': 'M002',
                 'name': 'Assistant Coach Lisa Park',
                 'role': 'assistant_coach',
                 'phone_number': '+447700900102',
                 'telegram_id': '20002',
                 'is_admin': True,
-                'status': 'active'
+                'status': MemberStatus.ACTIVE.value
             },
             {
-                'user_id': 'user_10003',
+                'member_id': 'M003',
                 'name': 'Team Secretary Tom Brown',
                 'role': 'team_member',
                 'phone_number': '+447700900103',
                 'telegram_id': '20003',
                 'is_admin': False,
-                'status': 'active'
+                'status': MemberStatus.ACTIVE.value
             }
         ]
         
@@ -351,13 +356,13 @@ class FirestoreDataManager:
         # Test Team Members
         test_members = [
             {
-                'user_id': 'user_20001',
+                'member_id': 'M001',
                 'name': 'Manager Sarah Williams',
                 'role': 'team_manager',
                 'phone_number': '+447700900301',
                 'telegram_id': '40001',
                 'is_admin': True,
-                'status': 'active'
+                'status': MemberStatus.ACTIVE.value
             }
         ]
         
@@ -379,16 +384,20 @@ class FirestoreDataManager:
             self.logger.info(f"  Player {player_id} already exists, skipping")
             return
         
+        # Extract name parts from full name
+        name_parts = player_data['name'].split(' ', 1)
+        first_name = name_parts[0]
+        last_name = name_parts[1] if len(name_parts) > 1 else ''
+        
         # Create player document
         player_doc = {
             'id': player_id,
             'player_id': player_id,
-            'user_id': generate_user_id(str(player_data['telegram_id'])),
             'team_id': team_id,
             'telegram_id': player_data['telegram_id'],
-            'first_name': player_data['first_name'],
-            'last_name': player_data['last_name'],
-            'full_name': player_data['full_name'],
+            'first_name': first_name,
+            'last_name': last_name,
+            'full_name': player_data['name'],
             'position': player_data['position'],
             'phone_number': player_data['phone_number'],
             'status': player_data['status'],
@@ -403,11 +412,11 @@ class FirestoreDataManager:
             player_doc,
             player_id
         )
-        self.logger.info(f"  ✅ Created player: {player_data['full_name']} ({player_id})")
+        self.logger.info(f"  ✅ Created player: {player_data['name']} ({player_id})")
     
     async def _create_test_team_member(self, team_id: str, member_data: Dict[str, Any]):
         """Create a test team member."""
-        member_id = member_data['user_id']
+        member_id = member_data['member_id']
         
         # Check if member already exists
         existing = await self.firebase_client.get_document(f'kickai_{team_id}_team_members', member_id)
@@ -418,12 +427,10 @@ class FirestoreDataManager:
         # Create team member document
         member_doc = {
             'id': member_id,
-            'user_id': member_id,
+            'member_id': member_id,
             'team_id': team_id,
             'telegram_id': member_data['telegram_id'],
-            'first_name': member_data['first_name'],
-            'last_name': member_data['last_name'],
-            'full_name': member_data['full_name'],
+            'name': member_data['name'],
             'role': member_data['role'],
             'is_admin': member_data['is_admin'],
             'status': member_data['status'],
@@ -439,7 +446,7 @@ class FirestoreDataManager:
             member_doc,
             member_id
         )
-        self.logger.info(f"  ✅ Created team member: {member_data['full_name']} ({member_id})")
+        self.logger.info(f"  ✅ Created team member: {member_data['name']} ({member_id})")
     
     async def run_cleanup_and_standardization(self):
         """Run the complete cleanup and standardization process."""

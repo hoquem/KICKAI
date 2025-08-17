@@ -142,8 +142,9 @@ I need both a player name and phone number.
         if len(player_name.strip()) < PLAYER_MIN_NAME_LENGTH:
             return ERROR_MESSAGES["NAME_TOO_SHORT"].format(min_length=PLAYER_MIN_NAME_LENGTH) + f"\n\n📝 **What you provided:** {args_text}"
 
-        # Validate phone number format
-        if not _is_phone_number(phone_number):
+        # Validate phone number format using standard phone utils
+        from kickai.utils.phone_utils import is_valid_phone
+        if not is_valid_phone(phone_number):
             return ERROR_MESSAGES["INVALID_PHONE_FORMAT"].format(phone=phone_number)
 
         # Route to CrewAI agent via AgenticMessageRouter
@@ -219,8 +220,11 @@ def parse_addplayer_args(args_text: str) -> tuple[str, str]:
     phone_number = None
     name_parts = []
 
+    # Import standard phone validation
+    from kickai.utils.phone_utils import is_valid_phone
+    
     for part in parts:
-        if _is_phone_number(part):
+        if is_valid_phone(part):
             phone_number = part
         else:
             name_parts.append(part)
@@ -232,44 +236,3 @@ def parse_addplayer_args(args_text: str) -> tuple[str, str]:
     return player_name, phone_number
 
 
-def _is_phone_number(text: str) -> bool:
-    """
-    🎯 **AI EXPERT: Phone Number Detection**
-
-    **PURPOSE**: Identify if text represents a valid UK phone number.
-
-    **VALIDATION RULES**:
-    - 10-15 digits after formatting removal
-    - Must start with valid UK prefixes (+44, 07, 44)
-    - Accepts common formatting characters (+, -, spaces, parentheses)
-
-    **Args**:
-        text: Text to validate
-
-    **Returns**:
-        True if text appears to be a valid UK phone number
-
-    **🎯 AI AGENT USAGE**:
-    - Use for input validation before processing
-    - Provides consistent phone number detection across tools
-    """
-    import re
-
-    from kickai.utils.constants import PHONE_MAX_DIGITS, PHONE_MIN_DIGITS, PHONE_VALID_PREFIXES
-
-    # Remove formatting characters
-    clean_text = re.sub(r'[+\-\s\(\)]', '', text)
-
-    # Check digit requirements
-    if not clean_text.isdigit():
-        return False
-
-    if not (PHONE_MIN_DIGITS <= len(clean_text) <= PHONE_MAX_DIGITS):
-        return False
-
-    # Check for valid prefixes
-    for prefix in PHONE_VALID_PREFIXES:
-        if text.startswith(prefix):
-            return True
-
-    return True  # Allow other formats if they meet digit requirements
