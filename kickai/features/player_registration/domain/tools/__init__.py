@@ -16,6 +16,14 @@ from .player_tools import (
     list_team_members_and_players,
 )
 
+# Import player update tools
+from .player_update_tools import (
+    update_player_field,
+    update_player_multiple_fields,
+    get_player_update_help,
+    get_player_current_info,
+)
+
 __all__ = [
     # Player management tools (only the ones actually used by agents)
     "approve_player",
@@ -25,6 +33,11 @@ __all__ = [
     "get_active_players",
     "get_player_match",
     "list_team_members_and_players",
+    # Player update tools
+    "update_player_field",
+    "update_player_multiple_fields",
+    "get_player_update_help",
+    "get_player_current_info",
 ]
 
 # Note: Removed unused tools: remove_player, get_player_info, list_players

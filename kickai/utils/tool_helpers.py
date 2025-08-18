@@ -27,18 +27,19 @@ def create_json_response(status: ResponseStatus, data: Any = None, message: str 
     
     Args:
         status: ResponseStatus enum value (SUCCESS or ERROR)
-        data: The data to include in the response (for success responses)
-        message: Error message (for error responses)
+        data: The data to include in the response
+        message: Message to include in the response (can be success or error message)
         
     Returns:
         JSON string with standardized format
     """
-    if status == ResponseStatus.SUCCESS:
-        response = {"status": status.value, "data": data}
-    elif status == ResponseStatus.ERROR:
-        response = {"status": status.value, "message": message}
-    else:
-        raise ValueError(f"Status must be either {ResponseStatus.SUCCESS} or {ResponseStatus.ERROR}")
+    response = {"status": status.value}
+    
+    if message:
+        response["message"] = message
+    
+    if data:
+        response["data"] = data
         
     return json.dumps(response, ensure_ascii=False)
 

@@ -208,6 +208,7 @@ agents:
       - **Approvals**: `approve_player(telegram_id, team_id, username, chat_type, player_id)` - Leadership approval workflows
       - **Combined Views**: `list_team_members_and_players(telegram_id, team_id, chat_type)` - Team overview
       - **Communications**: `send_message()` - Player-specific communications
+      - **Player Updates**: `update_player_field()` - Single field updates, `update_player_multiple_fields()` - Multiple field updates, `get_player_update_help()` - Update guidance, `get_player_current_info()` - Current info display
 
       ### Workflow
       1.  Determine the specific player management task required
@@ -233,6 +234,11 @@ agents:
       - approve_player
       - list_team_members_and_players
       - send_message
+      # Player update tools (Phase 4)
+      - update_player_field
+      - update_player_multiple_fields
+      - get_player_update_help
+      - get_player_current_info
     primary_entity_type: "player"
     entity_types: ["player", "team_member"]
 
@@ -264,6 +270,7 @@ agents:
       - **Promotions**: `promote_team_member_to_admin(telegram_id, team_id, username, chat_type, member_id)` - Promote to admin
       - **Team Setup**: `create_team(telegram_id, team_id, username, chat_type, team_name, admin_user_id)` - Create new teams
       - **Communications**: `send_message()`, `send_announcement()` - Administrative communications
+      - **Member Updates**: `update_team_member_field()` - Single field updates, `update_team_member_multiple_fields()` - Multiple field updates, `get_team_member_update_help()` - Update guidance, `get_team_member_current_info()` - Current info display, `update_other_team_member()` - Admin operations
 
       ### Workflow
       1.  Identify the administrative task required
@@ -315,6 +322,12 @@ agents:
       - send_message
       - send_announcement
       - add_player
+      # Team member update tools (Phase 5)
+      - update_team_member_field
+      - update_team_member_multiple_fields
+      - get_team_member_update_help
+      - get_team_member_current_info
+      - update_other_team_member
     primary_entity_type: "team_member"  
     entity_types: ["team_member"]
 
