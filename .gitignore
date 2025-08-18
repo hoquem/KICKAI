@@ -195,3 +195,4 @@ bot.lock
 
 E2E_TEST_SUMMARY_REPORT.md
 
+.playwright-mcp/
