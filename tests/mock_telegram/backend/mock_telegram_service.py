@@ -1178,9 +1178,88 @@ async def get_user_chats(user_id: int):
 
 @app.post("/send_message")
 async def send_message(request: SendMessageRequest):
-    """Send a message as a user"""
+    """Send a message as a user and process it through real KICKAI bot"""
+    # First, add the user message to mock service
     message = await mock_service.send_message(request)
+    
+    # Process through real KICKAI bot if integration is available
+    if BOT_INTEGRATION_AVAILABLE:
+        try:
+            # Import bot integration
+            from .bot_integration import process_mock_message
+            
+            # Convert message to format expected by bot integration
+            message_data = {
+                "text": request.text,
+                "from": {
+                    "id": request.user_id,
+                    "username": mock_service.users[request.user_id].username if request.user_id in mock_service.users else f"user_{request.user_id}",
+                    "first_name": mock_service.users[request.user_id].first_name if request.user_id in mock_service.users else "Test",
+                    "last_name": mock_service.users[request.user_id].last_name if request.user_id in mock_service.users else "User"
+                },
+                "chat": {
+                    "id": request.chat_id,
+                    "type": "group" if request.chat_id in [2001, 2002] else "private",
+                    "title": mock_service.chats[request.chat_id].title if request.chat_id in mock_service.chats else "Test Chat"
+                },
+                "date": int(datetime.now().timestamp()),
+                "chat_context": "leadership" if request.chat_id == 2002 else "main" if request.chat_id == 2001 else "private"
+            }
+            
+            # Process message through real KICKAI bot
+            bot_response = await process_mock_message(message_data)
+            
+            if bot_response.get("success", False):
+                # Create bot response message and add it to mock service
+                bot_message_data = {
+                    "message_id": mock_service.message_counter + 1,
+                    "from": {
+                        "id": 0,  # Bot ID
+                        "username": "kickai_bot",
+                        "first_name": "KickAI Bot",
+                        "last_name": None,
+                        "is_bot": True
+                    },
+                    "chat": {
+                        "id": request.chat_id,
+                        "type": "group" if request.chat_id in [2001, 2002] else "private"
+                    },
+                    "date": int(datetime.now(timezone.utc).timestamp()),
+                    "text": bot_response.get("message", "No response"),
+                    "agent_type": bot_response.get("agent_type", "unknown"),
+                    "confidence": bot_response.get("confidence", 1.0)
+                }
+                
+                # Add bot response to mock service and broadcast via WebSocket
+                await bot_response_handler(bot_message_data)
+                
+        except Exception as e:
+            logger.error(f"❌ Error processing message through real bot: {e}")
+            # Continue with mock response - don't fail the request
+    
     return message.to_dict()
+
+
+async def bot_response_handler(bot_message_data: dict):
+    """Handle bot response and broadcast to WebSocket clients"""
+    # Add bot message to mock service
+    with mock_service._lock:
+        mock_service.message_counter += 1
+        bot_message = MockMessage(
+            message_id=bot_message_data["message_id"],
+            from_user_id=bot_message_data["from"]["id"],
+            from_username=bot_message_data["from"]["username"],
+            from_first_name=bot_message_data["from"]["first_name"],
+            from_last_name=bot_message_data["from"].get("last_name"),
+            chat_id=bot_message_data["chat"]["id"],
+            text=bot_message_data["text"],
+            date=datetime.fromtimestamp(bot_message_data["date"], tz=timezone.utc),
+            is_bot=True
+        )
+        mock_service.messages.append(bot_message)
+    
+    # Broadcast to WebSocket clients
+    await mock_service.broadcast_message(bot_message_data)
 
 
 @app.post("/bot_response")
