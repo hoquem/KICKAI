@@ -41,6 +41,10 @@ ruff check kickai/ && ruff format kickai/ && mypy kickai/  # Individual tools
 
 # Validation
 PYTHONPATH=. python scripts/run_health_checks.py
+
+# MCP Server Management
+claude mcp add puppeteer -s user -- npx -y @modelcontextprotocol/server-puppeteer  # UI Testing
+claude mcp add --transport http context7 https://mcp.context7.com/mcp              # Documentation Access
 ```
 
 ## System Architecture
@@ -181,6 +185,47 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
 ## Development Best Practices
 
+### Documentation Access with Context7 MCP
+
+Context7 MCP provides up-to-date, version-specific documentation directly in your prompts, eliminating outdated code generation and API hallucinations.
+
+**Installation:**
+```bash
+claude mcp add --transport http context7 https://mcp.context7.com/mcp
+```
+
+**Usage Pattern:**
+Simply add `use context7` to any prompt where you need current documentation:
+
+**Examples:**
+```bash
+# Get latest CrewAI documentation
+"Create a new CrewAI agent with the latest API patterns. use context7"
+
+# Firebase Firestore current methods
+"Write a Firestore query with the newest SDK features. use context7"
+
+# Python library updates
+"Use the latest asyncio patterns for concurrent processing. use context7"
+
+# Framework-specific examples
+"Set up FastAPI with the current best practices for dependency injection. use context7"
+```
+
+**Key Benefits for KICKAI Development:**
+- ✅ **No API Hallucinations**: Real, current API references from official sources
+- ✅ **Version-Specific Examples**: Accurate code for exact library versions in use
+- ✅ **Time Saving**: No tab-switching between documentation sites
+- ✅ **Always Current**: Pulls latest official documentation dynamically
+- ✅ **Framework Agnostic**: Works with any library, framework, or API
+
+**Integration with Development Workflow:**
+- Use when implementing new CrewAI features
+- Reference during Firebase/Firestore operations
+- Verify Python library usage patterns
+- Check latest async/await best practices
+- Validate API endpoints and parameters
+
 ### Code Standards
 ```python
 # ✅ Use enums instead of magic strings
@@ -216,9 +261,9 @@ from kickai.features.player_registration.domain.tools.player_tools import get_st
 # ❌ Never use relative imports
 from .domain.tools.player_tools import get_status
 
-# ✅ Standard imports (no fallbacks)
+# ✅ Standard imports (no fallbacks) - verify with Context7
 from loguru import logger
-from crewai.tools import tool
+from crewai.tools import tool  # use context7 for latest CrewAI patterns
 from kickai.core.enums import ChatType, ResponseStatus
 from kickai.utils.tool_helpers import create_json_response
 ```
@@ -230,6 +275,45 @@ from kickai.utils.tool_helpers import create_json_response
 - `tests/integration/` - Service tests
 - `tests/e2e/` - Workflow tests
 - `tests/mock_telegram/` - UI testing
+- **Puppeteer MCP** - Browser automation and UI testing
+
+### UI Testing with Puppeteer MCP
+
+The Puppeteer MCP server provides comprehensive browser automation capabilities for testing web interfaces and user interactions.
+
+**Installation:**
+```bash
+claude mcp add puppeteer -s user -- npx -y @modelcontextprotocol/server-puppeteer
+```
+
+**Key Capabilities:**
+- **Browser Management**: Launch and control Chrome/Chromium browsers
+- **Page Operations**: Navigate, create tabs, manage multiple browser windows
+- **Element Interaction**: Click buttons, fill forms, extract text from elements
+- **Screenshot Capture**: Take full-page or viewport screenshots for visual verification
+- **JavaScript Execution**: Run custom JavaScript code in browser context
+- **Selector Waiting**: Wait for elements to appear with configurable timeouts
+
+**Usage Examples:**
+```bash
+# Test web interface interactions
+"Navigate to the login page and verify the form fields are present"
+
+# Visual regression testing
+"Take a screenshot of the dashboard after login and compare with baseline"
+
+# User workflow testing
+"Simulate a complete user registration flow and verify success message"
+
+# Form validation testing
+"Test the contact form with invalid inputs and verify error messages"
+```
+
+**Integration with KICKAI:**
+- Test Telegram web app interfaces
+- Verify bot command responses in web environments
+- Screenshot capture for bug reporting
+- End-to-end user journey validation
 
 ### Tool Testing Pattern
 ```python

@@ -57,10 +57,10 @@ from kickai.utils.validation_utils import (
 
 @tool("add_team_member_simplified", result_as_answer=True)
 async def add_team_member_simplified(
-    telegram_id: TelegramUserId, 
-    team_id: TeamId, 
-    username: str, 
-    chat_type: str, 
+    telegram_id: int,
+    team_id: str,
+    username: str,
+    chat_type: str,
     player_name: str, 
     phone_number: str
 ) -> str:
