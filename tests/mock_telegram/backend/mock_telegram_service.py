@@ -1245,16 +1245,36 @@ async def bot_response_handler(bot_message_data: dict):
     # Add bot message to mock service
     with mock_service._lock:
         mock_service.message_counter += 1
+        
+        # Create proper MockUser object for the bot
+        bot_user = MockUser(
+            id=bot_message_data["from"]["id"],
+            username=bot_message_data["from"]["username"],
+            first_name=bot_message_data["from"]["first_name"],
+            last_name=bot_message_data["from"].get("last_name"),
+            is_bot=True
+        )
+        
+        # Create proper MockChat object
+        chat_data = bot_message_data["chat"]
+        bot_chat = MockChat(
+            id=chat_data["id"],
+            type=ChatType.GROUP if chat_data.get("type") == "group" else ChatType.PRIVATE,
+            title=chat_data.get("title"),
+            username=chat_data.get("username"),
+            first_name=chat_data.get("first_name"),
+            last_name=chat_data.get("last_name"),
+            is_main_chat=chat_data.get("is_main_chat", False),
+            is_leadership_chat=chat_data.get("is_leadership_chat", False)
+        )
+        
+        # Create MockMessage with proper objects
         bot_message = MockMessage(
             message_id=bot_message_data["message_id"],
-            from_user_id=bot_message_data["from"]["id"],
-            from_username=bot_message_data["from"]["username"],
-            from_first_name=bot_message_data["from"]["first_name"],
-            from_last_name=bot_message_data["from"].get("last_name"),
-            chat_id=bot_message_data["chat"]["id"],
+            from_user=bot_user,
+            chat=bot_chat,
             text=bot_message_data["text"],
-            date=datetime.fromtimestamp(bot_message_data["date"], tz=timezone.utc),
-            is_bot=True
+            date=datetime.fromtimestamp(bot_message_data["date"], tz=timezone.utc)
         )
         mock_service.messages.append(bot_message)
     

@@ -156,24 +156,28 @@ class TeamMember:
         # Handle backward compatibility for legacy emergency_contact field
         legacy_data = cls._handle_legacy_emergency_contact(data)
         
-        return cls(
-            team_id=data.get("team_id", ""),
-            telegram_id=telegram_id,
-            member_id=data.get("member_id"),
-            name=data.get("name"),
-            username=data.get("username"),
-            role=data.get("role", "Team Member"),
-            is_admin=data.get("is_admin", False),
-            status=cls._parse_status(data.get("status", MemberStatus.ACTIVE.value)),
-            phone_number=data.get("phone_number"),
-            email=data.get("email"),
-            emergency_contact_name=data.get("emergency_contact_name") or legacy_data.get("emergency_contact_name"),
-            emergency_contact_phone=data.get("emergency_contact_phone") or legacy_data.get("emergency_contact_phone"),
-            created_at=cls._parse_datetime(data.get("created_at")),
-            updated_at=cls._parse_datetime(data.get("updated_at")),
-            source=data.get("source"),
-            sync_version=data.get("sync_version"),
-        )
+        # Create constructor arguments dict with only expected fields
+        # This prevents unexpected keyword argument errors from legacy fields
+        constructor_args = {
+            "team_id": data.get("team_id", ""),
+            "telegram_id": telegram_id,
+            "member_id": data.get("member_id"),
+            "name": data.get("name"),
+            "username": data.get("username"),
+            "role": data.get("role", "Team Member"),
+            "is_admin": data.get("is_admin", False),
+            "status": cls._parse_status(data.get("status", MemberStatus.ACTIVE.value)),
+            "phone_number": data.get("phone_number"),
+            "email": data.get("email"),
+            "emergency_contact_name": data.get("emergency_contact_name") or legacy_data.get("emergency_contact_name"),
+            "emergency_contact_phone": data.get("emergency_contact_phone") or legacy_data.get("emergency_contact_phone"),
+            "created_at": cls._parse_datetime(data.get("created_at")),
+            "updated_at": cls._parse_datetime(data.get("updated_at")),
+            "source": data.get("source"),
+            "sync_version": data.get("sync_version"),
+        }
+        
+        return cls(**constructor_args)
 
     @staticmethod
     def _parse_datetime(dt_value) -> Optional[datetime]:
