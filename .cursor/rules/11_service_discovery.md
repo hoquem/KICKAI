@@ -2,7 +2,7 @@
 
 ## Overview
 
-The KICKAI system includes a comprehensive **Service Discovery System** with dynamic service registration, health monitoring, and circuit breaker patterns. This system provides resilient service management for the 13-agent CrewAI architecture.
+The KICKAI system includes a comprehensive **Service Discovery System** with dynamic service registration, health monitoring, and circuit breaker patterns. This system provides resilient service management for the 6-agent CrewAI architecture.
 
 ## 🏗️ **Architecture**
 

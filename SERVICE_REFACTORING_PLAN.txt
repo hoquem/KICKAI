@@ -127,41 +127,43 @@ Steps:
 1. Create InviteLinkRepositoryInterface
    File: kickai/features/communication/domain/repositories/invite_link_repository_interface.py
    from abc import ABC, abstractmethod
-   from typing import Dict, List, Optional, Any
-   from datetime import datetime
+   from typing import List, Optional
+   
+   from kickai.features.communication.domain.entities.invite_link import InviteLink
    
    class InviteLinkRepositoryInterface(ABC):
        @abstractmethod
-       async def create_invite_link(self, invite_data: Dict[str, Any], invite_id: str) -> str:
+       async def create_invite_link(self, invite_link: InviteLink) -> InviteLink:
            """Create a new invite link."""
            pass
        
        @abstractmethod
-       async def get_invite_link(self, invite_id: str) -> Optional[Dict[str, Any]]:
+       async def get_invite_link(self, invite_id: str) -> Optional[InviteLink]:
            """Get an invite link by ID."""
            pass
        
        @abstractmethod
-       async def update_invite_link(self, invite_id: str, updates: Dict[str, Any]) -> bool:
+       async def update_invite_link(self, invite_link: InviteLink) -> InviteLink:
            """Update an invite link."""
            pass
        
        @abstractmethod
-       async def get_active_invite_links(self, team_id: str) -> List[Dict[str, Any]]:
+       async def get_active_invite_links(self, team_id: str) -> List[InviteLink]:
            """Get all active invite links for a team."""
            pass
        
        @abstractmethod
-       async def get_expired_invite_links(self) -> List[Dict[str, Any]]:
+       async def get_expired_invite_links(self) -> List[InviteLink]:
            """Get all expired invite links."""
            pass
 
 2. Create FirebaseInviteLinkRepository
    File: kickai/features/communication/infrastructure/firebase_invite_link_repository.py
-   from typing import Dict, List, Optional, Any
+   from typing import List, Optional
    import logging
    
    from kickai.database.interfaces import DataStoreInterface
+   from kickai.features.communication.domain.entities.invite_link import InviteLink
    from kickai.features.communication.domain.repositories.invite_link_repository_interface import (
        InviteLinkRepositoryInterface,
    )
@@ -173,51 +175,55 @@ Steps:
            self.database = database
            self.collection_name = "kickai_invite_links"
        
-       async def create_invite_link(self, invite_data: Dict[str, Any], invite_id: str) -> str:
+       async def create_invite_link(self, invite_link: InviteLink) -> InviteLink:
            """Create a new invite link."""
            try:
                await self.database.create_document(
-                   self.collection_name, invite_data, invite_id
+                   self.collection_name, invite_link.to_dict(), invite_link.invite_id
                )
-               logger.info(f"Created invite link: {invite_id}")
-               return invite_id
+               logger.info(f"Created invite link: {invite_link.invite_id}")
+               return invite_link
            except Exception as e:
-               logger.error(f"Failed to create invite link {invite_id}: {e}")
+               logger.error(f"Failed to create invite link {invite_link.invite_id}: {e}")
                raise
        
-       async def get_invite_link(self, invite_id: str) -> Optional[Dict[str, Any]]:
+       async def get_invite_link(self, invite_id: str) -> Optional[InviteLink]:
            """Get an invite link by ID."""
            try:
-               return await self.database.get_document(self.collection_name, invite_id)
+               doc_data = await self.database.get_document(self.collection_name, invite_id)
+               if doc_data:
+                   return InviteLink.from_dict(doc_data)
+               return None
            except Exception as e:
                logger.error(f"Failed to get invite link {invite_id}: {e}")
                return None
        
-       async def update_invite_link(self, invite_id: str, updates: Dict[str, Any]) -> bool:
+       async def update_invite_link(self, invite_link: InviteLink) -> InviteLink:
            """Update an invite link."""
            try:
                await self.database.update_document(
-                   self.collection_name, invite_id, updates
+                   self.collection_name, invite_link.invite_id, invite_link.to_dict()
                )
-               logger.info(f"Updated invite link: {invite_id}")
-               return True
+               logger.info(f"Updated invite link: {invite_link.invite_id}")
+               return invite_link
            except Exception as e:
-               logger.error(f"Failed to update invite link {invite_id}: {e}")
-               return False
+               logger.error(f"Failed to update invite link {invite_link.invite_id}: {e}")
+               raise
        
-       async def get_active_invite_links(self, team_id: str) -> List[Dict[str, Any]]:
+       async def get_active_invite_links(self, team_id: str) -> List[InviteLink]:
            """Get all active invite links for a team."""
            try:
                filters = [
                    {"field": "team_id", "operator": "==", "value": team_id},
                    {"field": "status", "operator": "==", "value": "active"},
                ]
-               return await self.database.query_documents(self.collection_name, filters)
+               docs = await self.database.query_documents(self.collection_name, filters)
+               return [InviteLink.from_dict(doc) for doc in docs]
            except Exception as e:
                logger.error(f"Failed to get active invite links for team {team_id}: {e}")
                return []
        
-       async def get_expired_invite_links(self) -> List[Dict[str, Any]]:
+       async def get_expired_invite_links(self) -> List[InviteLink]:
            """Get all expired invite links."""
            try:
                from datetime import datetime
@@ -225,7 +231,8 @@ Steps:
                    {"field": "expires_at", "operator": "<", "value": datetime.now().isoformat()},
                    {"field": "status", "operator": "==", "value": "active"},
                ]
-               return await self.database.query_documents(self.collection_name, filters)
+               docs = await self.database.query_documents(self.collection_name, filters)
+               return [InviteLink.from_dict(doc) for doc in docs]
            except Exception as e:
                logger.error(f"Failed to get expired invite links: {e}")
                return []
@@ -294,37 +301,39 @@ Steps:
 1. Create ChatRoleRepositoryInterface
    File: kickai/features/team_administration/domain/repositories/chat_role_repository_interface.py
    from abc import ABC, abstractmethod
-   from typing import Dict, List, Optional, Any
-   from datetime import datetime
+   from typing import List, Optional
+   
+   from kickai.features.team_administration.domain.entities.team_member import TeamMember
    
    class ChatRoleRepositoryInterface(ABC):
        @abstractmethod
-       async def get_team_members(self, team_id: str) -> List[Dict[str, Any]]:
+       async def get_team_members(self, team_id: str) -> List[TeamMember]:
            """Get all team members."""
            pass
        
        @abstractmethod
-       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: int) -> Optional[Dict[str, Any]]:
+       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: int) -> Optional[TeamMember]:
            """Get team member by Telegram ID."""
            pass
        
        @abstractmethod
-       async def create_team_member(self, team_member_data: Dict[str, Any]) -> str:
+       async def create_team_member(self, team_member: TeamMember) -> TeamMember:
            """Create a new team member."""
            pass
        
        @abstractmethod
-       async def update_team_member(self, team_member_data: Dict[str, Any]) -> bool:
+       async def update_team_member(self, team_member: TeamMember) -> TeamMember:
            """Update a team member."""
            pass
 
 2. Create FirebaseChatRoleRepository
    File: kickai/features/team_administration/infrastructure/firebase_chat_role_repository.py
-   from typing import Dict, List, Optional, Any
+   from typing import List, Optional
    import logging
    
    from kickai.database.interfaces import DataStoreInterface
    from kickai.core.firestore_constants import get_team_members_collection
+   from kickai.features.team_administration.domain.entities.team_member import TeamMember
    from kickai.features.team_administration.domain.repositories.chat_role_repository_interface import (
        ChatRoleRepositoryInterface,
    )
@@ -335,19 +344,20 @@ Steps:
        def __init__(self, database: DataStoreInterface):
            self.database = database
        
-       async def get_team_members(self, team_id: str) -> List[Dict[str, Any]]:
+       async def get_team_members(self, team_id: str) -> List[TeamMember]:
            """Get all team members."""
            try:
                collection_name = get_team_members_collection(team_id)
-               return await self.database.query_documents(
+               docs = await self.database.query_documents(
                    collection_name,
                    filters=[{"field": "team_id", "operator": "==", "value": team_id}],
                )
+               return [TeamMember.from_dict(doc) for doc in docs]
            except Exception as e:
                logger.error(f"Failed to get team members for team {team_id}: {e}")
                return []
        
-       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: int) -> Optional[Dict[str, Any]]:
+       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: int) -> Optional[TeamMember]:
            """Get team member by Telegram ID."""
            try:
                collection_name = get_team_members_collection(team_id)
@@ -365,42 +375,45 @@ Steps:
                    ],
                )
                
-               return docs[0] if docs else None
+               if docs:
+                   return TeamMember.from_dict(docs[0])
+               return None
            except Exception as e:
                logger.error(f"Failed to get team member by telegram_id {telegram_id}: {e}")
                return None
        
-       async def create_team_member(self, team_member_data: Dict[str, Any]) -> str:
+       async def create_team_member(self, team_member: TeamMember) -> TeamMember:
            """Create a new team member."""
            try:
-               team_id = team_member_data["team_id"]
-               member_id = team_member_data.get("member_id")
-               collection_name = get_team_members_collection(team_id)
+               collection_name = get_team_members_collection(team_member.team_id)
                
                doc_id = await self.database.create_document(
-                   collection_name, team_member_data, member_id
+                   collection_name, team_member.to_dict(), team_member.member_id
                )
                logger.info(f"Created team member: {doc_id}")
-               return doc_id
+               
+               # Update the member_id if it was generated
+               if not team_member.member_id:
+                   team_member.member_id = doc_id
+               
+               return team_member
            except Exception as e:
                logger.error(f"Failed to create team member: {e}")
                raise
        
-       async def update_team_member(self, team_member_data: Dict[str, Any]) -> bool:
+       async def update_team_member(self, team_member: TeamMember) -> TeamMember:
            """Update a team member."""
            try:
-               team_id = team_member_data["team_id"]
-               member_id = team_member_data["member_id"]
-               collection_name = get_team_members_collection(team_id)
+               collection_name = get_team_members_collection(team_member.team_id)
                
                await self.database.update_document(
-                   collection_name, member_id, team_member_data
+                   collection_name, team_member.member_id, team_member.to_dict()
                )
-               logger.info(f"Updated team member: {member_id}")
-               return True
+               logger.info(f"Updated team member: {team_member.member_id}")
+               return team_member
            except Exception as e:
                logger.error(f"Failed to update team member: {e}")
-               return False
+               raise
 
 3. Refactor ChatRoleAssignmentService
    File: kickai/features/team_administration/domain/services/chat_role_assignment_service.py
@@ -436,16 +449,19 @@ Steps:
 1. Create PermissionRepositoryInterface
    File: kickai/features/system_infrastructure/domain/repositories/permission_repository_interface.py
    from abc import ABC, abstractmethod
-   from typing import Dict, List, Optional, Any
+   from typing import Optional
+   
+   from kickai.features.system_infrastructure.domain.entities.user_permissions import UserPermissions
+   from kickai.features.team_administration.domain.entities.team_member import TeamMember
    
    class PermissionRepositoryInterface(ABC):
        @abstractmethod
-       async def get_user_permissions(self, telegram_id: int, team_id: str) -> Dict[str, Any]:
+       async def get_user_permissions(self, telegram_id: int, team_id: str) -> UserPermissions:
            """Get user permissions information."""
            pass
        
        @abstractmethod
-       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: int) -> Optional[Dict[str, Any]]:
+       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: int) -> Optional[TeamMember]:
            """Get team member by Telegram ID."""
            pass
        
@@ -456,11 +472,13 @@ Steps:
 
 2. Create FirebasePermissionRepository
    File: kickai/features/system_infrastructure/infrastructure/firebase_permission_repository.py
-   from typing import Dict, List, Optional, Any
+   from typing import Optional
    import logging
    
    from kickai.database.interfaces import DataStoreInterface
    from kickai.core.firestore_constants import get_team_members_collection
+   from kickai.features.system_infrastructure.domain.entities.user_permissions import UserPermissions
+   from kickai.features.team_administration.domain.entities.team_member import TeamMember
    from kickai.features.system_infrastructure.domain.repositories.permission_repository_interface import (
        PermissionRepositoryInterface,
    )
@@ -471,37 +489,28 @@ Steps:
        def __init__(self, database: DataStoreInterface):
            self.database = database
        
-       async def get_user_permissions(self, telegram_id: int, team_id: str) -> Dict[str, Any]:
+       async def get_user_permissions(self, telegram_id: int, team_id: str) -> UserPermissions:
            """Get user permissions information."""
            try:
                team_member = await self.get_team_member_by_telegram_id(team_id, telegram_id)
                if team_member:
-                   return {
-                       "telegram_id": telegram_id,
-                       "team_id": team_id,
-                       "roles": team_member.get("roles", []),
-                       "chat_access": team_member.get("chat_access", {}),
-                       "is_admin": "admin" in team_member.get("roles", []),
-                       "is_player": "player" in team_member.get("roles", []),
-                       "is_team_member": "team_member" in team_member.get("roles", []),
-                       "is_first_user": await self.is_first_user(team_id),
-                   }
+                   return UserPermissions(
+                       telegram_id=telegram_id,
+                       team_id=team_id,
+                       roles=team_member.roles if team_member.roles else [],
+                       chat_access=team_member.chat_access if team_member.chat_access else {},
+                       is_admin=team_member.is_admin,
+                       is_player="player" in (team_member.roles or []),
+                       is_team_member="team_member" in (team_member.roles or []),
+                       is_first_user=await self.is_first_user(team_id),
+                   )
                else:
-                   return {
-                       "telegram_id": telegram_id,
-                       "team_id": team_id,
-                       "roles": [],
-                       "chat_access": {},
-                       "is_admin": False,
-                       "is_player": False,
-                       "is_team_member": False,
-                       "is_first_user": False,
-                   }
+                   return UserPermissions.create_default(telegram_id, team_id)
            except Exception as e:
                logger.error(f"Failed to get user permissions for {telegram_id}: {e}")
-               return self._get_default_permissions(telegram_id, team_id)
+               return UserPermissions.create_default(telegram_id, team_id)
        
-       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: int) -> Optional[Dict[str, Any]]:
+       async def get_team_member_by_telegram_id(self, team_id: str, telegram_id: int) -> Optional[TeamMember]:
            """Get team member by Telegram ID."""
            try:
                collection_name = get_team_members_collection(team_id)
@@ -519,7 +528,9 @@ Steps:
                    ],
                )
                
-               return docs[0] if docs else None
+               if docs:
+                   return TeamMember.from_dict(docs[0])
+               return None
            except Exception as e:
                logger.error(f"Failed to get team member by telegram_id {telegram_id}: {e}")
                return None

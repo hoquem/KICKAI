@@ -6,7 +6,7 @@
 
 #### Core System
 - **Bot System**: Fully operational with unified message handler
-- **Agent Architecture**: 13-agent CrewAI system working correctly
+- **Agent Architecture**: 6-agent CrewAI system working correctly
 - **Command Registry**: Centralized command management with permission handling
 - **Dependency Injection**: Modern container with service resolution
 - **Database Integration**: Firebase Firestore integration working

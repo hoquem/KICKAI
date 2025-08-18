@@ -56,6 +56,15 @@ class MemberStatus(str, Enum):
     SUSPENDED = "suspended" # Suspended team member
 
 
+class InviteLinkStatus(str, Enum):
+    """Invite link status values."""
+
+    ACTIVE = "active"       # Active invite link that can be used
+    USED = "used"          # Invite link has been used successfully
+    EXPIRED = "expired"    # Invite link has expired
+    REVOKED = "revoked"    # Invite link has been revoked by admin
+
+
 class ChatType(str, Enum):
     """Chat types for Telegram integration."""
 
