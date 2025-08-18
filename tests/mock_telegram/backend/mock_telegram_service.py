@@ -152,7 +152,7 @@ class MockMessage:
 
 class SendMessageRequest(BaseModel):
     """Request model for sending messages"""
-    user_id: int = Field(..., gt=0, description="User ID must be positive")
+    telegram_id: int = Field(..., gt=0, description="Telegram ID must be positive")
     chat_id: int = Field(..., gt=0, description="Chat ID must be positive")
     text: str = Field(..., min_length=1, max_length=4096, description="Message text")
     message_type: MessageType = MessageType.TEXT
@@ -886,17 +886,17 @@ class MockTelegramService:
     async def send_message(self, request: SendMessageRequest) -> MockMessage:
         """Send a message as if from a user"""
         with self._lock:
-            if request.user_id not in self.users:
+            if request.telegram_id not in self.users:
                 raise HTTPException(status_code=404, detail="User not found")
             
             if request.chat_id not in self.chats:
                 raise HTTPException(status_code=404, detail="Chat not found")
             
             # Check if user can access this chat
-            if not self.can_user_access_chat(request.user_id, request.chat_id):
+            if not self.can_user_access_chat(request.telegram_id, request.chat_id):
                 raise HTTPException(status_code=403, detail="User cannot access this chat")
             
-            user = self.users[request.user_id]
+            user = self.users[request.telegram_id]
             chat = self.chats[request.chat_id]
             
             message = MockMessage(
@@ -1192,10 +1192,10 @@ async def send_message(request: SendMessageRequest):
             message_data = {
                 "text": request.text,
                 "from": {
-                    "id": request.user_id,
-                    "username": mock_service.users[request.user_id].username if request.user_id in mock_service.users else f"user_{request.user_id}",
-                    "first_name": mock_service.users[request.user_id].first_name if request.user_id in mock_service.users else "Test",
-                    "last_name": mock_service.users[request.user_id].last_name if request.user_id in mock_service.users else "User"
+                    "id": request.telegram_id,
+                    "username": mock_service.users[request.telegram_id].username if request.telegram_id in mock_service.users else f"user_{request.telegram_id}",
+                    "first_name": mock_service.users[request.telegram_id].first_name if request.telegram_id in mock_service.users else "Test",
+                    "last_name": mock_service.users[request.telegram_id].last_name if request.telegram_id in mock_service.users else "User"
                 },
                 "chat": {
                     "id": request.chat_id,
