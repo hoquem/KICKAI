@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class PermissionContext:
     """Context for permission checking."""
 
-    user_id: str
+    telegram_id: str
     team_id: str
     chat_id: str
     chat_type: ChatType
@@ -46,7 +46,7 @@ class PermissionContext:
 class UserPermissions:
     """User permissions information."""
 
-    user_id: str
+    telegram_id: str
     team_id: str
     roles: list[str]
     chat_access: dict[str, bool]
@@ -69,24 +69,31 @@ class PermissionService:
             # Use mock chat role service when firebase_client is None
             self.chat_role_service = self._create_mock_chat_role_service()
 
-        # Get services from dependency container instead of creating them directly
+        # Get services from dependency container using interfaces
         try:
             from kickai.core.dependency_container import get_service
-            from kickai.features.player_registration.domain.services.player_service import (
-                PlayerService,
+            from kickai.features.player_registration.domain.interfaces.player_service_interface import (
+                IPlayerService,
             )
-            from kickai.features.team_administration.domain.services.team_service import TeamService
+            from kickai.features.team_administration.domain.interfaces.team_service_interface import (
+                ITeamService,
+            )
+            from kickai.features.team_administration.domain.interfaces.team_member_service_interface import (
+                ITeamMemberService,
+            )
 
-            self.player_service = get_service(PlayerService)
-            self.team_service = get_service(TeamService)
+            self.player_service = get_service(IPlayerService)
+            self.team_service = get_service(ITeamService)
+            self.team_member_service = get_service(ITeamMemberService)
 
-            # For now, use a simple mock team member service until the full implementation is ready
-            self.team_member_service = self._create_mock_team_member_service()
-
-        except Exception as e:
+        except (RuntimeError, KeyError) as e:
+            from kickai.features.system_infrastructure.domain.exceptions import (
+                PermissionServiceUnavailableError
+            )
             logger.warning(f"⚠️ Could not get services from dependency container: {e}")
-            # Fallback to mock services
-            self.player_service = None
+            raise PermissionServiceUnavailableError(
+                f"Failed to initialize permission service dependencies: {e}"
+            ) from e
             self.team_service = None
             self.team_member_service = self._create_mock_team_member_service()
 
@@ -109,16 +116,16 @@ class PermissionService:
 
         class MockChatRoleService:
             async def assign_role_to_user(
-                self, user_id: str, team_id: str, role: str, chat_type: str
+                self, telegram_id: str, team_id: str, role: str, chat_type: str
             ):
                 return True
 
-            async def get_user_role_in_chat(self, user_id: str, team_id: str, chat_type: str):
+            async def get_user_role_in_chat(self, telegram_id: str, team_id: str, chat_type: str):
                 return "player"
 
         return MockChatRoleService()
 
-    async def get_user_permissions(self, user_id: str, team_id: str) -> UserPermissions:
+    async def get_user_permissions(self, telegram_id: str, team_id: str) -> UserPermissions:
         """
         Get comprehensive user permissions information.
 
@@ -127,7 +134,7 @@ class PermissionService:
         try:
             # Get team member information
             team_member = await self.team_member_service.get_team_member_by_telegram_id(
-                user_id, team_id
+                telegram_id, team_id
             )
 
             if team_member:
@@ -142,7 +149,7 @@ class PermissionService:
                 is_first_user = await self.team_member_service.is_first_user(team_id)
 
                 return UserPermissions(
-                    user_id=user_id,
+                    telegram_id=telegram_id,
                     team_id=team_id,
                     roles=roles,
                     chat_access=chat_access,
@@ -156,7 +163,7 @@ class PermissionService:
             else:
                 # User not found - return default permissions
                 return UserPermissions(
-                    user_id=user_id,
+                    telegram_id=telegram_id,
                     team_id=team_id,
                     roles=[],
                     chat_access={},
@@ -168,8 +175,10 @@ class PermissionService:
                     can_access_leadership_chat=False,
                 )
 
-        except Exception as e:
-            logger.error(f"Error getting user permissions for {user_id}: {e}")
+        except (RuntimeError, AttributeError, KeyError) as e:
+            from kickai.features.system_infrastructure.domain.exceptions import UserNotFoundError
+            logger.error(f"Error getting user permissions for {telegram_id}: {e}")
+            raise UserNotFoundError(telegram_id, team_id) from e
             # Return default permissions on error
             return UserPermissions(
                 user_id=user_id,
@@ -194,7 +203,7 @@ class PermissionService:
         """
         try:
             # Get user permissions
-            user_perms = await self.get_user_permissions(context.user_id, context.team_id)
+            user_perms = await self.get_user_permissions(context.telegram_id, context.team_id)
 
             # Check permission level
             if permission_level == PermissionLevel.PUBLIC:
@@ -225,18 +234,19 @@ class PermissionService:
 
             return False
 
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError) as e:
+            from kickai.features.system_infrastructure.domain.exceptions import PermissionCheckError
             logger.error(f"Error checking command permissions: {e}")
-            return False
+            raise PermissionCheckError(f"Failed to check permissions: {e}") from e
 
-    async def get_user_role(self, user_id: str, team_id: str) -> str:
+    async def get_user_role(self, telegram_id: str, team_id: str) -> str:
         """
         Get the primary role of a user for backward compatibility.
 
         This method is used by existing code that expects a simple role string.
         """
         try:
-            user_perms = await self.get_user_permissions(user_id, team_id)
+            user_perms = await self.get_user_permissions(telegram_id, team_id)
 
             # Return the most significant role
             if user_perms.is_admin:
@@ -248,8 +258,8 @@ class PermissionService:
             else:
                 return "none"
 
-        except Exception as e:
-            logger.error(f"Error getting user role for {user_id}: {e}")
+        except (RuntimeError, AttributeError, KeyError) as e:
+            logger.error(f"Error getting user role for {telegram_id}: {e}")
             return "none"
 
     async def require_permission(
@@ -262,7 +272,7 @@ class PermissionService:
         """
         if not await self.can_execute_command(permission_level, context):
             raise PermissionError(
-                f"User {context.user_id} lacks {permission_level.value} permission"
+                f"User {context.telegram_id} lacks {permission_level.value} permission"
             )
         return True
 
@@ -296,7 +306,7 @@ class PermissionService:
 
             return available_commands
 
-        except Exception as e:
+        except (RuntimeError, ImportError, AttributeError) as e:
             logger.error(f"Error getting available commands: {e}")
             return ["/help"]
 
@@ -307,7 +317,7 @@ class PermissionService:
         Get a user-friendly message explaining why permission was denied.
         """
         try:
-            user_perms = await self.get_user_permissions(context.user_id, context.team_id)
+            user_perms = await self.get_user_permissions(context.telegram_id, context.team_id)
 
             if permission_level == PermissionLevel.PLAYER:
                 if not user_perms.is_player:
@@ -353,7 +363,7 @@ Your Role: {", ".join(user_perms.roles) if user_perms.roles else "None"}"""
 
             return "❌ Access denied for this command."
 
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError) as e:
             logger.error(f"Error generating permission denied message: {e}")
             return "❌ Access denied for this command."
 
@@ -372,9 +382,9 @@ Your Role: {", ".join(user_perms.roles) if user_perms.roles else "None"}"""
     async def is_user_registered(self, context: PermissionContext) -> bool:
         """Check if a user is already registered in the system."""
         try:
-            user_perms = await self.get_user_permissions(context.user_id, context.team_id)
+            user_perms = await self.get_user_permissions(context.telegram_id, context.team_id)
             return user_perms.is_player or user_perms.is_team_member or user_perms.is_admin
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError) as e:
             logger.error(f"Error checking if user is registered: {e}")
             return False
 
@@ -393,7 +403,7 @@ def get_permission_service(firebase_client: FirebaseClient = None) -> Permission
                 from kickai.database.firebase_client import get_firebase_client
 
                 firebase_client = get_firebase_client()
-            except Exception as e:
+            except (ImportError, RuntimeError) as e:
                 logger.warning(f"⚠️ Could not get Firebase client from dependency container: {e}")
                 # Fallback to mock client
                 firebase_client = None

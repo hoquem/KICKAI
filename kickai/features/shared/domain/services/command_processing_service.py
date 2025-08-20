@@ -13,19 +13,19 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from kickai.core.enums import ChatType
-from kickai.features.player_registration.domain.services.player_service import PlayerService
-from kickai.features.system_infrastructure.domain.services.permission_service import (
-    PermissionService,
-    UserPermissions,
+from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
+from kickai.features.system_infrastructure.domain.interfaces.permission_service_interface import (
+    IPermissionService,
 )
-from kickai.features.team_administration.domain.services.team_service import TeamService
+from kickai.features.system_infrastructure.domain.services.permission_service import UserPermissions
+from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
 
 
 @dataclass
 class UserContext:
     """Complete user context for command processing."""
 
-    user_id: str
+    telegram_id: int
     team_id: str
     chat_id: str
     chat_type: ChatType
@@ -66,20 +66,23 @@ class CommandProcessingService:
         try:
             from kickai.core.dependency_container import get_service
 
-            self.permission_service = get_service(PermissionService)
-            self.player_service = get_service(PlayerService)
-            self.team_service = get_service(TeamService)
+            self.permission_service = get_service(IPermissionService)
+            self.player_service = get_service(IPlayerService)
+            self.team_service = get_service(ITeamService)
 
             logger.info("✅ CommandProcessingService initialized with dependency injection")
 
-        except Exception as e:
+        except (RuntimeError, ImportError, KeyError) as e:
+            from kickai.features.shared.domain.exceptions import CommandProcessingServiceUnavailableError
             logger.error(f"❌ Failed to initialize CommandProcessingService: {e}")
-            raise
+            raise CommandProcessingServiceUnavailableError(
+                f"Failed to initialize command processing service: {e}"
+            ) from e
 
     async def process_command(
         self,
         command_name: str,
-        user_id: str,
+        telegram_id: int,
         team_id: str,
         chat_id: str,
         chat_type: ChatType,
@@ -92,7 +95,7 @@ class CommandProcessingService:
 
         Args:
             command_name: Name of the command being processed
-            user_id: Telegram user ID
+            telegram_id: Telegram user ID
             team_id: Team ID
             chat_id: Chat ID
             chat_type: Type of chat (main/leadership)
@@ -106,7 +109,7 @@ class CommandProcessingService:
         try:
             # Step 1: Build user context
             user_context = await self._build_user_context(
-                user_id, team_id, chat_id, chat_type, telegram_username, telegram_name
+                telegram_id, team_id, chat_id, chat_type, telegram_username, telegram_name
             )
 
             # Step 2: Validate user status and handle registration flows
@@ -128,16 +131,18 @@ class CommandProcessingService:
                     message="❌ Command not implemented in processing service", success=False
                 )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, AttributeError) as e:
+            from kickai.features.shared.domain.exceptions import CommandExecutionError
             logger.error(f"❌ Error processing command {command_name}: {e}")
+            command_error = CommandExecutionError(command_name, str(telegram_id), str(e))
             return CommandResponse(
-                message="❌ An error occurred while processing your command. Please try again.",
+                message=f"❌ {command_error.message}",
                 success=False,
             )
 
     async def _build_user_context(
         self,
-        user_id: str,
+        telegram_id: int,
         team_id: str,
         chat_id: str,
         chat_type: ChatType,
@@ -147,30 +152,30 @@ class CommandProcessingService:
         """Build complete user context with all necessary information."""
         try:
             # Get user permissions
-            user_permissions = await self.permission_service.get_user_permissions(user_id, team_id)
+            user_permissions = await self.permission_service.get_user_permissions(str(telegram_id), team_id)
 
             # Get player data if user is a player
             player_data = None
             if user_permissions.is_player:
                 try:
                     player_data = await self.player_service.get_player_by_telegram_id(
-                        user_id, team_id
+                        str(telegram_id), team_id
                     )
-                except Exception as e:
-                    logger.warning(f"⚠️ Could not get player data for {user_id}: {e}")
+                except (RuntimeError, AttributeError, KeyError) as e:
+                    logger.warning(f"⚠️ Could not get player data for {telegram_id}: {e}")
 
             # Get team member data if user is a team member
             team_member_data = None
             if user_permissions.is_team_member:
                 try:
                     team_member_data = await self.team_service.get_team_member_by_telegram_id(
-                        user_id, team_id
+                        str(telegram_id), team_id
                     )
-                except Exception as e:
-                    logger.warning(f"⚠️ Could not get team member data for {user_id}: {e}")
+                except (RuntimeError, AttributeError, KeyError) as e:
+                    logger.warning(f"⚠️ Could not get team member data for {telegram_id}: {e}")
 
             return UserContext(
-                user_id=user_id,
+                telegram_id=telegram_id,
                 team_id=team_id,
                 chat_id=chat_id,
                 chat_type=chat_type,
@@ -184,11 +189,12 @@ class CommandProcessingService:
                 is_team_member=user_permissions.is_team_member,
             )
 
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError) as e:
+            from kickai.features.shared.domain.exceptions import UserContextError
             logger.error(f"❌ Error building user context: {e}")
-            # Return minimal context on error
+            # Return minimal context on error - don't raise exception to prevent cascade failures
             return UserContext(
-                user_id=user_id,
+                telegram_id=telegram_id,
                 team_id=team_id,
                 chat_id=chat_id,
                 chat_type=chat_type,
@@ -297,18 +303,21 @@ class CommandProcessingService:
             task_description = "/help"
             
             execution_context = {
-                "user_id": user_context.user_id,
+                "telegram_id": user_context.telegram_id,
                 "team_id": user_context.team_id,
-                "telegram_id": user_context.user_id,
                 "username": user_context.telegram_username or user_context.telegram_name or "Unknown User",
                 "chat_type": chat_type,
                 "message_text": task_description,
             }
 
+            # Enhance task description with context parameters
+            from kickai.utils.task_description_enhancer import TaskDescriptionEnhancer
+            enhanced_task_description = TaskDescriptionEnhancer.enhance_task_description(task_description, execution_context)
+
             # Get the crew system from kwargs or use a default approach
             crewai_system = kwargs.get('crewai_system')
             if crewai_system:
-                result = await crewai_system.execute_task(task_description, execution_context)
+                result = await crewai_system.execute_task(enhanced_task_description, execution_context)
                 return CommandResponse(message=result, success=True)
             else:
                 # Fallback response if no crew system available
@@ -316,10 +325,12 @@ class CommandProcessingService:
                     message="❌ Crew system not available for help processing.", success=False
                 )
 
-        except Exception as e:
+        except (RuntimeError, ImportError, AttributeError, KeyError) as e:
+            from kickai.features.shared.domain.exceptions import HelpSystemError
             logger.error(f"❌ Error processing help command: {e}")
+            help_error = HelpSystemError(str(user_context.telegram_id), str(e))
             return CommandResponse(
-                message="❌ Error generating help information. Please try again.", success=False
+                message=f"❌ {help_error.message}", success=False
             )
 
     def _build_robust_help_context(
@@ -334,17 +345,17 @@ class CommandProcessingService:
         username = (
             user_context.telegram_username
             or user_context.telegram_name
-            or f"User_{user_context.user_id}"
+            or f"User_{user_context.telegram_id}"
             or "Unknown User"
         )
 
         # Ensure username is not empty or just whitespace
         if not username or not username.strip():
-            username = f"User_{user_context.user_id}"
+            username = f"User_{user_context.telegram_id}"
 
         # Build the context with guaranteed non-None values
         context = {
-            "user_id": str(user_context.user_id) if user_context.user_id else "unknown",
+            "telegram_id": str(user_context.telegram_id) if user_context.telegram_id else "unknown",
             "team_id": str(user_context.team_id) if user_context.team_id else "unknown",
             "chat_type": str(chat_type) if chat_type else "main",
             "username": str(username).strip(),
@@ -358,8 +369,8 @@ class CommandProcessingService:
                     f"🔧 [HELP COMMAND] Context value for {key} is None or empty: {value}"
                 )
                 if key == "username":
-                    context[key] = f"User_{user_context.user_id}"
-                elif key in ["user_id", "team_id"]:
+                    context[key] = f"User_{user_context.telegram_id}"
+                elif key in ["telegram_id", "team_id"]:
                     context[key] = "unknown"
                 elif key == "chat_type":
                     context[key] = "main"
@@ -367,13 +378,13 @@ class CommandProcessingService:
                     context[key] = "unknown"
 
         # Final validation - ensure all required fields have valid values
-        required_fields = ["user_id", "team_id", "chat_type", "username"]
+        required_fields = ["telegram_id", "team_id", "chat_type", "username"]
         for field in required_fields:
             if field not in context or not context[field] or context[field] == "unknown":
                 logger.error(
                     f"🔧 [HELP COMMAND] Required field {field} is missing or invalid: {context.get(field)}"
                 )
-                if field == "user_id":
+                if field == "telegram_id":
                     context[field] = "12345"  # Fallback user ID
                 elif field == "team_id":
                     context[field] = "DEFAULT"  # Fallback team ID
@@ -394,15 +405,16 @@ class CommandProcessingService:
 
             return get_available_commands(
                 chat_type=user_context.chat_type,
-                user_id=user_context.user_id,
+                telegram_id=str(user_context.telegram_id),
                 team_id=user_context.team_id,
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, AttributeError) as e:
+            from kickai.features.shared.domain.exceptions import CommandDiscoveryError
             logger.error(f"❌ Error getting available commands: {e}")
             return {
                 "error": f"Failed to get commands: {e!s}",
-                "chat_type": user_context.chat_type.value,
+                "chat_type": user_context.chat_type if isinstance(user_context.chat_type, str) else user_context.chat_type.value,
                 "total_commands": 0,
                 "features": {},
             }
@@ -421,10 +433,12 @@ class CommandProcessingService:
                     message="❌ No information available for your account.", success=False
                 )
 
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError) as e:
+            from kickai.features.shared.domain.exceptions import UserInfoError
             logger.error(f"❌ Error processing myinfo command: {e}")
+            info_error = UserInfoError(str(user_context.telegram_id), str(e))
             return CommandResponse(
-                message="❌ Error retrieving your information. Please try again.", success=False
+                message=f"❌ {info_error.message}", success=False
             )
 
     def _format_player_info(self, user_context: UserContext) -> CommandResponse:

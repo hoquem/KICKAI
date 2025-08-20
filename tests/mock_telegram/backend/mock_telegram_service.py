@@ -78,8 +78,8 @@ class MockUser:
         """Validate user data after initialization and set defaults"""
         if not self.username or not self.first_name:
             raise ValueError("Username and first_name are required")
-        if self.id <= 0:
-            raise ValueError("User ID must be positive")
+        if self.id == 0:
+            raise ValueError("User ID cannot be zero")
         if self.created_at is None:
             self.created_at = datetime.now(timezone.utc)
 
@@ -98,8 +98,8 @@ class MockChat:
     
     def __post_init__(self):
         """Validate chat data after initialization"""
-        if self.id <= 0:
-            raise ValueError("Chat ID must be positive")
+        if self.id == 0:
+            raise ValueError("Chat ID cannot be zero")
         if self.type not in [e.value for e in ChatType]:
             raise ValueError("Invalid chat type")
     
@@ -1214,7 +1214,7 @@ async def send_message(request: SendMessageRequest):
                 bot_message_data = {
                     "message_id": mock_service.message_counter + 1,
                     "from": {
-                        "id": 0,  # Bot ID
+                        "id": 999999999,  # Bot ID
                         "username": "kickai_bot",
                         "first_name": "KickAI Bot",
                         "last_name": None,
@@ -1291,7 +1291,7 @@ async def bot_response(response_data: dict):
     bot_message = {
         "message_id": len(mock_service.messages) + 1,
         "from": {
-            "id": 0,  # Bot ID
+            "id": 999999999,  # Bot ID
             "username": "kickai_bot",
             "first_name": "KickAI Bot",
             "last_name": None,

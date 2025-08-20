@@ -57,7 +57,9 @@ FIREBASE_CREDENTIALS_FILE=credentials/firebase_credentials_testing.json
 
 # AI/LLM CONFIGURATION (GROQ)
 AI_PROVIDER=groq
-AI_MODEL_NAME=llama3-8b-8192
+AI_MODEL_SIMPLE=llama3-8b-8192
+AI_MODEL_ADVANCED=llama3-70b-8192
+AI_MODEL_NLP=gpt-oss-20b
 GROQ_API_KEY=your_groq_api_key_here
 
 # TELEGRAM MOCK CONFIGURATION

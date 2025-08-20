@@ -153,9 +153,6 @@ class TeamMember:
         if telegram_id is not None:
             telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
 
-        # Handle backward compatibility for legacy emergency_contact field
-        legacy_data = cls._handle_legacy_emergency_contact(data)
-        
         # Create constructor arguments dict with only expected fields
         # This prevents unexpected keyword argument errors from legacy fields
         constructor_args = {
@@ -169,8 +166,8 @@ class TeamMember:
             "status": cls._parse_status(data.get("status", MemberStatus.ACTIVE.value)),
             "phone_number": data.get("phone_number"),
             "email": data.get("email"),
-            "emergency_contact_name": data.get("emergency_contact_name") or legacy_data.get("emergency_contact_name"),
-            "emergency_contact_phone": data.get("emergency_contact_phone") or legacy_data.get("emergency_contact_phone"),
+            "emergency_contact_name": data.get("emergency_contact_name"),
+            "emergency_contact_phone": data.get("emergency_contact_phone"),
             "created_at": cls._parse_datetime(data.get("created_at")),
             "updated_at": cls._parse_datetime(data.get("updated_at")),
             "source": data.get("source"),
@@ -220,45 +217,6 @@ class TeamMember:
         # For any other type, default to active
         return MemberStatus.ACTIVE
 
-    @classmethod
-    def _handle_legacy_emergency_contact(cls, data: dict) -> dict:
-        """Handle backward compatibility for legacy emergency_contact field."""
-        result = {}
-        
-        # If new fields exist, use them
-        if data.get('emergency_contact_name') or data.get('emergency_contact_phone'):
-            return result
-            
-        # If legacy field exists, try to parse it
-        legacy_contact = data.get('emergency_contact')
-        if legacy_contact and isinstance(legacy_contact, str) and legacy_contact.strip():
-            # Try to parse patterns like "Name: +44XXXXXXXXX" or "Name - +44XXXXXXXXX"
-            import re
-            
-            contact_stripped = legacy_contact.strip()
-            
-            # Pattern 1: Name: Phone or Name - Phone
-            pattern1 = r'^(.+?)\s*[:-]\s*([+]?[\d\s()-]+)$'
-            match = re.match(pattern1, contact_stripped)
-            
-            if match:
-                name_part = match.group(1).strip()
-                phone_part = match.group(2).strip()
-                if name_part:  # Only set if not empty
-                    result['emergency_contact_name'] = name_part
-                if phone_part:  # Only set if not empty
-                    result['emergency_contact_phone'] = phone_part
-            else:
-                # If no pattern matches, treat as name if it doesn't look like a phone
-                if re.match(r'^[+]?[\d\s()-]+$', contact_stripped):
-                    # Looks like a phone number
-                    result['emergency_contact_phone'] = contact_stripped
-                else:
-                    # Treat as name (only if not empty after strip)
-                    if contact_stripped:
-                        result['emergency_contact_name'] = contact_stripped
-        
-        return result
 
     def is_administrative_role(self) -> bool:
         """Check if this is an administrative role."""

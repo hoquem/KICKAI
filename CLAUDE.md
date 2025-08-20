@@ -1,454 +1,290 @@
-# KICKAI Development Guide
+# CLAUDE.md
 
-AI-powered football team management system built with a **6-agent CrewAI architecture** and clean architecture principles.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Version:** 3.1 | **Status:** Production Ready | **Python:** 3.11+ (MANDATORY)  
-**Deployment:** Railway (Production) | **Local Dev:** Groq | **Test UI:** http://localhost:8001
+# KICKAI - AI Football Team Management System
 
-## Quick Start
+**Version:** 3.1 | **Python:** 3.11+ (MANDATORY) | **Architecture:** 6-Agent CrewAI Native Collaboration System
 
-### Prerequisites
+## Essential Commands
+
+```bash
+# Development (Python 3.11+ Required)
+make dev                           # Start development server  
+PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py  # Mock UI (localhost:8001)
+./start_bot_safe.sh               # Safe startup (kills existing processes)
+
+# Testing & Validation
+make test                          # All tests (unit + integration + e2e)
+make test-unit                     # Unit tests only
+make lint                          # Code quality (ruff + mypy)
+PYTHONPATH=. python scripts/run_health_checks.py  # System health validation
+
+# Specific Testing
+PYTHONPATH=. python -m pytest tests/unit/test_file.py::test_function -v -s
+PYTHONPATH=. python -m pytest tests/integration/ -v --tb=short
+PYTHONPATH=. python run_comprehensive_e2e_tests.py
+
+# Emergency/Debug
+PYTHONPATH=. KICKAI_INVITE_SECRET_KEY=test-key python -c "..."  # System validation
+```
+
+## Architecture Overview
+
+### 6-Agent CrewAI Native Collaboration System
+**CrewAI native agent-to-agent collaboration with intelligent routing**
+
+1. **MESSAGE_PROCESSOR** - Primary interface with intelligent coordination (`/ping`, `/version`, `/list`)
+2. **HELP_ASSISTANT** - Specialized help system and user guidance (`/help`, command discovery)  
+3. **PLAYER_COORDINATOR** - Player management and operations (`/info`, `/myinfo`, `/status`)
+4. **TEAM_ADMINISTRATOR** - Team member management (`/addmember`, `/addplayer`)
+5. **SQUAD_SELECTOR** - Match management, availability, and squad selection
+6. **NLP_PROCESSOR** - Intelligent routing and context analysis agent
+
+### CrewAI Native Collaboration Flow
+```
+User Input → MESSAGE_PROCESSOR → NLP_PROCESSOR Analysis → Specialist Agent → Coordinated Response
+```
+
+**Key:** CrewAI native agent-to-agent collaboration patterns with intelligent routing.
+
+### Project Architecture (Clean Architecture)
+```
+kickai/
+├── agents/                        # 6-agent CrewAI native collaboration system
+├── features/<feature>/            # Domain-driven feature modules
+│   ├── application/commands/      # @command decorators
+│   ├── domain/tools/             # @tool decorators (async only)
+│   ├── domain/services/          # Business logic (async)  
+│   ├── domain/entities/          # Domain models
+│   └── infrastructure/           # Repositories, external APIs
+├── config/                       # agents.yaml, tasks.yaml, command_routing.yaml
+├── core/                        # DI container, enums, types
+└── database/                    # Firebase integration
+```
+
+## Critical Development Rules
+
+### Tool Development Pattern (MANDATORY)
+```python
+from crewai.tools import tool
+from kickai.core.dependency_container import get_container
+from kickai.core.enums import ResponseStatus  
+from kickai.utils.tool_helpers import create_json_response
+
+@tool("tool_name", result_as_answer=True)
+async def tool_name(
+    telegram_id: int,        # MUST be int, not string
+    team_id: str, 
+    username: str,
+    chat_type: str,          # "main", "leadership", "private"
+    # ... tool-specific parameters
+) -> str:
+    """Tool description with clear parameter expectations."""
+    try:
+        # 1. Get services from dependency container
+        container = get_container()
+        service = container.get_service(ServiceClass)
+        
+        # 2. Call service method with await
+        result = await service.method_name(param=value)
+        
+        # 3. Return standardized JSON response
+        return create_json_response(ResponseStatus.SUCCESS, data=result)
+        
+    except Exception as e:
+        logger.error(f"Error in tool_name: {e}")
+        return create_json_response(ResponseStatus.ERROR, message=str(e))
+```
+
+### Absolute Development Rules
+- **Always:** Use `async def` for tools, `ResponseStatus` enum, `PYTHONPATH=.` when running
+- **Always:** Use dependency injection via `get_container()` - no direct database access
+- **Always:** Use absolute imports (`from kickai.core...`) - no relative imports  
+- **Never:** Use `asyncio.run()` inside tools (causes event loop conflicts)
+- **Never:** Use legacy `emergency_contact` field - use `emergency_contact_name` + `emergency_contact_phone`
+- **Never:** Direct database access from tools - always use service layer
+- **Types:** `telegram_id` must be `int` type, `team_id` is `str`
+
+### Service Layer Pattern
+```python
+class ExampleService:
+    def __init__(self, repository: RepositoryInterface):
+        self.repository = repository
+        
+    async def get_item(self, *, item_id: str) -> Optional[DomainModel]:
+        """Service methods are async and use keyword arguments."""
+        return await self.repository.get_by_id(item_id)
+```
+
+## CrewAI Native Collaboration System
+
+### Intelligent Agent Routing
+All messages route to MESSAGE_PROCESSOR which collaborates with NLP_PROCESSOR for intelligent routing:
+
+```yaml
+# CrewAI Native Collaboration Configuration
+collaboration_routing:
+  primary_agent: "message_processor"  # All requests start here
+  collaboration_pattern: "primary_with_nlp_routing"
+  intelligent_routing: true  # Handled by agents, not configuration
+```
+
+**Key:** MESSAGE_PROCESSOR uses NLP_PROCESSOR for context-aware agent selection.
+
+## System Integration Points
+
+### Key Files & Their Purposes
+- `kickai/agents/agentic_message_router.py` - **Central router** with CrewAI collaboration
+- `kickai/agents/crew_agents.py` - 6-agent CrewAI native collaboration system
+- `kickai/config/agents.yaml` - Agent definitions with intelligent routing capabilities
+- `kickai/config/tasks.yaml` - CrewAI task templates for multi-agent coordination
+- `kickai/config/command_routing.yaml` - Simplified collaboration configuration
+- `kickai/core/dependency_container.py` - Service container and DI system
+
+### Agent Tool Assignment
+```yaml
+# Example from agents.yaml - Enhanced with NLP Collaboration
+MESSAGE_PROCESSOR:
+  tools:
+    # Direct operation tools
+    - ping, version, get_my_status
+    # NLP collaboration tools for intelligent routing
+    - advanced_intent_recognition
+    - routing_recommendation_tool
+    - analyze_update_context
+    - validate_routing_permissions
+
+NLP_PROCESSOR:  
+  tools:
+    # Intelligent routing analysis tools
+    - analyze_update_context       # Update command analysis
+    - validate_routing_permissions # Permission validation
+    - advanced_intent_recognition  # Intent classification
+    - routing_recommendation_tool  # Agent selection
+```
+
+## Database & Critical Migrations
+
+### Emergency Contact Field Migration (CRITICAL)
+**Current Architecture:** Uses separate fields with NO fallback support
+- ✅ `emergency_contact_name` (string)
+- ✅ `emergency_contact_phone` (string)  
+- ❌ `emergency_contact` (legacy - completely removed, no fallback)
+
+**Migration:** `PYTHONPATH=. python scripts/migrate_emergency_contact_fields.py`
+
+### Firebase Integration
+- Collections prefixed with `kickai_` (e.g., `kickai_teams`, `kickai_players`)
+- All database operations are async
+- Use repository pattern - no direct Firestore access from tools/services
+
+## Testing Strategy
+
+### Test Types & Commands
+```bash
+# Unit Tests - Component isolation
+PYTHONPATH=. python -m pytest tests/unit/ -v
+
+# Integration Tests - Service interactions  
+PYTHONPATH=. python -m pytest tests/integration/ -v
+
+# E2E Tests - Complete user workflows
+PYTHONPATH=. python run_comprehensive_e2e_tests.py
+
+# Mock Telegram UI - Interactive testing
+PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py
+# Access at: http://localhost:8001 (Liverpool FC themed)
+```
+
+### Test Pattern
+```python
+from unittest.mock import AsyncMock, patch
+
+async def test_tool_with_mock():
+    with patch('kickai.core.dependency_container.get_container') as mock_container:
+        mock_service = AsyncMock()
+        mock_container.return_value.get_service.return_value = mock_service
+        
+        result = await tool_name(123456789, "KTI", "testuser", "main")
+        
+        mock_service.method_name.assert_called_once()
+        assert "success" in result
+```
+
+## Common Issues & Solutions
+
+| Issue | Root Cause | Solution |
+|-------|------------|----------|
+| Tool not executing | Missing registration in feature `__init__.py` | Export tool from feature's `__init__.py` |
+| Import errors | Missing PYTHONPATH | Always use `PYTHONPATH=.` when running |
+| "User ID cannot be zero" | Mock service bot ID issue | Fixed in mock_telegram_service.py |
+| Chat type conversion warnings | String vs enum mismatch | Fixed in bot_integration.py fallback class |
+| Service not available | Container initialization | Check `ensure_container_initialized()` |
+| Wrong agent routing | Command not in routing config | Add command to `command_routing.yaml` |
+| Python version errors | Using Python < 3.11 | Must use Python 3.11+ with `venv311` |
+| Emergency contact errors | Using legacy field | Use separate `name` + `phone` fields |
+
+## System Health Validation
+
+```bash
+# Complete system health check
+PYTHONPATH=. python scripts/run_health_checks.py
+
+# Quick validation commands
+PYTHONPATH=. KICKAI_INVITE_SECRET_KEY=test-key python -c "
+from kickai.core.dependency_container import ensure_container_initialized
+from kickai.agents.tool_registry import initialize_tool_registry
+ensure_container_initialized()
+registry = initialize_tool_registry()
+print(f'✅ {len(registry.get_all_tools())} tools registered')
+"
+
+# Agent system validation
+PYTHONPATH=. KICKAI_INVITE_SECRET_KEY=test-key python -c "
+from kickai.agents.crew_agents import TeamManagementSystem
+system = TeamManagementSystem('KTI') 
+print(f'✅ {len(system.agents)} agents initialized')
+"
+```
+
+## MCP Server Integration
+
+```bash
+# Documentation access (always up-to-date)
+claude mcp add --transport http context7 https://mcp.context7.com/mcp
+
+# UI testing and automation
+claude mcp add puppeteer -s user -- npx -y @modelcontextprotocol/server-puppeteer
+```
+
+**Usage:** Add `use context7` to prompts needing current documentation (CrewAI, Firebase, Python libraries).
+
+## Development Environment
+
+### Required Setup
 ```bash
 # 1. Python 3.11+ (MANDATORY)
 python3.11 check_python_version.py
 source venv311/bin/activate
 
-# 2. Environment variables
+# 2. Environment variables (.env file)
 AI_PROVIDER=groq
-KICKAI_INVITE_SECRET_KEY=test-invite-secret-key-for-testing-only
-FIREBASE_PROJECT_ID=<project_name>
-FIREBASE_CREDENTIALS_FILE=credentials/<filename>.json
+KICKAI_INVITE_SECRET_KEY=test-invite-secret-key-for-testing-only  
+FIREBASE_PROJECT_ID=<your_project>
+FIREBASE_CREDENTIALS_FILE=credentials/<file>.json
 
-# 3. Always use PYTHONPATH
-PYTHONPATH=. python run_bot_local.py
+# 3. Dependencies
+pip install -r requirements.txt
+pip install -r requirements-local.txt
 ```
 
-### Essential Commands
-```bash
-# Development
-make dev                           # Start development server
-./start_bot_safe.sh               # Safe startup (kills existing processes)
-PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py  # Mock UI (http://localhost:8001)
-
-# Testing
-make test                          # All tests
-make test-unit                     # Unit tests only
-PYTHONPATH=. python -m pytest tests/unit/test_file.py::test_function -v  # Specific test
-
-# Code Quality
-make lint                          # All linting and formatting
-ruff check kickai/ && ruff format kickai/ && mypy kickai/  # Individual tools
-
-# Validation
-PYTHONPATH=. python scripts/run_health_checks.py
-
-# MCP Server Management
-claude mcp add puppeteer -s user -- npx -y @modelcontextprotocol/server-puppeteer  # UI Testing
-claude mcp add --transport http context7 https://mcp.context7.com/mcp              # Documentation Access
-```
-
-## System Architecture
-
-### 6-Agent CrewAI System
-1. **MessageProcessorAgent** - Primary interface and routing
-2. **HelpAssistantAgent** - Help system and guidance  
-3. **PlayerCoordinatorAgent** - Player management
-4. **TeamAdministrationAgent** - Team member management
-5. **SquadSelectorAgent** - Squad selection and availability
-6. **NLPProcessorAgent** - Natural language processing and understanding
-
-### Processing Flow
-```
-User Input → AgenticMessageRouter → CrewAI Agent → Tool Execution → Response
-```
-
-### Project Structure
-```
-kickai/
-├── features/           # Domain features (player_registration, team_administration, etc.)
-├── agents/            # 6-agent CrewAI system
-├── core/              # Core utilities and DI container
-└── database/          # Firebase/Firestore integration
-```
-
-### Feature Architecture
-```
-kickai/features/<feature_name>/
-├── application/commands/     # @command decorators
-├── domain/
-│   ├── tools/               # @tool decorators (async)
-│   ├── services/            # Business logic (async)
-│   └── entities/            # Domain models
-└── infrastructure/          # Repositories, external APIs
-```
-
-## CrewAI Tool Development (MANDATORY)
-
-### Standard Tool Pattern
-```python
-from crewai.tools import tool
-from loguru import logger
-from kickai.core.dependency_container import get_container
-from kickai.core.enums import ResponseStatus
-from kickai.utils.tool_helpers import create_json_response
-
-@tool("tool_name", result_as_answer=True)
-async def tool_name(
-    telegram_id: int,
-    team_id: str,
-    username: str,
-    chat_type: str,
-    # ... tool-specific parameters
-) -> str:
-    """Tool description."""
-    try:
-        # 1. Get services from container
-        container = get_container()
-        service = container.get_service(ServiceClass)
-        
-        # 2. Direct async service calls
-        result = await service.async_method(...)
-        
-        # 3. Return standardized response
-        return create_json_response(ResponseStatus.SUCCESS, data=result)
-        
-    except Exception as e:
-        logger.error(f"❌ Error in tool_name: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=str(e))
-```
-
-### Implementation Requirements
-- **Always**: Use `async def` for tool functions
-- **Always**: Use `ResponseStatus` enum for status values
-- **Always**: Call services with `await` directly
-- **Always**: Return JSON string responses
-- **Never**: Use `asyncio.run()` in tools
-- **Never**: Access database directly from tools
-- **Never**: Create sync wrapper methods
-
-### Anti-Patterns to Avoid
-```python
-# ❌ NEVER use asyncio.run() in tools
-@tool("bad_tool")
-def bad_tool(...):
-    return asyncio.run(async_function(...))  # Causes event loop conflicts
-
-# ❌ NEVER bypass services in tools
-@tool("bad_tool")
-async def bad_tool(...):
-    database = container.get_database()  # Use services instead
-    await database.query_documents(...)
-
-# ❌ NEVER use string status values
-create_json_response("success", ...)  # Use ResponseStatus.SUCCESS
-```
-
-## Service Architecture
-
-### Clean Architecture Flow
-```
-Tool (async) → Service (async) → Repository (async) → Database (async)
-     ↓              ↓                ↓                    ↓
-ResponseStatus  Domain Logic    Domain Models       Firestore
-   Enum          & Rules        (Team, Player)       Client
-```
-
-### Service Layer Pattern
-```python
-class TeamService:
-    """Services use async methods only - no sync wrappers."""
-    
-    async def get_team(self, *, team_id: str) -> Optional[Team]:
-        """Returns domain model, not raw database document."""
-        return await self.repository.get_team_by_id(team_id)
-    
-    async def create_player(self, player: Player) -> Player:
-        """Business logic in service, not in tool."""
-        return await self.repository.create(player)
-```
-
-### Repository Pattern
-```python
-class FirebaseTeamRepository(TeamRepositoryInterface):
-    """Repositories handle database operations and model conversion."""
-    
-    async def get_team_by_id(self, team_id: str) -> Optional[Team]:
-        """Get from Firestore, return domain model."""
-        doc = await self.db.get_document("kickai_teams", team_id)
-        return Team.from_dict(doc) if doc else None
-    
-    async def create(self, team: Team) -> Team:
-        """Save domain model to Firestore."""
-        await self.db.set_document("kickai_teams", team.id, team.to_dict())
-        return team
-```
-
-## Development Best Practices
-
-### Documentation Access with Context7 MCP
-
-Context7 MCP provides up-to-date, version-specific documentation directly in your prompts, eliminating outdated code generation and API hallucinations.
-
-**Installation:**
-```bash
-claude mcp add --transport http context7 https://mcp.context7.com/mcp
-```
-
-**Usage Pattern:**
-Simply add `use context7` to any prompt where you need current documentation:
-
-**Examples:**
-```bash
-# Get latest CrewAI documentation
-"Create a new CrewAI agent with the latest API patterns. use context7"
-
-# Firebase Firestore current methods
-"Write a Firestore query with the newest SDK features. use context7"
-
-# Python library updates
-"Use the latest asyncio patterns for concurrent processing. use context7"
-
-# Framework-specific examples
-"Set up FastAPI with the current best practices for dependency injection. use context7"
-```
-
-**Key Benefits for KICKAI Development:**
-- ✅ **No API Hallucinations**: Real, current API references from official sources
-- ✅ **Version-Specific Examples**: Accurate code for exact library versions in use
-- ✅ **Time Saving**: No tab-switching between documentation sites
-- ✅ **Always Current**: Pulls latest official documentation dynamically
-- ✅ **Framework Agnostic**: Works with any library, framework, or API
-
-**Integration with Development Workflow:**
-- Use when implementing new CrewAI features
-- Reference during Firebase/Firestore operations
-- Verify Python library usage patterns
-- Check latest async/await best practices
-- Validate API endpoints and parameters
-
-### Code Standards
-```python
-# ✅ Use enums instead of magic strings
-from kickai.core.enums import ChatType, UserStatus, ResponseStatus
-if chat_type.lower() != ChatType.LEADERSHIP.value:
-    raise AuthorizationError("Leadership required")
-
-# ✅ Always validate service availability
-container = get_container()
-team_service = container.get_service(TeamService)
-if not team_service:
-    raise ServiceNotAvailableError("Team service not available")
-
-# ✅ Use domain services, not direct database access
-team = await team_service.get_team(team_id=team_id)
-if not team:
-    raise TeamNotFoundError(f"Team not found: {team_id}")
-
-# ✅ Simple exception handling
-try:
-    result = await service.method()
-    return create_json_response(ResponseStatus.SUCCESS, data=result)
-except Exception as e:
-    logger.error(f"❌ Error: {e}")
-    return create_json_response(ResponseStatus.ERROR, message=str(e))
-```
-
-### Import Standards
-```python
-# ✅ Use absolute imports
-from kickai.features.player_registration.domain.tools.player_tools import get_status
-
-# ❌ Never use relative imports
-from .domain.tools.player_tools import get_status
-
-# ✅ Standard imports (no fallbacks) - verify with Context7
-from loguru import logger
-from crewai.tools import tool  # use context7 for latest CrewAI patterns
-from kickai.core.enums import ChatType, ResponseStatus
-from kickai.utils.tool_helpers import create_json_response
-```
-
-## Testing
-
-### Test Organization
-- `tests/unit/` - Component tests
-- `tests/integration/` - Service tests
-- `tests/e2e/` - Workflow tests
-- `tests/mock_telegram/` - UI testing
-- **Puppeteer MCP** - Browser automation and UI testing
-
-### UI Testing with Puppeteer MCP
-
-The Puppeteer MCP server provides comprehensive browser automation capabilities for testing web interfaces and user interactions.
-
-**Installation:**
-```bash
-claude mcp add puppeteer -s user -- npx -y @modelcontextprotocol/server-puppeteer
-```
-
-**Key Capabilities:**
-- **Browser Management**: Launch and control Chrome/Chromium browsers
-- **Page Operations**: Navigate, create tabs, manage multiple browser windows
-- **Element Interaction**: Click buttons, fill forms, extract text from elements
-- **Screenshot Capture**: Take full-page or viewport screenshots for visual verification
-- **JavaScript Execution**: Run custom JavaScript code in browser context
-- **Selector Waiting**: Wait for elements to appear with configurable timeouts
-
-**Usage Examples:**
-```bash
-# Test web interface interactions
-"Navigate to the login page and verify the form fields are present"
-
-# Visual regression testing
-"Take a screenshot of the dashboard after login and compare with baseline"
-
-# User workflow testing
-"Simulate a complete user registration flow and verify success message"
-
-# Form validation testing
-"Test the contact form with invalid inputs and verify error messages"
-```
-
-**Integration with KICKAI:**
-- Test Telegram web app interfaces
-- Verify bot command responses in web environments
-- Screenshot capture for bug reporting
-- End-to-end user journey validation
-
-### Tool Testing Pattern
-```python
-from unittest.mock import AsyncMock, patch
-
-async def test_tool_with_mocks():
-    with patch('kickai.core.dependency_container.get_container') as mock_container:
-        mock_service = AsyncMock()
-        mock_container.return_value.get_service.return_value = mock_service
-        
-        result = await add_player(
-            telegram_id=123456789, team_id="KTI", username="test",
-            chat_type="leadership", player_name="John", phone_number="+447123456789"
-        )
-        
-        mock_service.create_player.assert_called_once()
-        assert "success" in result
-
-# Test error handling
-async def test_tool_error_handling():
-    result = await add_player(telegram_id=None, ...)  # Invalid
-    
-    import json
-    response = json.loads(result)
-    assert response["status"] == "error"
-    assert "telegram_id" in response["message"].lower()
-```
-
-### Mock Telegram Testing
-```bash
-# Start Mock Telegram UI (recommended for testing)
-PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py
-# Access at: http://localhost:8001
-```
-
-**Benefits**:
-- Liverpool FC themed interface for professional testing
-- No real Telegram API calls needed during development
-- Complete command testing including slash commands and natural language
-- Real-time agent responses and system monitoring
-
-## Development Workflow
-
-### Adding New Features
-1. Create feature in `kickai/features/` following clean architecture
-2. Add async tools with `@tool` decorator
-3. Register commands with `@command` decorator  
-4. Update agent tool assignments in `agents.yaml`
-5. Add tests (unit, integration, E2E)
-
-### Adding New Tools
-1. Create async tool function with `@tool` decorator
-2. Export from feature's `__init__.py`
-3. Add to agent configuration in `agents.yaml`
-4. Use services for business logic
-
-## Common Issues & Solutions
-
-### Tool Issues
-- **Tool not executing** → Check registration in feature `__init__.py`
-- **Import errors** → Use `PYTHONPATH=.` when running
-- **Enum errors** → Use `.value` for enum comparisons (`ChatType.LEADERSHIP.value`)
-- **Service not available** → Check dependency container initialization
-
-### Development Issues  
-- **Python version errors** → Must use Python 3.11+ with `venv311`
-- **Process conflicts** → Use `./start_bot_safe.sh`
-- **Module not found** → Ensure `PYTHONPATH=.` is set
-- **Firebase auth** → Check credentials file path
-
-### Type Issues
-- **telegram_id errors** → Must be `int` (not string)
-- **Response format** → Use `ResponseStatus` enum
-
-## System Health Check
-
-```bash
-# Complete system validation
-PYTHONPATH=. python scripts/run_health_checks.py
-
-# Container initialization
-PYTHONPATH=. KICKAI_INVITE_SECRET_KEY=test_key python -c "
-from kickai.core.dependency_container import ensure_container_initialized
-ensure_container_initialized()
-print('✅ Container OK')
-"
-
-# Agent system
-PYTHONPATH=. python -c "
-from kickai.agents.crew_agents import TeamManagementSystem
-system = TeamManagementSystem('KTI')
-print(f'✅ {len(system.agents)} agents loaded')
-"
-```
-
-## Key Architecture Files
-
-### Essential Files
-- `kickai/agents/crew_agents.py` - 6-agent system
-- `kickai/agents/agentic_message_router.py` - Message routing
-- `kickai/core/dependency_container.py` - Service container
-- `kickai/config/agents.yaml` - Agent configuration
-
-### System Modernization (2025)
-- **Unified Router**: `AgenticMessageRouter` handles all message routing (removed legacy handlers)
-- **Native Async**: All tools use `async def` with CrewAI native support (removed sync wrappers)
-- **Type Safety**: Consistent `telegram_id` as `int` throughout system
-- **Memory Management**: Proper cleanup and resource management
-
-## Legacy Migration Notes
-
-### For Developers Working on Old Code
-If you encounter references to deleted components:
-
-1. **Handler Classes** → Methods in `AgenticMessageRouter`
-   - `UnregisteredUserHandler` → `_get_unregistered_user_message()`
-   - `ContactShareHandler` → `route_contact_share()`
-   - `RegisteredUserHandler` → `_process_with_crewai_system()`
-
-2. **Context Classes** → Direct logic in router
-   - `ContextBuilder` → Logic moved to router methods
-   - `AgentContext` → Use `tests/agents/test_context.py` for tests
-
-3. **Factory Classes** → Use dependency container
-   - `AgentSystemFactory` → Removed, use `dependency_container.py`
-
-### System Benefits
-- **-500+ lines** of duplicate code eliminated
-- **Single source of truth** for message routing
-- **Consistent type handling** (telegram_id as int)
-- **Better error handling** with circuit breakers
-- **Improved testability** with unified routing
-
-## Performance Characteristics
-- **Response Time**: < 2 seconds for most operations
-- **Async Efficiency**: Native async execution throughout the stack
-- **Error Recovery**: Graceful degradation with clear error messages
-- **Resource Usage**: Efficient async I/O without thread pool overhead
+### Architecture Modernization (2025)
+- **CrewAI Native Collaboration:** Agent-to-agent collaboration using CrewAI best practices
+- **Intelligent Routing:** NLP_PROCESSOR provides context-aware agent selection
+- **Multi-Agent Patterns:** Sequential, parallel, and hierarchical collaboration workflows
+- **Native Async:** All tools use `async def` with CrewAI native support
+- **Clean Architecture:** Feature-first structure with domain-driven design
+- **Type Safety:** Consistent `telegram_id` as `int` throughout system
+
+This CLAUDE.md reflects the current production-ready state of KICKAI's 6-agent CrewAI native collaboration architecture with intelligent routing and multi-agent coordination patterns.

@@ -185,7 +185,8 @@ class ConfigurableAgent:
             self._validate_context(context)
 
             # Create enhanced task description with context
-            enhanced_description = self._enhance_task_description(task_description, context)
+            from kickai.utils.task_description_enhancer import TaskDescriptionEnhancer
+            enhanced_description = TaskDescriptionEnhancer.enhance_task_description(task_description, context)
 
             # Create and execute CrewAI task
             result = await self._execute_crewai_task(enhanced_description, context)
@@ -210,20 +211,7 @@ class ConfigurableAgent:
         
         logger.debug(f"🔍 Context validated for {self.agent_role.value}")
 
-    def _enhance_task_description(self, task_description: str, context: Dict[str, Any]) -> str:
-        """
-        Enhance task description with execution context for better LLM understanding.
 
-        This follows CrewAI 2025 best practices by making context visible to the LLM.
-        """
-        # Simplified context info to reduce prompt pollution
-        context_info = f"""
-
-Context: team_id="{context['team_id']}", telegram_id={context['telegram_id']}, chat_type="{context['chat_type']}"
-
-Use these parameters when calling tools."""
-
-        return task_description + context_info
 
     async def _execute_crewai_task(self, task_description: str, context: Dict[str, Any]) -> str:
         """Execute the actual CrewAI task with proper context handling."""

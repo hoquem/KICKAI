@@ -45,8 +45,8 @@ async def update_player_field(
         
         # Get player service
         container = get_container()
-        from kickai.features.player_registration.domain.services.player_service import PlayerService
-        player_service = container.get_service(PlayerService)
+        from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
+        player_service = container.get_service(IPlayerService)
         if not player_service:
             return create_json_response(
                 ResponseStatus.ERROR,
@@ -54,7 +54,7 @@ async def update_player_field(
             )
         
         # Find the player
-        players = await player_service.get_players_by_telegram_id(telegram_id)
+        players = await player_service.get_players_by_telegram_id(telegram_id, team_id)
         if not players:
             return create_json_response(
                 ResponseStatus.ERROR,
@@ -107,11 +107,13 @@ async def update_player_field(
             data=response_data
         )
         
-    except Exception as e:
+    except (RuntimeError, AttributeError, KeyError, ValueError) as e:
+        from kickai.features.player_registration.domain.exceptions import PlayerUpdateError
         logger.error(f"❌ Error updating player field: {e}")
+        update_error = PlayerUpdateError(str(telegram_id), field, str(e))
         return create_json_response(
             ResponseStatus.ERROR,
-            message=f"Failed to update field: {str(e)}"
+            message=f"Failed to update field: {update_error.message}"
         )
 
 
@@ -142,8 +144,8 @@ async def update_player_multiple_fields(
         
         # Get player service
         container = get_container()
-        from kickai.features.player_registration.domain.services.player_service import PlayerService
-        player_service = container.get_service(PlayerService)
+        from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
+        player_service = container.get_service(IPlayerService)
         if not player_service:
             return create_json_response(
                 ResponseStatus.ERROR,
@@ -151,7 +153,7 @@ async def update_player_multiple_fields(
             )
         
         # Find the player
-        players = await player_service.get_players_by_telegram_id(telegram_id)
+        players = await player_service.get_players_by_telegram_id(telegram_id, team_id)
         if not players:
             return create_json_response(
                 ResponseStatus.ERROR,
@@ -218,11 +220,13 @@ async def update_player_multiple_fields(
             data=response_data
         )
         
-    except Exception as e:
+    except (RuntimeError, AttributeError, KeyError, ValueError) as e:
+        from kickai.features.player_registration.domain.exceptions import PlayerUpdateError
         logger.error(f"❌ Error updating multiple player fields: {e}")
+        update_error = PlayerUpdateError(str(telegram_id), "multiple_fields", str(e))
         return create_json_response(
             ResponseStatus.ERROR,
-            message=f"Failed to update fields: {str(e)}"
+            message=f"Failed to update fields: {update_error.message}"
         )
 
 
@@ -275,11 +279,13 @@ async def get_player_update_help(
             data={'help_text': help_message}
         )
         
-    except Exception as e:
+    except (RuntimeError, AttributeError, KeyError) as e:
+        from kickai.features.shared.domain.exceptions import HelpSystemError
         logger.error(f"❌ Error getting player update help: {e}")
+        help_error = HelpSystemError(str(telegram_id), str(e))
         return create_json_response(
             ResponseStatus.ERROR,
-            message="Failed to get help information"
+            message=f"Failed to get help information: {help_error.message}"
         )
 
 
@@ -307,8 +313,8 @@ async def get_player_current_info(
         
         # Get player service
         container = get_container()
-        from kickai.features.player_registration.domain.services.player_service import PlayerService
-        player_service = container.get_service(PlayerService)
+        from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
+        player_service = container.get_service(IPlayerService)
         if not player_service:
             return create_json_response(
                 ResponseStatus.ERROR,
@@ -316,7 +322,7 @@ async def get_player_current_info(
             )
         
         # Find the player
-        players = await player_service.get_players_by_telegram_id(telegram_id)
+        players = await player_service.get_players_by_telegram_id(telegram_id, team_id)
         if not players:
             return create_json_response(
                 ResponseStatus.ERROR,
@@ -346,9 +352,11 @@ async def get_player_current_info(
             data={'player_info': player_info}
         )
         
-    except Exception as e:
+    except (RuntimeError, AttributeError, KeyError, ValueError) as e:
+        from kickai.features.player_registration.domain.exceptions import PlayerLookupError
         logger.error(f"❌ Error getting player current info: {e}")
+        lookup_error = PlayerLookupError(str(telegram_id), team_id, str(e))
         return create_json_response(
             ResponseStatus.ERROR,
-            message=f"Failed to get player information: {str(e)}"
+            message=f"Failed to get player information: {lookup_error.message}"
         )

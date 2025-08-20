@@ -140,13 +140,13 @@ class ServiceFactory:
         try:
             team_service_check = self.container.get_service(TeamService)
             logger.debug(f"✅ TeamService immediately available: {type(team_service_check)}")
-        except Exception as e:
+        except (RuntimeError, KeyError, AttributeError) as e:
             logger.error(f"❌ TeamService not immediately available: {e}")
 
         try:
             team_service_interface_check = self.container.get_service(ITeamService)
             logger.debug(f"✅ ITeamService immediately available: {type(team_service_interface_check)}")
-        except Exception as e:
+        except (RuntimeError, KeyError, AttributeError) as e:
             logger.error(f"❌ ITeamService not immediately available: {e}")
 
         return {"team_service": team_service}
@@ -187,7 +187,7 @@ class ServiceFactory:
             )
             team_service = self.container.get_service(ITeamService)
             logger.debug("🔍 Got team service from container by interface")
-        except Exception as e:
+        except (RuntimeError, KeyError, AttributeError) as e:
             logger.warning(f"⚠️ Could not get TeamService by interface: {e}")
             team_service = self.container.get_service(TeamService)
             logger.debug("🔍 Got team service from container by concrete class")
@@ -221,6 +221,9 @@ class ServiceFactory:
         from kickai.features.team_administration.domain.services.team_member_service import (
             TeamMemberService,
         )
+        from kickai.features.team_administration.domain.interfaces.team_member_service_interface import (
+            ITeamMemberService,
+        )
 
         logger.debug("🔍 Imported TeamMemberService")
 
@@ -239,6 +242,7 @@ class ServiceFactory:
         self.container.register_service(IPlayerService, player_service)
         logger.debug("🔍 Registering TeamMemberService...")
         self.container.register_service(TeamMemberService, team_member_service)
+        self.container.register_service(ITeamMemberService, team_member_service)
 
         # Create registration service after team services are available
         from kickai.features.player_registration.domain.services.registration_service import (
@@ -265,7 +269,7 @@ class ServiceFactory:
         try:
             team_service_check = self.container.get_service(TeamService)
             logger.debug(f"✅ TeamService is available in container: {type(team_service_check)}")
-        except Exception as e:
+        except (RuntimeError, KeyError, AttributeError) as e:
             logger.error(f"❌ TeamService not available in container: {e}")
 
         try:
@@ -274,7 +278,7 @@ class ServiceFactory:
             )
             team_service_interface_check = self.container.get_service(ITeamService)
             logger.debug(f"✅ ITeamService is available in container: {type(team_service_interface_check)}")
-        except Exception as e:
+        except (RuntimeError, KeyError, AttributeError) as e:
             logger.error(f"❌ ITeamService not available in container: {e}")
 
         return {
@@ -344,6 +348,12 @@ class ServiceFactory:
         from kickai.features.match_management.domain.services.match_service import (
             MatchService,
         )
+        from kickai.features.match_management.domain.interfaces.attendance_service_interface import (
+            IAttendanceService,
+        )
+        from kickai.features.match_management.domain.interfaces.availability_service_interface import (
+            IAvailabilityService,
+        )
         from kickai.features.match_management.infrastructure.firebase_attendance_repository import (
             FirebaseAttendanceRepository,
         )
@@ -370,7 +380,9 @@ class ServiceFactory:
         self.container.register_service(AttendanceRepositoryInterface, attendance_repo)
         self.container.register_service(MatchService, match_service)
         self.container.register_service(AvailabilityService, availability_service)
+        self.container.register_service(IAvailabilityService, availability_service)
         self.container.register_service(AttendanceService, attendance_service)
+        self.container.register_service(IAttendanceService, attendance_service)
 
         return {
             "match_repository": match_repo,
@@ -429,6 +441,18 @@ class ServiceFactory:
         from kickai.features.communication.domain.interfaces.telegram_bot_service_interface import (
             TelegramBotServiceInterface,
         )
+        from kickai.features.communication.domain.interfaces.message_service_interface import (
+            IMessageService,
+        )
+        from kickai.features.communication.domain.interfaces.notification_service_interface import (
+            INotificationService,
+        )
+        from kickai.features.communication.domain.interfaces.invite_link_service_interface import (
+            IInviteLinkService,
+        )
+        from kickai.features.communication.domain.interfaces.communication_service_interface import (
+            ICommunicationService,
+        )
 
         # Create services
         message_repository = FirebaseMessageRepository(self.database)
@@ -465,11 +489,15 @@ class ServiceFactory:
         # Create communication service with TelegramBotService (if available)
         communication_service = CommunicationService(telegram_bot_service)
 
-        # Register with container
+        # Register services and interfaces with container
         self.container.register_service(MessageService, message_service)
+        self.container.register_service(IMessageService, message_service)
         self.container.register_service(NotificationService, notification_service)
+        self.container.register_service(INotificationService, notification_service)
         self.container.register_service(InviteLinkService, invite_link_service)
+        self.container.register_service(IInviteLinkService, invite_link_service)
         self.container.register_service(CommunicationService, communication_service)
+        self.container.register_service(ICommunicationService, communication_service)
         
         # Register TelegramBotService interface if mock is available
         if telegram_bot_service:
@@ -493,14 +521,22 @@ class ServiceFactory:
         from kickai.features.system_infrastructure.domain.services.permission_service import (
             PermissionService,
         )
+        from kickai.features.system_infrastructure.domain.interfaces.permission_service_interface import (
+            IPermissionService,
+        )
+        from kickai.features.system_infrastructure.domain.interfaces.bot_status_service_interface import (
+            IBotStatusService,
+        )
 
         # Create services
         bot_status_service = BotStatusService()
         permission_service = PermissionService(self.database)
 
-        # Register with container
+        # Register services and interfaces with container
         self.container.register_service(BotStatusService, bot_status_service)
+        self.container.register_service(IBotStatusService, bot_status_service)
         self.container.register_service(PermissionService, permission_service)
+        self.container.register_service(IPermissionService, permission_service)
 
         return {
             "bot_status_service": bot_status_service,

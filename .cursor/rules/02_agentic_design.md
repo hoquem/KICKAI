@@ -6,26 +6,23 @@ We will leverage agents for what they do best and fall back on deterministic cod
   - Natural Language Understanding (NLU).
   - Generating match summaries or tactical suggestions.
 
-- **Intent Recognition Agent**: A dedicated CrewAI agent, the "Message Processor," will be the primary interface for natural language. Its job is to receive raw text from the user and route it to the appropriate specialized agent based on intent and context.
+- **Primary Agent Pattern**: The MESSAGE_PROCESSOR serves as the primary interface for all user interactions, collaborating with NLP_PROCESSOR for intelligent routing decisions based on context and intent analysis.
 
 ### Agentic & AI Architecture Principles
 
 This section defines the core design patterns for the CrewAI-based agentic system.
 
-- **6-Agent CrewAI System**: The system is structured as a crew of 6 specialized agents organized into logical layers:
-    - **Primary Interface Layer** (`MESSAGE_PROCESSOR`): Handles initial user interaction and routing.
-    - **Operational Layer** (`PLAYER_COORDINATOR`, `TEAM_ADMINISTRATOR`, `SQUAD_SELECTOR`): Manages day-to-day team operations.
-    - **Support Layer** (`HELP_ASSISTANT`): Provides help and guidance functionality.
-    - **NLP Enhancement Layer** (`NLP_PROCESSOR`): Provides natural language processing and understanding.
+- **6-Agent CrewAI Native Collaboration System**: The system uses CrewAI native agent collaboration patterns with intelligent routing:
+    - **Primary Interface Layer** (`MESSAGE_PROCESSOR`): Primary interface with intelligent coordination capabilities.
+    - **Operational Layer** (`PLAYER_COORDINATOR`, `TEAM_ADMINISTRATOR`, `SQUAD_SELECTOR`): Specialist agents for domain-specific operations.
+    - **Support Layer** (`HELP_ASSISTANT`): Specialized help system and user guidance.
+    - **Intelligent Routing Layer** (`NLP_PROCESSOR`): Context-aware analysis and agent selection.
 
-- **CrewAI Idiomatic Usage**: All implementations must strictly adhere to CrewAI's native features and design patterns. Avoid custom workarounds for functionalities already supported by the framework (e.g., context passing, memory management, delegation).
-
-- **Enhanced Memory System**: The system uses CrewAI 0.157.0's enhanced memory features:
-  - **Entity-Specific Memory**: Each agent has access to entity-specific memory (player, team member, session)
-  - **Delegation Tools**: Agents can delegate tasks to each other using CrewAI's built-in delegation tools
-  - **Context Retention**: Memory is automatically managed and preserved across agent interactions
-
-- **CrewAI Idiomatic Usage**: All implementations must strictly adhere to CrewAI's native features and design patterns. Avoid custom workarounds for functionalities already supported by the framework (e.g., context passing, memory management, delegation).
+- **CrewAI Native Collaboration**: All implementations must use CrewAI's native agent collaboration features:
+  - **Primary Agent Pattern**: MESSAGE_PROCESSOR coordinates with specialist agents
+  - **Tool-Based Collaboration**: Agents collaborate through specialized tools, not direct communication
+  - **Intelligent Routing**: NLP_PROCESSOR provides context-aware agent selection
+  - **Multi-Agent Patterns**: Sequential, parallel, and hierarchical collaboration workflows
 
 - **Context-Aware Routing & Agent Selection**:
     - The **AgenticMessageRouter** serves as the entry point for all user requests.

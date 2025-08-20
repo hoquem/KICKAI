@@ -30,7 +30,7 @@ from kickai.agents.configurable_agent import ConfigurableAgent
 # from kickai.utils.llm_factory_simple import SimpleLLMFactory
 from kickai.agents.tool_registry import initialize_tool_registry
 from kickai.config.agents import get_agent_config
-from kickai.config.command_routing_manager import get_command_routing_manager
+# Removed command routing manager - now using pure CrewAI agent collaboration
 from kickai.config.llm_config import get_llm_config
 from kickai.core.config import get_settings
 from kickai.core.enums import AgentRole
@@ -107,9 +107,8 @@ class TeamManagementSystem:
         self._initialize_tool_registry()
         self._initialize_async_tool_registry()
 
-        # Initialize command routing manager
-        logger.info("[TEAM INIT] Initializing command routing manager")
-        self._initialize_routing_manager()
+        # Command routing now handled via pure CrewAI agent collaboration
+        logger.info("[TEAM INIT] CrewAI native collaboration enabled - MESSAGE_PROCESSOR primary agent")
 
         # Initialize agents with entity-specific validation
         logger.info("[TEAM INIT] Initializing agents dictionary")
@@ -176,40 +175,7 @@ class TeamManagementSystem:
             logger.error(f"❌ Failed to initialize async tool registry: {e}")
             raise ConfigurationError(f"Failed to initialize async tool registry: {e!s}") from e
 
-    def _initialize_routing_manager(self):
-        """Initialize command routing manager - REQUIRED, no fallbacks."""
-        try:
-            self.routing_manager = get_command_routing_manager()
-            logger.info("✅ Command routing manager initialized")
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize command routing manager: {e}")
-            # FAIL FAST - No silent fallbacks, configuration must be valid
-            raise ConfigurationError(f"Command routing configuration is required and must be valid: {e}") from e
 
-    def _route_command_to_agent(self, command: str, chat_type: str | None = None, context: dict[str, Any] | None = None) -> AgentRole:
-        """
-        Route a command to the appropriate agent using the routing manager.
-
-        Args:
-            command: Command to route
-            chat_type: Chat context (main/leadership/private)
-            context: Additional routing context
-
-        Returns:
-            AgentRole for the selected agent
-
-        Raises:
-            RuntimeError: If routing fails (no silent fallbacks)
-        """
-        try:
-            # Use dynamic routing - REQUIRED, no fallbacks
-            routing_decision = self.routing_manager.route_command(command, chat_type, context)
-            logger.info(f"🎯 Dynamic routing: {command} → {routing_decision.agent_role.value} ({routing_decision.match_type})")
-            return routing_decision.agent_role
-        except Exception as e:
-            logger.error(f"❌ Routing failed for '{command}': {e}")
-            # FAIL FAST - No silent fallbacks
-            raise RuntimeError(f"Command routing failed for '{command}': {e}") from e
 
     def _initialize_agents(self):
         """Initialize agents with clean configuration."""
@@ -220,7 +186,8 @@ class TeamManagementSystem:
                 AgentRole.HELP_ASSISTANT,
                 AgentRole.PLAYER_COORDINATOR,
                 AgentRole.TEAM_ADMINISTRATOR,
-                AgentRole.SQUAD_SELECTOR
+                AgentRole.SQUAD_SELECTOR,
+                AgentRole.NLP_PROCESSOR  # Intelligent routing and context analysis agent
             ]
 
             for role in agent_roles:
@@ -350,7 +317,17 @@ class TeamManagementSystem:
         try:
             logger.info(f"🤖 TEAM MANAGEMENT: Starting task execution for team {self.team_id}")
             logger.info(f"🤖 TEAM MANAGEMENT: Task description: {task_description}")
-            logger.info(f"🤖 TEAM MANAGEMENT: Execution context: {execution_context}")
+            
+            # CREWAI BEST PRACTICE: Optimize context before any processing
+            from kickai.agents.utils.context_optimizer import ContextOptimizer
+            
+            # Add minimal memory reference (not full memory_context)
+            execution_context = self._add_memory_context(execution_context)
+            
+            # Optimize context following CrewAI best practices
+            optimized_context = ContextOptimizer.optimize_execution_context(execution_context)
+            
+            logger.info(f"🤖 TEAM MANAGEMENT: Optimized execution context: {optimized_context}")
             logger.info(
                 f"🤖 TEAM MANAGEMENT: Available agents: {[role.value for role in self.agents.keys()]}"
             )
@@ -358,8 +335,8 @@ class TeamManagementSystem:
             # Log agent details
             self._log_agent_details()
 
-            # Add conversation context to execution context
-            execution_context = self._add_memory_context(execution_context)
+            # Use optimized context for all further processing
+            execution_context = optimized_context
 
             # Execute the task
             result = await self._execute_with_basic_crew(task_description, execution_context)
@@ -386,31 +363,72 @@ class TeamManagementSystem:
             logger.warning(f"⚠️ Could not log agent details: {e}")
 
     def _add_memory_context(self, execution_context: dict[str, Any]) -> dict[str, Any]:
-        """Add memory context to execution context."""
+        """Add minimal memory reference to execution context (optimized for CrewAI)."""
         try:
             telegram_id = execution_context.get("telegram_id")
             if telegram_id and hasattr(self, "team_memory"):
-                # Get telegram-specific memory context
-                memory_context = self.team_memory.get_telegram_memory_context(telegram_id)
-                execution_context["memory_context"] = memory_context
-                logger.info(f"🤖 TEAM MANAGEMENT: Added memory context for telegram_id {telegram_id}")
+                # Get conversation history count only (not full history)
+                history = self.team_memory.get_conversation_history(str(telegram_id), limit=1)
+                has_previous = len(history) > 0
+                last_command = history[0].get("input", "") if has_previous else None
+                
+                # Add minimal conversation reference (not full memory_context)
+                execution_context["has_previous"] = has_previous
+                if last_command:
+                    execution_context["last_command"] = last_command[:50]  # Truncate
+                
+                logger.info(f"🤖 TEAM MANAGEMENT: Added minimal memory reference for telegram_id {telegram_id}")
             return execution_context
         except Exception as e:
-            logger.warning(f"⚠️ Could not add memory context: {e}")
+            logger.warning(f"⚠️ Could not add memory reference: {e}")
             return execution_context
 
     def _store_conversation_in_memory(self, task_description: str, result: str, execution_context: dict[str, Any]) -> None:
-        """Store conversation in memory for context persistence."""
+        """Store conversation using optimized memory manager (CrewAI best practices)."""
         try:
             telegram_id = execution_context.get("telegram_id")
-            if telegram_id and hasattr(self, "team_memory"):
-                self.team_memory.add_conversation(
-                    telegram_id=str(telegram_id),  # Use correct parameter name
-                    input_text=task_description,
-                    output_text=result,
-                    context=execution_context,
+            if telegram_id:
+                # Use optimized memory manager for minimal storage
+                from kickai.agents.utils.memory_manager import get_memory_manager
+                
+                memory_manager = get_memory_manager(self.team_id)
+                
+                # Determine response type for better categorization
+                response_type = "success"
+                if "❌" in result or "Error" in result:
+                    response_type = "error"
+                elif "help" in task_description.lower() or "/help" in task_description:
+                    response_type = "help"
+                elif "{" in result and "data" in result:
+                    response_type = "data"
+                
+                # Store conversation summary (not full content)
+                summary = memory_manager.add_conversation_summary(
+                    telegram_id=telegram_id,
+                    command=task_description,
+                    response=result,
+                    response_type=response_type
                 )
-                logger.info(f"🤖 TEAM MANAGEMENT: Stored conversation in memory for user {telegram_id}")
+                
+                logger.info(
+                    f"🤖 TEAM MANAGEMENT: Stored conversation summary for user {telegram_id}, "
+                    f"saved ~{summary.tokens_saved} tokens"
+                )
+                
+                # Also store in legacy system for compatibility (but with minimal context)
+                if hasattr(self, "team_memory"):
+                    minimal_context = {
+                        "chat_type": execution_context.get("chat_type"),
+                        "response_type": response_type
+                    }
+                    
+                    self.team_memory.add_conversation(
+                        telegram_id=str(telegram_id),
+                        input_text=task_description[:50],  # Truncated
+                        output_text=f"{response_type}: {result[:50]}...",  # Summarized
+                        context=minimal_context,
+                    )
+                    
         except Exception as e:
             logger.warning(f"⚠️ Could not store conversation in memory: {e}")
 
@@ -422,42 +440,48 @@ class TeamManagementSystem:
         This is used when the orchestration pipeline fails.
         """
         try:
+            # CREWAI BEST PRACTICE: Optimize context before execution
+            from kickai.agents.utils.context_optimizer import ContextOptimizer
+            
+            # Create optimized context following CrewAI best practices
+            optimized_context = ContextOptimizer.optimize_execution_context(
+                raw_context=execution_context,
+                target_agent=AgentRole.MESSAGE_PROCESSOR  # Primary agent
+            )
+            
             logger.info("🤖 BASIC CREW: Executing task with basic crew")
             logger.info(f"🤖 BASIC CREW: Task description: {task_description}")
-            logger.info(f"🤖 BASIC CREW: Execution context: {execution_context}")
+            logger.info(f"🤖 BASIC CREW: Optimized execution context: {optimized_context}")
+            
+            # Use optimized context for execution
+            execution_context = optimized_context
 
             # Use the basic crew that was created in _create_crew
             if not hasattr(self, "crew") or not self.crew:
                 logger.error("🤖 BASIC CREW: No crew available for fallback")
                 return "❌ Sorry, I'm unable to process your request at the moment."
 
-            logger.info("🤖 BASIC CREW: Using existing crew")
+            logger.info("🤖 CREWAI NATIVE: Using CrewAI agent collaboration patterns")
 
-            # Extract command name and route to appropriate agent
-            command_name = self._extract_command_name(task_description)
-            selected_agent_role = self._route_command_to_agent(
-                command=command_name,
-                chat_type=execution_context.get('chat_type'),
-                context=execution_context
-            )
-
-            if not selected_agent_role or selected_agent_role not in self.agents:
-                logger.error("🤖 BASIC CREW: No suitable agent found for task")
-                return "❌ Sorry, I'm unable to process your request at the moment."
-
+            # INTELLIGENT ROUTING: Use command routing manager for proper agent selection
+            # Use original task description for routing (before enhancement)
+            selected_agent_role = self._route_command_to_agent(task_description, execution_context)
             agent = self.agents[selected_agent_role]
+            
+            logger.info(f"🤖 INTELLIGENT ROUTING: Selected agent - {selected_agent_role.value} for command: {task_description}")
 
             # Validate and prepare execution context
             execution_context = self._prepare_execution_context(execution_context)
 
-            # Get agent tools
+            # Get MESSAGE_PROCESSOR tools (includes NLP collaboration tools)
             agent_tools = self._get_agent_tools(agent, selected_agent_role, execution_context)
             if not agent_tools:
-                return "❌ Internal error: No tools available for agent. This issue has been logged for investigation."
+                return "❌ Internal error: No tools available for primary agent. This issue has been logged for investigation."
 
-            # Create and execute task
+            # Create and execute task using CrewAI native collaboration
+            # The task description will be enhanced within _create_and_execute_task
             result = await self._create_and_execute_task(
-                task_description, execution_context, agent, command_name
+                task_description, execution_context, agent
             )
 
             logger.info(f"🤖 BASIC CREW: Task completed with result: {result}")
@@ -474,6 +498,40 @@ class TeamManagementSystem:
         except Exception as e:
             logger.warning(f"⚠️ Could not extract command name: {e}")
             return ""
+
+    def _route_command_to_agent(self, task_description: str, execution_context: dict[str, Any]) -> AgentRole:
+        """Route command to appropriate agent using command routing manager."""
+        try:
+            # Extract command from task description
+            command = task_description.strip().split()[0] if task_description else ""
+            chat_type = execution_context.get('chat_type', 'main')
+            
+            logger.info(f"🤖 ROUTING: Attempting to route command '{command}' from chat_type '{chat_type}'")
+            
+            # Use command routing manager for intelligent routing
+            from kickai.config.command_routing_manager import get_command_routing_manager
+            
+            try:
+                routing_manager = get_command_routing_manager()
+                routing_decision = routing_manager.route_command(command, chat_type, execution_context)
+                
+                # Ensure the selected agent exists in our system
+                if routing_decision.agent_role in self.agents:
+                    logger.info(f"🤖 ROUTING: Command '{command}' → {routing_decision.agent_role.value} (match: {routing_decision.match_type}, confidence: {routing_decision.confidence})")
+                    return routing_decision.agent_role
+                else:
+                    logger.warning(f"⚠️ ROUTING: Agent {routing_decision.agent_role.value} not available, falling back to MESSAGE_PROCESSOR")
+                    return AgentRole.MESSAGE_PROCESSOR
+                    
+            except Exception as routing_error:
+                logger.error(f"❌ ROUTING: Command routing failed: {routing_error}")
+                # Fall back to MESSAGE_PROCESSOR for basic commands
+                return AgentRole.MESSAGE_PROCESSOR
+                
+        except Exception as e:
+            logger.error(f"❌ ROUTING: Error in _route_command_to_agent: {e}")
+            # Safe fallback to MESSAGE_PROCESSOR
+            return AgentRole.MESSAGE_PROCESSOR
 
     def _prepare_execution_context(self, execution_context: dict[str, Any]) -> dict[str, Any]:
         """Prepare and validate execution context."""
@@ -573,17 +631,17 @@ class TeamManagementSystem:
             return []
 
     async def _create_and_execute_task(
-        self, task_description: str, execution_context: dict[str, Any], agent: Any, command_name: str
+        self, task_description: str, execution_context: dict[str, Any], agent: Any
     ) -> str:
-        """Create and execute CrewAI task with dynamic async tool integration."""
+        """Create and execute CrewAI task with native agent collaboration."""
         try:
             # Validate context first (no 'unknown' defaults)
             self._create_structured_description(task_description, execution_context)
 
-            # Create CrewAI task with dynamic async tool documentation
-            task = self._create_crewai_task(command_name, task_description, agent, execution_context)
+            # Create CrewAI task with intelligent agent collaboration
+            task = self._create_crewai_task(task_description, agent, execution_context)
 
-            # Execute task
+            # Execute task using CrewAI native patterns
             result = await self._execute_crewai_task(task)
 
             return result
@@ -610,8 +668,8 @@ class TeamManagementSystem:
             logger.error(f"❌ Could not validate context for structured description: {e}")
             raise
 
-    def _create_crewai_task(self, command_name: str, task_description: str, agent: Any, execution_context: dict[str, Any]) -> Any:
-        """Create CrewAI task with dynamic async tool documentation."""
+    def _create_crewai_task(self, task_description: str, agent: Any, execution_context: dict[str, Any]) -> Any:
+        """Create CrewAI task with intelligent agent collaboration patterns."""
         try:
             from crewai import Task
 
@@ -619,7 +677,7 @@ class TeamManagementSystem:
             agent_config = get_agent_config(agent.agent_role, execution_context)
             agent_tool_names = agent_config.tools if agent_config else []
 
-            # Generate dynamic task description with async tool metadata
+            # Generate dynamic task description with async tool metadata for collaboration
             dynamic_description = AsyncContextInjector.create_dynamic_task_description(
                 user_request=task_description,
                 context=execution_context,
@@ -628,7 +686,7 @@ class TeamManagementSystem:
             )
 
             task = Task(
-                name=f"task_{command_name}",
+                name=f"collaborative_task_{agent.agent_role.value}",
                 description=dynamic_description,
                 agent=agent.crew_agent,
                 expected_output="Extract and return the exact tool output. Parse JSON responses and return the 'data' field content (for success) or 'message' field content (for errors). Do not add extra text or formatting.",
@@ -636,7 +694,7 @@ class TeamManagementSystem:
                 async_execution=True,  # Enable async execution for async tools
             )
 
-            logger.debug(f"✅ Dynamic task created for {command_name} with {len(agent_tool_names)} tools")
+            logger.debug(f"✅ Dynamic task created for {agent.agent_role.value} with {len(agent_tool_names)} tools")
             return task
 
         except Exception as e:

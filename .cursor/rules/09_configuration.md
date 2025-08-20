@@ -262,7 +262,7 @@ required_fields_dev = ["TEAM_ID", "BOT_TOKEN"]
 required_fields_prod = [
     "TEAM_ID", "BOT_TOKEN", "AI_PROVIDER", "GROQ_API_KEY",
     "FIREBASE_CREDENTIALS_JSON", "MAIN_CHAT_ID", "LEADERSHIP_CHAT_ID",
-    "AI_MODEL_SIMPLE"  # or AI_MODEL_ADVANCED or AI_MODEL_NAME
+    "AI_MODEL_SIMPLE"  # and AI_MODEL_ADVANCED (AI_MODEL_NAME deprecated)
 ]
 ```
 

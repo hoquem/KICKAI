@@ -10,8 +10,8 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from kickai.utils.async_utils import async_retry, async_timeout, safe_async_call
-from kickai.utils.llm_factory import LLMFactory
+# Removed async_utils - using standard Python async patterns
+from kickai.utils.llm_factory_simple import SimpleLLMFactory
 from kickai.utils.llm_intent import LLMIntentRecognizer
 
 
@@ -26,22 +26,18 @@ async def extract_intent(message: str, context: str = "") -> dict[str, Any]:
     Returns:
         Dictionary containing 'intent' and 'entities' keys
     """
-    try:
-        # Use the new LLM-based intent recognizer
-        recognizer = LLMIntentRecognizer()
-        context_dict = {"context": context} if context else {}
-        
-        result = await recognizer.extract_intent(message, context_dict)
-        
-        return {
-            "intent": result.intent,
-            "entities": result.entities,
-            "confidence": result.confidence,
-            "reasoning": result.reasoning
-        }
-    except Exception as e:
-        logger.error(f"Error in async intent extraction: {e}")
-        return {"intent": "unknown", "entities": {}, "confidence": 0.0, "reasoning": f"Error: {str(e)}"}
+    # Use the new LLM-based intent recognizer
+    recognizer = LLMIntentRecognizer()
+    context_dict = {"context": context} if context else {}
+    
+    result = await recognizer.extract_intent(message, context_dict)
+    
+    return {
+        "intent": result.intent,
+        "entities": result.entities,
+        "confidence": result.confidence,
+        "reasoning": result.reasoning
+    }
 
 
 class LLMClient:
@@ -55,17 +51,13 @@ class LLMClient:
 
     def _initialize_components(self):
         """Initialize the LLM instance and intent recognizer."""
-        try:
-            # Use the new factory method that reads from environment
-            self._llm_instance = LLMFactory.create_from_settings()
-            logger.info(f"✅ LLM initialized successfully: {type(self._llm_instance).__name__}")
+        # Use the new factory method that reads from environment
+        self._llm_instance = SimpleLLMFactory.create_llm()
+        logger.info(f"✅ LLM initialized successfully: {type(self._llm_instance).__name__}")
 
-            # Initialize the intent recognizer
-            self._intent_recognizer = LLMIntentRecognizer()
-            logger.info("✅ LLMIntentRecognizer initialized successfully")
-
-        except Exception as e:
-            logger.warning(f"Failed to initialize LLM components: {e}. Using fallback client.")
+        # Initialize the intent recognizer
+        self._intent_recognizer = LLMIntentRecognizer()
+        logger.info("✅ LLMIntentRecognizer initialized successfully")
 
     async def extract_intent(self, message: str, context: str = "") -> dict[str, Any]:
         """
@@ -103,37 +95,21 @@ class LLMClient:
         Returns:
             Dictionary with processing results
         """
-        try:
-            intent_result = await self.extract_intent(message, context)
+        intent_result = await self.extract_intent(message, context)
 
-            return {
-                "success": True,
-                "intent": intent_result.get("intent", "unknown"),
-                "entities": intent_result.get("entities", {}),
-                "confidence": intent_result.get("confidence", 0.0),
-                "reasoning": intent_result.get("reasoning", ""),
-                "original_message": message,
-                "context": context,
-            }
+        return {
+            "success": True,
+            "intent": intent_result.get("intent", "unknown"),
+            "entities": intent_result.get("entities", {}),
+            "confidence": intent_result.get("confidence", 0.0),
+            "reasoning": intent_result.get("reasoning", ""),
+            "original_message": message,
+            "context": context,
+        }
 
-        except Exception as e:
-            logger.error(f"Error processing message: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "intent": "unknown",
-                "entities": {},
-                "confidence": 0.0,
-                "reasoning": f"Error: {str(e)}",
-                "original_message": message,
-                "context": context,
-            }
-
-    @async_retry(max_attempts=3, delay=1.0)
-    @async_timeout(30.0)
     async def generate_text(self, prompt: str, context: str = "") -> str:
         """
-        Generate text using the LLM client with retry and timeout.
+        Generate text using the LLM client with timeout.
 
         Args:
             prompt: The input prompt
@@ -142,27 +118,21 @@ class LLMClient:
         Returns:
             Generated text response
         """
-        try:
-            if not self._llm_instance:
-                raise RuntimeError("LLM instance not initialized")
+        if not self._llm_instance:
+            raise RuntimeError("LLM instance not initialized")
 
-            # Add context to prompt if provided
-            full_prompt = prompt
-            if context:
-                full_prompt = f"Context: {context}\n\nPrompt: {prompt}"
+        # Add context to prompt if provided
+        full_prompt = prompt
+        if context:
+            full_prompt = f"Context: {context}\n\nPrompt: {prompt}"
 
-            # Generate response using the LLM instance
-            response = await safe_async_call(
-                self._llm_instance.generate_text,
-                full_prompt,
-                timeout=30.0
-            )
+        # Generate response using the LLM instance with timeout
+        response = await asyncio.wait_for(
+            self._llm_instance.generate_text(full_prompt),
+            timeout=30.0
+        )
 
-            return response if response else "No response generated"
-
-        except Exception as e:
-            logger.error(f"Error generating text: {e}")
-            raise
+        return response if response else "No response generated"
 
     async def analyze_text(self, text: str, analysis_type: str = "intent") -> dict[str, Any]:
         """
@@ -175,25 +145,15 @@ class LLMClient:
         Returns:
             Dictionary with analysis results
         """
-        try:
-            prompt = self._create_analysis_prompt(text, analysis_type)
-            result = await self.generate_text(prompt)
+        prompt = self._create_analysis_prompt(text, analysis_type)
+        result = await self.generate_text(prompt)
 
-            return {
-                "success": True,
-                "analysis_type": analysis_type,
-                "result": result,
-                "original_text": text
-            }
-
-        except Exception as e:
-            logger.error(f"Error analyzing text: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "analysis_type": analysis_type,
-                "original_text": text
-            }
+        return {
+            "success": True,
+            "analysis_type": analysis_type,
+            "result": result,
+            "original_text": text
+        }
 
     def _create_analysis_prompt(self, text: str, analysis_type: str) -> str:
         """Create analysis prompt based on type."""

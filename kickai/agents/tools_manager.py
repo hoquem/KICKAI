@@ -61,6 +61,8 @@ class AgentToolsManager:
             # Get tools based on agent-specific configuration
             tools = []
             for tool_name in config.tools:
+                logger.debug(f"[AGENT TOOLS] Looking for tool: '{tool_name}' for agent {role.value}")
+                
                 # Try to get tool by name from registry
                 tool_func = self._tool_registry.get_tool_function(tool_name)
                 if tool_func:
@@ -70,6 +72,13 @@ class AgentToolsManager:
                     # Try alternative approaches if direct lookup fails
                     logger.warning(f"[AGENT TOOLS] ❌ Tool '{tool_name}' not found directly, trying alternatives...")
                     
+                    # Check if tool exists in the registry at all
+                    all_tool_names = self._tool_registry.get_tool_names()
+                    if tool_name in all_tool_names:
+                        logger.info(f"[AGENT TOOLS] 🔍 Tool '{tool_name}' exists in registry but get_tool_function failed")
+                    else:
+                        logger.error(f"[AGENT TOOLS] 🔍 Tool '{tool_name}' not in registry. Available tools: {all_tool_names[:10]}...")
+                    
                     # Try getting all tools and finding by name
                     all_tools = self._tool_registry.list_all_tools()
                     found_tool = None
@@ -78,11 +87,12 @@ class AgentToolsManager:
                             found_tool = tool
                             break
                     
-                    if found_tool:
-                        tools.append(found_tool)
+                    if found_tool and found_tool.tool_function:
+                        # Extract the actual tool function from the metadata
+                        tools.append(found_tool.tool_function)
                         logger.info(f"[AGENT TOOLS] ✅ Found tool '{tool_name}' via search for {role.value}")
                     else:
-                        logger.error(f"[AGENT TOOLS] ❌ Tool '{tool_name}' not found for {role.value}")
+                        logger.error(f"[AGENT TOOLS] ❌ Tool '{tool_name}' not found or missing tool_function for {role.value}")
 
             logger.info(f"🔧 Loading {len(tools)} tools for {role.value}")
             return tools
@@ -107,3 +117,5 @@ class AgentToolsManager:
                 "feature": tool.feature_module if hasattr(tool, 'feature_module') else "unknown",
             }
         return None
+
+

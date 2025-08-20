@@ -1,183 +1,128 @@
-# KICKAI Command Routing Configuration - Dynamic Configuration System
-# This file defines command-to-agent routing rules to eliminate hardcoded routing logic
+# KICKAI Command Routing Configuration - CrewAI Native Collaboration System
+# With pure CrewAI agent collaboration, routing is handled by MESSAGE_PROCESSOR + NLP_PROCESSOR
+# This file provides minimal configuration for compatibility with existing systems
 
 # Version and metadata
-version: "1.0.0"
-description: "Dynamic command routing configuration for KICKAI 6-agent system"
-last_updated: "2025-01-13"
+version: "2.0.0"
+description: "Simplified routing configuration for CrewAI native agent collaboration"
+last_updated: "2025-01-18"
+routing_method: "crewai_native_collaboration"
 
-# Default routing behavior
+# CrewAI Native Collaboration Configuration
+collaboration_routing:
+  # Primary agent for all requests - MESSAGE_PROCESSOR with NLP collaboration
+  primary_agent: "message_processor"
+  
+  # Collaboration pattern: MESSAGE_PROCESSOR works with NLP_PROCESSOR for intelligent routing
+  collaboration_pattern: "primary_with_nlp_routing"
+  
+  # Intelligent routing handled by agents, not configuration
+  intelligent_routing: true
+  
+  # Available agents for collaboration (all 6 agents)
+  available_agents:
+    - "message_processor"    # Primary interface and coordination
+    - "help_assistant"       # Help system and guidance
+    - "player_coordinator"   # Player management and registration
+    - "team_administrator"   # Team member management
+    - "squad_selector"       # Match management and availability
+    - "nlp_processor"        # Intelligent routing and context analysis
+
+# Default routing behavior (minimal for compatibility)
 default_routing:
   default_agent: "message_processor"
   fallback_agent: "message_processor"
-  case_sensitive: false
-  strip_prefix: true  # Remove leading '/' from commands
+  routing_method: "crewai_collaboration"
 
-# Command routing rules - maps commands to specific agents
-# Format: command_pattern → agent_role
+# Intelligent command routing to specialized agents
 command_routing:
-  
-  # Help system commands → HELP_ASSISTANT
   help_commands:
     agent: "help_assistant"
-    commands:
-      - "/help"
-      - "help"
-      - "/help@KickAI_bot"
-    description: "All help-related queries and guidance"
+    commands: ["/help", "help"]
+    description: "Help system queries and guidance"
     priority: 1
 
-  # Player information and status commands → PLAYER_COORDINATOR  
+  basic_system_commands:
+    agent: "message_processor"
+    commands: ["/ping", "ping", "/version", "version"]
+    description: "Basic system commands and status"
+    priority: 1
+
   player_info_commands:
     agent: "player_coordinator"
-    commands:
-      - "/info"
-      - "/myinfo"
-      - "/status"      # Self-status queries (no parameters)
-      - "/approve"
-      - "/reject"
-      - "/pending"
-      - "/playerstatus"
-      - "/playerinfo"
-    description: "Player information, status queries, and coordination"
+    commands: ["/info", "/myinfo", "/status", "info", "myinfo", "status", "/list", "list"]
+    description: "Player information, status queries, and player lists"
     priority: 2
 
-  # Team administration commands → TEAM_ADMINISTRATOR  
-  admin_commands:
+  team_admin_commands:
     agent: "team_administrator"
-    commands:
-      - "/addplayer"
-      - "/addmember" 
-      - "/creatematch"
-      - "/selectsquad"
-      - "/createteam"
-      - "/promote"
-      - "/demote"
-    description: "Team administration and management operations"
+    commands: ["/addplayer", "/addmember", "addplayer", "addmember"]
+    description: "Team administration and member management"
     priority: 2
 
-  # Squad selection and match commands → SQUAD_SELECTOR
-  squad_commands:
+  squad_management_commands:
     agent: "squad_selector"
-    commands:
-      - "/markattendance"
-      - "/attendance"
-      - "/attendancehistory"
-      - "/availability"
-      - "/markavailability"
-      - "/squad"
-      - "/matches"
-      - "/matchdetails"
+    commands: ["/attendance", "/availability", "/squad", "/matches", "attendance", "availability", "squad", "matches"]
     description: "Squad selection, availability, and match management"
     priority: 2
 
-  # Basic/communication commands → MESSAGE_PROCESSOR  
-  basic_commands:
+  communication_commands:
     agent: "message_processor"
-    commands:
-      - "/list"
-      - "/ping"
-      - "/version"
-      - "/announce"
-      - "/poll"
-      - "/send"
-    description: "Basic queries, communications, and system information"
+    commands: ["/announce", "/poll", "announce", "poll"]
+    description: "Team communications and announcements"
     priority: 3
 
-# Pattern matching removed - simplified routing uses exact command matching only
+# Agent collaboration patterns
+collaboration_patterns:
+  primary_with_nlp_routing:
+    description: "MESSAGE_PROCESSOR uses NLP_PROCESSOR for intelligent routing decisions"
+    agents: ["message_processor", "nlp_processor"]
+    workflow:
+      - "MESSAGE_PROCESSOR receives all requests"
+      - "For complex operations, MESSAGE_PROCESSOR collaborates with NLP_PROCESSOR"
+      - "NLP_PROCESSOR analyzes intent and recommends specialist agent"
+      - "MESSAGE_PROCESSOR coordinates with recommended specialist"
+      - "Response delivered through MESSAGE_PROCESSOR"
+  
+  intelligent_routing_analysis:
+    description: "NLP_PROCESSOR provides sophisticated routing analysis"
+    agents: ["nlp_processor"]
+    tools: ["advanced_intent_recognition", "analyze_update_context", "routing_recommendation_tool"]
+  
+  specialist_with_routing_support:
+    description: "Specialist agents receive intelligent routing from MESSAGE_PROCESSOR"
+    agents: ["player_coordinator", "team_administrator", "squad_selector", "help_assistant"]
+    collaboration: true
 
-# Context-based routing modifiers
+# Context-based routing (handled by NLP_PROCESSOR tools)
 context_routing:
-  # Different routing based on chat context
-  chat_type_rules:
-    main_chat:
-      # In main chat, some admin commands are blocked
-      blocked_commands: ["/addplayer", "/promote", "/demote"]
-      redirect_agent: "message_processor"  # Redirect to basic processor for error message
-      
-    leadership_chat:
-      # Leadership chat has full access
-      blocked_commands: []
-      
-    private_chat:
-      # Private chats have limited functionality
-      allowed_agents: ["message_processor", "help_assistant", "player_coordinator"]
+  chat_type_intelligence:
+    main_chat: "Player-focused operations via intelligent analysis"
+    leadership_chat: "Administrative operations via intelligent analysis"
+    private_chat: "Personal assistance via intelligent analysis"
+  
+  entity_type_intelligence:
+    player: "Routed to PLAYER_COORDINATOR via NLP analysis"
+    team_member: "Routed to TEAM_ADMINISTRATOR via NLP analysis"
+    match: "Routed to SQUAD_SELECTOR via NLP analysis"
+    help: "Routed to HELP_ASSISTANT via NLP analysis"
 
-# Agent capabilities and constraints
-agent_constraints:
-  message_processor:
-    max_concurrent_requests: 10
-    can_handle_fallback: true
-    
-  help_assistant:
-    max_concurrent_requests: 5
-    can_handle_fallback: true
-    
-  player_coordinator:
-    max_concurrent_requests: 8
-    can_handle_fallback: false
-    requires_context: ["telegram_id", "team_id"]
-    
-  team_administrator:
-    max_concurrent_requests: 3
-    can_handle_fallback: false
-    requires_permissions: ["leadership"]
-    requires_context: ["telegram_id", "team_id", "chat_type"]
-    
-  squad_selector:
-    max_concurrent_requests: 5
-    can_handle_fallback: false
-    requires_context: ["telegram_id", "team_id"]
-
-# Validation rules
-validation_rules:
-  command_format:
-    # Commands must start with / or be in allowed natural language list
-    allowed_prefixes: ["/", "help", "info", "status", "list"]
-    max_length: 100
-    
-  agent_validation:
-    # All referenced agents must exist in AgentRole enum
-    validate_agent_roles: true
-    
-  context_validation:
-    # Required context parameters for different command types
-    required_context:
-      admin_commands: ["telegram_id", "team_id", "chat_type"]
-      player_info_commands: ["telegram_id", "team_id"]  
-      basic_commands: ["telegram_id", "team_id"]
-
-# Error handling configuration  
-error_handling:
-  unknown_command:
-    action: "route_to_default"
-    response_template: "Command not recognized. Type /help for available commands."
-    
-  agent_unavailable:
-    action: "route_to_fallback"
-    response_template: "Service temporarily unavailable. Please try again."
-    
-  permission_denied:
-    action: "send_error_message"
-    response_template: "❌ You don't have permission to use this command in this chat."
-    
-  context_missing:
-    action: "request_context"
-    response_template: "⚠️ Missing required information. Please try again."
-
-# Performance optimization - caching removed for simplicity
+# Performance and optimization
 optimization:
   load_balancing:
-    enabled: false  # Disabled for current 6-agent system
-    
-  metrics:
-    track_routing_decisions: true
-    track_response_times: true
-    track_error_rates: true
+    enabled: false  # Not needed for 6-agent system
+  caching:
+    enabled: false  # Simplified for reliability
+  routing_cache:
+    enabled: false  # Pure CrewAI collaboration handles caching
 
-# Development and debugging
-debug:
-  log_routing_decisions: true
-  log_context_validation: true
-  log_performance_metrics: false
-  validate_configuration_on_startup: true
+# Migration notes
+migration:
+  from: "programmatic_routing"
+  to: "crewai_native_collaboration"
+  benefits:
+    - "Intelligent context-aware routing"
+    - "Agent-to-agent collaboration"
+    - "Reduced configuration complexity"
+    - "Better scalability and flexibility"
+    - "CrewAI best practices compliance"

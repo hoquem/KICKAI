@@ -103,7 +103,7 @@ class CommandRegistry:
         feature: str = "unknown",
         aliases: Optional[List[str]] = None,
         examples: Optional[List[str]] = None,
-        parameters: dict[str, str] | None = None,
+        parameters: Optional[Dict[str, str]] = None,
         help_text: Optional[str] = None,
         chat_type: Optional[str] = None,
     ) -> None:

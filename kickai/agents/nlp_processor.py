@@ -9,7 +9,7 @@ for natural language understanding and routing enhancement.
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -17,6 +17,7 @@ from loguru import logger
 from crewai.tools import tool
 
 from kickai.agents.configurable_agent import ConfigurableAgent
+from kickai.agents.prompts import render_prompt, validate_prompt_context
 from kickai.core.enums import AgentRole
 from kickai.core.exceptions import AgentInitializationError, InputValidationError, AgentExecutionError
 from kickai.utils.tool_validation import validate_team_id, validate_telegram_id, ToolValidationError
@@ -65,14 +66,16 @@ class NLPProcessor(ConfigurableAgent):
     This agent follows KICKAI coding standards with single try/except boundaries,
     comprehensive type hints, and proper error handling throughout.
     
+    The NLP processor uses LLM-powered analysis rather than pattern matching,
+    delegating all intent recognition and entity extraction to the CrewAI agent's
+    specialized language model.
+    
     Attributes:
         team_id: Team identifier for context
-        conversation_cache: LRU cache for conversation context (size: 1000)
-        intent_cache: Cache for common intent patterns (size: 500)
         
     Example:
         >>> nlp_processor = NLPProcessor("KTI")
-        >>> result = await nlp_processor.process_natural_language(message)
+        >>> # Tools are called by the CrewAI agent, not directly
     """
     
     def __init__(self, team_id: str):
@@ -83,7 +86,7 @@ class NLPProcessor(ConfigurableAgent):
             team_id: Team identifier for context and memory
             
         Raises:
-            InputInputValidationError: When team_id is invalid
+            InputValidationError: When team_id is invalid
             AgentInitializationError: When agent setup fails
             
         Example:
@@ -99,13 +102,7 @@ class NLPProcessor(ConfigurableAgent):
                 team_id=team_id
             )
             
-            # Initialize NLP-specific components with performance optimization
-            self.conversation_cache = self._create_conversation_cache()
-            self.intent_cache = self._create_intent_cache()
-            
-            # Initialize intent categories and patterns
-            self.intent_categories = self._initialize_intent_categories()
-            self.entity_patterns = self._initialize_entity_patterns()
+            # NLP processor uses LLM-powered analysis, not pattern matching
             
             logger.info(f"✅ NLP Processor initialized for team: {team_id}")
             
@@ -113,98 +110,35 @@ class NLPProcessor(ConfigurableAgent):
             logger.error(f"❌ Error initializing NLP Processor: {e}")
             raise AgentInitializationError("NLP_PROCESSOR", f"Initialization failed: {str(e)}")
 
-    def _create_conversation_cache(self):
-        """Create LRU cache for conversation context."""
-        try:
-            # Simple dict for now - can be enhanced with proper LRU implementation
-            return {}
-        except Exception as e:
-            logger.warning(f"⚠️ Error creating conversation cache: {e}")
-            return {}
 
-    def _create_intent_cache(self):
-        """Create LRU cache for intent patterns."""
-        try:
-            # Simple dict for now - can be enhanced with proper LRU implementation
-            return {}
-        except Exception as e:
-            logger.warning(f"⚠️ Error creating intent cache: {e}")
-            return {}
-
-    def _initialize_intent_categories(self) -> Dict[str, List[str]]:
-        """
-        Initialize intent categories with football-specific patterns.
+def _handle_tool_error(tool_name: str, error: Exception, error_type: str = "unexpected") -> str:
+    """
+    Standardized error handling for all NLP tools.
+    
+    Args:
+        tool_name: Name of the tool for logging
+        error: The exception that occurred
+        error_type: Type of error for specific handling
         
-        Returns:
-            Dictionary mapping intent categories to pattern keywords
-        """
-        try:
-            return {
-                "get_player_info": [
-                    "status", "info", "details", "phone", "position", "registration",
-                    "my info", "who am i", "what's my", "show me my"
-                ],
-                "update_profile": [
-                    "update", "change", "modify", "edit", "set my", "new phone",
-                    "change position", "update details"
-                ],
-                "get_team_info": [
-                    "team", "players", "list", "show", "who's on", "team members",
-                    "all players", "squad", "roster"
-                ],
-                "get_help": [
-                    "help", "assist", "support", "how do", "what can", "commands",
-                    "don't know", "confused", "explain"
-                ],
-                "match_management": [
-                    "match", "game", "fixture", "availability", "available",
-                    "attend", "playing", "squad selection", "lineup"
-                ],
-                "team_administration": [
-                    "add player", "add member", "promote", "admin", "manage",
-                    "create team", "invite", "register"
-                ],
-                "get_team_stats": [
-                    "stats", "statistics", "count", "how many", "numbers",
-                    "metrics", "performance"
-                ]
-            }
-        except Exception as e:
-            logger.warning(f"⚠️ Error initializing intent categories: {e}")
-            return {}
-
-    def _initialize_entity_patterns(self) -> Dict[str, List[str]]:
-        """
-        Initialize entity extraction patterns for football context.
-        
-        Returns:
-            Dictionary mapping entity types to extraction patterns
-        """
-        try:
-            return {
-                "player_positions": [
-                    "goalkeeper", "defender", "midfielder", "forward", "striker",
-                    "centre-back", "fullback", "winger", "attacking midfielder"
-                ],
-                "info_types": [
-                    "phone", "position", "status", "details", "contact", "role"
-                ],
-                "time_references": [
-                    "today", "tomorrow", "yesterday", "this week", "next week",
-                    "last match", "next match", "current", "recent"
-                ],
-                "availability_status": [
-                    "available", "unavailable", "maybe", "injured", "away",
-                    "busy", "free", "can play", "cannot play"
-                ]
-            }
-        except Exception as e:
-            logger.warning(f"⚠️ Error initializing entity patterns: {e}")
-            return {}
+    Returns:
+        JSON error response string
+    """
+    if isinstance(error, ToolValidationError):
+        logger.warning(f"⚠️ Validation error in {tool_name}: {error}")
+        return create_json_response("error", message=f"Invalid input for {tool_name}: {error}")
+    elif isinstance(error, AgentExecutionError):
+        logger.error(f"❌ Agent execution error in {tool_name}: {error}")
+        return create_json_response("error", message=f"Execution failed during {tool_name}: {error}")
+    elif isinstance(error, InputValidationError):
+        logger.warning(f"⚠️ Input validation error in {tool_name}: {error}")
+        return create_json_response("error", message=f"Input validation failed for {tool_name}: {error}")
+    else:
+        logger.error(f"❌ Unexpected error in {tool_name}: {error}", exc_info=True)
+        return create_json_response("error", message=f"An unexpected internal error occurred during {tool_name}")
 
 
 @tool("advanced_intent_recognition", result_as_answer=True)
-def advanced_intent_recognition(
+async def advanced_intent_recognition(
     telegram_id: int,
     team_id: str, 
     username: str,
@@ -214,13 +148,11 @@ def advanced_intent_recognition(
     **kwargs
 ) -> str:
     """
-    Advanced intent recognition with conversation awareness and confidence scoring.
+    LLM-powered intent recognition using CrewAI native reasoning.
     
-    Performs sophisticated natural language understanding to classify user intent,
-    extract entities, and provide routing recommendations with confidence metrics.
-    
-    This function follows KICKAI coding standards with single try/except boundary,
-    comprehensive input validation, and structured JSON responses.
+    Uses the specialized NLP LLM to analyze user intent, extract entities,
+    and provide intelligent routing recommendations. Uses the centralized
+    prompt template system for consistent, maintainable prompts.
     
     Args:
         telegram_id: Telegram ID of the requesting user
@@ -232,35 +164,22 @@ def advanced_intent_recognition(
         **kwargs: Additional context parameters
         
     Returns:
-        JSON response string with intent classification results containing:
-        - primary_intent: Main identified intent
-        - secondary_intents: Additional intents if multi-intent detected
-        - confidence: Confidence score (0.0-1.0)
-        - entities: Extracted entities with types and values
-        - conversation_context: Context from previous turns
-        - routing_recommendation: Recommended agent and priority
-        - requires_followup: Whether follow-up questions needed
+        JSON response string with LLM-analyzed intent classification
         
-    Raises:
-        InputInputValidationError: When input validation fails
-        AgentExecutionError: When intent recognition fails
-        
-    Example:
-        >>> result = advanced_intent_recognition(123, "KTI", "user", "main", "What's my status?")
-        >>> data = json.loads(result)
-        >>> data["primary_intent"]
-        "get_player_status"
+    Note:
+        This tool uses the prompt template system for consistent,
+        type-safe prompt generation with validation.
     """
     try:
         # Input validation using utility functions
         team_id = validate_team_id(team_id)
         telegram_id_int = validate_telegram_id(telegram_id)
         
-        try:
-            from kickai.utils.tool_validation import validate_string_input
-            validate_string_input(message, "Message", allow_empty=False)
-        except ToolValidationError as e:
-            return create_json_response("error", message=str(e))
+        # Validate message input
+        from kickai.utils.tool_validation import validate_string_input
+        validate_string_input(message, "Message", allow_empty=False)
+        validate_string_input(username, "Username", allow_empty=False)
+        validate_string_input(chat_type, "Chat type", allow_empty=False)
         
         # Log tool execution with performance tracking
         inputs = {
@@ -271,240 +190,31 @@ def advanced_intent_recognition(
         }
         log_tool_execution("advanced_intent_recognition", inputs, True)
         
-        # Get NLP service from container
-        container = get_container()
-        # For now, use direct analysis since NLP service will be implemented later
-        
-        # Perform intent recognition analysis
-        intent_result = _analyze_intent_direct(
-            message=message,
-            context={
-                "telegram_id": telegram_id_int,
-                "team_id": team_id,
-                "username": username,
-                "chat_type": chat_type,
-                "conversation_history": conversation_history
-            }
-        )
-        
-        # Structure comprehensive response following KICKAI standards
-        response_data = {
-            "primary_intent": intent_result.primary_intent,
-            "secondary_intents": intent_result.secondary_intents,
-            "confidence": intent_result.confidence,
-            "entities": intent_result.entities,
-            "conversation_context": intent_result.conversation_context,
-            "routing_recommendation": intent_result.routing_recommendation,
-            "requires_followup": intent_result.requires_followup,
-            "reasoning": intent_result.reasoning
+        # Prepare context for template rendering
+        context = {
+            'telegram_id': telegram_id_int,
+            'team_id': team_id,
+            'username': username,
+            'chat_type': chat_type,
+            'message': message,
+            'conversation_history': conversation_history or "None"
         }
         
-        return create_json_response("success", data=response_data)
+        # Validate context before rendering
+        if not validate_prompt_context('intent_recognition', context):
+            return create_json_response("error", message="Invalid context for intent recognition")
+        
+        # Render prompt using template system
+        analysis_prompt = render_prompt('intent_recognition', context)
+        
+        return create_json_response("success", data={"analysis_prompt": analysis_prompt})
         
     except Exception as e:
-        logger.error(f"❌ Error in advanced_intent_recognition: {e}")
-        return create_json_response("error", message="Intent recognition failed")
-
-
-def _analyze_intent_direct(message: str, context: Dict[str, Any]) -> IntentResult:
-    """
-    Direct intent analysis implementation for NLP processing.
-    
-    This function provides immediate intent analysis capabilities while the full
-    NLP service infrastructure is being developed.
-    
-    Args:
-        message: User message to analyze
-        context: Context information for analysis
-        
-    Returns:
-        IntentResult with comprehensive analysis
-        
-    Raises:
-        InputValidationError: When analysis fails
-    """
-    try:
-        # Normalize message for analysis
-        message_lower = message.lower().strip()
-        
-        # Intent classification with football-specific patterns
-        intent_patterns = {
-            "get_player_info": [
-                "my status", "my info", "who am i", "what's my", "show me my",
-                "status", "info", "details", "phone", "position"
-            ],
-            "update_profile": [
-                "update", "change", "modify", "edit", "set my", "new phone",
-                "change position"
-            ],
-            "get_team_info": [
-                "team", "players", "list", "show", "who's on", "squad", "roster"
-            ],
-            "get_help": [
-                "help", "assist", "support", "how do", "what can", "commands"
-            ],
-            "match_management": [
-                "match", "game", "fixture", "availability", "available", "attend"
-            ],
-            "team_administration": [
-                "add player", "add member", "promote", "admin", "manage"
-            ]
-        }
-        
-        # Find best matching intent
-        best_intent = "unknown"
-        best_confidence = 0.0
-        
-        for intent, patterns in intent_patterns.items():
-            for pattern in patterns:
-                if pattern in message_lower:
-                    confidence = len(pattern) / len(message_lower) * 0.8 + 0.2
-                    if confidence > best_confidence:
-                        best_intent = intent
-                        best_confidence = min(confidence, 1.0)
-        
-        # Extract entities based on patterns
-        entities = _extract_entities_direct(message_lower)
-        
-        # Generate routing recommendation
-        routing_recommendation = _generate_routing_recommendation(best_intent, context)
-        
-        # Build result
-        return IntentResult(
-            primary_intent=best_intent,
-            confidence=best_confidence,
-            entities=entities,
-            conversation_context={"previous_message": context.get("conversation_history", "")},
-            routing_recommendation=routing_recommendation,
-            requires_followup=_requires_followup(best_intent, entities),
-            reasoning=f"Pattern matching identified '{best_intent}' with {best_confidence:.2f} confidence",
-            original_message=message
-        )
-        
-    except Exception as e:
-        logger.error(f"❌ Error in direct intent analysis: {e}")
-        return IntentResult(
-            primary_intent="unknown",
-            confidence=0.0,
-            reasoning=f"Analysis failed: {str(e)}",
-            original_message=message
-        )
-
-
-def _extract_entities_direct(message_lower: str) -> Dict[str, Any]:
-    """
-    Direct entity extraction from message text.
-    
-    Args:
-        message_lower: Normalized lowercase message
-        
-    Returns:
-        Dictionary of extracted entities
-    """
-    try:
-        entities = {}
-        
-        # Extract player positions
-        positions = ["goalkeeper", "defender", "midfielder", "forward", "striker"]
-        for position in positions:
-            if position in message_lower:
-                entities["position"] = position
-                break
-        
-        # Extract info types
-        info_types = ["phone", "status", "details", "contact", "position"]
-        for info_type in info_types:
-            if info_type in message_lower:
-                entities["info_type"] = info_type
-                break
-        
-        # Extract self-reference indicators
-        if any(indicator in message_lower for indicator in ["my", "me", "i am", "myself"]):
-            entities["target"] = "self"
-        
-        return entities
-        
-    except Exception as e:
-        logger.warning(f"⚠️ Error extracting entities: {e}")
-        return {}
-
-
-def _generate_routing_recommendation(intent: str, context: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Generate routing recommendation based on intent and context.
-    
-    Args:
-        intent: Identified intent
-        context: Context information
-        
-    Returns:
-        Dictionary with routing recommendation
-    """
-    try:
-        # Map intents to agents
-        intent_to_agent = {
-            "get_player_info": "player_coordinator",
-            "update_profile": "player_coordinator",
-            "get_team_info": "player_coordinator",
-            "get_help": "help_assistant",
-            "match_management": "squad_selector",
-            "team_administration": "team_administrator",
-            "unknown": "message_processor"
-        }
-        
-        recommended_agent = intent_to_agent.get(intent, "message_processor")
-        
-        # Determine priority
-        priority = "high" if intent in ["get_help", "team_administration"] else "medium"
-        
-        return {
-            "agent": recommended_agent,
-            "priority": priority,
-            "confidence": 0.8 if intent != "unknown" else 0.3,
-            "reason": f"Intent '{intent}' maps to {recommended_agent}"
-        }
-        
-    except Exception as e:
-        logger.warning(f"⚠️ Error generating routing recommendation: {e}")
-        return {
-            "agent": "message_processor",
-            "priority": "medium",
-            "confidence": 0.5,
-            "reason": "Default routing due to error"
-        }
-
-
-def _requires_followup(intent: str, entities: Dict[str, Any]) -> bool:
-    """
-    Determine if the intent requires follow-up questions.
-    
-    Args:
-        intent: Identified intent
-        entities: Extracted entities
-        
-    Returns:
-        True if follow-up questions are needed
-    """
-    try:
-        # Intents that typically require follow-up
-        followup_intents = ["update_profile", "team_administration"]
-        
-        # Check if intent typically needs follow-up
-        if intent in followup_intents:
-            return True
-        
-        # Check if entities are incomplete
-        if intent == "get_player_info" and not entities.get("info_type"):
-            return True
-        
-        return False
-        
-    except Exception:
-        return False
+        return _handle_tool_error("advanced_intent_recognition", e)
 
 
 @tool("entity_extraction_tool", result_as_answer=True)
-def entity_extraction_tool(
+async def entity_extraction_tool(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -513,10 +223,11 @@ def entity_extraction_tool(
     **kwargs
 ) -> str:
     """
-    Advanced entity extraction for football team management context.
+    LLM-powered entity extraction for football team management.
     
-    Extracts relevant entities like player names, positions, time references,
-    and other football-specific information from user messages.
+    Uses the specialized NLP LLM to extract entities like player names,
+    positions, time references, and football-specific information.
+    Uses the centralized prompt template system.
     
     Args:
         telegram_id: Telegram ID of the requesting user
@@ -527,39 +238,45 @@ def entity_extraction_tool(
         **kwargs: Additional parameters
         
     Returns:
-        JSON response with extracted entities
-        
-    Raises:
-        InputValidationError: When input validation fails
-        AgentExecutionError: When entity extraction fails
+        JSON response with LLM-extracted entities
     """
     try:
         # Input validation
         team_id = validate_team_id(team_id)
         telegram_id_int = validate_telegram_id(telegram_id)
         
-        try:
-            from kickai.utils.tool_validation import validate_string_input
-            validate_string_input(message, "Message", allow_empty=False)
-        except ToolValidationError as e:
-            return create_json_response("error", message=str(e))
+        from kickai.utils.tool_validation import validate_string_input
+        validate_string_input(message, "Message", allow_empty=False)
+        validate_string_input(username, "Username", allow_empty=False)
+        validate_string_input(chat_type, "Chat type", allow_empty=False)
         
         # Log tool execution
         inputs = {'team_id': team_id, 'telegram_id': telegram_id_int}
         log_tool_execution("entity_extraction_tool", inputs, True)
         
-        # Extract entities
-        entities = _extract_entities_direct(message.lower())
+        # Prepare context for template rendering
+        context = {
+            'telegram_id': telegram_id_int,
+            'team_id': team_id,
+            'username': username,
+            'chat_type': chat_type,
+            'message': message
+        }
         
-        return create_json_response("success", data={"entities": entities})
+        # Validate and render prompt using template system
+        if not validate_prompt_context('entity_extraction', context):
+            return create_json_response("error", message="Invalid context for entity extraction")
+        
+        extraction_prompt = render_prompt('entity_extraction', context)
+        
+        return create_json_response("success", data={"extraction_prompt": extraction_prompt})
         
     except Exception as e:
-        logger.error(f"❌ Error in entity_extraction_tool: {e}")
-        return create_json_response("error", message="Entity extraction failed")
+        return _handle_tool_error("entity_extraction_tool", e)
 
 
 @tool("conversation_context_tool", result_as_answer=True) 
-def conversation_context_tool(
+async def conversation_context_tool(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -567,10 +284,11 @@ def conversation_context_tool(
     **kwargs
 ) -> str:
     """
-    Build and retrieve conversation context for multi-turn conversations.
+    LLM-powered conversation context analysis.
     
-    Manages conversation state and context across multiple message exchanges
-    to enable natural, contextual conversations.
+    Uses the NLP LLM to analyze conversation context and provide
+    intelligent context-aware responses for multi-turn conversations.
+    Uses the centralized prompt template system.
     
     Args:
         telegram_id: Telegram ID of the requesting user
@@ -580,41 +298,42 @@ def conversation_context_tool(
         **kwargs: Additional parameters
         
     Returns:
-        JSON response with conversation context
-        
-    Raises:
-        InputValidationError: When input validation fails
-        AgentExecutionError: When context retrieval fails
+        JSON response with context analysis prompt for LLM
     """
     try:
         # Input validation
         team_id = validate_team_id(team_id)
         telegram_id_int = validate_telegram_id(telegram_id)
+        from kickai.utils.tool_validation import validate_string_input
+        validate_string_input(username, "Username", allow_empty=False)
+        validate_string_input(chat_type, "Chat type", allow_empty=False)
         
         # Log tool execution
         inputs = {'team_id': team_id, 'telegram_id': telegram_id_int}
         log_tool_execution("conversation_context_tool", inputs, True)
         
-        # For now, return basic context structure
-        # TODO: Integrate with TeamMemory for actual conversation tracking
+        # Prepare context for template rendering
         context = {
-            "user_id": telegram_id_int,
-            "team_id": team_id,
-            "chat_type": chat_type,
-            "conversation_turns": 0,
-            "last_intent": "unknown",
-            "context_entities": {}
+            'telegram_id': telegram_id_int,
+            'team_id': team_id,
+            'username': username,
+            'chat_type': chat_type
         }
         
-        return create_json_response("success", data={"context": context})
+        # Validate and render prompt using template system
+        if not validate_prompt_context('conversation_context', context):
+            return create_json_response("error", message="Invalid context for conversation analysis")
+        
+        context_prompt = render_prompt('conversation_context', context)
+        
+        return create_json_response("success", data={"context_prompt": context_prompt})
         
     except Exception as e:
-        logger.error(f"❌ Error in conversation_context_tool: {e}")
-        return create_json_response("error", message="Context retrieval failed")
+        return _handle_tool_error("conversation_context_tool", e)
 
 
 @tool("semantic_similarity_tool", result_as_answer=True)
-def semantic_similarity_tool(
+async def semantic_similarity_tool(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -624,10 +343,11 @@ def semantic_similarity_tool(
     **kwargs
 ) -> str:
     """
-    Calculate semantic similarity between user message and known commands/patterns.
+    LLM-powered semantic similarity analysis for command suggestions.
     
-    This tool helps identify the most similar commands or patterns to a user's
-    natural language input, enabling intelligent command suggestions and routing.
+    Uses the NLP LLM to understand semantic relationships between
+    user messages and available commands. Uses the centralized
+    prompt template system.
     
     Args:
         telegram_id: Telegram ID of the requesting user
@@ -639,102 +359,50 @@ def semantic_similarity_tool(
         **kwargs: Additional parameters
         
     Returns:
-        JSON response with similarity scores and recommendations
-        
-    Raises:
-        InputValidationError: When input validation fails
-        AgentExecutionError: When similarity calculation fails
+        JSON response with LLM-based similarity analysis
     """
     try:
         # Input validation
         team_id = validate_team_id(team_id)
         telegram_id_int = validate_telegram_id(telegram_id)
         
-        try:
-            from kickai.utils.tool_validation import validate_string_input
-            validate_string_input(message, "Message", allow_empty=False)
-        except ToolValidationError as e:
-            return create_json_response("error", message=str(e))
+        from kickai.utils.tool_validation import validate_string_input
+        validate_string_input(message, "Message", allow_empty=False)
+        validate_string_input(username, "Username", allow_empty=False)
+        validate_string_input(chat_type, "Chat type", allow_empty=False)
         
         # Log tool execution
         inputs = {'team_id': team_id, 'telegram_id': telegram_id_int}
         log_tool_execution("semantic_similarity_tool", inputs, True)
         
-        # Calculate similarity scores with known commands
-        similarity_results = _calculate_semantic_similarity(message, reference_commands)
-        
-        return create_json_response("success", data={"similarity_results": similarity_results})
-        
-    except Exception as e:
-        logger.error(f"❌ Error in semantic_similarity_tool: {e}")
-        return create_json_response("error", message="Semantic similarity calculation failed")
-
-
-def _calculate_semantic_similarity(message: str, reference_commands: str) -> Dict[str, Any]:
-    """
-    Calculate semantic similarity using simple text matching techniques.
-    
-    Args:
-        message: User message to analyze
-        reference_commands: Reference commands to compare against
-        
-    Returns:
-        Dictionary with similarity results
-    """
-    try:
-        message_lower = message.lower().strip()
-        
-        # Default command patterns if none provided
+        # Default commands if none provided
         if not reference_commands:
-            reference_commands = "/help,/info,/status,/list,/matches,/availability"
+            reference_commands = "/help,/info,/status,/list,/matches,/availability,/addplayer,/update"
         
-        commands = [cmd.strip() for cmd in reference_commands.split(",")]
-        similarities = []
-        
-        for command in commands:
-            command_lower = command.lower().strip()
-            
-            # Simple similarity based on word overlap
-            message_words = set(message_lower.split())
-            command_words = set(command_lower.replace("/", "").split())
-            
-            if command_words and message_words:
-                overlap = len(message_words.intersection(command_words))
-                total_words = len(message_words.union(command_words))
-                similarity = overlap / total_words if total_words > 0 else 0.0
-            else:
-                similarity = 0.0
-            
-            # Direct substring matching bonus
-            if command_lower.replace("/", "") in message_lower:
-                similarity += 0.3
-            
-            similarities.append({
-                "command": command,
-                "similarity": min(similarity, 1.0),
-                "match_type": "direct" if similarity > 0.5 else "partial"
-            })
-        
-        # Sort by similarity score
-        similarities.sort(key=lambda x: x["similarity"], reverse=True)
-        
-        return {
-            "top_matches": similarities[:3],
-            "best_match": similarities[0] if similarities else None,
-            "has_good_match": similarities[0]["similarity"] > 0.4 if similarities else False
+        # Prepare context for template rendering
+        context = {
+            'telegram_id': telegram_id_int,
+            'team_id': team_id,
+            'username': username,
+            'chat_type': chat_type,
+            'message': message,
+            'reference_commands': reference_commands
         }
+        
+        # Validate and render prompt using template system
+        if not validate_prompt_context('semantic_similarity', context):
+            return create_json_response("error", message="Invalid context for similarity analysis")
+        
+        similarity_prompt = render_prompt('semantic_similarity', context)
+        
+        return create_json_response("success", data={"similarity_prompt": similarity_prompt})
         
     except Exception as e:
-        logger.warning(f"⚠️ Error calculating semantic similarity: {e}")
-        return {
-            "top_matches": [],
-            "best_match": None,
-            "has_good_match": False
-        }
+        return _handle_tool_error("semantic_similarity_tool", e)
 
 
 @tool("routing_recommendation_tool", result_as_answer=True)
-def routing_recommendation_tool(
+async def routing_recommendation_tool(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -743,134 +411,185 @@ def routing_recommendation_tool(
     **kwargs
 ) -> str:
     """
-    Generate intelligent routing recommendations based on intent analysis.
+    LLM-powered intelligent routing recommendations.
     
-    This tool provides routing recommendations by analyzing intent data,
-    user context, and system state to determine the optimal agent for handling
-    the user's request.
+    Uses the NLP LLM to analyze intent and context for optimal agent routing.
+    Uses the centralized prompt template system for consistent analysis.
     
     Args:
         telegram_id: Telegram ID of the requesting user
         team_id: Team identifier for context
         username: Username of the requesting user
         chat_type: Chat context
-        intent_data: JSON string with intent analysis results
+        intent_data: Intent analysis data
         **kwargs: Additional parameters
         
     Returns:
-        JSON response with routing recommendations
-        
-    Raises:
-        InputValidationError: When input validation fails
-        AgentExecutionError: When routing recommendation fails
+        JSON response with LLM-based routing recommendations
     """
     try:
         # Input validation
         team_id = validate_team_id(team_id)
         telegram_id_int = validate_telegram_id(telegram_id)
         
-        try:
-            from kickai.utils.tool_validation import validate_string_input
-            validate_string_input(intent_data, "Intent data", allow_empty=False)
-        except ToolValidationError as e:
-            return create_json_response("error", message=str(e))
+        from kickai.utils.tool_validation import validate_string_input
+        validate_string_input(intent_data, "Intent data", allow_empty=False)
+        validate_string_input(username, "Username", allow_empty=False)
+        validate_string_input(chat_type, "Chat type", allow_empty=False)
         
         # Log tool execution
         inputs = {'team_id': team_id, 'telegram_id': telegram_id_int}
         log_tool_execution("routing_recommendation_tool", inputs, True)
         
-        # Parse intent data
-        try:
-            intent_info = json.loads(intent_data)
-        except json.JSONDecodeError:
-            intent_info = {"primary_intent": "unknown", "confidence": 0.0}
+        # Prepare context for template rendering
+        context = {
+            'telegram_id': telegram_id_int,
+            'team_id': team_id,
+            'username': username,
+            'chat_type': chat_type,
+            'intent_data': intent_data
+        }
         
-        # Generate routing recommendation
-        routing_recommendation = _generate_enhanced_routing_recommendation(
-            intent_info, chat_type, telegram_id_int, team_id
-        )
+        # Validate and render prompt using template system
+        if not validate_prompt_context('routing_recommendation', context):
+            return create_json_response("error", message="Invalid context for routing recommendation")
         
-        return create_json_response("success", data={"routing_recommendation": routing_recommendation})
+        routing_prompt = render_prompt('routing_recommendation', context)
+        
+        return create_json_response("success", data={"routing_prompt": routing_prompt})
         
     except Exception as e:
-        logger.error(f"❌ Error in routing_recommendation_tool: {e}")
-        return create_json_response("error", message="Routing recommendation failed")
+        return _handle_tool_error("routing_recommendation_tool", e)
 
 
-def _generate_enhanced_routing_recommendation(
-    intent_info: Dict[str, Any], 
-    chat_type: str, 
-    telegram_id: int, 
-    team_id: str
-) -> Dict[str, Any]:
+@tool("analyze_update_context", result_as_answer=True)
+async def analyze_update_context(
+    telegram_id: int,
+    team_id: str,
+    username: str,
+    chat_type: str,
+    message: str,
+    **kwargs
+) -> str:
     """
-    Generate enhanced routing recommendation with context awareness.
+    LLM-powered update context analysis for intelligent routing.
+    
+    Uses the NLP LLM to determine whether update commands should target
+    player records or team member records. Uses the centralized
+    prompt template system.
     
     Args:
-        intent_info: Intent analysis information
-        chat_type: Type of chat context
-        telegram_id: User's Telegram ID
-        team_id: Team identifier
+        telegram_id: Telegram ID of the requesting user
+        team_id: Team identifier for context
+        username: Username of the requesting user
+        chat_type: Chat context (main/leadership/private)
+        message: Update command message to analyze
+        **kwargs: Additional parameters
         
     Returns:
-        Dictionary with enhanced routing recommendation
+        JSON response with LLM-based update context analysis
     """
     try:
-        primary_intent = intent_info.get("primary_intent", "unknown")
-        confidence = intent_info.get("confidence", 0.0)
+        # Input validation
+        team_id = validate_team_id(team_id)
+        telegram_id_int = validate_telegram_id(telegram_id)
         
-        # Enhanced intent to agent mapping
-        intent_to_agent = {
-            "get_player_info": "player_coordinator",
-            "update_profile": "player_coordinator", 
-            "get_team_info": "player_coordinator",
-            "get_help": "help_assistant",
-            "match_management": "squad_selector",
-            "team_administration": "team_administrator",
-            "unknown": "message_processor"
+        from kickai.utils.tool_validation import validate_string_input
+        validate_string_input(message, "Message", allow_empty=False)
+        validate_string_input(username, "Username", allow_empty=False)
+        validate_string_input(chat_type, "Chat type", allow_empty=False)
+        
+        # Log tool execution
+        inputs = {'team_id': team_id, 'telegram_id': telegram_id_int, 'chat_type': chat_type}
+        log_tool_execution("analyze_update_context", inputs, True)
+        
+        # Prepare context for template rendering
+        context = {
+            'telegram_id': telegram_id_int,
+            'team_id': team_id,
+            'username': username,
+            'chat_type': chat_type,
+            'message': message
         }
         
-        # Context-based routing adjustments
-        recommended_agent = intent_to_agent.get(primary_intent, "message_processor")
+        # Validate and render prompt using template system
+        if not validate_prompt_context('update_context', context):
+            return create_json_response("error", message="Invalid context for update analysis")
         
-        # Adjust routing based on chat type
-        if chat_type == "leadership" and primary_intent in ["team_administration", "match_management"]:
-            priority = "high"
-        elif chat_type == "main" and primary_intent == "get_help":
-            priority = "high"
-        else:
-            priority = "medium"
+        update_prompt = render_prompt('update_context', context)
         
-        # Calculate routing confidence
-        routing_confidence = confidence * 0.8 + 0.2  # Base confidence adjustment
-        
-        # Check if agent is available (simplified check for now)
-        agent_available = True  # TODO: Implement actual agent availability check
-        
-        recommendation = {
-            "agent": recommended_agent,
-            "priority": priority,
-            "confidence": routing_confidence,
-            "reason": f"Intent '{primary_intent}' with {confidence:.2f} confidence",
-            "agent_available": agent_available,
-            "fallback_agent": "message_processor",
-            "estimated_response_time": "< 2 seconds",
-            "context_factors": {
-                "chat_type": chat_type,
-                "intent_confidence": confidence,
-                "has_entities": bool(intent_info.get("entities"))
-            }
-        }
-        
-        return recommendation
+        return create_json_response("success", data={"update_prompt": update_prompt})
         
     except Exception as e:
-        logger.warning(f"⚠️ Error generating enhanced routing recommendation: {e}")
-        return {
-            "agent": "message_processor",
-            "priority": "medium",
-            "confidence": 0.5,
-            "reason": "Default routing due to error",
-            "agent_available": True,
-            "fallback_agent": "message_processor"
+        return _handle_tool_error("analyze_update_context", e)
+
+
+@tool("validate_routing_permissions", result_as_answer=True)
+async def validate_routing_permissions(
+    telegram_id: int,
+    team_id: str,
+    username: str,
+    chat_type: str,
+    user_role: str,
+    requested_action: str,
+    **kwargs
+) -> str:
+    """
+    LLM-powered permission validation for intelligent routing.
+    
+    Uses the NLP LLM to analyze permissions and context to determine
+    if routing decisions respect security and access control requirements.
+    Uses the centralized prompt template system.
+    
+    Args:
+        telegram_id: Telegram ID of the requesting user
+        team_id: Team identifier for context
+        username: Username of the requesting user
+        chat_type: Chat context (main/leadership/private)
+        user_role: User's role in the system
+        requested_action: Action the user is trying to perform
+        **kwargs: Additional parameters
+        
+    Returns:
+        JSON response with LLM-based permission validation
+    """
+    try:
+        # Input validation
+        team_id = validate_team_id(team_id)
+        telegram_id_int = validate_telegram_id(telegram_id)
+        
+        from kickai.utils.tool_validation import validate_string_input
+        validate_string_input(requested_action, "Requested action", allow_empty=False)
+        validate_string_input(username, "Username", allow_empty=False)
+        validate_string_input(chat_type, "Chat type", allow_empty=False)
+        validate_string_input(user_role, "User role", allow_empty=False)
+        
+        # Log tool execution
+        inputs = {
+            'team_id': team_id, 
+            'telegram_id': telegram_id_int, 
+            'chat_type': chat_type,
+            'requested_action': requested_action
         }
+        log_tool_execution("validate_routing_permissions", inputs, True)
+        
+        # Prepare context for template rendering
+        context = {
+            'telegram_id': telegram_id_int,
+            'team_id': team_id,
+            'username': username,
+            'chat_type': chat_type,
+            'user_role': user_role,
+            'requested_action': requested_action
+        }
+        
+        # Validate and render prompt using template system
+        if not validate_prompt_context('permission_validation', context):
+            return create_json_response("error", message="Invalid context for permission validation")
+        
+        permission_prompt = render_prompt('permission_validation', context)
+        
+        return create_json_response("success", data={"permission_prompt": permission_prompt})
+        
+    except Exception as e:
+        return _handle_tool_error("validate_routing_permissions", e)

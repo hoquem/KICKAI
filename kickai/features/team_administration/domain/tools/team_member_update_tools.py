@@ -64,8 +64,8 @@ async def update_team_member_field(
         
         # Get team member service
         container = get_container()
-        from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
-        team_member_service = container.get_service(TeamMemberService)
+        from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
+        team_member_service = container.get_service(ITeamMemberService)
         if not team_member_service:
             return create_json_response(
                 ResponseStatus.ERROR,
@@ -129,11 +129,13 @@ async def update_team_member_field(
             data=response_data
         )
         
-    except Exception as e:
+    except (RuntimeError, AttributeError, KeyError, ValueError) as e:
+        from kickai.features.team_administration.domain.exceptions import TeamMemberUpdateError
         logger.error(f"❌ Error updating team member field: {e}")
+        update_error = TeamMemberUpdateError(str(telegram_id), field, str(e))
         return create_json_response(
             ResponseStatus.ERROR,
-            message=f"Failed to update field: {str(e)}"
+            message=f"Failed to update field: {update_error.message}"
         )
 
 
@@ -164,8 +166,8 @@ async def update_team_member_multiple_fields(
         
         # Get team member service
         container = get_container()
-        from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
-        team_member_service = container.get_service(TeamMemberService)
+        from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
+        team_member_service = container.get_service(ITeamMemberService)
         if not team_member_service:
             return create_json_response(
                 ResponseStatus.ERROR,
@@ -243,11 +245,13 @@ async def update_team_member_multiple_fields(
             data=response_data
         )
         
-    except Exception as e:
+    except (RuntimeError, AttributeError, KeyError, ValueError) as e:
+        from kickai.features.team_administration.domain.exceptions import TeamMemberUpdateError
         logger.error(f"❌ Error updating multiple team member fields: {e}")
+        update_error = TeamMemberUpdateError(str(telegram_id), "multiple_fields", str(e))
         return create_json_response(
             ResponseStatus.ERROR,
-            message=f"Failed to update fields: {str(e)}"
+            message=f"Failed to update fields: {update_error.message}"
         )
 
 
@@ -275,8 +279,8 @@ async def get_team_member_update_help(
         
         # Check if user has admin privileges for contextualized help
         container = get_container()
-        from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
-        team_member_service = container.get_service(TeamMemberService)
+        from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
+        team_member_service = container.get_service(ITeamMemberService)
         
         is_admin = False
         if team_member_service:
@@ -318,11 +322,13 @@ async def get_team_member_update_help(
             data={'help_text': help_message, 'is_admin': is_admin}
         )
         
-    except Exception as e:
+    except (RuntimeError, AttributeError, KeyError) as e:
+        from kickai.features.shared.domain.exceptions import HelpSystemError
         logger.error(f"❌ Error getting team member update help: {e}")
+        help_error = HelpSystemError(str(telegram_id), str(e))
         return create_json_response(
             ResponseStatus.ERROR,
-            message="Failed to get help information"
+            message=f"Failed to get help information: {help_error.message}"
         )
 
 
@@ -350,8 +356,8 @@ async def get_team_member_current_info(
         
         # Get team member service
         container = get_container()
-        from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
-        team_member_service = container.get_service(TeamMemberService)
+        from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
+        team_member_service = container.get_service(ITeamMemberService)
         if not team_member_service:
             return create_json_response(
                 ResponseStatus.ERROR,
@@ -389,11 +395,13 @@ async def get_team_member_current_info(
             data={'team_member_info': team_member_info}
         )
         
-    except Exception as e:
+    except (RuntimeError, AttributeError, KeyError, ValueError) as e:
+        from kickai.features.team_administration.domain.exceptions import TeamMemberLookupError
         logger.error(f"❌ Error getting team member current info: {e}")
+        lookup_error = TeamMemberLookupError(str(telegram_id), team_id, str(e))
         return create_json_response(
             ResponseStatus.ERROR,
-            message=f"Failed to get team member information: {str(e)}"
+            message=f"Failed to get team member information: {lookup_error.message}"
         )
 
 
@@ -427,8 +435,8 @@ async def update_other_team_member(
         
         # Get team member service
         container = get_container()
-        from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
-        team_member_service = container.get_service(TeamMemberService)
+        from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
+        team_member_service = container.get_service(ITeamMemberService)
         if not team_member_service:
             return create_json_response(
                 ResponseStatus.ERROR,
@@ -505,9 +513,11 @@ async def update_other_team_member(
             data=response_data
         )
         
-    except Exception as e:
+    except (RuntimeError, AttributeError, KeyError, ValueError) as e:
+        from kickai.features.team_administration.domain.exceptions import TeamMemberUpdateError
         logger.error(f"❌ Error updating other team member: {e}")
+        update_error = TeamMemberUpdateError(target_member_id, field, str(e))
         return create_json_response(
             ResponseStatus.ERROR,
-            message=f"Failed to update team member: {str(e)}"
+            message=f"Failed to update team member: {update_error.message}"
         )
