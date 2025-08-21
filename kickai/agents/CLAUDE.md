@@ -25,7 +25,7 @@ kickai/agents/
 ├── auto_discovery_tool_registry.py # Automatic tool discovery
 ├── crew_lifecycle_manager.py       # Crew management and cleanup
 ├── team_memory.py                   # Agent memory and context
-├── tools_manager.py                 # Tool assignment and validation
+├── [REMOVED] tools_manager.py       # Unnecessary layer - replaced with direct assignment
 └── user_flow_agent.py              # User flow and intent detection
 ```
 
