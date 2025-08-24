@@ -12,7 +12,8 @@ from kickai.core.enums import ResponseStatus
 from kickai.utils.tool_helpers import create_json_response
 
 
-@tool("permission_denied_message", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def permission_denied_message(
     telegram_id: int,
     team_id: str, 
@@ -124,7 +125,8 @@ async def permission_denied_message(
         )
 
 
-@tool("command_not_available", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def command_not_available(
     telegram_id: int,
     team_id: str,

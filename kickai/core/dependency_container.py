@@ -101,8 +101,11 @@ class DependencyContainer:
                 TeamMemberService,
             )
             from kickai.features.team_administration.domain.services.team_service import TeamService
+            from kickai.features.team_administration.domain.services.team_member_management_service import (
+                TeamMemberManagementService,
+            )
 
-            required_services = [PlayerService, TeamMemberService, TeamService, DataStoreInterface]
+            required_services = [PlayerService, TeamMemberService, TeamService, TeamMemberManagementService, DataStoreInterface]
 
             missing_services = []
             for service_class in required_services:

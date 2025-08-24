@@ -197,7 +197,8 @@ class TeamMemberUpdateValidator:
             raise TeamMemberUpdateValidationError(f"Unknown field type: {field}")
 
 
-@tool("update_team_member_information", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def update_team_member_information(
     user_id: TelegramUserId, team_id: TeamId, field: str, value: str, username: str = "Unknown"
 ) -> str:
@@ -371,7 +372,8 @@ async def update_team_member_information(
         return create_json_response(ResponseStatus.ERROR, message="Update Failed: An unexpected error occurred. Please try again or contact support.")
 
 
-@tool("get_team_member_updatable_fields", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_team_member_updatable_fields(user_id: TelegramUserId, team_id: TeamId) -> str:
     """
     Get list of fields that a team member can update with examples and validation rules.
@@ -453,7 +455,8 @@ async def get_team_member_updatable_fields(user_id: TelegramUserId, team_id: Tea
         return "❌ Error retrieving updatable fields. Please try again."
 
 
-@tool("validate_team_member_update_request", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def validate_team_member_update_request(user_id: TelegramUserId, team_id: TeamId, field: str, value: str) -> str:
     """
     Validate a team member update request without actually performing the update.
@@ -513,7 +516,8 @@ async def validate_team_member_update_request(user_id: TelegramUserId, team_id: 
         return "❌ Validation Error: Please check your input and try again"
 
 
-@tool("get_pending_team_member_approval_requests", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_pending_team_member_approval_requests(team_id: TeamId, user_id: Optional[TelegramUserId] = None) -> str:
     """
     Get pending approval requests for team member updates.

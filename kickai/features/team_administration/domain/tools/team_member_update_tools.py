@@ -36,7 +36,8 @@ def _is_admin_user(chat_type: str, team_member: Any) -> bool:
     return is_leadership_chat and is_admin_role
 
 
-@tool("update_team_member_field", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def update_team_member_field(
     telegram_id: int,
     team_id: str,
@@ -139,7 +140,8 @@ async def update_team_member_field(
         )
 
 
-@tool("update_team_member_multiple_fields", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def update_team_member_multiple_fields(
     telegram_id: int,
     team_id: str,
@@ -255,7 +257,8 @@ async def update_team_member_multiple_fields(
         )
 
 
-@tool("get_team_member_update_help", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_team_member_update_help(
     telegram_id: int,
     team_id: str,
@@ -332,7 +335,8 @@ async def get_team_member_update_help(
         )
 
 
-@tool("get_team_member_current_info", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_team_member_current_info(
     telegram_id: int,
     team_id: str,
@@ -405,7 +409,8 @@ async def get_team_member_current_info(
         )
 
 
-@tool("update_other_team_member", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def update_other_team_member(
     telegram_id: int,
     team_id: str,

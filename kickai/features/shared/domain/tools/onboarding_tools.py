@@ -45,7 +45,8 @@ class ValidationInput(BaseModel):
     team_id: str
 
 
-@tool("team_member_guidance", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def team_member_guidance(user_id: str, team_id: str, chat_type: str = None) -> str:
     """
     Provide team member registration guidance to a user.

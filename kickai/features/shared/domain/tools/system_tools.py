@@ -14,7 +14,8 @@ from kickai.utils.tool_helpers import create_json_response
 from kickai.core.constants import BOT_VERSION
 
 
-@tool("ping", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def ping(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Simple ping test to verify bot connectivity and response time.
@@ -40,7 +41,8 @@ async def ping(telegram_id: int, team_id: str, username: str, chat_type: str) ->
         return create_json_response(ResponseStatus.ERROR, message=f"Ping failed: {str(e)}")
 
 
-@tool("version", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def version(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get bot version and system information.

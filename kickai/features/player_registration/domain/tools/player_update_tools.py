@@ -17,7 +17,8 @@ from kickai.utils.field_validation import FieldValidator, ValidationError
 from kickai.features.shared.domain.services.linked_record_sync_service import linked_record_sync_service
 
 
-@tool("update_player_field", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def update_player_field(
     telegram_id: int,
     team_id: str,
@@ -117,7 +118,8 @@ async def update_player_field(
         )
 
 
-@tool("update_player_multiple_fields", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def update_player_multiple_fields(
     telegram_id: int,
     team_id: str,
@@ -230,7 +232,8 @@ async def update_player_multiple_fields(
         )
 
 
-@tool("get_player_update_help", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_player_update_help(
     telegram_id: int,
     team_id: str,
@@ -289,7 +292,8 @@ async def get_player_update_help(
         )
 
 
-@tool("get_player_current_info", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_player_current_info(
     telegram_id: int,
     team_id: str,

@@ -84,7 +84,8 @@ def _create_team_member_data(team_member: Any, telegram_id: int, team_id: str) -
     }
 
 
-@tool("approve_player", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def approve_player(telegram_id: int, team_id: str, username: str, chat_type: str, player_id: str) -> str:
     """
     Approve a player for match squad selection.
@@ -133,7 +134,8 @@ async def approve_player(telegram_id: int, team_id: str, username: str, chat_typ
         return create_json_response(ResponseStatus.ERROR, message=f"Failed to approve player: {str(e)}")
 
 
-@tool("get_my_status", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_my_status(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get the current user's status (player or team member based on chat type).
@@ -163,7 +165,7 @@ async def get_my_status(telegram_id: int, team_id: str, username: str, chat_type
                 return create_json_response(ResponseStatus.ERROR, message="TeamMemberService is not available")
             
             # Get team member by telegram ID
-            team_member = await team_member_service.get_team_member_by_telegram_id(str(telegram_id_int), team_id)
+            team_member = await team_member_service.get_team_member_by_telegram_id(telegram_id_int, team_id)
             
             if team_member:
                 # Create structured team member data
@@ -219,7 +221,8 @@ async def get_my_status(telegram_id: int, team_id: str, username: str, chat_type
         return create_json_response(ResponseStatus.ERROR, message=f"Failed to get user status: {lookup_error.message}")
 
 
-@tool("get_all_players", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_all_players(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get all players in the team.
@@ -294,7 +297,8 @@ async def get_all_players(telegram_id: int, team_id: str, username: str, chat_ty
         return create_json_response(ResponseStatus.ERROR, message=f"Failed to get all players: {data_error.message}")
 
 
-@tool("get_active_players", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_active_players(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get all active players in the team.
@@ -390,7 +394,8 @@ async def get_active_players(telegram_id: int, team_id: str, username: str, chat
         return create_json_response(ResponseStatus.ERROR, message=f"Failed to get active players: {data_error.message}")
 
 
-@tool("get_player_match", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_player_match(telegram_id: int, team_id: str, username: str, chat_type: str, player_id: str) -> str:
     """
     Get match information for a specific player.
@@ -434,7 +439,8 @@ async def get_player_match(telegram_id: int, team_id: str, username: str, chat_t
         return create_json_response(ResponseStatus.ERROR, message=f"Failed to get player match info: {str(e)}")
 
 
-@tool("list_team_members_and_players", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def list_team_members_and_players(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get comprehensive team overview including both team members and players.

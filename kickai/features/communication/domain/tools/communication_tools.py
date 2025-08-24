@@ -28,7 +28,8 @@ from kickai.utils.tool_validation import (
 )
 
 
-@tool("send_message", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def send_message(telegram_id: int, team_id: str, username: str, chat_type: str, message: str) -> str:
     """
     Send a message to a specific chat using CrewAI native parameter passing.
@@ -87,7 +88,8 @@ async def send_message(telegram_id: int, team_id: str, username: str, chat_type:
         return create_json_response(ResponseStatus.ERROR, message="Failed to send message")
 
 
-@tool("send_announcement", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def send_announcement(telegram_id: int, team_id: str, username: str, chat_type: str, announcement: str) -> str:
     """
     Send an announcement to all team members.
@@ -135,7 +137,8 @@ async def send_announcement(telegram_id: int, team_id: str, username: str, chat_
         return create_json_response(ResponseStatus.ERROR, message="Failed to send announcement")
 
 
-@tool("send_poll", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def send_poll(telegram_id: int, team_id: str, username: str, chat_type: str, question: str, options: str) -> str:
     """
     Send a poll to team members.

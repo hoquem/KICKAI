@@ -122,9 +122,9 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
             logger.error(f"❌ Error in get_user_status tool: {e}")
             return create_json_response(ResponseStatus.ERROR, message="Failed to get user status")
     
-    # Bridge sync/async using asyncio.run() (CrewAI standard pattern)
+    # Execute async implementation directly
     try:
-        return asyncio.run(_async_get_user_status())
+        return await _async_get_user_status()
     except Exception as e:
-        logger.error(f"❌ Async bridge error in get_user_status: {e}")
+        logger.error(f"❌ Error in get_user_status: {e}")
         return create_json_response(ResponseStatus.ERROR, message=f"System error: {str(e)}")

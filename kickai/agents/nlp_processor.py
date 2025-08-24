@@ -17,8 +17,8 @@ from loguru import logger
 from crewai.tools import tool
 
 from kickai.agents.configurable_agent import ConfigurableAgent
-from kickai.agents.prompts import render_prompt, validate_prompt_context
-from kickai.core.enums import AgentRole
+from kickai.agents.prompts.nlp_prompts import render_prompt, validate_prompt_context
+from kickai.core.enums import AgentRole, ResponseStatus
 from kickai.core.exceptions import AgentInitializationError, InputValidationError, AgentExecutionError
 from kickai.utils.tool_validation import validate_team_id, validate_telegram_id, ToolValidationError
 from kickai.utils.tool_helpers import create_json_response
@@ -125,20 +125,19 @@ def _handle_tool_error(tool_name: str, error: Exception, error_type: str = "unex
     """
     if isinstance(error, ToolValidationError):
         logger.warning(f"⚠️ Validation error in {tool_name}: {error}")
-        return create_json_response("error", message=f"Invalid input for {tool_name}: {error}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Invalid input for {tool_name}: {error}")
     elif isinstance(error, AgentExecutionError):
         logger.error(f"❌ Agent execution error in {tool_name}: {error}")
-        return create_json_response("error", message=f"Execution failed during {tool_name}: {error}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Execution failed during {tool_name}: {error}")
     elif isinstance(error, InputValidationError):
         logger.warning(f"⚠️ Input validation error in {tool_name}: {error}")
-        return create_json_response("error", message=f"Input validation failed for {tool_name}: {error}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Input validation failed for {tool_name}: {error}")
     else:
         logger.error(f"❌ Unexpected error in {tool_name}: {error}", exc_info=True)
-        return create_json_response("error", message=f"An unexpected internal error occurred during {tool_name}")
+        return create_json_response(ResponseStatus.ERROR, message=f"An unexpected internal error occurred during {tool_name}")
 
 
-@tool("advanced_intent_recognition", result_as_answer=True)
-async def advanced_intent_recognition(
+async def advanced_intent_recognition_domain(
     telegram_id: int,
     team_id: str, 
     username: str,
@@ -202,19 +201,18 @@ async def advanced_intent_recognition(
         
         # Validate context before rendering
         if not validate_prompt_context('intent_recognition', context):
-            return create_json_response("error", message="Invalid context for intent recognition")
+            return create_json_response(ResponseStatus.ERROR, message="Invalid context for intent recognition")
         
         # Render prompt using template system
         analysis_prompt = render_prompt('intent_recognition', context)
         
-        return create_json_response("success", data={"analysis_prompt": analysis_prompt})
+        return create_json_response(ResponseStatus.SUCCESS, data={"analysis_prompt": analysis_prompt})
         
     except Exception as e:
         return _handle_tool_error("advanced_intent_recognition", e)
 
 
-@tool("entity_extraction_tool", result_as_answer=True)
-async def entity_extraction_tool(
+async def entity_extraction_domain(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -265,18 +263,17 @@ async def entity_extraction_tool(
         
         # Validate and render prompt using template system
         if not validate_prompt_context('entity_extraction', context):
-            return create_json_response("error", message="Invalid context for entity extraction")
+            return create_json_response(ResponseStatus.ERROR, message="Invalid context for entity extraction")
         
         extraction_prompt = render_prompt('entity_extraction', context)
         
-        return create_json_response("success", data={"extraction_prompt": extraction_prompt})
+        return create_json_response(ResponseStatus.SUCCESS, data={"extraction_prompt": extraction_prompt})
         
     except Exception as e:
         return _handle_tool_error("entity_extraction_tool", e)
 
 
-@tool("conversation_context_tool", result_as_answer=True) 
-async def conversation_context_tool(
+async def conversation_context_domain(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -322,18 +319,17 @@ async def conversation_context_tool(
         
         # Validate and render prompt using template system
         if not validate_prompt_context('conversation_context', context):
-            return create_json_response("error", message="Invalid context for conversation analysis")
+            return create_json_response(ResponseStatus.ERROR, message="Invalid context for conversation analysis")
         
         context_prompt = render_prompt('conversation_context', context)
         
-        return create_json_response("success", data={"context_prompt": context_prompt})
+        return create_json_response(ResponseStatus.SUCCESS, data={"context_prompt": context_prompt})
         
     except Exception as e:
         return _handle_tool_error("conversation_context_tool", e)
 
 
-@tool("semantic_similarity_tool", result_as_answer=True)
-async def semantic_similarity_tool(
+async def semantic_similarity_domain(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -391,18 +387,17 @@ async def semantic_similarity_tool(
         
         # Validate and render prompt using template system
         if not validate_prompt_context('semantic_similarity', context):
-            return create_json_response("error", message="Invalid context for similarity analysis")
+            return create_json_response(ResponseStatus.ERROR, message="Invalid context for similarity analysis")
         
         similarity_prompt = render_prompt('semantic_similarity', context)
         
-        return create_json_response("success", data={"similarity_prompt": similarity_prompt})
+        return create_json_response(ResponseStatus.SUCCESS, data={"similarity_prompt": similarity_prompt})
         
     except Exception as e:
         return _handle_tool_error("semantic_similarity_tool", e)
 
 
-@tool("routing_recommendation_tool", result_as_answer=True)
-async def routing_recommendation_tool(
+async def routing_recommendation_domain(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -411,21 +406,22 @@ async def routing_recommendation_tool(
     **kwargs
 ) -> str:
     """
-    LLM-powered intelligent routing recommendations.
+    CrewAI-native intelligent routing recommendations using LLM-powered analysis.
     
-    Uses the NLP LLM to analyze intent and context for optimal agent routing.
-    Uses the centralized prompt template system for consistent analysis.
+    Provides structured context for the NLP_PROCESSOR agent's LLM to make intelligent
+    routing decisions based on user intent, context, and available agent capabilities.
+    This follows CrewAI best practices by letting the LLM make the decisions.
     
     Args:
         telegram_id: Telegram ID of the requesting user
         team_id: Team identifier for context
         username: Username of the requesting user
-        chat_type: Chat context
-        intent_data: Intent analysis data
+        chat_type: Chat context (main/leadership/private)
+        intent_data: Intent analysis data (user message/command)
         **kwargs: Additional parameters
         
     Returns:
-        JSON response with LLM-based routing recommendations
+        Structured prompt for LLM analysis and routing decision
     """
     try:
         # Input validation
@@ -438,32 +434,147 @@ async def routing_recommendation_tool(
         validate_string_input(chat_type, "Chat type", allow_empty=False)
         
         # Log tool execution
-        inputs = {'team_id': team_id, 'telegram_id': telegram_id_int}
+        inputs = {'team_id': team_id, 'telegram_id': telegram_id_int, 'intent_data': intent_data[:50]}
         log_tool_execution("routing_recommendation_tool", inputs, True)
         
-        # Prepare context for template rendering
-        context = {
-            'telegram_id': telegram_id_int,
-            'team_id': team_id,
-            'username': username,
-            'chat_type': chat_type,
-            'intent_data': intent_data
+        # Extract command and message components for context
+        message = intent_data.strip()
+        command = None
+        if message.startswith('/'):
+            command_parts = message.split()
+            command = command_parts[0] if command_parts else message
+        
+        # Prepare comprehensive routing context for LLM analysis
+        routing_context = {
+            'user_request': intent_data,
+            'extracted_command': command,
+            'chat_context': chat_type,
+            'user_info': {
+                'username': username,
+                'telegram_id': telegram_id_int,
+                'team_id': team_id
+            },
+            'available_agents': {
+                'help_assistant': {
+                    'description': 'Help system and guidance for users',
+                    'capabilities': ['command help', 'system guidance', 'user onboarding'],
+                    'best_for': 'questions, help requests, guidance needs'
+                },
+                'player_coordinator': {
+                    'description': 'Player management and personal information',
+                    'capabilities': ['player status', 'personal info updates', 'player coordination'],
+                    'best_for': 'personal player operations, status queries, individual updates'
+                },
+                'team_administrator': {
+                    'description': 'Team member management and administration',
+                    'capabilities': ['team member management', 'administrative tasks', 'team operations'],
+                    'best_for': 'administrative operations, team member management, leadership tasks'
+                },
+                'squad_selector': {
+                    'description': 'Squad selection and match management',
+                    'capabilities': ['match operations', 'squad selection', 'availability tracking'],
+                    'best_for': 'match-related tasks, squad operations, availability management'
+                },
+                'message_processor': {
+                    'description': 'General communication and system operations',
+                    'capabilities': ['general messaging', 'system info', 'basic operations'],
+                    'best_for': 'general queries, system information, basic communication'
+                }
+            },
+            'context_factors': {
+                'chat_type_analysis': {
+                    'main': 'General team communication - typically player-focused operations',
+                    'leadership': 'Administrative context - typically management operations',
+                    'private': 'Personal queries - typically individual assistance'
+                },
+                'current_chat_context': chat_type,
+                'routing_patterns': {
+                    '/update_patterns': {
+                        'main_chat': 'Usually personal player information updates',
+                        'leadership_chat': 'Usually administrative team member updates',
+                        'private_chat': 'Personal assistance and individual updates'
+                    }
+                }
+            },
+            'decision_framework': {
+                'primary_factors': [
+                    'User intent and request type',
+                    'Chat context and permissions', 
+                    'Agent specialization match',
+                    'Historical routing patterns'
+                ],
+                'confidence_guidelines': {
+                    'high_confidence_9_10': 'Clear command match with agent specialization',
+                    'medium_confidence_7_8': 'Good intent match with some context consideration',
+                    'low_confidence_5_6': 'Unclear intent requiring safe fallback routing'
+                }
+            }
         }
         
-        # Validate and render prompt using template system
-        if not validate_prompt_context('routing_recommendation', context):
-            return create_json_response("error", message="Invalid context for routing recommendation")
+        # Generate structured prompt for LLM routing analysis
+        routing_prompt = f"""
+KICKAI Intelligent Routing Analysis
+
+REQUEST ANALYSIS:
+User Request: "{intent_data}"
+Command: {command or 'No specific command'}
+Chat Type: {chat_type}
+User: {username} (ID: {telegram_id_int})
+
+AVAILABLE AGENTS:
+{_format_agent_capabilities(routing_context['available_agents'])}
+
+CONTEXT CONSIDERATIONS:
+- Chat Type: {chat_type} ({routing_context['context_factors']['chat_type_analysis'].get(chat_type, 'Unknown context')})
+- User Intent: Analyze the user's actual intent from their message
+- Agent Specialization: Match intent to agent capabilities
+- Context Appropriateness: Consider chat type and permissions
+
+ROUTING DECISION FRAMEWORK:
+1. Analyze the user's primary intent
+2. Consider the chat context and any permission implications
+3. Match intent to the most specialized agent
+4. Provide confidence level (1-10) based on match quality
+5. Include reasoning for the routing decision
+
+SPECIAL ROUTING PATTERNS:
+- /update commands: Context-sensitive routing
+  * Main chat: Usually player-focused (player_coordinator)
+  * Leadership chat: Usually admin-focused (team_administrator)
+  * Private chat: Usually personal assistance (player_coordinator)
+
+RESPONSE FORMAT:
+Provide your routing recommendation as JSON:
+
+{{
+  "agent": "agent_name",
+  "confidence": 0.9,
+  "intent": "primary_intent_classification",
+  "reasoning": "Brief explanation for the routing decision"
+}}
+"""
         
-        routing_prompt = render_prompt('routing_recommendation', context)
+        logger.info(f"🧠 [NLP_ROUTING] Generated LLM routing context for '{intent_data[:30]}...' in {chat_type} chat")
         
-        return create_json_response("success", data={"routing_prompt": routing_prompt})
+        return routing_prompt
         
     except Exception as e:
         return _handle_tool_error("routing_recommendation_tool", e)
 
 
-@tool("analyze_update_context", result_as_answer=True)
-async def analyze_update_context(
+def _format_agent_capabilities(agents_dict: dict) -> str:
+    """Format agent capabilities for LLM consumption."""
+    formatted = []
+    for agent_name, agent_info in agents_dict.items():
+        capabilities = ", ".join(agent_info['capabilities'])
+        formatted.append(f"• {agent_name}: {agent_info['description']}")
+        formatted.append(f"  Capabilities: {capabilities}")
+        formatted.append(f"  Best for: {agent_info['best_for']}")
+        formatted.append("")
+    return "\n".join(formatted)
+
+
+async def analyze_update_context_domain(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -514,18 +625,17 @@ async def analyze_update_context(
         
         # Validate and render prompt using template system
         if not validate_prompt_context('update_context', context):
-            return create_json_response("error", message="Invalid context for update analysis")
+            return create_json_response(ResponseStatus.ERROR, message="Invalid context for update analysis")
         
         update_prompt = render_prompt('update_context', context)
         
-        return create_json_response("success", data={"update_prompt": update_prompt})
+        return create_json_response(ResponseStatus.SUCCESS, data={"update_prompt": update_prompt})
         
     except Exception as e:
         return _handle_tool_error("analyze_update_context", e)
 
 
-@tool("validate_routing_permissions", result_as_answer=True)
-async def validate_routing_permissions(
+async def validate_routing_permissions_domain(
     telegram_id: int,
     team_id: str,
     username: str,
@@ -585,11 +695,11 @@ async def validate_routing_permissions(
         
         # Validate and render prompt using template system
         if not validate_prompt_context('permission_validation', context):
-            return create_json_response("error", message="Invalid context for permission validation")
+            return create_json_response(ResponseStatus.ERROR, message="Invalid context for permission validation")
         
         permission_prompt = render_prompt('permission_validation', context)
         
-        return create_json_response("success", data={"permission_prompt": permission_prompt})
+        return create_json_response(ResponseStatus.SUCCESS, data={"permission_prompt": permission_prompt})
         
     except Exception as e:
         return _handle_tool_error("validate_routing_permissions", e)

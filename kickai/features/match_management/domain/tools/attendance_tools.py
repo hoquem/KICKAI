@@ -12,7 +12,8 @@ from kickai.features.match_management.domain.services.attendance_service import 
 logger = logging.getLogger(__name__)
 
 
-@tool("record_attendance", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def record_attendance(
     match_id: str,
     player_id: str,
@@ -98,7 +99,8 @@ async def record_attendance(
 
 
 
-@tool("get_match_attendance", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_match_attendance(match_id: str) -> str:
     """Get attendance information for a match.
     
@@ -175,7 +177,8 @@ async def get_match_attendance(match_id: str) -> str:
 
 
 
-@tool("get_player_attendance_history", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_player_attendance_history(
     player_id: str,
     limit: int = 10,
@@ -242,7 +245,8 @@ async def get_player_attendance_history(
         return create_json_response(ResponseStatus.ERROR, message=f"Error getting attendance history: {e!s}")
 
 
-@tool("bulk_record_attendance", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def bulk_record_attendance(
     match_id: str,
     attendance_records: List[dict],

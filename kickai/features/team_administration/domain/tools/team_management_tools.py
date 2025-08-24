@@ -26,7 +26,8 @@ class CreateTeamInput(BaseModel):
     admin_user_id: Optional[str] = None
 
 
-@tool("create_team", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def create_team(team_name: str, team_id: str, admin_user_id: Optional[str] = None) -> str:
     """Create a new team.
     

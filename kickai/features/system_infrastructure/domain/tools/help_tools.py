@@ -41,7 +41,8 @@ class GetVersionInfoInput(BaseModel):
     team_id: Optional[str] = None
 
 
-@tool("get_version_info", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_version_info(user_id: Optional[str] = None, team_id: Optional[str] = None) -> str:
     """
     Get bot version and system information.
@@ -128,7 +129,8 @@ async def get_version_info(user_id: Optional[str] = None, team_id: Optional[str]
         return create_json_response(ResponseStatus.ERROR, message=f"Error retrieving version information: {e!s}")
 
 
-@tool("get_system_available_commands", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_system_available_commands(
     chat_type: str,
     user_id: Optional[str] = None,

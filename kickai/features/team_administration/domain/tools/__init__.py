@@ -1,47 +1,14 @@
 #!/usr/bin/env python3
 """
-Team administration tools module.
+Team Administration Domain Tools - Clean Architecture Compliant
 
-This module provides tools for team administration and management.
+This module contains pure domain functions for team administration.
+These functions contain business logic only and delegate to application layer for CrewAI tools.
+
+NOTE: All @tool decorators have been removed from domain layer to comply with Clean Architecture.
+The application layer provides the CrewAI tool interfaces that delegate to these domain functions.
 """
 
-# Import the simplified team member tools
-from .simplified_team_member_tools import add_team_member_simplified
-
-# Import team member update tools
-from .update_team_member_tools import (
-    get_pending_team_member_approval_requests,
-    get_team_member_updatable_fields,
-    update_team_member_information,
-    validate_team_member_update_request,
-)
-
-# Import new team member update tools (Phase 5)
-from .team_member_update_tools import (
-    update_team_member_field,
-    update_team_member_multiple_fields,
-    get_team_member_update_help,
-    get_team_member_current_info,
-    update_other_team_member,
-)
-
-# Import player management tools
-from .player_management_tools import add_player
-
-__all__ = [
-    # Simplified team member tools
-    "add_team_member_simplified",
-    # Team member update tools
-    "update_team_member_information",
-    "get_team_member_updatable_fields",
-    "validate_team_member_update_request",
-    "get_pending_team_member_approval_requests",
-    # New team member update tools (Phase 5)
-    "update_team_member_field",
-    "update_team_member_multiple_fields",
-    "get_team_member_update_help",
-    "get_team_member_current_info",
-    "update_other_team_member",
-    # Player management tools
-    "add_player",
-]
+# Domain layer exports nothing - all tools come from application layer
+# This ensures Clean Architecture compliance by separating framework concerns
+__all__ = []

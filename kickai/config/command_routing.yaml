@@ -50,8 +50,8 @@ command_routing:
 
   player_info_commands:
     agent: "player_coordinator"
-    commands: ["/info", "/myinfo", "/status", "info", "myinfo", "status", "/list", "list"]
-    description: "Player information, status queries, and player lists"
+    commands: ["/info", "/myinfo", "/status", "/update", "info", "myinfo", "status", "update", "/list", "list"]
+    description: "Player information, status queries, updates, and player lists"
     priority: 2
 
   team_admin_commands:

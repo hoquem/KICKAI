@@ -41,19 +41,48 @@ PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py
 # Access at: http://localhost:8001 (Liverpool FC themed)
 ```
 
-### Test Pattern
+### Clean Architecture Test Patterns
+
+#### Application Layer Tool Testing
 ```python
 from unittest.mock import AsyncMock, patch
 
-async def test_tool_with_mock():
+async def test_application_tool():
+    # Test application layer tools with mocked container
     with patch('kickai.core.dependency_container.get_container') as mock_container:
         mock_service = AsyncMock()
         mock_container.return_value.get_service.return_value = mock_service
         
+        # Test tool from application/tools/ directory
         result = await tool_name(123456789, "KTI", "testuser", "main")
         
         mock_service.method_name.assert_called_once()
         assert "success" in result
+```
+
+#### Domain Service Testing (Pure Business Logic)
+```python
+async def test_domain_service():
+    # Test domain services with mocked repository interfaces
+    mock_repository = AsyncMock()
+    service = DomainService(repository=mock_repository)  # Constructor injection
+    
+    result = await service.business_method(param="value")
+    
+    mock_repository.method.assert_called_once_with(param="value")
+    assert result.is_valid()
+```
+
+#### Infrastructure Repository Testing
+```python
+async def test_infrastructure_repository():
+    # Test repository implementations with mocked database
+    mock_database = AsyncMock()
+    repository = FirebaseRepository(database=mock_database)
+    
+    await repository.save(entity)
+    
+    mock_database.save_document.assert_called_once()
 ```
 
 ## System Health Validation
@@ -71,11 +100,20 @@ registry = initialize_tool_registry()
 print(f'✅ {len(registry.get_all_tools())} tools registered')
 "
 
-# Agent system validation
+# Clean Architecture validation
 PYTHONPATH=. KICKAI_INVITE_SECRET_KEY=test-key python -c "
 from kickai.agents.crew_agents import TeamManagementSystem
+from kickai.agents.tool_registry import initialize_tool_registry
+
+# Validate tool discovery from application/tools/ directories
+registry = initialize_tool_registry()
+all_tools = registry.get_all_tools()
+print(f'✅ {len(all_tools)} application tools discovered')
+
+# Validate agent system
 system = TeamManagementSystem('KTI') 
 print(f'✅ {len(system.agents)} agents initialized')
+print('✅ Clean Architecture implementation verified')
 "
 ```
 

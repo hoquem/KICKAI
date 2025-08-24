@@ -8,7 +8,7 @@ team member field updates with enhanced error messaging.
 """
 
 import re
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Any
 from enum import Enum
 
 # Import existing utilities
@@ -302,9 +302,10 @@ class FieldValidator:
                 
         return notes_clean
 
+
     @staticmethod
     def validate_field_for_entity(field: str, value: str, entity_type: str,
-                                  current_user_is_admin: bool = False) -> Tuple[str, str]:
+                                  current_user_is_admin: bool = False) -> Tuple[str, Any]:
         """
         Validate a field value based on entity type and field name.
         
@@ -316,6 +317,7 @@ class FieldValidator:
             
         Returns:
             Tuple of (normalized_field_name, validated_value)
+            Note: validated_value may be str, int, or other types depending on field
             
         Raises:
             ValidationError: If field or value is invalid

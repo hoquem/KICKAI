@@ -1,6 +1,8 @@
-# Agentic Design Philosophy
+# Agentic Design Philosophy - Clean Architecture Compliant
 
-We will leverage agents for what they do best and fall back on deterministic code for efficiency and reliability.
+**Last Updated:** January 2025 - Clean Architecture Migration Complete
+
+We will leverage agents for what they do best and fall back on deterministic code for efficiency and reliability. All agent tools now follow Clean Architecture principles with complete framework separation.
 
 - **Agentic Tasks**: Use `CrewAI` agents for tasks requiring reasoning, context, or creativity.
   - Natural Language Understanding (NLU).
@@ -124,15 +126,40 @@ The system implements intelligent routing based on chat context and permission l
 - **Leadership Chat**: Leadership commands routed to `TEAM_ADMINISTRATOR` or `SQUAD_SELECTOR`
 - **Permission-Based**: Commands routed based on permission level and agent capabilities
 
-### Tool Independence
+### Tool Independence - Clean Architecture Compliant
 
-**CRITICAL**: Tools must be completely independent functions following CrewAI best practices:
+**CRITICAL**: Tools must be completely independent functions following CrewAI best practices and Clean Architecture principles:
 
 - **❌ NEVER**: Tools calling other tools or services directly (delegate via CrewAI tasks instead).
 - **✅ ALWAYS**: Tools are simple, independent async functions.
 - **✅ ALWAYS**: Use direct parameter passing with type hints.
 - **✅ ALWAYS**: Tools return simple string responses.
-- **✅ ALWAYS**: Use `@tool` decorator from `crewai.tools`.
+- **✅ ALWAYS**: Use `@tool` decorator from `crewai.tools` **ONLY in application layer**.
+
+### 🎉 **Clean Architecture Tool Pattern (January 2025)**
+
+**Application Layer Tool (with @tool decorator):**
+```python
+# kickai/features/example/application/tools/example_tools.py
+@tool("example_tool", result_as_answer=True)
+async def example_tool(telegram_id: int, team_id: str, username: str, chat_type: str, ...) -> str:
+    """Application layer CrewAI tool that delegates to domain layer."""
+    # Delegate to pure domain function
+    return await example_domain_function(telegram_id, team_id, username, chat_type, ...)
+```
+
+**Domain Layer Function (no @tool decorator):**
+```python
+# kickai/features/example/domain/tools/example_tools.py  
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
+async def example_domain_function(telegram_id: int, team_id: str, username: str, chat_type: str, ...) -> str:
+    """Pure domain business logic with no framework dependencies."""
+    container = get_container()
+    service = container.get_service(ServiceClass)
+    result = await service.method(...)
+    return create_json_response(ResponseStatus.SUCCESS, data=result)
+```
 
 **📋 For complete tool implementation standards, see [04_development_standards.md](04_development_standards.md)**
 

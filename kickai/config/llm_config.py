@@ -307,17 +307,19 @@ class LLMConfiguration:
             return advanced_llm, tool_llm
 
         if agent_role == AgentRole.NLP_PROCESSOR:
+            # For NLP processor, use simple Groq model without complex tool calling
+            # This addresses the Groq tool calling error
             nlp_llm = self._create_llm(
                 temperature=0.2,  # Balanced for understanding
                 max_tokens=600,   # Sufficient for analysis
                 use_case="nlp_agent",
-                override_model=self.nlp_model,
+                override_model=self.simple_model,  # Use simple model instead of nlp_model
             )
             tool_llm = self._create_llm(
                 temperature=0.1,  # Precise for tool calls
                 max_tokens=400,   # Focused tool responses
                 use_case="nlp_tool",
-                override_model=self.nlp_model,
+                override_model=self.simple_model,  # Use simple model instead of nlp_model
             )
             return nlp_llm, tool_llm
 

@@ -14,7 +14,9 @@ from loguru import logger
 from kickai.features.team_administration.domain.entities.team_member import TeamMember
 from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
 from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
-from kickai.features.team_administration.domain.repositories.team_repository_interface import TeamRepositoryInterface
+from kickai.features.team_administration.domain.repositories.team_member_repository_interface import TeamMemberRepositoryInterface
+from kickai.features.team_administration.domain.services.simplified_team_member_service import SimplifiedTeamMemberService
+from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
 from kickai.features.team_administration.domain.types import (
     TelegramUserId,
     TeamId,
@@ -42,17 +44,23 @@ class TeamMemberManagementService:
     for tools to depend on multiple services directly.
     """
 
-    def __init__(self, team_repository: TeamRepositoryInterface):
+    def __init__(
+        self, 
+        team_member_repository: TeamMemberRepositoryInterface,
+        simplified_service: SimplifiedTeamMemberService,
+        team_member_service: TeamMemberService
+    ):
         """
         Initialize the management service with required dependencies.
         
         Args:
-            team_repository: Repository for team and team member operations
+            team_member_repository: Repository for team member operations
+            simplified_service: Simplified team member service
+            team_member_service: Core team member service
         """
-        self.team_repository = team_repository
-        self.simplified_service = SimplifiedTeamMemberService(team_repository)
-        self.team_member_service = TeamMemberService(team_repository)
-        # Note: TeamService will be injected when needed to avoid circular dependencies
+        self.team_member_repository = team_member_repository
+        self.simplified_service = simplified_service
+        self.team_member_service = team_member_service
 
     async def create_team_member_with_invite(
         self, 
@@ -260,11 +268,11 @@ class TeamMemberManagementService:
         
         return existing_member
 
-    def get_team_repository(self) -> TeamRepositoryInterface:
+    def get_team_member_repository(self) -> TeamMemberRepositoryInterface:
         """
-        Get the team repository for advanced operations.
+        Get the team member repository for advanced operations.
         
         Returns:
-            TeamRepositoryInterface instance
+            TeamMemberRepositoryInterface instance
         """
-        return self.team_repository
+        return self.team_member_repository

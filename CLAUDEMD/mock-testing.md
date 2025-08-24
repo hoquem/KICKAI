@@ -65,6 +65,14 @@ async def test_scenario():
 4. **Mock UI Tests**: Interactive testing (`tests/mock_telegram/`)
 5. **Functional Tests**: Real bot integration (`tests/functional/`)
 
+### Clean Architecture Testing
+The Mock UI automatically discovers and tests all application layer tools:
+```python
+# Tools are discovered from kickai/features/*/application/tools/
+# No changes needed to Mock UI for new tool locations
+# All @tool decorators are automatically available for testing
+```
+
 ## Key Mock Testing Files
 - `tests/mock_telegram/start_mock_tester.py` - Main UI launcher
 - `tests/mock_telegram/backend/mock_telegram_service.py` - Mock service implementation

@@ -1,8 +1,8 @@
 # KICKAI Comprehensive Codebase Index
 
-**Version:** 4.0  
+**Version:** 4.1  
 **Status:** Production Ready with Feature-First Clean Architecture  
-**Last Updated:** January 2025  
+**Last Updated:** August 2025  
 **Architecture:** Feature-First Clean Architecture with 15-Agent CrewAI System
 
 ## 📋 Table of Contents
@@ -92,6 +92,7 @@ KICKAI/
 │   │   ├── agentic_message_router.py # Message routing system (26KB, 669 lines)
 │   │   ├── simplified_orchestration.py # Task orchestration (25KB, 595 lines)
 │   │   ├── tool_registry.py     # Tool registry and management (33KB, 881 lines)
+│   │   ├── async_tool_metadata.py # Async tool metadata system (20KB, 507 lines)
 │   │   ├── tools_manager.py     # Tools management (3.3KB, 101 lines)
 │   │   ├── user_flow_agent.py   # User flow management (23KB, 495 lines)
 │   │   ├── helper_agent.py      # Helper agent (10KB, 300 lines)
@@ -346,7 +347,32 @@ KICKAI/
 - Performance monitoring
 - Tool lifecycle management
 
-### 4. Memory System (`kickai/agents/team_memory.py`)
+### 4. Async Tool Metadata System (`kickai/agents/async_tool_metadata.py`)
+**Purpose:** Async tool metadata management and context injection for CrewAI
+
+**Key Components:**
+- **AsyncToolRegistry**: Global registry for async CrewAI tools with metadata management
+- **AsyncContextInjector**: Dynamic task description generation with context injection
+- **AsyncToolMetadata**: Standardized metadata for async tools
+- **AsyncToolProtocol**: Standard interface for all async tools
+
+**Features:**
+- **100% Async Architecture**: Enforces async-only tools with validation
+- **Dynamic Prompt Generation**: Context-aware task descriptions for CrewAI agents
+- **Parameter Passing Instructions**: Explicit guidance for CrewAI parameter passing
+- **Context Injection**: Automatic injection of context parameters (telegram_id, team_id, username, chat_type)
+- **Tool Documentation**: Dynamic documentation generation from tool metadata
+- **Context-Aware Routing**: Chat type-specific tool selection guidance
+- **CrewAI Native Integration**: Proper handling of CrewAI Tool objects and regular functions
+
+**Architecture Benefits:**
+- **Parameter Passing Fix**: Resolves CrewAI parameter validation issues
+- **Context Validation**: Ensures all required context parameters are present
+- **Standardized Interface**: Consistent parameter order across all tools
+- **Error Prevention**: Prevents dictionary vs individual parameter passing errors
+- **Maintainable**: Centralized tool metadata management
+
+### 5. Memory System (`kickai/agents/team_memory.py`)
 **Purpose:** Team memory and conversation history
 
 **Features:**
@@ -772,6 +798,17 @@ cd kickai/features/[feature_name]
 **Impact**: Type-safe configuration with validation
 **Benefits**: Better error handling, easier maintenance, improved reliability
 
+### 6. Async Tool Metadata System (August 2025)
+**Improvement**: Async tool metadata management and context injection for CrewAI
+**Impact**: Resolves CrewAI parameter passing issues and improves tool integration
+**Benefits**: 
+- **Parameter Passing Fix**: Resolves "Arguments validation failed" errors
+- **Context Injection**: Automatic injection of context parameters
+- **Dynamic Prompts**: Context-aware task descriptions for CrewAI agents
+- **100% Async Architecture**: Enforces async-only tools with validation
+- **Standardized Interface**: Consistent parameter order across all tools
+- **Error Prevention**: Prevents dictionary vs individual parameter passing errors
+
 ---
 
 ## 📊 Project Statistics
@@ -816,6 +853,6 @@ The system demonstrates modern software engineering practices with clean archite
 
 ---
 
-**Last Updated:** January 2025  
-**Version:** 4.0  
+**Last Updated:** August 2025  
+**Version:** 4.1  
 **Status:** Production Ready with Feature-First Architecture 

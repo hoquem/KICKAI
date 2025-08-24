@@ -55,7 +55,8 @@ from kickai.utils.validation_utils import (
 )
 
 
-@tool("add_team_member_simplified", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def add_team_member_simplified(
     telegram_id: int,
     team_id: str,

@@ -78,13 +78,17 @@ class ServiceFactory:
         )
 
         logger.debug("🔍 Imported FirebasePlayerRepository")
-
+        from kickai.features.team_administration.infrastructure.firebase_team_member_repository import (
+            FirebaseTeamMemberRepository,
+        )
+        logger.debug("🔍 Imported FirebaseTeamMemberRepository")
 
         logger.debug("🔍 Creating team repository...")
         team_repo = FirebaseTeamRepository(self.database)
         logger.debug("🔍 Creating player repository...")
         player_repo = FirebasePlayerRepository(self.database)
-
+        logger.debug("🔍 Creating team member repository...")
+        team_member_repo = FirebaseTeamMemberRepository(self.database)
 
         # Register repositories
         from kickai.features.player_registration.domain.repositories.player_repository_interface import (
@@ -93,13 +97,18 @@ class ServiceFactory:
         from kickai.features.team_administration.domain.repositories.team_repository_interface import (
             TeamRepositoryInterface,
         )
+        from kickai.features.team_administration.domain.repositories.team_member_repository_interface import (
+            TeamMemberRepositoryInterface,
+        )
 
         self.container.register_service(TeamRepositoryInterface, team_repo)
         self.container.register_service(PlayerRepositoryInterface, player_repo)
+        self.container.register_service(TeamMemberRepositoryInterface, team_member_repo)
 
         return {
             "team_repository": team_repo,
             "player_repository": player_repo,
+            "team_member_repository": team_member_repo,
         }
 
 
@@ -128,13 +137,44 @@ class ServiceFactory:
         team_service = TeamService(team_repo)
         logger.debug("🔍 Created TeamService")
 
-        # Register both the concrete class and the interface
+        # Create team member services
+        from kickai.features.team_administration.domain.repositories.team_member_repository_interface import (
+            TeamMemberRepositoryInterface,
+        )
+        from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
+        from kickai.features.team_administration.domain.services.simplified_team_member_service import SimplifiedTeamMemberService
+        from kickai.features.team_administration.domain.services.team_member_management_service import TeamMemberManagementService
+        from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
+
+        team_member_repo = self.container.get_service(TeamMemberRepositoryInterface)
+        logger.debug("🔍 Got team member repository from container")
+
+        # Create invite link service with database
+        invite_service = InviteLinkService(database=self.database)
+        logger.debug("🔍 Created InviteLinkService")
+
+        # Create team member services with proper dependency injection
+        team_member_service = TeamMemberService(team_member_repo)
+        logger.debug("🔍 Created TeamMemberService")
+
+        simplified_service = SimplifiedTeamMemberService(team_member_repo, team_service, invite_service)
+        logger.debug("🔍 Created SimplifiedTeamMemberService")
+
+        management_service = TeamMemberManagementService(team_member_repo, simplified_service, team_member_service)
+        logger.debug("🔍 Created TeamMemberManagementService")
+
+        # Register all services
         self.container.register_service(TeamService, team_service)
         self.container.register_service(ITeamService, team_service)
+        self.container.register_service(TeamMemberService, team_member_service)
+        self.container.register_service(SimplifiedTeamMemberService, simplified_service)
+        self.container.register_service(TeamMemberManagementService, management_service)
+        self.container.register_service(InviteLinkService, invite_service)
 
         # Debug: Verify registration
         logger.debug(f"✅ Registered TeamService: {type(team_service)}")
         logger.debug(f"✅ Registered ITeamService: {type(team_service)}")
+        logger.debug(f"✅ Registered TeamMemberService: {type(team_member_service)}")
 
         # Debug: Check if services are available immediately after registration
         try:
@@ -149,7 +189,13 @@ class ServiceFactory:
         except (RuntimeError, KeyError, AttributeError) as e:
             logger.error(f"❌ ITeamService not immediately available: {e}")
 
-        return {"team_service": team_service}
+        return {
+            "team_service": team_service,
+            "team_member_service": team_member_service,
+            "simplified_team_member_service": simplified_service,
+            "team_member_management_service": management_service,
+            "invite_service": invite_service
+        }
 
     def create_player_registration_services(self):
         """Create player registration services that depend on team services."""

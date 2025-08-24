@@ -179,19 +179,13 @@ class PlayerService:
     ) -> Player | None:
         """Get a player by Telegram ID."""
         try:
-            # Use the database client directly since repository might not have this method
-            from kickai.core.dependency_container import get_container
-
-            container = get_container()
-            database = container.get_database()
-
-            # Call the firebase client method directly
-            player_data = await database.get_player_by_telegram_id(telegram_id, team_id)
-            if player_data:
-                return self._create_player_from_data(player_data)
-            return None
+            # Convert string to int if needed
+            telegram_id_int = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
+            
+            # Use repository interface (Clean Architecture compliant)
+            return await self.player_repository.get_player_by_telegram_id(telegram_id_int, team_id)
+            
         except (RuntimeError, ValueError, KeyError, AttributeError) as e:
-            from kickai.features.player_registration.domain.exceptions import PlayerLookupError
             logger.error(ERROR_TEMPLATES["TELEGRAM_ID_ERROR"].format(telegram_id, e))
             # Return None instead of raising to prevent cascade failures in lookup operations
             return None

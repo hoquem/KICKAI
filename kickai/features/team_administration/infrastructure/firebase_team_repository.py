@@ -1,4 +1,3 @@
-from typing import List, Optional, Union
 #!/usr/bin/env python3
 """
 Firebase Team Repository Implementation
@@ -7,6 +6,9 @@ This module provides the Firebase implementation of the team repository interfac
 """
 
 from datetime import datetime
+from typing import List, Optional, Union
+
+from loguru import logger
 
 from kickai.core.firestore_constants import (
     COLLECTION_TEAMS,
@@ -140,9 +142,6 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
     async def list_all(self, limit: int = 100) -> List[Team]:
         """List all teams with optional limit."""
         try:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.info(f"🔍 [REPO] list_all called with limit={limit}")
             logger.info(f"🔍 [REPO] Using collection: {self.collection_name}")
             logger.info(f"🔍 [REPO] Database type: {type(self.database)}")
@@ -156,12 +155,8 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
             return teams
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error in list_all: {e}")
             import traceback
-
             logger.error(f"❌ [REPO] Traceback: {traceback.format_exc()}")
             return []
 
@@ -197,9 +192,6 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
             return [self._doc_to_team_member(doc) for doc in docs]
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error getting team members: {e}")
             return []
 
@@ -232,9 +224,6 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
                 return self._doc_to_team_member(docs[0])
             return None
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error getting team member by telegram_id: {e}")
             return None
 
@@ -255,9 +244,6 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
                 return self._doc_to_team_member(docs[0])
             return None
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error getting team member by phone: {e}")
             return None
 
@@ -299,8 +285,6 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             return None
             
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error getting team member by ID {member_id}: {e}")
             return None
 
@@ -319,9 +303,6 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
             return [self._doc_to_team_member(doc) for doc in docs]
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error getting team members by status: {e}")
             return []
 
@@ -347,9 +328,6 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
             return True
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error deleting team member: {e}")
             return False
 

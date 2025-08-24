@@ -44,7 +44,8 @@ class GetMatchInput(BaseModel):
     match_id: str
 
 
-@tool("get_available_players_for_match", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_available_players_for_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
     """Get list of available players for a specific match.
     
@@ -125,7 +126,8 @@ async def get_available_players_for_match(team_id: str, telegram_id: Union[str, 
         return create_json_response(ResponseStatus.ERROR, message=f"Failed to get available players for match: {e}")
 
 
-@tool("select_squad", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def select_squad(
     team_id: str, telegram_id: Union[str, int], match_id: str, squad_size: Optional[int] = None
 ) -> str:
@@ -205,7 +207,8 @@ async def select_squad(
         return create_json_response(ResponseStatus.ERROR, message=f"Failed to select squad: {e}")
 
 
-@tool("get_match", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_match(team_id: str, telegram_id: Union[str, int], match_id: str) -> str:
     """Get match details and information.
     
@@ -272,7 +275,8 @@ async def get_match(team_id: str, telegram_id: Union[str, int], match_id: str) -
         return create_json_response(ResponseStatus.ERROR, message=f"Failed to get match: {e}")
 
 
-@tool("get_all_players", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_all_players(team_id: str, telegram_id: Union[str, int]) -> str:
     """Get all players in the team for squad selection reference.
     

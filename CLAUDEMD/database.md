@@ -15,26 +15,44 @@
 
 **Migration:** `PYTHONPATH=. python scripts/migrate_emergency_contact_fields.py`
 
-## Database Architecture Patterns
+## Clean Architecture Database Implementation ✅
 
-### Repository Pattern
+### Repository Pattern (Uncle Bob's Clean Architecture)
 ```python
-# Interface Definition
-class PlayerRepositoryInterface:
+# Domain Layer - Abstract Interface
+class PlayerRepositoryInterface(ABC):
+    @abstractmethod
     async def get_player_by_id(self, player_id: str, team_id: str) -> Optional[Player]:
         pass
     
+    @abstractmethod
     async def create_player(self, player: Player) -> Player:
         pass
 
-# Firebase Implementation
+# Infrastructure Layer - Firebase Implementation
 class FirebasePlayerRepository(PlayerRepositoryInterface):
-    def __init__(self, db: firestore.Client):
-        self.db = db
+    def __init__(self, database: DataStoreInterface):  # Dependency inversion
+        self.database = database
     
     async def get_player_by_id(self, player_id: str, team_id: str) -> Optional[Player]:
-        doc = await self.db.collection(f'kickai_teams/{team_id}/players').document(player_id).get()
-        return Player.from_dict(doc.to_dict()) if doc.exists else None
+        doc = await self.database.get_document(f'kickai_teams/{team_id}/players/{player_id}')
+        return Player.from_dict(doc) if doc else None
+```
+
+### Dependency Injection Pattern
+```python
+# Application Layer - Tool uses container
+@tool("get_player_status", result_as_answer=True)
+async def get_player_status(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
+    container = get_container()  # ✅ OK in application layer
+    service = container.get_service(PlayerService)
+    result = await service.get_player_status(telegram_id=telegram_id, team_id=team_id)
+    return create_json_response(ResponseStatus.SUCCESS, data=result)
+
+# Domain Layer - Service uses constructor injection
+class PlayerService:
+    def __init__(self, player_repository: PlayerRepositoryInterface):  # ✅ Pure DI
+        self.player_repository = player_repository  # No container dependency
 ```
 
 ### Entity Patterns
@@ -77,11 +95,24 @@ kickai_system/
 └── audit_logs/           # System audit trail
 ```
 
-## Data Access Rules
-- **Tools**: NEVER access database directly - always use services
-- **Services**: Use repository interfaces - never direct Firestore calls
-- **Repositories**: Only layer allowed to interact with Firebase
-- **Entities**: Immutable data objects with validation
+## Clean Architecture Data Access Rules (Strictly Enforced)
+- **Application Layer (Tools)**: Use `get_container()`, access domain services only
+- **Domain Layer (Services)**: Use constructor-injected repositories, NO container access  
+- **Domain Layer (Repositories)**: Abstract interfaces only, NO implementation details
+- **Infrastructure Layer**: Firebase implementations, database connections, external APIs
+- **Entities**: Pure business objects with validation, framework-agnostic
+
+### Layer Boundaries
+```python
+# ✅ CORRECT: Clean architecture pattern
+Application → Domain Services → Repository Interface ← Infrastructure Implementation
+
+# ❌ WRONG: Direct database access
+Application → Database (violates clean architecture)
+
+# ❌ WRONG: Container in domain
+Domain Service → get_container() (violates dependency rule)
+```
 
 ## Firebase Configuration
 ```bash

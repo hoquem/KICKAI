@@ -63,6 +63,7 @@ class Player:
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
     medical_notes: Optional[str] = None
+    
 
     # Status and approval
     status: str = "pending"  # pending, approved, rejected, active, inactive
