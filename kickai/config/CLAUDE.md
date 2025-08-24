@@ -103,7 +103,7 @@ agent_constraints:
 # Performance optimization - caching removed for simplicity
 optimization:
   load_balancing:
-    enabled: false  # Disabled for current 5-agent system
+    enabled: false  # Disabled for current 6-agent system
 ```
 
 **Usage in Code (Flexible Slash Handling)**:
@@ -125,7 +125,7 @@ print(f"Route info to: {decision2.agent_role}")
 ```
 
 ### 2. agents.yaml - Agent Configuration (MOST CRITICAL)
-**Purpose**: Defines all 5 agents with roles, goals, backstories, and tool assignments using **optimized prompts**.
+**Purpose**: Defines all 6 agents with roles, goals, backstories, and tool assignments using **optimized prompts**.
 
 **Recent Optimization (2025)**: Agent prompts have been streamlined for **57.2% token reduction** while preserving all critical functionality.
 

@@ -161,7 +161,7 @@ test_teams = [
 ```python
 test_team_members = [
     {
-        "user_id": "user_123456789",
+        "telegram_id": "123456789",
         "team_id": "test_team_alpha",
         "telegram_id": "123456789",
         "first_name": "John",
@@ -170,7 +170,7 @@ test_team_members = [
         "is_admin": True
     },
     {
-        "user_id": "user_987654321",
+        "telegram_id": "987654321",
         "team_id": "test_team_alpha", 
         "telegram_id": "987654321",
         "first_name": "Jane",
@@ -194,7 +194,7 @@ test_team_members = [
 ```python
 # test_config.py
 TEST_TEAM_ID = "test_team_alpha"
-TEST_USER_ID = "user_123456789"
+TEST_TELEGRAM_ID = "123456789"
 TEST_TELEGRAM_ID = "123456789"
 
 # Mock configurations

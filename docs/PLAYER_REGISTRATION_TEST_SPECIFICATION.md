@@ -36,7 +36,7 @@ This document provides a comprehensive test specification for the Player Registr
 
 #### **Critical Missing Features**
 1. **Player ID Generation**: `generate_football_player_id` function not implemented
-2. **User ID Generation**: `generate_user_id` function needs verification
+2. **Player ID Generation**: `generate_player_id` function needs verification
 3. **Phone Validation**: `is_valid_phone` function needs implementation
 4. **Command Handlers**: Application layer handlers not implemented
 5. **Agent Integration**: PLAYER_COORDINATOR agent configuration missing
@@ -63,7 +63,7 @@ This document provides a comprehensive test specification for the Player Registr
   - Create player with invalid preferred foot (should fail)
 
 - **Test Entity Validation**
-  - Validate user_id format (must start with "user_")
+  - Validate player_id format (must start with "player_")
   - Validate team_id presence
   - Validate status values
   - Validate position against enum
@@ -264,23 +264,23 @@ def test_generate_football_player_id():
     assert player_id == "KTI_JS_MF_002"
 ```
 
-#### **User ID Generation**
+#### **Player ID Generation**
 ```python
-def test_generate_user_id():
-    """Test user ID generation from Telegram ID."""
+def test_generate_player_id():
+    """Test player ID generation from Telegram ID."""
     # Test consistent generation
     telegram_id = 123456789
-    user_id1 = generate_user_id(telegram_id)
-    user_id2 = generate_user_id(telegram_id)
-    assert user_id1 == user_id2
-    assert user_id1.startswith("user_")
+    player_id1 = generate_player_id(telegram_id)
+    player_id2 = generate_player_id(telegram_id)
+    assert player_id1 == player_id2
+    assert player_id1.startswith("player_")
     
     # Test uniqueness
     telegram_id1 = 123456789
     telegram_id2 = 987654321
-    user_id1 = generate_user_id(telegram_id1)
-    user_id2 = generate_user_id(telegram_id2)
-    assert user_id1 != user_id2
+    player_id1 = generate_player_id(telegram_id1)
+    player_id2 = generate_player_id(telegram_id2)
+    assert player_id1 != player_id2
 ```
 
 ### 3.2 Phone Validation Tests
@@ -512,7 +512,7 @@ TEST_CONFIG = {
 
 2. **✅ ID Generation Functions**: Already implemented and verified
    - `generate_football_player_id` - Football-specific player ID generation
-   - `generate_user_id` - Consistent user ID generation from Telegram ID
+   - `generate_player_id` - Consistent player ID generation from Telegram ID
 
 3. **✅ Phone Validation**: Already implemented and verified
    - `is_valid_phone` - Phone number validation using Google's libphonenumber

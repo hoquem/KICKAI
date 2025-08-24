@@ -5,27 +5,22 @@ Player registration tools module.
 This module provides tools for player registration and management.
 """
 
-# Import the function-based tools
-from .player_tools import (
-    approve_player,
-    get_all_players,
-    get_active_players,
-    get_my_status,
-    get_player_match,
-    get_player_status,
-    list_team_members_and_players,
-)
+# Clean Architecture: Domain layer contains pure business logic functions only
+# NO TOOLS EXPORTED - All CrewAI tools are provided by the Application layer
+# 
+# These functions are available for internal domain use but are not exposed as tools:
+# - approve_player (service function)
+# - get_my_status (service function) 
+# - get_all_players (service function)
+# - get_active_players (service function)
+# - get_player_match (service function)
+# - list_team_members_and_players (service function)
+# - update_player_field (service function)
+# - update_player_multiple_fields (service function)
+# - get_player_update_help (service function)
+# - get_player_current_info (service function)
 
-__all__ = [
-    # Player management tools (only the ones actually used by agents)
-    "approve_player",
-    "get_my_status",
-    "get_player_status",
-    "get_all_players",
-    "get_active_players",
-    "get_player_match",
-    "list_team_members_and_players",
-]
+# Domain layer exports nothing - all tools come from application layer
+__all__ = []
 
-# Note: Removed unused tools: remove_player, get_player_info, list_players
-# These tools are not assigned to any agents in the configuration
+# Note: Removed unused tools: remove_player, get_player_info, list_players, get_player_status

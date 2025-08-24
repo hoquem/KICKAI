@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from .checks import (
     AgentInitializationCheck,
+    CleanArchitectureCheck,
     CommandRegistryCheck,
     ConfigurationCheck,
     CrewAIAgentHealthCheck,
@@ -47,20 +48,23 @@ class StartupValidator:
             InitializationSequenceCheck(),  # Comprehensive initialization validation
             ConfigurationCheck(),           # Basic configuration validation
 
-            # Phase 2: Core Infrastructure
+            # Phase 2: Architecture Compliance
+            CleanArchitectureCheck(),       # Clean Architecture compliance validation
+
+            # Phase 3: Core Infrastructure
             LLMProviderCheck(),             # LLM connectivity and configuration
             StubDetectionCheck(),           # Check for placeholder implementations
 
-            # Phase 3: Registry and Discovery
+            # Phase 4: Registry and Discovery
             EnhancedRegistryCheck(),        # Comprehensive registry validation
             ToolRegistrationCheck(),        # Tool discovery and registration
             CommandRegistryCheck(),         # Command registry initialization
 
-            # Phase 4: Agent System Health
+            # Phase 5: Agent System Health
             CrewAIAgentHealthCheck(),       # CrewAI agent health and performance
             AgentInitializationCheck(),     # Agent creation and configuration
 
-            # Phase 5: External Dependencies
+            # Phase 6: External Dependencies
             TelegramAdminCheck(),           # Telegram integration validation
         ]
 

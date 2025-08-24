@@ -3,12 +3,12 @@
 **Version:** 4.0  
 **Status:** Production Ready with Feature-First Clean Architecture  
 **Last Updated:** January 2025  
-**Architecture:** Feature-First Clean Architecture with 15-Agent CrewAI System
+**Architecture:** Feature-First Clean Architecture with 6-Agent CrewAI System
 
 ## **🎯 Current Project State**
 
 ### **✅ Successfully Implemented**
-- **15-Agent CrewAI System**: All agents defined and operational with entity-specific routing
+- **6-Agent CrewAI System**: All agents defined and operational with entity-specific routing
 - **Feature-First Architecture**: Complete modularization with 9 feature modules
 - **Clean Architecture**: Proper layer separation (Domain, Application, Infrastructure)
 - **Memory System**: CrewAI memory enabled with Hugging Face embeddings
@@ -19,7 +19,7 @@
 - **Configuration Management**: Centralized settings with environment-specific configs
 
 ### **🤖 Bot Status: OPERATIONAL**
-- **Process**: Running successfully with 15-agent system
+- **Process**: Running successfully with 6-agent system
 - **Telegram Bot**: Connected and operational with unified command system
 - **CrewAI System**: Initialized with memory and intelligent routing
 - **Teams**: Multi-team support with isolated environments
@@ -52,22 +52,13 @@
 - ✅ `/approve` - Player approval system
 - ✅ `/update` - Self-service information updates
 
-#### **2. Agent System (15/15)**
+#### **2. Agent System (6/6)**
 - ✅ **MessageProcessorAgent** - Primary user interface and command parsing
-- ✅ **TeamManagerAgent** - Strategic coordination and team member management
-- ✅ **PlayerCoordinatorAgent** - Player management and registration
-- ✅ **OnboardingAgent** - Specialized player onboarding
-- ✅ **AvailabilityManagerAgent** - Availability tracking and squad management
-- ✅ **SquadSelectorAgent** - Squad selection and management
-- ✅ **MatchCoordinatorAgent** - Match scheduling and operations
-- ✅ **TrainingCoordinatorAgent** - Training session management
-- ✅ **CommunicationManagerAgent** - Team communications
 - ✅ **HelpAssistantAgent** - Help system and user guidance
-- ✅ **AnalyticsAgent** - Analytics and reporting
-- ✅ **FinanceManagerAgent** - Financial tracking and payment management
-- ✅ **PerformanceAnalystAgent** - Performance analysis and insights
-- ✅ **LearningAgent** - Continuous learning and system improvement
-- ✅ **CommandFallbackAgent** - Error handling and fallbacks
+- ✅ **PlayerCoordinatorAgent** - Player management and registration
+- ✅ **TeamAdministratorAgent** - Team administration and member management
+- ✅ **SquadSelectorAgent** - Squad selection and management
+- ✅ **NLPProcessorAgent** - Natural language processing and understanding
 
 #### **3. Feature Modules (9/9)**
 - ✅ **Player Registration** - Complete player onboarding system
@@ -292,7 +283,7 @@ python -m pytest tests/integration/features/[feature_name]/
 - **Total Lines of Code**: ~53,000+ lines
 - **Python Files**: 335+ files
 - **Feature Modules**: 9 modules
-- **Agents**: 15 AI agents
+- **Agents**: 6 AI agents
 - **Commands**: 15+ bot commands
 - **Test Files**: 100+ test files
 
@@ -316,7 +307,7 @@ python -m pytest tests/integration/features/[feature_name]/
 
 KICKAI represents a sophisticated, production-ready AI-powered football team management system with:
 
-- **Advanced AI Architecture**: 15-agent CrewAI system with entity-specific routing
+- **Advanced AI Architecture**: 6-agent CrewAI system with entity-specific routing
 - **Feature-First Design**: Clean architecture with 9 modular feature modules
 - **Comprehensive Features**: Player management, team coordination, financial tracking
 - **Robust Infrastructure**: Clean architecture, extensive testing, health monitoring

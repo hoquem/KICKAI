@@ -3,13 +3,20 @@
 Custom Exceptions for KICKAI
 
 This module defines custom exceptions used throughout the KICKAI system.
+Having a clear exception hierarchy is crucial for robust error handling,
+allowing for both specific and general error catching.
 """
 
+from datetime import datetime, timezone
 from typing import Any, Union, Dict, Optional
 
 
 class KickAIError(Exception):
-    """Base exception for all KICKAI errors."""
+    """
+    Base exception for all KICKAI errors.
+    
+    All custom exceptions in the application should inherit from this class.
+    """
 
     def __init__(self, message: str, context: Optional[Dict[str, Any]] = None):
         super().__init__(message)
@@ -24,7 +31,12 @@ class PlayerError(KickAIError):
 
 
 class PlayerAlreadyExistsError(PlayerError):
-    """Raised when trying to create a player that already exists."""
+    """Raised when trying to create a player that already exists.
+    
+    Attributes:
+        phone (str): The phone number that already exists.
+        team_id (str): The team ID where the player exists.
+    """
 
     def __init__(self, phone: str, team_id: str):
         message = f"Player with phone {phone} already exists in team {team_id}"
@@ -32,7 +44,13 @@ class PlayerAlreadyExistsError(PlayerError):
 
 
 class PlayerNotFoundError(PlayerError):
-    """Raised when a player is not found."""
+    """
+    Raised when a player is not found.
+    
+    Attributes:
+        player_id (str): The ID of the player that was not found.
+        team_id (str): The team ID where the player was searched.
+    """
 
     def __init__(self, player_id: str, team_id: str):
         message = f"Player {player_id} not found in team {team_id}"
@@ -40,7 +58,12 @@ class PlayerNotFoundError(PlayerError):
 
 
 class PlayerValidationError(PlayerError):
-    """Raised when player data validation fails."""
+    """
+    Raised when player data validation fails.
+    
+    Attributes:
+        errors (list[str]): A list of validation error messages.
+    """
 
     def __init__(self, errors: list[str]):
         message = f"Player validation failed: {'; '.join(errors)}"
@@ -54,7 +77,12 @@ class TeamError(KickAIError):
 
 
 class TeamNotFoundError(TeamError):
-    """Raised when a team is not found."""
+    """
+    Raised when a team is not found.
+    
+    Attributes:
+        team_id (str): The ID of the team that was not found.
+    """
 
     def __init__(self, team_id: str):
         message = f"Team {team_id} not found"
@@ -62,7 +90,13 @@ class TeamNotFoundError(TeamError):
 
 
 class TeamNotConfiguredError(TeamError):
-    """Raised when a team is not properly configured."""
+    """
+    Raised when a team is not properly configured.
+    
+    Attributes:
+        team_id (str): The ID of the team with missing configuration.
+        missing_config (str): A description of the missing configuration.
+    """
 
     def __init__(self, team_id: str, missing_config: str):
         message = f"Team {team_id} not configured: {missing_config}"
@@ -76,7 +110,12 @@ class InviteLinkError(KickAIError):
 
 
 class InviteLinkNotFoundError(InviteLinkError):
-    """Raised when an invite link is not found."""
+    """
+    Raised when an invite link is not found.
+    
+    Attributes:
+        invite_id (str): The ID of the invite link that was not found.
+    """
 
     def __init__(self, invite_id: str):
         message = f"Invite link {invite_id} not found"
@@ -84,7 +123,12 @@ class InviteLinkNotFoundError(InviteLinkError):
 
 
 class InviteLinkExpiredError(InviteLinkError):
-    """Raised when an invite link has expired."""
+    """
+    Raised when an invite link has expired.
+    
+    Attributes:
+        invite_id (str): The ID of the expired invite link.
+    """
 
     def __init__(self, invite_id: str):
         message = f"Invite link {invite_id} has expired"
@@ -92,7 +136,12 @@ class InviteLinkExpiredError(InviteLinkError):
 
 
 class InviteLinkAlreadyUsedError(InviteLinkError):
-    """Raised when an invite link has already been used."""
+    """
+    Raised when an invite link has already been used.
+    
+    Attributes:
+        invite_id (str): The ID of the used invite link.
+    """
 
     def __init__(self, invite_id: str):
         message = f"Invite link {invite_id} has already been used"
@@ -100,7 +149,13 @@ class InviteLinkAlreadyUsedError(InviteLinkError):
 
 
 class InviteLinkInvalidError(InviteLinkError):
-    """Raised when an invite link is invalid."""
+    """
+    Raised when an invite link is invalid for a specific reason.
+    
+    Attributes:
+        invite_link (str): The invalid invite link string.
+        reason (str): The reason why the link is invalid.
+    """
 
     def __init__(self, invite_link: str, reason: str):
         message = f"Invalid invite link: {reason}"
@@ -114,7 +169,12 @@ class ServiceError(KickAIError):
 
 
 class ServiceNotAvailableError(ServiceError):
-    """Raised when a required service is not available."""
+    """
+    Raised when a required service is not available in the dependency container.
+    
+    Attributes:
+        service_name (str): The name of the service that is not available.
+    """
 
     def __init__(self, service_name: str):
         message = f"Service {service_name} is not available"
@@ -134,7 +194,13 @@ class AgentError(KickAIError):
 
 
 class AgentInitializationError(AgentError):
-    """Raised when agent initialization fails."""
+    """
+    Raised when agent initialization fails.
+    
+    Attributes:
+        agent_name (str): The name of the agent that failed to initialize.
+        error (str): The underlying error message.
+    """
 
     def __init__(self, agent_name: str, error: str):
         message = f"Failed to initialize agent {agent_name}: {error}"
@@ -142,7 +208,13 @@ class AgentInitializationError(AgentError):
 
 
 class AgentConfigurationError(AgentError):
-    """Raised when agent configuration is invalid."""
+    """
+    Raised when agent configuration is invalid.
+    
+    Attributes:
+        agent_name (str): The name of the agent with invalid configuration.
+        config_error (str): A description of the configuration error.
+    """
 
     def __init__(self, agent_name: str, config_error: str):
         message = f"Invalid configuration for agent {agent_name}: {config_error}"
@@ -150,11 +222,34 @@ class AgentConfigurationError(AgentError):
 
 
 class AgentExecutionError(AgentError):
-    """Raised when agent execution fails."""
+    """
+    Raised when agent execution fails.
+    
+    Attributes:
+        agent_name (str): The name of the agent that failed.
+        task (str): The description of the task that failed.
+        error (str): The underlying error message.
+    """
 
     def __init__(self, agent_name: str, task: str, error: str):
         message = f"Agent {agent_name} failed to execute task '{task}': {error}"
         super().__init__(message, {"agent_name": agent_name, "task": task, "error": error})
+
+
+class ToolValidationError(AgentError):
+    """
+    Raised when tool input validation fails.
+
+    This exception is centralized here to ensure all core exceptions are in one place.
+
+    Attributes:
+        tool_name (str): The name of the tool where validation failed.
+        field (str): The name of the field that failed validation.
+        reason (str): The reason for the validation failure.
+    """
+    def __init__(self, tool_name: str, field: str, reason: str):
+        message = f"Validation failed for tool '{tool_name}' on field '{field}': {reason}"
+        super().__init__(message, context={"tool_name": tool_name, "field": field, "reason": reason})
 
 
 class AuthorizationError(KickAIError):
@@ -166,7 +261,14 @@ class AuthorizationError(KickAIError):
 
 
 class InputValidationError(KickAIError):
-    """Raised when input validation fails."""
+    """
+    Raised when general input validation fails.
+    
+    Attributes:
+        field (str): The name of the field that failed validation.
+        value (str): The value that was provided.
+        reason (str): The reason for the validation failure.
+    """
 
     def __init__(self, field: str, value: str, reason: str):
         message = f"Input validation failed for field '{field}' with value '{value}': {reason}"
@@ -343,7 +445,7 @@ def create_error_context(operation: str, **kwargs) -> Dict[str, Any]:
     """
     context = {
         "operation": operation,
-        "timestamp": "2025-07-24T21:00:00Z",  # This should be dynamic in real usage
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         **kwargs,
     }
     return context

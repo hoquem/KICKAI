@@ -10,6 +10,7 @@ import asyncio
 import signal
 import sys
 import time
+import threading
 from typing import Optional
 
 # Enable nested event loops for environments that already have an event loop running
@@ -19,6 +20,7 @@ nest_asyncio.apply()
 
 from kickai.core.dependency_container import (
     ensure_container_initialized,
+    ensure_container_initialized_async,
     get_service,
     initialize_container,
 )
@@ -33,31 +35,59 @@ multi_bot_manager: Optional[MultiBotManager] = None
 shutdown_event = asyncio.Event()
 
 
+def setup_global_exception_handlers():
+    """Set up global exception handlers to catch unhandled exceptions."""
+    
+    def handle_thread_exception(args):
+        """Handle unhandled exceptions in threads."""
+        logger.error(f"❌ Unhandled exception in thread {args.thread}: {args.exc_value}")
+        import traceback
+        logger.error(f"❌ Thread exception traceback: {traceback.format_exc()}")
+        
+        # Send a user-friendly error message if possible
+        try:
+            # This is a fallback - the main error handling should catch most cases
+            logger.error("🚨 Critical thread exception - system may be unstable")
+        except Exception as e:
+            logger.error(f"❌ Failed to handle thread exception: {e}")
+    
+    def handle_unhandled_exception(exc_type, exc_value, exc_traceback):
+        """Handle unhandled exceptions in the main thread."""
+        logger.error(f"❌ Unhandled exception: {exc_type.__name__}: {exc_value}")
+        import traceback
+        logger.error(f"❌ Unhandled exception traceback: {traceback.format_exc()}")
+        
+        # Don't exit immediately - let the main error handling deal with it
+        logger.error("🚨 Unhandled exception detected - attempting graceful recovery")
+    
+    # Set up thread exception handler
+    threading.excepthook = handle_thread_exception
+    
+    # Set up unhandled exception handler
+    sys.excepthook = handle_unhandled_exception
+    
+    logger.info("✅ Global exception handlers configured")
+
+
 async def get_team_id_from_firestore() -> str:
     """
     Get the first available team_id from Firestore.
     This ensures we use a real team from the database instead of hardcoded values.
     """
-    try:
-        # Get team service from dependency container
-        team_service = get_service(TeamService)
-        
-        # Get all teams from Firestore
-        teams = await team_service.get_all_teams()
-        
-        if not teams:
-            logger.warning("No teams found in Firestore, using fallback team_id")
-            return "fallback_team"
-        
-        # Use the first available team
-        team_id = teams[0].id
-        logger.info(f"Using team_id from Firestore: {team_id}")
-        return team_id
-        
-    except Exception as e:
-        logger.error(f"Failed to get team_id from Firestore: {e}")
-        logger.warning("Using fallback team_id due to error")
+    # Get team service from dependency container
+    team_service = get_service(TeamService)
+    
+    # Get all teams from Firestore
+    teams = await team_service.get_all_teams()
+    
+    if not teams:
+        logger.warning("No teams found in Firestore, using fallback team_id")
         return "fallback_team"
+    
+    # Use the first available team
+    team_id = teams[0].id
+    logger.info(f"Using team_id from Firestore: {team_id}")
+    return team_id
 
 
 def setup_logging():
@@ -70,159 +100,121 @@ def setup_logging():
 
 def cleanup_existing_bots():
     """Kill existing bot processes before starting."""
-    try:
-        import subprocess
-        logger.info("🧹 Cleaning up existing bot processes...")
+    import subprocess
+    logger.info("🧹 Cleaning up existing bot processes...")
 
-        # Kill any existing bot processes
-        subprocess.run(["pkill", "-f", "run_bot_local.py"], capture_output=True)
-        subprocess.run(["pkill", "-f", "python.*bot"], capture_output=True)
+    # Kill any existing bot processes
+    subprocess.run(["pkill", "-f", "run_bot_local.py"], capture_output=True)
+    subprocess.run(["pkill", "-f", "python.*bot"], capture_output=True)
 
-        # Wait for processes to terminate
-        time.sleep(2)
-        logger.info("✅ Bot cleanup completed")
-
-    except Exception as e:
-        logger.warning(f"⚠️ Could not cleanup existing bots: {e}")
+    # Wait for processes to terminate
+    time.sleep(2)
+    logger.info("✅ Bot cleanup completed")
 
 def setup_environment():
     """Set up the environment and load configuration."""
-    try:
-        # Clean up existing bot processes first
-        cleanup_existing_bots()
+    # Clean up existing bot processes first
+    cleanup_existing_bots()
 
-        # Load environment variables from .env file
-        from dotenv import load_dotenv
-        load_dotenv()
+    # Load environment variables from .env file
+    from dotenv import load_dotenv
+    load_dotenv()
 
-        # Initialize container
-        initialize_container()
-        config = get_settings()
+    # Note: Container initialization is done later with async team cache
+    config = get_settings()
 
-        # Configuration validation is handled automatically by Pydantic
-        logger.info("✅ Configuration loaded successfully")
+    # Configuration validation is handled automatically by Pydantic
+    logger.info("✅ Configuration loaded successfully")
 
-        # Configure logging
-        setup_logging()
-        logger.info("✅ Configuration loaded successfully and logging configured")
+    # Configure logging
+    setup_logging()
+    logger.info("✅ Configuration loaded successfully and logging configured")
 
-        # Set up CrewAI logging to redirect to loguru
-        try:
-            from kickai.utils.crewai_logging import setup_crewai_logging
-            setup_crewai_logging("DEBUG")  # Use DEBUG level for local development
-            logger.info("✅ CrewAI logging configured with DEBUG level for verbose output")
-        except Exception as e:
-            logger.error(f"❌ Failed to setup CrewAI logging: {e}")
+    # Set up CrewAI logging to redirect to loguru
+    from kickai.utils.crewai_logging import setup_crewai_logging
+    setup_crewai_logging("DEBUG")  # Use DEBUG level for local development
+    logger.info("✅ CrewAI logging configured with DEBUG level for verbose output")
 
-        # Also enable CrewAI's internal verbose logging
-        try:
-            import logging
-            crewai_logger = logging.getLogger("crewai")
-            crewai_logger.setLevel(logging.DEBUG)
-        except Exception as e:
-            logger.error(f"❌ Failed to setup CrewAI internal logging: {e}")
+    # Also enable CrewAI's internal verbose logging
+    import logging
+    crewai_logger = logging.getLogger("crewai")
+    crewai_logger.setLevel(logging.DEBUG)
 
-        # Initialize Firebase
-        try:
-            initialize_firebase_client(config)
-            logger.info("✅ Firebase client initialized")
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize Firebase client: {e}")
-            raise
+    # Initialize Firebase
+    initialize_firebase_client(config)
+    logger.info("✅ Firebase client initialized")
 
-        # Ensure dependency container is initialized with Firebase client
-        try:
-            ensure_container_initialized()
-            logger.info("✅ Dependency container initialized with Firebase client")
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize dependency container: {e}")
-            raise
+    # Basic container initialization (async team cache done later)
+    ensure_container_initialized()
+    logger.info("✅ Basic dependency container initialized")
 
-        return config
-
-    except Exception as e:
-        logger.critical(f"❌ Failed to setup environment: {e}", exc_info=True)
-        raise
+    return config
 
 
 async def run_system_validation():
     """Run comprehensive system validation before starting bots."""
-    try:
-        logger.info("🔍 Running comprehensive system validation...")
+    logger.info("🔍 Running comprehensive system validation...")
 
-        # Use our new synchronous comprehensive validation system
-        from kickai.core.startup_validation.comprehensive_validator import (
-            ComprehensiveStartupValidator,
-            validate_system_startup
-        )
+    # Use our new synchronous comprehensive validation system
+    from kickai.core.startup_validation.comprehensive_validator import (
+        ComprehensiveStartupValidator,
+        validate_system_startup
+    )
 
-        # Run the comprehensive validation
-        result = validate_system_startup()
+    # Run the comprehensive validation
+    result = validate_system_startup()
+    
+    # Check if system is healthy
+    if not result.success:
+        logger.error("❌ System validation failed! Critical issues found:")
+        logger.error(f"   • Overall status: FAILED")
+        logger.error(f"   • Total checks: {result.total_checks}")
+        logger.error(f"   • Passed: {result.passed_checks}")
+        logger.error(f"   • Failed: {result.failed_checks}")
         
-        # Check if system is healthy
-        if not result.success:
-            logger.error("❌ System validation failed! Critical issues found:")
-            logger.error(f"   • Overall status: FAILED")
-            logger.error(f"   • Total checks: {result.total_checks}")
-            logger.error(f"   • Passed: {result.passed_checks}")
-            logger.error(f"   • Failed: {result.failed_checks}")
-            
-            if result.critical_failures:
-                for failure in result.critical_failures:
-                    logger.error(f"   • Critical: {failure}")
-            
-            if result.warnings:
-                for warning in result.warnings:
-                    logger.error(f"   • Warning: {warning}")
-
-            logger.error("🚫 Cannot start bots due to critical validation failures")
-            logger.error("🔧 Please run 'python run_comprehensive_validation.py' for detailed diagnostics")
-            return False
-
+        if result.critical_failures:
+            for failure in result.critical_failures:
+                logger.error(f"   • Critical: {failure}")
+        
         if result.warnings:
-            logger.warning("⚠️ System validation completed with warnings:")
             for warning in result.warnings:
-                logger.warning(f"   • {warning}")
-            logger.info("💡 Consider addressing warnings for optimal performance")
+                logger.error(f"   • Warning: {warning}")
 
-        logger.info("✅ System validation passed! All critical components are healthy")
-        logger.info(f"📊 Validation Summary: {result.passed_checks}/{result.total_checks} checks passed")
-        logger.info("🎉 No stub classes detected - all real implementations are working")
-        return True
-
-    except Exception as e:
-        logger.error(f"❌ System validation failed with error: {e}")
+        logger.error("🚫 Cannot start bots due to critical validation failures")
         logger.error("🔧 Please run 'python run_comprehensive_validation.py' for detailed diagnostics")
         return False
+
+    if result.warnings:
+        logger.warning("⚠️ System validation completed with warnings:")
+        for warning in result.warnings:
+            logger.warning(f"   • {warning}")
+        logger.info("💡 Consider addressing warnings for optimal performance")
+
+    logger.info("✅ System validation passed! All critical components are healthy")
+    logger.info(f"📊 Validation Summary: {result.passed_checks}/{result.total_checks} checks passed")
+    logger.info("🎉 No stub classes detected - all real implementations are working")
+    return True
 
 
 async def create_multi_bot_manager():
     """Create and configure the multi-bot manager."""
-    try:
-        logger.info("🤖 Creating multi-bot manager...")
+    logger.info("🤖 Creating multi-bot manager...")
 
-        # Get the multi-bot manager service
-        multi_bot_manager = get_service(MultiBotManager)
+    # Get the multi-bot manager service
+    multi_bot_manager = get_service(MultiBotManager)
 
-        # Initialize the manager
-        await multi_bot_manager.initialize()
-        logger.info("✅ Multi-bot manager created and initialized")
+    # Initialize the manager
+    await multi_bot_manager.initialize()
+    logger.info("✅ Multi-bot manager created and initialized")
 
-        return multi_bot_manager
-
-    except Exception as e:
-        logger.error(f"❌ Failed to create multi-bot manager: {e}", exc_info=True)
-        raise
+    return multi_bot_manager
 
 
 def flush_and_close_loggers():
     """Flush and close all loggers."""
-    try:
-        logger.info("🔄 Flushing and closing loggers...")
-        # Loguru handles this automatically
-        logger.info("✅ Loggers closed successfully")
-    except Exception as e:
-        print(f"❌ Error closing loggers: {e}")
+    logger.info("🔄 Flushing and closing loggers...")
+    # Loguru handles this automatically
+    logger.info("✅ Loggers closed successfully")
 
 
 async def main():
@@ -242,20 +234,18 @@ async def main():
         logger.info("🚀 Starting KICKAI Bot - Local Development")
         logger.info("=" * 60)
 
+        # Set up global exception handlers first
+        setup_global_exception_handlers()
+
         # Set up environment
         config = setup_environment()
         
         # Initialize command registry early to ensure it's available
         logger.info("🔧 Initializing command registry...")
-        try:
-            from kickai.core.command_registry_initializer import initialize_command_registry
-            command_registry = initialize_command_registry()
-            commands = command_registry.list_all_commands()
-            logger.info(f"✅ Command registry initialized with {len(commands)} commands")
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize command registry: {e}")
-            logger.error("🚫 Cannot start bot without command registry")
-            return 1
+        from kickai.core.command_registry_initializer import initialize_command_registry
+        command_registry = initialize_command_registry()
+        commands = command_registry.list_all_commands()
+        logger.info(f"✅ Command registry initialized with {len(commands)} commands")
 
         # Run system validation
         validation_success = await run_system_validation()
@@ -265,6 +255,11 @@ async def main():
             logger.critical("❌ Critical validation failures detected. Bot startup aborted.")
             logger.critical("Please fix the validation issues before starting the bot.")
             return
+
+        # Initialize container with team config cache for optimal performance
+        logger.info("⚡ Initializing team config cache for optimal /addplayer performance...")
+        await ensure_container_initialized_async()
+        logger.info("✅ Container fully initialized with team config cache")
 
         # Create multi-bot manager
         multi_bot_manager = await create_multi_bot_manager()

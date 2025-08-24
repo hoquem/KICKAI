@@ -12,7 +12,6 @@ from typing import Any, Dict, Set, List
 from crewai import Agent, Crew, Process, Task
 from loguru import logger
 
-from kickai.agents.tools_manager import AgentToolsManager
 from kickai.config.agents import get_agent_config
 from kickai.config.llm_config import get_llm_config
 from kickai.core.config import get_settings
@@ -53,10 +52,9 @@ class ConfigurableAgent:
     def _initialize_components(self):
         """Initialize all required components for the agent."""
         try:
-            # 1. Tool registry and manager
+            # 1. Tool registry
             from kickai.agents.tool_registry import initialize_tool_registry
             self.tool_registry = initialize_tool_registry("kickai")
-            self._tools_manager = AgentToolsManager(self.tool_registry)
 
             # 2. LLM configuration
             llm_config = get_llm_config()
@@ -84,8 +82,8 @@ class ConfigurableAgent:
 
     def _create_crew_agent(self) -> Agent:
         """Create the underlying CrewAI agent with proper configuration and delegation tools."""
-        # Get tools for this agent role
-        tools = self._tools_manager.get_tools_for_role(self.agent_role)
+        # Get tools for this agent role using direct assignment (CrewAI best practice)
+        tools = self._get_tools_for_agent()
 
         # Add delegation tools for inter-agent communication
         delegation_tools = self._get_delegation_tools()
@@ -116,6 +114,47 @@ class ConfigurableAgent:
             f"🔧 Created CrewAI agent for {self.agent_role.value} with {len(tools)} tools"
         )
         return agent
+
+    def _get_tools_for_agent(self) -> List[Any]:
+        """
+        Get tools for this agent using direct assignment (CrewAI best practice).
+        
+        This replaces the unnecessary AgentToolsManager with direct tool lookup.
+        """
+        tools = []
+        
+        try:
+            # Get tool names from agent config (from YAML)
+            tool_names = self.config.tools
+            logger.debug(f"🔍 Looking for {len(tool_names)} tools for {self.agent_role.value}")
+            
+            # Direct tool lookup from registry (no manager layer)
+            for tool_name in tool_names:
+                tool_func = self.tool_registry.get_tool_function(tool_name)
+                if tool_func:
+                    tools.append(tool_func)
+                    logger.debug(f"✅ Found tool '{tool_name}' for {self.agent_role.value}")
+                else:
+                    # Try alternative lookup methods if direct lookup fails
+                    all_tools = self.tool_registry.list_all_tools()
+                    found_tool = None
+                    for tool in all_tools:
+                        if tool.name == tool_name:
+                            found_tool = tool
+                            break
+                    
+                    if found_tool and found_tool.tool_function:
+                        tools.append(found_tool.tool_function)
+                        logger.debug(f"✅ Found tool '{tool_name}' via search for {self.agent_role.value}")
+                    else:
+                        logger.warning(f"❌ Tool '{tool_name}' not found for {self.agent_role.value}")
+            
+            logger.info(f"🔧 Loaded {len(tools)} tools for {self.agent_role.value}")
+            return tools
+            
+        except Exception as e:
+            logger.error(f"❌ Error loading tools for {self.agent_role.value}: {e}")
+            return []
 
     def _get_delegation_tools(self) -> List[Any]:
         """Get delegation tools for inter-agent communication."""
@@ -154,8 +193,8 @@ class ConfigurableAgent:
         if hasattr(self.crew_agent, 'tools'):
             return self.crew_agent.tools
         else:
-            # Fallback: get tools from tools manager
-            return self._tools_manager.get_tools_for_role(self.agent_role)
+            # Fallback: get tools directly from registry
+            return self._get_tools_for_agent()
 
     def is_enabled(self) -> bool:
         """Check if this agent is enabled."""
@@ -185,7 +224,8 @@ class ConfigurableAgent:
             self._validate_context(context)
 
             # Create enhanced task description with context
-            enhanced_description = self._enhance_task_description(task_description, context)
+            from kickai.utils.task_description_enhancer import TaskDescriptionEnhancer
+            enhanced_description = TaskDescriptionEnhancer.enhance_task_description(task_description, context)
 
             # Create and execute CrewAI task
             result = await self._execute_crewai_task(enhanced_description, context)
@@ -210,20 +250,7 @@ class ConfigurableAgent:
         
         logger.debug(f"🔍 Context validated for {self.agent_role.value}")
 
-    def _enhance_task_description(self, task_description: str, context: Dict[str, Any]) -> str:
-        """
-        Enhance task description with execution context for better LLM understanding.
 
-        This follows CrewAI 2025 best practices by making context visible to the LLM.
-        """
-        # Simplified context info to reduce prompt pollution
-        context_info = f"""
-
-Context: team_id="{context['team_id']}", telegram_id={context['telegram_id']}, chat_type="{context['chat_type']}"
-
-Use these parameters when calling tools."""
-
-        return task_description + context_info
 
     async def _execute_crewai_task(self, task_description: str, context: Dict[str, Any]) -> str:
         """Execute the actual CrewAI task with proper context handling."""

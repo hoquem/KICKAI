@@ -91,7 +91,12 @@ class Settings(BaseSettings):
     ai_model_name: Optional[str] = Field(
         default=None,
         alias="AI_MODEL_NAME",
-        description="Legacy: single AI model name (backward compatible)"
+        description="DEPRECATED: Use ai_model_simple/advanced instead"
+    )
+    ai_model_nlp: Optional[str] = Field(
+        default=None,
+        alias="AI_MODEL_NLP", 
+        description="Specialized NLP model for intelligent processing (e.g., gpt-oss-20b)"
     )
     ai_model_simple: Optional[str] = Field(
         default=None,

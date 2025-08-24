@@ -14,7 +14,7 @@ This document defines the standardized approach for generating unique identifier
 **Purpose**: Generate simple, human-readable IDs with initials and numbers  
 **Use Cases**: Standard player and team member registration
 
-### 3. User ID Generator (`user_id_generator.py`)
+### 3. ID Generator (`id_generator.py`)
 **Purpose**: Generate consistent user IDs from Telegram IDs  
 **Use Cases**: Linking users across different roles (player/team member)
 
@@ -250,10 +250,10 @@ player_id = generate_football_player_id(
 
 ### Cross-Role User Linking
 ```python
-from kickai.utils.user_id_generator import generate_user_id
+from kickai.utils.id_generator import generate_user_id
 
 # Link user across roles
-user_id = generate_user_id(telegram_id=8148917292)
+player_id = generate_player_id(telegram_id=8148917292)
 # Result: "user_8148917292"
 ```
 

@@ -6,6 +6,7 @@ This package contains all health check components for the startup validation sys
 
 from .agent_check import AgentInitializationCheck
 from .base_check import BaseCheck
+from .clean_architecture_check import CleanArchitectureCheck
 from .command_registry_check import CommandRegistryCheck
 from .configuration_check import ConfigurationCheck
 from .crewai_agent_health_check import CrewAIAgentHealthCheck
@@ -19,6 +20,7 @@ from .tool_registration_check import ToolRegistrationCheck
 __all__ = [
     "AgentInitializationCheck",
     "BaseCheck",
+    "CleanArchitectureCheck",
     "CommandRegistryCheck",
     "ConfigurationCheck",
     "CrewAIAgentHealthCheck",

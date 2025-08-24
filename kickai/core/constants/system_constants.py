@@ -99,7 +99,15 @@ class SystemConstants:
         """Normalize chat type string to enum."""
         chat_type_lower = chat_type.lower()
 
-        if chat_type_lower in ["main_chat", "main"]:
+        # Handle string representations of enum objects (e.g., "ChatType.MAIN")
+        if "chattype.main" in chat_type_lower:
+            return ChatType.MAIN
+        elif "chattype.leadership" in chat_type_lower:
+            return ChatType.LEADERSHIP
+        elif "chattype.private" in chat_type_lower:
+            return ChatType.PRIVATE
+        # Handle direct enum values
+        elif chat_type_lower in ["main_chat", "main"]:
             return ChatType.MAIN
         elif chat_type_lower in ["leadership_chat", "leadership"]:
             return ChatType.LEADERSHIP

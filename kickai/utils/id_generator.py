@@ -7,6 +7,8 @@ This module provides a single, consistent ID generation system:
 - Match IDs: M + DDMM + team codes (e.g., M1501KAILIV)
 - User linking: Uses telegram_id directly (integer)
 
+Note: For Players, use generate_simple_player_id from simple_id_generator.py (format: 01MH)
+
 Features:
 - Single source of truth for all ID generation
 - Simple, readable formats
@@ -93,7 +95,7 @@ class SimpleIDGenerator:
             return final_id
 
     def generate_member_id(self, name: str, existing_ids: Union[Set[str], None] = None) -> str:
-        """Generate a team member ID with format M + 3-digit number + initials (thread-safe)."""
+        """Generate a team member ID with format M + 2-digit number + initials (thread-safe)."""
         if not name or not name.strip():
             raise ValueError("Member name cannot be empty")
         
@@ -116,23 +118,23 @@ class SimpleIDGenerator:
             
             for member_id in id_set:
                 if member_id.startswith("M") and len(member_id) >= 4:
-                    # Extract number from existing member IDs (M001XX format)
-                    match = re.match(r"M(\d{3})", member_id)
+                    # Extract number from existing member IDs (M01XX format)
+                    match = re.match(r"M(\d{2})", member_id)
                     if match:
                         existing_numbers.add(int(match.group(1)))
             
-            # Find next available number (increased limit to 999)
+            # Find next available number (limit to 99)
             member_number = 1
             while member_number in existing_numbers:
                 member_number += 1
-                if member_number > 999:  # Limit to 999 members
+                if member_number > 99:  # Limit to 99 members
                     # Use hash-based fallback for very large teams
-                    hash_suffix = hashlib.md5(f"{name}{len(existing_numbers)}".encode()).hexdigest()[:3].upper()
+                    hash_suffix = hashlib.md5(f"{name}{len(existing_numbers)}".encode()).hexdigest()[:2].upper()
                     base_id = f"M{hash_suffix}{initials}"
                     break
             else:
-                # Create member ID: M + 3-digit number + initials
-                base_id = f"M{member_number:03d}{initials}"
+                # Create member ID: M + 2-digit number + initials
+                base_id = f"M{member_number:02d}{initials}"
             
             # Resolve collision with enhanced strategy
             final_id = self._resolve_collision_robust(base_id, id_set)
@@ -312,6 +314,12 @@ def generate_team_id(team_name: str) -> str:
 def generate_member_id(name: str, existing_ids: Union[Set[str], None] = None) -> str:
     """Generate a team member ID (thread-safe)."""
     return get_id_generator().generate_member_id(name, existing_ids)
+
+
+def generate_player_id(name: str, team_id: str = "KTI", existing_ids: Union[Set[str], None] = None) -> str:
+    """Generate a player ID (thread-safe) - uses simple_id_generator format: 01MH."""
+    from kickai.utils.simple_id_generator import generate_simple_player_id
+    return generate_simple_player_id(name, team_id, existing_ids)
 
 
 def generate_match_id(home_team: str, away_team: str, match_date: str) -> str:

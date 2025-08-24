@@ -2,24 +2,24 @@
 
 ## 🎯 **Overview**
 
-This index provides a comprehensive guide to all KICKAI documentation, with **strong emphasis on CrewAI native implementation**. All new development MUST follow CrewAI native best practices.
+This index provides a comprehensive guide to all KICKAI documentation, with **strong emphasis on CrewAI native collaboration patterns**. All new development MUST follow CrewAI native best practices with agent-to-agent collaboration.
 
-## 🚨 **CrewAI Native First Principle**
+## 🚨 **CrewAI Native Collaboration Principle**
 
-> **ALWAYS use CrewAI's built-in features before inventing custom solutions.**
+> **ALWAYS use CrewAI's native agent collaboration features.**
 > 
 > - Use `Agent`, `Task`, `Crew` from `crewai`
 > - Use `@tool` decorator from `crewai.tools`
-> - Use `Task.config` for context passing
-> - Let LLM handle parameter extraction
-> - Follow CrewAI's intended design patterns
+> - Implement primary agent pattern with specialist delegation
+> - Use tool-based collaboration between agents
+> - Follow CrewAI's multi-agent coordination patterns
 
 ## 📚 **Core Documentation**
 
 ### **🏗️ Architecture & Design**
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Complete system architecture with CrewAI native emphasis
-- **[CREWAI_NATIVE_IMPLEMENTATION.md](CREWAI_NATIVE_IMPLEMENTATION.md)** - **DEFINITIVE GUIDE** for CrewAI native implementation
-- **[CREWAI_BEST_PRACTICES.md](CREWAI_BEST_PRACTICES.md)** - Comprehensive CrewAI best practices guide
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Complete 6-agent CrewAI native collaboration system architecture
+- **[CREWAI_DOCUMENTATION.md](CREWAI_DOCUMENTATION.md)** - Comprehensive CrewAI framework documentation
+- **[CREWAI_NATIVE_IMPLEMENTATION.md](CREWAI_NATIVE_IMPLEMENTATION.md)** - **DEFINITIVE GUIDE** for CrewAI native collaboration patterns
 
 ### **🚀 Quick Start & Reference**
 - **[DEVELOPER_QUICK_REFERENCE.md](DEVELOPER_QUICK_REFERENCE.md)** - Essential commands and CrewAI native patterns
@@ -61,7 +61,7 @@ This index provides a comprehensive guide to all KICKAI documentation, with **st
 
 ### **🔐 Security & Permissions**
 - **[CENTRALIZED_PERMISSION_SYSTEM.md](CENTRALIZED_PERMISSION_SYSTEM.md)** - Permission system
-- **[USER_ID_LINKING_RULES.md](USER_ID_LINKING_RULES.md)** - User linking rules
+- **[ID_LINKING_RULES.md](ID_LINKING_RULES.md)** - ID linking rules
 
 ### **📱 Communication**
 - **[MESSAGE_FORMATTING_FRAMEWORK.md](MESSAGE_FORMATTING_FRAMEWORK.md)** - Message formatting
@@ -120,7 +120,7 @@ agent = Agent(
 task = Task(
     description="Process user request",
     agent=agent,
-    config={'team_id': 'TEST', 'user_id': '12345'}  # ✅ Use config for context
+    config={'team_id': 'TEST', 'telegram_id': '12345'}  # ✅ Use config for context
 )
 
 # Native Crew Orchestration
@@ -129,9 +129,9 @@ result = crew.kickoff()
 
 # Native Tool
 @tool("get_my_status")
-async def get_my_status(team_id: str, user_id: str) -> str:
+async def get_my_status(team_id: str, telegram_id: str) -> str:
     """Get user status using parameters from context."""
-    return f"Status for {user_id} in team {team_id}"
+    return f"Status for {telegram_id} in team {team_id}"
 ```
 
 ### **❌ Forbidden Patterns**

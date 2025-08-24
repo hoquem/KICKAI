@@ -104,14 +104,13 @@ class DatabaseValidator:
             )
 
     def get_validation_report(self) -> str:
-        """Generate a validation report."""
-        result = asyncio.run(self.validate_database())
-
-        report = ["🗄️ Database Validation Report", ""]
-
-        status = "✅ PASS" if result.success else "❌ FAIL"
-        report.append(f"**Status**: {status}")
-        report.append(f"**Connection Time**: {result.connection_time:.2f}s")
+        """Generate a validation report.
+        
+        DEPRECATED: This method uses asyncio.run() and violates CrewAI async architecture.
+        Use validate_database() async method directly instead.
+        """
+        # Always return error - this method should not be used in CrewAI async contexts
+        return "❌ Database validation report unavailable - method deprecated due to asyncio.run() conflicts.\n\n🔧 Use validate_database() async method directly instead."
         report.append("")
 
         if result.errors:

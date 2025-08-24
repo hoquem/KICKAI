@@ -85,7 +85,8 @@ class TeamMember:
     # Contact information
     phone_number: Optional[str] = None
     email: Optional[str] = None
-    emergency_contact: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
     
     # Metadata
     source: Optional[str] = None
@@ -338,7 +339,8 @@ class TeamMemberManager:
                     # Contact information
                     phone_number=member_data.get('phone_number'),
                     email=member_data.get('email'),
-                    emergency_contact=member_data.get('emergency_contact'),
+                    emergency_contact_name=member_data.get('emergency_contact_name'),
+                    emergency_contact_phone=member_data.get('emergency_contact_phone'),
                     
                     # Metadata
                     source=member_data.get('source'),
@@ -376,8 +378,13 @@ class TeamMemberManager:
                 print(f"     Phone: {member.phone_number}")
             if member.email:
                 print(f"     Email: {member.email}")
-            if member.emergency_contact:
-                print(f"     Emergency: {member.emergency_contact}")
+            if member.emergency_contact_name or member.emergency_contact_phone:
+                emergency_info = []
+                if member.emergency_contact_name:
+                    emergency_info.append(member.emergency_contact_name)
+                if member.emergency_contact_phone:
+                    emergency_info.append(member.emergency_contact_phone)
+                print(f"     Emergency: {' - '.join(emergency_info)}")
             if member.source:
                 print(f"     Source: {member.source}")
             
@@ -736,7 +743,8 @@ class TeamMemberManager:
                 # Contact information (to be filled later)
                 "phone_number": None,
                 "email": None,
-                "emergency_contact": None,
+                "emergency_contact_name": None,
+                "emergency_contact_phone": None,
                 
                 # Timestamps (consistent)
                 "created_at": current_time,

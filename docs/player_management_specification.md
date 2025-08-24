@@ -57,7 +57,7 @@ player_registration/
 - **Process**: 
   1. Leadership provides player details (name, phone, position)
   2. System creates Player entity with "pending" status
-  3. Generate unique user_id and optional player_id
+  3. Generate unique player_id from telegram_id
   4. Create invite link for player to join main chat
   5. Player joins via invite link and links phone number
   6. Submit for leadership approval

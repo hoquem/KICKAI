@@ -7,5 +7,6 @@ This module contains commands for team administration.
 # Import the actual command modules that exist
 from . import team_commands
 from . import player_admin_commands
+from . import update_commands
 
-__all__ = ["team_commands", "player_admin_commands"]
+__all__ = ["team_commands", "player_admin_commands", "update_commands"]

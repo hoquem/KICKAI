@@ -1,30 +1,31 @@
 # CLAUDE.md - KICKAI Agents Directory
 
-This file provides guidance for working with the KICKAI agents system, which implements a **5-agent CrewAI architecture** with centralized message routing and tool management.
+This file provides guidance for working with the KICKAI agents system, which implements a **6-agent CrewAI architecture** with centralized message routing and tool management.
 
 ## Architecture Overview
 
-### 5-Agent CrewAI System
-The system uses **5 essential agents** (simplified from 11 for optimal performance):
+### 6-Agent CrewAI Native Collaboration System
+The system uses **6 essential agents** with CrewAI native collaboration patterns:
 
-1. **MessageProcessorAgent** - Primary interface and command routing
-2. **HelpAssistantAgent** - Help system and guidance  
-3. **PlayerCoordinatorAgent** - Player management and onboarding
-4. **TeamAdministrationAgent** - Team member management
-5. **SquadSelectorAgent** - Squad selection and availability management
+1. **MESSAGE_PROCESSOR** - Primary orchestrator and communication interface
+2. **HELP_ASSISTANT** - Help system and guidance  
+3. **PLAYER_COORDINATOR** - Player management and onboarding
+4. **TEAM_ADMINISTRATOR** - Team member management
+5. **SQUAD_SELECTOR** - Squad selection and availability management
+6. **NLP_PROCESSOR** - **Intelligent routing analysis and context understanding** (NEW ROLE)
 
 ### Core Components
 
 ```
 kickai/agents/
-├── crew_agents.py                    # 5-agent system definition
+├── crew_agents.py                    # 6-agent system definition
 ├── agentic_message_router.py        # Central message routing (CRITICAL)
 ├── configurable_agent.py           # Agent base class with CrewAI integration
 ├── tool_registry.py                # Centralized tool management
 ├── auto_discovery_tool_registry.py # Automatic tool discovery
 ├── crew_lifecycle_manager.py       # Crew management and cleanup
 ├── team_memory.py                   # Agent memory and context
-├── tools_manager.py                 # Tool assignment and validation
+├── [REMOVED] tools_manager.py       # Unnecessary layer - replaced with direct assignment
 └── user_flow_agent.py              # User flow and intent detection
 ```
 
@@ -72,14 +73,14 @@ agent = Agent(
 ## Key Files Deep Dive
 
 ### 1. crew_agents.py - Core Agent System
-**Purpose**: Defines the 5-agent CrewAI system with proper initialization and lifecycle management.
+**Purpose**: Defines the 6-agent CrewAI system with proper initialization and lifecycle management.
 
 **Key Classes**:
 - `TeamManagementSystem` - Main system orchestrator
 - `ConfigurationError` - Agent configuration exceptions
 
 **Critical Functions**:
-- `initialize_agents()` - Sets up all 5 agents with tools
+- `initialize_agents()` - Sets up all 6 agents with tools
 - `get_agent_by_role()` - Retrieves specific agent by role
 - `cleanup_resources()` - Proper resource cleanup
 
@@ -89,25 +90,52 @@ from kickai.agents.crew_agents import TeamManagementSystem
 
 # Initialize system
 system = TeamManagementSystem(team_id="KTI")
-agents = system.agents  # Returns dict of 5 agents
+agents = system.agents  # Returns dict of 6 agents
 
 # Get specific agent
 help_agent = system.get_agent_by_role(AgentRole.HELP_ASSISTANT)
 ```
 
 ### 2. agentic_message_router.py - Central Router (MOST CRITICAL)
-**Purpose**: Single source of truth for ALL message routing in the system.
+**Purpose**: Single source of truth for ALL message routing, now with CrewAI native collaboration patterns.
+
+**NEW ARCHITECTURE**: All requests go through CrewAI Task-based execution via CrewLifecycleManager.
+
+**Message Flow (CrewAI Native)**:
+```
+USER MESSAGE 
+    ↓
+📱 AgenticMessageRouter (Entry Point)
+    ↓
+🔄 CrewLifecycleManager.execute_task()
+    ↓
+🎯 TeamManagementSystem.execute_task()
+    ↓
+🧠 INTELLIGENT ROUTING: _route_command_to_agent()
+    ├── PRIMARY: NLP_PROCESSOR analyzes intent & recommends specialist
+    ├── TASK: Task(description=analysis_request, agent=nlp_processor)
+    └── FALLBACK: Rule-based routing (only if NLP fails)
+    ↓
+👤 SELECTED SPECIALIST AGENT executes task via CrewAI Task()
+    ↓
+📤 COORDINATED RESPONSE via MESSAGE_PROCESSOR
+```
 
 **Key Classes**:
-- `AgenticMessageRouter` - Main routing class (MODERNIZED)
+- `AgenticMessageRouter` - Main routing class (MODERNIZED with CrewAI native patterns)
 - `ResourceManager` - Rate limiting and resource management
 - `MessageRouterProtocol` - Interface for testing
 
-**Critical Methods**:
-- `route_message()` - Main routing entry point
+**Critical Methods (CrewAI Native)**:
+- `route_message()` - Main routing entry point (delegates to CrewLifecycleManager)
 - `route_contact_share()` - Contact sharing workflow
-- `_process_with_crewai_system()` - Core CrewAI processing
-- `_get_unregistered_user_message()` - Unregistered user handling
+- `_execute_crew_task()` - **NEW**: Core CrewAI Task execution
+- `_process_message()` - Context creation and task delegation
+
+**NLP_PROCESSOR Integration**:
+- All complex routing decisions use NLP_PROCESSOR analysis
+- CrewAI Task-based communication between agents
+- Intelligent context understanding for optimal agent selection
 
 **Resource Management Features**:
 - Rate limiting with exponential backoff
@@ -282,6 +310,25 @@ TEAM_ADMINISTRATOR:
     - send_announcement       # Team announcements
 ```
 
+### NLP_PROCESSOR (Intelligent Routing & Analysis) **NEW ROLE**
+```yaml
+NLP_PROCESSOR:
+  tools:
+    - advanced_intent_recognition    # Deep intent analysis for routing
+    - entity_extraction_tool        # Extract entities from user messages
+    - conversation_context_tool     # Build conversation context
+    - semantic_similarity_tool      # Semantic analysis for routing
+    - routing_recommendation_tool   # Provide agent routing recommendations
+    - analyze_update_context       # Context analysis for update commands
+    - validate_routing_permissions # Permission validation for routing
+```
+
+**PRIMARY ROLE**: The NLP_PROCESSOR is now the **primary routing intelligence** in the system:
+- Analyzes user intent using CrewAI Task-based communication
+- Recommends optimal specialist agent for each request
+- Provides context-aware routing decisions
+- Enables intelligent agent collaboration
+
 ### SQUAD_SELECTOR (Match & Squad Management)
 ```yaml
 SQUAD_SELECTOR:
@@ -390,11 +437,13 @@ print('✅ Router initialized')
 "
 ```
 
-### CrewAI Integration Issues
+### CrewAI Integration Issues (NEW ARCHITECTURE)
 - **"Tool object is not callable"** → Tool is calling services (forbidden)
-- **Parameter passing errors** → Use structured Task descriptions
+- **NLP routing failures** → Check NLP_PROCESSOR tools are available and functional
+- **Task creation errors** → Ensure proper Task(description, agent, expected_output) format
 - **Agent not responding** → Check tool assignment in agents.yaml
 - **Memory leaks** → Use proper cleanup in lifecycle manager
+- **Routing loops** → Verify NLP_PROCESSOR recommendations are parsed correctly
 
 ## Development Guidelines
 
@@ -411,11 +460,13 @@ print('✅ Router initialized')
 3. **Assign to agent** in agents.yaml
 4. **Test registration** with tool registry validation
 
-### Modifying Router
-1. **NEVER create handler classes** - extend router methods
-2. **PRESERVE resource management** - don't remove rate limiting
-3. **MAINTAIN type consistency** - telegram_id as int
-4. **TEST extensively** - router is critical path
+### Modifying Router (CrewAI Native Architecture)
+1. **NEVER create handler classes** - extend router methods and use CrewAI Tasks
+2. **PRESERVE CrewAI patterns** - all routing goes through CrewLifecycleManager
+3. **MAINTAIN NLP_PROCESSOR integration** - routing decisions use NLP analysis
+4. **MAINTAIN type consistency** - telegram_id as int
+5. **TEST extensively** - router is critical path with NLP collaboration
+6. **USE Task() patterns** - all agent communication via CrewAI Task objects
 
 ## Testing Strategy
 
@@ -435,11 +486,21 @@ registry = initialize_tool_registry()
 print(f'✅ Tool registry with {len(registry.get_all_tools())} tools')
 "
 
-# Test router
+# Test router with CrewAI native patterns
 PYTHONPATH=. python -c "
 from kickai.agents.agentic_message_router import AgenticMessageRouter
 router = AgenticMessageRouter('KTI')
-print('✅ Router ready')
+print('✅ Router ready with CrewAI integration')
+"
+
+# Test NLP_PROCESSOR routing intelligence
+PYTHONPATH=. python -c "
+from kickai.agents.crew_agents import TeamManagementSystem
+system = TeamManagementSystem('KTI')
+if AgentRole.NLP_PROCESSOR in system.agents:
+    print('✅ NLP_PROCESSOR routing intelligence available')
+else:
+    print('❌ NLP_PROCESSOR not initialized - routing will use fallback')
 "
 ```
 
@@ -453,7 +514,7 @@ PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py
 ## Performance Optimizations
 
 ### Agent Efficiency
-- **Reduced complexity**: 11 → 5 agents (55% reduction)
+- **Reduced complexity**: 11 → 6 agents (45% reduction)
 - **Token optimization**: Minimal prompt design
 - **Memory management**: Automatic cleanup and LRU caching
 - **Rate limiting**: Prevents API overload

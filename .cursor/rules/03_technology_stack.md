@@ -13,7 +13,6 @@
 - **Loguru** - Structured logging
 
 ### **Development Tools**
-- **VS Code** - Primary IDE with workspace configuration
 - **Cursor** - AI-powered development with custom rules
 - **Pre-commit** - Git hooks for code quality
 - **Makefile** - Build and development commands
@@ -49,7 +48,6 @@ config = LLMConfig(
     # Model selection based on use case:
     # - AI_MODEL_SIMPLE: For lightweight agents and tools
     # - AI_MODEL_ADVANCED: For complex reasoning and creative tasks
-    # - AI_MODEL_NAME: Legacy fallback
 )
 
 # Factory creates Groq instances with model selection
@@ -62,10 +60,7 @@ The system supports three model configuration approaches:
    - `AI_MODEL_SIMPLE`: For lightweight agents and tool execution
    - `AI_MODEL_ADVANCED`: For complex reasoning and creative tasks
 
-2. **Legacy Single Model**:
-   - `AI_MODEL_NAME`: Single model for all use cases (backward compatible)
-
-3. **Automatic Model Selection**:
+2. **Automatic Model Selection**:
    - Agents automatically get appropriate models based on their role
    - Tool LLMs use simple models for efficiency
    - Creative LLMs use advanced models for better reasoning
@@ -82,16 +77,10 @@ GROQ_API_KEY=your_groq_api_key      # Required for Groq provider
 GOOGLE_API_KEY=your_gemini_key      # Required for Gemini provider  
 OPENAI_API_KEY=your_openai_key      # Required for OpenAI provider
 
-# Model Configuration (at least one required)
-AI_MODEL_SIMPLE=llama3-8b-8192      # For lightweight agents and tools
-AI_MODEL_ADVANCED=llama3-70b-8192   # For complex reasoning tasks
-AI_MODEL_NAME=llama3-8b-8192        # Legacy: single model for all use cases
 ```
 
 #### **Optional Variables**
 ```bash
-# Ollama Configuration (only if using Ollama provider)
-OLLAMA_BASE_URL=http://localhost:11434
 
 # AI Performance Tuning
 AI_TEMPERATURE=0.3                  # Default temperature (0.0-1.0)
@@ -127,12 +116,13 @@ llm = LLMFactory.create_llm(config)
 - **Factory Design**: Preserved modularity for future provider switching
 
 
-### **5-Agent CrewAI System**
+### **6-Agent CrewAI System**
 1. **MESSAGE_PROCESSOR** - Primary interface and routing
 2. **HELP_ASSISTANT** - Help system and guidance
 3. **PLAYER_COORDINATOR** - Player management and onboarding
 4. **TEAM_ADMINISTRATOR** - Team member management
 5. **SQUAD_SELECTOR** - Squad selection and match management
+6. **NLP_PROCESSOR** - Natural language processing and understanding
 
 ### **Enhanced Error Handling System**
 - **Centralized Decorators**: `@critical_system_error_handler`, `@user_registration_check_handler`, `@command_registry_error_handler`
@@ -222,7 +212,7 @@ llm = LLMFactory.create_llm(config)
 ### **ID and Data Generation**
 - **`kickai/utils/football_id_generator.py`**: Football ID generation (20KB, 641 lines)
 - **`kickai/utils/simple_id_generator.py`**: Simple ID generation
-- **`kickai/utils/user_id_generator.py`**: User ID generation
+- **`kickai/utils/id_generator.py`**: ID generation utilities
 
 ---
 

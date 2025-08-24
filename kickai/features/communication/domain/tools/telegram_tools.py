@@ -10,7 +10,8 @@ from pydantic import BaseModel
 
 from kickai.core.dependency_container import get_container
 from kickai.features.communication.infrastructure.telegram_bot_service import TelegramBotService
-from kickai.utils.crewai_tool_decorator import tool
+from crewai.tools import tool
+from kickai.core.enums import ResponseStatus
 from kickai.utils.tool_helpers import create_json_response
 from typing import Optional
 
@@ -25,8 +26,9 @@ class SendTelegramMessageInput(BaseModel):
     team_id: Optional[str] = None
 
 
-@tool("send_telegram_message", result_as_answer=True)
-def send_telegram_message(chat_id: str, text: str, team_id: Optional[str] = None) -> str:
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
+async def send_telegram_message(chat_id: str, text: str, team_id: Optional[str] = None) -> str:
     """
     Send a message to a Telegram chat using the Telegram bot service. Requires: chat_id, text
 
@@ -44,13 +46,13 @@ def send_telegram_message(chat_id: str, text: str, team_id: Optional[str] = None
 
         if not telegram_service:
             logger.error("❌ TelegramBotService not available")
-            return create_json_response("error", message=f"Telegram service not available")
+            return create_json_response(ResponseStatus.ERROR, message=f"Telegram service not available")
 
-        # Send the message
-        telegram_service.send_message(chat_id, text)
+        # Send the message (async)
+        await telegram_service.send_message(chat_id, text)
         logger.info(f"✅ Telegram message sent to chat {chat_id}")
-        return create_json_response("success", data=f"Telegram message sent to chat {chat_id}")
+        return create_json_response(ResponseStatus.SUCCESS, data=f"Telegram message sent to chat {chat_id}")
 
     except Exception as e:
         logger.error(f"❌ Failed to send Telegram message: {e}")
-        return create_json_response("error", message=f"Failed to send Telegram message: {e!s}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Failed to send Telegram message: {e!s}")

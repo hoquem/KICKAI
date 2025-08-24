@@ -132,15 +132,45 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         self,
         token: str,
         team_id: str,
-        main_chat_id: str = None,
-        leadership_chat_id: str = None,
+        main_chat_id: str,
+        leadership_chat_id: str,
         crewai_system=None,
     ):
         self.token = token
         self.team_id = team_id
-        self.main_chat_id = main_chat_id or "2001"  # Default to mock UI chat IDs
-        self.leadership_chat_id = leadership_chat_id or "2002"
+        self.main_chat_id = main_chat_id
+        self.leadership_chat_id = leadership_chat_id
         self.crewai_system = crewai_system
+
+        # Validate all required parameters
+        if not self.token:
+            raise ValueError("MockTelegramBotService: token must be provided")
+        
+        if not self.team_id:
+            raise ValueError("MockTelegramBotService: team_id must be provided")
+        
+        if not self.main_chat_id:
+            raise ValueError("MockTelegramBotService: main_chat_id must be provided")
+        
+        if not self.leadership_chat_id:
+            raise ValueError("MockTelegramBotService: leadership_chat_id must be provided")
+        
+        # Validate parameter types
+        if not isinstance(self.token, str):
+            raise TypeError("MockTelegramBotService: token must be a string")
+        
+        if not isinstance(self.team_id, str):
+            raise TypeError("MockTelegramBotService: team_id must be a string")
+        
+        if not isinstance(self.main_chat_id, str):
+            raise TypeError("MockTelegramBotService: main_chat_id must be a string")
+        
+        if not isinstance(self.leadership_chat_id, str):
+            raise TypeError("MockTelegramBotService: leadership_chat_id must be a string")
+        
+        # Validate chat IDs are different
+        if self.main_chat_id == self.leadership_chat_id:
+            raise ValueError("MockTelegramBotService: main_chat_id and leadership_chat_id must be different")
 
         # Determine operation mode - auto-detect Mock UI or use environment override
         self.use_mock_ui = self._should_use_mock_ui()
@@ -165,8 +195,9 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         # Initialize real agentic router
         from kickai.agents.agentic_message_router import AgenticMessageRouter
         self.agentic_router = AgenticMessageRouter(team_id=team_id, crewai_system=crewai_system)
-        if hasattr(self.agentic_router, 'set_chat_ids') and main_chat_id and leadership_chat_id:
-            self.agentic_router.set_chat_ids(main_chat_id, leadership_chat_id)
+        
+        # Set chat IDs for proper chat type determination
+        self.agentic_router.set_chat_ids(main_chat_id, leadership_chat_id)
 
         # Mock application
         self.app = Mock()
@@ -411,9 +442,7 @@ class MockTelegramBotService(TelegramBotServiceInterface):
         else:
             return ChatType.MAIN  # Default to main chat
 
-    def _is_agent_formatted_message(self, text: str) -> bool:
-        """Mock agent formatted message check."""
-        return True  # In mock, all messages are considered properly formatted
+
 
     # Testing utility methods
     def get_sent_messages(self) -> List[Dict[str, Any]]:

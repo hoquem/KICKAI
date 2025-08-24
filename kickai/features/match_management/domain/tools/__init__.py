@@ -1,38 +1,14 @@
-from .attendance_tools import (
-    bulk_record_attendance,
-    get_match_attendance,
-    get_player_attendance_history,
-    record_attendance,
-)
-from .availability_tools import (
-    get_availability,
-    get_player_availability_history,
-    mark_availability,
-    send_availability_reminders,
-)
-from .match_tools import (
-    create_match,
-    get_match_details,
-    list_matches_sync,
-    record_match_result,
-    select_squad_tool,
-)
+#!/usr/bin/env python3
+"""
+Match Management Domain Tools - Clean Architecture Compliant
 
-__all__ = [
-    # Match tools
-    "create_match",
-    "list_matches_sync",
-    "get_match_details",
-    "select_squad_tool",
-    "record_match_result",
-    # Availability tools
-    "mark_availability",
-    "get_availability",
-    "get_player_availability_history",
-    "send_availability_reminders",
-    # Attendance tools
-    "record_attendance",
-    "get_match_attendance",
-    "get_player_attendance_history",
-    "bulk_record_attendance",
-]
+This module contains pure domain functions for match management, availability, and attendance.
+These functions contain business logic only and delegate to application layer for CrewAI tools.
+
+NOTE: All @tool decorators have been removed from domain layer to comply with Clean Architecture.
+The application layer provides the CrewAI tool interfaces that delegate to these domain functions.
+"""
+
+# Domain layer exports nothing - all tools come from application layer
+# This ensures Clean Architecture compliance by separating framework concerns
+__all__ = []

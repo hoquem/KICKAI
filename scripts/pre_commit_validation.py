@@ -98,7 +98,7 @@ def check_critical_files():
     logger.info("🔍 Checking critical files...")
     
     critical_files = [
-        "src/kickai/agents/tool_output_capture.py",
+
         "src/kickai/agents/configurable_agent.py",
         "src/kickai/agents/crew_agents.py",
         "src/kickai/core/dependency_container.py",

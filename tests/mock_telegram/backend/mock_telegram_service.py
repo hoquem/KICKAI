@@ -45,7 +45,7 @@ class MessageType(str, Enum):
     LOCATION = "location"
 
 
-class UserRole(str, Enum):
+class MemberRole(str, Enum):
     """User roles for testing different scenarios"""
     PLAYER = "player"
     TEAM_MEMBER = "team_member"
@@ -68,17 +68,18 @@ class MockUser:
     username: str
     first_name: str
     last_name: Optional[str] = None
-    role: UserRole = UserRole.PLAYER
+    role: MemberRole = MemberRole.PLAYER
     phone_number: Optional[str] = None
     is_bot: bool = False
     created_at: datetime = None
+    status: Optional[str] = "active"  # Status from Firestore (pending, active, etc.)
     
     def __post_init__(self):
         """Validate user data after initialization and set defaults"""
         if not self.username or not self.first_name:
             raise ValueError("Username and first_name are required")
-        if self.id <= 0:
-            raise ValueError("User ID must be positive")
+        if self.id == 0:
+            raise ValueError("User ID cannot be zero")
         if self.created_at is None:
             self.created_at = datetime.now(timezone.utc)
 
@@ -97,8 +98,8 @@ class MockChat:
     
     def __post_init__(self):
         """Validate chat data after initialization"""
-        if self.id <= 0:
-            raise ValueError("Chat ID must be positive")
+        if self.id == 0:
+            raise ValueError("Chat ID cannot be zero")
         if self.type not in [e.value for e in ChatType]:
             raise ValueError("Invalid chat type")
     
@@ -151,7 +152,7 @@ class MockMessage:
 
 class SendMessageRequest(BaseModel):
     """Request model for sending messages"""
-    user_id: int = Field(..., gt=0, description="User ID must be positive")
+    telegram_id: int = Field(..., gt=0, description="Telegram ID must be positive")
     chat_id: int = Field(..., gt=0, description="Chat ID must be positive")
     text: str = Field(..., min_length=1, max_length=4096, description="Message text")
     message_type: MessageType = MessageType.TEXT
@@ -168,7 +169,7 @@ class CreateUserRequest(BaseModel):
     username: str = Field(..., min_length=1, max_length=32, description="Username")
     first_name: str = Field(..., min_length=1, max_length=64, description="First name")
     last_name: Optional[str] = Field(None, max_length=64, description="Last name")
-    role: UserRole = UserRole.PLAYER
+    role: MemberRole = MemberRole.PLAYER
     phone_number: Optional[str] = Field(None, pattern=r'^\+?[1-9]\d{1,14}$', description="Phone number")
     
     @validator('username')
@@ -176,6 +177,20 @@ class CreateUserRequest(BaseModel):
         if not v.replace('_', '').replace('-', '').isalnum():
             raise ValueError("Username must contain only letters, numbers, underscores, and hyphens")
         return v.lower()
+
+
+class ProcessInviteRequest(BaseModel):
+    """Request model for processing invite links"""
+    invite_id: str = Field(..., description="Invite link ID")
+    invite_type: str = Field(..., description="Type of invite (player/team_member)")
+    chat_id: str = Field(..., description="Target chat ID")
+    team_id: str = Field(..., description="Team ID")
+    
+    @validator('invite_type')
+    def validate_invite_type(cls, v):
+        if v not in ['player', 'team_member']:
+            raise ValueError("Invite type must be 'player' or 'team_member'")
+        return v
 
 
 class MockTelegramService:
@@ -216,7 +231,7 @@ class MockTelegramService:
                 username="coach_wilson",
                 first_name="Coach",
                 last_name="Wilson",
-                role=UserRole.LEADERSHIP,
+                role=MemberRole.LEADERSHIP,
                 phone_number="+1234567890"
             ),
             MockUser(
@@ -224,7 +239,7 @@ class MockTelegramService:
                 username="player_john",
                 first_name="John",
                 last_name="Doe",
-                role=UserRole.PLAYER,
+                role=MemberRole.PLAYER,
                 phone_number="+1234567891"
             ),
             MockUser(
@@ -232,7 +247,7 @@ class MockTelegramService:
                 username="admin_sarah",
                 first_name="Sarah",
                 last_name="Admin",
-                role=UserRole.ADMIN,
+                role=MemberRole.ADMIN,
                 phone_number="+1234567892"
             ),
             MockUser(
@@ -240,7 +255,7 @@ class MockTelegramService:
                 username="member_mike",
                 first_name="Mike",
                 last_name="Member",
-                role=UserRole.TEAM_MEMBER,
+                role=MemberRole.TEAM_MEMBER,
                 phone_number="+1234567893"
             )
         ]
@@ -286,8 +301,9 @@ class MockTelegramService:
                                     id=telegram_id,
                                     username=player_data.get('username', f"player_{telegram_id}"),
                                     first_name=player_data.get('name', 'Unknown Player'),
-                                    role=UserRole.PLAYER,
-                                    phone_number=player_data.get('phone')  # Fixed: use 'phone' instead of 'phone_number'
+                                    role=MemberRole.PLAYER,
+                                    phone_number=player_data.get('phone'),  # Fixed: use 'phone' instead of 'phone_number'
+                                    status=player_data.get('status', 'pending')  # Include status from Firestore
                                 )
                                 self.users[user.id] = user
                                 
@@ -323,18 +339,19 @@ class MockTelegramService:
                                     # Map member role to mock role
                                     member_role = member_data.get('role', 'team_member').lower()
                                     if member_role in ['manager', 'coach', 'captain']:
-                                        role = UserRole.LEADERSHIP
+                                        role = MemberRole.LEADERSHIP
                                     elif member_role == 'admin':
-                                        role = UserRole.ADMIN
+                                        role = MemberRole.ADMIN
                                     else:
-                                        role = UserRole.TEAM_MEMBER
+                                        role = MemberRole.TEAM_MEMBER
                                     
                                     user = MockUser(
                                         id=telegram_id,
                                         username=member_data.get('username', f"member_{telegram_id}"),
                                         first_name=member_data.get('name', 'Unknown Member'),
                                         role=role,
-                                        phone_number=member_data.get('phone')  # Fixed: use 'phone' instead of 'phone_number'
+                                        phone_number=member_data.get('phone'),  # Fixed: use 'phone' instead of 'phone_number'
+                                        status=member_data.get('status', 'active')  # Include status from Firestore
                                     )
                                     self.users[user.id] = user
                                     
@@ -413,6 +430,117 @@ class MockTelegramService:
             logger.warning(f"⚠️ Failed to get team name from Firestore: {e}, using fallback")
             return self.team_name
     
+    def _refresh_users_from_firestore(self):
+        """Refresh users from Firestore (called when UI requests fresh user list)"""
+        try:
+            from kickai.database.firebase_client import get_firebase_client
+            
+            client = get_firebase_client()
+            db = client.client
+            
+            users_loaded = 0
+            new_users = 0
+            
+            with self._lock:
+                # Load players from kickai_KTI_players collection (including pending status)
+                try:
+                    players_ref = db.collection('kickai_KTI_players').limit(50)  # Increased limit for refresh
+                    for player_doc in players_ref.stream():
+                        player_data = player_doc.to_dict()
+                        telegram_id = player_data.get('telegram_id')
+                        
+                        if telegram_id:
+                            try:
+                                telegram_id = int(telegram_id)
+                                
+                                # Check if this user already exists
+                                if telegram_id not in self.users:
+                                    user = MockUser(
+                                        id=telegram_id,
+                                        username=player_data.get('username', f"player_{telegram_id}"),
+                                        first_name=player_data.get('name', 'Unknown Player'),
+                                        role=MemberRole.PLAYER,
+                                        phone_number=player_data.get('phone_number') or player_data.get('phone'),
+                                        status=player_data.get('status', 'pending')  # Include status from Firestore
+                                    )
+                                    self.users[user.id] = user
+                                    
+                                    # Create private chat
+                                    chat = MockChat(
+                                        id=user.id,
+                                        type=ChatType.PRIVATE,
+                                        first_name=user.first_name
+                                    )
+                                    self.chats[chat.id] = chat
+                                    new_users += 1
+                                    logger.info(f"🆕 Added new player: {user.first_name} (ID: {telegram_id}, Status: {player_data.get('status', 'unknown')})")
+                                
+                                users_loaded += 1
+                                
+                            except (ValueError, TypeError) as e:
+                                logger.warning(f"⚠️ Invalid telegram_id for player {player_doc.id}: {telegram_id} - {e}")
+                                
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to refresh players: {e}")
+                
+                # Load team members from kickai_KTI_team_members collection
+                try:
+                    members_ref = db.collection('kickai_KTI_team_members').limit(50)  # Increased limit for refresh
+                    for member_doc in members_ref.stream():
+                        member_data = member_doc.to_dict()
+                        telegram_id = member_data.get('telegram_id')
+                        
+                        if telegram_id:
+                            try:
+                                telegram_id = int(telegram_id)
+                                
+                                # Don't overwrite if already exists (player takes precedence)
+                                if telegram_id not in self.users:
+                                    # Map member role to mock role
+                                    member_role = member_data.get('role', 'team_member').lower()
+                                    if member_role in ['manager', 'coach', 'captain']:
+                                        role = MemberRole.LEADERSHIP
+                                    elif member_role == 'admin':
+                                        role = MemberRole.ADMIN
+                                    else:
+                                        role = MemberRole.TEAM_MEMBER
+                                    
+                                    user = MockUser(
+                                        id=telegram_id,
+                                        username=member_data.get('username', f"member_{telegram_id}"),
+                                        first_name=member_data.get('name', 'Unknown Member'),
+                                        role=role,
+                                        phone_number=member_data.get('phone_number') or member_data.get('phone'),
+                                        status=member_data.get('status', 'active')  # Include status from Firestore
+                                    )
+                                    self.users[user.id] = user
+                                    
+                                    # Create private chat
+                                    chat = MockChat(
+                                        id=user.id,
+                                        type=ChatType.PRIVATE,
+                                        first_name=user.first_name
+                                    )
+                                    self.chats[chat.id] = chat
+                                    new_users += 1
+                                    logger.info(f"🆕 Added new team member: {user.first_name} (ID: {telegram_id}, Role: {role.value})")
+                                
+                                users_loaded += 1
+                                
+                            except (ValueError, TypeError) as e:
+                                logger.warning(f"⚠️ Invalid telegram_id for team member {member_doc.id}: {telegram_id} - {e}")
+                                
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to refresh team members: {e}")
+            
+            if new_users > 0:
+                logger.info(f"🔄 Refreshed users: {users_loaded} total, {new_users} newly added from Firestore")
+            else:
+                logger.debug(f"🔄 Refreshed users: {users_loaded} total, no new users found")
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to refresh users from Firestore: {e}")
+    
     def get_accessible_chats_for_user(self, user_id: int) -> List[MockChat]:
         """Get all chats accessible to a specific user"""
         if user_id not in self.users:
@@ -432,7 +560,7 @@ class MockTelegramService:
                     accessible_chats.append(chat)
                 
                 # Leadership chat - only for team members, admins, and leadership
-                elif chat.is_leadership_chat and user.role in [UserRole.TEAM_MEMBER, UserRole.ADMIN, UserRole.LEADERSHIP]:
+                elif chat.is_leadership_chat and user.role in [MemberRole.TEAM_MEMBER, MemberRole.ADMIN, MemberRole.LEADERSHIP]:
                     accessible_chats.append(chat)
         
         return accessible_chats
@@ -455,7 +583,7 @@ class MockTelegramService:
         
         # Leadership chat - only for team members, admins, and leadership
         if chat.is_leadership_chat:
-            return user.role in [UserRole.TEAM_MEMBER, UserRole.ADMIN, UserRole.LEADERSHIP]
+            return user.role in [MemberRole.TEAM_MEMBER, MemberRole.ADMIN, MemberRole.LEADERSHIP]
         
         return False
     
@@ -542,20 +670,233 @@ class MockTelegramService:
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=str(e))
     
+    async def process_invite_link(self, request: ProcessInviteRequest) -> Dict[str, Any]:
+        """Process an invite link and create a user from invite data"""
+        try:
+            # Import Firebase client to get invite data
+            from kickai.database.firebase_client import get_firebase_client
+            
+            client = get_firebase_client()
+            db = client.client
+            
+            # Get invite data from Firestore
+            invite_doc = db.collection('kickai_invite_links').document(request.invite_id).get()
+            
+            if not invite_doc.exists:
+                raise HTTPException(status_code=404, detail="Invite link not found or expired")
+            
+            invite_data = invite_doc.to_dict()
+            
+            # Extract user info based on invite type
+            if request.invite_type == 'player':
+                # Player invite - look for player_* fields
+                user_info = {
+                    'name': invite_data.get('player_name'),
+                    'phone': invite_data.get('player_phone'),
+                    'id': invite_data.get('player_id'),
+                    'role': MemberRole.PLAYER
+                }
+            elif request.invite_type == 'team_member':
+                # Team member invite - look for member_* fields
+                user_info = {
+                    'name': invite_data.get('member_name'),
+                    'phone': invite_data.get('member_phone'),
+                    'id': invite_data.get('member_id'),
+                    'role': MemberRole.TEAM_MEMBER  # Default, will be overridden below
+                }
+                
+                # Map the member role from invite data to MemberRole enum
+                member_role_str = invite_data.get('member_role', 'team_member')
+                try:
+                    user_info['role'] = MemberRole(member_role_str)
+                except ValueError:
+                    # Fallback to TEAM_MEMBER if invalid role
+                    user_info['role'] = MemberRole.TEAM_MEMBER
+            else:
+                raise HTTPException(status_code=400, detail=f"Unknown invite type: {request.invite_type}")
+            
+            if not user_info['name']:
+                invite_type_display = "player" if request.invite_type == 'player' else "team member"
+                raise HTTPException(status_code=400, detail=f"Missing {invite_type_display} information in invite")
+            
+            # Generate new telegram_id
+            with self._lock:
+                new_telegram_id = max(self.users.keys()) + 1 if self.users else 1001
+                
+                # Create username from user name
+                user_name = user_info.get('name', 'Unknown')
+                base_username = user_name.lower().replace(' ', '_').replace('-', '_')
+                # Ensure username is unique
+                username = base_username
+                counter = 1
+                while any(user.username == username for user in self.users.values()):
+                    username = f"{base_username}_{counter}"
+                    counter += 1
+                
+                # Create new user
+                user = MockUser(
+                    id=new_telegram_id,
+                    username=username,
+                    first_name=user_name.split()[0] if user_name else 'Unknown',
+                    last_name=' '.join(user_name.split()[1:]) if len(user_name.split()) > 1 else None,
+                    role=user_info['role'],
+                    phone_number=user_info.get('phone'),
+                    status='pending'
+                )
+                
+                self.users[new_telegram_id] = user
+                
+                # Create private chat for the user
+                chat = MockChat(
+                    id=new_telegram_id,
+                    type=ChatType.PRIVATE,
+                    first_name=user.first_name,
+                    last_name=user.last_name
+                )
+                self.chats[chat.id] = chat
+                
+                logger.info(f"✅ Created user from invite: {user.first_name} (@{user.username}, ID: {new_telegram_id})")
+                
+                # Create invitation context for auto-activation
+                invite_context = {
+                    "invite_id": request.invite_id,
+                    "invite_type": request.invite_type,
+                    "secure_data": invite_data.get("secure_data"),  # Base64-encoded secure data from Firestore
+                    "invite_link": f"mock://invite/{request.invite_id}",
+                }
+                
+                # Add type-specific fields to invite context
+                if request.invite_type == 'player':
+                    invite_context.update({
+                        "player_name": user_info.get('name'),
+                        "player_phone": user_info.get('phone'),
+                        "player_id": user_info.get('id')
+                    })
+                elif request.invite_type == 'team_member':
+                    invite_context.update({
+                        "member_name": user_info.get('name'),
+                        "member_phone": user_info.get('phone'),
+                        "member_id": user_info.get('id')
+                    })
+                
+                logger.info(f"🔗 Created invitation context for auto-activation: {user_info.get('name')}")
+                
+                # Simulate join event with invitation context for auto-activation
+                await self.simulate_new_chat_member(new_telegram_id, int(request.chat_id), invite_context)
+                
+                return {
+                    "user_id": new_telegram_id,
+                    "username": username,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "role": user_info['role'].value,
+                    "phone_number": user.phone_number,
+                    "status": "joined",
+                    "chat_id": request.chat_id,
+                    "invite_processed": True
+                }
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"❌ Error processing invite: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to process invite: {str(e)}")
+    
+    async def simulate_new_chat_member(self, user_id: int, chat_id: int, invite_context: Optional[Dict[str, Any]] = None) -> bool:
+        """Simulate a new_chat_members event with optional invitation context for auto-activation"""
+        try:
+            if user_id not in self.users:
+                logger.error(f"User {user_id} not found for join simulation")
+                return False
+            
+            if chat_id not in self.chats:
+                logger.error(f"Chat {chat_id} not found for join simulation")
+                return False
+            
+            user = self.users[user_id]
+            chat = self.chats[chat_id]
+            
+            # Create new_chat_members event data
+            event_data = {
+                "type": "new_chat_members",
+                "message_id": self.message_counter,
+                "from": {
+                    "id": user_id,
+                    "is_bot": False,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "username": user.username
+                },
+                "chat": {
+                    "id": chat_id,
+                    "type": chat.type.value if hasattr(chat.type, 'value') else str(chat.type),
+                    "title": chat.title
+                },
+                "date": int(datetime.now(timezone.utc).timestamp()),
+                "new_chat_members": [
+                    {
+                        "id": user_id,
+                        "is_bot": False,
+                        "first_name": user.first_name,
+                        "last_name": user.last_name,
+                        "username": user.username
+                    }
+                ]
+            }
+            
+            # Include invitation context for auto-activation if provided
+            if invite_context:
+                event_data["invitation_context"] = invite_context
+                logger.info(f"🔗 Including invitation context for auto-activation: {list(invite_context.keys())}")
+            
+            self.message_counter += 1
+            
+            # Send to bot integration if available
+            if BOT_INTEGRATION_AVAILABLE:
+                try:
+                    response = await process_mock_message(event_data)
+                    logger.info(f"✅ Simulated join event for {user.first_name} in chat {chat_id}")
+                    
+                    # Broadcast the join event to connected clients
+                    await self.broadcast_message({
+                        "type": "new_chat_member",
+                        "event": event_data,
+                        "user": {
+                            "id": user_id,
+                            "username": user.username,
+                            "first_name": user.first_name,
+                            "last_name": user.last_name,
+                            "role": user.role.value
+                        },
+                        "chat_id": chat_id
+                    })
+                    
+                    return True
+                except Exception as e:
+                    logger.error(f"❌ Error processing join event through bot: {e}")
+                    return False
+            else:
+                logger.warning("Bot integration not available - join event simulated but not processed")
+                return True
+                
+        except Exception as e:
+            logger.error(f"❌ Error simulating new chat member: {e}")
+            return False
+    
     async def send_message(self, request: SendMessageRequest) -> MockMessage:
         """Send a message as if from a user"""
         with self._lock:
-            if request.user_id not in self.users:
+            if request.telegram_id not in self.users:
                 raise HTTPException(status_code=404, detail="User not found")
             
             if request.chat_id not in self.chats:
                 raise HTTPException(status_code=404, detail="Chat not found")
             
             # Check if user can access this chat
-            if not self.can_user_access_chat(request.user_id, request.chat_id):
+            if not self.can_user_access_chat(request.telegram_id, request.chat_id):
                 raise HTTPException(status_code=403, detail="User cannot access this chat")
             
-            user = self.users[request.user_id]
+            user = self.users[request.telegram_id]
             chat = self.chats[request.chat_id]
             
             message = MockMessage(
@@ -652,7 +993,10 @@ class MockTelegramService:
             return chat_messages[-limit:]
     
     def get_all_users(self) -> List[MockUser]:
-        """Get all test users"""
+        """Get all test users (includes fresh data from Firestore)"""
+        # Refresh users from Firestore to include any pending users or new additions
+        self._refresh_users_from_firestore()
+        
         with self._lock:
             return list(self.users.values())
     
@@ -728,7 +1072,7 @@ async def get_stats():
 
 @app.get("/users")
 async def get_users():
-    """Get all test users"""
+    """Get all test users (includes fresh data from Firestore with status)"""
     users = mock_service.get_all_users()
     return [
         {
@@ -739,6 +1083,7 @@ async def get_users():
             "role": user.role,
             "phone_number": user.phone_number,
             "is_bot": user.is_bot,
+            "status": user.status or "active",  # Include user status from Firestore
             "created_at": user.created_at.isoformat() if user.created_at else None
         }
         for user in users
@@ -759,6 +1104,19 @@ async def create_user(request: CreateUserRequest):
         "is_bot": user.is_bot,
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
+
+
+@app.post("/invite/process")
+async def process_invite_link(request: ProcessInviteRequest):
+    """Process an invite link and simulate user joining"""
+    try:
+        result = await mock_service.process_invite_link(request)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing invite: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/chats")
@@ -820,9 +1178,108 @@ async def get_user_chats(user_id: int):
 
 @app.post("/send_message")
 async def send_message(request: SendMessageRequest):
-    """Send a message as a user"""
+    """Send a message as a user and process it through real KICKAI bot"""
+    # First, add the user message to mock service
     message = await mock_service.send_message(request)
+    
+    # Process through real KICKAI bot if integration is available
+    if BOT_INTEGRATION_AVAILABLE:
+        try:
+            # Import bot integration
+            from .bot_integration import process_mock_message
+            
+            # Convert message to format expected by bot integration
+            message_data = {
+                "text": request.text,
+                "from": {
+                    "id": request.telegram_id,
+                    "username": mock_service.users[request.telegram_id].username if request.telegram_id in mock_service.users else f"user_{request.telegram_id}",
+                    "first_name": mock_service.users[request.telegram_id].first_name if request.telegram_id in mock_service.users else "Test",
+                    "last_name": mock_service.users[request.telegram_id].last_name if request.telegram_id in mock_service.users else "User"
+                },
+                "chat": {
+                    "id": request.chat_id,
+                    "type": "group" if request.chat_id in [2001, 2002] else "private",
+                    "title": mock_service.chats[request.chat_id].title if request.chat_id in mock_service.chats else "Test Chat"
+                },
+                "date": int(datetime.now().timestamp()),
+                "chat_context": "leadership" if request.chat_id == 2002 else "main" if request.chat_id == 2001 else "private"
+            }
+            
+            # Process message through real KICKAI bot
+            bot_response = await process_mock_message(message_data)
+            
+            if bot_response.get("success", False):
+                # Create bot response message and add it to mock service
+                bot_message_data = {
+                    "message_id": mock_service.message_counter + 1,
+                    "from": {
+                        "id": 999999999,  # Bot ID
+                        "username": "kickai_bot",
+                        "first_name": "KickAI Bot",
+                        "last_name": None,
+                        "is_bot": True
+                    },
+                    "chat": {
+                        "id": request.chat_id,
+                        "type": "group" if request.chat_id in [2001, 2002] else "private"
+                    },
+                    "date": int(datetime.now(timezone.utc).timestamp()),
+                    "text": bot_response.get("message", "No response"),
+                    "agent_type": bot_response.get("agent_type", "unknown"),
+                    "confidence": bot_response.get("confidence", 1.0)
+                }
+                
+                # Add bot response to mock service and broadcast via WebSocket
+                await bot_response_handler(bot_message_data)
+                
+        except Exception as e:
+            logger.error(f"❌ Error processing message through real bot: {e}")
+            # Continue with mock response - don't fail the request
+    
     return message.to_dict()
+
+
+async def bot_response_handler(bot_message_data: dict):
+    """Handle bot response and broadcast to WebSocket clients"""
+    # Add bot message to mock service
+    with mock_service._lock:
+        mock_service.message_counter += 1
+        
+        # Create proper MockUser object for the bot
+        bot_user = MockUser(
+            id=bot_message_data["from"]["id"],
+            username=bot_message_data["from"]["username"],
+            first_name=bot_message_data["from"]["first_name"],
+            last_name=bot_message_data["from"].get("last_name"),
+            is_bot=True
+        )
+        
+        # Create proper MockChat object
+        chat_data = bot_message_data["chat"]
+        bot_chat = MockChat(
+            id=chat_data["id"],
+            type=ChatType.GROUP if chat_data.get("type") == "group" else ChatType.PRIVATE,
+            title=chat_data.get("title"),
+            username=chat_data.get("username"),
+            first_name=chat_data.get("first_name"),
+            last_name=chat_data.get("last_name"),
+            is_main_chat=chat_data.get("is_main_chat", False),
+            is_leadership_chat=chat_data.get("is_leadership_chat", False)
+        )
+        
+        # Create MockMessage with proper objects
+        bot_message = MockMessage(
+            message_id=bot_message_data["message_id"],
+            from_user=bot_user,
+            chat=bot_chat,
+            text=bot_message_data["text"],
+            date=datetime.fromtimestamp(bot_message_data["date"], tz=timezone.utc)
+        )
+        mock_service.messages.append(bot_message)
+    
+    # Broadcast to WebSocket clients
+    await mock_service.broadcast_message(bot_message_data)
 
 
 @app.post("/bot_response")
@@ -834,7 +1291,7 @@ async def bot_response(response_data: dict):
     bot_message = {
         "message_id": len(mock_service.messages) + 1,
         "from": {
-            "id": 0,  # Bot ID
+            "id": 999999999,  # Bot ID
             "username": "kickai_bot",
             "first_name": "KickAI Bot",
             "last_name": None,
@@ -925,8 +1382,8 @@ async def get_firebase_users():
         # Convert players to Firebase format
         for player in players:
             firebase_user = {
-                "id": str(player.user_id),
-                "username": player.username or f"player_{player.user_id}",
+                "id": str(player.user_id) if player.user_id else str(player.player_id),
+                "username": player.username or f"player_{player.user_id or player.player_id}",
                 "first_name": player.first_name or "Player",
                 "last_name": player.last_name,
                 "role": "player",
@@ -1001,8 +1458,8 @@ async def get_firebase_players():
         firebase_players = []
         for player in players:
             firebase_player = {
-                "id": str(player.user_id),
-                "username": player.username or f"player_{player.user_id}",
+                "id": str(player.user_id) if player.user_id else str(player.player_id),
+                "username": player.username or f"player_{player.user_id or player.player_id}",
                 "first_name": player.first_name or "Player",
                 "last_name": player.last_name,
                 "phone_number": player.phone_number,

@@ -11,10 +11,19 @@ from datetime import datetime
 
 from loguru import logger
 
-from kickai.core.constants import get_team_members_collection
 from kickai.core.dependency_container import get_container
+from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
+from kickai.features.team_administration.domain.repositories.team_repository_interface import TeamRepositoryInterface
 from kickai.database.firebase_client import FirebaseClient
-from kickai.utils.crewai_tool_decorator import tool
+from kickai.features.team_administration.domain.types import TelegramUserId, TeamId
+from kickai.features.team_administration.domain.exceptions import (
+    TeamMemberServiceUnavailableError,
+    TeamMemberNotFoundError,
+    DuplicatePhoneNumberError,
+    RepositoryUnavailableError,
+)
+from crewai.tools import tool
+from kickai.core.enums import ResponseStatus
 from kickai.utils.tool_helpers import create_json_response
 from typing import List, Optional
 
@@ -49,7 +58,8 @@ class TeamMemberUpdateValidator:
     UPDATABLE_FIELDS = {
         "phone": "Contact phone number",
         "email": "Email address",
-        "emergency_contact": "Emergency contact information",
+        "emergency_contact_name": "Emergency contact name",
+        "emergency_contact_phone": "Emergency contact phone number",
         "role": "Administrative role (admin approval required)",
     }
 
@@ -139,19 +149,34 @@ class TeamMemberUpdateValidator:
         return email.strip().lower()
 
     @classmethod
-    def validate_emergency_contact(cls, contact: str) -> str:
-        """Validate emergency contact information."""
-        if len(contact.strip()) < 5:
+    def validate_emergency_contact_name(cls, name: str) -> str:
+        """Validate emergency contact name."""
+        if len(name.strip()) < 2:
             raise TeamMemberUpdateValidationError(
-                "Emergency contact must be at least 5 characters long"
+                "Emergency contact name must be at least 2 characters long"
             )
 
-        if len(contact.strip()) > 200:
+        if len(name.strip()) > 100:
             raise TeamMemberUpdateValidationError(
-                "Emergency contact must be less than 200 characters"
+                "Emergency contact name must be less than 100 characters"
             )
 
-        return contact.strip()
+        return name.strip()
+
+    @classmethod
+    def validate_emergency_contact_phone(cls, phone: str) -> str:
+        """Validate emergency contact phone number."""
+        if len(phone.strip()) < 5:
+            raise TeamMemberUpdateValidationError(
+                "Emergency contact phone must be at least 5 characters long"
+            )
+
+        if len(phone.strip()) > 20:
+            raise TeamMemberUpdateValidationError(
+                "Emergency contact phone must be less than 20 characters"
+            )
+
+        return phone.strip()
 
     @classmethod
     def validate_field_value(cls, field: str, value: str) -> str:
@@ -164,23 +189,26 @@ class TeamMemberUpdateValidator:
             return cls.validate_role(value)
         elif field_lower == "email":
             return cls.validate_email(value)
-        elif field_lower == "emergency_contact":
-            return cls.validate_emergency_contact(value)
+        elif field_lower == "emergency_contact_name":
+            return cls.validate_emergency_contact_name(value)
+        elif field_lower == "emergency_contact_phone":
+            return cls.validate_emergency_contact_phone(value)
         else:
             raise TeamMemberUpdateValidationError(f"Unknown field type: {field}")
 
 
-@tool("update_team_member_information", result_as_answer=True)
-def update_team_member_information(
-    user_id: str, team_id: str, field: str, value: str, username: str = "Unknown"
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
+async def update_team_member_information(
+    user_id: TelegramUserId, team_id: TeamId, field: str, value: str, username: str = "Unknown"
 ) -> str:
     """
     Update specific team member information field with validation and audit logging.
 
     Args:
         user_id: Telegram user ID of the team member
-        team_id: Team ID
-        field: Field name to update (phone, email, emergency_contact, role)
+        team_id: Team ID  
+        field: Field name to update (phone, email, emergency_contact_name, emergency_contact_phone, role)
         value: New value for the field
         username: Username of the person making the update
 
@@ -194,25 +222,28 @@ def update_team_member_information(
 
         # Validate inputs
         if not user_id or not team_id or not field or not value:
-            return create_json_response("error", message="Update Failed: Missing required parameters (user_id, team_id, field, value)")
+            return create_json_response(ResponseStatus.ERROR, message="Update Failed: Missing required parameters (user_id, team_id, field, value)")
 
-        # Initialize Firebase service
+        # Initialize services
         container = get_container()
-        firebase_service = container.get_service(FirebaseClient)
-        collection_name = get_team_members_collection(team_id)
+        team_member_service = container.get_service(TeamMemberService)
+        if not team_member_service:
+            return create_json_response(ResponseStatus.ERROR, message="Update Failed: Team member service not available")
+        
+        team_repository = container.get_service(TeamRepositoryInterface)
+        if not team_repository:
+            return create_json_response(ResponseStatus.ERROR, message="Update Failed: Team repository service not available")
 
         # Check if team member exists
         logger.info(f"🔍 Checking if team member exists: user_id={user_id}")
-        members = firebase_service.query_documents(collection_name, [("user_id", "==", user_id)])
+        member = await team_member_service.get_team_member_by_telegram_id(user_id, team_id)
 
-        if not members:
+        if not member:
             logger.warning(f"❌ Team member not found: user_id={user_id}")
-            # TODO - need to return error as JSON
-            return "❌ Update Failed: You are not registered as a team member. Ask leadership to add you."
+            return create_json_response(ResponseStatus.ERROR, message="Update Failed: You are not registered as a team member. Ask leadership to add you.")
 
-        member = members[0]
-        member_id = member.get("id", "unknown")
-        member_name = member.get("name", "Unknown Member")
+        member_id = member.member_id
+        member_name = member.name
 
         logger.info(f"✅ Found team member: {member_name} (ID: {member_id})")
 
@@ -229,23 +260,18 @@ def update_team_member_information(
 
         # Check for duplicate phone numbers (if updating phone)
         if field.lower() == "phone":
-            existing_members = firebase_service.query_documents(
-                collection_name, [("phone", "==", validated_value)]
-            )
+            existing_member = await team_member_service.get_team_member_by_phone(validated_value, team_id)
 
-            # Filter out the current member
-            duplicate_members = [m for m in existing_members if m.get("user_id") != user_id]
-
-            if duplicate_members:
-                duplicate_name = duplicate_members[0].get("name", "Unknown")
+            # Check if phone belongs to a different member
+            if existing_member and existing_member.telegram_id != user_id:
                 logger.warning(
-                    f"Duplicate phone number: {validated_value} already used by {duplicate_name}"
+                    f"Duplicate phone number: {validated_value} already used by {existing_member.name}"
                 )
-                return create_json_response("error", message=f"Update Failed: Phone number {validated_value} is already registered to another team member ({duplicate_name})")
+                return create_json_response(ResponseStatus.ERROR, message=f"Update Failed: Phone number {validated_value} is already registered to another team member ({existing_member.name})")
 
         # Prepare update data
         current_time = datetime.now().isoformat()
-        old_value = member.get(field, "Not set")
+        old_value = getattr(member, field, "Not set") if hasattr(member, field) else "Not set"
 
         if requires_approval:
             # Create approval request instead of direct update
@@ -266,11 +292,12 @@ def update_team_member_information(
             }
 
             # Store approval request
-            firebase_service.create_document(f"kickai_{team_id}_approval_requests", approval_data)
+            firebase_service = container.get_service(FirebaseClient)
+            await firebase_service.create_document(f"kickai_{team_id}_approval_requests", approval_data)
 
             logger.info(f"Approval request created for {field} update")
 
-            return create_json_response("success", data={
+            return create_json_response(ResponseStatus.SUCCESS, data={
                 'message': 'Role Change Request Submitted',
                 'status': 'pending_approval',
                 'field': field,
@@ -283,17 +310,13 @@ def update_team_member_information(
             })
 
         else:
-            # Direct update for non-approval fields
-            update_data = {
-                field: validated_value,
-                "updated_at": current_time,
-                "updated_by": username,
-                f"{field}_updated_at": current_time,
-                f"{field}_previous_value": old_value,
-            }
-
-            # Update team member record
-            firebase_service.update_document(collection_name, member_id, update_data)
+            # Direct update for non-approval fields using repository pattern
+            # Update the member object with new field value
+            setattr(member, field, validated_value)
+            member.updated_at = datetime.now()
+            
+            # Update team member record via repository
+            await team_repository.update_team_member(member)
 
             logger.info(
                 f"✅ Team member information updated successfully: {field} = {validated_value}"
@@ -318,7 +341,8 @@ def update_team_member_information(
         }
 
         try:
-            firebase_service.create_document(f"kickai_{team_id}_audit_logs", audit_data)
+            firebase_service = container.get_service(FirebaseClient)
+            await firebase_service.create_document(f"kickai_{team_id}_audit_logs", audit_data)
             logger.info("✅ Audit log created for team member update")
         except Exception as e:
             logger.warning(f"⚠️ Failed to create audit log: {e}")
@@ -327,7 +351,7 @@ def update_team_member_information(
         if not requires_approval:
             field_description = validator.UPDATABLE_FIELDS.get(field, field)
 
-            return create_json_response("success", data={
+            return create_json_response(ResponseStatus.SUCCESS, data={
                 'message': 'Information Updated Successfully!',
                 'member_name': member_name,
                 'field': field,
@@ -341,15 +365,16 @@ def update_team_member_information(
 
     except TeamMemberUpdateValidationError as e:
         logger.warning(f"Validation error: {e}")
-        return create_json_response("error", message=f"Update Failed: {e!s}")
+        return create_json_response(ResponseStatus.ERROR, message=f"Update Failed: {e!s}")
 
     except Exception as e:
         logger.error(f"Error updating team member information: {e}", exc_info=True)
-        return create_json_response("error", message="Update Failed: An unexpected error occurred. Please try again or contact support.")
+        return create_json_response(ResponseStatus.ERROR, message="Update Failed: An unexpected error occurred. Please try again or contact support.")
 
 
-@tool("get_team_member_updatable_fields", result_as_answer=True)
-def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
+async def get_team_member_updatable_fields(user_id: TelegramUserId, team_id: TeamId) -> str:
     """
     Get list of fields that a team member can update with examples and validation rules.
 
@@ -365,12 +390,13 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
 
         # Check if team member exists
         container = get_container()
-        firebase_service = container.get_service(FirebaseClient)
-        collection_name = get_team_members_collection(team_id)
+        team_member_service = container.get_service(TeamMemberService)
+        if not team_member_service:
+            return "❌ Team member service not available"
 
-        members = firebase_service.query_documents(collection_name, [("user_id", "==", user_id)])
+        member = await team_member_service.get_team_member_by_telegram_id(user_id, team_id)
 
-        if not members:
+        if not member:
             return """❌ Update Not Available
 
 🔍 You are not registered as a team member in this team.
@@ -382,9 +408,8 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
 
 💡 Need help? Use /help to see available commands."""
 
-        member = members[0]
-        member_name = member.get("name", "Unknown Member")
-        current_role = member.get("role", "Not set")
+        member_name = member.name
+        current_role = member.role
 
         # Get valid roles for reference
         roles = ", ".join(TeamMemberUpdateValidator.VALID_ROLES[:8]) + "..."
@@ -403,9 +428,13 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
    Example: /update email admin@example.com
    Format: Valid email address
 
-🚨 **emergency_contact** - Emergency contact info
-   Example: /update emergency_contact +44787654321
-   Format: Phone number or contact details
+🚨 **emergency_contact_name** - Emergency contact name
+   Example: /update emergency_contact_name John Doe
+   Format: Contact person's name
+
+🚨 **emergency_contact_phone** - Emergency contact phone
+   Example: /update emergency_contact_phone +44787654321
+   Format: Valid phone number
 
 👔 **role** - Your administrative role ⚠️ ADMIN APPROVAL REQUIRED
    Example: /update role Assistant Coach
@@ -426,8 +455,9 @@ def get_team_member_updatable_fields(user_id: str, team_id: str) -> str:
         return "❌ Error retrieving updatable fields. Please try again."
 
 
-@tool("validate_team_member_update_request", result_as_answer=True)
-def validate_team_member_update_request(user_id: str, team_id: str, field: str, value: str) -> str:
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
+async def validate_team_member_update_request(user_id: TelegramUserId, team_id: TeamId, field: str, value: str) -> str:
     """
     Validate a team member update request without actually performing the update.
 
@@ -445,12 +475,13 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
 
         # Check if team member exists
         container = get_container()
-        firebase_service = container.get_service(FirebaseClient)
-        collection_name = get_team_members_collection(team_id)
+        team_member_service = container.get_service(TeamMemberService)
+        if not team_member_service:
+            return "❌ Team member service not available"
 
-        members = firebase_service.query_documents(collection_name, [("user_id", "==", user_id)])
+        member = await team_member_service.get_team_member_by_telegram_id(user_id, team_id)
 
-        if not members:
+        if not member:
             return "❌ Validation Failed: You are not registered as a team member"
 
         # Validate field and value
@@ -461,13 +492,9 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
 
         # Check for duplicates if phone
         if field.lower() == "phone":
-            existing_members = firebase_service.query_documents(
-                collection_name, [("phone", "==", validated_value)]
-            )
+            existing_member = await team_member_service.get_team_member_by_phone(validated_value, team_id)
 
-            duplicate_members = [m for m in existing_members if m.get("user_id") != user_id]
-
-            if duplicate_members:
+            if existing_member and existing_member.telegram_id != user_id:
                 return "❌ Validation Failed: Phone number already in use"
 
         field_description = validator.UPDATABLE_FIELDS.get(field, field)
@@ -489,8 +516,9 @@ def validate_team_member_update_request(user_id: str, team_id: str, field: str, 
         return "❌ Validation Error: Please check your input and try again"
 
 
-@tool("get_pending_team_member_approval_requests", result_as_answer=True)
-def get_pending_team_member_approval_requests(team_id: str, user_id: str = None) -> str:
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
+async def get_pending_team_member_approval_requests(team_id: TeamId, user_id: Optional[TelegramUserId] = None) -> str:
     """
     Get pending approval requests for team member updates.
 
@@ -513,7 +541,7 @@ def get_pending_team_member_approval_requests(team_id: str, user_id: str = None)
             filters.append(("user_id", "==", user_id))
 
         # Get pending requests
-        requests = firebase_service.query_documents(f"kickai_{team_id}_approval_requests", filters)
+        requests = await firebase_service.query_documents(f"kickai_{team_id}_approval_requests", filters)
 
         if not requests:
             if user_id:

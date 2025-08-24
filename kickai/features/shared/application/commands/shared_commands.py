@@ -232,13 +232,15 @@ Main Chat (Players):
 • phone - Your contact phone number
 • position - Your football position
 • email - Your email address
-• emergency_contact - Emergency contact info
+• emergency_contact_name - Emergency contact name
+• emergency_contact_phone - Emergency contact phone
 • medical_notes - Medical information
 
 Leadership Chat (Team Members):
 • phone - Your contact phone number
 • email - Your email address
-• emergency_contact - Emergency contact info
+• emergency_contact_name - Emergency contact name
+• emergency_contact_phone - Emergency contact phone
 • role - Your administrative role (requires admin approval)
 
 Usage:

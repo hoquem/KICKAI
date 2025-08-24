@@ -44,7 +44,7 @@ class StandardizedContext:
     """
 
     # Core fields (always present)
-    user_id: str
+    telegram_id: int
     team_id: str
     chat_id: str
     chat_type: str
@@ -80,8 +80,7 @@ class StandardizedContext:
     def to_dict(self) -> Dict[str, Any]:
         """Convert context to dictionary for serialization."""
         return {
-            "user_id": self.user_id,
-            "telegram_id": self.user_id,  # telegram_id is same as user_id in KICKAI system
+            "telegram_id": self.telegram_id,
             "team_id": self.team_id,
             "chat_id": self.chat_id,
             "chat_type": self.chat_type,
@@ -100,7 +99,7 @@ class StandardizedContext:
     def from_dict(cls, data: Dict[str, Any]) -> "StandardizedContext":
         """Create context from dictionary with validation of critical fields."""
         # Validate that critical fields are present
-        required_fields = ["user_id", "team_id", "chat_id", "chat_type", "message_text", "username"]
+        required_fields = ["telegram_id", "team_id", "chat_id", "chat_type", "message_text", "username"]
         missing_fields = [
             field for field in required_fields if field not in data or not data[field]
         ]
@@ -136,7 +135,7 @@ class StandardizedContext:
         elif self.username:
             return self.username
         else:
-            return f"User {self.user_id}"
+            return f"User {self.telegram_id}"
 
     def is_leadership_chat(self) -> bool:
         """Check if this is a leadership chat."""
@@ -156,7 +155,7 @@ class StandardizedContext:
         """Get a human-readable context summary."""
         return (
             f"User: {self.get_user_display_name()} "
-            f"({self.user_id}) | "
+            f"({self.telegram_id}) | "
             f"Team: {self.team_id} | "
             f"Chat: {self.chat_type} | "
             f"Registered: {self.is_registered}"
@@ -164,7 +163,7 @@ class StandardizedContext:
 
 
 def create_context_from_telegram_message(
-    telegram_id: str,
+    telegram_id: int,
     team_id: str,
     chat_id: str,
     chat_type: ChatType,
@@ -175,7 +174,7 @@ def create_context_from_telegram_message(
 ) -> StandardizedContext:
     """Create standardized context from Telegram message data."""
     return StandardizedContext(
-        user_id=str(telegram_id),
+        telegram_id=int(telegram_id),
         team_id=team_id,
         chat_id=chat_id,
         chat_type=chat_type.value if isinstance(chat_type, ChatType) else chat_type,
@@ -188,7 +187,7 @@ def create_context_from_telegram_message(
 
 
 def create_context_from_command(
-    telegram_id: str,
+    telegram_id: int,
     team_id: str,
     chat_id: str,
     chat_type: ChatType,
@@ -199,7 +198,7 @@ def create_context_from_command(
 ) -> StandardizedContext:
     """Create standardized context from command data."""
     return StandardizedContext(
-        user_id=str(telegram_id),
+        telegram_id=int(telegram_id),
         team_id=team_id,
         chat_id=chat_id,
         chat_type=chat_type.value if isinstance(chat_type, ChatType) else chat_type,

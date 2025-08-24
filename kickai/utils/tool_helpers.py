@@ -9,25 +9,37 @@ standardizing error messages across all tools.
 import json
 from typing import Any, Dict, List, Optional, Union
 
+from loguru import logger
+from kickai.core.enums import ResponseStatus
 
-def create_json_response(status: str, data: Any = None, message: str = None) -> str:
+
+class ContextKeys:
+    """Constants for context keys used in tool parsing."""
+    
+    SECURITY_CONTEXT = "security_context"
+    EXECUTION_CONTEXT = "execution_context"
+    CONTEXT_DELIMITER = "Context:"
+
+
+def create_json_response(status: ResponseStatus, data: Any = None, message: str = None) -> str:
     """
     Create a standardized JSON response for tools.
     
     Args:
-        status: Either "success" or "error"
-        data: The data to include in the response (for success responses)
-        message: Error message (for error responses)
+        status: ResponseStatus enum value (SUCCESS or ERROR)
+        data: The data to include in the response
+        message: Message to include in the response (can be success or error message)
         
     Returns:
         JSON string with standardized format
     """
-    if status == "success":
-        response = {"status": "success", "data": data}
-    elif status == "error":
-        response = {"status": "error", "message": message}
-    else:
-        raise ValueError("Status must be either 'success' or 'error'")
+    response = {"status": status.value}
+    
+    if message:
+        response["message"] = message
+    
+    if data:
+        response["data"] = data
         
     return json.dumps(response, ensure_ascii=False)
 
@@ -75,160 +87,149 @@ def parse_crewai_json_input(input_value: str, expected_keys: List[str]) -> Dict[
 
 def extract_single_value(input_value: Any, key: str) -> str:
     """
-    Extract a single value from CrewAI input, handling various input formats.
+    Extract a single value from input, handling both string and dict inputs.
 
     Args:
-        input_value: The input value (could be JSON string, dict, or other types)
-        key: The key to extract
+        input_value: Input value (string or dict)
+        key: Key to extract
 
     Returns:
-        Extracted value or original input_value if not found
+        Extracted value as string
     """
-    # If it's already a string, try JSON parsing
-    if isinstance(input_value, str):
-        try:
-            parsed = parse_crewai_json_input(input_value, [key])
-            return parsed.get(key, input_value)
-        except ValueError:
-            return input_value
-
-    # If it's a dict, search for the key recursively
     if isinstance(input_value, dict):
-        # Direct key lookup
-        if key in input_value:
-            return str(input_value[key])
-
-        # Search in security_context (common pattern in CrewAI)
-        if "security_context" in input_value:
-            security_ctx = input_value["security_context"]
-            if isinstance(security_ctx, dict) and key in security_ctx:
-                return str(security_ctx[key])
-
-        # Search in execution_context (another common pattern)
-        if "execution_context" in input_value:
-            exec_ctx = input_value["execution_context"]
-            if isinstance(exec_ctx, dict) and key in exec_ctx:
-                return str(exec_ctx[key])
-
-        # Recursive search in nested dictionaries
-        for k, v in input_value.items():
-            if isinstance(v, dict):
-                result = extract_single_value(v, key)
-                # Check if we found a meaningful result (not the original input)
-                if result != str(v) and result != str(input_value):
-                    return result
-
-    # Fallback: return string representation
-    return str(input_value)
+        return str(input_value.get(key, ""))
+    elif isinstance(input_value, str):
+        return input_value
+    else:
+        return str(input_value)
 
 
-def format_tool_error(message: str, error_type: str = "Error") -> str:
+def validate_required_input(value: Any, field_name: str) -> Optional[str]:
     """
-    Format consistent error messages for tools.
-
+    Validate that a required input field is present and not empty.
+    
     Args:
-        message: The error message
-        error_type: The type of error (Error, Warning, Info, etc.)
+        value: The value to validate
+        field_name: Name of the field for error messages
+        
+    Returns:
+        Error message if validation fails, None if validation passes
+    """
+    if value is None:
+        return f"❌ {field_name} is required"
+    
+    if isinstance(value, str) and not value.strip():
+        return f"❌ {field_name} cannot be empty"
+    
+    if isinstance(value, (list, dict)) and not value:
+        return f"❌ {field_name} cannot be empty"
+    
+    return None
 
+
+def format_tool_error(error: Exception, tool_name: str, context: Dict[str, Any] = None) -> str:
+    """
+    Format tool errors consistently across the system.
+    
+    Args:
+        error: The exception that occurred
+        tool_name: Name of the tool that failed
+        context: Optional context information
+        
     Returns:
         Formatted error message
     """
-    return f"❌ {error_type}: {message}"
+    error_msg = f"❌ Tool '{tool_name}' failed: {str(error)}"
+    
+    if context:
+        error_msg += f" (Context: {context})"
+    
+    logger.error(error_msg)
+    return error_msg
 
 
-def format_tool_success(message: str, success_type: str = "Success") -> str:
+def sanitize_input(input_value: str, max_length: int = 100) -> str:
     """
-    Format consistent success messages for tools.
-
+    Sanitize user input to prevent injection attacks and ensure data quality.
+    
     Args:
-        message: The success message
-        success_type: The type of success (Success, Info, etc.)
-
-    Returns:
-        Formatted success message
-    """
-    return f"✅ {success_type}: {message}"
-
-
-def validate_required_input(value: str, field_name: str) -> str:
-    """
-    Validate that a required input field is not empty.
-
-    Args:
-        value: The input value to validate
-        field_name: The name of the field for error messages
-
-    Returns:
-        Error message if validation fails, empty string if valid
-    """
-    if not value or not value.strip():
-        return format_tool_error(f"{field_name} is required")
-    return ""
-
-
-def extract_context_from_task_description(task_description: str) -> Dict[str, str]:
-    """
-    Extract context information from CrewAI task description.
-
-    Args:
-        task_description: The task description that may contain context information
-
-    Returns:
-        Dictionary of context key-value pairs
-    """
-    context = {}
-
-    try:
-        # Look for context section in task description
-        if "Context:" in task_description:
-            context_section = task_description.split("Context:")[1].strip()
-
-            # Parse key-value pairs
-            for item in context_section.split(","):
-                item = item.strip()
-                if ":" in item:
-                    key, value = item.split(":", 1)
-                    context[key.strip()] = value.strip()
-
-    except Exception:
-        # Use logger from loguru if available, otherwise skip logging
-        pass
-
-    return context
-
-
-def sanitize_input(value: str, max_length: int = 255) -> str:
-    """
-    Sanitize input string by removing/escaping dangerous characters and trimming to max length.
-
-    Args:
-        value: The input string to sanitize
-        max_length: Maximum allowed length for the string
-
+        input_value: The input string to sanitize
+        max_length: Maximum allowed length
+        
     Returns:
         Sanitized string
     """
-    if not value:
+    if not input_value:
         return ""
-
-    # Convert to string if not already
-    value = str(value)
-
-    # Strip whitespace
-    value = value.strip()
-
-    # Remove or escape potentially dangerous characters
-    # Remove null bytes, control characters, and other dangerous chars
-    sanitized = ""
-    for char in value:
-        # Allow alphanumeric, spaces, and common punctuation
-        if char.isprintable() and char not in ["\x00", "\x08", "\x0b", "\x0c"]:
-            sanitized += char
-        elif char in [" ", "\t"]:
-            sanitized += char
-
-    # Trim to max length
+    
+    # Convert to string and strip whitespace
+    sanitized = str(input_value).strip()
+    
+    # Remove potentially dangerous characters
+    dangerous_chars = ['<', '>', '"', "'", '&', ';', '{', '}', '[', ']', '(', ')']
+    for char in dangerous_chars:
+        sanitized = sanitized.replace(char, '')
+    
+    # Limit length
     if len(sanitized) > max_length:
         sanitized = sanitized[:max_length]
-
+    
     return sanitized
+
+
+def validate_phone_number(phone: str) -> bool:
+    """
+    Validate phone number format (basic UK format validation).
+    
+    Args:
+        phone: Phone number to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    if not phone:
+        return False
+    
+    # Remove all non-digit characters except +
+    cleaned = ''.join(c for c in phone if c.isdigit() or c == '+')
+    
+    # UK phone number patterns
+    uk_patterns = [
+        r'^\+447\d{9}$',  # +447123456789
+        r'^07\d{9}$',     # 07123456789
+        r'^447\d{9}$',    # 447123456789
+    ]
+    
+    import re
+    for pattern in uk_patterns:
+        if re.match(pattern, cleaned):
+            return True
+    
+    return False
+
+
+def normalize_phone_number(phone: str) -> str:
+    """
+    Normalize phone number to standard UK format.
+    
+    Args:
+        phone: Phone number to normalize
+        
+    Returns:
+        Normalized phone number in +447 format
+    """
+    if not phone:
+        return ""
+    
+    # Remove all non-digit characters except +
+    cleaned = ''.join(c for c in phone if c.isdigit() or c == '+')
+    
+    # Convert to +447 format
+    if cleaned.startswith('07'):
+        return '+44' + cleaned[1:]
+    elif cleaned.startswith('447'):
+        return '+' + cleaned
+    elif cleaned.startswith('+447'):
+        return cleaned
+    else:
+        return cleaned

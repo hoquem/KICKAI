@@ -239,7 +239,7 @@ application = Application.builder().token(TOKEN).build()
 async def handle_text(update: Update, context) -> None:
     """Handle text messages."""
     text = update.message.text
-    user_id = update.effective_user.id
+    telegram_id = update.effective_user.id
     
     # Process based on content
     if text.startswith('/'):
@@ -247,7 +247,7 @@ async def handle_text(update: Update, context) -> None:
         await handle_command(update, context)
     else:
         # Natural language processing
-        response = process_natural_language(text, user_id)
+        response = process_natural_language(text, telegram_id)
         await update.message.reply_text(response)
 ```
 
@@ -385,23 +385,23 @@ async def kick_user(update: Update, context) -> None:
     
     # Get user to kick
     if context.args and context.args[0].isdigit():
-        user_id = int(context.args[0])
+        telegram_id = int(context.args[0])
         try:
             await context.bot.ban_chat_member(
                 chat_id=update.effective_chat.id,
-                user_id=user_id
+                user_id=telegram_id
             )
-            await update.message.reply_text(f"✅ User {user_id} has been removed.")
+            await update.message.reply_text(f"✅ User {telegram_id} has been removed.")
         except Exception as e:
             await update.message.reply_text(f"❌ Error: {e}")
 
 async def is_user_admin(update: Update, context) -> bool:
     """Check if user is admin in the current chat."""
-    user_id = update.effective_user.id
+    telegram_id = update.effective_user.id
     chat_id = update.effective_chat.id
     
     try:
-        member = await context.bot.get_chat_member(chat_id, user_id)
+        member = await context.bot.get_chat_member(chat_id, telegram_id)
         return member.status in [ChatMember.ADMINISTRATOR, ChatMember.OWNER]
     except:
         return False
@@ -458,7 +458,7 @@ async def handle_squad_callback(update: Update, context) -> None:
     await query.answer()  # Important: acknowledge the callback
     
     data = query.data
-    user_id = update.effective_user.id
+    telegram_id = update.effective_user.id
     username = update.effective_user.username
     
     # Process selection
@@ -472,7 +472,7 @@ async def handle_squad_callback(update: Update, context) -> None:
     status = status_map.get(data, 'Unknown')
     
     # Update database
-    update_player_availability(user_id, data.replace('squad_', ''))
+    update_player_availability(telegram_id, data.replace('squad_', ''))
     
     # Edit message to show selection
     await query.edit_message_text(
@@ -612,7 +612,7 @@ async def register_player(update: Update, context) -> None:
     
     player_name = args[0]
     position = args[1].lower()
-    user_id = update.effective_user.id
+    telegram_id = update.effective_user.id
     
     # Validate position
     valid_positions = ['goalkeeper', 'defender', 'midfielder', 'forward']
@@ -623,7 +623,7 @@ async def register_player(update: Update, context) -> None:
         return
     
     # Register player
-    success = register_player_in_db(user_id, player_name, position)
+    success = register_player_in_db(telegram_id, player_name, position)
     
     if success:
         await update.message.reply_text(
@@ -644,7 +644,7 @@ application.add_handler(CommandHandler("register", register_player))
 async def process_natural_language(update: Update, context) -> None:
     """Process natural language messages."""
     text = update.message.text.lower()
-    user_id = update.effective_user.id
+    telegram_id = update.effective_user.id
     
     # Simple keyword matching (replace with AI/NLP service)
     if any(word in text for word in ['available', 'can play', 'ready']):
@@ -657,7 +657,7 @@ async def process_natural_language(update: Update, context) -> None:
         await show_help(update, context)
     else:
         # Forward to AI system (KICKAI CrewAI integration)
-        response = await process_with_ai_system(text, user_id)
+        response = await process_with_ai_system(text, telegram_id)
         await update.message.reply_text(response)
 ```
 
@@ -941,7 +941,7 @@ class RobustMessageSender:
 # Usage
 sender = RobustMessageSender(context.bot)
 message_id = await sender.send_message_with_retry(
-    chat_id=user_id,
+    chat_id=telegram_id,
     text="Your message here"
 )
 ```
@@ -1026,16 +1026,16 @@ class InputValidator:
         return len(args) == expected_count
     
     @staticmethod
-    def extract_user_id(text: str) -> Optional[int]:
-        """Extract user ID from text safely."""
+    def extract_telegram_id(text: str) -> Optional[int]:
+        """Extract Telegram ID from text safely."""
         try:
             # Extract numbers from text
             numbers = re.findall(r'\d+', text)
             if numbers:
-                user_id = int(numbers[0])
+                telegram_id = int(numbers[0])
                 # Validate Telegram user ID range
-                if 1 <= user_id <= 2**63 - 1:
-                    return user_id
+                if 1 <= telegram_id <= 2**63 - 1:
+                    return telegram_id
         except ValueError:
             pass
         return None
@@ -1070,10 +1070,10 @@ def require_admin(func):
     """Decorator to require admin privileges."""
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user_id = update.effective_user.id
+        telegram_id = update.effective_user.id
         
         # Check if user is admin
-        if user_id not in Config.ADMIN_USER_IDS:
+        if telegram_id not in Config.ADMIN_USER_IDS:
             await update.message.reply_text("❌ Admin privileges required!")
             return
         
@@ -1084,10 +1084,10 @@ def require_registration(func):
     """Decorator to require user registration."""
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user_id = update.effective_user.id
+        telegram_id = update.effective_user.id
         
         # Check if user is registered
-        if not is_user_registered(user_id):
+        if not is_user_registered(telegram_id):
             await update.message.reply_text(
                 "❌ Please register first using /register <name> <position>"
             )
@@ -1126,10 +1126,10 @@ class RateLimiter:
         # Track global requests per second
         self.global_requests: Deque[float] = deque()
     
-    def check_user_rate_limit(self, user_id: int, limit: int = 20) -> bool:
+    def check_user_rate_limit(self, telegram_id: int, limit: int = 20) -> bool:
         """Check if user is within rate limit (20 requests/minute)."""
         now = time()
-        user_queue = self.user_requests[user_id]
+        user_queue = self.user_requests[telegram_id]
         
         # Remove old requests (older than 1 minute)
         while user_queue and user_queue[0] < now - 60:
@@ -1167,10 +1167,10 @@ def rate_limited(user_limit: int = 20, global_limit: int = 30):
     def decorator(func):
         @wraps(func)
         async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-            user_id = update.effective_user.id
+            telegram_id = update.effective_user.id
             
             # Check user rate limit
-            if not rate_limiter.check_user_rate_limit(user_id, user_limit):
+            if not rate_limiter.check_user_rate_limit(telegram_id, user_limit):
                 await update.message.reply_text(
                     "⏰ Too many requests! Please wait a minute."
                 )
@@ -1302,13 +1302,13 @@ class ProductionBot(KICKAIBot):
                     exc_info=context.error)
         
         # Send error notification to admin
-        admin_ids = os.getenv('ADMIN_USER_IDS', '').split(',')
-        if admin_ids:
+        admin_telegram_ids = os.getenv('ADMIN_USER_IDS', '').split(',')
+        if admin_telegram_ids:
             error_msg = f"🚨 Bot Error:\n{str(context.error)[:500]}"
-            for admin_id in admin_ids:
+            for admin_telegram_id in admin_telegram_ids:
                 try:
                     await context.bot.send_message(
-                        chat_id=int(admin_id),
+                        chat_id=int(admin_telegram_id),
                         text=error_msg
                     )
                 except:
@@ -1559,7 +1559,7 @@ class KICKAITelegramBot:
         
         # Validate and register through KICKAI system
         result = await self.register_player(
-            user_id=update.effective_user.id,
+            telegram_id=update.effective_user.id,
             name=name,
             position=position,
             phone=None  # Will be added via contact share
@@ -1578,7 +1578,7 @@ class KICKAITelegramBot:
         
         # Process registration
         result = await self.register_player(
-            user_id=contact.user_id,
+            telegram_id=contact.user_id,
             name=f"{contact.first_name} {contact.last_name or ''}".strip(),
             position="player",  # Default position
             phone=contact.phone_number
@@ -1590,12 +1590,12 @@ class KICKAITelegramBot:
             reply_markup=ReplyKeyboardRemove()
         )
     
-    async def register_player(self, user_id: int, name: str, position: str, phone: str = None) -> str:
+    async def register_player(self, telegram_id: int, name: str, position: str, phone: str = None) -> str:
         """Register player through KICKAI system."""
         # Create registration message for AI system
         registration_data = {
             "action": "register",
-            "user_id": user_id,
+            "telegram_id": telegram_id,
             "name": name,
             "position": position,
             "phone": phone
@@ -1619,7 +1619,7 @@ class KICKAITelegramBot:
         markdown_chars = ['**', '*', '_', '`', '[', ']']
         return any(char in text for char in markdown_chars)
     
-    def is_user_registered(self, user_id: int) -> bool:
+    def is_user_registered(self, telegram_id: int) -> bool:
         """Check if user is registered in KICKAI system."""
         # This would check your database
         return False  # Placeholder

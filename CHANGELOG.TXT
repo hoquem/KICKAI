@@ -1,61 +1,81 @@
 # KICKAI Changelog
 
-## [2025-01-XX] - LLM-Based Intent Recognition
+## [2025-08-23] - CrewAI Version Update
 
-### 🚀 Major Improvements
+### Updated
+- **CrewAI**: Updated to latest version 0.165.1 from 0.159.0 (production) and 0.157.0 (development)
+  - Updated both `requirements.txt` and `requirements-local.txt`
+  - Updated local virtual environment to use latest version
+  - Verified compatibility with existing codebase
+  - Benefits: Latest bug fixes, improved memory system, enhanced tracing capabilities
 
-#### Natural Language Understanding
-- **Replaced regex-based intent recognition with pure LLM-based approach**
-  - Eliminated brittle regex patterns that couldn't handle natural language variations
-  - Implemented `LLMIntentRecognizer` using CrewAI agents for sophisticated understanding
-  - Added context-aware intent recognition that considers user roles and chat types
-  - Improved entity extraction with LLM reasoning capabilities
+### Technical Details
+- **Production**: Updated from 0.159.0 to 0.165.1
+- **Development**: Updated from 0.157.0 to 0.165.1
+- **Key Improvements**: Enhanced memory system, improved tracing, bug fixes
+- **Compatibility**: ✅ All existing functionality verified working
+- **Risk Level**: Low - mostly bug fixes and improvements
 
-#### New Features
-- **`LLMIntentRecognizer` class**: Pure LLM-based intent recognition
-  - Uses CrewAI agents for sophisticated natural language understanding
-  - Provides confidence scoring based on LLM analysis
-  - Includes reasoning explanations for intent classification
-  - Handles context, paraphrases, and complex natural language
+## [2025-08-23] - String Formatting Fix
 
-- **Enhanced entity extraction**: 
-  - Extracts entities like player names, positions, phone numbers
-  - Understands relationships and context in natural language
-  - Provides structured output with confidence scores
+### Fixed
+- **CRITICAL**: Fixed string formatting error in routing_recommendation_tool
+  - Escaped curly braces in JSON template within f-string
+  - Resolved "Invalid format specifier" error in NLP processor
+  - Fixed JSON template formatting in routing prompt generation
+  - Ensured proper f-string syntax for JSON response format
 
-- **Context-aware processing**:
-  - Considers user registration status, chat type, and team context
-  - Adapts intent recognition based on user role (player vs team member)
-  - Handles different chat contexts (main vs leadership)
+### Technical Details
+- **File**: `kickai/agents/nlp_processor.py`
+- **Issue**: JSON template curly braces `{}` interpreted as format specifiers
+- **Solution**: Escaped curly braces by doubling them `{{}}`
+- **Impact**: Resolves routing recommendation tool errors
 
-#### Technical Improvements
-- **Structured output**: Uses JSON format for consistent parsing
-- **Error handling**: Robust fallback mechanisms for parsing failures
-- **Backward compatibility**: Maintains compatibility with existing code
-- **Async support**: Full async/await support for better performance
+## [2025-08-23] - NLP Processor Async Conversion
 
-#### Files Modified
-- `kickai/utils/llm_intent.py`: Complete rewrite with LLM-based approach
-- `kickai/utils/llm_client.py`: Updated to use new intent recognizer
-- `scripts/test_llm_intent.py`: New test script for intent recognition
+### Fixed
+- **CRITICAL**: Converted all NLP processor tools to async functions
+  - Converted 6 sync domain functions to async: `advanced_intent_recognition_domain`, `entity_extraction_domain`, `conversation_context_domain`, `semantic_similarity_domain`, `analyze_update_context_domain`, `validate_routing_permissions_domain`
+  - Resolved "ARCHITECTURE VIOLATION" errors in async tool registry
+  - Ensured 100% async architecture compliance for 2025 standards
+  - All tools now properly register with AsyncToolRegistry
 
-### 🔧 Bug Fixes
-- Fixed issues with regex patterns missing natural language variations
-- Improved handling of ambiguous user requests
-- Better error handling for intent extraction failures
+### Technical Details
+- **File**: `kickai/agents/nlp_processor.py`
+- **Issue**: Sync tools violating 2025 async-only architecture
+- **Solution**: Added `async` keyword to all domain function definitions
+- **Impact**: All NLP tools now properly async and registry-compliant
 
-### 📚 Documentation
-- Added comprehensive test script demonstrating LLM-based intent recognition
-- Updated inline documentation for all new classes and methods
-- Added examples of natural language processing capabilities
+## [2025-08-23] - JSON Parsing Fix
 
-### 🧪 Testing
-- Created comprehensive test suite for intent recognition
-- Added tests for context awareness and entity extraction
-- Included test cases for complex and ambiguous natural language
+### Fixed
+- **CRITICAL**: Fixed JSON parsing error in NLP routing recommendation method
+  - Added proper input validation for empty or invalid JSON responses
+  - Implemented graceful handling of "Expecting value: line 1 column 1 (char 0)" error
+  - Enhanced error logging with response content for debugging
+  - Improved fallback parsing for backwards compatibility
+  - Resolved CrewAI agent crashes due to invalid JSON parsing
 
----
+### Technical Details
+- **File**: `kickai/agents/crew_agents.py`
+- **Issue**: `json.loads("")` throwing "Expecting value: line 1 column 1 (char 0)" error
+- **Solution**: Added input validation and proper error handling
+- **Impact**: CrewAI agents now handle empty/invalid responses gracefully
 
-## Previous Versions
+## [2025-08-23] - CrewAI Parameter Passing Fix
 
-[Add previous version history here as needed]
+### Fixed
+- **CRITICAL**: Fixed CrewAI parameter passing in update_player_field tool
+  - Implemented proper handling of CrewAI's dictionary parameter passing
+  - Added parameter extraction logic for CrewAI's standard parameter format
+  - Enhanced tool to handle CrewAI's normal parameter passing behavior
+  - Resolved "Arguments validation failed" errors in CrewAI tool calls
+  - Added comprehensive parameter validation and type conversion
+
+### Technical Details
+- **File**: `kickai/features/player_registration/application/tools/player_update_tools.py`
+- **Issue**: CrewAI passes parameters as dictionary (normal behavior) but tool expected individual arguments
+  - Error: "Arguments validation failed: 6 validation errors for Update_Player_Field"
+  - Tool name conversion: `update_player_field` → `Update_Player_Field`
+- **Solution**: Added dictionary parameter extraction (normal CrewAI behavior)
+- **Impact**: `/update` commands now work correctly with CrewAI agents

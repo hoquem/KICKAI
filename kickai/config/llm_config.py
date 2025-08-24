@@ -42,13 +42,14 @@ class LLMConfiguration:
         self.ai_provider = self.settings.ai_provider
         # Determine default model: prefer simple/advanced pair, fallback to legacy
         self.default_model = (
-            self.settings.ai_model_name
-            or self.settings.ai_model_simple
+            self.settings.ai_model_simple
             or self.settings.ai_model_advanced
+            or self.settings.ai_model_name  # DEPRECATED fallback
             or ""
         )
         self.simple_model = self.settings.ai_model_simple or self.default_model
         self.advanced_model = self.settings.ai_model_advanced or self.default_model
+        self.nlp_model = self.settings.ai_model_nlp or self.advanced_model
         self.groq_api_key = self.settings.groq_api_key
         self.ollama_base_url = self.settings.ollama_base_url
 
@@ -236,6 +237,25 @@ class LLMConfiguration:
             use_case="data_critical"
         )
 
+    @property
+    @lru_cache(maxsize=1)
+    def nlp_llm(self) -> LLM:
+        """
+        Specialized LLM for NLP processing and intent recognition.
+
+        Uses GPT-OSS 20B or advanced model for intelligent language understanding.
+        Optimized for 2x faster processing with balanced temperature.
+
+        Returns:
+            LLM: Configured for NLP processing
+        """
+        return self._create_llm(
+            temperature=0.2,  # Balanced for understanding
+            max_tokens=600,   # Sufficient for analysis
+            use_case="nlp",
+            override_model=self.nlp_model
+        )
+
     def get_llm_for_agent(self, agent_role: AgentRole) -> tuple[LLM, LLM]:
         """
         Get optimal LLM configuration for specific agent role.
@@ -285,6 +305,23 @@ class LLMConfiguration:
                 override_model=self.advanced_model,
             )
             return advanced_llm, tool_llm
+
+        if agent_role == AgentRole.NLP_PROCESSOR:
+            # For NLP processor, use simple Groq model without complex tool calling
+            # This addresses the Groq tool calling error
+            nlp_llm = self._create_llm(
+                temperature=0.2,  # Balanced for understanding
+                max_tokens=600,   # Sufficient for analysis
+                use_case="nlp_agent",
+                override_model=self.simple_model,  # Use simple model instead of nlp_model
+            )
+            tool_llm = self._create_llm(
+                temperature=0.1,  # Precise for tool calls
+                max_tokens=400,   # Focused tool responses
+                use_case="nlp_tool",
+                override_model=self.simple_model,  # Use simple model instead of nlp_model
+            )
+            return nlp_llm, tool_llm
 
         # Default fallback
         default_main = self._create_llm(

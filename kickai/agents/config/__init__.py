@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""
+Agent configuration package.
+
+Provides configuration constants and messages for the agentic message router system.
+"""
+
+from .message_router_config import (
+    # Rate limiting
+    DEFAULT_MAX_CONCURRENT,
+    DEFAULT_MAX_REQUESTS_PER_MINUTE,
+    DEFAULT_CLEANUP_INTERVAL,
+    DEFAULT_TIMEOUT_SECONDS,
+    DEFAULT_RETRY_ATTEMPTS,
+    DEFAULT_RETRY_DELAY,
+    DEFAULT_EXPONENTIAL_BACKOFF_FACTOR,
+    RATE_LIMIT_WINDOW_SECONDS,
+    
+    # Phone validation
+    PHONE_NUMBER_MAX_LENGTH,
+    PHONE_NUMBER_MIN_LENGTH,
+    PHONE_NUMBER_MAX_DIGITS,
+    PHONE_NUMBER_MIN_DIGITS,
+    PHONE_ALLOWED_CHARS,
+    
+    # Command patterns
+    SLASH_COMMAND_PREFIX,
+    CLEAR_COMMAND_NAMES,
+    FOLLOWUP_INDICATORS,
+    AMBIGUOUS_REFS,
+    
+    # Messages
+    ERROR_MESSAGES,
+    WARNING_MESSAGES,
+    LOG_MESSAGES,
+    SUCCESS_MESSAGES,
+)
+
+__all__ = [
+    # Rate limiting
+    "DEFAULT_MAX_CONCURRENT",
+    "DEFAULT_MAX_REQUESTS_PER_MINUTE", 
+    "DEFAULT_CLEANUP_INTERVAL",
+    "DEFAULT_TIMEOUT_SECONDS",
+    "DEFAULT_RETRY_ATTEMPTS",
+    "DEFAULT_RETRY_DELAY",
+    "DEFAULT_EXPONENTIAL_BACKOFF_FACTOR",
+    "RATE_LIMIT_WINDOW_SECONDS",
+    
+    # Phone validation
+    "PHONE_NUMBER_MAX_LENGTH",
+    "PHONE_NUMBER_MIN_LENGTH",
+    "PHONE_NUMBER_MAX_DIGITS", 
+    "PHONE_NUMBER_MIN_DIGITS",
+    "PHONE_ALLOWED_CHARS",
+    
+    # Command patterns
+    "SLASH_COMMAND_PREFIX",
+    "CLEAR_COMMAND_NAMES",
+    "FOLLOWUP_INDICATORS",
+    "AMBIGUOUS_REFS",
+    
+    # Messages
+    "ERROR_MESSAGES",
+    "WARNING_MESSAGES",
+    "LOG_MESSAGES", 
+    "SUCCESS_MESSAGES",
+]

@@ -27,6 +27,7 @@ class RoutingDecision:
     match_type: str  # 'exact', 'pattern', 'default', 'fallback'
     confidence: float  # 0.0 to 1.0
     context_valid: bool
+    priority: int = 999  # Default priority (lower number = higher priority)
     error_message: Optional[str] = None
 
 
@@ -185,7 +186,8 @@ class CommandRoutingManager:
                 command=normalized_command,
                 match_type='exact',
                 confidence=1.0,
-                context_valid=self._validate_context(exact_match.agent, context or {})
+                context_valid=self._validate_context(exact_match.agent, context or {}),
+                priority=exact_match.priority
             )
 
         # Pattern matching removed for simplicity
@@ -197,7 +199,8 @@ class CommandRoutingManager:
             command=normalized_command,
             match_type='default',
             confidence=0.5,
-            context_valid=self._validate_context(default_agent, context or {})
+            context_valid=self._validate_context(default_agent, context or {}),
+            priority=1000  # Default routing has lowest priority
         )
 
     def _normalize_command(self, command: str) -> str:
@@ -267,6 +270,7 @@ class CommandRoutingManager:
                 match_type='context_restricted',
                 confidence=1.0,
                 context_valid=True,
+                priority=1,  # Context restrictions have highest priority
                 error_message=self.config.get('error_handling', {}).get('permission_denied', {}).get('response_template', 
                     "❌ You don't have permission to use this command in this chat.")
             )

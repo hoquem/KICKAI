@@ -1,4 +1,3 @@
-from typing import List, Optional, Union
 #!/usr/bin/env python3
 """
 Firebase Team Repository Implementation
@@ -7,6 +6,9 @@ This module provides the Firebase implementation of the team repository interfac
 """
 
 from datetime import datetime
+from typing import List, Optional, Union
+
+from loguru import logger
 
 from kickai.core.firestore_constants import (
     COLLECTION_TEAMS,
@@ -140,9 +142,6 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
     async def list_all(self, limit: int = 100) -> List[Team]:
         """List all teams with optional limit."""
         try:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.info(f"🔍 [REPO] list_all called with limit={limit}")
             logger.info(f"🔍 [REPO] Using collection: {self.collection_name}")
             logger.info(f"🔍 [REPO] Database type: {type(self.database)}")
@@ -156,12 +155,8 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
             return teams
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error in list_all: {e}")
             import traceback
-
             logger.error(f"❌ [REPO] Traceback: {traceback.format_exc()}")
             return []
 
@@ -170,11 +165,11 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         """Create a new team member."""
         # TeamMember entity uses telegram_id as the primary identifier
         # Generate member_id if not already set
-        if not team_member.member_id and team_member.telegram_id:
-            from kickai.utils.id_generator import generate_member_id
+        if not team_member.member_id:
+            from kickai.utils.simple_id_generator import generate_simple_team_member_id
             existing_members = await self.get_team_members(team_member.team_id)
             existing_ids = {member.member_id for member in existing_members if member.member_id}
-            team_member.member_id = generate_member_id(team_member.name or f"User{team_member.telegram_id}", existing_ids)
+            team_member.member_id = generate_simple_team_member_id(team_member.name or f"User{team_member.telegram_id}", team_member.team_id, existing_ids)
 
         team_member_data = team_member.to_dict()
 
@@ -197,9 +192,6 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
             return [self._doc_to_team_member(doc) for doc in docs]
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error getting team members: {e}")
             return []
 
@@ -232,9 +224,6 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
                 return self._doc_to_team_member(docs[0])
             return None
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error getting team member by telegram_id: {e}")
             return None
 
@@ -255,10 +244,48 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
                 return self._doc_to_team_member(docs[0])
             return None
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error getting team member by phone: {e}")
+            return None
+
+    async def get_team_member_by_id(self, member_id: str, team_id: str = None) -> Optional[TeamMember]:
+        """Get a team member by their member ID.
+        
+        Args:
+            member_id: The member ID to search for
+            team_id: Optional team ID to narrow the search. If not provided, searches all teams.
+        """
+        try:
+            # If team_id is provided, search within that team's collection first
+            if team_id:
+                try:
+                    doc = await self.database.get_document(
+                        collection=get_team_members_collection(team_id),
+                        document_id=member_id
+                    )
+                    if doc:
+                        return self._doc_to_team_member(doc)
+                except Exception:
+                    pass  # Continue to broader search
+            
+            # If not found in specific team or no team_id provided, search all teams
+            # Get list of all teams to search their member collections
+            teams = await self.get_all_teams()
+            
+            for team in teams:
+                try:
+                    doc = await self.database.get_document(
+                        collection=get_team_members_collection(team.id),
+                        document_id=member_id
+                    )
+                    if doc:
+                        return self._doc_to_team_member(doc)
+                except Exception:
+                    continue  # Try next team
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ [REPO] Error getting team member by ID {member_id}: {e}")
             return None
 
     async def get_team_members_by_status(
@@ -276,9 +303,6 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
             return [self._doc_to_team_member(doc) for doc in docs]
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error getting team members by status: {e}")
             return []
 
@@ -304,9 +328,6 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
 
             return True
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ [REPO] Error deleting team member: {e}")
             return False
 
@@ -326,6 +347,10 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
         settings = doc.get("settings", {})
 
         # Create team entity - bot configuration is now in explicit fields
+        # Check settings fallback for backward compatibility
+        main_chat_id = doc.get("main_chat_id") or settings.get("main_chat_id")
+        leadership_chat_id = doc.get("leadership_chat_id") or settings.get("leadership_chat_id")
+        
         team = Team(
             id=doc.get("id"),
             name=doc.get("name"),
@@ -339,8 +364,8 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             fa_fixtures_url=doc.get("fa_fixtures_url"),
             bot_id=doc.get("bot_id"),
             bot_token=doc.get("bot_token"),
-            main_chat_id=doc.get("main_chat_id"),
-            leadership_chat_id=doc.get("leadership_chat_id"),
+            main_chat_id=main_chat_id,
+            leadership_chat_id=leadership_chat_id,
         )
 
         return team
@@ -370,7 +395,8 @@ class FirebaseTeamRepository(TeamRepositoryInterface):
             status=doc.get("status", "active"),
             phone_number=doc.get("phone_number"),
             email=doc.get("email"),
-            emergency_contact=doc.get("emergency_contact"),
+            emergency_contact_name=doc.get("emergency_contact_name"),
+            emergency_contact_phone=doc.get("emergency_contact_phone"),
             created_at=created_at,
             updated_at=updated_at,
             source=doc.get("source"),
