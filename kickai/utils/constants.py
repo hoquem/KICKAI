@@ -80,20 +80,20 @@ ERROR_MESSAGES = {
     "SYSTEM_ERROR": "Could not generate invite link due to system error",
 
     # AddPlayer Command Specific Messages
-    "MISSING_ARGUMENTS": "❌ **Missing Arguments**\n\nUsage: `/addplayer <player_name> <phone_number>`",
-    "INVALID_FORMAT": "❌ **Invalid Format**\n\nI need both a player name and phone number.",
-    "NAME_TOO_SHORT": "❌ **Name too short**\n\n💡 Player name must be at least {min_length} characters long.",
-    "INVALID_PHONE_FORMAT": "❌ **Invalid phone number**\n\n📱 Please use UK format:\n• +447123456789\n• 07123456789\n\n🔍 You provided: {phone}",
-    "DUPLICATE_PHONE": "❌ **Phone Number Already Registered**\n\n📱 {phone} is already used by: **{existing_name}**",
-    "PERMISSION_REQUIRED": "❌ **Permission Required**\n\n🔒 Adding players is a leadership function.",
-    "ADDPLAYER_SYSTEM_ERROR": "❌ **System Error**\n\n🛠️ Failed to add player: {error}",
+    "MISSING_ARGUMENTS": "❌ Missing Arguments\n\nUsage: `/addplayer <player_name> <phone_number>`",
+    "INVALID_FORMAT": "❌ Invalid Format\n\nI need both a player name and phone number.",
+    "NAME_TOO_SHORT": "❌ Name too short\n\n💡 Player name must be at least {min_length} characters long.",
+    "INVALID_PHONE_FORMAT": "❌ Invalid phone number\n\n📱 Please use UK format:\n• +447123456789\n• 07123456789\n\n🔍 You provided: {phone}",
+    "DUPLICATE_PHONE": "❌ Phone Number Already Registered\n\n📱 {phone} is already used by: **{existing_name}**",
+    "PERMISSION_REQUIRED": "❌ Permission Required\n\n🔒 Adding players is a leadership function.",
+    "ADDPLAYER_SYSTEM_ERROR": "❌ System Error\n\n🛠️ Failed to add player: {error}",
 
     # AddMember Command Specific Messages
-    "ADDMEMBER_MISSING_ARGUMENTS": "❌ **Missing Arguments**\n\nUsage: `/addmember <name> <phone> [role]`\n\nExample: `/addmember \"Sarah Johnson\" \"+447987654321\" \"Assistant Coach\"`",
-    "ADDMEMBER_INVALID_FORMAT": "❌ **Invalid Format**\n\nI need at least a member name and phone number.",
-    "INVALID_ROLE": "❌ **Invalid Role**\n\n📋 Valid roles are:\n• Coach\n• Assistant Coach\n• Team Manager\n• Club Administrator\n• Team Member\n\n🔍 You provided: {role}",
-    "INVALID_EMAIL_FORMAT": "❌ **Invalid Email**\n\n📧 Please provide a valid email address.\n\n🔍 You provided: {email}",
-    "ADDMEMBER_SYSTEM_ERROR": "❌ **System Error**\n\n🛠️ Failed to add team member: {error}"
+    "ADDMEMBER_MISSING_ARGUMENTS": "❌ Missing Arguments**\n\nUsage: `/addmember <name> <phone> [role]`\n\nExample: `/addmember \"Sarah Johnson\" \"+447987654321\" \"Assistant Coach\"`",
+    "ADDMEMBER_INVALID_FORMAT": "❌ Invalid Format\n\nI need at least a member name and phone number.",
+    "INVALID_ROLE": "❌ Invalid Role\n\n📋 Valid roles are:\n• Coach\n• Assistant Coach\n• Team Manager\n• Club Administrator\n• Team Member\n\n🔍 You provided: {role}",
+    "INVALID_EMAIL_FORMAT": "❌ Invalid Email\n\n📧 Please provide a valid email address.\n\n🔍 You provided: {email}",
+    "ADDMEMBER_SYSTEM_ERROR": "❌ System Error\n\n🛠️ Failed to add team member: {error}"
 }
 
 # Success Messages

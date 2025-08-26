@@ -31,25 +31,20 @@ REQUIRED_FACTORY_METHODS = {
 
 # MODULE PATHS
 CONFIGURABLE_AGENT_MODULE = "kickai.agents.configurable_agent"
-TOOL_OUTPUT_CAPTURE_MODULE = "kickai.agents.tool_output_capture"
 CREWAI_AGENT_MODULE = "crewai"
 
 # CLASS NAMES
 CONFIGURABLE_AGENT_CLASS = "ConfigurableAgent"
 AGENT_FACTORY_CLASS = "AgentFactory"
-TOOL_OUTPUT_CAPTURE_CLASS = "ToolOutputCapture"
-TOOL_OUTPUT_CAPTURE_MIXIN_CLASS = "ToolOutputCaptureMixin"
 CREWAI_AGENT_CLASS = "Agent"
 
 # METHOD NAMES
-CLEAR_CAPTURED_OUTPUTS_METHOD = "clear_captured_outputs"
 EXECUTE_METHOD = "execute"
 KICKOFF_METHOD = "kickoff"
 
 # VALIDATION PATTERNS
 PROBLEMATIC_EXECUTE_PATTERN = "self._crew_agent.execute("
 CORRECT_CREW_PATTERN = "crew.kickoff()"
-MIXIN_PATTERN = "ToolOutputCaptureMixin"
 
 # ERROR MESSAGES
 ERROR_MESSAGES = {
@@ -57,14 +52,11 @@ ERROR_MESSAGES = {
     "VALIDATION_ERROR": "Error validating {component}: {error}",
     "MISSING_METHODS": "{class_name} missing methods: {methods}",
     "MISSING_MRO": "{class_name} does not have method resolution order",
-    "MISSING_MIXIN_METHOD": "{class_name} missing {method} method",
-    "MISSING_MIXIN_INHERITANCE": "{class_name} does not inherit from {mixin}",
     "PROBLEMATIC_EXECUTE": "{class_name}.execute() calls self._crew_agent.execute() - this will fail",
 }
 
 # WARNING MESSAGES
 WARNING_MESSAGES = {
-    "TOOL_CAPTURE_METHOD": "{class_name} has {method} method (should be on Mixin)",
     "CREWAI_NO_EXECUTE": "CrewAI Agent class does not have 'execute' method - should use Crew.kickoff() instead",
     "CREWAI_NO_KICKOFF": "CrewAI Agent class does not have 'kickoff' method - this is expected",
     "CREWAI_IMPORT_ERROR": "Could not import CrewAI Agent for method validation",
@@ -85,7 +77,6 @@ LOG_MESSAGES = {
 SUCCESS_MESSAGES = {
     "CREWAI_NATIVE": "Using CrewAI native approach",
     "CORRECT_CREW_USAGE": "Using correct CrewAI kickoff pattern",
-    "MIXIN_INHERITANCE": "Proper mixin inheritance detected",
 }
 
 
@@ -106,36 +97,7 @@ class AgentValidator:
         """Initialize the agent validator."""
         self.validation_results: list[ValidationResult] = []
 
-    def validate_tool_output_capture_methods(self) -> ValidationResult:
-        """Validate agent configuration and tool usage using CrewAI native approach."""
-        errors = []
-        warnings = []
-        details = {}
 
-        try:
-            configurable_agent = self._import_configurable_agent()
-            if not configurable_agent:
-                return self._create_import_error_result(CONFIGURABLE_AGENT_CLASS)
-
-            agent_methods = set(dir(configurable_agent))
-            missing_methods = REQUIRED_AGENT_METHODS - agent_methods
-
-            if missing_methods:
-                errors.append(ERROR_MESSAGES["MISSING_METHODS"].format(
-                    class_name=CONFIGURABLE_AGENT_CLASS, methods=missing_methods
-                ))
-
-            details["agent_methods"] = list(agent_methods)
-            details["crewai_native"] = True
-
-        except Exception as e:
-            errors.append(ERROR_MESSAGES["VALIDATION_ERROR"].format(
-                component="agent methods", error=str(e)
-            ))
-
-        return ValidationResult(
-            passed=len(errors) == 0, errors=errors, warnings=warnings, details=details
-        )
 
     def validate_configurable_agent_methods(self) -> ValidationResult:
         """Validate ConfigurableAgent class methods and attributes."""
@@ -176,20 +138,6 @@ class AgentValidator:
         details = {}
 
         try:
-            # Import required modules
-            tool_capture_result = self._import_tool_capture_modules()
-            if tool_capture_result.errors:
-                errors.extend(tool_capture_result.errors)
-                return ValidationResult(
-                    passed=len(errors) == 0, errors=errors, warnings=warnings, details=details
-                )
-
-            # Validate tool capture methods
-            tool_result = self._validate_tool_capture_methods()
-            errors.extend(tool_result.errors)
-            warnings.extend(tool_result.warnings)
-            details.update(tool_result.details)
-
             # Validate CrewAI agent methods
             crewai_result = self._validate_crewai_agent_methods()
             warnings.extend(crewai_result.warnings)
@@ -248,7 +196,6 @@ class AgentValidator:
         all_details = {}
 
         validations = [
-            ("Tool Output Capture Methods", self.validate_tool_output_capture_methods()),
             ("Configurable Agent Methods", self.validate_configurable_agent_methods()),
             ("Method Calls", self.validate_method_calls()),
             ("Agent Factory", self.validate_agent_factory()),
@@ -297,23 +244,7 @@ class AgentValidator:
             ))
             return None
 
-    def _import_tool_capture_modules(self) -> ValidationResult:
-        """Import tool capture modules."""
-        errors = []
-        details = {}
 
-        try:
-            module = __import__(TOOL_OUTPUT_CAPTURE_MODULE, fromlist=[
-                TOOL_OUTPUT_CAPTURE_CLASS, TOOL_OUTPUT_CAPTURE_MIXIN_CLASS
-            ])
-            details["tool_capture"] = getattr(module, TOOL_OUTPUT_CAPTURE_CLASS)
-            details["tool_capture_mixin"] = getattr(module, TOOL_OUTPUT_CAPTURE_MIXIN_CLASS)
-        except ImportError as e:
-            errors.append(ERROR_MESSAGES["IMPORT_ERROR"].format(
-                module=TOOL_OUTPUT_CAPTURE_MODULE, error=str(e)
-            ))
-
-        return ValidationResult(passed=len(errors) == 0, errors=errors, warnings=[], details=details)
 
     def _validate_inheritance_chain(self, agent_class: Any) -> ValidationResult:
         """Validate inheritance chain of agent class."""
@@ -344,53 +275,7 @@ class AgentValidator:
         details["class_methods"] = list(class_methods)
         return ValidationResult(passed=len(errors) == 0, errors=errors, warnings=[], details=details)
 
-    def _validate_tool_capture_methods(self) -> ValidationResult:
-        """Validate tool capture method implementations."""
-        errors = []
-        warnings = []
-        details = {}
 
-        try:
-            module = __import__(TOOL_OUTPUT_CAPTURE_MODULE, fromlist=[
-                TOOL_OUTPUT_CAPTURE_CLASS, TOOL_OUTPUT_CAPTURE_MIXIN_CLASS
-            ])
-
-            tool_capture = getattr(module, TOOL_OUTPUT_CAPTURE_CLASS)
-            tool_capture_mixin = getattr(module, TOOL_OUTPUT_CAPTURE_MIXIN_CLASS)
-
-            # Check ToolOutputCapture methods
-            if hasattr(tool_capture, CLEAR_CAPTURED_OUTPUTS_METHOD):
-                warnings.append(WARNING_MESSAGES["TOOL_CAPTURE_METHOD"].format(
-                    class_name=TOOL_OUTPUT_CAPTURE_CLASS, method=CLEAR_CAPTURED_OUTPUTS_METHOD
-                ))
-            else:
-                details["tool_capture_methods"] = [
-                    m for m in dir(tool_capture) if not m.startswith("_")
-                ]
-
-            # Check ToolOutputCaptureMixin methods
-            if not hasattr(tool_capture_mixin, CLEAR_CAPTURED_OUTPUTS_METHOD):
-                errors.append(ERROR_MESSAGES["MISSING_MIXIN_METHOD"].format(
-                    class_name=TOOL_OUTPUT_CAPTURE_MIXIN_CLASS, method=CLEAR_CAPTURED_OUTPUTS_METHOD
-                ))
-
-            # Validate inheritance
-            configurable_agent = self._import_configurable_agent()
-            if configurable_agent and hasattr(configurable_agent, "__mro__"):
-                mixin_in_chain = any(
-                    MIXIN_PATTERN in str(base) for base in configurable_agent.__mro__
-                )
-                if not mixin_in_chain:
-                    errors.append(ERROR_MESSAGES["MISSING_MIXIN_INHERITANCE"].format(
-                        class_name=CONFIGURABLE_AGENT_CLASS, mixin=MIXIN_PATTERN
-                    ))
-
-        except Exception as e:
-            errors.append(ERROR_MESSAGES["VALIDATION_ERROR"].format(
-                component="tool capture methods", error=str(e)
-            ))
-
-        return ValidationResult(passed=len(errors) == 0, errors=errors, warnings=warnings, details=details)
 
     def _validate_crewai_agent_methods(self) -> ValidationResult:
         """Validate CrewAI agent methods."""

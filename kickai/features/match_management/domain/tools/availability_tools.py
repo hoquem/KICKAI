@@ -23,7 +23,8 @@ from kickai.features.match_management.domain.services.availability_service impor
 logger = logging.getLogger(__name__)
 
 
-@tool("mark_availability", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def mark_availability(
     match_id: str,
     player_id: str,
@@ -102,7 +103,8 @@ async def mark_availability(
         return create_json_response(ResponseStatus.ERROR, message=f"Error marking availability: {e!s}")
 
 
-@tool("get_availability", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_availability(match_id: str) -> str:
     """Get availability information for a match.
     
@@ -181,7 +183,8 @@ async def get_availability(match_id: str) -> str:
         return create_json_response(ResponseStatus.ERROR, message=f"Error getting availability: {e!s}")
 
 
-@tool("get_player_availability_history", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_player_availability_history(
     player_id: str,
     limit: int = 10,
@@ -263,7 +266,8 @@ async def get_player_availability_history(
         return create_json_response(ResponseStatus.ERROR, message=f"Error getting availability history: {e!s}")
 
 
-@tool("send_availability_reminders", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def send_availability_reminders(match_id: str) -> str:
     """Send availability reminders for a match.
     

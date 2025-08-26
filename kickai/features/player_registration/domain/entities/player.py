@@ -15,12 +15,6 @@ from enum import Enum
 from kickai.core.enums import PlayerPosition
 
 
-class PreferredFoot(Enum):
-    """Player preferred foot enumeration."""
-
-    LEFT = "left"
-    RIGHT = "right"
-    BOTH = "both"
 
 
 class OnboardingStatus(Enum):
@@ -61,15 +55,15 @@ class Player:
 
     # Football-specific information
     position: Optional[str] = None  # e.g., "Midfielder", "Forward"
-    preferred_foot: Optional[str] = None  # "left", "right", "both"
-    jersey_number: Optional[str] = None
 
     # Contact and personal information
     phone_number: Optional[str] = None
     email: Optional[str] = None
     date_of_birth: Optional[str] = None
-    emergency_contact: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
     medical_notes: Optional[str] = None
+    
 
     # Status and approval
     status: str = "pending"  # pending, approved, rejected, active, inactive
@@ -116,13 +110,6 @@ class Player:
                     f"Invalid position: {self.position}. Must be one of {valid_positions}"
                 )
 
-        # Validate preferred foot if provided
-        if self.preferred_foot:
-            valid_feet = [foot.value for foot in PreferredFoot]
-            if self.preferred_foot.lower() not in valid_feet:
-                raise ValueError(
-                    f"Invalid preferred foot: {self.preferred_foot}. Must be one of {valid_feet}"
-                )
 
     def _set_defaults(self):
         """Set default values if not provided."""
@@ -181,7 +168,8 @@ class Player:
             "phone_number": self.phone_number,
             "email": self.email,
             "date_of_birth": self.date_of_birth,
-            "emergency_contact": self.emergency_contact,
+            "emergency_contact_name": self.emergency_contact_name,
+            "emergency_contact_phone": self.emergency_contact_phone,
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -197,6 +185,7 @@ class Player:
         if telegram_id is not None:
             telegram_id = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
 
+        
         return cls(
             team_id=data.get("team_id", ""),
             telegram_id=telegram_id,
@@ -207,7 +196,8 @@ class Player:
             phone_number=data.get("phone_number"),
             email=data.get("email"),
             date_of_birth=data.get("date_of_birth"),
-            emergency_contact=data.get("emergency_contact"),
+            emergency_contact_name=data.get("emergency_contact_name"),
+            emergency_contact_phone=data.get("emergency_contact_phone"),
             status=data.get("status", "pending"),
             created_at=cls._parse_datetime(data.get("created_at")),
             updated_at=cls._parse_datetime(data.get("updated_at")),
@@ -232,12 +222,12 @@ class Player:
         player.name = data.get("name")
         player.username = data.get("username")
         player.position = data.get("position")
-        player.preferred_foot = data.get("preferred_foot")
-        player.jersey_number = data.get("jersey_number")
         player.phone_number = data.get("phone_number")
         player.email = data.get("email")
         player.date_of_birth = data.get("date_of_birth")
-        player.emergency_contact = data.get("emergency_contact")
+        player.emergency_contact_name = data.get("emergency_contact_name")
+        player.emergency_contact_phone = data.get("emergency_contact_phone")
+        
         player.medical_notes = data.get("medical_notes")
         player.status = data.get("status", "pending")
         player.source = data.get("source")
@@ -280,6 +270,7 @@ class Player:
                 return None
         
         return None
+
 
     def approve(self):
         """Approve the player."""
@@ -332,16 +323,10 @@ class Player:
             return self.position.title()
         return "Not specified"
 
-    def update_football_info(
-        self, position: str = None, preferred_foot: str = None, jersey_number: str = None
-    ):
+    def update_football_info(self, position: str = None):
         """Update football-specific information."""
         if position is not None:
             self.position = position
-        if preferred_foot is not None:
-            self.preferred_foot = preferred_foot
-        if jersey_number is not None:
-            self.jersey_number = jersey_number
 
         self.updated_at = datetime.utcnow()
 
@@ -350,7 +335,8 @@ class Player:
         phone_number: str = None,
         email: str = None,
         date_of_birth: str = None,
-        emergency_contact: str = None,
+        emergency_contact_name: str = None,
+        emergency_contact_phone: str = None,
         medical_notes: str = None,
     ):
         """Update personal information."""
@@ -360,8 +346,10 @@ class Player:
             self.email = email
         if date_of_birth is not None:
             self.date_of_birth = date_of_birth
-        if emergency_contact is not None:
-            self.emergency_contact = emergency_contact
+        if emergency_contact_name is not None:
+            self.emergency_contact_name = emergency_contact_name
+        if emergency_contact_phone is not None:
+            self.emergency_contact_phone = emergency_contact_phone
         if medical_notes is not None:
             self.medical_notes = medical_notes
 

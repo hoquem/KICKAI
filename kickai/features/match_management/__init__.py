@@ -14,16 +14,15 @@ def initialize_match_management(config: dict[str, Any]) -> None:
     """Initialize the match management feature."""
     logger.info("Initializing match management feature")
 
-    # Import and register match management tools
+    # Import and register match management tools from application layer
     try:
-        from kickai.features.match_management.domain.tools.match_tools import (
+        from kickai.features.match_management.application.tools.match_tools import (
             create_match,
-            delete_match,
             get_available_players_for_match,
-            get_match,
+            get_match_details,
             list_matches,
+            record_match_result,
             select_squad,
-            update_match,
         )
 
         logger.info("✅ Match management tools imported successfully")

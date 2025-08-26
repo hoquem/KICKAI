@@ -28,7 +28,6 @@ from ..repositories.player_repository_interface import PlayerRepositoryInterface
 # Constants
 MIN_NAME_LENGTH = 2
 MIN_TEAM_ID_LENGTH = 2
-PLAYER_ID_PREFIX = "M"
 DEFAULT_STATUS = "pending"
 ACTIVE_STATUS = "active"
 
@@ -180,27 +179,31 @@ class PlayerService:
     ) -> Player | None:
         """Get a player by Telegram ID."""
         try:
-            # Use the database client directly since repository might not have this method
-            from kickai.core.dependency_container import get_container
-
-            container = get_container()
-            database = container.get_database()
-
-            # Call the firebase client method directly
-            player_data = await database.get_player_by_telegram_id(telegram_id, team_id)
-            if player_data:
-                return self._create_player_from_data(player_data)
-            return None
-        except Exception as e:
+            # Convert string to int if needed
+            telegram_id_int = int(telegram_id) if isinstance(telegram_id, str) else telegram_id
+            
+            # Use repository interface (Clean Architecture compliant)
+            return await self.player_repository.get_player_by_telegram_id(telegram_id_int, team_id)
+            
+        except (RuntimeError, ValueError, KeyError, AttributeError) as e:
             logger.error(ERROR_TEMPLATES["TELEGRAM_ID_ERROR"].format(telegram_id, e))
+            # Return None instead of raising to prevent cascade failures in lookup operations
             return None
+
+    async def get_players_by_telegram_id(
+        self, telegram_id: str | int, team_id: str
+    ) -> list[Player]:
+        """Get players by Telegram ID (returns a list for compatibility with calling code)."""
+        player = await self.get_player_by_telegram_id(telegram_id, team_id)
+        return [player] if player else []
 
     def _create_player_from_data(self, player_data: dict[str, Any]) -> Player:
         """Create a Player entity from database data."""
-        # Handle legacy player_id formats - if it doesn't start with 'M', treat as None
+        # Player IDs should NOT start with 'M' - that's for team members
+        # Player IDs are in format {Number}{Initials} (e.g., "01AB", "02MH")
         player_id = player_data.get("player_id")
-        if player_id and not player_id.startswith(PLAYER_ID_PREFIX):
-            logger.warning(ERROR_TEMPLATES["LEGACY_PLAYER_ID"].format(player_id))
+        if player_id and player_id.startswith("M"):
+            logger.warning(f"Player ID '{player_id}' starts with 'M' - this is for team members, not players")
             player_id = None
 
         return Player(
@@ -299,7 +302,8 @@ class PlayerService:
             # User not found as player
             return SUCCESS_TEMPLATES["PLAYER_NOT_FOUND_STATUS"].format(user_id, team_id)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, AttributeError) as e:
+            from kickai.features.player_registration.domain.exceptions import PlayerStatusError
             logger.error(ERROR_TEMPLATES["PLAYER_STATUS_ERROR"].format(user_id, e))
             return SUCCESS_TEMPLATES["PLAYER_STATUS_ERROR"].format(e)
 

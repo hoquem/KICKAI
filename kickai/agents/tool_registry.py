@@ -548,40 +548,85 @@ class ToolRegistry:
 
     def _register_essential_tools(self):
         """Register essential tools manually when auto-discovery fails."""
-        logger.info("🔧 Registering essential tools manually")
+        logger.info("🔧 Registering essential tools manually - using APPLICATION layer (Clean Architecture)")
 
-        # Import and register essential tools
+        # Import and register essential tools from APPLICATION layer (post-Clean Architecture migration)
         try:
-            # Communication tools
-            from kickai.features.communication.domain.tools.communication_tools import (
+            # System tools - APPLICATION LAYER
+            from kickai.features.shared.application.tools.system_tools import (
+                ping,
+                version,
+            )
+            from kickai.features.shared.application.tools.help_tools import (
+                help_response,
+                FINAL_HELP_RESPONSE,
+            )
+            from kickai.features.shared.application.tools.user_tools import get_user_status
+            
+            # Communication tools - APPLICATION LAYER
+            from kickai.features.communication.application.tools.communication_tools import (
                 send_announcement,
                 send_message,
                 send_poll,
             )
-            from kickai.features.match_management.domain.tools.squad_tools import (
-                get_available_players_for_match,
-                get_match,
-                list_matches,
-                select_squad,
-            )
-            from kickai.features.player_registration.domain.tools.player_tools import (
+            
+            # Player tools - APPLICATION LAYER
+            from kickai.features.player_registration.application.tools.player_tools import (
                 approve_player,
                 get_active_players,
                 get_all_players,
                 get_my_status,
                 get_player_status,
+                list_team_members_and_players,
             )
-            from kickai.features.shared.domain.tools.help_tools import (
-                get_available_commands,
-                get_command_help,
-                get_welcome_message,
-            )
-            from kickai.features.shared.domain.tools.user_tools import get_user_status
-            from kickai.features.team_administration.domain.tools.player_management_tools import (
+            
+            # Team administration tools - APPLICATION LAYER
+            from kickai.features.team_administration.application.tools.player_management_tools import (
                 add_player,
             )
-            from kickai.features.team_administration.domain.tools.team_member_tools import (
+            from kickai.features.team_administration.application.tools.team_member_tools import (
                 team_member_registration,
+            )
+
+            # Register system tools - APPLICATION LAYER
+            self.register_tool(
+                tool_id="ping",
+                tool_type=ToolType.SYSTEM,
+                category=ToolCategory.CORE,
+                name="ping",
+                description="System connectivity test",
+                tool_function=ping,
+                feature_module="shared",
+            )
+
+            self.register_tool(
+                tool_id="version",
+                tool_type=ToolType.SYSTEM,
+                category=ToolCategory.CORE,
+                name="version",
+                description="System version information",
+                tool_function=version,
+                feature_module="shared",
+            )
+
+            self.register_tool(
+                tool_id="help_response",
+                tool_type=ToolType.HELP,
+                category=ToolCategory.CORE,
+                name="help_response",
+                description="Comprehensive help response system",
+                tool_function=help_response,
+                feature_module="shared",
+            )
+
+            self.register_tool(
+                tool_id="FINAL_HELP_RESPONSE",
+                tool_type=ToolType.HELP,
+                category=ToolCategory.CORE,
+                name="FINAL_HELP_RESPONSE",
+                description="Final help response tool for compatibility",
+                tool_function=FINAL_HELP_RESPONSE,
+                feature_module="shared",
             )
 
             # Register communication tools
@@ -684,6 +729,16 @@ class ToolRegistry:
                 name="get_active_players",
                 description="Get active players in the team",
                 tool_function=get_active_players,
+                feature_module="player_registration",
+            )
+
+            self.register_tool(
+                tool_id="list_team_members_and_players",
+                tool_type=ToolType.TEAM_MANAGEMENT,
+                category=ToolCategory.CORE,
+                name="list_team_members_and_players",
+                description="List both team members and players",
+                tool_function=list_team_members_and_players,
                 feature_module="player_registration",
             )
 
@@ -819,19 +874,20 @@ class ToolRegistry:
 
         total_discovered = 0
 
-        # Discover tools from features directory
+        # Discover tools from features directory - APPLICATION LAYER (Clean Architecture)
         features_path = src_path_obj / "features"
         if features_path.exists():
             for feature_dir in features_path.iterdir():
                 if feature_dir.is_dir():
                     feature_name = feature_dir.name
-                    tools_path = feature_dir / "domain" / "tools"
+                    # Look in APPLICATION layer for @tool decorators
+                    tools_path = feature_dir / "application" / "tools"
                     if tools_path.exists():
                         discovered_count = self._discover_tools_from_path(tools_path, feature_name)
                         total_discovered += discovered_count
 
-        # Discover tools from shared directory
-        shared_path = src_path_obj / "features" / "shared" / "domain" / "tools"
+        # Discover tools from shared directory - APPLICATION LAYER
+        shared_path = src_path_obj / "features" / "shared" / "application" / "tools"
         if shared_path.exists():
             discovered_count = self._discover_tools_from_path(shared_path, "shared")
             total_discovered += discovered_count

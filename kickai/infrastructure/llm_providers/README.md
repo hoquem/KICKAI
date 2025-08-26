@@ -213,7 +213,9 @@ class ProviderConfig:
 The factory supports configuration via environment variables:
 
 - `AI_PROVIDER`: The provider to use (ollama, gemini, huggingface, mock)
-- `AI_MODEL_NAME`: Model name override
+- `AI_MODEL_SIMPLE`: Simple model for lightweight operations
+- `AI_MODEL_ADVANCED`: Advanced model for complex operations
+- `AI_MODEL_NLP`: Specialized NLP model (e.g., gpt-oss-20b)
 - `LLM_TEMPERATURE`: Temperature setting
 - `LLM_TIMEOUT`: Timeout in seconds
 - `LLM_MAX_RETRIES`: Maximum retry attempts

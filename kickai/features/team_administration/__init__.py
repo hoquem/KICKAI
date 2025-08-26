@@ -9,8 +9,8 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
-# Import commands for discovery
-from . import application  # This will discover all commands
+# Application layer tools are discovered automatically by the tool registry
+# No need to import them here to avoid circular imports
 
 
 def initialize_team_administration(config: dict[str, Any]) -> None:
@@ -27,16 +27,8 @@ def shutdown_team_administration() -> None:
     logger.info("Team administration feature shutdown complete")
 
 
-# Export all tools for CrewAI discovery
+# Export feature functions (tools are discovered by tool registry)
 __all__ = [
-    # Tools
-    "add_player",
-    "add_team_member_simplified", 
-    "update_team_member_information",
-    "get_team_member_updatable_fields",
-    "validate_team_member_update_request",
-    "get_pending_team_member_approval_requests",
-    # Functions
     "initialize_team_administration",
     "shutdown_team_administration",
 ]

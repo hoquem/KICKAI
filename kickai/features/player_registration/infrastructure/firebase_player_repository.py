@@ -98,7 +98,8 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
             "phone_number": player.phone_number,
             "email": player.email,
             "date_of_birth": player.date_of_birth,
-            "emergency_contact": player.emergency_contact,
+            "emergency_contact_name": player.emergency_contact_name,
+            "emergency_contact_phone": player.emergency_contact_phone,
             "status": player.status,
             "created_at": player.created_at.isoformat() if player.created_at else None,
             "updated_at": player.updated_at.isoformat() if player.updated_at else None,
@@ -112,8 +113,6 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
         # Add fields specific to updates
         base_data.update(
             {
-                "preferred_foot": player.preferred_foot,
-                "jersey_number": player.jersey_number,
                 "medical_notes": player.medical_notes,
             }
         )
@@ -242,6 +241,80 @@ class FirebasePlayerRepository(PlayerRepositoryInterface):
         except Exception as e:
             logger.error(ERROR_MESSAGES["GET_PLAYERS_BY_STATUS_FAILED"].format(status, team_id, e))
             return []
+
+    async def get_player_by_telegram_id(self, telegram_id: int, team_id: str) -> Player | None:
+        """Get a player by Telegram ID."""
+        try:
+            # Use team-specific collection naming
+            collection_name = get_team_players_collection(team_id)
+
+            docs = await self.database.query_documents(
+                collection=collection_name,
+                filters=[
+                    {"field": "telegram_id", "operator": "==", "value": telegram_id},
+                    {"field": "team_id", "operator": "==", "value": team_id},
+                ],
+            )
+
+            if docs:
+                return self._doc_to_player(docs[0])
+            return None
+
+        except Exception as e:
+            logger.error(f"Failed to get player by telegram_id {telegram_id} for team {team_id}: {e}")
+            return None
+
+    async def get_active_players(self, team_id: str) -> list[Player]:
+        """Get all active players in a team."""
+        return await self.get_players_by_status(team_id, "active")
+
+    async def approve_player(self, player_id: str, team_id: str) -> Player:
+        """Approve a player and set status to active."""
+        try:
+            player = await self.get_player_by_id(player_id, team_id)
+            if not player:
+                raise ValueError(f"Player {player_id} not found in team {team_id}")
+
+            player.status = "active"
+            return await self.update_player(player)
+
+        except Exception as e:
+            logger.error(f"Failed to approve player {player_id} in team {team_id}: {e}")
+            raise
+
+    async def update_player_field(self, telegram_id: int, team_id: str, field: str, value: str) -> bool:
+        """Update a single field for a player."""
+        try:
+            player = await self.get_player_by_telegram_id(telegram_id, team_id)
+            if not player:
+                return False
+
+            # Update the field
+            setattr(player, field, value)
+            await self.update_player(player)
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to update player field {field} for telegram_id {telegram_id}: {e}")
+            return False
+
+    async def update_player_multiple_fields(self, telegram_id: int, team_id: str, updates: dict[str, str]) -> bool:
+        """Update multiple fields for a player."""
+        try:
+            player = await self.get_player_by_telegram_id(telegram_id, team_id)
+            if not player:
+                return False
+
+            # Update all fields
+            for field, value in updates.items():
+                setattr(player, field, value)
+
+            await self.update_player(player)
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to update multiple fields for telegram_id {telegram_id}: {e}")
+            return False
 
     def _doc_to_player(self, doc: dict) -> Player:
         """Convert a Firestore document to a Player entity."""

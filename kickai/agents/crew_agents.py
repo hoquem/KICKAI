@@ -19,18 +19,13 @@ from contextlib import contextmanager
 from functools import wraps
 from typing import Any
 
-from crewai import Crew
+from crewai import Crew, Task
 from loguru import logger
 
 from kickai.agents.async_tool_metadata import AsyncContextInjector, get_async_tool_registry
 from kickai.agents.configurable_agent import ConfigurableAgent
-
-# Removed entity_specific_agents for simplified 6-agent architecture
-# Remove SimpleLLMFactory import - replaced with CrewAI native config
-# from kickai.utils.llm_factory_simple import SimpleLLMFactory
 from kickai.agents.tool_registry import initialize_tool_registry
 from kickai.config.agents import get_agent_config
-from kickai.config.command_routing_manager import get_command_routing_manager
 from kickai.config.llm_config import get_llm_config
 from kickai.core.config import get_settings
 from kickai.core.enums import AgentRole
@@ -44,6 +39,11 @@ DEFAULT_TASK_DESCRIPTION_LIMIT = 500
 DEFAULT_RESULT_PREVIEW_LIMIT = 100
 DEFAULT_VERBOSE_MODE = True
 DEFAULT_MEMORY_ENABLED = False
+
+# Memory and truncation constants
+MEMORY_HISTORY_LIMIT = 1
+COMMAND_TRUNCATE_LENGTH = 50
+RESPONSE_TYPE_TRUNCATE_LENGTH = 50
 
 
 class ConfigurationError(Exception):
@@ -107,9 +107,8 @@ class TeamManagementSystem:
         self._initialize_tool_registry()
         self._initialize_async_tool_registry()
 
-        # Initialize command routing manager
-        logger.info("[TEAM INIT] Initializing command routing manager")
-        self._initialize_routing_manager()
+        # Command routing now handled via pure CrewAI agent collaboration
+        logger.info("[TEAM INIT] CrewAI native collaboration enabled - MESSAGE_PROCESSOR primary agent")
 
         # Initialize agents with entity-specific validation
         logger.info("[TEAM INIT] Initializing agents dictionary")
@@ -176,40 +175,7 @@ class TeamManagementSystem:
             logger.error(f"❌ Failed to initialize async tool registry: {e}")
             raise ConfigurationError(f"Failed to initialize async tool registry: {e!s}") from e
 
-    def _initialize_routing_manager(self):
-        """Initialize command routing manager - REQUIRED, no fallbacks."""
-        try:
-            self.routing_manager = get_command_routing_manager()
-            logger.info("✅ Command routing manager initialized")
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize command routing manager: {e}")
-            # FAIL FAST - No silent fallbacks, configuration must be valid
-            raise ConfigurationError(f"Command routing configuration is required and must be valid: {e}") from e
 
-    def _route_command_to_agent(self, command: str, chat_type: str | None = None, context: dict[str, Any] | None = None) -> AgentRole:
-        """
-        Route a command to the appropriate agent using the routing manager.
-
-        Args:
-            command: Command to route
-            chat_type: Chat context (main/leadership/private)
-            context: Additional routing context
-
-        Returns:
-            AgentRole for the selected agent
-
-        Raises:
-            RuntimeError: If routing fails (no silent fallbacks)
-        """
-        try:
-            # Use dynamic routing - REQUIRED, no fallbacks
-            routing_decision = self.routing_manager.route_command(command, chat_type, context)
-            logger.info(f"🎯 Dynamic routing: {command} → {routing_decision.agent_role.value} ({routing_decision.match_type})")
-            return routing_decision.agent_role
-        except Exception as e:
-            logger.error(f"❌ Routing failed for '{command}': {e}")
-            # FAIL FAST - No silent fallbacks
-            raise RuntimeError(f"Command routing failed for '{command}': {e}") from e
 
     def _initialize_agents(self):
         """Initialize agents with clean configuration."""
@@ -220,7 +186,8 @@ class TeamManagementSystem:
                 AgentRole.HELP_ASSISTANT,
                 AgentRole.PLAYER_COORDINATOR,
                 AgentRole.TEAM_ADMINISTRATOR,
-                AgentRole.SQUAD_SELECTOR
+                AgentRole.SQUAD_SELECTOR,
+                AgentRole.NLP_PROCESSOR  # Intelligent routing and context analysis agent
             ]
 
             for role in agent_roles:
@@ -350,7 +317,17 @@ class TeamManagementSystem:
         try:
             logger.info(f"🤖 TEAM MANAGEMENT: Starting task execution for team {self.team_id}")
             logger.info(f"🤖 TEAM MANAGEMENT: Task description: {task_description}")
-            logger.info(f"🤖 TEAM MANAGEMENT: Execution context: {execution_context}")
+
+            # CREWAI BEST PRACTICE: Optimize context before any processing
+            from kickai.agents.utils.context_optimizer import ContextOptimizer
+
+            # Add minimal memory reference (not full memory_context)
+            execution_context = self._add_memory_context(execution_context)
+
+            # Optimize context following CrewAI best practices
+            optimized_context = ContextOptimizer.optimize_execution_context(execution_context)
+
+            logger.info(f"🤖 TEAM MANAGEMENT: Optimized execution context: {optimized_context}")
             logger.info(
                 f"🤖 TEAM MANAGEMENT: Available agents: {[role.value for role in self.agents.keys()]}"
             )
@@ -358,8 +335,8 @@ class TeamManagementSystem:
             # Log agent details
             self._log_agent_details()
 
-            # Add conversation context to execution context
-            execution_context = self._add_memory_context(execution_context)
+            # Use optimized context for all further processing
+            execution_context = optimized_context
 
             # Execute the task
             result = await self._execute_with_basic_crew(task_description, execution_context)
@@ -386,31 +363,72 @@ class TeamManagementSystem:
             logger.warning(f"⚠️ Could not log agent details: {e}")
 
     def _add_memory_context(self, execution_context: dict[str, Any]) -> dict[str, Any]:
-        """Add memory context to execution context."""
+        """Add minimal memory reference to execution context (optimized for CrewAI)."""
         try:
             telegram_id = execution_context.get("telegram_id")
             if telegram_id and hasattr(self, "team_memory"):
-                # Get telegram-specific memory context
-                memory_context = self.team_memory.get_telegram_memory_context(telegram_id)
-                execution_context["memory_context"] = memory_context
-                logger.info(f"🤖 TEAM MANAGEMENT: Added memory context for telegram_id {telegram_id}")
+                # Get conversation history count only (not full history)
+                history = self.team_memory.get_conversation_history(str(telegram_id), limit=MEMORY_HISTORY_LIMIT)
+                has_previous = len(history) > 0
+                last_command = history[0].get("input", "") if has_previous else None
+
+                # Add minimal conversation reference (not full memory_context)
+                execution_context["has_previous"] = has_previous
+                if last_command:
+                    execution_context["last_command"] = last_command[:COMMAND_TRUNCATE_LENGTH]  # Truncate
+
+                logger.info(f"🤖 TEAM MANAGEMENT: Added minimal memory reference for telegram_id {telegram_id}")
             return execution_context
         except Exception as e:
-            logger.warning(f"⚠️ Could not add memory context: {e}")
+            logger.warning(f"⚠️ Could not add memory reference: {e}")
             return execution_context
 
     def _store_conversation_in_memory(self, task_description: str, result: str, execution_context: dict[str, Any]) -> None:
-        """Store conversation in memory for context persistence."""
+        """Store conversation using optimized memory manager (CrewAI best practices)."""
         try:
             telegram_id = execution_context.get("telegram_id")
-            if telegram_id and hasattr(self, "team_memory"):
-                self.team_memory.add_conversation(
-                    telegram_id=str(telegram_id),  # Use correct parameter name
-                    input_text=task_description,
-                    output_text=result,
-                    context=execution_context,
+            if telegram_id:
+                # Use optimized memory manager for minimal storage
+                from kickai.agents.utils.memory_manager import get_memory_manager
+
+                memory_manager = get_memory_manager(self.team_id)
+
+                # Determine response type for better categorization
+                response_type = "success"
+                if "❌" in result or "Error" in result:
+                    response_type = "error"
+                elif "help" in task_description.lower() or "/help" in task_description:
+                    response_type = "help"
+                elif "{" in result and "data" in result:
+                    response_type = "data"
+
+                # Store conversation summary (not full content)
+                summary = memory_manager.add_conversation_summary(
+                    telegram_id=telegram_id,
+                    command=task_description,
+                    response=result,
+                    response_type=response_type
                 )
-                logger.info(f"🤖 TEAM MANAGEMENT: Stored conversation in memory for user {telegram_id}")
+
+                logger.info(
+                    f"🤖 TEAM MANAGEMENT: Stored conversation summary for user {telegram_id}, "
+                    f"saved ~{summary.tokens_saved} tokens"
+                )
+
+                # Also store in legacy system for compatibility (but with minimal context)
+                if hasattr(self, "team_memory"):
+                    minimal_context = {
+                        "chat_type": execution_context.get("chat_type"),
+                        "response_type": response_type
+                    }
+
+                    self.team_memory.add_conversation(
+                        telegram_id=str(telegram_id),
+                        input_text=task_description[:COMMAND_TRUNCATE_LENGTH],  # Truncated
+                        output_text=f"{response_type}: {result[:RESPONSE_TYPE_TRUNCATE_LENGTH]}...",  # Summarized
+                        context=minimal_context,
+                    )
+
         except Exception as e:
             logger.warning(f"⚠️ Could not store conversation in memory: {e}")
 
@@ -422,42 +440,48 @@ class TeamManagementSystem:
         This is used when the orchestration pipeline fails.
         """
         try:
+            # CREWAI BEST PRACTICE: Optimize context before execution
+            from kickai.agents.utils.context_optimizer import ContextOptimizer
+
+            # Create optimized context following CrewAI best practices
+            optimized_context = ContextOptimizer.optimize_execution_context(
+                raw_context=execution_context,
+                target_agent=AgentRole.MESSAGE_PROCESSOR  # Primary agent
+            )
+
             logger.info("🤖 BASIC CREW: Executing task with basic crew")
             logger.info(f"🤖 BASIC CREW: Task description: {task_description}")
-            logger.info(f"🤖 BASIC CREW: Execution context: {execution_context}")
+            logger.info(f"🤖 BASIC CREW: Optimized execution context: {optimized_context}")
+
+            # Use optimized context for execution
+            execution_context = optimized_context
 
             # Use the basic crew that was created in _create_crew
             if not hasattr(self, "crew") or not self.crew:
                 logger.error("🤖 BASIC CREW: No crew available for fallback")
                 return "❌ Sorry, I'm unable to process your request at the moment."
 
-            logger.info("🤖 BASIC CREW: Using existing crew")
+            logger.info("🤖 CREWAI NATIVE: Using CrewAI agent collaboration patterns")
 
-            # Extract command name and route to appropriate agent
-            command_name = self._extract_command_name(task_description)
-            selected_agent_role = self._route_command_to_agent(
-                command=command_name,
-                chat_type=execution_context.get('chat_type'),
-                context=execution_context
-            )
-
-            if not selected_agent_role or selected_agent_role not in self.agents:
-                logger.error("🤖 BASIC CREW: No suitable agent found for task")
-                return "❌ Sorry, I'm unable to process your request at the moment."
-
+            # INTELLIGENT ROUTING: Use command routing manager for proper agent selection
+            # Use original task description for routing (before enhancement)
+            selected_agent_role = await self._route_command_to_agent(task_description, execution_context)
             agent = self.agents[selected_agent_role]
+
+            logger.info(f"🤖 INTELLIGENT ROUTING: Selected agent - {selected_agent_role.value} for command: {task_description}")
 
             # Validate and prepare execution context
             execution_context = self._prepare_execution_context(execution_context)
 
-            # Get agent tools
+            # Get MESSAGE_PROCESSOR tools (includes NLP collaboration tools)
             agent_tools = self._get_agent_tools(agent, selected_agent_role, execution_context)
             if not agent_tools:
-                return "❌ Internal error: No tools available for agent. This issue has been logged for investigation."
+                return "❌ Internal error: No tools available for primary agent. This issue has been logged for investigation."
 
-            # Create and execute task
+            # Create and execute task using CrewAI native collaboration
+            # The task description will be enhanced within _create_and_execute_task
             result = await self._create_and_execute_task(
-                task_description, execution_context, agent, command_name
+                task_description, execution_context, agent
             )
 
             logger.info(f"🤖 BASIC CREW: Task completed with result: {result}")
@@ -467,13 +491,340 @@ class TeamManagementSystem:
             logger.error(f"🤖 BASIC CREW: Error in fallback execution: {e}", exc_info=True)
             return "❌ Sorry, I'm having trouble processing your request right now. Please try again in a moment."
 
-    def _extract_command_name(self, task_description: str) -> str:
-        """Extract command name from task description."""
+
+    def _extract_command_from_task(self, task_description: str) -> str:
+        """
+        Extract command from CrewAI structured task description using expert patterns.
+
+        Handles both structured descriptions (from AsyncContextInjector) and simple commands.
+        Uses CrewAI best practices for task parsing and command extraction.
+
+        Args:
+            task_description: Full task description from CrewAI
+
+        Returns:
+            Extracted command string (e.g., "/update", "/info", "/help")
+        """
+        import re
+
         try:
-            return task_description.split()[0] if task_description else ""
-        except Exception as e:
-            logger.warning(f"⚠️ Could not extract command name: {e}")
+            # CREWAI NATIVE PATTERN 1: Extract from structured "User Request:" line
+            # Format: "User Request: /command args..."
+            user_request_match = re.search(r'User Request:\s*([^\n]+)', task_description, re.IGNORECASE)
+            if user_request_match:
+                user_request = user_request_match.group(1).strip()
+                logger.debug(f"🔍 COMMAND EXTRACTION: Found User Request line: '{user_request}'")
+
+                # Extract command from user request line
+                command = self._extract_command_from_line(user_request)
+                if command:
+                    logger.info(f"✅ COMMAND EXTRACTION: Extracted command '{command}' from structured task")
+                    return command
+
+            # CREWAI NATIVE PATTERN 2: Extract from "Task:" line (alternative format)
+            # Format: "Task: /command args..."
+            task_match = re.search(r'Task:\s*([^\n]+)', task_description, re.IGNORECASE)
+            if task_match:
+                task_line = task_match.group(1).strip()
+                logger.debug(f"🔍 COMMAND EXTRACTION: Found Task line: '{task_line}'")
+
+                command = self._extract_command_from_line(task_line)
+                if command:
+                    logger.info(f"✅ COMMAND EXTRACTION: Extracted command '{command}' from Task line")
+                    return command
+
+            # CREWAI NATIVE PATTERN 3: Direct command extraction (fallback for simple cases)
+            # Handle cases where task_description is just a command
+            command = self._extract_command_from_line(task_description)
+            if command:
+                logger.info(f"✅ COMMAND EXTRACTION: Extracted command '{command}' from direct input")
+                return command
+
+            # CREWAI BEST PRACTICE: Multi-line search for commands anywhere in description
+            # Look for command patterns throughout the entire description
+            command_pattern = r'(/[a-zA-Z][a-zA-Z0-9_]*)\b'
+            commands_found = re.findall(command_pattern, task_description)
+
+            if commands_found:
+                # Take the first command found (most likely to be the primary intent)
+                first_command = commands_found[0]
+                logger.info(f"✅ COMMAND EXTRACTION: Found command '{first_command}' via pattern search")
+                return first_command
+
+            # Final fallback - try first word if it looks like a command
+            words = task_description.strip().split()
+            if words and words[0].startswith('/'):
+                logger.info(f"✅ COMMAND EXTRACTION: Using first word '{words[0]}' as command")
+                return words[0]
+
+            # No command found
+            logger.warning("⚠️ COMMAND EXTRACTION: No command found in task description")
             return ""
+
+        except Exception as e:
+            logger.error(f"❌ COMMAND EXTRACTION: Error extracting command: {e}")
+            return ""
+
+    def _extract_command_from_line(self, line: str) -> str:
+        """
+        Extract command from a single line using CrewAI-optimized patterns.
+
+        Args:
+            line: Single line of text potentially containing a command
+
+        Returns:
+            Command string if found, empty string otherwise
+        """
+        import re
+
+        try:
+            line = line.strip()
+            if not line:
+                return ""
+
+            # Pattern 1: Command at start of line (most common)
+            # "/command args..." or "/command"
+            if line.startswith('/'):
+                command_match = re.match(r'(/[a-zA-Z][a-zA-Z0-9_]*)', line)
+                if command_match:
+                    return command_match.group(1)
+
+            # Pattern 2: Command anywhere in line with word boundaries
+            # "please /command something" or "run /command now"
+            command_match = re.search(r'\b(/[a-zA-Z][a-zA-Z0-9_]*)\b', line)
+            if command_match:
+                return command_match.group(1)
+
+            # Pattern 3: First word might be command without slash (legacy support)
+            words = line.split()
+            if words:
+                first_word = words[0].lower()
+                # Common command patterns without slash
+                if first_word in ['help', 'info', 'status', 'list', 'ping', 'version', 'myinfo']:
+                    return f"/{first_word}"
+
+            return ""
+
+        except Exception as e:
+            logger.warning(f"⚠️ Error extracting command from line '{line}': {e}")
+            return ""
+
+    async def _route_command_to_agent(self, task_description: str, execution_context: dict[str, Any]) -> AgentRole:
+        """
+        Route command using CrewAI Native Collaboration with NLP_PROCESSOR.
+
+        This implements the TRUE CrewAI collaborative approach where:
+        1. NLP_PROCESSOR analyzes the task and provides intelligent routing recommendation
+        2. MESSAGE_PROCESSOR coordinates based on NLP analysis
+        3. Fallback to simple rule-based routing only if NLP collaboration fails
+        """
+        try:
+            # Extract command for context
+            command = self._extract_command_from_task(task_description)
+            chat_type = execution_context.get('chat_type', 'main')
+
+            logger.info(f"🤖 CREWAI ROUTING: Starting intelligent routing for '{command}' from {chat_type}")
+
+            # CREWAI NATIVE APPROACH: Use NLP_PROCESSOR for intelligent routing analysis
+            if AgentRole.NLP_PROCESSOR in self.agents:
+                try:
+                    logger.info("🧠 CREWAI COLLABORATION: Engaging NLP_PROCESSOR for routing analysis")
+
+                    # Create routing analysis task for NLP_PROCESSOR
+                    routing_task = Task(
+                        description=f"""
+                        You are the intelligent routing specialist for KICKAI's football team management system.
+
+                        Analyze this user request and recommend the most appropriate agent to handle it:
+
+                        User Request: {task_description}
+                        Command: {command}
+                        Chat Type: {chat_type}
+                        User Context: {execution_context}
+
+                        GOAL:
+                        Determine the optimal agent to handle this request based on:
+                        - User's actual intent and needs
+                        - Chat context and permissions
+                        - Agent specialization and capabilities
+                        - KICKAI system routing patterns
+
+                        APPROACH:
+                        Use your routing_recommendation_tool to analyze the request context and available agents.
+                        The tool will provide you with comprehensive context about agent capabilities and routing patterns.
+                        Apply your LLM intelligence to make the best routing decision.
+
+                        EXPECTED OUTCOME:
+                        Provide your routing recommendation in this exact format:
+                        AGENT_RECOMMENDATION: [agent_name]
+
+                        Follow with your analysis explaining:
+                        - Primary intent identified
+                        - Context factors considered
+                        - Why the selected agent is the best match
+                        - Your confidence level (1-10)
+                        """,
+                        agent=self.agents[AgentRole.NLP_PROCESSOR].crew_agent,
+                        expected_output="AGENT_RECOMMENDATION: [agent_name] with detailed analysis"
+                    )
+
+                    # Execute NLP analysis using CrewAI native patterns
+                    # Create a temporary crew for NLP analysis
+                    from crewai import Crew
+                    temp_crew = Crew(
+                        agents=[self.agents[AgentRole.NLP_PROCESSOR].crew_agent],
+                        tasks=[routing_task],
+                        verbose=False
+                    )
+
+                    # Execute the analysis through the crew using async pattern
+                    # Since we're already in an async context, use kickoff_async() directly
+                    nlp_result = await temp_crew.kickoff_async()
+
+                    nlp_response = nlp_result.raw if hasattr(nlp_result, 'raw') else str(nlp_result)
+
+                    # Parse NLP_PROCESSOR recommendation
+                    recommended_agent = self._parse_nlp_routing_recommendation(nlp_response)
+
+                    if recommended_agent and recommended_agent in self.agents:
+                        logger.info(f"🧠 CREWAI SUCCESS: NLP_PROCESSOR recommends → {recommended_agent.value}")
+                        return recommended_agent
+                    else:
+                        logger.warning(f"⚠️ CREWAI: NLP recommendation '{recommended_agent}' not valid, using fallback")
+
+                except Exception as nlp_error:
+                    logger.error(f"❌ CREWAI: NLP_PROCESSOR collaboration failed: {nlp_error}")
+            else:
+                logger.warning("⚠️ CREWAI: NLP_PROCESSOR not available, using fallback routing")
+
+            # FALLBACK: Simple rule-based routing (non-CrewAI approach)
+            logger.info("🔄 FALLBACK: Using simple rule-based routing")
+            from kickai.config.command_routing_manager import get_command_routing_manager
+
+            try:
+                routing_manager = get_command_routing_manager()
+                routing_decision = routing_manager.route_command(command, chat_type, execution_context)
+
+                if routing_decision.agent_role in self.agents:
+                    logger.info(f"🔄 FALLBACK SUCCESS: Command '{command}' → {routing_decision.agent_role.value}")
+
+                    # CRITICAL FIX: Ensure execution context has all required parameters for tools
+                    # The fallback routing was not properly passing context parameters to tools
+                    if not execution_context.get('telegram_id'):
+                        logger.error("❌ FALLBACK: Missing telegram_id in execution context")
+                        return AgentRole.MESSAGE_PROCESSOR
+                    if not execution_context.get('team_id'):
+                        logger.error("❌ FALLBACK: Missing team_id in execution context")
+                        return AgentRole.MESSAGE_PROCESSOR
+                    if not execution_context.get('username'):
+                        logger.error("❌ FALLBACK: Missing username in execution context")
+                        return AgentRole.MESSAGE_PROCESSOR
+                    if not execution_context.get('chat_type'):
+                        logger.error("❌ FALLBACK: Missing chat_type in execution context")
+                        return AgentRole.MESSAGE_PROCESSOR
+
+                    logger.info("🔄 FALLBACK: Context validation passed - all required parameters present")
+                    return routing_decision.agent_role
+                else:
+                    logger.warning(f"⚠️ FALLBACK: Agent {routing_decision.agent_role.value} not available")
+                    return AgentRole.MESSAGE_PROCESSOR
+
+            except Exception as routing_error:
+                logger.error(f"❌ FALLBACK: Rule-based routing failed: {routing_error}")
+                return AgentRole.MESSAGE_PROCESSOR
+
+        except Exception as e:
+            logger.error(f"❌ ROUTING: Error in _route_command_to_agent: {e}")
+            # Safe fallback to MESSAGE_PROCESSOR
+            return AgentRole.MESSAGE_PROCESSOR
+
+    def _parse_nlp_routing_recommendation(self, nlp_response: str) -> AgentRole:
+        """
+        Parse NLP_PROCESSOR routing recommendation from its JSON response.
+
+        Expected format: {"agent": "agent_name", "confidence": 0.9, "intent": "...", "reasoning": "..."}
+        """
+        import json
+        import re
+
+        try:
+            # Validate input
+            if not nlp_response or not isinstance(nlp_response, str):
+                logger.warning(f"⚠️ JSON PARSE: Invalid or empty nlp_response: {type(nlp_response)} - {nlp_response}")
+                return None
+            
+            # Clean and validate the response
+            cleaned_response = nlp_response.strip()
+            if not cleaned_response:
+                logger.warning("⚠️ JSON PARSE: Empty response after stripping")
+                return None
+            
+            logger.debug(f"🔍 JSON PARSE: Attempting to parse response: {cleaned_response[:200]}...")
+            
+            # First try JSON parsing
+            try:
+                response_json = json.loads(cleaned_response)
+                agent_name = response_json.get('agent', '').lower()
+                confidence = response_json.get('confidence', 0.0)
+                intent = response_json.get('intent', '')
+                reasoning = response_json.get('reasoning', '')
+
+                # Map agent names to AgentRole enum
+                agent_mapping = {
+                    'message_processor': AgentRole.MESSAGE_PROCESSOR,
+                    'help_assistant': AgentRole.HELP_ASSISTANT,
+                    'player_coordinator': AgentRole.PLAYER_COORDINATOR,
+                    'team_administrator': AgentRole.TEAM_ADMINISTRATOR,
+                    'squad_selector': AgentRole.SQUAD_SELECTOR,
+                    'nlp_processor': AgentRole.NLP_PROCESSOR,
+                }
+
+                if agent_name in agent_mapping:
+                    logger.info(f"🧠 JSON PARSE: Agent '{agent_name}', confidence {confidence}, intent '{intent}'")
+                    logger.debug(f"🧠 JSON REASONING: {reasoning}")
+                    return agent_mapping[agent_name]
+                else:
+                    logger.warning(f"⚠️ JSON PARSE: Unknown agent name '{agent_name}' in JSON response")
+
+            except (json.JSONDecodeError, KeyError) as json_error:
+                logger.debug(f"🔄 JSON PARSE: Failed, trying fallback parsing: {json_error}")
+                logger.debug(f"🔄 JSON PARSE: Response content: {cleaned_response[:500]}...")
+
+                # Fallback to regex parsing for backwards compatibility
+                recommendation_match = re.search(r'AGENT_RECOMMENDATION:\s*([a-zA-Z_]+)', nlp_response)
+                if recommendation_match:
+                    agent_name = recommendation_match.group(1).lower()
+                    agent_mapping = {
+                        'message_processor': AgentRole.MESSAGE_PROCESSOR,
+                        'help_assistant': AgentRole.HELP_ASSISTANT,
+                        'player_coordinator': AgentRole.PLAYER_COORDINATOR,
+                        'team_administrator': AgentRole.TEAM_ADMINISTRATOR,
+                        'squad_selector': AgentRole.SQUAD_SELECTOR,
+                        'nlp_processor': AgentRole.NLP_PROCESSOR,
+                    }
+
+                    if agent_name in agent_mapping:
+                        logger.info(f"🧠 REGEX PARSE: Successfully parsed recommendation '{agent_name}'")
+                        return agent_mapping[agent_name]
+
+                # Look for agent names anywhere in the response as final fallback
+                for agent_name, agent_role in [
+                    ('player_coordinator', AgentRole.PLAYER_COORDINATOR),
+                    ('team_administrator', AgentRole.TEAM_ADMINISTRATOR),
+                    ('squad_selector', AgentRole.SQUAD_SELECTOR),
+                    ('help_assistant', AgentRole.HELP_ASSISTANT),
+                    ('message_processor', AgentRole.MESSAGE_PROCESSOR),
+                ]:
+                    if agent_name in nlp_response.lower():
+                        logger.info(f"🧠 FALLBACK PARSE: Found agent '{agent_name}' in response")
+                        return agent_role
+
+            logger.warning("⚠️ NLP PARSE: No agent recommendation found in response")
+            return None
+
+        except Exception as e:
+            logger.error(f"❌ NLP PARSE: Error parsing recommendation: {e}")
+            return None
 
     def _prepare_execution_context(self, execution_context: dict[str, Any]) -> dict[str, Any]:
         """Prepare and validate execution context."""
@@ -483,6 +834,10 @@ class TeamManagementSystem:
             telegram_id = execution_context.get('telegram_id')
             username = execution_context.get('username')
             chat_type = execution_context.get('chat_type')
+
+            # DEBUG: Log context parameters for troubleshooting
+            logger.debug(f"🔍 CONTEXT DEBUG: team_id={team_id}, telegram_id={telegram_id}, username={username}, chat_type={chat_type}")
+            logger.debug(f"🔍 CONTEXT DEBUG: Full execution_context keys: {list(execution_context.keys())}")
 
             # Validate all required parameters are present
             missing_params = []
@@ -496,19 +851,33 @@ class TeamManagementSystem:
                 missing_params.append('chat_type')
 
             if missing_params:
-                error_msg = f"Missing required context parameters: {', '.join(missing_params)}"
-                logger.error(f"❌ {error_msg}")
-                raise ValueError(error_msg)
+                logger.error(f"❌ CONTEXT VALIDATION: Missing required parameters: {missing_params}")
+                logger.error(f"❌ CONTEXT VALIDATION: Available keys: {list(execution_context.keys())}")
+                raise ValueError(f"Missing required context parameters: {', '.join(missing_params)}")
 
-            return {
-                'team_id': team_id,
-                'telegram_id': telegram_id,
-                'username': username,
-                'chat_type': chat_type
+            # Ensure all parameters are properly typed
+            try:
+                telegram_id_int = int(telegram_id) if telegram_id else None
+            except (ValueError, TypeError) as e:
+                logger.error(f"❌ CONTEXT VALIDATION: Invalid telegram_id format: {telegram_id}")
+                raise ValueError(f"Invalid telegram_id format: {telegram_id}") from e
+
+            # Return validated context with proper types
+            validated_context = {
+                'team_id': str(team_id),
+                'telegram_id': telegram_id_int,
+                'username': str(username),
+                'chat_type': str(chat_type),
+                # Preserve other context parameters
+                **{k: v for k, v in execution_context.items() if k not in ['team_id', 'telegram_id', 'username', 'chat_type']}
             }
+
+            logger.debug(f"✅ CONTEXT VALIDATION: Successfully prepared context with {len(validated_context)} parameters")
+            return validated_context
+
         except Exception as e:
-            logger.warning(f"⚠️ Could not prepare execution context: {e}")
-            return execution_context
+            logger.error(f"❌ CONTEXT VALIDATION: Error preparing execution context: {e}")
+            raise ValueError(f"Failed to prepare execution context: {e}") from e
 
     def _get_agent_tools(self, agent: Any, selected_agent_role: AgentRole, execution_context: dict[str, Any]) -> list:
         """Get agent tools with validation."""
@@ -573,17 +942,17 @@ class TeamManagementSystem:
             return []
 
     async def _create_and_execute_task(
-        self, task_description: str, execution_context: dict[str, Any], agent: Any, command_name: str
+        self, task_description: str, execution_context: dict[str, Any], agent: Any
     ) -> str:
-        """Create and execute CrewAI task with dynamic async tool integration."""
+        """Create and execute CrewAI task with native agent collaboration."""
         try:
             # Validate context first (no 'unknown' defaults)
             self._create_structured_description(task_description, execution_context)
 
-            # Create CrewAI task with dynamic async tool documentation
-            task = self._create_crewai_task(command_name, task_description, agent, execution_context)
+            # Create CrewAI task with intelligent agent collaboration
+            task = self._create_crewai_task(task_description, agent, execution_context)
 
-            # Execute task
+            # Execute task using CrewAI native patterns
             result = await self._execute_crewai_task(task)
 
             return result
@@ -610,8 +979,8 @@ class TeamManagementSystem:
             logger.error(f"❌ Could not validate context for structured description: {e}")
             raise
 
-    def _create_crewai_task(self, command_name: str, task_description: str, agent: Any, execution_context: dict[str, Any]) -> Any:
-        """Create CrewAI task with dynamic async tool documentation."""
+    def _create_crewai_task(self, task_description: str, agent: Any, execution_context: dict[str, Any]) -> Any:
+        """Create CrewAI task with intelligent agent collaboration patterns."""
         try:
             from crewai import Task
 
@@ -619,7 +988,7 @@ class TeamManagementSystem:
             agent_config = get_agent_config(agent.agent_role, execution_context)
             agent_tool_names = agent_config.tools if agent_config else []
 
-            # Generate dynamic task description with async tool metadata
+            # Generate dynamic task description with async tool metadata for collaboration
             dynamic_description = AsyncContextInjector.create_dynamic_task_description(
                 user_request=task_description,
                 context=execution_context,
@@ -627,16 +996,24 @@ class TeamManagementSystem:
                 agent_tool_names=agent_tool_names
             )
 
+            # Special JSON output format for NLP_PROCESSOR routing decisions
+            if agent.agent_role == AgentRole.NLP_PROCESSOR:
+                expected_output = "Return valid JSON only: {\"agent\": \"agent_name\", \"confidence\": 0.0-1.0, \"intent\": \"intent_classification\", \"reasoning\": \"brief_explanation\"}"
+                output_format = "json"
+            else:
+                expected_output = "Extract and return the exact tool output. Parse JSON responses and return the 'data' field content (for success) or 'message' field content (for errors). Do not add extra text or formatting."
+                output_format = "string"
+
             task = Task(
-                name=f"task_{command_name}",
+                name=f"collaborative_task_{agent.agent_role.value}",
                 description=dynamic_description,
                 agent=agent.crew_agent,
-                expected_output="Extract and return the exact tool output. Parse JSON responses and return the 'data' field content (for success) or 'message' field content (for errors). Do not add extra text or formatting.",
-                output_format="string",
+                expected_output=expected_output,
+                output_format=output_format,
                 async_execution=True,  # Enable async execution for async tools
             )
 
-            logger.debug(f"✅ Dynamic task created for {command_name} with {len(agent_tool_names)} tools")
+            logger.debug(f"✅ Dynamic task created for {agent.agent_role.value} with {len(agent_tool_names)} tools")
             return task
 
         except Exception as e:
@@ -665,10 +1042,6 @@ class TeamManagementSystem:
             logger.error(f"❌ Crew execution failed: {e}", exc_info=True)
             # Re-raise the exception - let presentation layer handle user-friendly error formatting
             raise
-
-
-
-
 
     @contextmanager
     def debug_mode(self):

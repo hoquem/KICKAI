@@ -23,7 +23,7 @@ class DependencyContainer:
         self._factory: Optional[ServiceFactory] = None
         self._initialized = False
 
-    def initialize(self):
+    async def initialize(self):
         """Initialize the container with all required services."""
         if self._initialized:
             return
@@ -37,7 +37,31 @@ class DependencyContainer:
         # Phase 3: Create all services through factory
         self._factory.create_all_services()
 
+        # Phase 4: Initialize team config cache for performance optimization
+        await self._initialize_team_config_cache()
+
         self._initialized = True
+
+    async def _initialize_team_config_cache(self):
+        """Initialize the team config cache at startup for optimal performance."""
+        try:
+            from kickai.core.team_config_cache import TeamConfigCache
+            from kickai.core.logging_config import logger
+            
+            # Get cache instance and initialize it
+            cache = TeamConfigCache()
+            await cache.initialize()
+            
+            # Register the cache as a singleton service
+            self.register_service(TeamConfigCache, cache)
+            
+            logger.info("✅ Team config cache initialized and registered")
+            
+        except Exception as e:
+            from kickai.core.logging_config import logger
+            logger.warning(f"⚠️ Team config cache initialization failed: {e}")
+            logger.info("🔄 System will fall back to database queries for team config")
+            # Don't fail startup - system can work without cache
 
     def _initialize_database(self):
         """Initialize the database connection."""
@@ -77,8 +101,11 @@ class DependencyContainer:
                 TeamMemberService,
             )
             from kickai.features.team_administration.domain.services.team_service import TeamService
+            from kickai.features.team_administration.domain.services.team_member_management_service import (
+                TeamMemberManagementService,
+            )
 
-            required_services = [PlayerService, TeamMemberService, TeamService, DataStoreInterface]
+            required_services = [PlayerService, TeamMemberService, TeamService, TeamMemberManagementService, DataStoreInterface]
 
             missing_services = []
             for service_class in required_services:
@@ -177,10 +204,10 @@ def get_container() -> DependencyContainer:
     return _container
 
 
-def initialize_container():
+async def initialize_container():
     """Initialize the global container."""
     container = get_container()
-    container.initialize()
+    await container.initialize()
     return container
 
 
@@ -215,5 +242,17 @@ def get_singleton(name: str) -> Any:
 def ensure_container_initialized():
     """Ensure the container is initialized (backward compatibility)."""
     container = get_container()
-    container.initialize()
+    if not container._initialized:
+        # For backward compatibility with sync code, initialize without cache
+        container._initialize_database()
+        container._factory = create_service_factory(container, container._database)
+        container._factory.create_all_services()
+        container._initialized = True
+    return container
+
+async def ensure_container_initialized_async():
+    """Ensure the container is initialized with team config cache (async version)."""
+    container = get_container()
+    if not container._initialized:
+        await container.initialize()
     return container

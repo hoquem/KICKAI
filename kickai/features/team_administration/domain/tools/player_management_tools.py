@@ -15,6 +15,7 @@ from kickai.core.exceptions import (
     TeamNotConfiguredError,
     TeamNotFoundError,
 )
+from kickai.features.team_administration.domain.exceptions import MissingRequiredFieldError
 from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
 from kickai.features.player_registration.domain.services.player_service import PlayerService
 from kickai.features.team_administration.domain.services.team_service import TeamService
@@ -33,7 +34,8 @@ from kickai.utils.tool_helpers import create_json_response, validate_required_in
 from kickai.utils.validation_utils import is_valid_phone, normalize_phone, sanitize_input
 
 
-@tool("add_player", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def add_player(
     telegram_id: int,
     team_id: str,
@@ -165,9 +167,6 @@ async def add_player(
         # Normalize phone number
         normalized_phone = normalize_phone(phone_number)
 
-        # Generate player ID
-        player_id = generate_player_id(player_name, team_id)
-
         logger.info(f"🏃‍♂️ Adding player: {player_name} ({normalized_phone}) to team {team_id}")
 
         # Get services from container
@@ -183,50 +182,25 @@ async def add_player(
         if not player_service:
             raise ServiceNotAvailableError("Player service not available")
 
-        # Check if phone number already exists using domain service
-        existing_player = await player_service.get_player_by_phone(phone=normalized_phone, team_id=team_id)
-        if existing_player:
-            # Generate new invite link for existing player
-            logger.info(f"🔄 Player {existing_player.name} already exists, generating new invite link")
+        # Get all existing player IDs for collision detection
+        all_players = await player_service.get_all_players(team_id)
+        existing_ids = {p.player_id for p in all_players if p.player_id}
+
+        # Generate unique player ID with collision detection
+        player_id = generate_player_id(player_name, team_id, existing_ids)
+        logger.info(f"Generated unique player_id: {player_id}")
+
+        # Get team using optimized cache (eliminates 200-500ms database query)
+        try:
+            from kickai.core.team_config_cache import TeamConfigCache
+            team_cache = container.get_service(TeamConfigCache)
+            team = team_cache.get_team(team_id)
+            cache_used = True
+        except Exception:
+            # Fallback to database if cache not available
+            team = await team_service.get_team(team_id=team_id)
+            cache_used = False
             
-            # Use existing player data
-            player_name = existing_player.name
-            player_phone = existing_player.phone
-            player_id = existing_player.player_id
-            
-            # Generate invite link using InviteLinkService
-            database = container.get_database()
-            invite_service = InviteLinkService(bot_token=team.bot_token, database=database)
-
-            # Create player invite link for existing player
-            invite_data = await invite_service.create_player_invite_link(
-                team_id=team_id,
-                player_name=player_name,
-                player_phone=player_phone,
-                player_position=PLAYER_DEFAULT_POSITION,
-                main_chat_id=team.main_chat_id,
-                player_id=player_id
-            )
-
-            invite_link = invite_data["invite_link"]
-            expires_at = invite_data["expires_at"]
-
-            logger.info(f"✅ Generated new invite link for existing player {player_name}: {invite_data['invite_id']}")
-
-            # Format success response using template
-            success_response = SUCCESS_MESSAGES["PLAYER_ADDED_WITH_INVITE"].format(
-                name=player_name,
-                phone=player_phone,
-                status=existing_player.status,
-                team_name=team_name,
-                invite_link=invite_link,
-                expires_at=expires_at
-            )
-
-            return create_json_response(ResponseStatus.SUCCESS, data=success_response)
-
-        # Get team using domain service
-        team = await team_service.get_team(team_id=team_id)
         if not team:
             raise TeamNotFoundError(f"Team not found for team_id: {team_id}")
 
@@ -241,7 +215,7 @@ async def add_player(
         else:
             raise MissingRequiredFieldError("Team ID or team information")
         
-        logger.debug(f"🏷️ Using team name for player invite: '{team_name}' (from {'team.name' if team.name else 'team_id fallback'})")
+        logger.debug(f"🏷️ Using team name for player invite: '{team_name}' (from {'team.name' if team.name else 'team_id fallback'}) | Cache: {'✅' if cache_used else '❌'}")
 
         # Create player using service layer with PlayerCreateParams
         from kickai.features.player_registration.domain.services.player_service import PlayerCreateParams

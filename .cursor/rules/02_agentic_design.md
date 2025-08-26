@@ -1,31 +1,30 @@
-# Agentic Design Philosophy
+# Agentic Design Philosophy - Clean Architecture Compliant
 
-We will leverage agents for what they do best and fall back on deterministic code for efficiency and reliability.
+**Last Updated:** January 2025 - Clean Architecture Migration Complete
+
+We will leverage agents for what they do best and fall back on deterministic code for efficiency and reliability. All agent tools now follow Clean Architecture principles with complete framework separation.
 
 - **Agentic Tasks**: Use `CrewAI` agents for tasks requiring reasoning, context, or creativity.
   - Natural Language Understanding (NLU).
   - Generating match summaries or tactical suggestions.
 
-- **Intent Recognition Agent**: A dedicated CrewAI agent, the "Message Processor," will be the primary interface for natural language. Its job is to receive raw text from the user and route it to the appropriate specialized agent based on intent and context.
+- **Primary Agent Pattern**: The MESSAGE_PROCESSOR serves as the primary interface for all user interactions, collaborating with NLP_PROCESSOR for intelligent routing decisions based on context and intent analysis.
 
 ### Agentic & AI Architecture Principles
 
 This section defines the core design patterns for the CrewAI-based agentic system.
 
-- **6-Agent CrewAI System**: The system is structured as a crew of 6 specialized agents organized into logical layers:
-    - **Primary Interface Layer** (`MESSAGE_PROCESSOR`): Handles initial user interaction and routing.
-    - **Operational Layer** (`PLAYER_COORDINATOR`, `TEAM_ADMINISTRATOR`, `SQUAD_SELECTOR`): Manages day-to-day team operations.
-    - **Support Layer** (`HELP_ASSISTANT`): Provides help and guidance functionality.
-    - **NLP Enhancement Layer** (`NLP_PROCESSOR`): Provides natural language processing and understanding.
+- **6-Agent CrewAI Native Collaboration System**: The system uses CrewAI native agent collaboration patterns with intelligent routing:
+    - **Primary Interface Layer** (`MESSAGE_PROCESSOR`): Primary interface with intelligent coordination capabilities.
+    - **Operational Layer** (`PLAYER_COORDINATOR`, `TEAM_ADMINISTRATOR`, `SQUAD_SELECTOR`): Specialist agents for domain-specific operations.
+    - **Support Layer** (`HELP_ASSISTANT`): Specialized help system and user guidance.
+    - **Intelligent Routing Layer** (`NLP_PROCESSOR`): Context-aware analysis and agent selection.
 
-- **CrewAI Idiomatic Usage**: All implementations must strictly adhere to CrewAI's native features and design patterns. Avoid custom workarounds for functionalities already supported by the framework (e.g., context passing, memory management, delegation).
-
-- **Enhanced Memory System**: The system uses CrewAI 0.157.0's enhanced memory features:
-  - **Entity-Specific Memory**: Each agent has access to entity-specific memory (player, team member, session)
-  - **Delegation Tools**: Agents can delegate tasks to each other using CrewAI's built-in delegation tools
-  - **Context Retention**: Memory is automatically managed and preserved across agent interactions
-
-- **CrewAI Idiomatic Usage**: All implementations must strictly adhere to CrewAI's native features and design patterns. Avoid custom workarounds for functionalities already supported by the framework (e.g., context passing, memory management, delegation).
+- **CrewAI Native Collaboration**: All implementations must use CrewAI's native agent collaboration features:
+  - **Primary Agent Pattern**: MESSAGE_PROCESSOR coordinates with specialist agents
+  - **Tool-Based Collaboration**: Agents collaborate through specialized tools, not direct communication
+  - **Intelligent Routing**: NLP_PROCESSOR provides context-aware agent selection
+  - **Multi-Agent Patterns**: Sequential, parallel, and hierarchical collaboration workflows
 
 - **Context-Aware Routing & Agent Selection**:
     - The **AgenticMessageRouter** serves as the entry point for all user requests.
@@ -127,15 +126,40 @@ The system implements intelligent routing based on chat context and permission l
 - **Leadership Chat**: Leadership commands routed to `TEAM_ADMINISTRATOR` or `SQUAD_SELECTOR`
 - **Permission-Based**: Commands routed based on permission level and agent capabilities
 
-### Tool Independence
+### Tool Independence - Clean Architecture Compliant
 
-**CRITICAL**: Tools must be completely independent functions following CrewAI best practices:
+**CRITICAL**: Tools must be completely independent functions following CrewAI best practices and Clean Architecture principles:
 
 - **❌ NEVER**: Tools calling other tools or services directly (delegate via CrewAI tasks instead).
 - **✅ ALWAYS**: Tools are simple, independent async functions.
 - **✅ ALWAYS**: Use direct parameter passing with type hints.
 - **✅ ALWAYS**: Tools return simple string responses.
-- **✅ ALWAYS**: Use `@tool` decorator from `crewai.tools`.
+- **✅ ALWAYS**: Use `@tool` decorator from `crewai.tools` **ONLY in application layer**.
+
+### 🎉 **Clean Architecture Tool Pattern (January 2025)**
+
+**Application Layer Tool (with @tool decorator):**
+```python
+# kickai/features/example/application/tools/example_tools.py
+@tool("example_tool", result_as_answer=True)
+async def example_tool(telegram_id: int, team_id: str, username: str, chat_type: str, ...) -> str:
+    """Application layer CrewAI tool that delegates to domain layer."""
+    # Delegate to pure domain function
+    return await example_domain_function(telegram_id, team_id, username, chat_type, ...)
+```
+
+**Domain Layer Function (no @tool decorator):**
+```python
+# kickai/features/example/domain/tools/example_tools.py  
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
+async def example_domain_function(telegram_id: int, team_id: str, username: str, chat_type: str, ...) -> str:
+    """Pure domain business logic with no framework dependencies."""
+    container = get_container()
+    service = container.get_service(ServiceClass)
+    result = await service.method(...)
+    return create_json_response(ResponseStatus.SUCCESS, data=result)
+```
 
 **📋 For complete tool implementation standards, see [04_development_standards.md](04_development_standards.md)**
 

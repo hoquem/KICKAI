@@ -12,10 +12,11 @@ from typing import Optional, Tuple
 from loguru import logger
 
 from kickai.features.team_administration.domain.entities.team_member import TeamMember
+from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
+from kickai.features.team_administration.domain.interfaces.team_service_interface import ITeamService
+from kickai.features.team_administration.domain.repositories.team_member_repository_interface import TeamMemberRepositoryInterface
 from kickai.features.team_administration.domain.services.simplified_team_member_service import SimplifiedTeamMemberService
 from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
-from kickai.features.team_administration.domain.services.team_service import TeamService
-from kickai.features.team_administration.domain.repositories.team_repository_interface import TeamRepositoryInterface
 from kickai.features.team_administration.domain.types import (
     TelegramUserId,
     TeamId,
@@ -43,17 +44,23 @@ class TeamMemberManagementService:
     for tools to depend on multiple services directly.
     """
 
-    def __init__(self, team_repository: TeamRepositoryInterface):
+    def __init__(
+        self, 
+        team_member_repository: TeamMemberRepositoryInterface,
+        simplified_service: SimplifiedTeamMemberService,
+        team_member_service: TeamMemberService
+    ):
         """
         Initialize the management service with required dependencies.
         
         Args:
-            team_repository: Repository for team and team member operations
+            team_member_repository: Repository for team member operations
+            simplified_service: Simplified team member service
+            team_member_service: Core team member service
         """
-        self.team_repository = team_repository
-        self.simplified_service = SimplifiedTeamMemberService(team_repository)
-        self.team_member_service = TeamMemberService(team_repository)
-        # Note: TeamService will be injected when needed to avoid circular dependencies
+        self.team_member_repository = team_member_repository
+        self.simplified_service = simplified_service
+        self.team_member_service = team_member_service
 
     async def create_team_member_with_invite(
         self, 
@@ -105,8 +112,10 @@ class TeamMemberManagementService:
                 member_id=existing_member.member_id if existing_member else None
             )
             
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, AttributeError) as e:
+            from kickai.features.team_administration.domain.exceptions import TeamMemberCreationError
             logger.error(f"❌ Error in create_team_member_with_invite: {e}")
+            creation_error = TeamMemberCreationError(request.member_name, str(e))
             return TeamMemberCreationResult(
                 success=False,
                 error_message=str(e)
@@ -151,8 +160,10 @@ class TeamMemberManagementService:
                     error_message=invite_result.get("error", "Unknown error")
                 )
                 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, AttributeError) as e:
+            from kickai.features.communication.domain.exceptions import InviteLinkError
             logger.error(f"❌ Error creating invite link: {e}")
+            invite_error = InviteLinkError(str(e))
             return InviteLinkCreationResult(
                 success=False,
                 error_message=str(e)
@@ -180,9 +191,11 @@ class TeamMemberManagementService:
             return await self.team_member_service.get_team_member_by_telegram_id(
                 str(telegram_id), team_id
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, AttributeError) as e:
+            from kickai.features.team_administration.domain.exceptions import TeamMemberLookupError
             logger.error(f"❌ Error getting team member by telegram_id {telegram_id}: {e}")
-            raise TeamMemberServiceUnavailableError(f"Failed to lookup team member: {e}")
+            lookup_error = TeamMemberLookupError(str(telegram_id), team_id, str(e))
+            raise lookup_error from e
 
     async def get_team_member_by_phone(
         self, 
@@ -203,7 +216,7 @@ class TeamMemberManagementService:
             return await self.team_member_service.get_team_member_by_phone(
                 phone_number, team_id
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"❌ Error getting team member by phone {phone_number}: {e}")
             return None
 
@@ -222,9 +235,11 @@ class TeamMemberManagementService:
         """
         try:
             return await self.team_member_service.update_team_member(member)
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, AttributeError) as e:
+            from kickai.features.team_administration.domain.exceptions import TeamMemberUpdateError
             logger.error(f"❌ Error updating team member {member.member_id}: {e}")
-            raise RepositoryUnavailableError(f"Failed to update team member: {e}")
+            update_error = TeamMemberUpdateError(member.member_id, "team_member_update", str(e))
+            raise update_error from e
 
     async def check_phone_number_duplicate(
         self, 
@@ -253,11 +268,11 @@ class TeamMemberManagementService:
         
         return existing_member
 
-    def get_team_repository(self) -> TeamRepositoryInterface:
+    def get_team_member_repository(self) -> TeamMemberRepositoryInterface:
         """
-        Get the team repository for advanced operations.
+        Get the team member repository for advanced operations.
         
         Returns:
-            TeamRepositoryInterface instance
+            TeamMemberRepositoryInterface instance
         """
-        return self.team_repository
+        return self.team_member_repository

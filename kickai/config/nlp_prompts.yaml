@@ -1,0 +1,327 @@
+# NLP Prompt Configuration for KICKAI
+# 
+# This file provides configuration for NLP prompt templates, allowing
+# for environment-specific overrides and A/B testing of different prompts.
+
+# Version information
+version: "1.0"
+description: "NLP prompt templates for football team management system"
+last_updated: "2025-01-18"
+
+# Global prompt settings
+global_settings:
+  # Default template parameters
+  defaults:
+    version: "1.0"
+    include_football_context: true
+    response_format: "json"
+    max_length: 2000
+  
+  # Performance settings
+  performance:
+    enable_caching: true
+    cache_ttl_seconds: 3600
+    max_cache_size: 100
+
+# Environment-specific overrides
+environments:
+  development:
+    verbose: true
+    include_debug_info: true
+    response_format: "json_pretty"
+  
+  production:
+    verbose: false
+    include_debug_info: false
+    response_format: "json"
+    max_length: 1500
+  
+  testing:
+    deterministic_responses: true
+    mock_data: true
+
+# Shared template fragments for reusability
+shared_fragments:
+  football_context: |
+    You are analyzing a request for the KICKAI football team management system.
+    
+    FOOTBALL CONTEXT:
+    - This is a team management system for football/soccer teams
+    - Users can be players, team members, or administrators
+    - Different chat types have different permissions and contexts
+    - System handles player registration, availability, matches, and administration
+
+  analysis_guidelines: |
+    ANALYSIS GUIDELINES:
+    - Consider football-specific terminology and context
+    - Understand team roles: player, team member, coach, admin
+    - Chat context matters: main (general), leadership (admin), private (personal)
+    - Team management operations require appropriate permissions
+
+  response_format_json: |
+    Respond with your analysis in JSON format with the following structure:
+    {
+      "primary_intent": "string",
+      "confidence": 0.95,
+      "entities": {},
+      "recommendation": "string",
+      "reasoning": "string"
+    }
+
+  agent_descriptions: |
+    AVAILABLE AGENTS:
+    - message_processor: General communication, basic operations, system commands
+    - help_assistant: Help system, guidance, command discovery, onboarding  
+    - player_coordinator: Player management, registration, status queries, approvals
+    - team_administrator: Team member management, administrative operations (leadership only)
+    - squad_selector: Match management, availability tracking, squad selection
+
+  permission_matrix: |
+    PERMISSION MATRIX:
+    - main chat: Player operations, general queries, availability
+    - leadership chat: All operations including team administration
+    - private chat: Personal operations, help, basic queries
+
+# Template-specific configurations
+templates:
+  intent_recognition:
+    name: "Advanced Intent Recognition"
+    description: "LLM-powered intent recognition for football team management"
+    version: "1.1"
+    enabled: true
+    
+    # Template customizations
+    intent_categories:
+      - get_player_info: "Getting player status, details, or information"
+      - update_profile: "Updating player/member information or settings"
+      - get_team_info: "Getting team lists, rosters, or member information"
+      - get_help: "Requesting help, guidance, or command information"
+      - match_management: "Match availability, attendance, or squad selection"
+      - team_administration: "Adding members, promotions, or administrative actions"
+    
+    confidence_thresholds:
+      high: 0.85
+      medium: 0.65
+      low: 0.40
+    
+    # A/B testing configurations
+    variants:
+      default:
+        include_examples: false
+        response_detail: "standard"
+      
+      enhanced:
+        include_examples: true
+        response_detail: "detailed"
+        include_reasoning: true
+
+  entity_extraction:
+    name: "Entity Extraction"
+    description: "Extract football-related entities from user messages"
+    version: "1.0"
+    enabled: true
+    
+    entity_categories:
+      player_positions:
+        - "goalkeeper"
+        - "defender" 
+        - "midfielder"
+        - "forward"
+        - "striker"
+        - "centre-back"
+        - "fullback"
+        - "winger"
+        - "attacking midfielder"
+      
+      time_references:
+        - "today"
+        - "tomorrow"
+        - "next week"
+        - "last match"
+        - "current"
+        - "recent"
+      
+      availability_status:
+        - "available"
+        - "unavailable" 
+        - "maybe"
+        - "injured"
+        - "away"
+        - "busy"
+        - "free"
+        - "can play"
+        - "cannot play"
+      
+      personal_references:
+        - "my"
+        - "me"
+        - "myself"
+        - "I"
+        - "my info"
+      
+      actions:
+        - "update"
+        - "change"
+        - "modify"
+        - "set"
+        - "register"
+        - "add"
+
+  conversation_context:
+    name: "Conversation Context Analysis"
+    description: "Analyze conversation context for multi-turn interactions"
+    version: "1.0"
+    enabled: true
+    
+    context_factors:
+      - user_role_inference
+      - response_tone_suggestion
+      - follow_up_prediction
+      - permission_assessment
+
+  semantic_similarity:
+    name: "Semantic Similarity Analysis"
+    description: "Analyze semantic similarity between messages and commands"
+    version: "1.0"
+    enabled: true
+    
+    command_categories:
+      information: ["/info", "/status", "/list", "/myinfo"]
+      actions: ["/update", "/register", "/approve", "/addplayer"]
+      management: ["/matches", "/availability", "/attendance"]
+      help: ["/help", "/commands"]
+      system: ["/ping", "/version"]
+    
+    similarity_thresholds:
+      exact_match: 1.0
+      high_similarity: 0.8
+      medium_similarity: 0.6
+      low_similarity: 0.3
+
+  routing_recommendation:
+    name: "Intelligent Routing Recommendation"
+    description: "Provide intelligent agent routing based on intent analysis"
+    version: "1.0"
+    enabled: true
+    
+    routing_priorities:
+      critical: 1
+      high: 2
+      normal: 3
+      low: 4
+    
+    agent_specializations:
+      message_processor:
+        - "fallback operations"
+        - "communications"
+        - "basic system operations"
+      
+      help_assistant:
+        - "user guidance"
+        - "command help"
+        - "system explanation"
+      
+      player_coordinator:
+        - "player operations"
+        - "registration workflows"
+        - "status management"
+      
+      team_administrator:
+        - "leadership operations"
+        - "member management"
+        - "administrative tasks"
+      
+      squad_selector:
+        - "match management"
+        - "squad management"
+        - "availability coordination"
+
+  update_context:
+    name: "Update Context Analysis"
+    description: "Analyze update commands for intelligent routing"
+    version: "1.0"
+    enabled: true
+    
+    update_types:
+      player_updates:
+        - "position"
+        - "availability"
+        - "contact info"
+        - "status"
+      
+      team_member_updates:
+        - "role"
+        - "permissions"
+        - "administrative info"
+      
+      system_updates:
+        - "preferences"
+        - "settings"
+        - "configurations"
+    
+    routing_logic:
+      main_chat: "player_coordinator"
+      leadership_chat: "team_administrator"
+      private_chat: "context_dependent"
+
+  permission_validation:
+    name: "Permission Validation"
+    description: "Validate permissions for routing decisions"
+    version: "1.0"
+    enabled: true
+    
+    role_hierarchy:
+      public: 0
+      player: 1
+      team_member: 2
+      leadership: 3
+      admin: 4
+    
+    chat_permissions:
+      main_chat:
+        allowed_operations:
+          - "player_operations"
+          - "status_queries"
+          - "availability_management"
+        blocked_operations:
+          - "team_administration"
+          - "member_management"
+      
+      leadership_chat:
+        allowed_operations:
+          - "all_operations"
+        blocked_operations: []
+      
+      private_chat:
+        allowed_operations:
+          - "personal_operations"
+          - "help_requests"
+          - "basic_queries"
+        blocked_operations:
+          - "team_administration"
+          - "cross_user_operations"
+
+# Feature flags for experimental prompts
+feature_flags:
+  enable_advanced_reasoning: true
+  enable_context_memory: false
+  enable_user_personalization: false
+  enable_multilingual_support: false
+
+# Monitoring and analytics
+monitoring:
+  track_prompt_performance: true
+  collect_response_metrics: true
+  enable_quality_scoring: false
+
+# Quality assurance settings
+quality_assurance:
+  response_validation:
+    require_json_format: true
+    validate_confidence_scores: true
+    check_required_fields: true
+  
+  fallback_behavior:
+    on_validation_failure: "return_error"
+    on_template_error: "use_default"
+    on_context_error: "request_clarification"

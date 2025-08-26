@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 """
-System infrastructure tools module.
+System Infrastructure Domain Tools - Clean Architecture Compliant
 
-This module provides tools for system infrastructure operations.
+This module contains pure domain functions for system infrastructure operations.
+These functions contain business logic only and delegate to application layer for CrewAI tools.
+
+NOTE: All @tool decorators have been removed from domain layer to comply with Clean Architecture.
+The application layer provides the CrewAI tool interfaces that delegate to these domain functions.
 """
 
-# Note: Most system infrastructure tools are currently unused by agents
-# These tools are kept for potential future use but not exported to avoid clutter
-# - log_command: Not used by any agent
-# - log_error: Not used by any agent
-# - get_firebase_document: Not used by any agent
-
-# Export tools that are used by agents
-from .help_tools import get_system_available_commands, get_version_info
-
-__all__ = [
-    "get_system_available_commands",
-    "get_version_info",
-]
+# Domain layer exports nothing - all tools come from application layer
+# This ensures Clean Architecture compliance by separating framework concerns
+__all__ = []

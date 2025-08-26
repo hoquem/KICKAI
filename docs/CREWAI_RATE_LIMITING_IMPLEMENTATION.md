@@ -152,7 +152,9 @@ AI_RATE_LIMIT_BACKOFF_MULTIPLIER=2.0      # Exponential backoff multiplier
 
 # AI provider configuration  
 AI_PROVIDER=groq                          # Use Groq as provider
-AI_MODEL_NAME=llama-3.1-8b-instant       # Model name
+AI_MODEL_SIMPLE=llama-3.1-8b-instant     # Simple model
+AI_MODEL_ADVANCED=llama-3.1-70b-versatile # Advanced model
+AI_MODEL_NLP=gpt-oss-20b                 # NLP specialized model
 GROQ_API_KEY=your_groq_api_key_here       # API key
 
 # Timeouts and limits

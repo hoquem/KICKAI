@@ -78,8 +78,8 @@ class MockUser:
         """Validate user data after initialization and set defaults"""
         if not self.username or not self.first_name:
             raise ValueError("Username and first_name are required")
-        if self.id <= 0:
-            raise ValueError("User ID must be positive")
+        if self.id == 0:
+            raise ValueError("User ID cannot be zero")
         if self.created_at is None:
             self.created_at = datetime.now(timezone.utc)
 
@@ -98,8 +98,8 @@ class MockChat:
     
     def __post_init__(self):
         """Validate chat data after initialization"""
-        if self.id <= 0:
-            raise ValueError("Chat ID must be positive")
+        if self.id == 0:
+            raise ValueError("Chat ID cannot be zero")
         if self.type not in [e.value for e in ChatType]:
             raise ValueError("Invalid chat type")
     
@@ -152,7 +152,7 @@ class MockMessage:
 
 class SendMessageRequest(BaseModel):
     """Request model for sending messages"""
-    user_id: int = Field(..., gt=0, description="User ID must be positive")
+    telegram_id: int = Field(..., gt=0, description="Telegram ID must be positive")
     chat_id: int = Field(..., gt=0, description="Chat ID must be positive")
     text: str = Field(..., min_length=1, max_length=4096, description="Message text")
     message_type: MessageType = MessageType.TEXT
@@ -886,17 +886,17 @@ class MockTelegramService:
     async def send_message(self, request: SendMessageRequest) -> MockMessage:
         """Send a message as if from a user"""
         with self._lock:
-            if request.user_id not in self.users:
+            if request.telegram_id not in self.users:
                 raise HTTPException(status_code=404, detail="User not found")
             
             if request.chat_id not in self.chats:
                 raise HTTPException(status_code=404, detail="Chat not found")
             
             # Check if user can access this chat
-            if not self.can_user_access_chat(request.user_id, request.chat_id):
+            if not self.can_user_access_chat(request.telegram_id, request.chat_id):
                 raise HTTPException(status_code=403, detail="User cannot access this chat")
             
-            user = self.users[request.user_id]
+            user = self.users[request.telegram_id]
             chat = self.chats[request.chat_id]
             
             message = MockMessage(
@@ -1192,10 +1192,10 @@ async def send_message(request: SendMessageRequest):
             message_data = {
                 "text": request.text,
                 "from": {
-                    "id": request.user_id,
-                    "username": mock_service.users[request.user_id].username if request.user_id in mock_service.users else f"user_{request.user_id}",
-                    "first_name": mock_service.users[request.user_id].first_name if request.user_id in mock_service.users else "Test",
-                    "last_name": mock_service.users[request.user_id].last_name if request.user_id in mock_service.users else "User"
+                    "id": request.telegram_id,
+                    "username": mock_service.users[request.telegram_id].username if request.telegram_id in mock_service.users else f"user_{request.telegram_id}",
+                    "first_name": mock_service.users[request.telegram_id].first_name if request.telegram_id in mock_service.users else "Test",
+                    "last_name": mock_service.users[request.telegram_id].last_name if request.telegram_id in mock_service.users else "User"
                 },
                 "chat": {
                     "id": request.chat_id,
@@ -1214,7 +1214,7 @@ async def send_message(request: SendMessageRequest):
                 bot_message_data = {
                     "message_id": mock_service.message_counter + 1,
                     "from": {
-                        "id": 0,  # Bot ID
+                        "id": 999999999,  # Bot ID
                         "username": "kickai_bot",
                         "first_name": "KickAI Bot",
                         "last_name": None,
@@ -1245,16 +1245,36 @@ async def bot_response_handler(bot_message_data: dict):
     # Add bot message to mock service
     with mock_service._lock:
         mock_service.message_counter += 1
+        
+        # Create proper MockUser object for the bot
+        bot_user = MockUser(
+            id=bot_message_data["from"]["id"],
+            username=bot_message_data["from"]["username"],
+            first_name=bot_message_data["from"]["first_name"],
+            last_name=bot_message_data["from"].get("last_name"),
+            is_bot=True
+        )
+        
+        # Create proper MockChat object
+        chat_data = bot_message_data["chat"]
+        bot_chat = MockChat(
+            id=chat_data["id"],
+            type=ChatType.GROUP if chat_data.get("type") == "group" else ChatType.PRIVATE,
+            title=chat_data.get("title"),
+            username=chat_data.get("username"),
+            first_name=chat_data.get("first_name"),
+            last_name=chat_data.get("last_name"),
+            is_main_chat=chat_data.get("is_main_chat", False),
+            is_leadership_chat=chat_data.get("is_leadership_chat", False)
+        )
+        
+        # Create MockMessage with proper objects
         bot_message = MockMessage(
             message_id=bot_message_data["message_id"],
-            from_user_id=bot_message_data["from"]["id"],
-            from_username=bot_message_data["from"]["username"],
-            from_first_name=bot_message_data["from"]["first_name"],
-            from_last_name=bot_message_data["from"].get("last_name"),
-            chat_id=bot_message_data["chat"]["id"],
+            from_user=bot_user,
+            chat=bot_chat,
             text=bot_message_data["text"],
-            date=datetime.fromtimestamp(bot_message_data["date"], tz=timezone.utc),
-            is_bot=True
+            date=datetime.fromtimestamp(bot_message_data["date"], tz=timezone.utc)
         )
         mock_service.messages.append(bot_message)
     
@@ -1271,7 +1291,7 @@ async def bot_response(response_data: dict):
     bot_message = {
         "message_id": len(mock_service.messages) + 1,
         "from": {
-            "id": 0,  # Bot ID
+            "id": 999999999,  # Bot ID
             "username": "kickai_bot",
             "first_name": "KickAI Bot",
             "last_name": None,

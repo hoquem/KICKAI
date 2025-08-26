@@ -140,3 +140,41 @@ class RepositoryUnavailableError(RepositoryError):
     def __init__(self, repository_type: str):
         self.repository_type = repository_type
         super().__init__(f"{repository_type} repository service not available")
+
+
+class TeamMemberLookupError(TeamMemberError):
+    """Error looking up team member."""
+    
+    def __init__(self, member_identifier: str, team_id: str, details: str = ""):
+        self.member_identifier = member_identifier
+        self.team_id = team_id
+        self.details = details
+        message = f"Failed to lookup team member {member_identifier} in team {team_id}"
+        if details:
+            message += f": {details}"
+        super().__init__(message)
+
+
+class TeamMemberUpdateError(TeamMemberError):
+    """Error updating team member."""
+    
+    def __init__(self, member_identifier: str, field: str, details: str = ""):
+        self.member_identifier = member_identifier
+        self.field = field
+        self.details = details
+        message = f"Failed to update {field} for team member {member_identifier}"
+        if details:
+            message += f": {details}"
+        super().__init__(message)
+
+
+class TeamMemberCreationError(TeamMemberError):
+    """Error creating team member."""
+    
+    def __init__(self, member_name: str, details: str = ""):
+        self.member_name = member_name
+        self.details = details
+        message = f"Failed to create team member {member_name}"
+        if details:
+            message += f": {details}"
+        super().__init__(message)

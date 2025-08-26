@@ -17,7 +17,8 @@ from kickai.utils.tool_helpers import create_json_response, validate_required_in
 from kickai.utils.tool_validation import create_tool_response
 
 
-@tool("help_response", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def help_response(
     telegram_id: int,
     team_id: str,
@@ -195,7 +196,8 @@ def _group_commands_by_category(commands: list) -> dict[str, list]:
     # Remove empty categories
     return {k: v for k, v in categories.items() if v}
 
-@tool("get_available_commands", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_available_commands(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get all available commands for the current chat type.
@@ -272,7 +274,8 @@ async def get_available_commands(telegram_id: int, team_id: str, username: str, 
         )
 
 
-@tool("get_command_help", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_command_help(telegram_id: int, team_id: str, username: str, chat_type: str, command_name: str) -> str:
     """
     Get detailed help for a specific command.
@@ -344,7 +347,8 @@ async def get_command_help(telegram_id: int, team_id: str, username: str, chat_t
         return create_json_response(ResponseStatus.ERROR, message=f"Failed to get command help: {e}")
 
 
-@tool("get_welcome_message", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_welcome_message(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Generate a welcome message for users.

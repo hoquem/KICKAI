@@ -22,7 +22,8 @@ from kickai.utils.tool_helpers import (
 )
 
 
-@tool("team_member_registration", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def team_member_registration(
     telegram_id: int,
     team_id: str,
@@ -130,7 +131,8 @@ async def team_member_registration(
         return create_json_response(ResponseStatus.ERROR, message="Failed to register team member")
 
 
-@tool("get_my_team_member_status", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_my_team_member_status(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get current user's team member status and information.
@@ -169,7 +171,8 @@ async def get_my_team_member_status(telegram_id: int, team_id: str, username: st
         return create_json_response(ResponseStatus.ERROR, message=f"Failed to get team member status: {e!s}")
 
 
-@tool("get_team_members", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_team_members(telegram_id: int, team_id: str, username: str, chat_type: str, role: Optional[str] = None) -> str:
     """
     Get team members for a team, optionally filtered by role.
@@ -220,7 +223,8 @@ async def get_team_members(telegram_id: int, team_id: str, username: str, chat_t
         return create_json_response(ResponseStatus.ERROR, message=f"Failed to get team members: {e!s}")
 
 
-@tool("add_team_member_role", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def add_team_member_role(telegram_id: int, team_id: str, role: str) -> str:
     """
     Add a role to a team member.
@@ -247,7 +251,8 @@ async def add_team_member_role(telegram_id: int, team_id: str, role: str) -> str
         return create_json_response(ResponseStatus.ERROR, message=f"Error adding role: {e!s}")
 
 
-@tool("remove_team_member_role", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def remove_team_member_role(telegram_id: int, team_id: str, role: str) -> str:
     """
     Remove a role from a team member.
@@ -274,7 +279,8 @@ async def remove_team_member_role(telegram_id: int, team_id: str, role: str) -> 
         return create_json_response(ResponseStatus.ERROR, message=f"Error removing role: {e!s}")
 
 
-@tool("promote_team_member_to_admin", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def promote_team_member_to_admin(telegram_id: int, team_id: str, promoted_by: str) -> str:
     """
     Promote a team member to admin status.

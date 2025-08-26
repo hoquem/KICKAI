@@ -51,8 +51,8 @@ class AsyncToolProtocol(Protocol):
 
 
 class AsyncToolRegistry:
-    """Registry for async CrewAI tools with metadata management. 
-    
+    """Registry for async CrewAI tools with metadata management.
+
     Enforces 100% async architecture - sync tools are rejected with ValueError.
     All registered tools must use async def syntax for CrewAI 2025 compatibility.
     """
@@ -77,7 +77,7 @@ class AsyncToolRegistry:
 
             # Validate that tool is async - ALL tools must be async
             is_async = callable(actual_func) and asyncio.iscoroutinefunction(actual_func)
-            
+
             if not is_async:
                 logger.error(f"❌ ARCHITECTURE VIOLATION: Tool {tool_name} is not async - ALL tools must be async in 2025 architecture")
                 raise ValueError(f"Tool {tool_name} must be async - sync tools are no longer supported")
@@ -241,10 +241,10 @@ class AsyncToolRegistry:
                     actual_func = tool_func.func
                 else:
                     actual_func = tool_func
-                
+
                 is_async = asyncio.iscoroutinefunction(actual_func)
                 validation[tool_name] = is_async
-                
+
                 if not is_async:
                     sync_tools_found.append(tool_name)
             else:
@@ -261,11 +261,11 @@ class AsyncToolRegistry:
         """Validate that ALL tools in the registry are async. Returns True if all async, False otherwise."""
         all_tool_names = list(self.tools.keys())
         validation = self.validate_async_tools(all_tool_names)
-        
+
         sync_tools = [name for name, is_async in validation.items() if not is_async]
         total_tools = len(validation)
         async_tools_count = sum(validation.values())
-        
+
         if sync_tools:
             logger.error(f"❌ ARCHITECTURE VIOLATION: {len(sync_tools)} sync tools found out of {total_tools} total tools")
             logger.error(f"❌ Sync tools that need conversion: {sync_tools}")
@@ -318,7 +318,7 @@ class AsyncContextInjector:
 
             # All tools are now async - simplified architecture
             async_tools = []
-            
+
             for tool_name in agent_tool_names:
                 if tool_name in tool_registry.metadata:
                     async_tools.append(tool_name)
@@ -334,7 +334,7 @@ class AsyncContextInjector:
             return f"""
 User Request: {user_request}
 
-Context (automatically provided to all tools):
+Context (must be passed explicitly to tools):
 - User: {context['username']} (telegram_id: {context['telegram_id']})
 - Team: {context['team_id']}
 - Chat: {context['chat_type']}
@@ -347,17 +347,37 @@ Available Tools:
 CONTEXT-AWARE TOOL SELECTION:
 {context_guidance}
 
+CRITICAL PARAMETER PASSING INSTRUCTIONS:
+When calling ANY tool, you MUST pass parameters as INDIVIDUAL ARGUMENTS, not as a dictionary.
+
+For example, to call update_player_field:
+CORRECT: update_player_field({context['telegram_id']}, "{context['team_id']}", "{context['username']}", "{context['chat_type']}", "position", "Goalkeeper")
+WRONG: update_player_field({{"field": "position", "value": "Goalkeeper"}})
+
+Standard parameter order for ALL tools:
+1. telegram_id: {context['telegram_id']} (integer)
+2. team_id: "{context['team_id']}" (string)
+3. username: "{context['username']}" (string)
+4. chat_type: "{context['chat_type']}" (string)
+5. [tool-specific parameters...]
+
 Instructions:
 1. Analyze the user's request AND chat context to select the most appropriate tool
 2. Use the Context-Aware Tool Selection guidance above for optimal tool choice
-3. All tools receive standard context parameters automatically
-4. Return the exact tool output without modification
+3. ALWAYS pass context parameters as INDIVIDUAL ARGUMENTS when calling any tool:
+   - telegram_id: {context['telegram_id']}
+   - team_id: "{context['team_id']}"
+   - username: "{context['username']}"
+   - chat_type: "{context['chat_type']}"
+4. Then pass any tool-specific parameters as INDIVIDUAL ARGUMENTS after the context parameters
+5. Return the exact tool output without modification
 
 Important:
 - CrewAI will handle async/sync execution automatically
 - For data requests, you MUST use a tool - never provide fabricated data
 - Context determines tool selection: main chat vs leadership chat requires different information
 - Tool outputs are final - do not add, modify, or reformat the response
+- NEVER pass parameters as dictionaries - always as individual arguments
 """
 
         except Exception as e:
@@ -380,41 +400,41 @@ Instructions: Use available tools to respond to the user's request.
         try:
             # Normalize chat type for consistent comparison
             chat_type_lower = chat_type.lower()
-            
+
             guidance_parts = []
-            
+
             # Check available tools for intent-based guidance
             has_get_my_status = 'get_my_status' in agent_tool_names
             has_active_players = 'get_active_players' in agent_tool_names
             has_list_all = 'list_team_members_and_players' in agent_tool_names
             has_player_status = 'get_player_status' in agent_tool_names
-            
+
             # Add command intent recognition guidance
             guidance_parts.extend([
                 "🎯 COMMAND INTENT RECOGNITION (PRIORITIZE THIS):",
                 "",
                 "📋 PERSONAL INFO COMMANDS → Use personal status tools:",
             ])
-            
+
             if has_get_my_status:
                 guidance_parts.extend([
                     "• /myinfo, /info, /status (no parameters) → Use 'get_my_status'",
                     "  Intent: User wants their own status/information",
                     "  Tool: get_my_status provides personal player status"
                 ])
-            
+
             if has_player_status:
                 guidance_parts.extend([
-                    "• /status [name/phone] → Use 'get_player_status'", 
+                    "• /status [name/phone] → Use 'get_player_status'",
                     "  Intent: User wants specific player information",
                     "  Tool: get_player_status for individual player queries"
                 ])
-            
+
             guidance_parts.extend([
                 "",
                 "📝 LIST COMMANDS → Use appropriate list tools:",
             ])
-            
+
             # Only show list guidance when agent has list tools AND this is for list commands
             if has_active_players and has_list_all:
                 if chat_type_lower in ['main', 'main_chat']:
@@ -435,12 +455,12 @@ Instructions: Use available tools to respond to the user's request.
                         "  Intent: General list request",
                         "  Rationale: Default to active players for safety"
                     ])
-            
+
             guidance_parts.extend([
                 "",
                 "🧠 TOOL SELECTION PRIORITY:",
                 "1. FIRST: Identify command INTENT (personal vs list vs management)",
-                "2. SECOND: Consider chat context for list commands only", 
+                "2. SECOND: Consider chat context for list commands only",
                 "3. THIRD: Select most specific tool for the user's actual need",
                 "",
                 "⚠️ CRITICAL: /myinfo is ALWAYS personal info → ALWAYS use get_my_status",
@@ -448,9 +468,9 @@ Instructions: Use available tools to respond to the user's request.
                 "• Match tool capabilities to user's actual intent",
                 "• Personal commands take precedence over context rules"
             ])
-            
+
             return "\n".join(guidance_parts)
-            
+
         except Exception as e:
             logger.warning(f"⚠️ Failed to generate context guidance: {e}")
             return f"Context: {chat_type} chat - Use appropriate tools based on context"

@@ -58,7 +58,8 @@ class TeamMemberUpdateValidator:
     UPDATABLE_FIELDS = {
         "phone": "Contact phone number",
         "email": "Email address",
-        "emergency_contact": "Emergency contact information",
+        "emergency_contact_name": "Emergency contact name",
+        "emergency_contact_phone": "Emergency contact phone number",
         "role": "Administrative role (admin approval required)",
     }
 
@@ -148,19 +149,34 @@ class TeamMemberUpdateValidator:
         return email.strip().lower()
 
     @classmethod
-    def validate_emergency_contact(cls, contact: str) -> str:
-        """Validate emergency contact information."""
-        if len(contact.strip()) < 5:
+    def validate_emergency_contact_name(cls, name: str) -> str:
+        """Validate emergency contact name."""
+        if len(name.strip()) < 2:
             raise TeamMemberUpdateValidationError(
-                "Emergency contact must be at least 5 characters long"
+                "Emergency contact name must be at least 2 characters long"
             )
 
-        if len(contact.strip()) > 200:
+        if len(name.strip()) > 100:
             raise TeamMemberUpdateValidationError(
-                "Emergency contact must be less than 200 characters"
+                "Emergency contact name must be less than 100 characters"
             )
 
-        return contact.strip()
+        return name.strip()
+
+    @classmethod
+    def validate_emergency_contact_phone(cls, phone: str) -> str:
+        """Validate emergency contact phone number."""
+        if len(phone.strip()) < 5:
+            raise TeamMemberUpdateValidationError(
+                "Emergency contact phone must be at least 5 characters long"
+            )
+
+        if len(phone.strip()) > 20:
+            raise TeamMemberUpdateValidationError(
+                "Emergency contact phone must be less than 20 characters"
+            )
+
+        return phone.strip()
 
     @classmethod
     def validate_field_value(cls, field: str, value: str) -> str:
@@ -173,13 +189,16 @@ class TeamMemberUpdateValidator:
             return cls.validate_role(value)
         elif field_lower == "email":
             return cls.validate_email(value)
-        elif field_lower == "emergency_contact":
-            return cls.validate_emergency_contact(value)
+        elif field_lower == "emergency_contact_name":
+            return cls.validate_emergency_contact_name(value)
+        elif field_lower == "emergency_contact_phone":
+            return cls.validate_emergency_contact_phone(value)
         else:
             raise TeamMemberUpdateValidationError(f"Unknown field type: {field}")
 
 
-@tool("update_team_member_information", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def update_team_member_information(
     user_id: TelegramUserId, team_id: TeamId, field: str, value: str, username: str = "Unknown"
 ) -> str:
@@ -189,7 +208,7 @@ async def update_team_member_information(
     Args:
         user_id: Telegram user ID of the team member
         team_id: Team ID  
-        field: Field name to update (phone, email, emergency_contact, role)
+        field: Field name to update (phone, email, emergency_contact_name, emergency_contact_phone, role)
         value: New value for the field
         username: Username of the person making the update
 
@@ -353,7 +372,8 @@ async def update_team_member_information(
         return create_json_response(ResponseStatus.ERROR, message="Update Failed: An unexpected error occurred. Please try again or contact support.")
 
 
-@tool("get_team_member_updatable_fields", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_team_member_updatable_fields(user_id: TelegramUserId, team_id: TeamId) -> str:
     """
     Get list of fields that a team member can update with examples and validation rules.
@@ -408,9 +428,13 @@ async def get_team_member_updatable_fields(user_id: TelegramUserId, team_id: Tea
    Example: /update email admin@example.com
    Format: Valid email address
 
-🚨 **emergency_contact** - Emergency contact info
-   Example: /update emergency_contact +44787654321
-   Format: Phone number or contact details
+🚨 **emergency_contact_name** - Emergency contact name
+   Example: /update emergency_contact_name John Doe
+   Format: Contact person's name
+
+🚨 **emergency_contact_phone** - Emergency contact phone
+   Example: /update emergency_contact_phone +44787654321
+   Format: Valid phone number
 
 👔 **role** - Your administrative role ⚠️ ADMIN APPROVAL REQUIRED
    Example: /update role Assistant Coach
@@ -431,7 +455,8 @@ async def get_team_member_updatable_fields(user_id: TelegramUserId, team_id: Tea
         return "❌ Error retrieving updatable fields. Please try again."
 
 
-@tool("validate_team_member_update_request", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def validate_team_member_update_request(user_id: TelegramUserId, team_id: TeamId, field: str, value: str) -> str:
     """
     Validate a team member update request without actually performing the update.
@@ -491,7 +516,8 @@ async def validate_team_member_update_request(user_id: TelegramUserId, team_id: 
         return "❌ Validation Error: Please check your input and try again"
 
 
-@tool("get_pending_team_member_approval_requests", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_pending_team_member_approval_requests(team_id: TeamId, user_id: Optional[TelegramUserId] = None) -> str:
     """
     Get pending approval requests for team member updates.

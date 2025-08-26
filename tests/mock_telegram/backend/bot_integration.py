@@ -48,7 +48,7 @@ except ImportError as e:
         telegram_id: int
         text: str
         chat_id: str
-        chat_type: str
+        chat_type: Any  # Accept both str and ChatType enum for fallback compatibility
         team_id: Optional[str] = None
         username: Optional[str] = None
         first_name: Optional[str] = None
@@ -154,7 +154,7 @@ async def _ensure_dependencies_initialized() -> None:
     container = get_container()
     if not container._initialized:
         logger.info("🔧 Initializing dependency container...")
-        initialize_container()
+        await initialize_container()
 
 
 async def _create_router(team_id: str) -> AgenticMessageRouter:

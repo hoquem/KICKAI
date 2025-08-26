@@ -11,11 +11,10 @@ from datetime import datetime
 
 from loguru import logger
 
-from kickai.core.dependency_container import get_container
 from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
 from kickai.features.team_administration.domain.entities.team_member import TeamMember
-from kickai.features.team_administration.domain.repositories.team_repository_interface import (
-    TeamRepositoryInterface,
+from kickai.features.team_administration.domain.repositories.team_member_repository_interface import (
+    TeamMemberRepositoryInterface,
 )
 from kickai.features.team_administration.domain.services.team_service import TeamService
 from kickai.features.team_administration.domain.exceptions import (
@@ -37,8 +36,10 @@ from kickai.utils.simple_id_generator import generate_simple_team_member_id
 class SimplifiedTeamMemberService:
     """Simplified service for team member management."""
 
-    def __init__(self, team_repository: TeamRepositoryInterface):
-        self.team_repository = team_repository
+    def __init__(self, team_member_repository: TeamMemberRepositoryInterface, team_service: TeamService, invite_service: InviteLinkService):
+        self.team_member_repository = team_member_repository
+        self.team_service = team_service
+        self.invite_service = invite_service
         self.logger = logger
 
     async def add_team_member_or_get_existing(
@@ -65,7 +66,7 @@ class SimplifiedTeamMemberService:
                 return True, f"Team member {existing_member.name} already exists with ID: {existing_member.member_id}", existing_member
 
             # Get existing team member IDs for collision detection
-            existing_members = await self.team_repository.get_team_members_by_team(team_id)
+            existing_members = await self.team_member_repository.get_team_members(team_id)
             existing_ids = {member.member_id for member in existing_members if member.member_id}
 
             # Generate simple team member ID
@@ -85,7 +86,7 @@ class SimplifiedTeamMemberService:
             )
 
             # Save to repository
-            await self.team_repository.create_team_member(team_member)
+            await self.team_member_repository.create_team_member(team_member)
 
             return True, SUCCESS_MESSAGES["MEMBER_ADDED"].format(name=name, member_id=member_id), team_member
         except Exception as e:
@@ -126,7 +127,7 @@ class SimplifiedTeamMemberService:
             # Get all possible variants of the search phone number
             search_variants = get_phone_variants(phone)
 
-            members = await self.team_repository.get_team_members_by_team(team_id)
+            members = await self.team_member_repository.get_team_members(team_id)
 
             for member in members:
                 if not member.phone_number:
@@ -182,13 +183,8 @@ class SimplifiedTeamMemberService:
             logger.info(f"🔗 Starting invite link creation for {name} (team: {team_id})")
             
             # Get team configuration
-            logger.debug("📋 Getting team service from container...")
-            team_service = get_container().get_service(TeamService)
-            if not team_service:
-                raise TeamServiceUnavailableError()
-            
             logger.debug(f"🔍 Looking up team configuration for team_id: {team_id}")
-            team = await team_service.get_team(team_id=team_id)
+            team = await self.team_service.get_team(team_id=team_id)
 
             if not team:
                 raise TeamNotFoundError(team_id)
@@ -198,16 +194,10 @@ class SimplifiedTeamMemberService:
             
             logger.info(f"✅ Team found: {team.name}, leadership_chat_id: {team.leadership_chat_id}")
 
-            # Get invite link service
-            logger.debug("🔗 Getting invite link service from container...")
-            invite_service = get_container().get_service(InviteLinkService)
-            if not invite_service:
-                raise InviteLinkServiceUnavailableError()
-            
             logger.info(f"🔗 Creating invite link via service for member: {name}")
 
             # Create invite link
-            invite_result = await invite_service.create_team_member_invite_link(
+            invite_result = await self.invite_service.create_team_member_invite_link(
                 team_id=team_id,
                 member_id=member_id,  # Pass real member_id
                 member_name=name,

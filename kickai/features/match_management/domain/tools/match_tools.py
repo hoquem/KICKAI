@@ -25,7 +25,8 @@ from kickai.utils.tool_helpers import (
 from kickai.features.match_management.domain.services.match_service import MatchService
 
 
-@tool("list_matches", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def list_matches(team_id: str, status: str = "all", limit: int = 10) -> str:
     """List matches for a team with optional status filter.
     
@@ -101,7 +102,8 @@ async def list_matches(team_id: str, status: str = "all", limit: int = 10) -> st
         return create_json_response(ResponseStatus.ERROR, message=f"Failed to list matches: {e}")
 
 
-@tool("create_match", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def create_match(
     team_id: str,
     opponent: str,
@@ -181,7 +183,8 @@ async def create_match(
 # Use list_matches directly instead
 
 
-@tool("get_match_details", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def get_match_details(match_id: str) -> str:
     """Get detailed match information.
     
@@ -242,7 +245,8 @@ async def get_match_details(match_id: str) -> str:
         return create_json_response(ResponseStatus.ERROR, message=f"Error getting match details: {e!s}")
 
 
-@tool("select_squad_tool", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def select_squad_tool(match_id: str, player_ids: Optional[List[str]] = None) -> str:
     """Select squad for a match.
     
@@ -298,7 +302,8 @@ async def select_squad_tool(match_id: str, player_ids: Optional[List[str]] = Non
         return create_json_response(ResponseStatus.ERROR, message=f"Error selecting squad: {e!s}")
 
 
-@tool("record_match_result", result_as_answer=True)
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
 async def record_match_result(
     match_id: str,
     home_score: int,
