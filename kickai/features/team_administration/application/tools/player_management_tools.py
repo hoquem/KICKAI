@@ -10,11 +10,8 @@ All framework dependencies (@tool decorators, container access) are confined to 
 from crewai.tools import tool
 from loguru import logger
 
-from kickai.core.dependency_container import get_container
-from kickai.core.enums import ResponseStatus
-from kickai.features.player_registration.domain.interfaces.player_service_interface import IPlayerService
-from kickai.features.team_administration.domain.interfaces.team_member_service_interface import ITeamMemberService
-from kickai.utils.tool_helpers import create_json_response
+# Import the domain layer function
+from kickai.features.team_administration.domain.tools.player_management_tools import add_player as add_player_domain
 
 
 @tool("add_player", result_as_answer=True)
@@ -30,10 +27,10 @@ async def add_player(
     Add a new player to the team with invite link generation.
 
     This tool serves as the application boundary for player creation by team administrators.
-    It handles framework concerns and delegates business logic to the domain service.
+    It delegates all business logic to the domain layer function.
 
     Args:
-        telegram_id: Admin's Telegram ID
+        telegram_id: Admin's Telegram ID or dictionary with all parameters
         team_id: Team ID (required)
         username: Admin's username for logging
         chat_type: Chat type context (should be 'leadership')
@@ -44,74 +41,42 @@ async def add_player(
         JSON formatted response with player creation result and invite link
     """
     try:
-        logger.info(f"🏃‍♂️ Adding player '{player_name}' by {username} ({telegram_id}) in team {team_id}")
-
-        # Validate inputs at application boundary
-        if not player_name or not phone_number:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Both player name and phone number are required"
-            )
-
-        # Get required services from container (application boundary)
-        container = get_container()
-        player_service = container.get_service(IPlayerService)
-        team_member_service = container.get_service(ITeamMemberService)
-
-        if not player_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="PlayerService is not available"
-            )
-
-        # Check if player already exists
-        existing_player = await player_service.get_player_by_phone(phone_number, team_id)
-        
-        if existing_player:
-            response_data = {
-                "player_exists": True,
-                "player_name": existing_player.name,
-                "phone_number": phone_number,
-                "team_id": team_id,
-                "player_id": existing_player.player_id,
-                "status": existing_player.status,
-                "message": f"✅ Player '{existing_player.name}' already exists in the system"
-            }
+        # Handle CrewAI parameter dictionary passing (Pattern A - CrewAI best practice)
+        if isinstance(telegram_id, dict):
+            params = telegram_id
+            telegram_id = params.get('telegram_id', 0)
+            team_id = params.get('team_id', '')
+            username = params.get('username', '')
+            chat_type = params.get('chat_type', '')
+            player_name = params.get('player_name', '')
+            phone_number = params.get('phone_number', '')
             
-            logger.info(f"✅ Player '{player_name}' already exists")
-            return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+            # Type conversion with robust error handling
+            if isinstance(telegram_id, str):
+                try:
+                    telegram_id = int(telegram_id)
+                except (ValueError, TypeError):
+                    from kickai.utils.tool_helpers import create_json_response
+                    from kickai.core.enums import ResponseStatus
+                    return create_json_response(
+                        ResponseStatus.ERROR, 
+                        message="Invalid telegram_id format"
+                    )
 
-        # Create new player (execute domain operation)
-        success, result_message = await player_service.add_player(
-            name=player_name,
-            phone=phone_number,
-            team_id=team_id
+        logger.info(f"🏃‍♂️ Application layer: Adding player '{player_name}' by {username} ({telegram_id}) in team {team_id}")
+
+        # Delegate to domain layer function (contains all business logic including invite link generation)
+        return await add_player_domain(
+            telegram_id=telegram_id,
+            team_id=team_id,
+            username=username,
+            chat_type=chat_type,
+            player_name=player_name,
+            phone_number=phone_number
         )
 
-        if success:
-            # Get the created player for response data
-            created_player = await player_service.get_player_by_phone(phone_number, team_id)
-            
-            response_data = {
-                "player_exists": False,
-                "player_name": player_name,
-                "phone_number": phone_number,
-                "team_id": team_id,
-                "player_id": created_player.player_id if created_player else "Generated",
-                "status": "pending",
-                "message": f"✅ Player '{player_name}' added successfully",
-                "details": result_message,
-                "invite_info": "Invite link functionality would be generated here"
-            }
-
-            logger.info(f"✅ Player '{player_name}' added successfully by {username}")
-            return create_json_response(ResponseStatus.SUCCESS, data=response_data)
-        else:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message=f"Failed to add player: {result_message}"
-            )
-
     except Exception as e:
-        logger.error(f"❌ Error adding player '{player_name}': {e}")
+        logger.error(f"❌ Application layer error adding player '{player_name}': {e}")
+        from kickai.utils.tool_helpers import create_json_response
+        from kickai.core.enums import ResponseStatus
         return create_json_response(ResponseStatus.ERROR, message=f"Failed to add player: {e}")

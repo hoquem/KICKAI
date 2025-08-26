@@ -15,6 +15,7 @@ from kickai.core.exceptions import (
     TeamNotConfiguredError,
     TeamNotFoundError,
 )
+from kickai.features.team_administration.domain.exceptions import MissingRequiredFieldError
 from kickai.features.communication.domain.services.invite_link_service import InviteLinkService
 from kickai.features.player_registration.domain.services.player_service import PlayerService
 from kickai.features.team_administration.domain.services.team_service import TeamService
