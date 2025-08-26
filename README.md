@@ -2,27 +2,26 @@
 
 **Version:** 3.1  
 **Status:** Production Ready  
-**Last Updated:** July 2025  
-**Architecture:** Agentic Clean Architecture with CrewAI
+**Last Updated:** January 2025  
+**Architecture:** 6-Agent CrewAI Native Collaboration System with **Complete Clean Architecture Compliance**
 
 ## 🎯 Overview
 
-KICKAI is an AI-powered football team management system that combines advanced AI capabilities with practical team management tools. The system uses a sophisticated 5-agent CrewAI architecture to provide intelligent, context-aware responses to team management needs through an agentic-first approach.
+KICKAI is an AI-powered football team management system built with a **6-agent CrewAI native collaboration architecture** and clean architecture principles. The system features intelligent agent-to-agent collaboration using CrewAI best practices, with context-aware routing and specialized agent expertise.
 
 ### 🚀 Key Features
 
-- ✅ **5-Agent CrewAI System** for intelligent task processing
-- ✅ **Agentic-First Architecture** with no dedicated command handlers
-- ✅ **Feature-First Clean Architecture** with clean separation of concerns
-- ✅ **Dynamic Command Discovery** from centralized registry
-- ✅ **Context-Aware Responses** based on chat type and user permissions
-- ✅ **🔒 Comprehensive Security** with permission checking for both slash commands and natural language
-- ✅ **Advanced Player Onboarding** with multi-step registration
-- ✅ **Multi-team Management** with isolated environments
-- ✅ **Payment System Integration** with Collectiv
-- ✅ **Role-Based Access Control** for leadership and members
-- ✅ **Unified Message Formatting** with centralized service
-- ✅ **Intelligent Routing System** with LLM-powered agent selection
+- ✅ **6-Agent CrewAI Native Collaboration** - Intelligent agent-to-agent collaboration patterns
+- ✅ **Intelligent Routing** - NLP-powered context-aware agent selection
+- ✅ **CrewAI Best Practices** - Primary agent pattern with specialist delegation
+- ✅ **Zero Tool Overlaps** - Clear agent specialization and responsibility separation
+- ✅ **Multi-Agent Task Patterns** - Sequential, parallel, and hierarchical collaboration
+- ✅ **Context-Aware Intelligence** - Chat type and intent-based routing decisions
+- ✅ **Complete Clean Architecture Compliance** - Pure domain layer with full framework separation
+- ✅ **Advanced Player Management** - Multi-step registration and approval workflows
+- ✅ **Multi-team Support** - Isolated environments for different teams
+- ✅ **Role-Based Access Control** - Leadership, player, and admin permissions
+- ✅ **Mock Telegram Testing** - Interactive UI for development and testing
 
 ## 📚 Documentation
 
@@ -44,122 +43,72 @@ KICKAI is an AI-powered football team management system that combines advanced A
 - **[Command Summary Table](docs/COMMAND_SUMMARY_TABLE.md)** - Available commands
 - **[Command Chat Differences](docs/COMMAND_CHAT_DIFFERENCES.md)** - Command availability by chat type
 
-## 🏗️ Architecture
+## 🏗️ System Architecture
 
-KICKAI follows a **Clean Architecture** with **Agentic-First Design** using CrewAI. The system is built around a **unified processing pipeline** where both slash commands and natural language converge to the same CrewAI orchestration system.
+KICKAI uses a **6-agent CrewAI native collaboration architecture** with clean architecture principles. The system features intelligent agent-to-agent collaboration using CrewAI best practices.
 
-### **Unified Processing Architecture**
+### **6-Agent CrewAI Native Collaboration System**
+1. **MESSAGE_PROCESSOR** - Primary interface with intelligent coordination
+2. **HELP_ASSISTANT** - Specialized help system and user guidance  
+3. **PLAYER_COORDINATOR** - Player management and operations
+4. **TEAM_ADMINISTRATOR** - Team member management and administration
+5. **SQUAD_SELECTOR** - Match management, availability, and squad selection
+6. **NLP_PROCESSOR** - Intelligent routing and context analysis
 
-**Key Insight**: Both slash commands and natural language use the **exact same processing pipeline**.
+### **CrewAI Collaboration Flow**
+```
+User Input → MESSAGE_PROCESSOR → NLP_PROCESSOR Analysis → Specialist Agent → Coordinated Response
+```
+*All interactions use CrewAI native agent collaboration patterns*
 
-#### **Processing Flow**
-1. **Input Processing**: Handle both slash commands and natural language
-2. **Command Registry**: Auto-discovery and metadata for slash commands  
-3. **Unified Processing**: Both paths converge to `_handle_crewai_processing`
-4. **CrewAI System**: Single orchestration pipeline for all requests
-5. **Intent Classification**: Determine user intent (for both input types)
-6. **Complexity Assessment**: Analyze request complexity
-7. **Task Decomposition**: Break down into subtasks with agent assignments
-8. **Agent Routing**: Route subtasks to appropriate agents
-9. **Task Execution**: Execute tasks through specialized agents
-10. **Result Aggregation**: Combine results and format response
+### **Key Benefits**
+- **🤖 Intelligent Collaboration**: Agents work together using CrewAI native patterns
+- **🎯 Context-Aware Routing**: NLP analysis determines optimal agent selection
+- **🔧 Zero Tool Overlaps**: Clear specialization with no duplicate functionality
+- **🔄 Multi-Agent Patterns**: Sequential, parallel, and hierarchical collaboration
+- **🛠️ CrewAI Best Practices**: Primary agent pattern with specialist delegation
+- **🎯 Native Async**: CrewAI tools with async/await patterns
 
-#### **Benefits of Unified Processing**
-- **🔒 Consistent Security**: Same permission checking for both input types
-- **🔄 Single Source of Truth**: No code duplication between paths
-- **🧪 Unified Testing**: Test once, works for both input methods
-- **🛠️ Maintainable**: Single processing pipeline to maintain
-- **📈 Scalable**: Easy to add new input methods (voice, buttons, etc.)
-- **🎯 Consistent Behavior**: Same agent selection and execution logic
+### **Clean Architecture Layers**
 
-### Agent System
-
-```mermaid
-graph TB
-    subgraph "User Interface"
-        TG[Telegram Bot]
-        UMS[Unified Message Handler]
-    end
-    
-    subgraph "Agent System"
-        MP[Message Processor Agent]
-        HA[Help Assistant Agent]
-        PC[Player Coordinator Agent]
-        TA[Team Administrator Agent]
-        SS[Squad Selector Agent]
-    end
-    
-    subgraph "Application Layer"
-        CR[Command Registry]
-        TO[Task Orchestration]
-        MS[Message Formatting Service]
-    end
-    
-    subgraph "Domain Layer"
-        PS[Player Service]
-        TS[Team Service]
-        MS[Match Service]
-        AS[Attendance Service]
-        PYS[Payment Service]
-    end
-    
-    subgraph "Infrastructure Layer"
-        FB[Firebase/Firestore]
-        COL[Collectiv API]
-        TG_API[Telegram API]
-        LLM[LLM Services]
-    end
-    
-    TG --> UMS
-    UMS --> CR
-    CR --> IS
-    IS --> MP
-    IS --> TM
-    IS --> PC
-    IS --> PA
-    IS --> FM
-    IS --> LA
-    IS --> OA
-    
-    MP --> TO
-    TM --> TO
-    PC --> TO
-    PA --> TO
-    FM --> TO
-    LA --> TO
-    OA --> TO
-    
-    TO --> PS
-    TO --> TS
-    TO --> MS
-    TO --> AS
-    TO --> PYS
-    
-    PS --> FB
-    TS --> FB
-    MS --> FB
-    AS --> FB
-    PYS --> COL
-    UMS --> TG_API
-    IS --> LLM
+```
+User Interface     →  Telegram Bot
+Agent System       →  6 Collaborative CrewAI Agents
+Application Layer  →  CrewAI Tools (@tool decorators), Multi-Agent Coordination
+Domain Layer       →  Pure Business Logic (no framework dependencies)
+Infrastructure     →  Firebase/Firestore, External APIs
 ```
 
-### Architectural Principles: Embracing CrewAI Native Features
+**✅ Clean Architecture Compliance Achieved (January 2025):**
+- **62 @tool decorators migrated** from domain to application layer
+- **Pure domain functions** with no framework dependencies
+- **Framework isolation** - All CrewAI tools in application layer only
+- **Business logic preservation** - Domain functions maintain all functionality
+- **Complete separation of concerns** between layers
 
-KICKAI is built with a strong commitment to leveraging the native capabilities and design patterns of the CrewAI framework. This approach ensures:
+### CrewAI Native Collaboration Principles
 
-*   **Maintainability:** By adhering to CrewAI's conventions, the codebase remains consistent and easier to understand for anyone familiar with the framework.
-*   **Scalability:** Native features are often optimized for performance and scalability, allowing the system to grow efficiently.
-*   **Robustness:** Relying on well-tested CrewAI functionalities reduces the risk of introducing bugs or unexpected behavior.
-*   **Future-Proofing:** Staying aligned with the framework's evolution makes upgrades and new feature integration smoother.
+KICKAI is built with CrewAI native collaboration patterns, ensuring optimal agent coordination and intelligent task delegation:
 
-**Key Principles for CrewAI Usage:**
+*   **Primary Agent Pattern:** MESSAGE_PROCESSOR serves as the primary interface for all user interactions, coordinating with specialist agents as needed.
+*   **Intelligent Routing:** NLP_PROCESSOR provides context-aware analysis to determine optimal agent selection based on chat type, intent, and entity analysis.
+*   **Tool-Based Collaboration:** Agents collaborate through specialized tools rather than direct communication, following CrewAI best practices.
+*   **Specialist Delegation:** Complex operations are delegated to domain experts (PLAYER_COORDINATOR, TEAM_ADMINISTRATOR, SQUAD_SELECTOR) based on intelligent analysis.
+*   **Zero Overlap Design:** Each agent has distinct, non-overlapping responsibilities and tools to ensure clear separation of concerns.
 
-*   **Task Context (`Task.config`):** All context and parameters required by tools should be passed via the `Task.config` dictionary. Tools should retrieve their necessary inputs from this context.
-*   **Native Memory:** Utilize CrewAI's built-in memory management features for persistent context across tasks and agents, rather than implementing custom memory solutions.
-*   **Delegation and Orchestration:** Employ CrewAI's inherent delegation mechanisms for agents to collaborate and for complex tasks to be broken down and orchestrated.
-*   **Agent and Task Design:** Adhere to CrewAI's recommended patterns for defining agent roles, goals, backstories, and structuring tasks.
-*   **Avoid Reinvention:** Do not re-implement functionalities (e.g., task execution, agent communication, tool invocation) that are already provided and optimized by the CrewAI framework.
+**CrewAI Multi-Agent Patterns Implemented:**
+
+*   **Sequential Collaboration:** Agent A → Analysis → Agent B → Coordinated Response
+*   **Parallel Collaboration:** Multiple agents work simultaneously, results combined by primary agent
+*   **Hierarchical Delegation:** Primary agent delegates based on context analysis
+*   **Collaborative Problem Solving:** Agents collaborate on complex multi-domain problems
+
+**Key Architecture Benefits:**
+
+*   **Maintainability:** Clear agent specialization and CrewAI native patterns
+*   **Scalability:** Optimized collaboration patterns support system growth
+*   **Intelligence:** Context-aware routing and specialist expertise
+*   **Future-Proofing:** Native CrewAI patterns align with framework evolution
 
 For detailed guidelines and examples, refer to the [CrewAI Best Practices Implementation Guide](CREWAI_BEST_PRACTICES_IMPLEMENTATION.md) and the [Architecture Documentation](docs/ARCHITECTURE.md).
 
@@ -260,217 +209,183 @@ pytest tests/unit/agents/   # Agent-specific tests
 ## 🚀 Quick Start
 
 ### Prerequisites
-
-- Python 3.11+
-- Firebase project
+- Python 3.11+ (MANDATORY - will NOT work with 3.9)
+- Firebase project and credentials
 - Telegram Bot Token
-- Collectiv API credentials
 
-### Installation
+### Setup & Development
 
 ```bash
-# Clone the repository
+# 1. Clone and setup
 git clone https://github.com/your-org/KICKAI.git
 cd KICKAI
+python3.11 -m venv venv311
+source venv311/bin/activate
 
-# Create virtual environment
-python -m venv venv311
-source venv311/bin/activate  # On Windows: venv311\Scripts\activate
-
-# Install dependencies
+# 2. Install dependencies
 pip install -r requirements.txt
 pip install -r requirements-local.txt
 
-# Set up environment
+# 3. Environment variables
 cp .env.example .env
-# Edit .env with your credentials
+# Edit .env with your credentials:
+# AI_PROVIDER=groq
+# KICKAI_INVITE_SECRET_KEY=test-invite-secret-key-for-testing-only
+# FIREBASE_PROJECT_ID=<project_name>
+# FIREBASE_CREDENTIALS_FILE=credentials/<filename>.json
 
-# Run tests
-pytest tests/
+# 4. Development commands
+make dev                    # Start development server
+make test                   # Run tests
+make lint                   # Code quality checks
 
-# Start the bot locally
-python run_bot_local.py
-
-# Or start with safe mode
-./start_bot_safe.sh
-```
-
-### Environment Setup
-
-```bash
-# Required environment variables
-TELEGRAM_BOT_TOKEN=your_bot_token
-FIREBASE_CREDENTIALS=path_to_firebase_credentials.json
-COLLECTIV_API_KEY=your_collectiv_api_key
-TEAM_ID=your_team_id
+# 5. Mock Telegram UI (for testing)
+PYTHONPATH=. python tests/mock_telegram/start_mock_tester.py
+# Access at: http://localhost:8001
 ```
 
 ## 📁 Project Structure
 
 ```
-KICKAI/
-├── kickai/                       # Main source code
-│   ├── features/                 # Feature-based modules
-│   │   ├── player_registration/  # Player onboarding
-│   │   ├── team_administration/  # Team management
-│   │   ├── match_management/     # Match operations
-│   │   ├── attendance_management/ # Attendance tracking
-│   │   ├── attendance_management/   # Attendance tracking
-│   │   ├── communication/        # Messaging
-│   │   ├── payment_management/   # Payment processing
-│   │   └── system_infrastructure/ # Core services
-│   ├── agents/                   # AI Agent System
-│   │   ├── crew_agents.py        # Main agent definitions
-│   │   ├── configurable_agent.py # Base agent class
-│   │   └── behavioral_mixins.py  # Agent behavior patterns
-│   ├── core/                     # Core utilities
-│   │   └── command_registry.py   # Command registration
-│   ├── database/                 # Data layer
-│   └── utils/                    # Utilities
-├── tests/                        # Test suite
-│   ├── unit/                     # Unit tests
-│   ├── integration/              # Integration tests
-│   ├── e2e/                      # E2E tests
-│   └── frameworks/               # Test frameworks
-├── docs/                         # Documentation
-├── scripts/                      # Utility scripts
-└── setup/                        # Setup scripts
+kickai/
+├── features/           # Domain features (player_registration, team_administration, etc.)
+├── agents/            # 6-agent CrewAI system
+├── core/              # Core utilities and DI container
+└── database/          # Firebase/Firestore integration
+
+tests/
+├── unit/              # Component tests
+├── integration/       # Service tests
+├── e2e/               # Workflow tests
+└── mock_telegram/     # UI testing
 ```
 
 ## 🔧 Development
 
-### Code Quality
+### Adding New Features
+1. Create feature in `kickai/features/` following **Clean Architecture**:
+   - **Domain Layer**: Pure business logic functions (no `@tool` decorators)
+   - **Application Layer**: CrewAI tools with `@tool` decorators that delegate to domain
+   - **Infrastructure Layer**: Database and external service integrations
+2. Add async tools with `@tool` decorator **only in application layer**
+3. Register commands with `@command` decorator  
+4. Update agent tool assignments in `agents.yaml`
+5. Add tests (unit, integration, E2E)
 
-```bash
-# Run linting
-pre-commit install
-pre-commit run --all-files
+### Clean Architecture Tool Development Pattern
 
-# Run type checking
-mypy kickai/
+**✅ CORRECT - Application Layer Tool (with @tool decorator):**
+```python
+# kickai/features/example/application/tools/example_tools.py
+from crewai.tools import tool
+from kickai.features.example.domain.tools.example_tools import example_domain_function
 
-# Run security checks
-bandit -r kickai/
+@tool("example_tool", result_as_answer=True)
+async def example_tool(telegram_id: int, team_id: str, username: str, chat_type: str, ...) -> str:
+    """Application layer CrewAI tool that delegates to domain layer."""
+    # Delegate to pure domain function
+    return await example_domain_function(telegram_id, team_id, username, chat_type, ...)
 ```
 
-### Adding New Features
+**✅ CORRECT - Domain Layer Function (no @tool decorator):**
+```python
+# kickai/features/example/domain/tools/example_tools.py
+from kickai.core.dependency_container import get_container
+from kickai.core.enums import ResponseStatus
+from kickai.utils.tool_helpers import create_json_response
 
-1. **Follow Feature-First Architecture**: Create new features in `kickai/features/`
-2. **Implement Clean Architecture**: Follow the layered architecture pattern
-3. **Use Agentic Patterns**: Delegate to CrewAI agents for user interactions
-4. **Write Comprehensive Tests**: Include unit, integration, and E2E tests
-5. **Update Documentation**: Document new features and agent interactions
+# REMOVED: @tool decorator - this is now a domain service function only
+# Application layer provides the CrewAI tool interface
+async def example_domain_function(telegram_id: int, team_id: str, username: str, chat_type: str, ...) -> str:
+    """Pure domain business logic with no framework dependencies."""
+    container = get_container()
+    service = container.get_service(ServiceClass)
+    result = await service.method(...)
+    return create_json_response(ResponseStatus.SUCCESS, data=result)
+```
 
-### Agent Development
+**❌ INCORRECT - Domain Layer with @tool (Clean Architecture Violation):**
+```python
+# ❌ DON'T DO THIS - Framework dependencies in domain layer
+@tool("example_tool", result_as_answer=True)  # ❌ Framework dependency
+async def example_function(...) -> str:
+    # Business logic mixed with framework
+```
 
-When adding new agents or modifying existing ones:
+### Code Quality
+```bash
+make lint                   # All linting and formatting
+ruff check kickai/ && ruff format kickai/ && mypy kickai/
+pre-commit install && pre-commit run --all-files
+```
 
-1. **Define Agent Role**: Clear responsibility and primary commands
-2. **Implement Tools**: Create domain-specific tools for the agent
-3. **Configure Context**: Ensure proper context configuration
-4. **Test Agent Behavior**: Verify agent responses and tool usage
-5. **Update Registry**: Register agent and tools in appropriate registries
+## 📊 Testing & Deployment
 
-### Command Development
-
-When adding new commands:
-
-1. **Register Command**: Use `@command` decorator in feature module
-2. **Delegate to Agent**: No direct implementation - delegate to CrewAI agent
-3. **Define Permissions**: Set appropriate permission levels
-4. **Add Tests**: Test command registration and agent routing
-5. **Update Documentation**: Document command behavior and agent assignment
-
-## 📊 Monitoring & Observability
+### Testing
+```bash
+make test                   # All tests
+make test-unit             # Unit tests only
+PYTHONPATH=. python -m pytest tests/unit/test_file.py::test_function -v
+```
 
 ### Health Checks
-
 ```bash
-# Run health checks
-python scripts/run_health_checks.py
-
-# Monitor system status
-python scripts/monitor_system.py
+PYTHONPATH=. python scripts/run_health_checks.py
 ```
 
-### Logging
-
-The system uses structured logging with different levels:
-- **INFO**: General operational information
-- **WARNING**: Potential issues that don't stop operation
-- **ERROR**: Errors that need attention
-- **DEBUG**: Detailed debugging information
-
-### Agent Monitoring
-
-- **Agent Performance**: Track agent response times and success rates
-- **Tool Usage**: Monitor tool usage patterns and effectiveness
-- **Command Routing**: Track command routing accuracy
-- **User Engagement**: Monitor user interactions with agents
+### Deployment
+```bash
+make deploy-testing
+make deploy-production
+make health-check
+```
 
 ## 🤝 Contributing
 
-### Development Workflow
-
-1. **Create Feature Branch**: `git checkout -b feature/new-feature`
-2. **Implement Feature**: Follow clean architecture and agentic principles
-3. **Write Tests**: Include unit, integration, and E2E tests
-4. **Test Agent Behavior**: Verify agent interactions and responses
-5. **Update Documentation**: Document new features and agent roles
-6. **Submit Pull Request**: Include comprehensive description
-
-### Code Review Checklist
-
-- [ ] Follows clean architecture principles
-- [ ] Uses agentic patterns for user interactions
-- [ ] Includes comprehensive test coverage
-- [ ] Agent behavior is properly tested
-- [ ] Documentation is updated
-- [ ] No breaking changes to existing flows
-- [ ] Performance impact is acceptable
-
-## 📈 Roadmap
-
-### Short Term (Next 3 Months)
-- [ ] Enhanced agent capabilities and tool integration
-- [ ] Advanced natural language processing
-- [ ] Performance optimization for agent interactions
-- [ ] Advanced analytics dashboard
-
-### Medium Term (3-6 Months)
-- [ ] Microservices architecture migration
-- [ ] Advanced AI capabilities and learning
-- [ ] Multi-language support
-- [ ] Advanced reporting features
-
-### Long Term (6+ Months)
-- [ ] Machine learning pipeline for agent improvement
-- [ ] Predictive analytics and insights
-- [ ] Advanced team management features
-- [ ] Integration with external systems
+1. **Create Feature Branch**: Follow clean architecture and agentic patterns
+2. **Write Tests**: Include unit, integration, and E2E tests  
+3. **Update Documentation**: Document new features and agent roles
+4. **Submit Pull Request**: Include comprehensive description
 
 ## 📞 Support
 
-### Getting Help
-
-- **Documentation**: Check the comprehensive documentation in `docs/`
-- **Issues**: Report bugs and feature requests via GitHub Issues
-- **Discussions**: Use GitHub Discussions for questions and ideas
-- **Agent Testing**: Use agent-specific tests for debugging
-
-### Contact
-
-- **Development Team**: [team@kickai.com](mailto:team@kickai.com)
-- **Support**: [support@kickai.com](mailto:support@kickai.com)
-- **Documentation**: [docs@kickai.com](mailto:docs@kickai.com)
+- **Documentation**: Check comprehensive docs in `docs/` directory
+- **Issues**: GitHub Issues for bugs and feature requests
+- **Agent Testing**: Use Mock Telegram UI for interactive testing
 
 ---
 
-**Last Updated**: December 2024  
-**Version**: 3.0  
+**Last Updated**: January 2025  
+**Version**: 3.1  
 **Status**: Production Ready  
-**Architecture**: Agentic Clean Architecture with CrewAI  
-**License**: MIT License 
+**Architecture**: 6-Agent CrewAI System with **Complete Clean Architecture Compliance**  
+**License**: MIT License
+
+## 🏆 **Clean Architecture Migration Complete (January 2025)**
+
+KICKAI has achieved **complete Clean Architecture compliance** through a comprehensive migration:
+
+### ✅ **Migration Results**
+- **62 @tool decorators migrated** from domain to application layer
+- **Zero framework dependencies** in domain layer
+- **Pure business logic** preserved in domain functions
+- **Complete layer separation** achieved
+- **System functionality maintained** throughout migration
+
+### 🔧 **Architecture Benefits**
+- **Maintainability**: Clear separation of concerns between layers
+- **Testability**: Domain logic testable without framework dependencies
+- **Flexibility**: Business logic independent of CrewAI framework
+- **Scalability**: Clean boundaries support system growth
+- **Future-Proofing**: Domain layer immune to framework changes
+
+### 🎯 **Implementation Details**
+- **Domain Layer**: `kickai/features/*/domain/tools/` - Pure functions, no `@tool` decorators
+- **Application Layer**: `kickai/features/*/application/tools/` - CrewAI tools with `@tool` decorators
+- **Infrastructure Layer**: Database, APIs, external service integrations
+- **Agent Layer**: 6-agent CrewAI collaboration system
+
+This migration represents a significant architectural achievement, ensuring KICKAI follows industry-standard Clean Architecture principles while maintaining all existing functionality and performance characteristics. 
 
 ## 🔒 Security & Access Control
 

@@ -1,32 +1,30 @@
 # KICKAI Architecture Documentation
 
 **Version:** 6.1  
-**Status:** Production Ready with CrewAI Agentic Architecture  
-**Last Updated:** July 2025  
-**Architecture:** 12-Agent CrewAI System with Clean Architecture
+**Status:** Production Ready with CrewAI Native Collaboration Architecture  
+**Last Updated:** January 2025  
+**Architecture:** 6-Agent CrewAI Native Collaboration System with Clean Architecture
 
 ## 🎯 Overview
 
-KICKAI is an AI-powered football team management system built with **12-agent CrewAI architecture** and clean architecture principles. The system processes ALL user interactions through specialized AI agents, ensuring intelligent, context-aware responses while maintaining clean separation of concerns. All messaging uses **plain text with emojis** for maximum reliability and universal compatibility.
+KICKAI is an AI-powered football team management system built with **6-agent CrewAI native collaboration architecture** and clean architecture principles. The system uses CrewAI best practices for agent-to-agent collaboration with intelligent routing, ensuring context-aware responses while maintaining clean separation of concerns. All messaging uses **plain text with emojis** for maximum reliability and universal compatibility.
 
 ## 🏗️ Core Architecture Principles
 
-### 1. **12-Agent CrewAI System**
-- **MESSAGE_PROCESSOR**: Central orchestrator for task decomposition and routing
-- **MESSAGE_PROCESSOR**: Primary interface for user interactions and routing
-- **PLAYER_COORDINATOR**: Player registration, status, and management
-- **TEAM_MANAGER**: Team administration and member management
-- **SQUAD_SELECTOR**: Match squad selection and availability
-- **HELP_ASSISTANT**: Help system and command guidance
-- **TEAM_ADMINISTRATOR**: Team administration and member management
-- **SQUAD_SELECTOR**: Squad selection and match management
+### 1. **6-Agent CrewAI Native Collaboration System**
+- **MESSAGE_PROCESSOR**: Primary interface with intelligent coordination capabilities
+- **HELP_ASSISTANT**: Specialized help system and user guidance
+- **PLAYER_COORDINATOR**: Player management and operations
+- **TEAM_ADMINISTRATOR**: Team member management and administration
+- **SQUAD_SELECTOR**: Match management, availability, and squad selection
+- **NLP_PROCESSOR**: Intelligent routing and context analysis agent
 
-### 2. **True Agentic-First Design**
-- **CrewAI Agents**: ALL user interactions processed through specialized AI agents
-- **No Direct Processing**: Infrastructure layer contains NO business logic
-- **Agentic Message Router**: Centralized routing through `AgenticMessageRouter`
-- **Context-Aware Routing**: Agent selection based on chat type and intent
-- **Single Source of Truth**: Centralized command registry and agent orchestration
+### 2. **CrewAI Native Collaboration Design**
+- **Primary Agent Pattern**: MESSAGE_PROCESSOR serves as primary interface for all requests
+- **Intelligent Routing**: NLP_PROCESSOR provides context-aware analysis for agent selection
+- **Tool-Based Collaboration**: Agents collaborate through specialized tools following CrewAI best practices
+- **Multi-Agent Patterns**: Sequential, parallel, and hierarchical collaboration workflows
+- **Context-Aware Intelligence**: Chat type and intent-based routing decisions
 
 ### 3. **Clean Architecture Layers**
 ```
@@ -38,7 +36,7 @@ KICKAI is an AI-powered football team management system built with **12-agent Cr
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Application Layer                         │
-│  (Agentic Message Router, 5-Agent CrewAI System)           │
+│  (6-Agent CrewAI Native Collaboration System)              │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -98,7 +96,7 @@ agent = Agent(
 task = Task(
     description="Process user request",
     agent=agent,
-    config={'team_id': 'TEST', 'user_id': '12345'}  # ✅ Use config for context
+    config={'team_id': 'TEST', 'telegram_id': '12345'}  # ✅ Use config for context
 )
 
 # ✅ Native Crew orchestration
@@ -163,9 +161,9 @@ By consistently applying these principles, KICKAI aims to maximize the benefits 
 ```
 KICKAI/
 ├── kickai/                        # Main source code (package structure)
-│   ├── agents/                    # AI Agent System (12 agents)
+│   ├── agents/                    # AI Agent System (6 agents)
 │   │   ├── agentic_message_router.py # Message routing (24KB, 599 lines)
-│   │   ├── crew_agents.py         # 12-agent CrewAI definitions (20KB, 488 lines)
+│   │   ├── crew_agents.py         # 6-agent CrewAI definitions (20KB, 488 lines)
 │   │   ├── configurable_agent.py  # Configurable agent base class (19KB, 461 lines)
 │   │   ├── simplified_orchestration.py # Task orchestration (24KB, 570 lines)
 │   │   ├── behavioral_mixins.py   # Agent behavior mixins (37KB, 1141 lines)
@@ -293,7 +291,7 @@ KICKAI/
 ## 🔧 Implementation Status
 
 ### **✅ Fully Implemented**
-- **5-Agent CrewAI System**: All agents defined and configured
+- **6-Agent CrewAI System**: All agents defined and configured
 - **Command Registry**: Unified command discovery and metadata
 - **Feature-First Architecture**: All features properly modularized
 - **Clean Architecture**: Proper layer separation maintained

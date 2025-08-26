@@ -7,13 +7,19 @@ including resource monitoring, health checks, and lifecycle management.
 """
 
 import asyncio
+from asyncio import Task
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, List, Optional, Set
+from typing import Any
 
 from loguru import logger
+
+# Constants
+MONITORING_INTERVAL_SECONDS = 300  # 5 minutes
+IDLE_THRESHOLD_MINUTES = 30
+RETRY_DELAY_SECONDS = 60
 
 # Lazy import to avoid circular dependencies
 # from kickai.agents.crew_agents import TeamManagementSystem
@@ -57,12 +63,12 @@ class CrewLifecycleManager:
         self._crew_status: dict[str, CrewStatus] = {}
         self._crew_metrics: dict[str, CrewMetrics] = {}
         self._crew_locks: dict[str, asyncio.Lock] = {}
-        self._monitoring_task: asyncio.Optional[Task] = None
+        self._monitoring_task: Task | None = None
         self._shutdown_event = asyncio.Event()
 
         logger.info("🚀 CrewLifecycleManager initialized")
 
-    async def get_or_create_crew(self, team_id: str) -> "TeamManagementSystem":
+    async def get_or_create_crew(self, team_id: str) -> Any:
         """
         Get an existing crew or create a new one for the team.
 
@@ -86,47 +92,41 @@ class CrewLifecycleManager:
         logger.info(f"🆕 Creating new crew for team {team_id}")
         return await self._create_crew(team_id)
 
-    async def _create_crew(self, team_id: str) -> "TeamManagementSystem":
+    async def _create_crew(self, team_id: str) -> Any:
         """Create a new crew for the specified team."""
-        try:
-            # Set status to initializing
-            self._crew_status[team_id] = CrewStatus.INITIALIZING
+        # Set status to initializing
+        self._crew_status[team_id] = CrewStatus.INITIALIZING
 
-            # Create lock for this crew
-            if team_id not in self._crew_locks:
-                self._crew_locks[team_id] = asyncio.Lock()
+        # Create lock for this crew
+        if team_id not in self._crew_locks:
+            self._crew_locks[team_id] = asyncio.Lock()
 
-            # Create the crew with lazy import to avoid circular dependencies
-            from kickai.agents.crew_agents import TeamManagementSystem
+        # Create the crew with lazy import to avoid circular dependencies
+        from kickai.agents.crew_agents import TeamManagementSystem
 
-            crew = TeamManagementSystem(team_id=team_id)
+        crew = TeamManagementSystem(team_id=team_id)
 
-            # Store the crew
-            self._crews[team_id] = crew
+        # Store the crew
+        self._crews[team_id] = crew
 
-            # Initialize metrics
-            self._crew_metrics[team_id] = CrewMetrics(
-                team_id=team_id,
-                created_at=datetime.now(),
-                last_activity=datetime.now(),
-                total_requests=0,
-                successful_requests=0,
-                failed_requests=0,
-                average_response_time=0.0,
-                memory_usage={},
-                agent_health={},
-            )
+        # Initialize metrics
+        self._crew_metrics[team_id] = CrewMetrics(
+            team_id=team_id,
+            created_at=datetime.now(),
+            last_activity=datetime.now(),
+            total_requests=0,
+            successful_requests=0,
+            failed_requests=0,
+            average_response_time=0.0,
+            memory_usage={},
+            agent_health={},
+        )
 
-            # Set status to active
-            self._crew_status[team_id] = CrewStatus.ACTIVE
+        # Set status to active
+        self._crew_status[team_id] = CrewStatus.ACTIVE
 
-            logger.info(f"✅ Crew created successfully for team {team_id}")
-            return crew
-
-        except Exception as e:
-            self._crew_status[team_id] = CrewStatus.ERROR
-            logger.error(f"❌ Failed to create crew for team {team_id}: {e}")
-            raise
+        logger.info(f"✅ Crew created successfully for team {team_id}")
+        return crew
 
     async def execute_task(
         self, team_id: str, task_description: str, execution_context: dict[str, Any]
@@ -153,190 +153,174 @@ class CrewLifecycleManager:
             metrics.total_requests += 1
             metrics.last_activity = datetime.now()
 
-            # Execute task with simple CrewAI native approach
+            # Execute task with timeout
+            result = await self._execute_task_with_timeout(crew, team_id, task_description, execution_context)
 
-            try:
-                # Add timeout to prevent infinite loops
-                from kickai.core.constants.agent_constants import AgentConstants
-                timeout_seconds = AgentConstants.CREW_MAX_EXECUTION_TIME
+            # Update success metrics
+            metrics.successful_requests += 1
 
-                result = await asyncio.wait_for(
-                    crew.execute_task(task_description, execution_context),
-                    timeout=timeout_seconds
-                )
-
-                # Check if result is empty or indicates failure
-                if not result or result.strip() == "":
-                    logger.warning(f"⚠️ Empty result from crew for team {team_id}, providing fallback response")
-                    result = self._get_fallback_response(task_description, execution_context)
-
-                # Update success metrics
-                metrics.successful_requests += 1
-
-            except TimeoutError:
-                logger.error(f"⏰ Timeout after {timeout_seconds}s for team {team_id}")
-                result = self._get_timeout_response(task_description, execution_context, timeout_seconds)
-
-            except Exception as crew_error:
-                logger.error(f"❌ Crew execution failed for team {team_id}: {crew_error}")
-
-                # Check if it's a max iterations error
-                if "Maximum iterations reached" in str(crew_error) or "max_iter" in str(crew_error).lower():
-                    logger.warning(f"⚠️ Max iterations reached for team {team_id}, providing iteration limit response")
-                    result = self._get_max_iterations_response(task_description, execution_context)
-                else:
-                    # For other errors, provide a generic error response
-                    logger.error(f"❌ Unexpected crew error for team {team_id}: {crew_error}")
-                    result = self._get_error_response(task_description, execution_context, str(crew_error))
-
-            # Calculate response time
+            # Calculate and update response time
             response_time = (datetime.now() - start_time).total_seconds()
-            metrics.average_response_time = (
-                metrics.average_response_time * (metrics.total_requests - 1) + response_time
-            ) / metrics.total_requests
+            self._update_response_time_metrics(metrics, response_time)
 
             # Update agent health
-            try:
-                health_status = crew.health_check()
-                metrics.agent_health = health_status.get("agents", {})
-                metrics.memory_usage = {
-                    "conversation_count": len(crew.team_memory._conversation_history),
-                    "user_count": len(crew.team_memory._telegram_memories),
-
-                }
-            except Exception as health_error:
-                logger.warning(f"⚠️ Health check failed for team {team_id}: {health_error}")
-                metrics.agent_health = {"error": True}
-                metrics.memory_usage = {"error": str(health_error)}
+            self._update_agent_health_metrics(crew, team_id, metrics)
 
             logger.info(f"✅ Task executed successfully for team {team_id} in {response_time:.2f}s")
             return result
 
         except Exception as e:
             # Update failure metrics
-            if team_id in self._crew_metrics:
-                metrics = self._crew_metrics[team_id]
-                metrics.failed_requests += 1
-                metrics.last_activity = datetime.now()
-
+            self._update_failure_metrics(team_id)
             logger.error(f"❌ Task execution failed for team {team_id}: {e}")
 
             # Always return a response, even on complete failure
-            return self._get_critical_error_response(task_description, execution_context, str(e))
+            return self._generate_formatted_response(
+                title="🚨 System Error",
+                problem_summary=f"I'm experiencing technical difficulties right now. This is a system-level issue that needs attention.",
+                task_description=task_description,
+                suggestions=[
+                    "Try again in a few minutes",
+                    "Use basic commands like `/help` or `/info`",
+                    "Contact your team administrator if the problem persists"
+                ],
+                commands_to_show=["/help", "/info"]
+            )
 
-    def _get_fallback_response(self, task_description: str, execution_context: dict[str, Any]) -> str:
-        """Generate a fallback response when crew returns empty result."""
-        return f"""🤖 I understand you're asking about: "{task_description}"
+    def _generate_formatted_response(self, title: str, problem_summary: str, task_description: str, suggestions: list[str], commands_to_show: list[str]) -> str:
+        """Generates a formatted, user-friendly response for errors and fallbacks."""
+        
+        suggestions_list = "\n".join([f"• {s}" for s in suggestions])
+        commands_list = "\n".join([f"• `{cmd}` - {desc}" for cmd, desc in {
+            "/help": "Show available commands",
+            "/info": "Show your information",
+            "/list": "List team members/players",
+            "/status": "Check status"
+        }.items() if cmd in commands_to_show])
 
-I'm having trouble processing this request right now. Here are some things you can try:
+        return f"""🤖 I was processing: "{task_description}"
 
-💡 Quick Solutions:
-• Try rephrasing your question
-• Use a specific command like `/help` for assistance
-• Check if you're in the right chat (main vs leadership)
+{title}
 
-🔧 Available Commands:
-• `/help` - Show available commands
-• `/info` - Show your information
-• `/list` - List team members/players
-• `/status` - Check status
+{problem_summary}
+
+💡 **Quick Solutions:**
+{suggestions_list}
+
+🔧 **Available Commands:**
+{commands_list}
 
 If the problem persists, please contact your team administrator."""
 
-    def _get_max_iterations_response(self, task_description: str, execution_context: dict[str, Any]) -> str:
-        """Generate a response when max iterations are reached."""
-        return f"""🤖 I was processing: "{task_description}"
+    async def _execute_task_with_timeout(self, crew: Any, team_id: str, task_description: str, execution_context: dict[str, Any]) -> str:
+        """Execute task with timeout handling and comprehensive error catching."""
+        from kickai.core.constants.agent_constants import AgentConstants
+        timeout_seconds = AgentConstants.CREW_MAX_EXECUTION_TIME
 
-⏱️ Processing Time Limit Reached
+        try:
+            # Enhance task description with context parameters for tools
+            from kickai.utils.task_description_enhancer import TaskDescriptionEnhancer
+            enhanced_task_description = TaskDescriptionEnhancer.enhance_task_description(task_description, execution_context)
+            
+            # Execute CrewAI task with timeout
+            result = await asyncio.wait_for(
+                crew.execute_task(enhanced_task_description, execution_context),
+                timeout=timeout_seconds
+            )
 
-I've reached the maximum number of processing steps for this request. This usually happens when:
-• The request is very complex
-• Multiple tools need to be called
-• The system needs more time to think
+            # Check if result is empty or indicates failure
+            if not result or result.strip() == "":
+                logger.warning(f"⚠️ Empty result from crew for team {team_id}, providing fallback response")
+                return self._generate_formatted_response(
+                    title="🤔 I'm having trouble with this request.",
+                    problem_summary="I was able to process your request, but couldn't generate a specific answer.",
+                    task_description=task_description,
+                    suggestions=[
+                        "Try rephrasing your question.",
+                        "Use a more specific command like `/help` for assistance.",
+                        "Check if you're in the right chat (main vs leadership)."
+                    ],
+                    commands_to_show=["/help", "/info", "/list", "/status"]
+                )
 
-💡 What you can do:
-• Try breaking down your request into smaller parts
-• Use specific commands instead of natural language
-• Ask for help with `/help [command]`
+            return result
 
-🔧 Quick Commands:
-• `/help` - Show all available commands
-• `/info` - Show your information
-• `/list` - List team members/players
+        except Exception as e:
+            logger.error(f"❌ Crew execution failed for team {team_id}: {e}")
+            import traceback
+            logger.error(f"❌ Crew error traceback: {traceback.format_exc()}")
 
-If you need immediate assistance, please contact your team administrator."""
+            # Handle specific error types
+            if isinstance(e, asyncio.TimeoutError):
+                logger.error(f"⏰ Timeout after {timeout_seconds}s for team {team_id}")
+                return self._generate_formatted_response(
+                    title=f"⏰ Execution Timeout ({timeout_seconds}s)",
+                    problem_summary="I've been processing your request and need to stop to prevent system overload. This usually happens when the request is very complex or the system is under heavy load.",
+                    task_description=task_description,
+                    suggestions=[
+                        "Try breaking down your request into smaller parts.",
+                        "Use specific commands instead of natural language.",
+                        "Wait a few minutes and try again."
+                    ],
+                    commands_to_show=["/help", "/info", "/list"]
+                )
 
-    def _get_error_response(self, task_description: str, execution_context: dict[str, Any], error: str) -> str:
-        """Generate a response for general errors."""
-        return f"""🤖 I was processing: "{task_description}"
+            # Check if it's a max iterations error
+            if "Maximum iterations reached" in str(e) or "max_iter" in str(e).lower():
+                logger.warning(f"⚠️ Max iterations reached for team {team_id}, providing iteration limit response")
+                return self._generate_formatted_response(
+                    title="⏱️ Processing Time Limit Reached",
+                    problem_summary="I've reached the maximum number of processing steps for this request. This usually happens when the request is very complex or requires multiple tools.",
+                    task_description=task_description,
+                    suggestions=[
+                        "Try breaking down your request into smaller parts.",
+                        "Use specific commands instead of natural language.",
+                    ],
+                    commands_to_show=["/help", "/info", "/list"]
+                )
 
-❌ Processing Error
+            # For all other errors, provide a generic error response
+            logger.error(f"❌ Unexpected crew error for team {team_id}: {e}")
+            return self._generate_formatted_response(
+                title="❌ Processing Error",
+                problem_summary="I encountered an error while processing your request. This might be due to a temporary system issue, invalid input, or missing permissions.",
+                task_description=task_description,
+                suggestions=[
+                    "Try again in a few moments.",
+                    "Use a different command format.",
+                    "Check if you have the right permissions."
+                ],
+                commands_to_show=["/help", "/info", "/list"]
+            )
 
-I encountered an error while processing your request. This might be due to:
-• A temporary system issue
-• Invalid input format
-• Missing permissions
+    def _update_response_time_metrics(self, metrics: CrewMetrics, response_time: float) -> None:
+        """Update response time metrics."""
+        metrics.average_response_time = (
+            metrics.average_response_time * (metrics.total_requests - 1) + response_time
+        ) / metrics.total_requests
 
-💡 What you can do:
-• Try again in a few moments
-• Use a different command format
-• Check if you have the right permissions
+    def _update_agent_health_metrics(self, crew: Any, team_id: str, metrics: CrewMetrics) -> None:
+        """Update agent health metrics."""
+        health_status = crew.health_check()
+        metrics.agent_health = health_status.get("agents", {})
+        metrics.memory_usage = {
+            "conversation_count": len(crew.team_memory._conversation_history),
+            "user_count": len(crew.team_memory._telegram_memories),
+        }
 
-🔧 Available Commands:
-• `/help` - Show available commands
-• `/info` - Show your information
-• `/list` - List team members/players
+    def _update_failure_metrics(self, team_id: str) -> None:
+        """Update failure metrics."""
+        if team_id in self._crew_metrics:
+            metrics = self._crew_metrics[team_id]
+            metrics.failed_requests += 1
+            metrics.last_activity = datetime.now()
 
-If the problem continues, please contact your team administrator."""
 
-    def _get_critical_error_response(self, task_description: str, execution_context: dict[str, Any], error: str) -> str:
-        """Generate a response for critical system errors."""
-        return f"""🤖 I was processing: "{task_description}"
-
-🚨 System Error
-
-I'm experiencing technical difficulties right now. This is a system-level issue that needs attention.
-
-💡 What you can do:
-• Try again in a few minutes
-• Use basic commands like `/help` or `/info`
-• Contact your team administrator if the problem persists
-
-🔧 Basic Commands (if available):
-• `/help` - Show available commands
-• `/info` - Show your information
-
-The system administrator has been notified of this issue."""
-
-    def _get_timeout_response(self, task_description: str, execution_context: dict[str, Any], timeout_seconds: int) -> str:
-        """Generate a response when execution times out."""
-        return f"""🤖 I was processing: "{task_description}"
-
-⏰ Execution Timeout
-
-I've been processing your request for {timeout_seconds} seconds and need to stop to prevent system overload. This usually happens when:
-• The request is very complex
-• Multiple tools need to be called
-• The system is under heavy load
-
-💡 What you can do:
-• Try breaking down your request into smaller parts
-• Use specific commands instead of natural language
-• Wait a few minutes and try again
-• Ask for help with `/help [command]`
-
-🔧 Quick Commands:
-• `/help` - Show all available commands
-• `/info` - Show your information
-• `/list` - List team members/players
-
-If you need immediate assistance, please contact your team administrator."""
 
     async def _shutdown_crew(self, team_id: str):
         """Shutdown a crew for the specified team."""
         try:
             if team_id in self._crews:
-                crew = self._crews[team_id]
                 # Note: TeamManagementSystem doesn't have explicit shutdown method
                 # but we can clean up references
                 del self._crews[team_id]
@@ -352,11 +336,11 @@ If you need immediate assistance, please contact your team administrator."""
         except Exception as e:
             logger.error(f"❌ Error shutting down crew for team {team_id}: {e}")
 
-    async def get_crew_status(self, team_id: str) -> Optional[CrewStatus]:
+    async def get_crew_status(self, team_id: str) -> CrewStatus | None:
         """Get the status of a crew for the specified team."""
         return self._crew_status.get(team_id)
 
-    async def get_crew_metrics(self, team_id: str) -> Optional[CrewMetrics]:
+    async def get_crew_metrics(self, team_id: str) -> CrewMetrics | None:
         """Get metrics for a crew for the specified team."""
         return self._crew_metrics.get(team_id)
 
@@ -380,12 +364,8 @@ If you need immediate assistance, please contact your team administrator."""
                 health_status["active_crews"] += 1
                 # Perform detailed health check on active crews
                 if team_id in self._crews:
-                    try:
-                        crew = self._crews[team_id]
-                        crew_health["crew_health"] = crew.health_check()
-                    except Exception as e:
-                        crew_health["crew_health"] = {"error": str(e)}
-                        health_status["error_crews"] += 1
+                    crew = self._crews[team_id]
+                    crew_health["crew_health"] = crew.health_check()
             elif status == CrewStatus.ERROR:
                 health_status["error_crews"] += 1
 
@@ -404,10 +384,7 @@ If you need immediate assistance, please contact your team administrator."""
         if self._monitoring_task and not self._monitoring_task.done():
             self._shutdown_event.set()
             self._monitoring_task.cancel()
-            try:
-                await self._monitoring_task
-            except asyncio.CancelledError:
-                pass
+            await self._monitoring_task
             logger.info("🛑 Crew monitoring stopped")
 
     async def _monitoring_loop(self):
@@ -425,24 +402,26 @@ If you need immediate assistance, please contact your team administrator."""
                 # Check for idle crews (no activity for 30 minutes)
                 await self._check_idle_crews()
 
-                # Wait 5 minutes before next check
-                await asyncio.sleep(300)
+                # Wait before next check
+                await asyncio.sleep(MONITORING_INTERVAL_SECONDS)
 
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"❌ Error in monitoring loop: {e}")
-                await asyncio.sleep(60)  # Wait 1 minute before retrying
+                await asyncio.sleep(RETRY_DELAY_SECONDS)  # Wait before retrying
 
     async def _check_idle_crews(self):
         """Check for idle crews and mark them appropriately."""
-        idle_threshold = datetime.now() - timedelta(minutes=30)
-
-        for team_id, metrics in self._crew_metrics.items():
+        idle_threshold = datetime.now() - timedelta(minutes=IDLE_THRESHOLD_MINUTES)
+        # Use list(items()) to avoid issues with modifying dict during iteration
+        for team_id, metrics in list(self._crew_metrics.items()):
             if metrics.last_activity < idle_threshold:
                 if self._crew_status[team_id] == CrewStatus.ACTIVE:
                     self._crew_status[team_id] = CrewStatus.IDLE
-                    logger.info(f"💤 Crew for team {team_id} marked as idle")
+                    logger.info(f"💤 Crew for team {team_id} is idle. Shutting down to conserve resources.")
+                    # Shut down the idle crew to free up memory and resources
+                    await self._shutdown_crew(team_id)
 
     async def shutdown_all_crews(self):
         """Shutdown all crews."""
@@ -473,17 +452,11 @@ If you need immediate assistance, please contact your team administrator."""
             TeamManagementSystem instance
         """
         crew = await self.get_or_create_crew(team_id)
-        try:
-            yield crew
-        except Exception as e:
-            logger.error(f"❌ Error in crew context for team {team_id}: {e}")
-            # Mark crew as error state
-            self._crew_status[team_id] = CrewStatus.ERROR
-            raise
+        yield crew
 
 
 # Global instance for easy access
-_crew_lifecycle_manager: Optional[CrewLifecycleManager] = None
+_crew_lifecycle_manager: CrewLifecycleManager | None = None
 
 
 def get_crew_lifecycle_manager() -> CrewLifecycleManager:

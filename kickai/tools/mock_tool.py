@@ -1,4 +1,4 @@
-from kickai.utils.crewai_tool_decorator import tool
+from crewai.tools import tool
 
 @tool("mock_list_team_members_and_players", result_as_answer=True)
 def mock_list_team_members_and_players(team_id: str) -> str:

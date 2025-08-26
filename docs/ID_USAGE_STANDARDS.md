@@ -34,7 +34,7 @@ This document clarifies the explicit and correct usage of different ID types in 
 - **Storage**: String field in database, used as document ID for teams
 - **Example**: `team_id: "KA"` (Kick AI)
 
-### **5. `user_id` (string) - DEPRECATED**
+### **5. `user_id` (string) - REMOVED**
 - **Status**: LEGACY - Being phased out
 - **Purpose**: Previously used for general user identification
 - **Migration**: Replace with explicit `telegram_id`, `player_id`, or `member_id`
@@ -69,8 +69,8 @@ team_id: "KA"
     "name": "Mahmudul Hoque",
     "position": "midfielder",
     "status": "active",
-    # Legacy field (deprecated)
-    "user_id": "12345_hash"         # Don't use in new code
+    # Legacy field (removed)
+    # "user_id": "12345_hash"         # Don't use in new code
 }
 
 # Team Member Document (ID: M001MH)  
@@ -81,8 +81,8 @@ team_id: "KA"
     "name": "Mahmudul Hoque",
     "role": "admin",
     "is_admin": true,
-    # Legacy field (deprecated)
-    "user_id": "12345_hash"         # Don't use in new code
+    # Legacy field (removed)
+    # "user_id": "12345_hash"         # Don't use in new code
 }
 ```
 
@@ -112,13 +112,13 @@ members_collection.document(member_id)  # Use member_id as document ID
 
 ```python
 # Confusing parameter names
-def approve_player(user_id: str, player_id: str) -> str:  # Which ID to use?
+def approve_player(telegram_id: str, player_id: str) -> str:  # Use telegram_id for linking
 
 # Wrong ID types
 def get_player(telegram_id: str) -> Player:  # Should be int, not str
 
 # Mixed ID usage
-def update_player(user_id: str, telegram_id: int) -> Player:  # Use one or the other
+def update_player(telegram_id: int, player_id: str) -> Player:  # Use telegram_id for linking, player_id for identification
 ```
 
 ## 🔄 Migration Guidelines
@@ -133,7 +133,7 @@ def update_player(user_id: str, telegram_id: int) -> Player:  # Use one or the o
 2. **Update Method Signatures**:
    ```python
    # Before (confusing)
-   def get_user_status(user_id: str) -> str:
+def get_user_status(user_id: str) -> str:  # Which ID type?
    
    # After (clear)  
    def get_user_status(telegram_id: int) -> str:
@@ -142,7 +142,7 @@ def update_player(user_id: str, telegram_id: int) -> Player:  # Use one or the o
 3. **Update Database Queries**:
    ```python
    # Before (ambiguous)
-   collection.where("user_id", "==", user_id)
+collection.where("user_id", "==", user_id)  # Which user_id field?
    
    # After (explicit)
    collection.where("telegram_id", "==", telegram_id)
@@ -213,7 +213,7 @@ When working with IDs, verify:
 - [ ] **Parameter names** are explicit (`telegram_id`, `player_id`, `member_id`)
 - [ ] **Type annotations** are correct (`int` for telegram_id, `str` for others)
 - [ ] **Database queries** use appropriate ID types
-- [ ] **No confusing `user_id`** parameters in new code
+- [ ] **No confusing `user_id`** parameters in new code (use telegram_id, player_id, or member_id)
 - [ ] **Documentation** clearly states which ID is used for what purpose
 - [ ] **Error messages** specify which ID type caused the error
 

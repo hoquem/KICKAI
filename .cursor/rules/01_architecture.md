@@ -2,9 +2,38 @@
 
 ## Overview
 
-KICKAI follows a **Clean Architecture** pattern with **Domain-Driven Design** principles, implemented as a **feature-based modular system** with **13-agent CrewAI orchestration**. The system is designed for scalability, maintainability, and extensibility with a comprehensive **service discovery system** for dynamic service management.
+KICKAI follows a **Clean Architecture** pattern with **Domain-Driven Design** principles, implemented as a **feature-based modular system** with **6-agent CrewAI orchestration**. The system is designed for scalability, maintainability, and extensibility with a comprehensive **service discovery system** for dynamic service management.
 
 ## 🏗️ **Current Architecture Status**
+
+### 🎉 **Clean Architecture Migration Complete (January 2025)**
+
+**KICKAI has achieved complete Clean Architecture compliance through a comprehensive migration:**
+
+#### ✅ **Migration Results**
+- **62 @tool decorators migrated** from domain to application layer
+- **Zero framework dependencies** in domain layer 
+- **Pure business logic** preserved in domain functions
+- **Complete layer separation** achieved
+- **System functionality maintained** throughout migration
+
+#### 📁 **Current Clean Architecture Structure**
+```
+kickai/features/<feature>/
+├── application/tools/          # ✅ CrewAI @tool decorators (Framework Layer)
+├── domain/
+│   ├── entities/              # ✅ Pure business objects
+│   ├── services/              # ✅ Pure business logic (no framework deps)
+│   ├── tools/                 # ✅ Pure domain functions (no @tool decorators)
+│   └── repositories/          # ✅ Abstract interfaces
+└── infrastructure/            # ✅ Firebase implementations
+```
+
+#### 🔧 **Architecture Benefits**
+- **Maintainability**: Clear separation of concerns between layers
+- **Testability**: Domain logic testable without framework dependencies
+- **Flexibility**: Business logic independent of CrewAI framework
+- **Future-Proofing**: Domain layer immune to framework changes
 
 ### ✅ **Fully Implemented Components**
 - **Core System**: Complete with dependency injection, command registry, and agent orchestration
@@ -14,7 +43,7 @@ KICKAI follows a **Clean Architecture** pattern with **Domain-Driven Design** pr
 - **Attendance Management**: Full attendance tracking and reporting system
 - **Payment Management**: Complete payment creation and tracking system
 - **Communication**: Full team messaging and announcement system
-- **Agent System**: 13-agent CrewAI orchestration working correctly
+- **Agent System**: 6-agent CrewAI orchestration working correctly
 - **Comprehensive Test Suite**: **NEW** - Unit, integration, and E2E tests with service discovery testing
 
 ### 🚧 **Partially Implemented Components**
@@ -37,33 +66,44 @@ kickai/telegram/
 - Format and send responses
 - Manage chat-specific behavior
 
-### 2. **Application Layer** (Feature Commands)
+### 2. **Application Layer** (Feature Commands) - **Framework Integration Layer**
 ```
 kickai/features/{feature_name}/application/
 ├── commands/                     # Command definitions with @command decorator
-└── handlers/                     # Command handlers (delegate to agents)
+├── handlers/                     # Command handlers (delegate to agents)
+└── tools/                       # CrewAI @tool decorators (delegate to domain)
 ```
 
 **Responsibilities**:
-- Define command interfaces
-- Handle command registration
-- Delegate execution to domain layer
+- Define command interfaces with CrewAI integration
+- Handle command registration and framework concerns
+- Provide CrewAI tools that delegate to domain functions
 - Manage command metadata and help
 
-### 3. **Domain Layer** (Business Logic)
+**✅ Clean Architecture Achievement (January 2025)**:
+- **All @tool decorators** now reside in application layer
+- **Complete delegation pattern** to domain functions
+- **Framework concerns isolated** from business logic
+
+### 3. **Domain Layer** (Business Logic) - **Clean Architecture Compliant**
 ```
 kickai/features/{feature_name}/domain/
 ├── entities/                     # Business entities (Player, Match, etc.)
-├── services/                     # Business logic services
-├── tools/                       # CrewAI tools for agent integration
-└── interfaces/                  # Repository interfaces
+├── services/                     # Pure business logic services
+├── tools/                       # Pure domain functions (NO @tool decorators)
+└── repositories/                 # Repository interfaces
 ```
 
 **Responsibilities**:
 - Define business entities and rules
-- Implement business logic
-- Provide CrewAI tools for agents
+- Implement pure business logic (no framework dependencies)
+- Provide domain functions (framework-independent)
 - Define repository contracts
+
+**✅ Clean Architecture Achievement (January 2025)**:
+- **62 @tool decorators removed** from domain layer
+- **Pure business functions** with no CrewAI dependencies
+- **Framework isolation** achieved
 
 ### 2.5. **Service Discovery Layer** (NEW)
 ```
@@ -182,9 +222,9 @@ kickai/features/{feature_name}/infrastructure/
 
 ## Agent Architecture
 
-### 13-Agent CrewAI System
+### 6-Agent CrewAI System
 
-The system uses 13 specialized agents organized in logical layers for intelligent task processing:
+The system uses 6 specialized agents organized in logical layers for intelligent task processing:
 
 #### Primary Interface Layer
 
@@ -211,6 +251,10 @@ The system uses 13 specialized agents organized in logical layers for intelligen
 **5. HELP_ASSISTANT**
 - **Primary Role**: Help system and command guidance
 - **Tools**: Help generation, command documentation, user guidance
+
+**6. NLP_PROCESSOR**
+- **Primary Role**: Natural language processing and understanding
+- **Tools**: Intent recognition, entity extraction, conversation context, semantic similarity
 
 **📋 For complete command-to-agent mapping, see [11_unified_command_system.md](11_unified_command_system.md)**
 

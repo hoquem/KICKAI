@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
 """
-Communication tools module.
+Communication Domain Tools - Clean Architecture Compliant
 
-This module provides tools for communication and messaging.
+This module contains pure domain functions for communication and messaging.
+These functions contain business logic only and delegate to application layer for CrewAI tools.
+
+NOTE: All @tool decorators have been removed from domain layer to comply with Clean Architecture.
+The application layer provides the CrewAI tool interfaces that delegate to these domain functions.
 """
 
-# Import the function-based tools
-from .communication_tools import send_announcement, send_message, send_poll
-
-__all__ = [
-    # Communication tools (only the ones actually used by agents)
-    "send_message",
-    "send_announcement",
-    "send_poll",
-]
-
-# Note: Removed unused tool: send_telegram_message
-# This tool is not assigned to any agents in the configuration
+# Domain layer exports nothing - all tools come from application layer
+# This ensures Clean Architecture compliance by separating framework concerns
+__all__ = []

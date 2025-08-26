@@ -1,5 +1,5 @@
-# KICKAI Tasks Configuration - Updated for 5-Agent CrewAI Native Implementation
-# This file defines task templates aligned with the current 5-agent system
+# KICKAI Tasks Configuration - Updated for 6-Agent CrewAI Native Implementation
+# This file defines task templates aligned with the current 6-agent system
 
 # NOTE: With CrewAI native implementation, tasks are now created dynamically 
 # with structured descriptions. These templates serve as reference patterns.
@@ -28,24 +28,81 @@ task_templates:
     - Structure with clear headers and bullet points
     - Include next steps when relevant
 
-# Task categories aligned with 5-agent system
+# Task categories aligned with 6-agent system with intelligent collaboration
 tasks:
 
-  # MESSAGE PROCESSOR AGENT TASKS
+  # COLLABORATIVE TASK PATTERNS - Multi-Agent Coordination
+
+  # MESSAGE PROCESSOR AGENT TASKS - Enhanced with NLP Collaboration
+  - name: process_general_message_collaborative
+    description: >
+      Process incoming user messages with intelligent agent collaboration for optimal routing.
+      
+      COLLABORATIVE WORKFLOW:
+      Step 1 - Message Analysis & Routing Decision:
+      - Simple commands (/ping, /version, /help) → Handle directly
+      - Basic info (/list, /myinfo, /status) → Handle with context-aware logic
+      - Complex operations (/update, natural language) → Collaborate with NLP_PROCESSOR
+      
+      Step 2 - For Complex Operations (NLP Collaboration):
+      - Use advanced_intent_recognition(telegram_id, team_id, username, chat_type, message)
+      - Use routing_recommendation_tool() for agent selection
+      - Use analyze_update_context() for update operations
+      - Use validate_routing_permissions() for security
+      
+      Step 3 - Execution:
+      - Direct: Use own tools for basic operations
+      - Collaborative: Route to recommended specialist agent
+      - Multi-Agent: Coordinate multiple agents if needed
+      
+      Context parameters (STANDARDIZED ORDER):
+      telegram_id, team_id, username, chat_type
+    expected_output: >
+      Intelligent routing decision with appropriate agent collaboration,
+      formatted with complete tool outputs and proper status indicators.
+    agent: message_processor
+    collaboration_pattern: "primary_with_nlp_routing"
+
+  - name: intelligent_update_routing
+    description: >
+      Handle update commands with intelligent context-aware routing using NLP collaboration.
+      
+      INTELLIGENT UPDATE WORKFLOW:
+      Step 1 - Context Analysis:
+      - Use analyze_update_context(telegram_id, team_id, username, chat_type, message)
+      - Determine target entity: "player" or "team_member"
+      - Get recommended agent and confidence score
+      
+      Step 2 - Permission Validation:
+      - Use validate_routing_permissions(chat_type, user_role, requested_action)
+      - Ensure user can perform operation in current context
+      
+      Step 3 - Intelligent Routing:
+      - Main chat + update → Route to PLAYER_COORDINATOR
+      - Leadership chat + update → Route to TEAM_ADMINISTRATOR
+      - Ambiguous context → Request clarification or provide options
+      
+      Context parameters: telegram_id, team_id, username, chat_type, message
+    expected_output: >
+      Precise routing to appropriate agent based on chat context and message analysis,
+      with clear explanation of routing decision.
+    agent: message_processor
+    collaboration_pattern: "nlp_assisted_routing"
+
   - name: process_general_message
     description: >
-      Process incoming user messages, handle basic queries, manage communications,
-      and route complex requests to specialized agents when needed.
+      Process basic incoming user messages and handle direct operations.
       
-      Use structured description with embedded context for CrewAI native approach:
-      - Extract user intent from message
-      - Pass telegram_id, team_id, username, chat_type to tools (STANDARDIZED ORDER)
-      - Select appropriate tools: get_user_status, get_available_commands, 
-        send_message, send_announcement, send_poll
-      - Use get_active_players (MAIN chat) or get_all_players (LEADERSHIP chat) for lists
+      DIRECT HANDLING (No Collaboration Needed):
+      - System commands: ping(), version()
+      - User status: get_my_status(telegram_id, team_id, chat_type)
+      - Team lists: Context-aware list commands
+      - Communications: send_message(), send_announcement(), send_poll()
+      
+      Context parameters (STANDARDIZED ORDER):
+      telegram_id, team_id, username, chat_type
     expected_output: >
-      Immediate response for basic queries or successful routing to specialized agents,
-      formatted with complete tool outputs and proper status indicators.
+      Immediate response for basic queries with complete tool outputs.
     agent: message_processor
 
   - name: manage_communications
@@ -62,13 +119,42 @@ tasks:
       formatted with complete tool outputs.
     agent: message_processor
 
-  # HELP ASSISTANT AGENT TASKS
+  # HELP ASSISTANT AGENT TASKS - Enhanced with Collaboration Support
+  - name: provide_comprehensive_help_collaborative
+    description: >
+      Provide comprehensive help with support for intelligent routing from NLP_PROCESSOR.
+      
+      COLLABORATIVE HELP SYSTEM:
+      - Handle help requests routed from MESSAGE_PROCESSOR based on NLP analysis
+      - Support context-aware help based on chat type and user role
+      - Provide specialized guidance for complex help scenarios
+      - Coordinate with other agents for comprehensive assistance when needed
+      
+      Collaborative Workflow:
+      - Receive help requests with full context analysis from NLP routing
+      - Execute help operations based on intelligent context assessment
+      - Provide detailed guidance tailored to user's specific situation
+      - Support follow-up help requests with conversation awareness
+      
+      Collaborative Tools (STANDARDIZED ORDER):
+      - help_response(chat_type, telegram_id, team_id, username) - Primary comprehensive help
+      - get_available_commands() - Context-specific command lists
+      - get_command_help(command_name) - Detailed command explanations
+      - get_welcome_message(chat_type, team_id) - New user onboarding
+      
+      Context parameters: telegram_id, team_id, username, chat_type
+    expected_output: >
+      Comprehensive help information with intelligent context awareness,
+      formatted with complete tool outputs and follow-up guidance.
+    agent: help_assistant
+    collaboration_pattern: "help_specialist_with_routing"
+
   - name: provide_comprehensive_help
     description: >
-      Provide comprehensive help using FINAL_HELP_RESPONSE tool.
+      Provide comprehensive help using help_response tool.
       
       Use structured description with embedded context:
-      - For /help requests, ALWAYS use FINAL_HELP_RESPONSE tool first
+      - For /help requests, ALWAYS use help_response tool first
       - Pass telegram_id, team_id, username, chat_type directly to tools (STANDARDIZED ORDER)
       - Use get_available_commands for context-specific command lists
       - Use get_command_help for detailed command explanations
@@ -77,6 +163,29 @@ tasks:
       Complete help information using full tool output without modification,
       tailored to user's chat context and permissions.
     agent: help_assistant
+
+  - name: fallback_assistance_collaborative
+    description: >
+      Handle complex queries that other agents cannot resolve with NLP support.
+      
+      COLLABORATIVE FALLBACK ASSISTANCE:
+      - Receive complex or unclear requests routed via NLP analysis
+      - Provide general guidance when specific agents cannot handle requests
+      - Use conversation context to understand user intent and provide alternatives
+      - Coordinate with MESSAGE_PROCESSOR for re-routing when possible
+      
+      Fallback Strategy:
+      - Analyze failed routing attempts or unclear intents
+      - Provide general help and command suggestions
+      - Guide users toward appropriate commands or specialists
+      - Use context analysis to suggest relevant features or agents
+      
+      Context parameters: telegram_id, team_id, username, chat_type, failed_intent (when available)
+    expected_output: >
+      Helpful fallback assistance with guidance toward appropriate system features,
+      formatted with clear next steps and suggestions.
+    agent: help_assistant
+    collaboration_pattern: "fallback_with_context"
 
   - name: command_guidance
     description: >
@@ -90,7 +199,84 @@ tasks:
       Detailed command information and guidance using complete tool outputs.
     agent: help_assistant
 
-  # PLAYER COORDINATOR AGENT TASKS  
+  # COLLABORATIVE NLP PROCESSOR AGENT TASKS - Intelligent Routing Hub
+  - name: analyze_complex_routing_request
+    description: >
+      Analyze complex user requests and provide intelligent routing recommendations.
+      
+      NLP ANALYSIS WORKFLOW:
+      Step 1 - Intent Recognition:
+      - Use advanced_intent_recognition(telegram_id, team_id, username, chat_type, message)
+      - Classify user intent with confidence score
+      - Extract relevant entities from message
+      
+      Step 2 - Context Analysis:
+      - Use conversation_context_tool() to build conversation context
+      - Use semantic_similarity_tool() for command matching
+      - Determine entity focus: player vs team member vs match vs system
+      
+      Step 3 - Routing Recommendation:
+      - Use routing_recommendation_tool() to generate agent selection
+      - Provide confidence scores and alternative options
+      - Include reasoning for routing decision
+      
+      Context parameters: telegram_id, team_id, username, chat_type, message
+    expected_output: >
+      Comprehensive routing analysis with agent recommendation, confidence score,
+      and detailed reasoning for the routing decision.
+    agent: nlp_processor
+    collaboration_pattern: "intelligent_routing_analysis"
+
+  - name: validate_and_route_update_commands
+    description: >
+      Specialized analysis for update commands with permission validation.
+      
+      UPDATE ROUTING WORKFLOW:
+      Step 1 - Update Context Analysis:
+      - Use analyze_update_context(telegram_id, team_id, username, chat_type, message)
+      - Determine target entity type (player vs team_member)
+      - Assess confidence based on chat context and message content
+      
+      Step 2 - Permission Validation:
+      - Use validate_routing_permissions(chat_type, user_role, requested_action)
+      - Check user permissions for requested operation
+      - Validate chat context appropriateness
+      
+      Step 3 - Routing Decision:
+      - Return optimal agent with reasoning
+      - Provide fallback options if needed
+      - Include permission status and alternatives
+      
+      Context parameters: telegram_id, team_id, username, chat_type, message, user_role, requested_action
+    expected_output: >
+      Precise update routing decision with permission validation and clear reasoning.
+    agent: nlp_processor
+    collaboration_pattern: "update_command_analysis"
+
+  # PLAYER COORDINATOR AGENT TASKS - Enhanced with Collaboration Support
+  - name: manage_player_operations_collaborative
+    description: >
+      Handle player operations with support for collaborative routing from NLP_PROCESSOR.
+      
+      COLLABORATIVE PLAYER MANAGEMENT:
+      - Receive routing requests from MESSAGE_PROCESSOR via NLP analysis
+      - Execute player operations based on intelligent routing decisions
+      - Handle update commands specifically routed to player records
+      - Provide detailed responses for complex player queries
+      
+      Direct Tools (STANDARDIZED ORDER):
+      - get_my_status, get_player_status for player information
+      - get_all_players, get_active_players for player lists
+      - approve_player for player approvals
+      - update_player_field, update_player_multiple_fields for updates
+      
+      Context parameters: telegram_id, team_id, username, chat_type
+    expected_output: >
+      Comprehensive player management with support for intelligent routing,
+      formatted with complete tool outputs.
+    agent: player_coordinator
+    collaboration_pattern: "specialist_with_routing_support"
+
   - name: manage_player_operations
     description: >
       Handle complete player lifecycle from registration through active participation.
@@ -118,7 +304,32 @@ tasks:
       Successful player registration with next steps and guidance.
     agent: player_coordinator
 
-  # TEAM ADMINISTRATOR AGENT TASKS
+  # TEAM ADMINISTRATOR AGENT TASKS - Enhanced with Collaboration Support
+  - name: manage_team_administration_collaborative
+    description: >
+      Handle team member management with support for intelligent routing from NLP_PROCESSOR.
+      
+      COLLABORATIVE TEAM ADMINISTRATION:
+      - Receive routing requests from MESSAGE_PROCESSOR via NLP analysis
+      - Execute team member operations based on intelligent routing decisions
+      - Handle update commands specifically routed to team member records
+      - Provide comprehensive team management responses
+      
+      Collaborative Tools (STANDARDIZED ORDER):
+      - add_team_member_simplified for new team member registration with invite links
+      - add_player for player registration (administrative function)
+      - update_team_member_field, update_team_member_multiple_fields for updates
+      - get_team_members, get_my_team_member_status for information
+      - Role management: add_team_member_role, remove_team_member_role, promote_team_member_to_admin
+      - Team creation: create_team for new team setup
+      
+      Context parameters: telegram_id, team_id, username, chat_type
+    expected_output: >
+      Comprehensive team administration with support for intelligent routing,
+      formatted with complete tool outputs and invite link generation.
+    agent: team_administrator
+    collaboration_pattern: "specialist_with_routing_support"
+
   - name: manage_team_administration
     description: >
       Handle team member management, roles, permissions, and governance.
@@ -148,7 +359,33 @@ tasks:
       Updated team member information with role changes confirmed.
     agent: team_administrator
 
-  # SQUAD SELECTOR AGENT TASKS
+  # SQUAD SELECTOR AGENT TASKS - Enhanced with Collaboration Support
+  - name: manage_matches_and_squads_collaborative
+    description: >
+      Handle complete match lifecycle with support for collaborative routing from NLP_PROCESSOR.
+      
+      COLLABORATIVE MATCH MANAGEMENT:
+      - Receive routing requests from MESSAGE_PROCESSOR via NLP analysis
+      - Execute match operations based on intelligent routing decisions
+      - Handle availability updates routed from various chat contexts
+      - Provide comprehensive match and squad management responses
+      
+      Collaborative Tools (STANDARDIZED ORDER):
+      - list_matches, create_match, get_match_details for match operations
+      - mark_availability, get_availability for availability management
+      - select_squad, get_available_players_for_match for squad building
+      - record_attendance, get_match_attendance for attendance tracking
+      - get_player_availability_history, get_player_attendance_history for history
+      - record_match_result for post-match data recording
+      - get_all_players, get_player_status for squad context
+      
+      Context parameters: telegram_id, team_id, username, chat_type, match_id (when applicable)
+    expected_output: >
+      Comprehensive match and squad management with support for intelligent routing,
+      formatted with complete tool outputs and optimal squad recommendations.
+    agent: squad_selector
+    collaboration_pattern: "specialist_with_routing_support"
+
   - name: manage_matches_and_squads
     description: >
       Handle complete match lifecycle, availability tracking, and squad selection.
@@ -166,6 +403,28 @@ tasks:
       formatted with complete tool outputs.
     agent: squad_selector
 
+  - name: availability_and_attendance_collaborative
+    description: >
+      Track player availability with intelligent routing support from NLP analysis.
+      
+      COLLABORATIVE AVAILABILITY TRACKING:
+      - Handle availability updates routed from main chat (player availability)
+      - Support administrative availability management from leadership chat
+      - Coordinate with PLAYER_COORDINATOR for player-specific availability queries
+      - Provide match planning insights based on availability patterns
+      
+      Collaborative Workflow:
+      - Receive context-aware routing decisions for availability operations
+      - Execute availability tracking based on chat context and user role
+      - Provide comprehensive availability summaries for squad planning
+      - Track historical patterns for predictive availability insights
+      
+      Context parameters: telegram_id, team_id, username, chat_type, match_id, player_id (when applicable)
+    expected_output: >
+      Accurate availability tracking with intelligent routing support and comprehensive summaries.
+    agent: squad_selector
+    collaboration_pattern: "availability_specialist_with_context"
+
   - name: availability_and_attendance
     description: >
       Track player availability and manage match attendance.
@@ -178,29 +437,152 @@ tasks:
       Accurate availability and attendance tracking with historical data.
     agent: squad_selector
 
-# Legacy task mapping for backwards compatibility
-# Maps old agent names to new 5-agent system
-legacy_agent_mapping:
-  intelligent_system: message_processor
-  availability_manager: squad_selector
-  team_manager: squad_selector
-  communication_manager: message_processor
-  analytics_agent: message_processor  # Analytics handled by message processor for now
+
+# CrewAI Multi-Agent Task Patterns and Coordination
+multi_agent_patterns:
+
+  # Pattern 1: Sequential Agent Collaboration
+  sequential_collaboration:
+    description: "Agents work in sequence, passing results to next agent"
+    pattern: "Agent A → Process → Agent B → Final Output"
+    use_cases:
+      - "Complex update operations requiring validation and execution"
+      - "Multi-step workflows with dependency chains"
+    example:
+      step_1: "MESSAGE_PROCESSOR analyzes request with NLP_PROCESSOR"
+      step_2: "NLP_PROCESSOR recommends specialist agent"
+      step_3: "Specialist agent executes operation"
+      step_4: "MESSAGE_PROCESSOR formats final response"
+
+  # Pattern 2: Parallel Agent Collaboration  
+  parallel_collaboration:
+    description: "Multiple agents work simultaneously on different aspects"
+    pattern: "Agent A ∥ Agent B ∥ Agent C → Combine Results"
+    use_cases:
+      - "Information gathering from multiple sources"
+      - "Comprehensive status reports requiring multiple data types"
+    example:
+      parallel_tasks:
+        - "PLAYER_COORDINATOR gets player data"
+        - "TEAM_ADMINISTRATOR gets team member data"  
+        - "SQUAD_SELECTOR gets match data"
+      coordination: "MESSAGE_PROCESSOR combines all results"
+
+  # Pattern 3: Hierarchical Agent Delegation
+  hierarchical_delegation:
+    description: "Primary agent delegates to specialists based on context"
+    pattern: "Primary → Analyze Context → Delegate → Coordinate Response"
+    use_cases:
+      - "Context-aware routing (main vs leadership chat)"
+      - "Permission-based operations"
+    example:
+      primary: "MESSAGE_PROCESSOR"
+      analysis: "NLP_PROCESSOR provides routing recommendation"
+      delegation: "Route to PLAYER_COORDINATOR or TEAM_ADMINISTRATOR"
+      coordination: "Primary agent manages response delivery"
+
+  # Pattern 4: Collaborative Problem Solving
+  collaborative_problem_solving:
+    description: "Agents collaborate to solve complex multi-domain problems"
+    pattern: "Problem → Multiple Agents → Iterative Refinement → Solution"
+    use_cases:
+      - "Complex help requests requiring multiple knowledge domains"
+      - "Troubleshooting issues across multiple system areas"
+    example:
+      problem_analysis: "NLP_PROCESSOR analyzes complex request"
+      domain_experts: "Multiple specialist agents contribute knowledge"
+      solution_synthesis: "MESSAGE_PROCESSOR synthesizes comprehensive response"
+
+# CrewAI Native Task Execution Patterns
+crewai_execution_patterns:
+
+  # Dynamic Task Creation with Agent Collaboration
+  dynamic_task_creation:
+    description: "Tasks created dynamically with embedded agent collaboration logic"
+    template: |
+      Task(
+        description=f"""
+        USER REQUEST: {user_request}
+        
+        COLLABORATION WORKFLOW:
+        1. Primary Agent: {primary_agent} - Initial analysis and routing
+        2. Collaboration: Use {collaboration_tools} for intelligent routing
+        3. Specialist Execution: Delegate to {recommended_specialist}
+        4. Response Coordination: Format and deliver comprehensive response
+        
+        CONTEXT: telegram_id={telegram_id}, team_id={team_id}, username={username}, chat_type={chat_type}
+        """,
+        agent=primary_agent,
+        expected_output="Coordinated response with proper tool execution results"
+      )
+
+  # Sequential Task Chains
+  sequential_task_chains:
+    description: "Chain of dependent tasks executed in sequence"
+    implementation: |
+      task_1 = Task(description="Analyze request", agent=nlp_processor)
+      task_2 = Task(description="Execute based on analysis", agent=specialist, context=task_1.output)
+      task_3 = Task(description="Format response", agent=message_processor, context=task_2.output)
+      crew.kickoff(tasks=[task_1, task_2, task_3])
+
+  # Conditional Task Routing
+  conditional_routing:
+    description: "Tasks routed to different agents based on runtime conditions"
+    implementation: |
+      analysis_task = Task(description="Analyze context", agent=nlp_processor)
+      if analysis_task.output.chat_type == "main":
+          execution_task = Task(description="Execute", agent=player_coordinator)
+      elif analysis_task.output.chat_type == "leadership":
+          execution_task = Task(description="Execute", agent=team_administrator)
 
 # Task execution guidelines for CrewAI native implementation
 execution_guidelines:
+  
+  multi_agent_coordination: |
+    CrewAI Multi-Agent Coordination Principles:
+    
+    1. PRIMARY AGENT PATTERN:
+       - MESSAGE_PROCESSOR serves as primary interface for all requests
+       - Collaborates with NLP_PROCESSOR for intelligent routing decisions
+       - Coordinates with specialist agents based on context and intent
+    
+    2. COLLABORATION METHODS:
+       - Tool-based collaboration: Agents use tools to request analysis from other agents
+       - Task chaining: Sequential tasks that build on previous results
+       - Context passing: Rich context passed between collaborative agents
+    
+    3. DECISION ROUTING:
+       - NLP_PROCESSOR provides routing recommendations via tools
+       - MESSAGE_PROCESSOR makes final routing decisions
+       - Specialist agents execute domain-specific operations
+    
+    4. RESPONSE COORDINATION:
+       - All responses flow back through MESSAGE_PROCESSOR
+       - Comprehensive formatting and error handling
+       - Consistent user experience across all agent interactions
+
   task_creation: |
     Tasks are now created dynamically using structured descriptions with embedded context.
     
-    Example structured description format:
+    Multi-Agent Task Description Format:
     ```
     User Request: {task_description}
+    
+    Collaboration Pattern: {collaboration_pattern}
+    Primary Agent: {primary_agent}
+    Specialist Agents: {specialist_agents}
     
     Context Information:
     - User Telegram ID: {telegram_id} 
     - Team ID: {team_id}
     - Username: {username}
     - Chat Type: {chat_type}
+    
+    Workflow Instructions:
+    1. {primary_agent} analyzes request and context
+    2. Collaborate with NLP_PROCESSOR for routing recommendations
+    3. Delegate to appropriate specialist agents
+    4. Coordinate comprehensive response delivery
     
     Instructions: Use the provided context information to call tools with the appropriate parameters.
     Pass telegram_id, team_id, username, and chat_type as direct parameters to tools (STANDARDIZED ORDER).
@@ -218,3 +600,4 @@ execution_guidelines:
     - Format responses with proper emojis and structure
     - Include error handling and validation feedback
     - Provide next steps when appropriate
+    - Coordinate responses from multiple agents when applicable

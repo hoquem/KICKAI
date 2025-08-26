@@ -284,9 +284,9 @@ User and message creation uses factory-like patterns:
 ```python
 def create_user(self, request: CreateUserRequest) -> MockUser:
     """Create a new test user with validation"""
-    user_id = self._generate_user_id()
+    telegram_id = self._generate_telegram_id()
     user = MockUser(
-        id=user_id,
+        id=telegram_id,
         username=request.username,
         first_name=request.first_name,
         last_name=request.last_name,

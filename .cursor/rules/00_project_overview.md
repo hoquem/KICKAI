@@ -13,12 +13,12 @@
 
 ## 🎯 **Project Status: PRODUCTION READY WITH ENHANCED SYSTEMS**
 
-KICKAI is a sophisticated Telegram bot system for football team management, built with a **5-agent AI architecture** using CrewAI. The system is **production-ready** for core functionality with enhanced error handling, standardized dependency injection, and comprehensive improvements.
+KICKAI is a sophisticated Telegram bot system for football team management, built with a **6-agent CrewAI native collaboration architecture**. The system is **production-ready** with intelligent agent-to-agent collaboration, enhanced error handling, standardized dependency injection, and comprehensive improvements.
 
 ## ✅ **Current Status**
 
 - **Bot System**: ✅ Fully operational with unified message handler
-- **Agent Architecture**: ✅ **5-agent system** working correctly (streamlined from 8 agents)
+- **Agent Architecture**: ✅ **6-agent CrewAI native collaboration system** with intelligent routing
 - **Command Processing**: ✅ Core commands functional (help, status, list, myinfo, etc.)
 - **Database Integration**: ✅ Firebase Firestore integration working
 - **Player Management**: ✅ Complete player registration and management
@@ -43,7 +43,7 @@ KICKAI is a sophisticated Telegram bot system for football team management, buil
 
 ## 🏗️ **Architecture**
 
-- **5-Agent CrewAI System**: Streamlined architecture - MESSAGE_PROCESSOR, HELP_ASSISTANT, PLAYER_COORDINATOR, TEAM_ADMINISTRATOR, SQUAD_SELECTOR
+- **6-Agent CrewAI System**: Streamlined architecture - MESSAGE_PROCESSOR, HELP_ASSISTANT, PLAYER_COORDINATOR, TEAM_ADMINISTRATOR, SQUAD_SELECTOR, NLP_PROCESSOR
 - **Enhanced Error Handling**: Centralized decorators with fail-fast behavior
 - **Standardized Dependency Injection**: Consistent service access patterns
 - **Service Discovery System**: Dynamic service registration, health monitoring, and circuit breaker patterns

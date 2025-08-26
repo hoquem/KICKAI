@@ -3,13 +3,13 @@
 Simple ID Generator for KICKAI
 
 This module provides a simplified ID generation system that creates human-readable IDs
-in the format {Number}{Initials} for players and team members.
+in the format {Number}{Initials} for players and M{Number}{Initials} for team members.
 
 Examples:
-- Mahmudul Hoque → 01MH
-- Second Mahmudul Hoque → 02MH
-- John Smith → 01JS
-- Second John Smith → 02JS
+- Player: Mahmudul Hoque → 01MH
+- Player: Second Mahmudul Hoque → 02MH
+- Team Member: John Smith → M01JS
+- Team Member: Second John Smith → M02JS
 """
 
 import re
@@ -79,7 +79,7 @@ class SimpleIDGenerator:
         self, name: str, team_id: str, existing_ids: Union[Set[str], None] = None
     ) -> str:
         """
-        Generate a simple team member ID in format user_{Number}{Initials}.
+        Generate a simple team member ID in format M{Number}{Initials}.
 
         Args:
             name: Team member's full name
@@ -87,12 +87,12 @@ class SimpleIDGenerator:
             existing_ids: Set of existing IDs to avoid collisions
 
         Returns:
-            Team member ID in format user_01MH, user_02MH, etc.
+            Team member ID in format M01MH, M02MH, etc.
         """
         # Generate the base ID using the same logic as player IDs
         base_id = self.generate_player_id(name, team_id, existing_ids)
-        # Return with user_ prefix for team members
-        return f"user_{base_id}"
+        # Return with M prefix for team members (new standard format)
+        return f"M{base_id}"
 
     def generate_match_id(self, team_id: str, opponent: str, match_date: datetime) -> str:
         """
