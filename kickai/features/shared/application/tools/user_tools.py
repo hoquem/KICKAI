@@ -36,7 +36,7 @@ class ExistingServicesUserRepository:
 
 
 @tool("get_user_status", result_as_answer=True)
-async def get_user_status(telegram_id: int, team_id: str, username: str, chat_type: str, target_name: str = None) -> str:
+async def get_user_status(telegram_id: int, team_id: str, username: str, chat_type: str, target_name: str = "") -> str:
     """
     Get user status and information by Telegram ID lookup.
 
