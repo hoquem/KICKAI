@@ -1260,7 +1260,9 @@
             }
             
             // Robust message text with proper newline handling
+            console.log('🔍 Raw bot message text:', JSON.stringify(message.text));
             const messageText = (message.text || '').replace(/\n/g, '<br>'); // Convert \n to <br> for proper line breaks
+            console.log('🔍 Processed message text:', messageText);
             
             messageDiv.innerHTML = `
                 <div class="message-info">🤖 KickAI Bot • ${displayTime}</div>
