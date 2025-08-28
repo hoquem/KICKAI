@@ -7,7 +7,6 @@ These tools serve as the application boundary and delegate to pure domain servic
 All framework dependencies (@tool decorators, container access) are confined to this layer.
 """
 
-from typing import Optional
 from crewai.tools import tool
 from loguru import logger
 
@@ -37,7 +36,7 @@ class ExistingServicesUserRepository:
 
 
 @tool("get_user_status", result_as_answer=True)
-async def get_user_status(telegram_id: int, team_id: str, username: str, chat_type: str, target_name: Optional[str] = None) -> str:
+async def get_user_status(telegram_id: int, team_id: str, username: str, chat_type: str) -> str:
     """
     Get user status and information by Telegram ID lookup.
 
@@ -49,16 +48,11 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
         team_id: Team ID (required)
         username: Username of the requesting user (for logging)
         chat_type: Chat type context
-        target_name: Name of the user to look up (legacy parameter, ignored)
 
     Returns:
         JSON formatted user status information or error message
     """
     try:
-        # Handle optional target_name parameter
-        if target_name is None:
-            target_name = ""
-            
         # Validate required parameters at application boundary
         if not telegram_id or not team_id:
             return create_json_response(
