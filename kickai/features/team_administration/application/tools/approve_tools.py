@@ -19,6 +19,7 @@ from kickai.database.firebase_client import FirebaseClient
 from kickai.features.player_registration.domain.services.player_registration_service import PlayerRegistrationService
 from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
 from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 # Get services from container
 container = get_container()
@@ -129,23 +130,23 @@ async def approve_user(telegram_id: int, team_id: str, username: str, chat_type:
         
         # Input validation
         if not _validate_user_id(user_id):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message=f"Invalid user ID format: {user_id}. User ID must be at least 2 characters long and contain only alphanumeric characters."
+            return create_tool_response(
+                False, 
+                f"Invalid user ID format: {user_id}. User ID must be at least 2 characters long and contain only alphanumeric characters."
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Invalid team ID provided"
+            return create_tool_response(
+                False, 
+                "Invalid team ID provided"
             )
         
         # Permission check
         has_permission = await _check_admin_permissions(telegram_id, team_id)
         if not has_permission:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Access denied: You must have admin permissions to approve users"
+            return create_tool_response(
+                False, 
+                "Access denied: You must have admin permissions to approve users"
             )
         
         # Determine if this is a player or team member based on ID format
@@ -158,9 +159,9 @@ async def approve_user(telegram_id: int, team_id: str, username: str, chat_type:
             
     except Exception as e:
         logger.error(f"❌ Error in approve_user: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR, 
-            message=f"Failed to approve user: {str(e)}"
+        return create_tool_response(
+            False, 
+            f"Failed to approve user: {str(e)}"
         )
 
 
@@ -181,22 +182,22 @@ async def _approve_team_member(telegram_id: int, team_id: str, username: str, me
         # Get team member service
         team_member_service = container.get_service(TeamMemberService)
         if not team_member_service:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="TeamMemberService is not available"
+            return create_tool_response(
+                False, 
+                "TeamMemberService is not available"
             )
         
         # Get the team member
         team_member = await team_member_service.get_team_member_by_id(member_id, team_id)
         if not team_member:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message=f"Team member {member_id} not found in team {team_id}"
+            return create_tool_response(
+                False, 
+                f"Team member {member_id} not found in team {team_id}"
             )
         
         # Check if already active
         if team_member.status.value == "active":
-            return create_json_response(ResponseStatus.SUCCESS, data={
+            return create_tool_response(True, f'Team member {team_member.name} is already active', {
                 'message': f'Team member {team_member.name} is already active',
                 'member_id': member_id,
                 'name': team_member.name,
@@ -212,14 +213,14 @@ async def _approve_team_member(telegram_id: int, team_id: str, username: str, me
         # Save the update
         success = await team_member_service.update_team_member(team_member)
         if not success:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Failed to update team member status in database"
+            return create_tool_response(
+                False, 
+                "Failed to update team member status in database"
             )
         
         logger.info(f"✅ Approved team member: {team_member.name} ({member_id}) by {username}")
         
-        return create_json_response(ResponseStatus.SUCCESS, data={
+        return create_tool_response(True, f'Team member {team_member.name} approved successfully', {
             'message': f'Team member {team_member.name} approved successfully',
             'member_id': member_id,
             'name': team_member.name,
@@ -230,9 +231,9 @@ async def _approve_team_member(telegram_id: int, team_id: str, username: str, me
         
     except Exception as e:
         logger.error(f"❌ Error approving team member {member_id}: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR, 
-            message=f"Failed to approve team member: {str(e)}"
+        return create_tool_response(
+            False, 
+            f"Failed to approve team member: {str(e)}"
         )
 
 
@@ -253,22 +254,22 @@ async def _approve_player(telegram_id: int, team_id: str, username: str, player_
         # Get player registration service
         player_service = container.get_service(PlayerRegistrationService)
         if not player_service:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="PlayerRegistrationService is not available"
+            return create_tool_response(
+                False, 
+                "PlayerRegistrationService is not available"
             )
         
         # Get the player
         player = await player_service.get_player(player_id=player_id, team_id=team_id)
         if not player:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message=f"Player {player_id} not found in team {team_id}"
+            return create_tool_response(
+                False, 
+                f"Player {player_id} not found in team {team_id}"
             )
         
         # Check if already active
         if player.status == "active":
-            return create_json_response(ResponseStatus.SUCCESS, data={
+            return create_tool_response(True, f'Player {player.name} is already active', {
                 'message': f'Player {player.name} is already active',
                 'player_id': player_id,
                 'name': player.name,
@@ -282,7 +283,7 @@ async def _approve_player(telegram_id: int, team_id: str, username: str, player_
         
         logger.info(f"✅ Approved player: {approved_player.name} ({player_id}) by {username}")
         
-        return create_json_response(ResponseStatus.SUCCESS, data={
+        return create_tool_response(True, f'Player {approved_player.name} approved successfully', {
             'message': f'Player {approved_player.name} approved successfully',
             'player_id': player_id,
             'name': approved_player.name,
@@ -293,9 +294,9 @@ async def _approve_player(telegram_id: int, team_id: str, username: str, player_
         
     except Exception as e:
         logger.error(f"❌ Error approving player {player_id}: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR, 
-            message=f"Failed to approve player: {str(e)}"
+        return create_tool_response(
+            False, 
+            f"Failed to approve player: {str(e)}"
         )
 
 

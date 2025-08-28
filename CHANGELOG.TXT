@@ -3,6 +3,15 @@
 ## [Latest] - 2025-08-28
 
 ### 🔧 Bug Fixes
+- **Mock UI Connection Fix**: Fixed mock Telegram UI connection issue by updating all references from port 8000 to port 8001 to match the actual mock server configuration. Updated mock_tester.html, test files, constants, and documentation to use the correct port. Added cache-busting parameters and no-cache meta tags to prevent browser caching issues.
+- **Mock Invite Link Processing Fix**: Fixed issue where mock Telegram service was not updating player records in Firestore with telegram_id during invite link processing. The mock service now properly updates the player's telegram_id field when processing player invites, ensuring that /myinfo and other player tools can find the player correctly.
+- **Real Telegram Invite Link Processing**: Implemented proper new_chat_members handler in real Telegram bot service to handle invite link processing and update player records with telegram_id. Added support for new_chat_members data in TelegramMessage class and AgenticMessageRouter.
+- **Team Member Invite Link Processing**: Extended real Telegram bot service to handle team member invite link processing and update team member records with telegram_id when they join the leadership chat via invite links.
+- **Team-Specific Collection Naming Fix**: Fixed issue where some invite link operations were using global collection names instead of team-specific ones. Updated PlayerToolService to create team-specific InviteLinkService instances for proper collection naming.
+- **Player Status Activation Fix**: Fixed issue where invite link processing was setting telegram_id but not updating player status to 'active'. Both real Telegram and mock services now properly activate players when they join via invite links.
+- **Response Formatting Consistency Fix**: Fixed inconsistent response formatting between /myinfo and /update commands. Updated update_player_field tool to use create_tool_response instead of create_json_response for consistent, clean message formatting without escaped quotes and extra newlines.
+- **Shared Tools Response Formatting Update**: Updated all shared module tools to use create_tool_response for consistent formatting. Updated help_tools, user_tools, system_tools, and permission_tools to use the cleaner response format that prevents escaping issues and provides better user experience.
+- **Team Administration Tools Response Formatting Update**: Completed updating all team administration tools to use create_tool_response. Updated player_management_tools, team_management_tools, team_member_tools, approve_tools, and team_administration_tools for consistent formatting and better user experience.
 - **Dependency Container Initialization Fix**: Fixed issue where player update tools were failing due to uninitialized dependency container. Added container initialization checks to `update_player_field` and `get_my_status` tools to ensure services are available before use.
 - **Position Update Persistence**: Resolved issue where `/update position` command appeared successful but position changes were not persisted. The fix ensures the dependency container is fully initialized before tools attempt to access services.
 
@@ -124,6 +133,101 @@
 - **Code Quality**: Ongoing code quality improvements and refactoring.
 - **Documentation**: Continuous documentation updates and improvements.
 - **Testing**: Regular testing improvements and coverage expansion.
+
+## [2025-01-27] - Markdown Formatting and Mock UI Display Fixes
+
+### Fixed
+- **Markdown Display Issues**: Removed markdown formatting (**bold**, *italic*, etc.) from all user-facing message templates to ensure clean display in Mock Telegram UI
+- **Newline Display Issues**: Fixed newlines being escaped as `\n` characters instead of displaying as proper line breaks in Mock UI
+- **Message Templates**: Updated constants.py to remove markdown from PLAYER_ADDED_WITH_INVITE and MEMBER_ADDED_WITH_INVITE messages
+- **Field Validation**: Removed markdown from field validation help messages
+- **Match Tools**: Cleaned up markdown formatting in match listing and details messages
+- **Mock UI Compatibility**: Ensured all bot responses display properly with consistent newline handling
+- **JSON Response Parsing**: Fixed Mock UI and Telegram bot services to properly parse JSON responses from tools
+- **Invite Link Processing**: Fixed Mock API server endpoints to include `/api` prefix and updated request model to match UI expectations
+
+### Simplified
+- **Removed ResponseFormatter**: Eliminated unnecessary ResponseFormatter class that was adding complexity without value
+- **Direct Message Handling**: Tools now return clean, formatted text directly without additional processing
+- **Cleaner Architecture**: Simplified message flow by removing intermediate formatting layer
+- **Maintained JSON Responses**: Kept JSON response format for reliable CrewAI agent processing while fixing parsing
+
+### Technical Improvements
+- Simplified approach: removed markdown from source templates rather than adding complex stripping logic
+- Enhanced message formatting for better Mock UI compatibility
+- Improved text readability by removing unnecessary markdown syntax
+- Fixed JSON response parsing in both Mock UI and real Telegram bot services
+- Maintained CrewAI best practices for tool responses
+- Fixed Mock API server endpoint routing to match UI expectations
+
+### Files Modified
+- kickai/utils/constants.py - Removed markdown from message templates
+- kickai/utils/field_validation.py - Cleaned up help message formatting
+- kickai/features/match_management/domain/tools/match_tools.py - Removed markdown from match messages
+- kickai/features/communication/infrastructure/telegram_bot_service.py - Fixed JSON response parsing
+- kickai/features/communication/infrastructure/mock_telegram_bot_service.py - Fixed JSON response parsing
+- tests/mock_telegram/backend/bot_integration.py - Removed ResponseFormatter usage
+- kickai/features/communication/domain/services/response_formatter.py - Deleted (unnecessary complexity)
+- mock_api_server.py - Fixed API endpoints to include `/api` prefix and updated invite request model
+
+## [2025-01-27] - Enhanced Invite Processing Logging
+
+### Added
+- **Detailed Invite Processing Logs**: Added comprehensive logging throughout the invite link processing flow
+- **High-Level Flow Visibility**: Added step-by-step logging to track invite processing from API request to completion
+- **Debug-Friendly Logging**: Enhanced logging with clear prefixes ([API], [INVITE PROCESSING]) for easy filtering
+
+### Technical Improvements
+- Added logging for each major step in the invite processing flow:
+  - API request reception and validation
+  - Firebase client initialization
+  - Collection name generation and document lookup
+  - User data extraction and validation
+  - Mock user creation and chat setup
+  - Invitation context creation
+  - Join event simulation
+  - Response preparation and return
+- All logs use consistent formatting with emojis and clear prefixes
+- Error logging enhanced with detailed context information
+
+### Files Modified
+- tests/mock_telegram/backend/mock_telegram_service.py - Added comprehensive logging throughout invite processing flow
+
+## [2025-01-27] - Missing Tools and Invite Link Fixes
+
+### Fixed
+- **Markdown Display Issues**: Removed markdown formatting (**bold**, *italic*, etc.) from all user-facing message templates to ensure clean display in Mock Telegram UI
+- **Newline Display Issues**: Fixed newlines being escaped as `\n` characters instead of displaying as proper line breaks in Mock UI
+- **Message Templates**: Updated constants.py to remove markdown from PLAYER_ADDED_WITH_INVITE and MEMBER_ADDED_WITH_INVITE messages
+- **Field Validation**: Removed markdown from field validation help messages
+- **Match Tools**: Cleaned up markdown formatting in match listing and details messages
+- **Mock UI Compatibility**: Ensured all bot responses display properly with consistent newline handling
+- **JSON Response Parsing**: Fixed Mock UI and Telegram bot services to properly parse JSON responses from tools
+- **Invite Link Processing**: Fixed Mock API server endpoints to include `/api` prefix and updated request model to match UI expectations
+
+### Simplified
+- **Removed ResponseFormatter**: Eliminated unnecessary ResponseFormatter class that was adding complexity without value
+- **Direct Message Handling**: Tools now return clean, formatted text directly without additional processing
+- **Cleaner Architecture**: Simplified message flow by removing intermediate formatting layer
+- **Maintained JSON Responses**: Kept JSON response format for reliable CrewAI agent processing while fixing parsing
+
+### Technical Improvements
+- Simplified approach: removed markdown from source templates rather than adding complex stripping logic
+- Enhanced message formatting for better Mock UI compatibility
+- Improved text readability by removing unnecessary markdown syntax
+- Fixed JSON response parsing in both Mock UI and real Telegram bot services
+- Maintained CrewAI best practices for tool responses
+- Fixed Mock API server endpoint routing to match UI expectations
+
+### Files Modified
+- kickai/utils/constants.py - Removed markdown from message templates
+- kickai/utils/field_validation.py - Cleaned up help message formatting
+- kickai/features/match_management/domain/tools/match_tools.py - Removed markdown from match messages
+- kickai/features/communication/infrastructure/telegram_bot_service.py - Fixed JSON response parsing
+- kickai/features/communication/infrastructure/mock_telegram_bot_service.py - Fixed JSON response parsing
+- tests/mock_telegram/backend/bot_integration.py - Removed ResponseFormatter usage
+- kickai/features/communication/domain/services/response_formatter.py - Deleted (unnecessary complexity)
+- mock_api_server.py - Fixed API endpoints to include `/api` prefix and updated invite request model
 
 ---
 

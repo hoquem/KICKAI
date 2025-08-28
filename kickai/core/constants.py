@@ -34,7 +34,7 @@ class NetworkConstants:
     DEFAULT_MOCK_TELEGRAM_PORT: Final[int] = 8001
     DEFAULT_FIREBASE_PORT: Final[int] = 9099
     DEFAULT_OLLAMA_PORT: Final[int] = 11434
-    DEFAULT_HTTP_PORT: Final[int] = 8000
+    DEFAULT_HTTP_PORT: Final[int] = 8001
     DEFAULT_WEBSOCKET_PORT: Final[int] = 8001
 
     # Default hosts

@@ -185,13 +185,13 @@ async def _create_router(team_id: str) -> AgenticMessageRouter:
 
 async def _format_response(response: Any) -> str:
     """
-    Format response using ResponseFormatter.
+    Extract response text directly.
     
     Args:
         response: Response from agent
         
     Returns:
-        Formatted text
+        Response text
     """
     # Extract response content
     if hasattr(response, 'content'):
@@ -201,12 +201,8 @@ async def _format_response(response: Any) -> str:
     else:
         response_text = str(response)
     
-    # Format JSON responses for human readability
-    from kickai.features.communication.domain.services.response_formatter import ResponseFormatter
-    formatter = ResponseFormatter()
-    formatted_text = formatter.format_for_telegram(response_text)
-    logger.info(f"🔄 Applied ResponseFormatter: {len(response_text)} chars -> {len(formatted_text)} chars")
-    return formatted_text
+    logger.info(f"🔄 Response text: {len(response_text)} chars")
+    return response_text
 
 
 def _create_success_response(formatted_text: str, response: Any) -> Dict[str, Any]:

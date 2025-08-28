@@ -16,6 +16,7 @@ from kickai.features.player_registration.domain.services.player_service import P
 from kickai.features.shared.domain.services.user_service import UserService, UserRepositoryInterface
 from kickai.features.team_administration.domain.services.team_service import TeamService
 from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 
 # Adapter to bridge existing services to our user repository interface
@@ -55,9 +56,9 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
     try:
         # Validate required parameters at application boundary
         if not telegram_id or not team_id:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Missing required parameters: telegram_id and team_id"
+            return create_tool_response(
+                False, 
+                "Missing required parameters: telegram_id and team_id"
             )
 
         # Ensure telegram_id is integer
@@ -65,9 +66,9 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
             try:
                 telegram_id = int(telegram_id)
             except (ValueError, TypeError):
-                return create_json_response(
-                    ResponseStatus.ERROR, 
-                    message=f"Invalid Telegram ID format: {telegram_id}. Must be an integer."
+                return create_tool_response(
+                    False, 
+                    f"Invalid Telegram ID format: {telegram_id}. Must be an integer."
                 )
 
         logger.info(f"👤 User status request for {telegram_id} in team {team_id}")
@@ -103,8 +104,8 @@ async def get_user_status(telegram_id: int, team_id: str, username: str, chat_ty
 
         logger.info(f"✅ User status retrieved for {telegram_id}: {user_status.user_type}")
         
-        return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+        return create_tool_response(True, f"User status for {telegram_id}", response_data)
 
     except Exception as e:
         logger.error(f"❌ Error in get_user_status tool: {e}")
-        return create_json_response(ResponseStatus.ERROR, message="Failed to get user status")
+        return create_tool_response(False, "Failed to get user status")

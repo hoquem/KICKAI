@@ -261,6 +261,7 @@ async def add_player(
             expires_at=expires_at
         )
 
+        # Return JSON response with properly formatted message
         return create_json_response(ResponseStatus.SUCCESS, data=success_response)
 
     except Exception as e:

@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>KickAI - Liverpool FC Mock Tester</title>
     <style>
         :root {
@@ -826,6 +829,9 @@
         // API base URL
         const API_BASE = 'http://localhost:8001/api';
         
+        // Cache busting parameter
+        const CACHE_BUST = '?v=' + Date.now();
+        
         // Initialize the application
         async function init() {
             await loadUsers();
@@ -841,7 +847,7 @@
         // Load users from API
         async function loadUsers() {
             try {
-                const response = await fetch(`${API_BASE}/users`);
+                const response = await fetch(`${API_BASE}/users${CACHE_BUST}`);
                 users = await response.json();
                 renderUsers();
                 updateSystemInfo();
@@ -854,7 +860,7 @@
         // Load chats from API
         async function loadChats() {
             try {
-                const response = await fetch(`${API_BASE}/chats`);
+                const response = await fetch(`${API_BASE}/chats${CACHE_BUST}`);
                 chats = await response.json();
                 renderChatSelector();
                 updateSystemInfo();

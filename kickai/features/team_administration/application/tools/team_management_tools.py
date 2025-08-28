@@ -15,6 +15,7 @@ from kickai.core.enums import ResponseStatus
 from kickai.features.player_registration.domain.services.player_service import PlayerService
 from kickai.features.team_administration.domain.services.team_member_service import TeamMemberService
 from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 
 @tool("list_team_members_and_players", result_as_answer=True)
@@ -53,34 +54,34 @@ async def list_team_members_and_players(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(
+                        False, 
+                        "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(
+                False, 
+                "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(
+                False, 
+                "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(
+                False, 
+                "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(
+                False, 
+                "Valid chat_type is required"
             )
         
         logger.info(f"📋 Complete team list request from {username} ({telegram_id}) in team {team_id}")
@@ -91,9 +92,9 @@ async def list_team_members_and_players(
         team_member_service = container.get_service(TeamMemberService)
 
         if not player_service or not team_member_service:
-            return create_json_response(
-                ResponseStatus.ERROR,
-                message="Required services are not available"
+            return create_tool_response(
+                False,
+                "Required services are not available"
             )
 
         # Execute domain operations
@@ -202,8 +203,8 @@ async def list_team_members_and_players(
         }
 
         logger.info(f"✅ Retrieved complete team roster: {len(formatted_players)} players, {len(formatted_members)} members")
-        return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+        return create_tool_response(True, f"Team roster for {username}", response_data)
 
     except Exception as e:
         logger.error(f"❌ Error getting complete team roster: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to get team roster: {e}")
+        return create_tool_response(False, f"Failed to get team roster: {e}")

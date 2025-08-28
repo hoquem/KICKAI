@@ -60,7 +60,7 @@ class KICKAIQATester:
         self.page = await self.browser.new_page()
         
         # Navigate to mock Telegram UI
-        await self.page.goto("http://localhost:8000/mock_tester.html")
+        await self.page.goto("http://localhost:8001/mock_tester.html")
         await self.page.wait_for_load_state("networkidle")
         
         # Wait for the UI to be ready

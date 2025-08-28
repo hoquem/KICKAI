@@ -60,11 +60,10 @@ class UserRequest(BaseModel):
     phone_number: Optional[str] = None
 
 class InviteRequest(BaseModel):
-    invite_token: str
-    telegram_id: int
-    username: str
-    first_name: str
-    last_name: Optional[str] = None
+    invite_id: str
+    invite_type: str
+    chat_id: str
+    team_id: str
 
 # Mock data storage
 mock_users = []
@@ -160,12 +159,12 @@ async def route_command_to_bot(telegram_id: int, chat_id: str, text: str) -> str
 async def root():
     return {"message": "KICKAI Mock API Server", "status": "running"}
 
-@app.get("/users")
+@app.get("/api/users")
 async def get_users():
     """Get all mock users"""
     return mock_users
 
-@app.post("/users")
+@app.post("/api/users")
 async def create_user(user: UserRequest):
     """Create a new mock user"""
     new_user = {
@@ -180,17 +179,17 @@ async def create_user(user: UserRequest):
     mock_users.append(new_user)
     return new_user
 
-@app.get("/chats")
+@app.get("/api/chats")
 async def get_chats():
     """Get all mock chats"""
     return mock_chats
 
-@app.get("/chats/{chat_id}/messages")
+@app.get("/api/chats/{chat_id}/messages")
 async def get_chat_messages(chat_id: str):
     """Get messages for a specific chat"""
     return mock_messages.get(chat_id, [])
 
-@app.post("/send_message")
+@app.post("/api/send_message")
 async def send_message(request: MessageRequest):
     """Send a message and get bot response"""
     try:
@@ -226,19 +225,22 @@ async def send_message(request: MessageRequest):
         logger.error(f"Error sending message: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/invite/process")
+@app.post("/api/invite/process")
 async def process_invite(request: InviteRequest):
     """Process an invite token"""
     try:
         # Mock invite processing
         result = {
-            "first_name": request.first_name,
-            "last_name": request.last_name,
-            "username": request.username,
-            "telegram_id": request.telegram_id,
-            "role": "player" if "player" in request.invite_token else "team_member",
-            "team_id": "KAI",
-            "status": "active"
+            "first_name": "New",
+            "last_name": "User",
+            "username": f"user_{request.invite_id[:8]}",
+            "telegram_id": 12345,  # Mock telegram ID
+            "role": "player" if request.invite_type == "player" else "team_member",
+            "team_id": request.team_id,
+            "status": "active",
+            "chat_id": request.chat_id,
+            "invite_id": request.invite_id,
+            "invite_type": request.invite_type
         }
         return result
     
@@ -246,7 +248,7 @@ async def process_invite(request: InviteRequest):
         logger.error(f"Error processing invite: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}

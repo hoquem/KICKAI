@@ -16,6 +16,7 @@ from kickai.features.shared.domain.tools.permission_tools import (
     command_not_available as domain_command_not_available,
 )
 from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 
 @tool("permission_denied_message", result_as_answer=True)
@@ -62,9 +63,9 @@ async def permission_denied_message(
         
     except Exception as e:
         logger.error(f"❌ [PERMISSION_TOOL] Error generating permission denied message: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message=f"❌ Access denied for {command_attempted}. Contact team admin for support."
+        return create_tool_response(
+            False,
+            f"❌ Access denied for {command_attempted}. Contact team admin for support."
         )
 
 
@@ -109,7 +110,7 @@ async def command_not_available(
         
     except Exception as e:
         logger.error(f"❌ [COMMAND_TOOL] Error generating command not available message: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message=f"❓ Command {command_attempted} not found. Use /help for available commands."
+        return create_tool_response(
+            False,
+            f"❓ Command {command_attempted} not found. Use /help for available commands."
         )

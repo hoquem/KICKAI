@@ -56,11 +56,10 @@ async def add_player(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    from kickai.utils.tool_helpers import create_json_response
-                    from kickai.core.enums import ResponseStatus
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    from kickai.utils.tool_validation import create_tool_response
+                    return create_tool_response(
+                        False, 
+                        "Invalid telegram_id format"
                     )
 
         logger.info(f"🏃‍♂️ Application layer: Adding player '{player_name}' by {username} ({telegram_id}) in team {team_id}")
@@ -77,6 +76,5 @@ async def add_player(
 
     except Exception as e:
         logger.error(f"❌ Application layer error adding player '{player_name}': {e}")
-        from kickai.utils.tool_helpers import create_json_response
-        from kickai.core.enums import ResponseStatus
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to add player: {e}")
+        from kickai.utils.tool_validation import create_tool_response
+        return create_tool_response(False, f"Failed to add player: {e}")

@@ -15,6 +15,7 @@ from kickai.core.dependency_container import get_container
 from kickai.core.enums import ResponseStatus
 from kickai.features.player_registration.domain.services.player_service import PlayerService
 from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 from kickai.utils.field_validation import FieldValidator, ValidationError
 
 
@@ -67,46 +68,46 @@ async def update_player_field(
                 try:
                     telegram_id = int(telegram_id)
                 except (ValueError, TypeError):
-                    return create_json_response(
-                        ResponseStatus.ERROR, 
-                        message="Invalid telegram_id format"
+                    return create_tool_response(
+                        False, 
+                        "Invalid telegram_id format"
                     )
         
         # Comprehensive parameter validation (CrewAI best practice)
         if not telegram_id or telegram_id <= 0:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid telegram_id is required"
+            return create_tool_response(
+                False, 
+                "Valid telegram_id is required"
             )
         
         if not team_id or not isinstance(team_id, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid team_id is required"
+            return create_tool_response(
+                False, 
+                "Valid team_id is required"
             )
             
         if not username or not isinstance(username, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid username is required"
+            return create_tool_response(
+                False, 
+                "Valid username is required"
             )
             
         if not chat_type or not isinstance(chat_type, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid chat_type is required"
+            return create_tool_response(
+                False, 
+                "Valid chat_type is required"
             )
             
         if not field or not isinstance(field, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid field name is required"
+            return create_tool_response(
+                False, 
+                "Valid field name is required"
             )
             
         if not value or not isinstance(value, str):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Valid field value is required"
+            return create_tool_response(
+                False, 
+                "Valid field value is required"
             )
         
         logger.info(f"🔄 Updating player field: {field} = '{value}' for {username} ({telegram_id}) in team {team_id}")
@@ -122,17 +123,17 @@ async def update_player_field(
                 logger.info("✅ Container initialized successfully")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize container: {e}")
-                return create_json_response(
-                    ResponseStatus.ERROR, 
-                    message="System initialization error. Please try again."
+                return create_tool_response(
+                    False, 
+                    "System initialization error. Please try again."
                 )
         
         player_service = container.get_service(PlayerService)
         
         if not player_service:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="PlayerService is not available"
+            return create_tool_response(
+                False, 
+                "PlayerService is not available"
             )
 
         # Validate field value using utility (application layer validation)
@@ -144,15 +145,15 @@ async def update_player_field(
             field = normalized_field
             value = validated_value
         except ValidationError as e:
-            return create_json_response(ResponseStatus.ERROR, message=str(e))
+            return create_tool_response(False, str(e))
 
         # Get player first, then update using existing service method
         player = await player_service.get_player_by_telegram_id(telegram_id, team_id)
         
         if not player:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Player not found. You may not be registered as a player."
+            return create_tool_response(
+                False, 
+                "Player not found. You may not be registered as a player."
             )
             
         # Create update dictionary for the field
@@ -163,9 +164,9 @@ async def update_player_field(
             updated_player = await player_service.update_player(player.player_id, team_id, **updates)
             success = updated_player is not None
         except Exception as e:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message=f"Failed to update {field}: {str(e)}"
+            return create_tool_response(
+                False, 
+                f"Failed to update {field}: {str(e)}"
             )
         
         if success:
@@ -178,16 +179,16 @@ async def update_player_field(
             }
             
             logger.info(f"✅ Player field {field} updated successfully for {username}")
-            return create_json_response(ResponseStatus.SUCCESS, data=response_data)
+            return create_tool_response(True, f"✅ Successfully updated {field} to '{value}'", response_data)
         else:
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message=f"Failed to update {field}. Player may not exist or update failed."
+            return create_tool_response(
+                False, 
+                f"Failed to update {field}. Player may not exist or update failed."
             )
 
     except Exception as e:
         logger.error(f"❌ Error updating player field {field} for {username}: {e}")
-        return create_json_response(ResponseStatus.ERROR, message=f"Failed to update {field}: {e}")
+        return create_tool_response(False, f"Failed to update {field}: {e}")
 
 
 @tool("update_player_multiple_fields", result_as_answer=True)

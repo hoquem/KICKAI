@@ -14,6 +14,7 @@ from kickai.core.dependency_container import get_container
 from kickai.core.enums import ResponseStatus, ChatType
 from kickai.features.shared.domain.services.help_service import HelpService
 from kickai.utils.tool_helpers import create_json_response
+from kickai.utils.tool_validation import create_tool_response
 
 
 @tool("help_response", result_as_answer=True)
@@ -41,9 +42,9 @@ async def help_response(
     try:
         # Validate required parameters at application boundary
         if not all([chat_type, telegram_id, team_id, username]):
-            return create_json_response(
-                ResponseStatus.ERROR, 
-                message="Missing required parameters for help generation"
+            return create_tool_response(
+                False, 
+                "Missing required parameters for help generation"
             )
 
         logger.info(
@@ -62,16 +63,17 @@ async def help_response(
 
         logger.info(f"✅ Generated help message for {username} in {chat_type} chat")
         
-        return create_json_response(
-            ResponseStatus.SUCCESS, 
-            data=formatted_message
+        return create_tool_response(
+            True, 
+            f"Help information for {username}",
+            {"help_content": formatted_message}
         )
 
     except Exception as e:
         logger.error(f"❌ Error generating help response: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR, 
-            message=f"Failed to generate help response: {e}"
+        return create_tool_response(
+            False, 
+            f"Failed to generate help response: {e}"
         )
 
 
@@ -165,9 +167,9 @@ async def get_command_help(
         
     except Exception as e:
         logger.error(f"❌ Error getting command help: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message="Unable to retrieve command help. Please try '/help' for general assistance."
+        return create_tool_response(
+            False,
+            "Unable to retrieve command help. Please try '/help' for general assistance."
         )
 
 
@@ -205,16 +207,17 @@ async def get_welcome_message(
         
         logger.info(f"✅ Generated welcome message for {username}")
         
-        return create_json_response(
-            ResponseStatus.SUCCESS,
-            data=welcome_content
+        return create_tool_response(
+            True,
+            f"Welcome message for {username}",
+            {"welcome_content": welcome_content}
         )
         
     except Exception as e:
         logger.error(f"❌ Error generating welcome message: {e}")
-        return create_json_response(
-            ResponseStatus.ERROR,
-            message="Welcome to KICKAI! Use '/help' to get started."
+        return create_tool_response(
+            False,
+            "Welcome to KICKAI! Use '/help' to get started."
         )
 
 

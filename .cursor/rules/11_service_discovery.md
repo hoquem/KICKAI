@@ -87,7 +87,7 @@ services:
   api-gateway:
     name: "API Gateway"
     service_type: "http"
-    url: "http://localhost:8000"
+    url: "http://localhost:8001"
     health_check_url: "/health"
     timeout: 30
     retry_count: 3
@@ -151,7 +151,7 @@ from tests.utils.service_discovery_utils import ServiceTestBuilder
 
 # Build test registry with services
 registry = (ServiceTestBuilder()
-    .add_service("api-gateway", "http://localhost:8000")
+    .add_service("api-gateway", "http://localhost:8001")
     .add_service("user-service", "http://localhost:8001")
     .with_health_checks()
     .with_circuit_breaker()
@@ -171,7 +171,7 @@ async def setup_services():
     await registry.register_service(ServiceDefinition(
         name="api-gateway",
         service_type="http",
-        url="http://localhost:8000",
+        url="http://localhost:8001",
         health_check_url="/health"
     ))
     

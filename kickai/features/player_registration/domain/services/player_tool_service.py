@@ -191,9 +191,19 @@ class PlayerToolService:
             raise ServiceNotAvailableError("TeamService")
         return team_service
 
-    def _get_invite_service(self) -> InviteLinkService | None:
-        """Get the invite link service (optional)."""
-        return self.container.get_service(InviteLinkService)
+    def _get_invite_service(self, team_id: str) -> InviteLinkService | None:
+        """Get the invite link service (team-specific only)."""
+        try:
+            if not team_id:
+                logger.error("❌ Team ID is required for invite service")
+                return None
+                
+            from kickai.database.firebase_client import get_firebase_client
+            database = get_firebase_client()
+            return InviteLinkService(database=database, team_id=team_id)
+        except Exception as e:
+            logger.error(f"❌ Error creating invite service: {e}")
+            return None
 
     async def add_player_with_invite_link(
         self, context: PlayerToolContext, request: AddPlayerRequest
@@ -256,7 +266,7 @@ class PlayerToolService:
         self, team_id: str, request: AddPlayerRequest, player_id: str
     ) -> str | None:
         """Generate invite link for the player."""
-        invite_service = self._get_invite_service()
+        invite_service = self._get_invite_service(team_id)
         if not invite_service:
             logger.warning(LOG_MESSAGES["INVITE_SERVICE_UNAVAILABLE"])
             return None
