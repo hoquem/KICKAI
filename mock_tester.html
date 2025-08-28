@@ -1230,7 +1230,7 @@
             
             // Robust sender name and message text with proper newline handling
             const senderName = message.from?.first_name || 'Unknown User';
-            const messageText = (message.text || '').replace(/\n/g, '<br>'); // Convert \n to <br> for proper line breaks
+            const messageText = (message.text || '').replace(/\\n/g, '<br>'); // Convert literal \n to <br> for proper line breaks
             
             messageDiv.innerHTML = `
                 <div class="message-info">${senderName} • ${displayTime}</div>
@@ -1260,7 +1260,9 @@
             }
             
             // Robust message text with proper newline handling
-            const messageText = (message.text || '').replace(/\n/g, '<br>'); // Convert \n to <br> for proper line breaks
+            console.log('🔍 Raw bot message text:', message.text);
+            const messageText = (message.text || '').replace(/\\n/g, '<br>'); // Convert literal \n to <br> for proper line breaks
+            console.log('🔍 Processed message text:', messageText);
             
             messageDiv.innerHTML = `
                 <div class="message-info">🤖 KickAI Bot • ${displayTime}</div>
