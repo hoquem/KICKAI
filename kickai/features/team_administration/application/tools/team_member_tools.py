@@ -234,11 +234,11 @@ async def get_my_team_member_status(
                 "team_id": team_id,
                 "name": team_member.name,
                 "role": getattr(team_member, 'role', 'Member'),
-                "status": str(team_member.status) if hasattr(team_member, 'status') else 'Active',
+                "status": team_member.status.name if hasattr(team_member, 'status') and team_member.status else 'Active',
                 "is_admin": getattr(team_member, 'is_admin', False),
                 "member_id": getattr(team_member, 'member_id', 'Not assigned'),
                 "is_registered": True,
-                "formatted_message": f"👤 TEAM MEMBER INFORMATION\n\n📋 Name: {team_member.name or 'Not set'}\n👑 Role: {getattr(team_member, 'role', 'Member')}\n🏷️ Member ID: {getattr(team_member, 'member_id', 'Not assigned')}\n✅ Status: {str(team_member.status) if hasattr(team_member, 'status') else 'Active'}\n🔐 Admin: {'Yes' if getattr(team_member, 'is_admin', False) else 'No'}\n🏢 Team: {team_id}"
+                "formatted_message": f"👤 TEAM MEMBER INFORMATION\n\n📋 Name: {team_member.name or 'Not set'}\n👑 Role: {getattr(team_member, 'role', 'Member')}\n🏷️ Member ID: {getattr(team_member, 'member_id', 'Not assigned')}\n✅ Status: {team_member.status.name if hasattr(team_member, 'status') and team_member.status else 'Active'}\n🔐 Admin: {'Yes' if getattr(team_member, 'is_admin', False) else 'No'}\n🏢 Team: {team_id}"
             }
 
             logger.info(f"✅ Team member status retrieved for {username}")
