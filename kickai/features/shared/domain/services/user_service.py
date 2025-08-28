@@ -124,26 +124,23 @@ class UserService:
             Formatted user status message
         """
         if user_status.user_type == "Player":
-            return (
-                f"👤 **User Status**: Player\\n"
-                f"📱 **Telegram ID**: {user_status.telegram_id}\\n"
-                f"🏆 **Team ID**: {user_status.team_id}\\n"
-                f"📋 **Player Info**: {user_status.name} ({user_status.position or 'Position not set'})\\n"
-                f"✅ **Status**: {user_status.status}"
-            )
+            return f"""👤 USER STATUS: Player
+
+📱 Telegram ID: {user_status.telegram_id}
+🏆 Team ID: {user_status.team_id}
+📋 Player Info: {user_status.name} ({user_status.position or 'Position not set'})
+✅ Status: {user_status.status}"""
         elif user_status.user_type == "Team Member":
-            return (
-                f"👤 **User Status**: Team Member\\n"
-                f"📱 **Telegram ID**: {user_status.telegram_id}\\n"
-                f"🏆 **Team ID**: {user_status.team_id}\\n"
-                f"📋 **Member Info**: {user_status.name}\\n"
-                f"👑 **Role**: {user_status.role}\\n"
-                f"✅ **Admin**: {'Yes' if user_status.is_admin else 'No'}"
-            )
+            return f"""👤 USER STATUS: Team Member
+
+📱 Telegram ID: {user_status.telegram_id}
+🏆 Team ID: {user_status.team_id}
+📋 Member Info: {user_status.name}
+👑 Role: {user_status.role}
+✅ Admin: {'Yes' if user_status.is_admin else 'No'}"""
         else:
-            return (
-                f"👤 **User Status**: Not Registered\\n"
-                f"📱 **Telegram ID**: {user_status.telegram_id}\\n"
-                f"🏆 **Team ID**: {user_status.team_id}\\n"
-                f"ℹ️ **Info**: User is not registered as a player or team member"
-            )
+            return f"""👤 USER STATUS: Not Registered
+
+📱 Telegram ID: {user_status.telegram_id}
+🏆 Team ID: {user_status.team_id}
+ℹ️ Info: User is not registered as a player or team member"""
